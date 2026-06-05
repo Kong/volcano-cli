@@ -2,6 +2,14 @@ package root
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -9,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/update"
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func TestRootHelp(t *testing.T) {
@@ -24,6 +34,7 @@ func TestRootHelp(t *testing.T) {
 	assert.Contains(t, out, "start")
 	assert.Contains(t, out, "status")
 	assert.Contains(t, out, "stop")
+	assert.Contains(t, out, "upgrade")
 	assert.Contains(t, out, "variables")
 	assert.NotContains(t, out, "migration")
 }
@@ -69,13 +80,117 @@ func TestVersionSubcommand(t *testing.T) {
 	assert.Equal(t, "volcano dev (commit none, built unknown)\n", out)
 }
 
+func TestUpgradeCommand(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	binaryName, err := update.PlatformBinaryName()
+	require.NoError(t, err)
+	newBinary := []byte("new volcano binary")
+	checksum := sha256.Sum256(newBinary)
+	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			writeRootJSON(t, w, update.Release{TagName: "v1.2.4", Assets: []update.Asset{
+				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
+				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
+				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
+			}})
+		case "/assets/" + binaryName:
+			_, _ = w.Write(newBinary)
+		case "/assets/" + binaryName + ".sigstore.json":
+			_, _ = w.Write([]byte(`{"bundle":true}`))
+		case "/assets/SHA256SUMS":
+			_, _ = w.Write([]byte(checksums))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
+	deps := cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+		ExecutablePath:     exePath,
+		UpdateCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return nil, nil
+		}),
+	}
+
+	out, err := executeRootCommandWithDeps(t, deps, "upgrade")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Upgraded Volcano CLI from v1.2.3 to v1.2.4")
+	installed, err := os.ReadFile(exePath)
+	require.NoError(t, err)
+	assert.Equal(t, newBinary, installed)
+}
+
+func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+	t.Chdir(t.TempDir())
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/releases/latest", r.URL.Path)
+		writeRootJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	out, err := executeRootCommandWithDeps(t, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	}, "init")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A newer Volcano CLI version is available: v1.2.4 (current v1.2.3). Run `volcano upgrade` to upgrade.")
+	assert.Contains(t, out, "Volcano project initialized.")
+}
+
+func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeRootJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	out, err := executeRootCommandWithDeps(t, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	}, "version")
+	require.NoError(t, err)
+	assert.Equal(t, "volcano v1.2.3 (commit none, built unknown)\n", out)
+	assert.Zero(t, requests)
+}
+
 func executeRootCommand(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	cmd := New(cliruntime.Deps{})
+	return executeRootCommandWithDeps(t, cliruntime.Deps{}, args...)
+}
+
+func executeRootCommandWithDeps(t *testing.T, deps cliruntime.Deps, args ...string) (string, error) {
+	t.Helper()
+	cmd := New(deps)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return out.String(), err
+}
+
+func writeRootJSON(t *testing.T, w http.ResponseWriter, value any) {
+	t.Helper()
+	w.Header().Set("Content-Type", "application/json")
+	require.NoError(t, json.NewEncoder(w).Encode(value))
 }
