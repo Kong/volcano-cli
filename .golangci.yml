@@ -1,0 +1,150 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    # style / anti-bikeshed
+    - misspell
+    - revive
+    - godot
+    - testifylint
+    - nolintlint
+    - whitespace
+    - predeclared
+    - usestdlibvars
+    # bug catchers
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+    - errorlint
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - contextcheck
+    - noctx
+    - durationcheck
+    - copyloopvar
+    - makezero
+    - gosec
+    - fatcontext
+    - wastedassign
+    - bidichk
+    - nosprintfhostport
+    - gochecknoinits
+    # cleanup / perf
+    - unconvert
+    - unparam
+    - perfsprint
+    - gocritic
+    - depguard
+    - modernize
+    # test quality
+    - usetesting
+    - thelper
+    - tparallel
+    - testableexamples
+    # lll intentionally NOT enabled: matches the major-project consensus
+    # (Prometheus, containerd, cilium, Consul, Grafana, uber-go/guide).
+    # Without golines wrapping, enforcing line length only creates churn.
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*github.com/jackc/pgx/v5.Conn).Close
+    gosec:
+      excludes:
+        - G104  # duplicates errcheck
+        - G304  # CLI legitimately reads user-supplied file paths
+    testifylint:
+      disable:
+        # require inside httptest handlers exits the handler goroutine but
+        # does not propagate FailNow to the test goroutine. The outer
+        # require.NoError on the request still fails the test, so for this
+        # CLI's synchronous unit tests the trade-off favors keeping require.
+        - go-require
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+        - name: package-comments
+        - name: error-return
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: deprecated; use stdlib errors/fmt with %w
+            - pkg: io/ioutil
+              desc: deprecated; use io and os equivalents
+            - pkg: math/rand$
+              desc: use math/rand/v2 (Go 1.22+)
+            - pkg: golang.org/x/exp/slices
+              desc: use stdlib slices (Go 1.21+)
+            - pkg: golang.org/x/exp/maps
+              desc: use stdlib maps (Go 1.23+)
+            - pkg: gopkg.in/yaml.v2
+              desc: use gopkg.in/yaml.v3 (already used in this codebase)
+    gocritic:
+      enable-all: true
+      disabled-checks:
+        # Micro-perf advisories: pass-by-value on 80-byte+ structs is fine for
+        # CLI runs where each command executes once over <100 items.
+        - hugeParam
+        - rangeValCopy
+        # Idiomatic Go generally discourages named returns; this style nag
+        # creates more friction than it prevents.
+        - unnamedResult
+  exclusions:
+    paths:
+      - internal/apiclient
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - bodyclose
+          - noctx
+          - unparam
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/Kong/volcano-cli)
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/Kong/volcano-cli
+  exclusions:
+    paths:
+      - internal/apiclient

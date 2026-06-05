@@ -1,0 +1,83 @@
+// Package api is the HTTP client for the Volcano cloud API.
+package api
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
+)
+
+const deviceGrantType = apiclient.UrnIetfParamsOauthGrantTypeDeviceCode
+
+// DeviceTokenPollResult is the normalized result of a device-token poll.
+type DeviceTokenPollResult struct {
+	AccessToken      string
+	Error            string
+	ErrorDescription string
+}
+
+// ValidateToken validates the configured token by listing projects.
+func (c *Client) ValidateToken(ctx context.Context) error {
+	_, err := c.ListProjects(ctx, DefaultPage, 1)
+	return err
+}
+
+// StartDeviceAuthorization starts the OAuth device authorization flow.
+func (c *Client) StartDeviceAuthorization(ctx context.Context, clientID string) (*apiclient.DeviceAuthorizationResponse, error) {
+	resp, err := c.client.AuthDeviceAuthorizeWithResponse(ctx, apiclient.AuthDeviceAuthorizeJSONRequestBody{
+		ClientId: strings.TrimSpace(clientID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start device authorization: %w", err)
+	}
+	if resp.JSON200 != nil {
+		return resp.JSON200, nil
+	}
+	if resp.JSON400 != nil {
+		return nil, oauthError(resp.StatusCode(), resp.JSON400)
+	}
+	return nil, apiError(resp.StatusCode(), resp.Body)
+}
+
+// PollDeviceToken polls the OAuth device token endpoint once.
+func (c *Client) PollDeviceToken(ctx context.Context, clientID, deviceCode string) (*DeviceTokenPollResult, error) {
+	resp, err := c.client.AuthDeviceTokenWithResponse(ctx, apiclient.AuthDeviceTokenJSONRequestBody{
+		ClientId:   strings.TrimSpace(clientID),
+		DeviceCode: strings.TrimSpace(deviceCode),
+		GrantType:  deviceGrantType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to poll device token: %w", err)
+	}
+	if resp.JSON200 != nil {
+		return &DeviceTokenPollResult{
+			AccessToken: resp.JSON200.AccessToken,
+		}, nil
+	}
+	if resp.JSON400 != nil {
+		status := &DeviceTokenPollResult{
+			Error: resp.JSON400.Error,
+		}
+		if resp.JSON400.ErrorDescription != nil {
+			status.ErrorDescription = *resp.JSON400.ErrorDescription
+		}
+		return status, nil
+	}
+
+	return nil, apiError(resp.StatusCode(), resp.Body)
+}
+
+// ExchangePlatformToken exchanges an auth-user device-flow token for a platform token.
+func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, clientID string) (*apiclient.PlatformExchangeResponse, error) {
+	resp, err := c.client.AuthPlatformExchangeWithResponse(
+		ctx,
+		apiclient.AuthPlatformExchangeJSONRequestBody{ClientId: strings.TrimSpace(clientID)},
+		authorizationEditor(authAccessToken),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange platform token: %w", err)
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403)
+}

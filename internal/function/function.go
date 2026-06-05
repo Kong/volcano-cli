@@ -1,0 +1,372 @@
+// Package function builds and packages function archives for upload.
+package function
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
+)
+
+// Service performs authenticated Volcano function workflows.
+type Service struct {
+	sessions clisession.Factory
+}
+
+// NewService returns a function service.
+func NewService(deps cliruntime.Deps) Service {
+	return Service{sessions: clisession.NewFactory(deps)}
+}
+
+// ListPage returns one function page in the current project.
+func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.PaginatedFunctions, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	functions, err := authenticated.API.ListFunctions(ctx, authenticated.ProjectID, page, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list functions: %w", err)
+	}
+	return functions, nil
+}
+
+// ListRuntimes returns the function runtime catalog.
+func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeOption, error) {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := s.sessions.APIClient(s.sessions.APIURL(cfg), cfg.Token())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create api client: %w", err)
+	}
+
+	runtimes, err := client.ListFunctionRuntimes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list function runtimes: %w", err)
+	}
+	return runtimes, nil
+}
+
+// RuntimeCatalog returns deploy runtime metadata from the function runtime catalog.
+func (s Service) RuntimeCatalog(ctx context.Context) (RuntimeCatalog, error) {
+	runtimes, err := s.ListRuntimes(ctx)
+	if err != nil {
+		return RuntimeCatalog{}, err
+	}
+	return RuntimeCatalogFromOptions(runtimes), nil
+}
+
+// DeployPackage deploys one packaged function source archive.
+func (s Service) DeployPackage(ctx context.Context, pkg Package) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	fn, err := authenticated.API.DeployFunction(ctx, authenticated.ProjectID, api.FunctionDeployInput{
+		Name:          pkg.Name,
+		Runtime:       pkg.Runtime,
+		Handler:       pkg.Handler,
+		SourceArchive: pkg.ArchiveData,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy function %q: %w", pkg.Name, err)
+	}
+	return fn, nil
+}
+
+// DeployPackageBatch deploys one batch of packaged function source archives.
+func (s Service) DeployPackageBatch(ctx context.Context, packages []Package) (*apiclient.BatchFunctionDeployResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	inputs := make([]api.FunctionDeployInput, 0, len(packages))
+	for _, pkg := range packages {
+		inputs = append(inputs, api.FunctionDeployInput{
+			Name:          pkg.Name,
+			Runtime:       pkg.Runtime,
+			Handler:       pkg.Handler,
+			SourceArchive: pkg.ArchiveData,
+		})
+	}
+	resp, err := authenticated.API.DeployFunctionsBatch(ctx, authenticated.ProjectID, inputs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy functions batch: %w", err)
+	}
+	return resp, nil
+}
+
+// Resolve returns a function by normalized name/path or UUID in the current project.
+func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+	return function, nil
+}
+
+// Get returns one function by normalized name/path or UUID.
+func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	got, err := authenticated.API.GetFunction(ctx, authenticated.ProjectID, function.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get function %q: %w", identifier, err)
+	}
+	return got, nil
+}
+
+// DeleteByID starts deleting one function by ID.
+func (s Service) DeleteByID(ctx context.Context, functionID uuid.UUID) error {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return err
+	}
+
+	if err := authenticated.API.DeleteFunction(ctx, authenticated.ProjectID, functionID); err != nil {
+		return fmt.Errorf("failed to delete function %q: %w", functionID.String(), err)
+	}
+	return nil
+}
+
+// UpdateVisibility updates one function's public/private visibility.
+func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPublic bool) (*apiclient.Function, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, isPublic)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update function visibility: %w", err)
+	}
+	return updated, nil
+}
+
+// ListSchedulers returns schedulers configured for a function.
+func (s Service) ListSchedulers(ctx context.Context, identifier string) (*apiclient.Function, *apiclient.FunctionSchedulerListResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	schedulers, err := authenticated.API.ListFunctionSchedulers(ctx, authenticated.ProjectID, function.Id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list schedulers for function %q: %w", identifier, err)
+	}
+	return function, schedulers, nil
+}
+
+// CreateSchedulerByID creates one scheduler for the given function ID.
+func (s Service) CreateSchedulerByID(ctx context.Context, functionID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	scheduler, err := authenticated.API.CreateFunctionScheduler(ctx, authenticated.ProjectID, functionID, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scheduler: %w", err)
+	}
+	return scheduler, nil
+}
+
+// EnableScheduler enables one scheduler for a function.
+func (s Service) EnableScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) (*apiclient.FunctionScheduler, error) {
+	return s.setSchedulerEnabled(ctx, identifier, schedulerID, true)
+}
+
+// DisableScheduler disables one scheduler for a function.
+func (s Service) DisableScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) (*apiclient.FunctionScheduler, error) {
+	return s.setSchedulerEnabled(ctx, identifier, schedulerID, false)
+}
+
+func (s Service) setSchedulerEnabled(ctx context.Context, identifier string, schedulerID uuid.UUID, enabled bool) (*apiclient.FunctionScheduler, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	flag := enabled
+	scheduler, err := authenticated.API.UpdateFunctionScheduler(ctx, authenticated.ProjectID, function.Id, schedulerID, api.FunctionSchedulerInput{
+		Enabled: &flag,
+	})
+	if err != nil {
+		verb := "disable"
+		if enabled {
+			verb = "enable"
+		}
+		return nil, fmt.Errorf("failed to %s scheduler %q: %w", verb, schedulerID.String(), err)
+	}
+	return scheduler, nil
+}
+
+// DeleteScheduler deletes one scheduler for a function.
+func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) error {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return err
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	if err := authenticated.API.DeleteFunctionScheduler(ctx, authenticated.ProjectID, function.Id, schedulerID); err != nil {
+		return fmt.Errorf("failed to delete scheduler %q: %w", schedulerID.String(), err)
+	}
+	return nil
+}
+
+// ResolveDeployment returns a deployment by ID, paging internally.
+func (s Service) ResolveDeployment(ctx context.Context, functionID uuid.UUID, deploymentID string) (*apiclient.FunctionDeployment, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	deploymentID = strings.TrimSpace(deploymentID)
+	if deploymentID == "" {
+		return nil, api.ErrNotFound
+	}
+
+	for page := api.DefaultPage; ; page++ {
+		deployments, err := authenticated.API.ListFunctionDeployments(ctx, authenticated.ProjectID, functionID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments: %w", err)
+		}
+		if deployments == nil {
+			return nil, api.ErrNotFound
+		}
+		for i := range deployments.Data {
+			if deployments.Data[i].Id.String() == deploymentID {
+				return &deployments.Data[i], nil
+			}
+		}
+		if !deployments.HasMore || len(deployments.Data) == 0 {
+			return nil, api.ErrNotFound
+		}
+	}
+}
+
+// RuntimeLogs returns one runtime log page for a function.
+func (s Service) RuntimeLogs(ctx context.Context, functionID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := authenticated.API.GetFunctionLogs(ctx, authenticated.ProjectID, functionID, limit, nextToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch runtime logs: %w", err)
+	}
+	return logs, nil
+}
+
+// DeploymentLogs returns one build log page for a function deployment.
+func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := authenticated.API.GetFunctionDeploymentLogs(ctx, authenticated.ProjectID, functionID, deploymentID, limit, nextToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
+	}
+	return logs, nil
+}
+
+func resolveFunction(ctx context.Context, authenticated *clisession.ProjectSession, identifier string) (*apiclient.Function, error) {
+	target := normalizeTargetFunction(identifier)
+	if target == "" {
+		return nil, errors.New("function identifier cannot be empty")
+	}
+
+	for page := api.DefaultPage; ; page++ {
+		functions, err := authenticated.API.ListFunctions(ctx, authenticated.ProjectID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, err
+		}
+		if functions == nil {
+			return nil, api.ErrNotFound
+		}
+		for i := range functions.Data {
+			if functions.Data[i].Name == target || functions.Data[i].Id.String() == target {
+				return &functions.Data[i], nil
+			}
+		}
+		if !functions.HasMore || len(functions.Data) == 0 {
+			return nil, api.ErrNotFound
+		}
+	}
+}
+
+func normalizeTargetFunction(target string) string {
+	name := filepath.Base(strings.TrimSpace(target))
+	if ext := filepath.Ext(name); ext != "" {
+		name = strings.TrimSuffix(name, ext)
+	}
+	return name
+}

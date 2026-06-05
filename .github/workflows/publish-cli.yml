@@ -1,0 +1,202 @@
+name: Publish CLI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-cli-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate-release-ref:
+    name: Validate Release Ref
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          STABLE_SEMVER_RE='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [ "$GITHUB_REF_NAME" = "$VERSION" ] || [[ ! "$VERSION" =~ $STABLE_SEMVER_RE ]]; then
+            echo "Unsupported release tag: ${GITHUB_REF_NAME}"
+            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH, for example v1.2.3."
+            echo "Prerelease and build metadata tags are not production release tags."
+            exit 1
+          fi
+
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          TAGGED_SHA="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          if ! git merge-base --is-ancestor "$TAGGED_SHA" origin/main; then
+            echo "Release tag ${GITHUB_REF_NAME} points at ${TAGGED_SHA}, which is not reachable from origin/main."
+            echo "Production CLI releases must be cut from main."
+            exit 1
+          fi
+
+  check:
+    name: Release Check
+    needs: [validate-release-ref]
+    uses: ./.github/workflows/check.yml
+
+  build-binaries:
+    name: Build Binary (${{ matrix.target.id }})
+    runs-on: ubuntu-latest
+    needs: [check]
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - id: linux-amd64
+            goos: linux
+            goarch: amd64
+            ext: ""
+          - id: linux-arm64
+            goos: linux
+            goarch: arm64
+            ext: ""
+          - id: macos-amd64
+            goos: darwin
+            goarch: amd64
+            ext: ""
+          - id: macos-arm64
+            goos: darwin
+            goarch: arm64
+            ext: ""
+          - id: windows-amd64
+            goos: windows
+            goarch: amd64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Resolve release build environment
+        env:
+          PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+        run: scripts/ci/resolve-cli-build-env.sh
+
+      - name: Build binary
+        run: |
+          set -euo pipefail
+          OUT_DIR="dist/${{ matrix.target.id }}"
+          BINARY_NAME="volcano-${{ matrix.target.id }}${{ matrix.target.ext }}"
+          mkdir -p "$OUT_DIR"
+          CGO_ENABLED=0 \
+            GOOS="${{ matrix.target.goos }}" \
+            GOARCH="${{ matrix.target.goarch }}" \
+            make build \
+              BINARY="${OUT_DIR}/${BINARY_NAME}" \
+              DEFAULT_API_URL="${CLI_DEFAULT_API_URL}" \
+              FIRST_PARTY_DEVICE_CLIENT_ID="${CLI_FIRST_PARTY_DEVICE_CLIENT_ID}" \
+              VERSION="${CLI_VERSION}" \
+              DATE="${BUILD_DATE}"
+
+      - name: Smoke-test Linux binary
+        if: matrix.target.id == 'linux-amd64'
+        run: |
+          dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --help
+          dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --version
+
+      - name: Sign binary
+        run: |
+          set -euo pipefail
+          BINARY_PATH="dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }}${{ matrix.target.ext }}"
+          BUNDLE_PATH="${BINARY_PATH}.sigstore.json"
+          cosign sign-blob "$BINARY_PATH" \
+            --bundle "$BUNDLE_PATH" \
+            --yes
+          test -s "$BUNDLE_PATH"
+
+      - name: Upload signed binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volcano-binaries-${{ matrix.target.id }}
+          path: dist/${{ matrix.target.id }}
+
+  publish-github-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-binaries]
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Download signed binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: volcano-binaries-*
+          path: _release
+          merge-multiple: true
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release-assets
+          find _release -type f -name 'volcano-*' -exec cp {} dist/release-assets/ \;
+          cp scripts/install-volcano.sh dist/release-assets/install.sh
+          chmod +x dist/release-assets/install.sh
+          bash -n dist/release-assets/install.sh
+
+      - name: Sign installer script
+        run: |
+          set -euo pipefail
+          cosign sign-blob "dist/release-assets/install.sh" \
+            --bundle "dist/release-assets/install.sh.sigstore.json" \
+            --yes
+          test -s "dist/release-assets/install.sh.sigstore.json"
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          (
+            cd dist/release-assets
+            shasum -a 256 * | sort -k2 > SHA256SUMS
+          )
+
+      - name: Publish release assets
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/release-assets/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "volcano-cli ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
+
+      - name: Verify uploaded Linux binary
+        run: |
+          set -euo pipefail
+          TMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          gh release download "$GITHUB_REF_NAME" \
+            --pattern "volcano-linux-amd64*" \
+            --dir "$TMP_DIR"
+          cosign verify-blob "$TMP_DIR/volcano-linux-amd64" \
+            --bundle "$TMP_DIR/volcano-linux-amd64.sigstore.json" \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/publish-cli.yml@${GITHUB_REF}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          chmod +x "$TMP_DIR/volcano-linux-amd64"
+          "$TMP_DIR/volcano-linux-amd64" --help
+          "$TMP_DIR/volcano-linux-amd64" --version
