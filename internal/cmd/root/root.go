@@ -123,6 +123,9 @@ func shouldSkipUpdateCheck(cmd *cobra.Command) bool {
 	if cmd.Flags().Changed("help") || cmd.Flags().Changed("version") {
 		return true
 	}
+	if cmd.Parent() == nil && len(cmd.Flags().Args()) == 0 {
+		return true
+	}
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Name() == "version" || c.Name() == "upgrade" || c.Name() == "help" {
 			return true

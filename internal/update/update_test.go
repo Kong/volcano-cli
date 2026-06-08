@@ -67,6 +67,21 @@ func TestCheckLatest(t *testing.T) {
 	assert.Equal(t, "v1.2.4", notice.Latest)
 }
 
+func TestDefaultAssetDownloadClientAvoidsTotalBodyTimeout(t *testing.T) {
+	t.Parallel()
+
+	releaseClient, ok := releaseHTTPClient(Options{}).(*http.Client)
+	require.True(t, ok)
+	assert.Equal(t, defaultTimeout, releaseClient.Timeout)
+
+	downloadClient, ok := assetDownloadHTTPClient(Options{}).(*http.Client)
+	require.True(t, ok)
+	assert.Zero(t, downloadClient.Timeout)
+	transport, ok := downloadClient.Transport.(*http.Transport)
+	require.True(t, ok)
+	assert.Equal(t, defaultTimeout, transport.ResponseHeaderTimeout)
+}
+
 func TestUpgradeDownloadsVerifiesAndReplacesExecutable(t *testing.T) {
 	t.Parallel()
 

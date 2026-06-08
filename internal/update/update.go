@@ -102,10 +102,7 @@ func CheckLatest(ctx context.Context, current string, opts Options) (*Notice, er
 
 // LatestRelease fetches GitHub's latest release metadata.
 func LatestRelease(ctx context.Context, opts Options) (*Release, error) {
-	client := opts.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: defaultTimeout}
-	}
+	client := releaseHTTPClient(opts)
 	baseURL := strings.TrimRight(strings.TrimSpace(opts.GitHubAPIURL), "/")
 	if baseURL == "" {
 		baseURL = defaultGitHubAPIURL
@@ -130,6 +127,22 @@ func LatestRelease(ctx context.Context, opts Options) (*Release, error) {
 		return nil, fmt.Errorf("failed to decode latest release: %w", err)
 	}
 	return &release, nil
+}
+
+func releaseHTTPClient(opts Options) HTTPClient {
+	if opts.HTTPClient != nil {
+		return opts.HTTPClient
+	}
+	return &http.Client{Timeout: defaultTimeout}
+}
+
+func assetDownloadHTTPClient(opts Options) HTTPClient {
+	if opts.HTTPClient != nil {
+		return opts.HTTPClient
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = defaultTimeout
+	return &http.Client{Transport: transport}
 }
 
 // Upgrade installs the latest release over the running binary.
@@ -312,10 +325,7 @@ func (v stableVersion) compare(other stableVersion) int {
 }
 
 func downloadFile(ctx context.Context, opts Options, rawURL, target string) error {
-	client := opts.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: defaultTimeout}
-	}
+	client := assetDownloadHTTPClient(opts)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create download request: %w", err)

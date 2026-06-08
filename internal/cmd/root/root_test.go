@@ -173,6 +173,28 @@ func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
 	assert.Zero(t, requests)
 }
 
+func TestUpdateNoticeSkipsImplicitRootHelp(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeRootJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	out, err := executeRootCommandWithDeps(t, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "Volcano CLI")
+	assert.NotContains(t, out, "A newer Volcano CLI version is available")
+	assert.Zero(t, requests)
+}
+
 func executeRootCommand(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	return executeRootCommandWithDeps(t, cliruntime.Deps{}, args...)
