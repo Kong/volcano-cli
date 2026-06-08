@@ -73,13 +73,18 @@ func New(deps cliruntime.Deps) *cobra.Command {
 }
 
 func newUpgradeCmd(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var verifySignature bool
+	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Volcano CLI to the latest release",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return update.Upgrade(cmd.Context(), version.Version, cmd.OutOrStdout(), updateOptions(deps))
+			opts := updateOptions(deps)
+			opts.RequireSignatureVerification = verifySignature
+			return update.Upgrade(cmd.Context(), version.Version, cmd.OutOrStdout(), opts)
 		},
 	}
+	cmd.Flags().BoolVar(&verifySignature, "verify-signature", false, "Require Sigstore signature verification with cosign")
+	return cmd
 }
 
 func newVersionCmd() *cobra.Command {

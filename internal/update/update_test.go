@@ -82,7 +82,60 @@ func TestDefaultAssetDownloadClientAvoidsTotalBodyTimeout(t *testing.T) {
 	assert.Equal(t, defaultTimeout, transport.ResponseHeaderTimeout)
 }
 
-func TestUpgradeDownloadsVerifiesAndReplacesExecutable(t *testing.T) {
+func TestUpgradeDownloadsChecksumsAndReplacesExecutable(t *testing.T) {
+	t.Parallel()
+
+	binaryName, err := PlatformBinaryName()
+	require.NoError(t, err)
+	newBinary := []byte("new volcano binary")
+	checksum := sha256.Sum256(newBinary)
+	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
+				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
+				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
+				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
+			}})
+		case "/assets/" + binaryName:
+			_, _ = w.Write(newBinary)
+		case "/assets/" + binaryName + ".sigstore.json":
+			_, _ = w.Write([]byte(`{"bundle":true}`))
+		case "/assets/SHA256SUMS":
+			_, _ = w.Write([]byte(checksums))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
+	cosignCalled := false
+
+	var out bytes.Buffer
+	err = Upgrade(context.Background(), "v1.2.3", &out, Options{
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
+		ExecutablePath: exePath,
+		CommandRunner: RunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			cosignCalled = true
+			return nil, nil
+		}),
+	})
+	require.NoError(t, err)
+
+	installed, err := os.ReadFile(exePath)
+	require.NoError(t, err)
+	assert.Equal(t, newBinary, installed)
+	assert.Contains(t, out.String(), "Upgraded Volcano CLI from v1.2.3 to v1.2.4")
+	assert.False(t, cosignCalled)
+}
+
+func TestUpgradeVerifiesSignatureWhenRequired(t *testing.T) {
 	t.Parallel()
 
 	binaryName, err := PlatformBinaryName()
@@ -120,19 +173,15 @@ func TestUpgradeDownloadsVerifiesAndReplacesExecutable(t *testing.T) {
 		return nil, nil
 	})
 
-	var out bytes.Buffer
-	err = Upgrade(context.Background(), "v1.2.3", &out, Options{
-		GitHubAPIURL:   server.URL,
-		HTTPClient:     server.Client(),
-		ExecutablePath: exePath,
-		CommandRunner:  runner,
+	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
+		GitHubAPIURL:                 server.URL,
+		HTTPClient:                   server.Client(),
+		ExecutablePath:               exePath,
+		CommandRunner:                runner,
+		RequireSignatureVerification: true,
 	})
 	require.NoError(t, err)
 
-	installed, err := os.ReadFile(exePath)
-	require.NoError(t, err)
-	assert.Equal(t, newBinary, installed)
-	assert.Contains(t, out.String(), "Upgraded Volcano CLI from v1.2.3 to v1.2.4")
 	assert.Equal(t, "cosign", cosignArgs[0])
 	assert.Contains(t, cosignArgs, "verify-blob")
 	assert.Contains(t, cosignArgs, "--certificate-identity")

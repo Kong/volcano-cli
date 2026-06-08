@@ -52,11 +52,11 @@ func (f RunnerFunc) Run(ctx context.Context, name string, args ...string) ([]byt
 
 // Options configures update operations.
 type Options struct {
-	HTTPClient     HTTPClient
-	GitHubAPIURL   string
-	ExecutablePath string
-	CommandRunner  CommandRunner
-	SkipVerify     bool
+	HTTPClient                   HTTPClient
+	GitHubAPIURL                 string
+	ExecutablePath               string
+	CommandRunner                CommandRunner
+	RequireSignatureVerification bool
 }
 
 // Notice describes an available upgrade.
@@ -174,9 +174,12 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if err != nil {
 		return err
 	}
-	bundleAsset, err := release.Asset(binaryName + ".sigstore.json")
-	if err != nil && !opts.skipVerify() {
-		return err
+	var bundleAsset Asset
+	if opts.requireSignatureVerification() {
+		bundleAsset, err = release.Asset(binaryName + ".sigstore.json")
+		if err != nil {
+			return err
+		}
 	}
 	checksumsAsset, err := release.Asset("SHA256SUMS")
 	if err != nil {
@@ -212,7 +215,7 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if err := downloadFile(ctx, opts, checksumsAsset.BrowserDownloadURL, tmpChecksums); err != nil {
 		return err
 	}
-	if !opts.skipVerify() {
+	if opts.requireSignatureVerification() {
 		if err := downloadFile(ctx, opts, bundleAsset.BrowserDownloadURL, tmpBundle); err != nil {
 			return err
 		}
@@ -429,6 +432,6 @@ func checksumFor(checksumsPath, binaryName string) (string, error) {
 	return "", fmt.Errorf("SHA256SUMS does not include %s; found: %s", binaryName, strings.Join(names, ", "))
 }
 
-func (opts Options) skipVerify() bool {
-	return opts.SkipVerify || os.Getenv("VOLCANO_SKIP_SIGNATURE_VERIFICATION") == "1"
+func (opts Options) requireSignatureVerification() bool {
+	return opts.RequireSignatureVerification || os.Getenv("VOLCANO_REQUIRE_SIGNATURE_VERIFICATION") == "1"
 }
