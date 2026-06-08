@@ -224,6 +224,57 @@ func TestUpdateNoticeUsesFreshCache(t *testing.T) {
 	assert.Zero(t, requests)
 }
 
+func TestUpdateNoticeUsesFreshUpToDateCache(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.4"
+	t.Cleanup(func() { version.Version = oldVersion })
+	writeUpgradeTestCache(t, "v1.2.4", time.Now().UTC())
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Empty(t, out.String())
+	assert.Zero(t, requests)
+}
+
+func TestUpdateNoticeWritesCacheWhenAlreadyUpToDate(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.4"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	deps := cliruntime.Deps{HTTPClient: server.Client(), UpdateGitHubAPIURL: server.URL}
+	MaybePrintUpdateNotice(cmd, deps)
+	assert.Empty(t, out.String())
+	assert.Equal(t, 1, requests)
+
+	MaybePrintUpdateNotice(cmd, deps)
+	assert.Empty(t, out.String())
+	assert.Equal(t, 1, requests)
+}
+
 func TestUpdateNoticeRefreshesStaleCache(t *testing.T) {
 	setUpgradeTestCacheDir(t)
 	oldVersion := version.Version

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -57,8 +58,10 @@ func MaybePrintUpdateNotice(cmd *cobra.Command, deps cliruntime.Deps) {
 	if shouldSkipUpdateCheck(cmd) {
 		return
 	}
-	if notice, ok := cachedNotice(version.Version); ok {
-		printUpdateNotice(cmd, notice)
+	if notice, ok := noticeFromCache(version.Version); ok {
+		if notice != nil {
+			printUpdateNotice(cmd, notice)
+		}
 		return
 	}
 	parent := cmd.Context()
@@ -67,14 +70,20 @@ func MaybePrintUpdateNotice(cmd *cobra.Command, deps cliruntime.Deps) {
 	}
 	ctx, cancel := context.WithTimeout(parent, updateCheckTimeout)
 	defer cancel()
-	notice, err := update.CheckLatest(ctx, version.Version, updateOptions(deps))
+	release, err := update.LatestRelease(ctx, updateOptions(deps))
 	if err != nil {
 		return
 	}
-	if notice == nil {
+	latest := strings.TrimSpace(release.TagName)
+	if latest == "" {
 		return
 	}
-	writeNoticeCache(notice.Latest)
+	writeNoticeCache(latest)
+	newer, err := update.NewerThan(latest, version.Version)
+	if err != nil || !newer {
+		return
+	}
+	notice := &update.Notice{Current: version.Version, Latest: latest}
 	printUpdateNotice(cmd, notice)
 }
 
@@ -109,14 +118,17 @@ func printUpdateNotice(cmd *cobra.Command, notice *update.Notice) {
 	fmt.Fprintf(cmd.ErrOrStderr(), "A newer Volcano CLI version is available: %s (current %s). Run `volcano upgrade` to upgrade.\n", notice.Latest, notice.Current)
 }
 
-func cachedNotice(current string) (*update.Notice, bool) {
+func noticeFromCache(current string) (*update.Notice, bool) {
 	cache, err := readNoticeCache()
 	if err != nil || cache.Latest == "" || time.Since(cache.CheckedAt) > updateCheckMaxAge {
 		return nil, false
 	}
 	newer, err := update.NewerThan(cache.Latest, current)
-	if err != nil || !newer {
+	if err != nil {
 		return nil, false
+	}
+	if !newer {
+		return nil, true
 	}
 	return &update.Notice{Current: current, Latest: cache.Latest}, true
 }
