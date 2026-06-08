@@ -99,6 +99,73 @@ func TestUpgradeCommandRejectsArgs(t *testing.T) {
 	assert.ErrorContains(t, err, `unknown command "v1.2.3"`)
 }
 
+func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/releases/latest", r.URL.Path)
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Contains(t, out.String(), "A newer Volcano CLI version is available: v1.2.4 (current v1.2.3). Run `volcano upgrade` to upgrade.")
+}
+
+func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("version")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Empty(t, out.String())
+	assert.Zero(t, requests)
+}
+
+func TestUpdateNoticeSkipsImplicitRootHelp(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
+	}))
+	defer server.Close()
+
+	cmd := &cobra.Command{Use: "volcano"}
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Empty(t, out.String())
+	assert.Zero(t, requests)
+}
+
 func executeUpgradeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var out bytes.Buffer
@@ -107,6 +174,13 @@ func executeUpgradeCommand(t *testing.T, cmd *cobra.Command, args ...string) (st
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return out.String(), err
+}
+
+func noticeTestCommand(name string) *cobra.Command {
+	root := &cobra.Command{Use: "volcano"}
+	cmd := &cobra.Command{Use: name}
+	root.AddCommand(cmd)
+	return cmd
 }
 
 func newUpgradeTestServer(t *testing.T, binaryName string, binary []byte, checksums string) *httptest.Server {
