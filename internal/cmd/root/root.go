@@ -17,6 +17,7 @@ import (
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
+	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/version"
@@ -31,6 +32,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Long:          "volcano is the command-line client for the Volcano hosting platform.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			upgradecmd.MaybePrintUpdateNotice(cmd, deps)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if showVersion {
 				printVersion(cmd.OutOrStdout())
@@ -41,6 +45,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	}
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print CLI version")
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewLogout())
 	root.AddCommand(initcmd.New())

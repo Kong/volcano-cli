@@ -16,17 +16,28 @@ type Deps struct {
 	HTTPClient apiclient.HttpRequestDoer
 	// APIBaseURL overrides the compiled cloud API URL for tests. Synthetic
 	// local configs supply their API URL through ConfigLoader instead.
-	APIBaseURL         string
-	OpenBrowser        func(string) error
-	NewTimer           func(time.Duration) Timer
-	NewTicker          func(time.Duration) Ticker
-	ConfigLoader       func() (*config.Config, error)
-	LocalCommandRunner CommandRunner
+	APIBaseURL          string
+	OpenBrowser         func(string) error
+	NewTimer            func(time.Duration) Timer
+	NewTicker           func(time.Duration) Ticker
+	ConfigLoader        func() (*config.Config, error)
+	LocalCommandRunner  CommandRunner
+	UpdateCommandRunner CommandRunner
+	ExecutablePath      string
+	UpdateGitHubAPIURL  string
 }
 
 // CommandRunner runs an external command.
 type CommandRunner interface {
 	Run(ctx context.Context, name string, args ...string) ([]byte, error)
+}
+
+// CommandRunnerFunc adapts a function to CommandRunner.
+type CommandRunnerFunc func(ctx context.Context, name string, args ...string) ([]byte, error)
+
+// Run calls f(ctx, name, args...).
+func (f CommandRunnerFunc) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return f(ctx, name, args...)
 }
 
 // Timer is the subset of time.Timer used by command services.

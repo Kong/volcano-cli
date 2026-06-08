@@ -24,6 +24,7 @@ func TestRootHelp(t *testing.T) {
 	assert.Contains(t, out, "start")
 	assert.Contains(t, out, "status")
 	assert.Contains(t, out, "stop")
+	assert.Contains(t, out, "upgrade")
 	assert.Contains(t, out, "variables")
 	assert.NotContains(t, out, "migration")
 }
@@ -71,7 +72,12 @@ func TestVersionSubcommand(t *testing.T) {
 
 func executeRootCommand(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	cmd := New(cliruntime.Deps{})
+	return executeRootCommandWithDeps(t, cliruntime.Deps{}, args...)
+}
+
+func executeRootCommandWithDeps(t *testing.T, deps cliruntime.Deps, args ...string) (string, error) {
+	t.Helper()
+	cmd := New(deps)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
