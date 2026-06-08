@@ -53,22 +53,6 @@ func TestNewerThanRejectsPrerelease(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCheckLatest(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/releases/latest", r.URL.Path)
-		writeUpdateJSON(t, w, Release{TagName: "v1.2.4"})
-	}))
-	defer server.Close()
-
-	notice, err := CheckLatest(context.Background(), "v1.2.3", Options{GitHubAPIURL: server.URL, HTTPClient: server.Client()})
-	require.NoError(t, err)
-	require.NotNil(t, notice)
-	assert.Equal(t, "v1.2.3", notice.Current)
-	assert.Equal(t, "v1.2.4", notice.Latest)
-}
-
 func TestDefaultAssetDownloadClientAvoidsTotalBodyTimeout(t *testing.T) {
 	t.Parallel()
 

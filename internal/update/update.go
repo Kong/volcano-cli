@@ -29,9 +29,6 @@ const (
 	signatureOIDCIssuer = "https://token.actions.githubusercontent.com"
 )
 
-// ErrNoUpdateAvailable means the current CLI version is current or cannot be checked.
-var ErrNoUpdateAvailable = errors.New("no update available")
-
 // HTTPClient is the subset of http.Client used by release checks and upgrades.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -75,29 +72,6 @@ type Release struct {
 type Asset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
-}
-
-// CheckLatest returns an upgrade notice when latest is newer than current.
-func CheckLatest(ctx context.Context, current string, opts Options) (*Notice, error) {
-	if strings.TrimSpace(current) == "" || current == "dev" {
-		return nil, ErrNoUpdateAvailable
-	}
-	release, err := LatestRelease(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	latest := strings.TrimSpace(release.TagName)
-	if latest == "" {
-		return nil, errors.New("latest release is missing tag_name")
-	}
-	newer, err := NewerThan(latest, current)
-	if err != nil {
-		return nil, err
-	}
-	if !newer {
-		return nil, ErrNoUpdateAvailable
-	}
-	return &Notice{Current: current, Latest: latest}, nil
 }
 
 // LatestRelease fetches GitHub's latest release metadata.
