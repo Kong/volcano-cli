@@ -17,6 +17,7 @@ type Deps struct {
 	// APIBaseURL overrides the compiled cloud API URL for tests. Synthetic
 	// local configs supply their API URL through ConfigLoader instead.
 	APIBaseURL          string
+	ContextName         *string
 	OpenBrowser         func(string) error
 	NewTimer            func(time.Duration) Timer
 	NewTicker           func(time.Duration) Ticker

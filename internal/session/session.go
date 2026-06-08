@@ -58,6 +58,9 @@ func (f Factory) Config() (*config.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+	if f.deps.ContextName != nil && strings.TrimSpace(*f.deps.ContextName) != "" {
+		cfg.SetContextOverride(*f.deps.ContextName)
+	}
 	return cfg, nil
 }
 

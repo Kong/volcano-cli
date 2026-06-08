@@ -149,10 +149,10 @@ func resolveProject(ctx context.Context, client *api.Client, identifier string) 
 }
 
 func saveCurrentProject(cfg *config.Config, project *apiclient.Project) error {
-	cfg.CurrentProject = &config.ProjectConfig{
+	cfg.SetCurrentProject(&config.ProjectConfig{
 		ID:   project.Id.String(),
 		Name: project.Name,
-	}
+	})
 
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)

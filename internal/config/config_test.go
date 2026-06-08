@@ -35,7 +35,7 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 
 	loaded, err := Load()
 	require.NoError(t, err)
-	assert.Equal(t, cfg.UserToken, loaded.UserToken)
+	assert.Equal(t, cfg.UserToken, loaded.Token())
 	assert.Equal(t, cfg.UserID, loaded.UserID)
 	require.NotNil(t, loaded.CurrentProject)
 	assert.Equal(t, cfg.CurrentProject.ID, loaded.CurrentProject.ID)
@@ -52,7 +52,67 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	assert.Nil(t, empty.CurrentProject)
 }
 
-func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
+func TestContextPresetsAndDefaultSelection(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envToken, "")
+	t.Setenv(envProjectID, "")
+	t.Setenv(envAPIURL, "")
+	t.Setenv(envContext, "")
+	t.Setenv(envFirstPartyDeviceID, "")
+
+	cfg := Default()
+	assert.Equal(t, ContextProd, cfg.ActiveContextName())
+	assert.Equal(t, "https://api.volcano.dev", cfg.APIURL())
+	clientID, err := cfg.DeviceClientID()
+	require.NoError(t, err)
+	assert.Equal(t, prodDeviceClientID, clientID)
+
+	cfg.SetDefaultContext("production")
+	assert.Equal(t, ContextProd, cfg.ActiveContextName())
+
+	cfg.SetDefaultContext(ContextDev)
+	assert.Equal(t, ContextDev, cfg.ActiveContextName())
+	assert.Equal(t, "http://localhost:8000", cfg.APIURL())
+	clientID, err = cfg.DeviceClientID()
+	require.NoError(t, err)
+	assert.Equal(t, devDeviceClientID, clientID)
+
+	cfg.SetDefaultContext(ContextStage)
+	assert.Equal(t, "https://api.staging.volcano.dev", cfg.APIURL())
+	clientID, err = cfg.DeviceClientID()
+	require.NoError(t, err)
+	assert.Equal(t, devDeviceClientID, clientID)
+}
+
+func TestContextSelectionPrecedence(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envAPIURL, "")
+	t.Setenv(envContext, ContextStage)
+
+	cfg := Default()
+	cfg.SetDefaultContext(ContextDev)
+	assert.Equal(t, ContextStage, cfg.ActiveContextName())
+	assert.Equal(t, "https://api.staging.volcano.dev", cfg.APIURL())
+
+	cfg.SetContextOverride(ContextProd)
+	assert.Equal(t, ContextProd, cfg.ActiveContextName())
+	assert.Equal(t, "https://api.volcano.dev", cfg.APIURL())
+}
+
+func TestCustomContextRequiresDeviceClientID(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envFirstPartyDeviceID, "")
+	t.Setenv(envContext, "")
+
+	cfg := Default()
+	cfg.SetDefaultContext("custom")
+	cfg.EnsureContext("custom").APIBaseURL = "https://custom.example"
+
+	_, err := cfg.DeviceClientID()
+	require.ErrorContains(t, err, "device_client_id is required")
+}
+
+func TestSaveOmitsRuntimeOnlyAPIURLOverride(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	cfg := &Config{
@@ -65,7 +125,6 @@ func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 	require.NoError(t, err)
 	data, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	assert.NotContains(t, string(data), "api_url")
 	assert.NotContains(t, string(data), "http://localhost:8000")
 
 	loaded, err := Load()
@@ -180,7 +239,7 @@ func TestIgnoreEnvUsesConfigValues(t *testing.T) {
 	assert.Equal(t, "http://localhost:8000", cfg.APIURL())
 }
 
-func TestCompiledDefaults(t *testing.T) {
+func TestProdPresetAndCompiledDeviceClientFallback(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envAPIURL, "")
 	t.Setenv(envFirstPartyDeviceID, "")
@@ -195,7 +254,7 @@ func TestCompiledDefaults(t *testing.T) {
 	})
 
 	cfg := &Config{}
-	assert.Equal(t, "https://compiled.example", cfg.APIURL())
+	assert.Equal(t, "https://api.volcano.dev", cfg.APIURL())
 
 	got, err := FirstPartyDeviceClientID()
 	require.NoError(t, err)

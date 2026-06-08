@@ -15,6 +15,7 @@ func TestRootHelp(t *testing.T) {
 	out, err := executeRootCommand(t, "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "volcano")
+	assert.Contains(t, out, "context")
 	assert.Contains(t, out, "databases")
 	assert.Contains(t, out, "functions")
 	assert.Contains(t, out, "init")

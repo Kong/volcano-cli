@@ -6,16 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
-	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -60,7 +57,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token s
 // LoginWithBrowser runs the OAuth device flow and returns credentials to persist.
 func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
-	clientID, err := resolveDeviceClientID(apiURL)
+	clientID, err := cfg.DeviceClientID()
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -76,36 +73,6 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 
 	fmt.Fprintln(w, "\nInitiating browser authentication...")
 	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w)
-}
-
-// resolveDeviceClientID returns the device OAuth client id for the login flow.
-// When the CLI is pointed at a loopback address the local server only knows the
-// deterministic local device client, so issue it directly; otherwise defer to
-// the configured id.
-func resolveDeviceClientID(apiURL string) (string, error) {
-	if isLocalAPIURL(apiURL) {
-		return localmode.DeviceClientID, nil
-	}
-	return config.FirstPartyDeviceClientID()
-}
-
-// isLocalAPIURL reports whether apiURL points at a loopback address.
-func isLocalAPIURL(apiURL string) bool {
-	u, err := url.Parse(strings.TrimSpace(apiURL))
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
-	if host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return true
-	}
-	return false
 }
 
 // Logout deletes local authentication state.

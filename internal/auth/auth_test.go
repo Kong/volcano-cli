@@ -15,11 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/config"
-	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 const authAlphaProjectID = "11111111-1111-4111-8111-111111111111"
+const testProdDeviceClientID = "devcli_94e247237984b85cfd58d37e"
+const testDevDeviceClientID = "devcli_dcc913b9786f9ef2825b861c"
 
 func TestLoginWithTokenSuccess(t *testing.T) {
 	cfg := testAuthConfig(t)
@@ -60,8 +61,6 @@ func TestLoginWithTokenInvalid(t *testing.T) {
 
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
-	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the
-	// deterministic local-mode client id regardless of any configured value.
 
 	var pollCount atomic.Int32
 	var openedURL string
@@ -75,7 +74,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 		case "/auth/device/authorize":
 			var body map[string]string
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-			assert.Equal(t, localmode.DeviceClientID, body["client_id"])
+			assert.Equal(t, testProdDeviceClientID, body["client_id"])
 			writeAuthJSON(t, w, http.StatusOK, map[string]any{
 				"device_code":               "device-code",
 				"user_code":                 "ABCD-EFGH",
@@ -310,58 +309,58 @@ func (t *authFakeTicker) tick() {
 	t.ch <- time.Now()
 }
 
-func TestResolveDeviceClientIDLocalURL(t *testing.T) {
-	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "env-device-client")
+func TestLoginWithBrowserUsesSelectedContextDeviceClient(t *testing.T) {
+	cfg := testAuthConfig(t)
+	cfg.SetDefaultContext(config.ContextDev)
 
-	for _, apiURL := range []string{
-		"http://localhost:8000",
-		"http://127.0.0.1:8000",
-		"http://[::1]:8000",
-		"http://LOCALHOST:8000",
-	} {
-		t.Run(apiURL, func(t *testing.T) {
-			got, err := resolveDeviceClientID(apiURL)
-			require.NoError(t, err)
-			assert.Equal(t, localmode.DeviceClientID, got)
-		})
+	timeoutTimer := newAuthFakeTicker()
+	pollTicker := newAuthFakeTicker()
+	dotTicker := newAuthFakeTicker()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch strings.TrimSuffix(r.URL.Path, "/") {
+		case "/auth/device/authorize":
+			var body map[string]string
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, testDevDeviceClientID, body["client_id"])
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"device_code":      "device-code",
+				"user_code":        "ABCD-EFGH",
+				"verification_uri": "https://volcano.dev/device",
+				"expires_in":       120,
+				"interval":         1,
+			})
+		case "/auth/device/token":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"access_token": "auth-access-token"})
+		case "/auth/platform/exchange":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "platform-token"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient:  server.Client(),
+		APIBaseURL:  server.URL,
+		OpenBrowser: func(string) error { return nil },
+		NewTimer:    func(time.Duration) cliruntime.Timer { return timeoutTimer },
+		NewTicker: func(time.Duration) cliruntime.Ticker {
+			if pollTicker.created.CompareAndSwap(false, true) {
+				return pollTicker
+			}
+			return dotTicker
+		},
 	}
-}
 
-func TestResolveDeviceClientIDCloudEnv(t *testing.T) {
-	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "env-device-client")
-
-	got, err := resolveDeviceClientID("https://api.volcano.dev")
-	require.NoError(t, err)
-	assert.Equal(t, "env-device-client", got)
-}
-
-func TestResolveDeviceClientIDMissing(t *testing.T) {
-	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
-
-	_, err := resolveDeviceClientID("https://api.volcano.dev")
-	require.Error(t, err)
-}
-
-func TestIsLocalAPIURL(t *testing.T) {
-	for _, tc := range []struct {
-		url  string
-		want bool
-	}{
-		{"http://localhost:8000", true},
-		{"https://localhost", true},
-		{"http://127.0.0.1:8000", true},
-		{"http://127.7.7.7:8000", true},
-		{"http://[::1]:8000", true},
-		{"https://api.volcano.dev", false},
-		{"https://api.staging.volcano.dev", false},
-		{"http://192.168.1.10:8000", false},
-		{"", false},
-		{"::not a url::", false},
-	} {
-		t.Run(tc.url, func(t *testing.T) {
-			assert.Equal(t, tc.want, isLocalAPIURL(tc.url))
-		})
-	}
+	var out bytes.Buffer
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(deps).LoginWithBrowser(context.Background(), cfg, &out)
+		done <- err
+	}()
+	pollTicker.tick()
+	require.NoError(t, <-done)
 }
 
 func testAuthConfig(t *testing.T) *config.Config {

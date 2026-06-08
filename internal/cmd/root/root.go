@@ -9,6 +9,7 @@ import (
 
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
+	contextcmd "github.com/Kong/volcano-cli/internal/cmd/context"
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
@@ -26,6 +27,8 @@ import (
 // New returns the root Volcano command.
 func New(deps cliruntime.Deps) *cobra.Command {
 	var showVersion bool
+	contextName := ""
+	deps.ContextName = &contextName
 	root := &cobra.Command{
 		Use:           "volcano",
 		Short:         "Volcano CLI",
@@ -43,11 +46,13 @@ func New(deps cliruntime.Deps) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	root.PersistentFlags().StringVar(&contextName, "context", "", "Context to use for this command")
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print CLI version")
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewLogout())
+	root.AddCommand(contextcmd.New())
 	root.AddCommand(initcmd.New())
 	root.AddCommand(projectcmd.NewProjects(deps))
 	root.AddCommand(projectcmd.NewUse(deps))

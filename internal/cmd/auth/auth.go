@@ -55,6 +55,9 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	if opts.deps.ContextName != nil && strings.TrimSpace(*opts.deps.ContextName) != "" {
+		cfg.SetContextOverride(*opts.deps.ContextName)
+	}
 
 	service := cliauth.NewService(opts.deps)
 	var credentials cliauth.Credentials
@@ -73,8 +76,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		}
 	}
 
-	cfg.UserToken = credentials.Token
-	cfg.UserID = credentials.UserID
+	cfg.SetCredentials(credentials.Token, credentials.UserID)
 	if err := cfg.Save(); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
