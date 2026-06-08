@@ -94,6 +94,8 @@ func shouldSkipUpdateCheck(cmd *cobra.Command) bool {
 	if cmd.Flags().Changed("help") || cmd.Flags().Changed("version") {
 		return true
 	}
+	// Skip when invoking the root command with no subcommand — cobra renders help, and
+	// we don't want a network check to delay or pollute that output.
 	if cmd.Parent() == nil && len(cmd.Flags().Args()) == 0 {
 		return true
 	}
@@ -120,7 +122,16 @@ func printUpdateNotice(cmd *cobra.Command, notice *update.Notice) {
 
 func noticeFromCache(current string) (*update.Notice, bool) {
 	cache, err := readNoticeCache()
-	if err != nil || cache.Latest == "" || time.Since(cache.CheckedAt) > updateCheckMaxAge {
+	if err != nil || cache.Latest == "" {
+		return nil, false
+	}
+	// Use absolute age so future-dated CheckedAt values (clock skew, restored backups)
+	// are treated as stale rather than fresh-forever.
+	age := time.Since(cache.CheckedAt)
+	if age < 0 {
+		age = -age
+	}
+	if age > updateCheckMaxAge {
 		return nil, false
 	}
 	newer, err := update.NewerThan(cache.Latest, current)
@@ -155,15 +166,37 @@ func writeNoticeCache(latest string) {
 	if err != nil {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	// Write to a sibling temp file and rename, so concurrent CLI invocations can't
+	// observe a half-written JSON file.
+	f, err := os.CreateTemp(dir, "update-check-*.json")
 	if err != nil {
 		return
 	}
-	defer func() { _ = f.Close() }()
-	_ = json.NewEncoder(f).Encode(noticeCache{CheckedAt: time.Now().UTC(), Latest: latest})
+	tmpPath := f.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := json.NewEncoder(f).Encode(noticeCache{CheckedAt: time.Now().UTC(), Latest: latest}); err != nil {
+		_ = f.Close()
+		return
+	}
+	if err := f.Close(); err != nil {
+		return
+	}
+	if err := os.Chmod(tmpPath, 0o600); err != nil {
+		return
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return
+	}
+	cleanup = false
 }
 
 func noticeCachePath() (string, error) {

@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -197,7 +198,11 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 		return fmt.Errorf("failed to resolve executable path: %w", err)
 	}
 
-	tmpDir, err := os.MkdirTemp(filepath.Dir(exePath), ".volcano-upgrade-")
+	// Stage the download under the system temp dir so users without write access
+	// to filepath.Dir(exePath) (e.g. /usr/local/bin) can still download and verify.
+	// The final install copies the verified binary into a sibling of exePath
+	// before renaming, so the atomic-swap guarantee is preserved.
+	tmpDir, err := os.MkdirTemp("", "volcano-upgrade-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary upgrade directory: %w", err)
 	}
@@ -228,10 +233,63 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if err := os.Chmod(tmpBinary, 0o755); err != nil { //nolint:gosec // downloaded CLI must be executable
 		return fmt.Errorf("failed to make downloaded binary executable: %w", err)
 	}
-	if err := os.Rename(tmpBinary, exePath); err != nil {
-		return fmt.Errorf("failed to replace %s: %w", exePath, err)
+	if err := installBinary(tmpBinary, exePath); err != nil {
+		return err
 	}
 	fmt.Fprintf(out, "Upgraded Volcano CLI from %s to %s.\n", current, release.TagName)
+	return nil
+}
+
+// installBinary atomically replaces exePath with src. It first tries a direct rename
+// (fast path when src and exePath share a filesystem). If rename fails with EXDEV —
+// typically because src is on /tmp (tmpfs) and exePath is on a different filesystem —
+// it copies src into a sibling of exePath and renames that into place instead.
+func installBinary(src, exePath string) error {
+	if err := os.Rename(src, exePath); err == nil {
+		return nil
+	} else if !errors.Is(err, syscall.EXDEV) {
+		return fmt.Errorf("failed to replace %s: %w", exePath, err)
+	}
+
+	stagingDir := filepath.Dir(exePath)
+	staged, err := os.CreateTemp(stagingDir, ".volcano-upgrade-*")
+	if err != nil {
+		return fmt.Errorf("failed to stage upgrade in %s: %w", stagingDir, err)
+	}
+	stagedPath := staged.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(stagedPath)
+		}
+	}()
+
+	if err := copyToFile(staged, src); err != nil {
+		_ = staged.Close()
+		return err
+	}
+	if err := staged.Close(); err != nil {
+		return fmt.Errorf("failed to close staged binary: %w", err)
+	}
+	if err := os.Chmod(stagedPath, 0o755); err != nil { //nolint:gosec // downloaded CLI must be executable
+		return fmt.Errorf("failed to make staged binary executable: %w", err)
+	}
+	if err := os.Rename(stagedPath, exePath); err != nil {
+		return fmt.Errorf("failed to replace %s: %w", exePath, err)
+	}
+	cleanup = false
+	return nil
+}
+
+func copyToFile(dst *os.File, srcPath string) error {
+	srcFile, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to open staged binary: %w", err)
+	}
+	defer func() { _ = srcFile.Close() }()
+	if _, err := io.Copy(dst, srcFile); err != nil {
+		return fmt.Errorf("failed to copy staged binary: %w", err)
+	}
 	return nil
 }
 
@@ -304,6 +362,8 @@ func parseStableVersion(raw string) (stableVersion, error) {
 		if err != nil {
 			return stableVersion{}, errors.New("expected non-negative numeric version components")
 		}
+		// Round-trip through strconv.Itoa to reject leading zeroes ("01" parses as 1 but
+		// would re-format to "1"), preserving strict semver behavior.
 		if strconv.Itoa(value) != part {
 			return stableVersion{}, errors.New("version components must not contain leading zeroes")
 		}

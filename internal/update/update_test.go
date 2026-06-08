@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -228,6 +230,95 @@ func TestUpgradeRejectsChecksumMismatch(t *testing.T) {
 	installed, err := os.ReadFile(exePath)
 	require.NoError(t, err)
 	assert.Equal(t, "old volcano binary", string(installed))
+}
+
+func TestUpgradeReportsCosignNotInstalled(t *testing.T) {
+	t.Parallel()
+
+	binaryName, err := PlatformBinaryName()
+	require.NoError(t, err)
+	newBinary := []byte("new volcano binary")
+	checksum := sha256.Sum256(newBinary)
+	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
+
+	server := newReleaseServer(t, binaryName, newBinary, checksums)
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
+
+	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
+		GitHubAPIURL:                 server.URL,
+		HTTPClient:                   server.Client(),
+		ExecutablePath:               exePath,
+		RequireSignatureVerification: true,
+		CommandRunner: RunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return nil, exec.ErrNotFound
+		}),
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "verify Volcano CLI signature with cosign")
+	require.ErrorIs(t, err, exec.ErrNotFound)
+
+	installed, err := os.ReadFile(exePath)
+	require.NoError(t, err)
+	assert.Equal(t, "old volcano binary", string(installed))
+}
+
+func TestUpgradeReportsCosignVerificationFailure(t *testing.T) {
+	t.Parallel()
+
+	binaryName, err := PlatformBinaryName()
+	require.NoError(t, err)
+	newBinary := []byte("new volcano binary")
+	checksum := sha256.Sum256(newBinary)
+	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
+
+	server := newReleaseServer(t, binaryName, newBinary, checksums)
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
+
+	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
+		GitHubAPIURL:                 server.URL,
+		HTTPClient:                   server.Client(),
+		ExecutablePath:               exePath,
+		RequireSignatureVerification: true,
+		CommandRunner: RunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("certificate identity mismatch"), errors.New("exit status 1")
+		}),
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "certificate identity mismatch")
+
+	installed, err := os.ReadFile(exePath)
+	require.NoError(t, err)
+	assert.Equal(t, "old volcano binary", string(installed))
+}
+
+func newReleaseServer(t *testing.T, binaryName string, binary []byte, checksums string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
+				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
+				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
+				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
+			}})
+		case "/assets/" + binaryName:
+			_, _ = w.Write(binary)
+		case "/assets/" + binaryName + ".sigstore.json":
+			_, _ = w.Write([]byte(`{"bundle":true}`))
+		case "/assets/SHA256SUMS":
+			_, _ = w.Write([]byte(checksums))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
 }
 
 func writeUpdateJSON(t *testing.T, w http.ResponseWriter, value any) {

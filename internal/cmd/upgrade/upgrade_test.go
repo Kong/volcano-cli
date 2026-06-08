@@ -275,6 +275,33 @@ func TestUpdateNoticeWritesCacheWhenAlreadyUpToDate(t *testing.T) {
 	assert.Equal(t, 1, requests)
 }
 
+func TestUpdateNoticeRejectsFutureDatedCache(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+	// A future CheckedAt (clock skew, restored backup) must not be trusted as fresh —
+	// the notice check should re-fetch from the network instead.
+	writeUpgradeTestCache(t, "v1.2.4", time.Now().Add(48*time.Hour).UTC())
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Contains(t, out.String(), "v1.2.5")
+	assert.Equal(t, 1, requests)
+}
+
 func TestUpdateNoticeRefreshesStaleCache(t *testing.T) {
 	setUpgradeTestCacheDir(t)
 	oldVersion := version.Version
