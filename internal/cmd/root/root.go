@@ -22,6 +22,7 @@ import (
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
+	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/update"
@@ -52,7 +53,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	}
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print CLI version")
 	root.AddCommand(newVersionCmd())
-	root.AddCommand(newUpgradeCmd(deps))
+	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewLogout())
 	root.AddCommand(initcmd.New())
@@ -70,21 +71,6 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(storagecmd.New(deps))
 	root.AddCommand(variablescmd.New(deps))
 	return root
-}
-
-func newUpgradeCmd(deps cliruntime.Deps) *cobra.Command {
-	var verifySignature bool
-	cmd := &cobra.Command{
-		Use:   "upgrade",
-		Short: "Upgrade Volcano CLI to the latest release",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts := updateOptions(deps)
-			opts.RequireSignatureVerification = verifySignature
-			return update.Upgrade(cmd.Context(), version.Version, cmd.OutOrStdout(), opts)
-		},
-	}
-	cmd.Flags().BoolVar(&verifySignature, "verify-signature", false, "Require Sigstore signature verification with cosign")
-	return cmd
 }
 
 func newVersionCmd() *cobra.Command {

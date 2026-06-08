@@ -2,14 +2,9 @@ package root
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -78,110 +73,6 @@ func TestVersionSubcommand(t *testing.T) {
 	out, err := executeRootCommand(t, "version")
 	require.NoError(t, err)
 	assert.Equal(t, "volcano dev (commit none, built unknown)\n", out)
-}
-
-func TestUpgradeCommand(t *testing.T) {
-	oldVersion := version.Version
-	version.Version = "v1.2.3"
-	t.Cleanup(func() { version.Version = oldVersion })
-
-	binaryName, err := update.PlatformBinaryName()
-	require.NoError(t, err)
-	newBinary := []byte("new volcano binary")
-	checksum := sha256.Sum256(newBinary)
-	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/releases/latest":
-			writeRootJSON(t, w, update.Release{TagName: "v1.2.4", Assets: []update.Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
-			_, _ = w.Write(newBinary)
-		case "/assets/" + binaryName + ".sigstore.json":
-			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
-			_, _ = w.Write([]byte(checksums))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	exePath := filepath.Join(dir, "volcano")
-	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
-	cosignCalled := false
-	deps := cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-		ExecutablePath:     exePath,
-		UpdateCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
-			cosignCalled = true
-			return nil, nil
-		}),
-	}
-
-	out, err := executeRootCommandWithDeps(t, deps, "upgrade")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Upgraded Volcano CLI from v1.2.3 to v1.2.4")
-	installed, err := os.ReadFile(exePath)
-	require.NoError(t, err)
-	assert.Equal(t, newBinary, installed)
-	assert.False(t, cosignCalled)
-}
-
-func TestUpgradeCommandVerifySignatureFlag(t *testing.T) {
-	oldVersion := version.Version
-	version.Version = "v1.2.3"
-	t.Cleanup(func() { version.Version = oldVersion })
-
-	binaryName, err := update.PlatformBinaryName()
-	require.NoError(t, err)
-	newBinary := []byte("new volcano binary")
-	checksum := sha256.Sum256(newBinary)
-	checksums := fmt.Sprintf("%s  %s\n", hex.EncodeToString(checksum[:]), binaryName)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/releases/latest":
-			writeRootJSON(t, w, update.Release{TagName: "v1.2.4", Assets: []update.Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
-			_, _ = w.Write(newBinary)
-		case "/assets/" + binaryName + ".sigstore.json":
-			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
-			_, _ = w.Write([]byte(checksums))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	dir := t.TempDir()
-	exePath := filepath.Join(dir, "volcano")
-	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
-	cosignCalled := false
-	deps := cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-		ExecutablePath:     exePath,
-		UpdateCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
-			cosignCalled = true
-			return nil, nil
-		}),
-	}
-
-	_, err = executeRootCommandWithDeps(t, deps, "upgrade", "--verify-signature")
-	require.NoError(t, err)
-	assert.True(t, cosignCalled)
 }
 
 func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
