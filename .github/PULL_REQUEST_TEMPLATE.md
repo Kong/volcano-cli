@@ -6,14 +6,14 @@ Remove any bullets that do not apply instead of leaving placeholders behind.
 
 ## Tracking
 
-- Tracks: <!-- Jira issue / task link, GH issue, or N/A -->
-- Related: <!-- Optional follow-up, dependency, or related work -->
+- Tracks: N/A
+- Related: Add optional follow-up, dependency, or related work if applicable.
 
 ## Summary
 
-- <!-- Primary user-visible or behavior change -->
-- <!-- Important implementation detail -->
+- Describe the primary user-visible or behavior change.
+- Describe any important implementation detail or follow-up context.
 
 ## Verification
 
-- `<!-- Verification command or manual check -->`
+- List the commands or manual checks you ran.
