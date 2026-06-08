@@ -22,11 +22,10 @@ import (
 )
 
 const (
-	defaultGitHubAPIURL             = "https://api.github.com/repos/Kong/volcano-cli"
-	defaultTimeout                  = 10 * time.Second
-	signatureWorkflow               = "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
-	signatureOIDCIssuer             = "https://token.actions.githubusercontent.com"
-	stableTagSignatureIdentityRegex = `^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$`
+	defaultGitHubAPIURL = "https://api.github.com/repos/Kong/volcano-cli"
+	defaultTimeout      = 10 * time.Second
+	signatureWorkflow   = "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
+	signatureOIDCIssuer = "https://token.actions.githubusercontent.com"
 )
 
 // ErrNoUpdateAvailable means the current CLI version is current or cannot be checked.
@@ -363,16 +362,8 @@ func verifySignature(ctx context.Context, opts Options, file, bundle, version st
 	args := []string{
 		"verify-blob", file,
 		"--bundle", bundle,
-		"--certificate-identity-regexp", stableTagSignatureIdentityRegex,
+		"--certificate-identity", signatureWorkflow + "@refs/tags/" + version,
 		"--certificate-oidc-issuer", signatureOIDCIssuer,
-	}
-	if version != "latest" {
-		args = []string{
-			"verify-blob", file,
-			"--bundle", bundle,
-			"--certificate-identity", signatureWorkflow + "@refs/tags/" + version,
-			"--certificate-oidc-issuer", signatureOIDCIssuer,
-		}
 	}
 	output, err := runner.Run(ctx, "cosign", args...)
 	if err != nil {

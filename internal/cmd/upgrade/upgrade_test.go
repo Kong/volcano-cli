@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -100,6 +101,7 @@ func TestUpgradeCommandRejectsArgs(t *testing.T) {
 }
 
 func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
+	setUpgradeTestCacheDir(t)
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
@@ -121,6 +123,7 @@ func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
 }
 
 func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
+	setUpgradeTestCacheDir(t)
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
@@ -144,6 +147,7 @@ func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
 }
 
 func TestUpdateNoticeSkipsImplicitRootHelp(t *testing.T) {
+	setUpgradeTestCacheDir(t)
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
@@ -164,6 +168,85 @@ func TestUpdateNoticeSkipsImplicitRootHelp(t *testing.T) {
 	})
 	assert.Empty(t, out.String())
 	assert.Zero(t, requests)
+}
+
+func TestUpdateNoticeSkipsCompletionCommands(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	for _, name := range []string{"completion", "__complete", "__completeNoDesc"} {
+		t.Run(name, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests++
+				writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
+			}))
+			defer server.Close()
+
+			cmd := noticeTestCommand(name)
+			var out bytes.Buffer
+			cmd.SetErr(&out)
+			MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+				HTTPClient:         server.Client(),
+				UpdateGitHubAPIURL: server.URL,
+			})
+			assert.Empty(t, out.String())
+			assert.Zero(t, requests)
+		})
+	}
+}
+
+func TestUpdateNoticeUsesFreshCache(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+	writeUpgradeTestCache(t, "v1.2.4", time.Now().UTC())
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Contains(t, out.String(), "v1.2.4")
+	assert.NotContains(t, out.String(), "v1.2.5")
+	assert.Zero(t, requests)
+}
+
+func TestUpdateNoticeRefreshesStaleCache(t *testing.T) {
+	setUpgradeTestCacheDir(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+	writeUpgradeTestCache(t, "v1.2.4", time.Now().Add(-25*time.Hour).UTC())
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
+	}))
+	defer server.Close()
+
+	cmd := noticeTestCommand("init")
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
+		HTTPClient:         server.Client(),
+		UpdateGitHubAPIURL: server.URL,
+	})
+	assert.Contains(t, out.String(), "v1.2.5")
+	assert.Equal(t, 1, requests)
 }
 
 func executeUpgradeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
@@ -209,4 +292,23 @@ func writeUpgradeJSON(t *testing.T, w http.ResponseWriter, value any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	require.NoError(t, json.NewEncoder(w).Encode(value))
+}
+
+func setUpgradeTestCacheDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, ".cache"))
+	return dir
+}
+
+func writeUpgradeTestCache(t *testing.T, latest string, checkedAt time.Time) {
+	t.Helper()
+	path, err := noticeCachePath()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, f.Close()) }()
+	require.NoError(t, json.NewEncoder(f).Encode(noticeCache{CheckedAt: checkedAt, Latest: latest}))
 }
