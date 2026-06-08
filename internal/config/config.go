@@ -411,13 +411,41 @@ func (c *Config) applyLoadedDefaults() {
 		c.DefaultContext = NormalizeContextName(c.DefaultContext)
 	}
 	if len(c.Contexts) == 0 && hasLegacyConfig(c) {
-		ctx := PresetContext(c.DefaultContext)
+		legacyContext := c.legacyMigrationContextName()
+		ctx := PresetContext(legacyContext)
 		ctx.UserToken = c.UserToken
 		ctx.UserID = c.UserID
 		ctx.CurrentProject = cloneProject(c.CurrentProject)
-		c.Contexts = map[string]*ContextConfig{c.DefaultContext: &ctx}
+		c.Contexts = map[string]*ContextConfig{legacyContext: &ctx}
+		c.DefaultContext = legacyContext
 	}
 	c.refreshLegacyMirror()
+}
+
+func (c *Config) legacyMigrationContextName() string {
+	if name := NormalizeContextName(os.Getenv(envContext)); !c.IgnoreEnv && name != "" {
+		return name
+	}
+	if name := contextNameForAPIURL(os.Getenv(envAPIURL)); !c.IgnoreEnv && name != "" {
+		return name
+	}
+	if name := NormalizeContextName(c.DefaultContext); name != "" {
+		return name
+	}
+	return ContextProd
+}
+
+func contextNameForAPIURL(apiURL string) string {
+	switch strings.TrimRight(strings.TrimSpace(apiURL), "/") {
+	case strings.TrimRight(devAPIURL, "/"):
+		return ContextDev
+	case strings.TrimRight(stageAPIURL, "/"):
+		return ContextStage
+	case strings.TrimRight(prodAPIURL, "/"):
+		return ContextProd
+	default:
+		return ""
+	}
 }
 
 func (c *Config) persisted() Config {

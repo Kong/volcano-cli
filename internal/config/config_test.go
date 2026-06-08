@@ -157,6 +157,40 @@ func TestSaveRepairsExistingConfigPermissions(t *testing.T) {
 	assert.Equal(t, "new-token", loaded.UserToken)
 }
 
+func TestLoadMigratesLegacyConfigUsingAPIURLEnv(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envContext, "")
+	t.Setenv(envAPIURL, stageAPIURL)
+
+	configPath, err := Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o700))
+	require.NoError(t, os.WriteFile(configPath, []byte(`{"user_token":"stage-token"}`), 0o600))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, ContextStage, cfg.DefaultContext)
+	assert.Equal(t, "stage-token", cfg.ResolvedContext(ContextStage).UserToken)
+	assert.Empty(t, cfg.ResolvedContext(ContextProd).UserToken)
+}
+
+func TestLoadMigratesLegacyConfigUsingContextEnvBeforeAPIURL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(envContext, ContextDev)
+	t.Setenv(envAPIURL, stageAPIURL)
+
+	configPath, err := Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o700))
+	require.NoError(t, os.WriteFile(configPath, []byte(`{"user_token":"dev-token"}`), 0o600))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, ContextDev, cfg.DefaultContext)
+	assert.Equal(t, "dev-token", cfg.ResolvedContext(ContextDev).UserToken)
+	assert.Empty(t, cfg.ResolvedContext(ContextStage).UserToken)
+}
+
 func TestEnvPrecedence(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envToken, "env-token")
