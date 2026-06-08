@@ -6,14 +6,16 @@ Remove any bullets that do not apply instead of leaving placeholders behind.
 
 ## Tracking
 
-- Tracks: N/A
-- Related: Add optional follow-up, dependency, or related work if applicable.
+- Tracks: https://konghq.atlassian.net/browse/VOL-123
+- Related: https://github.com/Kong/volcano-cli/issues/45
 
 ## Summary
 
-- Describe the primary user-visible or behavior change.
-- Describe any important implementation detail or follow-up context.
+- add `volcano login --browser` support for interactive local auth
+- persist the returned session so subsequent CLI commands reuse the same login
 
 ## Verification
 
-- List the commands or manual checks you ran.
+- `make lint`
+- `go test ./...`
+- smoke-tested `volcano login --browser` against a local dev environment
