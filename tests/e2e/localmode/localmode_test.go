@@ -164,7 +164,7 @@ func localModeE2EEnv(t *testing.T) []string {
 		"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID=",
 	)
 	if os.Getenv("VOLCANO_IMAGE") == "" {
-		env = append(env, "VOLCANO_IMAGE=kong/volcano:nightly")
+		env = append(env, "VOLCANO_IMAGE=kong/volcano:local-nightly")
 	}
 	return env
 }

@@ -80,7 +80,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 				started = true
 				image, ok := lastEnvValue(command.Env, "VOLCANO_IMAGE")
 				require.True(t, ok)
-				assert.Equal(t, "kong/volcano:nightly", image)
+				assert.Equal(t, "kong/volcano:local-nightly", image)
 				assert.Contains(t, command.Env, "VOLCANO_LOG_LEVEL=debug")
 				assert.Contains(t, command.Env, "QUOTED=value")
 				assert.Contains(t, command.Env, "INLINE=kept")
@@ -104,7 +104,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 		WithDialTCP(func(context.Context, string) error { return nil }),
 		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(key string) string {
 			if key == "VOLCANO_IMAGE" {
-				return "kong/volcano:nightly"
+				return "kong/volcano:local-nightly"
 			}
 			return ""
 		}),

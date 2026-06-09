@@ -37,7 +37,7 @@ func TestComposeEnvironmentPrefersProcessImageOverDotEnvImage(t *testing.T) {
 		cliruntime.Deps{},
 		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(key string) string {
 			if key == "VOLCANO_IMAGE" {
-				return "kong/volcano:nightly"
+				return "kong/volcano:local-nightly"
 			}
 			return ""
 		}),
@@ -46,10 +46,10 @@ func TestComposeEnvironmentPrefersProcessImageOverDotEnvImage(t *testing.T) {
 	env, image, err := service.composeEnvironment()
 
 	require.NoError(t, err)
-	assert.Equal(t, "kong/volcano:nightly", image)
+	assert.Equal(t, "kong/volcano:local-nightly", image)
 	actual, ok := lastEnvValue(env, "VOLCANO_IMAGE")
 	require.True(t, ok)
-	assert.Equal(t, "kong/volcano:nightly", actual)
+	assert.Equal(t, "kong/volcano:local-nightly", actual)
 }
 
 func TestComposeEnvironmentKeepsSingleResolvedVolcanoImage(t *testing.T) {
@@ -62,7 +62,7 @@ func TestComposeEnvironmentKeepsSingleResolvedVolcanoImage(t *testing.T) {
 			return []string{"PATH=/bin", "VOLCANO_IMAGE=kong/volcano:from-environ"}
 		}, func(key string) string {
 			if key == "VOLCANO_IMAGE" {
-				return "kong/volcano:nightly"
+				return "kong/volcano:local-nightly"
 			}
 			return ""
 		}),
@@ -71,8 +71,8 @@ func TestComposeEnvironmentKeepsSingleResolvedVolcanoImage(t *testing.T) {
 	env, image, err := service.composeEnvironment()
 
 	require.NoError(t, err)
-	assert.Equal(t, "kong/volcano:nightly", image)
-	assert.Equal(t, []string{"kong/volcano:nightly"}, envValues(env, "VOLCANO_IMAGE"))
+	assert.Equal(t, "kong/volcano:local-nightly", image)
+	assert.Equal(t, []string{"kong/volcano:local-nightly"}, envValues(env, "VOLCANO_IMAGE"))
 }
 
 func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
