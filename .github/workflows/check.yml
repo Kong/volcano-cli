@@ -35,5 +35,7 @@ jobs:
           cache: true
       - name: Run local-mode CLI contract smoke
         env:
-          VOLCANO_IMAGE: kong/volcano:local-nightly
+          # Keep CI pinned to the last published local-compatible image until
+          # volcano-hosting publishes kong/volcano:local-nightly.
+          VOLCANO_IMAGE: kong/volcano:nightly@sha256:1c57519c86ac156fcc7a6464c9eb6a6812795d8d438306d2a89efe486e523399
         run: make localmode-e2e
