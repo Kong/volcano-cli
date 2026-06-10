@@ -15,7 +15,7 @@ func NewStart(deps cliruntime.Deps) *cobra.Command {
 		Short: "Start the local Volcano development environment",
 		Long: `Start PostgreSQL, Redis, and the Volcano local-mode server with Docker Compose.
 
-To override the server image, set VOLCANO_IMAGE:
+To pin or select a specific server image, set VOLCANO_IMAGE:
   VOLCANO_IMAGE=kong/volcano:local-nightly volcano start`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
