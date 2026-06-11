@@ -24,6 +24,11 @@ func (e *apiE2E) runCLI(t *testing.T, args ...string) cliResult {
 	return e.runCLIWithEnv(t, nil, args...)
 }
 
+func (e *apiE2E) runCloudCLI(t *testing.T, args ...string) cliResult {
+	t.Helper()
+	return e.runCloudCLIWithEnv(t, nil, args...)
+}
+
 func (e *apiE2E) runCLIWithEnv(t *testing.T, extraEnv []string, args ...string) cliResult {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -49,6 +54,12 @@ func (e *apiE2E) runCLIWithEnv(t *testing.T, extraEnv []string, args ...string) 
 		}
 	}
 	return cliResult{output: stdout.String() + stderr.String(), code: code, err: err}
+}
+
+func (e *apiE2E) runCloudCLIWithEnv(t *testing.T, extraEnv []string, args ...string) cliResult {
+	t.Helper()
+	cloudArgs := append([]string{"cloud"}, args...)
+	return e.runCLIWithEnv(t, extraEnv, cloudArgs...)
 }
 
 func (e *apiE2E) commandEnv() []string {
@@ -128,4 +139,10 @@ func (e *apiE2E) waitForCLIContains(t *testing.T, timeout time.Duration, needle 
 	}
 	t.Fatalf("volcano %s did not return output containing %q before %s:\n%s", strings.Join(args, " "), needle, timeout, last.output)
 	return last
+}
+
+func (e *apiE2E) waitForCloudCLIContains(t *testing.T, timeout time.Duration, needle string, args ...string) cliResult {
+	t.Helper()
+	cloudArgs := append([]string{"cloud"}, args...)
+	return e.waitForCLIContains(t, timeout, needle, cloudArgs...)
 }
