@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -35,9 +36,12 @@ Currently supported:
 Use exactly one of:
   --public   Make function publicly invokable
   --private  Require authenticated/service invocation`,
-		Example: `  volcano functions update hello --public
-  volcano functions update hello --private
-  volcano functions update 62ec7ca5-1f8a-47b2-b8f8-78fd93cd8152 --public`,
+		Example: fmt.Sprintf(`  %s
+  %s
+  %s`,
+			cliruntime.CommandPath(deps, "functions update hello --public"),
+			cliruntime.CommandPath(deps, "functions update hello --private"),
+			cliruntime.CommandPath(deps, "functions update 62ec7ca5-1f8a-47b2-b8f8-78fd93cd8152 --public")),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(cmd.Context(), updateOptions{

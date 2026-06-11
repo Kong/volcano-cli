@@ -1,5 +1,4 @@
-// Package config wires the `volcano config` command tree, which deploys
-// declarative cloud project configuration from a volcano-config.yaml manifest.
+// Package config wires the config command tree for project configuration.
 package config
 
 import (
@@ -25,8 +24,8 @@ type deployOptions struct {
 func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Manage declarative cloud project configuration",
-		Long: `Deploy declarative cloud project configuration from YAML manifests.
+		Short: "Manage declarative project configuration",
+		Long: `Deploy declarative project configuration from YAML manifests.
 
 This command group is designed for expanding configuration management over time.
 Currently it supports:
@@ -42,8 +41,8 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy cloud project configuration from YAML",
-		Long: `Deploy cloud project configuration from a declarative YAML file.
+		Short: "Deploy project configuration from YAML",
+		Long: `Deploy project configuration from a declarative YAML file.
 
 Currently supported resources:
   - Storage buckets
@@ -61,8 +60,10 @@ Reconciliation semantics:
 If --file is omitted, the CLI looks for (in order):
   1. volcano/volcano-config.yaml (recommended)
   2. ./volcano-config.yaml (project root)`,
-		Example: `  volcano config deploy
-  volcano config deploy -f volcano-config.yaml`,
+		Example: fmt.Sprintf(`  %s
+  %s`,
+			cliruntime.CommandPath(deps, "config deploy"),
+			cliruntime.CommandPath(deps, "config deploy -f volcano-config.yaml")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{

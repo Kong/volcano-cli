@@ -24,8 +24,8 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List cloud functions",
-		Long:  "List cloud functions for the current project.",
+		Short: "List functions",
+		Long:  "List functions for the current project.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), listOptions{
@@ -47,6 +47,6 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
-	output.Functions(opts.out, functions)
+	output.Functions(opts.out, functions, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 )
 
 // Frontends renders one frontend list page.
-func Frontends(w io.Writer, page *apiclient.PaginatedFrontends) {
+func Frontends(w io.Writer, page *apiclient.PaginatedFrontends, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedFrontends{}
 	}
@@ -40,7 +40,7 @@ func Frontends(w io.Writer, page *apiclient.PaginatedFrontends) {
 	}
 	printFrontendPageSummary(w, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: volcano frontends list --page %d --limit %d\n", page.Page+1, page.Limit)
+		fmt.Fprintf(w, "\nNext page: %s frontends list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
 	}
 }
 

@@ -25,8 +25,8 @@ func newDelete(deps cliruntime.Deps) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "delete <name>",
-		Short: "Delete a cloud database",
-		Long: `Delete a PostgreSQL database from the current cloud project.
+		Short: "Delete a database",
+		Long: `Delete a PostgreSQL database from the current project.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,

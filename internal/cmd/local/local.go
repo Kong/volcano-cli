@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
 	migrationcmd "github.com/Kong/volcano-cli/internal/cmd/databases/migration"
@@ -28,11 +29,29 @@ type infoCache struct {
 	err    error
 }
 
-// New returns the local command tree.
-func New(deps cliruntime.Deps) *cobra.Command {
+// NewResourceCommands returns the direct local resource command tree.
+func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	cache := &infoCache{runner: deps.LocalCommandRunner}
 	localDeps := withLocalConfig(deps, cache)
 
+	return []*cobra.Command{
+		databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
+			CreateDefaults: cache.databaseCreateDefaults,
+		}),
+		migrationcmd.NewLocal(localDeps),
+		storagecmd.NewWithOptions(
+			localDeps,
+			storagecmd.WithObjectTokenProvider(cache.storageObjectToken),
+		),
+		configcmd.New(localDeps),
+		functionscmd.NewLocal(localDeps),
+		variablescmd.New(localDeps),
+		newReset(deps),
+	}
+}
+
+// New returns the deprecated local command tree.
+func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "local",
 		Short: "Manage local development resources",
@@ -42,22 +61,12 @@ func New(deps cliruntime.Deps) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
-		CreateDefaults: cache.databaseCreateDefaults,
-	}))
-	cmd.AddCommand(migrationcmd.NewLocal(localDeps))
-	cmd.AddCommand(storagecmd.NewWithOptions(
-		localDeps,
-		storagecmd.WithObjectTokenProvider(cache.storageObjectToken),
-	))
-	cmd.AddCommand(configcmd.New(localDeps))
-	cmd.AddCommand(functionscmd.NewLocal(localDeps))
-	cmd.AddCommand(variablescmd.New(localDeps))
-	cmd.AddCommand(newReset(deps))
-	return cmd
+	cmd.AddCommand(NewResourceCommands(deps)...)
+	return cmdutil.HideDeprecatedAlias(cmd, `warning: "volcano local ..." is deprecated; use direct local commands such as "volcano functions deploy"`)
 }
 
 func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
+	deps.CommandPathPrefix = "volcano"
 	deps.ConfigLoader = func() (*cliconfig.Config, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), localInfoTimeout)
 		defer cancel()

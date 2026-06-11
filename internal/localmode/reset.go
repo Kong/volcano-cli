@@ -44,7 +44,7 @@ func (s Service) Reset(ctx context.Context, w io.Writer) error {
 		return fmt.Errorf("failed to save dev state after reset: %w", err)
 	}
 
-	fmt.Fprintln(w, "Redeploy migrations with: volcano local migrations deploy --all -d app")
+	fmt.Fprintln(w, "Redeploy migrations with: volcano migrations deploy --all -d app")
 	return nil
 }
 

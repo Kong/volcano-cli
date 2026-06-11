@@ -21,7 +21,7 @@ func DatabaseCreated(w io.Writer, database *apiclient.Database, showConnectionSt
 }
 
 // Databases renders one database list page.
-func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionString bool) {
+func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionString bool, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedDatabases{}
 	}
@@ -54,7 +54,7 @@ func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionSt
 	}
 	printDatabasePageSummary(w, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: volcano databases list --page %d --limit %d\n", page.Page+1, page.Limit)
+		fmt.Fprintf(w, "\nNext page: %s databases list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
 	}
 }
 

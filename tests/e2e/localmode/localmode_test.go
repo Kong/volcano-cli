@@ -39,80 +39,80 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, statusOutput, "Volcano Local Development Status")
 	requireContains(t, statusOutput, "API URL")
 
-	databasesOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "databases", "list")
+	databasesOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "databases", "list")
 	requireContains(t, databasesOutput, "app")
 
-	createDatabaseOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "databases", "create", "cli_contract")
+	createDatabaseOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "databases", "create", "cli_contract")
 	requireContains(t, createDatabaseOutput, "Database 'cli_contract' created")
 
-	databasesAfterCreate := waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "cli_contract", "local", "databases", "list")
+	databasesAfterCreate := waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "cli_contract", "databases", "list")
 	requireContains(t, databasesAfterCreate, "app")
 
-	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "migrations", "deploy", "--all", "-d", "app")
+	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
 	requireContains(t, migrationOutput, "Migrations deployed!")
 
-	deleteDatabaseOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "databases", "delete", "cli_contract", "--yes")
+	deleteDatabaseOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "databases", "delete", "cli_contract", "--yes")
 	requireContains(t, deleteDatabaseOutput, "Database 'cli_contract' deleted")
 
-	variablesDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "variables", "deploy")
+	variablesDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "deploy")
 	requireContains(t, variablesDeployOutput, "SMOKE_MESSAGE (saved)")
 	requireContains(t, variablesDeployOutput, "1 variable(s) saved")
 
-	variablesOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "variables", "list")
+	variablesOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "list")
 	requireContains(t, variablesOutput, "SMOKE_MESSAGE")
 
-	variableGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "variables", "get", "SMOKE_MESSAGE")
+	variableGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "get", "SMOKE_MESSAGE")
 	requireContains(t, variableGetOutput, "Name: SMOKE_MESSAGE")
 
-	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "functions", "deploy", "--all")
+	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "deploy", "--all")
 	requireContains(t, functionDeployOutput, "Packaging hello")
 	requireContains(t, functionDeployOutput, "functions deployment started")
 
-	waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "hello", "local", "functions", "list")
-	functionGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "functions", "get", "hello")
+	waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "hello", "functions", "list")
+	functionGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "get", "hello")
 	requireContains(t, functionGetOutput, "Name: hello")
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
-	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "variables", "delete", "SMOKE_MESSAGE", "--yes")
+	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
 	requireContains(t, variableDeleteOutput, "deleted")
-	variablesAfterDelete := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "variables", "list")
+	variablesAfterDelete := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "list")
 	requireNotContains(t, variablesAfterDelete, "SMOKE_MESSAGE")
 
 	writeLocalModeE2EFile(t, projectDir, "hello.txt", "hello from local storage\n")
-	bucketOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "bucket", "create", "cli-contract", "--allowed-mime-type", "text/plain", "--file-size-limit", "4096")
+	bucketOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "bucket", "create", "cli-contract", "--allowed-mime-type", "text/plain", "--file-size-limit", "4096")
 	requireContains(t, bucketOutput, "cli-contract")
 
-	bucketGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "bucket", "get", "cli-contract")
+	bucketGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "bucket", "get", "cli-contract")
 	requireContains(t, bucketGetOutput, "File size limit: 4.0 KiB")
 
-	bucketUpdateOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "bucket", "update", "cli-contract", "--allowed-mime-type", "text/plain", "--file-size-limit", "8192")
+	bucketUpdateOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "bucket", "update", "cli-contract", "--allowed-mime-type", "text/plain", "--file-size-limit", "8192")
 	requireContains(t, bucketUpdateOutput, "File size limit: 8.0 KiB")
 
-	uploadOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "object", "upload", "cli-contract", "hello.txt", "greetings/hello.txt", "--content-type", "text/plain")
+	uploadOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "object", "upload", "cli-contract", "hello.txt", "greetings/hello.txt", "--content-type", "text/plain")
 	requireContains(t, uploadOutput, "greetings/hello.txt")
 
-	objectsOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "object", "list", "cli-contract")
+	objectsOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "object", "list", "cli-contract")
 	requireContains(t, objectsOutput, "greetings/hello.txt")
 
-	downloadOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "object", "download", "cli-contract", "greetings/hello.txt", "-")
+	downloadOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "object", "download", "cli-contract", "greetings/hello.txt", "-")
 	requireContains(t, downloadOutput, "hello from local storage")
 
-	deleteObjectOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "object", "delete", "cli-contract", "greetings/hello.txt", "--yes")
+	deleteObjectOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "object", "delete", "cli-contract", "greetings/hello.txt", "--yes")
 	requireContains(t, deleteObjectOutput, "deleted")
 
-	deleteBucketOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "storage", "bucket", "delete", "cli-contract", "--yes")
+	deleteBucketOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "storage", "bucket", "delete", "cli-contract", "--yes")
 	requireContains(t, deleteBucketOutput, "deleted")
 
-	deleteFunctionOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "functions", "delete", "hello", "--yes")
+	deleteFunctionOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "delete", "hello", "--yes")
 	requireContains(t, deleteFunctionOutput, "deletion started")
 
-	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "local", "reset", "--yes")
+	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "reset", "--yes")
 	requireContains(t, resetOutput, "Local reset complete.")
-	requireContains(t, resetOutput, "volcano local migrations deploy --all -d app")
+	requireContains(t, resetOutput, "volcano migrations deploy --all -d app")
 
 	statusAfterReset := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "status")
 	requireContains(t, statusAfterReset, "Volcano Local Development Status")

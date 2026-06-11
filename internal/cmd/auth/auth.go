@@ -37,7 +37,7 @@ Token-based login (for CI/CD):
 
 Environment variable (no login needed):
   export VOLCANO_TOKEN=pk-xxxxxxxxxx
-  volcano functions deploy --all`,
+  volcano cloud functions deploy --all`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runLogin(cmd.Context(), loginOptions{
 				deps:  deps,

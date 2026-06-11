@@ -26,7 +26,7 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	var showConnectionString bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List cloud databases",
+		Short: "List databases",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), listOptions{
 				deps:                 deps,
@@ -49,6 +49,6 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
-	output.Databases(opts.out, databases, opts.showConnectionString)
+	output.Databases(opts.out, databases, opts.showConnectionString, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }

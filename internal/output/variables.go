@@ -9,7 +9,7 @@ import (
 )
 
 // Variables renders one variable list page.
-func Variables(w io.Writer, page *apiclient.PaginatedVariables) {
+func Variables(w io.Writer, page *apiclient.PaginatedVariables, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedVariables{}
 	}
@@ -37,7 +37,7 @@ func Variables(w io.Writer, page *apiclient.PaginatedVariables) {
 	}
 	printVariablePageSummary(w, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: volcano variables list --page %d --limit %d\n", page.Page+1, page.Limit)
+		fmt.Fprintf(w, "\nNext page: %s variables list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
 	}
 }
 

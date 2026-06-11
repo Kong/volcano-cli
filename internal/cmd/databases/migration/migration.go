@@ -55,35 +55,43 @@ func newWithExecutor(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command 
 }
 
 func newUp(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command {
-	return newApply(deps, executor, "up", `Apply SQL migration files from volcano/migrations/ in alphabetical order.
+	return newApply(deps, executor, "up", fmt.Sprintf(`Apply SQL migration files from volcano/migrations/ in alphabetical order.
 
 Usage:
-  volcano databases migration up --all -d mydb
-  volcano databases migration up -a -d mydb
-  volcano databases migration up -d mydb -f 001_create_users
-  volcano databases migration up --database mydb -f 001_create_users.sql
+  %s
+  %s
+  %s
+  %s
 
 The --database flag is required. The CLI connects directly to your database via
 pgproxy and executes the SQL files.
 
 WARNING: Migrations are executed without tracking. You are responsible for not
-re-running non-idempotent migrations.`)
+re-running non-idempotent migrations.`,
+		cliruntime.CommandPath(deps, "databases migration up --all -d mydb"),
+		cliruntime.CommandPath(deps, "databases migration up -a -d mydb"),
+		cliruntime.CommandPath(deps, "databases migration up -d mydb -f 001_create_users"),
+		cliruntime.CommandPath(deps, "databases migration up --database mydb -f 001_create_users.sql")))
 }
 
 func newDeploy(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command {
-	return newApply(deps, executor, "deploy", `Apply SQL migration files from volcano/migrations/ in alphabetical order.
+	return newApply(deps, executor, "deploy", fmt.Sprintf(`Apply SQL migration files from volcano/migrations/ in alphabetical order.
 
 Usage:
-  volcano local migrations deploy --all -d mydb
-  volcano local migrations deploy -a -d mydb
-  volcano local migrations deploy -d mydb -f 001_create_users
-  volcano local migrations deploy --database mydb -f 001_create_users.sql
+  %s
+  %s
+  %s
+  %s
 
 The --database flag is required. The CLI connects directly to your database and
 executes the SQL files.
 
 WARNING: Migrations are executed without tracking. You are responsible for not
-re-running non-idempotent migrations.`)
+re-running non-idempotent migrations.`,
+		cliruntime.CommandPath(deps, "migrations deploy --all -d mydb"),
+		cliruntime.CommandPath(deps, "migrations deploy -a -d mydb"),
+		cliruntime.CommandPath(deps, "migrations deploy -d mydb -f 001_create_users"),
+		cliruntime.CommandPath(deps, "migrations deploy --database mydb -f 001_create_users.sql")))
 }
 
 func newApply(deps cliruntime.Deps, executor sqlExecutor, use, long string) *cobra.Command {

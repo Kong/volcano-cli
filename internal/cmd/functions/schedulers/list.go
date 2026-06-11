@@ -22,7 +22,7 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list <function>",
 		Short: "List schedulers for a function",
-		Long:  "List scheduled invocations configured for a deployed cloud function.",
+		Long:  "List scheduled invocations configured for a deployed function.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd.Context(), listOptions{

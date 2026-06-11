@@ -32,7 +32,7 @@ func newCreate(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <function>",
 		Short: "Create a function scheduler",
-		Long: `Create a scheduled invocation for a deployed cloud function.
+		Long: `Create a scheduled invocation for a deployed function.
 
 The --cron flag accepts standard 5-field cron expressions such as "*/5 * * * *".
 If --regions is omitted, Volcano chooses one deployed region and keeps using it
@@ -40,9 +40,12 @@ until geofencing removes that region. If --regions is provided, it must be a
 single region where the function is deployed.
 
 The --payload flag accepts either inline JSON or a path to a JSON file.`,
-		Example: `  volcano functions schedulers create hello --cron "*/5 * * * *"
-  volcano functions schedulers create hello --name refresh-cache --cron "0 * * * *" --payload payload.json
-  volcano functions schedulers create hello --cron "0 9 * * 1-5" --regions us-east-1`,
+		Example: fmt.Sprintf(`  %s
+  %s
+  %s`,
+			cliruntime.CommandPath(deps, `functions schedulers create hello --cron "*/5 * * * *"`),
+			cliruntime.CommandPath(deps, `functions schedulers create hello --name refresh-cache --cron "0 * * * *" --payload payload.json`),
+			cliruntime.CommandPath(deps, `functions schedulers create hello --cron "0 9 * * 1-5" --regions us-east-1`)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps
