@@ -42,7 +42,7 @@ func TestResetInvokesServerEntrypointAndRefreshesDevState(t *testing.T) {
 	assert.Contains(t, out.String(), "Local reset complete.")
 	assert.Contains(t, out.String(), "Default database: app")
 	assert.Contains(t, out.String(), "Dropped databases: [project_a]")
-	assert.Contains(t, out.String(), "volcano local migrations deploy --all -d app")
+	assert.Contains(t, out.String(), "volcano migrations deploy --all -d app")
 	assert.True(t, runner.called("docker", localResetCommandArgs()...))
 
 	statePath, err := DevStatePath()

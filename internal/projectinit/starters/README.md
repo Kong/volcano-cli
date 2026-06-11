@@ -83,7 +83,7 @@ functions: []
 ```
 
 If a starter does not create a valid config manifest, `volcano init` must not
-print `volcano local config deploy` as a next step. The current implementation
+print `volcano config deploy` as a next step. The current implementation
 prints that step only when the init result includes `volcano/volcano-config.yaml`
 or `volcano-config.yaml`.
 

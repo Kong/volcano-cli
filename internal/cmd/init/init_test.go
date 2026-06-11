@@ -43,9 +43,10 @@ func TestCreatesScaffoldAndPrintsCreatedFiles(t *testing.T) {
 	assert.Contains(t, out, "Volcano project initialized.")
 	assert.Contains(t, out, "Created:")
 	assert.Contains(t, out, "volcano/functions/hello.js")
-	assert.Contains(t, out, "volcano local functions deploy --all")
-	assert.Contains(t, out, "volcano local config deploy")
 	assert.Contains(t, out, "volcano config deploy")
+	assert.Contains(t, out, "volcano functions deploy --all")
+	assert.Contains(t, out, "volcano cloud config deploy")
+	assert.Contains(t, out, "volcano cloud functions deploy --all")
 	assert.FileExists(t, filepath.Join("volcano", "functions", "hello.js"))
 }
 
@@ -63,8 +64,8 @@ func TestCreatesNextJSStarter(t *testing.T) {
 	assert.Contains(t, readFile(t, ".gitignore"), "node_modules")
 	assert.NoFileExists(t, filepath.Join("volcano", "functions", "notes-summary.js"))
 	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.NotContains(t, out, "volcano local config deploy")
 	assert.NotContains(t, out, "volcano config deploy")
+	assert.NotContains(t, out, "volcano cloud config deploy")
 }
 
 func TestCreatesNextJSNotesExample(t *testing.T) {
@@ -80,8 +81,8 @@ func TestCreatesNextJSNotesExample(t *testing.T) {
 	assert.FileExists(t, ".gitignore")
 	assert.Contains(t, readFile(t, ".gitignore"), "node_modules")
 	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.NotContains(t, out, "volcano local config deploy")
 	assert.NotContains(t, out, "volcano config deploy")
+	assert.NotContains(t, out, "volcano cloud config deploy")
 	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano init nextjs --example notes")
 	assert.Contains(t, readFile(t, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
 }

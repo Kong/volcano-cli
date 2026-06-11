@@ -40,7 +40,7 @@ func Frontends(w io.Writer, page *apiclient.PaginatedFrontends) {
 	}
 	printFrontendPageSummary(w, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: volcano frontends list --page %d --limit %d\n", page.Page+1, page.Limit)
+		fmt.Fprintf(w, "\nNext page: volcano cloud frontends list --page %d --limit %d\n", page.Page+1, page.Limit)
 	}
 }
 

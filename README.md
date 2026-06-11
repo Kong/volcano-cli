@@ -29,10 +29,10 @@ mkdir ../volcano-quickstart
 cd ../volcano-quickstart
 "$VOLCANO_CLI" init
 "$VOLCANO_CLI" start
-"$VOLCANO_CLI" local variables deploy
-"$VOLCANO_CLI" local functions deploy --all
-"$VOLCANO_CLI" local config deploy
-"$VOLCANO_CLI" local migrations deploy --all -d app
+"$VOLCANO_CLI" variables deploy
+"$VOLCANO_CLI" functions deploy --all
+"$VOLCANO_CLI" config deploy
+"$VOLCANO_CLI" migrations deploy --all -d app
 ```
 
 `volcano init` also supports starter templates such as `nextjs`, `js`,

@@ -43,7 +43,7 @@ func TestLocalResetCommandInvokesServerEntrypoint(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, out, "Local reset complete.")
-	assert.Contains(t, out, "volcano local migrations deploy --all -d app")
+	assert.Contains(t, out, "volcano migrations deploy --all -d app")
 	assert.True(t, slices.ContainsFunc(commands, func(command []string) bool {
 		return slices.Equal(command, []string{"exec", "volcano-server", "/app/volcano-hosting", "local", "reset", "--yes", "--format", "text"})
 	}))

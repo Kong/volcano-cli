@@ -32,7 +32,7 @@ func TestFrontendsListPopulatedAndEmpty(t *testing.T) {
 				"ready",
 				"site: https://web.frontends.volcano.dev/",
 				"Showing 1 of 2 frontend(s) (page 1, limit 100)",
-				"Next page: volcano frontends list --page 2 --limit 100",
+				"Next page: volcano cloud frontends list --page 2 --limit 100",
 			},
 		},
 		{

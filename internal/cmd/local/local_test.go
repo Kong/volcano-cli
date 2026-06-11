@@ -232,10 +232,10 @@ func TestLocalStorageUsesPluralAliases(t *testing.T) {
 	assert.Contains(t, out, "object, objects")
 }
 
-func TestLocalMigrationsUsesOldDeployPath(t *testing.T) {
+func TestLocalMigrationsUsesDirectDeployPath(t *testing.T) {
 	out, err := executeLocalCommand(t, New(cliruntime.Deps{}), "migrations", "deploy", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "volcano local migrations deploy")
+	assert.Contains(t, out, "volcano migrations deploy")
 }
 
 func TestLocalHelpIncludesReset(t *testing.T) {

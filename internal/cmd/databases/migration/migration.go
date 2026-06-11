@@ -74,10 +74,10 @@ func newDeploy(deps cliruntime.Deps, executor sqlExecutor) *cobra.Command {
 	return newApply(deps, executor, "deploy", `Apply SQL migration files from volcano/migrations/ in alphabetical order.
 
 Usage:
-  volcano local migrations deploy --all -d mydb
-  volcano local migrations deploy -a -d mydb
-  volcano local migrations deploy -d mydb -f 001_create_users
-  volcano local migrations deploy --database mydb -f 001_create_users.sql
+  volcano migrations deploy --all -d mydb
+  volcano migrations deploy -a -d mydb
+  volcano migrations deploy -d mydb -f 001_create_users
+  volcano migrations deploy --database mydb -f 001_create_users.sql
 
 The --database flag is required. The CLI connects directly to your database and
 executes the SQL files.

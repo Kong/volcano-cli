@@ -44,8 +44,8 @@ Pass --app-root to opt out of auto-promotion and take explicit control of the
 archive layout.
 
 Usage:
-  volcano frontends deploy --name web --path ./apps/web
-  volcano frontends deploy --name web --path . --app-root apps/web`,
+  volcano cloud frontends deploy --name web --path ./apps/web
+  volcano cloud frontends deploy --name web --path . --app-root apps/web`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			local := opts

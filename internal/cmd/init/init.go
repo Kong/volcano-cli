@@ -150,15 +150,15 @@ func printResult(w io.Writer, result *projectinit.Result, starter string) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Next steps:")
 	fmt.Fprintln(w, "  1. Run: volcano start")
-	fmt.Fprintln(w, "  2. Run: volcano local variables deploy")
-	fmt.Fprintln(w, "  3. Run: volcano local functions deploy --all")
+	fmt.Fprintln(w, "  2. Run: volcano variables deploy")
+	fmt.Fprintln(w, "  3. Run: volcano functions deploy --all")
 	step := 4
 	hasConfig := resultContainsPath(result, "volcano/volcano-config.yaml", "volcano-config.yaml")
 	if hasConfig {
-		fmt.Fprintf(w, "  %d. Run: volcano local config deploy\n", step)
+		fmt.Fprintf(w, "  %d. Run: volcano config deploy\n", step)
 		step++
 	}
-	fmt.Fprintf(w, "  %d. Run: volcano local migrations deploy --all -d app\n", step)
+	fmt.Fprintf(w, "  %d. Run: volcano migrations deploy --all -d app\n", step)
 	step++
 	if strings.HasPrefix(starter, "nextjs") {
 		fmt.Fprintf(w, "  %d. Run: npm install            (or: yarn install)\n", step)
@@ -171,10 +171,10 @@ func printResult(w io.Writer, result *projectinit.Result, starter string) {
 	fmt.Fprintln(w, "Cloud deployment:")
 	fmt.Fprintln(w, "  - Run: volcano login")
 	fmt.Fprintln(w, "  - Run: volcano use <project-id-or-name>")
-	fmt.Fprintln(w, "  - Run: volcano variables deploy")
-	fmt.Fprintln(w, "  - Run: volcano functions deploy --all")
+	fmt.Fprintln(w, "  - Run: volcano cloud variables deploy")
+	fmt.Fprintln(w, "  - Run: volcano cloud functions deploy --all")
 	if hasConfig {
-		fmt.Fprintln(w, "  - Run: volcano config deploy")
+		fmt.Fprintln(w, "  - Run: volcano cloud config deploy")
 	}
 }
 
