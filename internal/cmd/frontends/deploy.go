@@ -34,7 +34,7 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a frontend",
-		Long: `Deploy a frontend from a local project directory.
+		Long: fmt.Sprintf(`Deploy a frontend from a local project directory.
 
 The CLI packages the directory into a tar.gz archive and uploads it to Volcano,
 which builds and deploys the frontend. If the project participates in a JS
@@ -44,8 +44,10 @@ Pass --app-root to opt out of auto-promotion and take explicit control of the
 archive layout.
 
 Usage:
-  volcano cloud frontends deploy --name web --path ./apps/web
-  volcano cloud frontends deploy --name web --path . --app-root apps/web`,
+  %s
+  %s`,
+			cliruntime.CommandPath(deps, "frontends deploy --name web --path ./apps/web"),
+			cliruntime.CommandPath(deps, "frontends deploy --name web --path . --app-root apps/web")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			local := opts

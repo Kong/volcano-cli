@@ -144,6 +144,13 @@ func TestCloudFunctionHelpUsesCloudPaths(t *testing.T) {
 	assert.NotContains(t, out, "volcano functions deploy --all")
 }
 
+func TestCloudFrontendHelpUsesCloudPaths(t *testing.T) {
+	out, err := executeRootCommand(t, "cloud", "frontends", "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano cloud frontends deploy --name web --path ./apps/web")
+	assert.NotContains(t, out, "volcano frontends deploy --name web")
+}
+
 func TestCloudFunctionPaginationUsesCloudPath(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", "cloud-token")
