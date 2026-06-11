@@ -1,3 +1,4 @@
+// Package cmdutil contains shared Cobra command helpers.
 package cmdutil
 
 import (
