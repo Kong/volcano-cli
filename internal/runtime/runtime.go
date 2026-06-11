@@ -25,6 +25,19 @@ type Deps struct {
 	UpdateCommandRunner CommandRunner
 	ExecutablePath      string
 	UpdateGitHubAPIURL  string
+	CommandPathPrefix   string
+}
+
+// CommandPath returns a user-facing command path for the current command tree.
+func CommandPath(deps Deps, command string) string {
+	prefix := deps.CommandPathPrefix
+	if prefix == "" {
+		prefix = "volcano"
+	}
+	if command == "" {
+		return prefix
+	}
+	return prefix + " " + command
 }
 
 // CommandRunner runs an external command.

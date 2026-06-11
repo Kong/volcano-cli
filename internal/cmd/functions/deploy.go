@@ -34,18 +34,22 @@ func newDeploy(deps cliruntime.Deps, batchAll bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy functions",
-		Long: `Deploy functions from the volcano/functions directory.
+		Long: fmt.Sprintf(`Deploy functions from the volcano/functions directory.
 
 Usage:
-  volcano functions deploy --all
-  volcano functions deploy -a
-  volcano functions deploy -f get-notes
-  volcano functions deploy -f volcano/functions/get-notes.js
+  %s
+  %s
+  %s
+  %s
 
 The CLI scans volcano/functions, detects the runtime from source file extensions,
 packages source with dependency manifests and shared libraries, and uploads the
 archive to Volcano. Cloud deploy-all uploads are split into batches of up to
 100 functions; local deploy-all uploads each function individually.`,
+			cliruntime.CommandPath(deps, "functions deploy --all"),
+			cliruntime.CommandPath(deps, "functions deploy -a"),
+			cliruntime.CommandPath(deps, "functions deploy -f get-notes"),
+			cliruntime.CommandPath(deps, "functions deploy -f volcano/functions/get-notes.js")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{

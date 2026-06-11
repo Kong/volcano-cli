@@ -4,6 +4,7 @@ package databases
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -36,11 +37,13 @@ type createCommandOptions struct {
 func newCreate(deps cliruntime.Deps) *cobra.Command {
 	return newCreateWithOptions(deps, createCommandOptions{
 		short: "Create a cloud database",
-		long: `Create a PostgreSQL database in the current cloud project.
+		long: fmt.Sprintf(`Create a PostgreSQL database in the current cloud project.
 
 Examples:
-  volcano databases create app --region <region> --pg-version <version>
-  volcano databases create analytics --region <region> --pg-version <version> --type volcano-db-s`,
+  %s
+  %s`,
+			cliruntime.CommandPath(deps, "databases create app --region <region> --pg-version <version>"),
+			cliruntime.CommandPath(deps, "databases create analytics --region <region> --pg-version <version> --type volcano-db-s")),
 		requireRegion:          true,
 		requirePostgresVersion: true,
 	})

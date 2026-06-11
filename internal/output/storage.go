@@ -85,7 +85,7 @@ func StoragePolicy(w io.Writer, bucketName string, policy *apiclient.StoragePoli
 }
 
 // StorageObjects renders one cursor page of objects.
-func StorageObjects(w io.Writer, bucketName string, page *apiclient.StorageListResponse) {
+func StorageObjects(w io.Writer, bucketName string, page *apiclient.StorageListResponse, commandPrefix ...string) {
 	objects := storageObjects(page)
 	if len(objects) == 0 {
 		fmt.Fprintf(w, "No objects in bucket '%s'\n", bucketName)
@@ -105,7 +105,7 @@ func StorageObjects(w io.Writer, bucketName string, page *apiclient.StorageListR
 	}
 	fmt.Fprintf(w, "\nTotal: %d object(s) on this page\n", len(objects))
 	if nextCursor := storageNextCursor(page); nextCursor != "" {
-		fmt.Fprintf(w, "Next page: volcano storage object list %s --cursor %s\n", bucketName, nextCursor)
+		fmt.Fprintf(w, "Next page: %s storage object list %s --cursor %s\n", commandPathPrefix(commandPrefix), bucketName, nextCursor)
 	}
 }
 

@@ -137,6 +137,39 @@ func TestCloudFunctionCommandUsesCloudAPI(t *testing.T) {
 	assert.Equal(t, 1, hits)
 }
 
+func TestCloudFunctionHelpUsesCloudPaths(t *testing.T) {
+	out, err := executeRootCommand(t, "cloud", "functions", "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano cloud functions deploy --all")
+	assert.NotContains(t, out, "volcano functions deploy --all")
+}
+
+func TestCloudFunctionPaginationUsesCloudPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "cloud-token")
+	t.Setenv("VOLCANO_PROJECT_ID", "22222222-2222-4222-8222-222222222222")
+	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/projects/22222222-2222-4222-8222-222222222222/functions", r.URL.Path)
+		writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+			"data":     []any{rootFunctionPayload("33333333-3333-4333-8333-333333333333", "hello")},
+			"has_more": true,
+			"page":     1,
+			"limit":    100,
+			"total":    2,
+		})
+	}))
+	defer server.Close()
+	t.Setenv("VOLCANO_API_URL", server.URL)
+
+	out, err := executeRootCommandWithDeps(t, cliruntime.Deps{HTTPClient: server.Client()}, "cloud", "functions", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Next page: volcano cloud functions list --page 2 --limit 100")
+	assert.NotContains(t, out, "Next page: volcano functions list")
+}
+
 func TestDeprecatedLocalAliasIsHiddenAndStillWorks(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -235,5 +268,21 @@ func rootFunctionRuntimePayload(name string) map[string]any {
 			"handler":              "handler",
 			"dependency_manifests": []string{"package.json"},
 		},
+	}
+}
+
+func rootFunctionPayload(id, name string) map[string]any {
+	return map[string]any{
+		"created_at":       "2026-05-20T00:00:00Z",
+		"deployed_regions": []string{"aws-us-east-1"},
+		"handler":          "handler",
+		"id":               id,
+		"invoke_url":       "https://" + id + ".functions.volcano.dev/",
+		"is_public":        true,
+		"name":             name,
+		"project_id":       "22222222-2222-4222-8222-222222222222",
+		"runtime":          "nodejs24.x",
+		"status":           "active",
+		"updated_at":       "2026-05-20T00:00:00Z",
 	}
 }

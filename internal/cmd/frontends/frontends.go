@@ -8,6 +8,9 @@ import (
 
 // New returns the frontends command.
 func New(deps cliruntime.Deps) *cobra.Command {
+	if deps.CommandPathPrefix == "" {
+		deps.CommandPathPrefix = "volcano cloud"
+	}
 	cmd := &cobra.Command{
 		Use:   "frontends",
 		Short: "Manage frontends",

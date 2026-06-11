@@ -11,7 +11,7 @@ import (
 )
 
 // Functions renders one function list page.
-func Functions(w io.Writer, page *apiclient.PaginatedFunctions) {
+func Functions(w io.Writer, page *apiclient.PaginatedFunctions, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedFunctions{}
 	}
@@ -43,7 +43,7 @@ func Functions(w io.Writer, page *apiclient.PaginatedFunctions) {
 	}
 	printFunctionPageSummary(w, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: volcano functions list --page %d --limit %d\n", page.Page+1, page.Limit)
+		fmt.Fprintf(w, "\nNext page: %s functions list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
 	}
 }
 

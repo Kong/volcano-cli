@@ -16,6 +16,7 @@ import (
 
 // New returns the cloud command tree.
 func New(deps cliruntime.Deps) *cobra.Command {
+	deps.CommandPathPrefix = "volcano cloud"
 	cmd := &cobra.Command{
 		Use:   "cloud",
 		Short: "Manage cloud resources",
@@ -31,6 +32,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 
 // NewResourceCommands returns cloud resource commands.
 func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
+	deps.CommandPathPrefix = "volcano cloud"
 	return []*cobra.Command{
 		configcmd.New(deps),
 		databasescmd.New(deps),
@@ -43,6 +45,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 
 // NewDeprecatedFrontendAlias returns the legacy direct frontend cloud command.
 func NewDeprecatedFrontendAlias(deps cliruntime.Deps) *cobra.Command {
+	deps.CommandPathPrefix = "volcano cloud"
 	cmd := frontendscmd.New(deps)
 	return cmdutil.HideDeprecatedAlias(cmd, `warning: "volcano frontends ..." is deprecated; use "volcano cloud frontends ..."`)
 }

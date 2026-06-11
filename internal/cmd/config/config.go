@@ -61,8 +61,10 @@ Reconciliation semantics:
 If --file is omitted, the CLI looks for (in order):
   1. volcano/volcano-config.yaml (recommended)
   2. ./volcano-config.yaml (project root)`,
-		Example: `  volcano config deploy
-  volcano config deploy -f volcano-config.yaml`,
+		Example: fmt.Sprintf(`  %s
+  %s`,
+			cliruntime.CommandPath(deps, "config deploy"),
+			cliruntime.CommandPath(deps, "config deploy -f volcano-config.yaml")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{

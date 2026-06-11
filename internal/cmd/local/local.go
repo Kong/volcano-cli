@@ -66,6 +66,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 }
 
 func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
+	deps.CommandPathPrefix = "volcano"
 	deps.ConfigLoader = func() (*cliconfig.Config, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), localInfoTimeout)
 		defer cancel()

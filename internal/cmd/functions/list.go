@@ -47,6 +47,6 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
-	output.Functions(opts.out, functions)
+	output.Functions(opts.out, functions, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }

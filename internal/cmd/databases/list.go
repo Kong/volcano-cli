@@ -49,6 +49,6 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
-	output.Databases(opts.out, databases, opts.showConnectionString)
+	output.Databases(opts.out, databases, opts.showConnectionString, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }

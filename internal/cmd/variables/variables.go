@@ -63,9 +63,9 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy variables from volcano.env",
-		Long: `Sync environment variables from volcano.env to your project.
+		Long: fmt.Sprintf(`Sync environment variables from volcano.env to your project.
 Changed variables are saved immediately and then propagated asynchronously to
-affected functions and frontends. Use "volcano variables list" to see the latest
+affected functions and frontends. Use "%s" to see the latest
 propagation status.
 
 By default, looks for volcano.env in these locations (in order):
@@ -74,7 +74,7 @@ By default, looks for volcano.env in these locations (in order):
 
 Use --file to specify a custom path.
 
-Creates new variables and updates existing ones.`,
+Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, "variables list")),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{
 				deps: deps,
@@ -143,7 +143,7 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
-	output.Variables(opts.out, variables)
+	output.Variables(opts.out, variables, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }
 

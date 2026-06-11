@@ -62,6 +62,6 @@ func runList(ctx context.Context, opts listOptions) error {
 	if err != nil {
 		return err
 	}
-	output.StorageObjects(opts.out, opts.bucket, page)
+	output.StorageObjects(opts.out, opts.bucket, page, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }
