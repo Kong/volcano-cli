@@ -25,7 +25,7 @@ func newWithOptions(deps cliruntime.Deps, opts commandOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "functions",
 		Short: "Manage functions",
-		Long:  "List, inspect, update, delete, and view logs for cloud functions.",
+		Long:  "List, inspect, update, delete, and view logs for project functions.",
 	}
 	cmd.AddCommand(newDeploy(deps, opts.batchDeployAll))
 	cmd.AddCommand(newList(deps))

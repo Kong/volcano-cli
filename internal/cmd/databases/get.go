@@ -23,7 +23,7 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 	var showConnectionString bool
 	cmd := &cobra.Command{
 		Use:   "get <name>",
-		Short: "Get a cloud database",
+		Short: "Get a database",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), getOptions{

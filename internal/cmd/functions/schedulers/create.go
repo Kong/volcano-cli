@@ -32,7 +32,7 @@ func newCreate(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <function>",
 		Short: "Create a function scheduler",
-		Long: `Create a scheduled invocation for a deployed cloud function.
+		Long: `Create a scheduled invocation for a deployed function.
 
 The --cron flag accepts standard 5-field cron expressions such as "*/5 * * * *".
 If --regions is omitted, Volcano chooses one deployed region and keeps using it

@@ -26,7 +26,7 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	var showConnectionString bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List cloud databases",
+		Short: "List databases",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), listOptions{
 				deps:                 deps,

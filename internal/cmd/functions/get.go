@@ -21,7 +21,7 @@ type getOptions struct {
 func newGet(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <name-or-id>",
-		Short: "Get a cloud function",
+		Short: "Get a function",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), getOptions{

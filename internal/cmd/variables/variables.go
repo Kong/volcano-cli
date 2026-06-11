@@ -49,7 +49,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "variables",
 		Short: "Manage environment variables",
-		Long:  "Deploy and list environment variables for the current cloud project.",
+		Long:  "Deploy and list environment variables for the current project.",
 	}
 	cmd.AddCommand(newDeploy(deps))
 	cmd.AddCommand(newList(deps))
@@ -177,7 +177,7 @@ func newDelete(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a variable",
-		Long: `Delete an environment variable from the current cloud project.
+		Long: `Delete an environment variable from the current project.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,

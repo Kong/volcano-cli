@@ -1,5 +1,4 @@
-// Package config wires the `volcano config` command tree, which deploys
-// declarative cloud project configuration from a volcano-config.yaml manifest.
+// Package config wires the config command tree for project configuration.
 package config
 
 import (
@@ -25,8 +24,8 @@ type deployOptions struct {
 func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Manage declarative cloud project configuration",
-		Long: `Deploy declarative cloud project configuration from YAML manifests.
+		Short: "Manage declarative project configuration",
+		Long: `Deploy declarative project configuration from YAML manifests.
 
 This command group is designed for expanding configuration management over time.
 Currently it supports:
@@ -42,8 +41,8 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy cloud project configuration from YAML",
-		Long: `Deploy cloud project configuration from a declarative YAML file.
+		Short: "Deploy project configuration from YAML",
+		Long: `Deploy project configuration from a declarative YAML file.
 
 Currently supported resources:
   - Storage buckets

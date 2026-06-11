@@ -27,8 +27,8 @@ func newDelete(deps cliruntime.Deps) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "delete <name-or-id>",
-		Short: "Delete a cloud function",
-		Long: `Delete a function from the current cloud project.
+		Short: "Delete a function",
+		Long: `Delete a function from the current project.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,
