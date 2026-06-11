@@ -7,6 +7,6 @@ func TestAPIE2ESmokeMigrations(t *testing.T) {
 	writeAPIE2EBaseProject(t, env.projectDir)
 
 	env.loginAndUse(t)
-	migrationResult := env.runCLI(t, "databases", "migration", "up", "--all", "-d", "missing_database")
+	migrationResult := env.runCloudCLI(t, "databases", "migration", "up", "--all", "-d", "missing_database")
 	migrationResult.requireFailure(t, "missing_database")
 }
