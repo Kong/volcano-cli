@@ -18,9 +18,8 @@ const (
 	fileMode fs.FileMode = 0o644
 	dirMode  fs.FileMode = 0o755
 
-	baseStarter    = "base"
-	defaultStarter = "javascript"
-	startersRoot   = "starters"
+	baseStarter  = "base"
+	startersRoot = "starters"
 
 	nestedEnvPath    = "volcano/volcano.env"
 	rootEnvPath      = "volcano.env"
@@ -143,7 +142,7 @@ func buildPlan(rootDir, starterName string, force bool) (*plan, error) {
 	starterNames := []string{baseStarter}
 	starterName = strings.TrimSpace(starterName)
 	if starterName == "" {
-		starterName = defaultStarter
+		starterName = baseStarter
 	}
 	if !validStarterName(starterName) {
 		return nil, fmt.Errorf("invalid starter name %q", starterName)

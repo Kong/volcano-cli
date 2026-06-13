@@ -17,13 +17,10 @@ func TestRunCreatesScaffold(t *testing.T) {
 
 	for _, path := range []string{
 		"volcano",
-		filepath.Join("volcano", "functions"),
 		filepath.Join("volcano", "migrations"),
 		filepath.Join("volcano", ".gitignore"),
 		filepath.Join("volcano", "volcano.env"),
 		filepath.Join("volcano", "volcano.env.example"),
-		filepath.Join("volcano", "volcano-config.yaml"),
-		filepath.Join("volcano", "functions", "hello.js"),
 		filepath.Join("volcano", "migrations", "README.md"),
 		filepath.Join("volcano", "README.md"),
 	} {
@@ -34,15 +31,8 @@ func TestRunCreatesScaffold(t *testing.T) {
 	assert.Empty(t, result.Unchanged())
 	assert.Empty(t, result.Overwritten())
 	assert.NoFileExists(t, filepath.Join(dir, "volcano.env"))
-
-	config := readProjectFile(t, dir, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.Contains(t, config, "version: 1")
-	assert.Contains(t, config, "name: hello")
-	assert.Contains(t, config, "public: true")
-
-	fn := readProjectFile(t, dir, filepath.Join("volcano", "functions", "hello.js"))
-	assert.Contains(t, fn, "exports.handler")
-	assert.Contains(t, fn, "process.env.GREETING")
+	assert.NoFileExists(t, filepath.Join(dir, "volcano", "functions", "hello.js"))
+	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano-config.yaml"))
 
 	ignore := readProjectFile(t, dir, filepath.Join("volcano", ".gitignore"))
 	assert.Contains(t, ignore, "volcano.env")
@@ -142,7 +132,7 @@ func TestRunIsIdempotentForExactScaffold(t *testing.T) {
 	assert.Empty(t, result.Created())
 	assert.Empty(t, result.Overwritten())
 	assert.Contains(t, result.Unchanged(), filepath.Join("volcano", "volcano.env"))
-	assert.Contains(t, result.Unchanged(), filepath.Join("volcano", "functions", "hello.js"))
+	assert.Contains(t, result.Unchanged(), filepath.Join("volcano", "README.md"))
 }
 
 func TestRunTemplateRerunDoesNotDuplicateUnchangedDirs(t *testing.T) {
@@ -159,33 +149,32 @@ func TestRunTemplateRerunDoesNotDuplicateUnchangedDirs(t *testing.T) {
 
 func TestRunConflictsDoNotWritePartialScaffold(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano", "functions"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano", "functions", "hello.js"), []byte("custom\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano", "README.md"), []byte("custom\n"), 0o644))
 
 	result, err := run(dir, "", false)
 	require.Nil(t, result)
 	var conflictErr *conflictError
 	require.ErrorAs(t, err, &conflictErr)
 	require.Len(t, conflictErr.conflicts, 1)
-	assert.Equal(t, filepath.Join("volcano", "functions", "hello.js"), conflictErr.conflicts[0].Path)
+	assert.Equal(t, filepath.Join("volcano", "README.md"), conflictErr.conflicts[0].Path)
 	assert.Contains(t, conflictErr.conflicts[0].Reason, "different content")
 
-	assert.NoFileExists(t, filepath.Join(dir, "volcano", "README.md"))
 	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano.env"))
-	assert.Equal(t, "custom\n", readProjectFile(t, dir, filepath.Join("volcano", "functions", "hello.js")))
+	assert.Equal(t, "custom\n", readProjectFile(t, dir, filepath.Join("volcano", "README.md")))
 }
 
 func TestRunForceOverwritesChangedManagedFile(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano", "functions"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano", "functions", "hello.js"), []byte("custom\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano", "README.md"), []byte("custom\n"), 0o644))
 
 	result, err := run(dir, "", true)
 	require.NoError(t, err)
 
-	assert.Contains(t, result.Overwritten(), filepath.Join("volcano", "functions", "hello.js"))
-	assert.NotContains(t, readProjectFile(t, dir, filepath.Join("volcano", "functions", "hello.js")), "custom")
-	assert.Contains(t, readProjectFile(t, dir, filepath.Join("volcano", "functions", "hello.js")), "process.env.GREETING")
+	assert.Contains(t, result.Overwritten(), filepath.Join("volcano", "README.md"))
+	assert.NotContains(t, readProjectFile(t, dir, filepath.Join("volcano", "README.md")), "custom")
+	assert.Contains(t, readProjectFile(t, dir, filepath.Join("volcano", "README.md")), "Volcano")
 }
 
 func TestRunRejectsFileWhereDirectoryIsNeeded(t *testing.T) {
@@ -201,19 +190,15 @@ func TestRunRejectsFileWhereDirectoryIsNeeded(t *testing.T) {
 	assert.Contains(t, conflictErr.conflicts[0].Reason, "not a directory")
 }
 
-func TestRunRespectsLegacyRootEnvAndConfig(t *testing.T) {
+func TestRunRespectsLegacyRootEnv(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano.env"), []byte("ROOT_ENV=true\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte("version: 1\nfunctions:\n  - name: custom\n    public: false\n"), 0o644))
 
 	result, err := run(dir, "", false)
 	require.NoError(t, err)
 
 	assert.Contains(t, result.Unchanged(), "volcano.env")
-	assert.Contains(t, result.Unchanged(), "volcano-config.yaml")
 	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano.env"))
-	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano-config.yaml"))
-	assertPathExists(t, filepath.Join(dir, "volcano", "functions", "hello.js"))
 	assertPathExists(t, filepath.Join(dir, "volcano", "volcano.env.example"))
 }
 
@@ -230,7 +215,7 @@ func TestRunRejectsAmbiguousRootAndNestedEnv(t *testing.T) {
 	assert.NotErrorAs(t, err, &conflictErr)
 	assert.Contains(t, err.Error(), "found multiple volcano.env files: volcano/volcano.env, volcano.env")
 	assert.Contains(t, err.Error(), "please keep only one volcano.env file")
-	assert.NoFileExists(t, filepath.Join(dir, "volcano", "functions", "hello.js"))
+	assert.NoFileExists(t, filepath.Join(dir, "volcano", "README.md"))
 }
 
 func readProjectFile(t *testing.T, root, path string) string {
