@@ -7,12 +7,14 @@ with managed-file conflict handling.
 ## Resolution Model
 
 Every init run applies the `base` starter first. If no template is provided,
-`projectinit` then applies the default starter, currently `javascript`.
+only the `base` starter is applied (environment files, migrations directory,
+and README — no language-specific files).
 
 When a template is provided, the CLI resolves it to a starter directory name and
 passes that concrete name to `projectinit`:
 
 ```text
+volcano init                         -> base only
 volcano init nextjs                  -> base + nextjs
 volcano init js                      -> base + javascript
 volcano init python                  -> base + python
