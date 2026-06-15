@@ -27,7 +27,7 @@ From the CLI checkout, create an empty sibling project directory and run it:
 VOLCANO_CLI="$(pwd)/volcano"
 mkdir ../volcano-quickstart
 cd ../volcano-quickstart
-"$VOLCANO_CLI" init
+"$VOLCANO_CLI" init javascript
 "$VOLCANO_CLI" start
 "$VOLCANO_CLI" variables deploy
 "$VOLCANO_CLI" functions deploy --all
@@ -35,8 +35,10 @@ cd ../volcano-quickstart
 "$VOLCANO_CLI" migrations deploy --all -d app
 ```
 
-`volcano init` also supports starter templates such as `nextjs`, `js`,
-`python`, and `ruby`.
+`volcano init` without a template creates a base scaffold (environment
+files, migrations directory, and README). Use a template to add
+language-specific files: `javascript` (aliases: `js`, `node`, `nodejs`),
+`nextjs`, `python`, or `ruby`.
 
 ## Contributing
 

@@ -19,7 +19,7 @@ func TestHelpOutput(t *testing.T) {
 	assert.Contains(t, out, "--example")
 	assert.Contains(t, out, "volcano init nextjs")
 	assert.Contains(t, out, "volcano init nextjs --example notes")
-	assert.Contains(t, out, "volcano init js --example hello-world")
+	assert.Contains(t, out, "volcano init javascript --example hello-world")
 }
 
 func TestRejectsUnknownTemplate(t *testing.T) {
@@ -42,12 +42,13 @@ func TestCreatesScaffoldAndPrintsCreatedFiles(t *testing.T) {
 
 	assert.Contains(t, out, "Volcano project initialized.")
 	assert.Contains(t, out, "Created:")
-	assert.Contains(t, out, "volcano/functions/hello.js")
-	assert.Contains(t, out, "volcano config deploy")
+	assert.Contains(t, out, "volcano/README.md")
 	assert.Contains(t, out, "volcano functions deploy --all")
-	assert.Contains(t, out, "volcano cloud config deploy")
-	assert.Contains(t, out, "volcano cloud functions deploy --all")
-	assert.FileExists(t, filepath.Join("volcano", "functions", "hello.js"))
+	assert.NotContains(t, out, "volcano config deploy")
+	assert.NotContains(t, out, "volcano cloud config deploy")
+	assert.FileExists(t, filepath.Join("volcano", "README.md"))
+	assert.NoFileExists(t, filepath.Join("volcano", "functions", "hello.js"))
+	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
 }
 
 func TestCreatesNextJSStarter(t *testing.T) {
@@ -157,23 +158,23 @@ func TestRerunPrintsUnchangedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Unchanged:")
-	assert.Contains(t, out, "volcano/functions/hello.js")
+	assert.Contains(t, out, "volcano/README.md")
 	assert.NotContains(t, out, "Created:")
 }
 
 func TestConflictPrintsConflictingFilesWithoutPartialWrites(t *testing.T) {
 	t.Chdir(t.TempDir())
-	require.NoError(t, os.MkdirAll(filepath.Join("volcano", "functions"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join("volcano", "functions", "hello.js"), []byte("custom\n"), 0o644))
+	require.NoError(t, os.MkdirAll("volcano", 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "README.md"), []byte("custom\n"), 0o644))
 
 	out, err := executeInitCommand(t)
 	require.Error(t, err)
 
 	assert.Contains(t, out, "Conflicts:")
-	assert.Contains(t, out, "volcano/functions/hello.js")
+	assert.Contains(t, out, "volcano/README.md")
 	assert.Contains(t, out, "has different content")
 	assert.Contains(t, out, "Re-run with --force")
-	assert.NoFileExists(t, filepath.Join("volcano", "README.md"))
+	assert.NoFileExists(t, filepath.Join("volcano", "volcano.env"))
 }
 
 func TestPathTypeConflictDoesNotSuggestForce(t *testing.T) {
@@ -190,7 +191,7 @@ func TestPathTypeConflictDoesNotSuggestForce(t *testing.T) {
 
 func TestForceOverwritesChangedManagedFile(t *testing.T) {
 	t.Chdir(t.TempDir())
-	path := filepath.Join("volcano", "functions", "hello.js")
+	path := filepath.Join("volcano", "README.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	require.NoError(t, os.WriteFile(path, []byte("custom\n"), 0o644))
 
@@ -198,10 +199,10 @@ func TestForceOverwritesChangedManagedFile(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Overwritten:")
-	assert.Contains(t, out, "volcano/functions/hello.js")
+	assert.Contains(t, out, "volcano/README.md")
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Contains(t, string(body), "process.env.GREETING")
+	assert.Contains(t, string(body), "Volcano")
 	assert.NotContains(t, string(body), "custom")
 }
 

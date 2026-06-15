@@ -52,7 +52,8 @@ func TestInitCommandPath(t *testing.T) {
 	out, err := executeRootCommand(t, "init")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Volcano project initialized.")
-	assert.FileExists(t, filepath.Join("volcano", "functions", "hello.js"))
+	assert.FileExists(t, filepath.Join("volcano", "README.md"))
+	assert.NoFileExists(t, filepath.Join("volcano", "functions", "hello.js"))
 }
 
 func TestDatabasesHelpIncludesMigration(t *testing.T) {

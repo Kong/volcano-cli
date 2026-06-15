@@ -29,25 +29,32 @@ func New() *cobra.Command {
 		Short: "Create local Volcano project scaffold",
 		Long: `Create Volcano project scaffold files in the current directory.
 
-The scaffold adds a volcano/ directory with local variables, declarative
-configuration, migrations, and deployable starter files. Existing generated
-files are left unchanged when their contents still match the selected template.
+The base scaffold creates a volcano/ directory with environment files,
+a migrations directory, and a README. The selected template adds
+language-specific function files (and a volcano-config.yaml for JavaScript).
+Existing files are left unchanged when their contents still match the
+selected template.
 
 Templates:
-  volcano init                 Create base JavaScript hello-world scaffold
-  volcano init nextjs          Create base scaffold plus a minimal Next.js app
-  volcano init javascript      Create base JavaScript hello-world scaffold
-  volcano init js              Alias for javascript
-  volcano init python          Create base scaffold plus Python function setup
-  volcano init ruby            Create base scaffold plus Ruby function setup
+  volcano init                 Create base scaffold only (no language template)
+  volcano init nextjs          Base scaffold plus a minimal Next.js app
+                               (aliases: next, next.js, next-js)
+  volcano init javascript      Base scaffold plus JavaScript function and config
+                               (aliases: js, node, nodejs)
+  volcano init python          Base scaffold plus Python function setup
+                               (aliases: py)
+  volcano init ruby            Base scaffold plus Ruby function setup
+                               (aliases: rb)
 
-Add --example to create an example project for the selected template, for example:
-  volcano init nextjs --example notes
-  volcano init js --example hello-world
+Add --example to create an example project for the selected template:
+  volcano init nextjs --example notes          Notes app with dashboard and migration
+  volcano init javascript --example hello-world
+  volcano init python --example hello-world
+  volcano init ruby --example hello-world
 
 By default, changed managed files are treated as conflicts so init cannot
-accidentally overwrite local work. Use --force to overwrite managed scaffold
-files with the current templates.`,
+accidentally overwrite local work. Use --force to overwrite changed managed
+scaffold files with the current templates.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			starter := ""
@@ -75,7 +82,7 @@ func run(opts options) error {
 	result, err := projectinit.RunStarter(starter, opts.force)
 	if err != nil {
 		if strings.Contains(err.Error(), "unknown starter") {
-			return fmt.Errorf("unknown template %q (supported: nextjs, javascript, js, python, ruby)", opts.starter)
+			return fmt.Errorf("unknown template %q (supported: nextjs, javascript, python, ruby)", opts.starter)
 		}
 		if conflicts, ok := projectinit.ConflictMessages(err); ok {
 			printConflicts(opts.out, conflicts, projectinit.ConflictsCanBeForced(err))
@@ -92,7 +99,7 @@ func resolveStarter(raw, example string) (string, error) {
 	example = normalizeStarterName(example)
 	if value == "" {
 		if example != "" {
-			return "", errors.New("--example requires a template (supported: nextjs, javascript, js, python, ruby)")
+			return "", errors.New("--example requires a template (supported: nextjs, javascript, python, ruby)")
 		}
 		return "", nil
 	}
