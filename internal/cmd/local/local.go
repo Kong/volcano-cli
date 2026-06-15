@@ -76,10 +76,16 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 			return nil, err
 		}
 
+		persisted, err := cliconfig.Load()
+		if err != nil {
+			return nil, err
+		}
+
 		return &cliconfig.Config{
-			APIBaseURL: info.APIURL,
-			UserToken:  info.UserToken,
-			UserID:     info.UserID,
+			APIBaseURL:      info.APIURL,
+			UserToken:       info.UserToken,
+			UserID:          info.UserID,
+			FunctionAliases: persisted.FunctionAliases,
 			CurrentProject: &cliconfig.ProjectConfig{
 				ID:   info.ProjectID,
 				Name: info.ProjectName,

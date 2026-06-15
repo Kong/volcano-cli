@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -19,6 +21,12 @@ import (
 // Service performs authenticated Volcano function workflows.
 type Service struct {
 	sessions clisession.Factory
+}
+
+// Alias describes one configured function invoke alias.
+type Alias struct {
+	Name       string
+	FunctionID string
 }
 
 // NewService returns a function service.
@@ -184,6 +192,113 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPubl
 	return updated, nil
 }
 
+// Invoke invokes one function by alias, normalized name/path, or UUID.
+func (s Service) Invoke(ctx context.Context, identifier string, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	functionID, err := resolveInvokeFunctionID(ctx, authenticated, identifier)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, fmt.Errorf("function %q not found", identifier)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
+	}
+
+	resp, err := authenticated.API.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke function %q: %w", identifier, err)
+	}
+	return resp, nil
+}
+
+// InvokeByID invokes one function by ID without list-based name resolution.
+func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := authenticated.API.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke function %q: %w", functionID.String(), err)
+	}
+	return resp, nil
+}
+
+// ListAliases returns configured function invoke aliases for the current target.
+func (s Service) ListAliases(ctx context.Context) ([]Alias, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	scope := functionAliasScope(authenticated)
+	configured := authenticated.Config.FunctionAliases[scope]
+	aliases := make([]Alias, 0, len(configured))
+	for name, functionID := range configured {
+		aliases = append(aliases, Alias{Name: name, FunctionID: functionID})
+	}
+	sort.Slice(aliases, func(i, j int) bool {
+		return aliases[i].Name < aliases[j].Name
+	})
+	return aliases, nil
+}
+
+// SetAlias configures one function invoke alias for the current target.
+func (s Service) SetAlias(ctx context.Context, alias, functionIDText string) (Alias, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return Alias{}, err
+	}
+
+	alias = normalizeTargetFunction(alias)
+	if alias == "" {
+		return Alias{}, errors.New("function alias cannot be empty")
+	}
+	functionID, err := uuid.Parse(strings.TrimSpace(functionIDText))
+	if err != nil {
+		return Alias{}, fmt.Errorf("invalid function ID %q: %w", functionIDText, err)
+	}
+
+	cfg, err := cliconfig.Load()
+	if err != nil {
+		return Alias{}, err
+	}
+	cfg.SetFunctionAlias(functionAliasScope(authenticated), alias, functionID.String())
+	if err := cfg.Save(); err != nil {
+		return Alias{}, err
+	}
+	return Alias{Name: alias, FunctionID: functionID.String()}, nil
+}
+
+// DeleteAlias removes one function invoke alias for the current target.
+func (s Service) DeleteAlias(ctx context.Context, alias string) error {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return err
+	}
+
+	alias = normalizeTargetFunction(alias)
+	if alias == "" {
+		return errors.New("function alias cannot be empty")
+	}
+
+	cfg, err := cliconfig.Load()
+	if err != nil {
+		return err
+	}
+	if !cfg.DeleteFunctionAlias(functionAliasScope(authenticated), alias) {
+		return fmt.Errorf("function alias %q not found", alias)
+	}
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ListSchedulers returns schedulers configured for a function.
 func (s Service) ListSchedulers(ctx context.Context, identifier string) (*apiclient.Function, *apiclient.FunctionSchedulerListResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
@@ -336,6 +451,31 @@ func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uu
 		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
 	}
 	return logs, nil
+}
+
+func resolveInvokeFunctionID(ctx context.Context, authenticated *clisession.ProjectSession, identifier string) (uuid.UUID, error) {
+	target := normalizeTargetFunction(identifier)
+	if target == "" {
+		return uuid.Nil, errors.New("function identifier cannot be empty")
+	}
+
+	if functionIDText, ok := authenticated.Config.FunctionAlias(functionAliasScope(authenticated), target); ok {
+		functionID, err := uuid.Parse(functionIDText)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("function alias %q has invalid function ID %q: %w", target, functionIDText, err)
+		}
+		return functionID, nil
+	}
+
+	function, err := resolveFunction(ctx, authenticated, identifier)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return function.Id, nil
+}
+
+func functionAliasScope(authenticated *clisession.ProjectSession) string {
+	return cliconfig.FunctionAliasScope(authenticated.APIURL, authenticated.ProjectID.String())
 }
 
 func resolveFunction(ctx context.Context, authenticated *clisession.ProjectSession, identifier string) (*apiclient.Function, error) {

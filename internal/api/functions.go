@@ -31,6 +31,11 @@ type FunctionSchedulerInput struct {
 	Enabled        *bool
 }
 
+// FunctionInvokeInput contains one function invocation request.
+type FunctionInvokeInput struct {
+	Payload map[string]any
+}
+
 // ListFunctions lists one function page for a project.
 func (c *Client) ListFunctions(ctx context.Context, projectID uuid.UUID, page, limit int) (*apiclient.PaginatedFunctions, error) {
 	resp, err := c.client.ListFunctionsWithResponse(ctx, projectID, &apiclient.ListFunctionsParams{
@@ -105,6 +110,24 @@ func (c *Client) UpdateFunctionVisibility(ctx context.Context, projectID, functi
 		return nil, err
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON404)
+}
+
+// InvokeFunction invokes one function by ID.
+func (c *Client) InvokeFunction(ctx context.Context, functionID uuid.UUID, input FunctionInvokeInput) (*apiclient.FunctionInvocationResponse, error) {
+	body := apiclient.InvokeFunctionJSONRequestBody{}
+	if input.Payload != nil {
+		payload := input.Payload
+		body.Payload = &payload
+	}
+
+	resp, err := c.client.InvokeFunctionWithResponse(ctx, functionID, body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSONDefault != nil && resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
+		return resp.JSONDefault, nil
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429, resp.JSON503)
 }
 
 // ListFunctionRuntimes returns the function runtime catalog.

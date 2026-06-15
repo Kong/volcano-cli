@@ -30,6 +30,7 @@ type ProjectSession struct {
 	Config            *config.Config
 	API               *api.Client
 	ProjectID         uuid.UUID
+	APIURL            string
 	apiClientForToken func(string) (*api.Client, error)
 }
 
@@ -119,6 +120,7 @@ func (f Factory) CurrentProject() (*ProjectSession, error) {
 		Config:    authenticated.Config,
 		API:       authenticated.API,
 		ProjectID: projectID,
+		APIURL:    authenticated.apiURL,
 		apiClientForToken: func(token string) (*api.Client, error) {
 			return f.APIClient(authenticated.apiURL, token)
 		},

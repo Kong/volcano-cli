@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -115,6 +116,39 @@ func TestDirectFunctionCommandUsesLocalMetadata(t *testing.T) {
 	assert.Equal(t, 0, cloudHits)
 }
 
+func TestDirectFunctionInvokeUsesLocalAliasConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "cloud-token")
+	t.Setenv("VOLCANO_PROJECT_ID", "99999999-9999-4999-8999-999999999999")
+	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
+
+	aliasFunctionID := "44444444-4444-4444-8444-444444444444"
+	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/functions/"+aliasFunctionID+"/invoke", r.URL.Path)
+		writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"local": true})
+	}))
+	defer localServer.Close()
+
+	cfg := cliconfig.Default()
+	cfg.SetFunctionAlias(cliconfig.FunctionAliasScope(localServer.URL, "22222222-2222-4222-8222-222222222222"), "hello", aliasFunctionID)
+	require.NoError(t, cfg.Save())
+
+	deps := cliruntime.Deps{
+		HTTPClient: localServer.Client(),
+		LocalCommandRunner: localmode.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, "docker", name)
+			assert.Equal(t, []string{"exec", "volcano-server", "/app/volcano-hosting", "local", "info", "--format", "json"}, args)
+			return []byte(rootLocalInfoJSON(localServer.URL)), nil
+		}),
+	}
+
+	out, err := executeRootCommandWithDeps(t, deps, "functions", "invoke", "hello", "--json")
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"local":true}`, out)
+}
+
 func TestCloudFunctionCommandUsesCloudAPI(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -143,6 +177,13 @@ func TestCloudFunctionHelpUsesCloudPaths(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "volcano cloud functions deploy --all")
 	assert.NotContains(t, out, "volcano functions deploy --all")
+}
+
+func TestCloudFunctionInvokeHelpUsesCloudPaths(t *testing.T) {
+	out, err := executeRootCommand(t, "cloud", "functions", "invoke", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano cloud functions invoke hello")
+	assert.NotContains(t, out, "volcano functions invoke hello")
 }
 
 func TestCloudFrontendHelpUsesCloudPaths(t *testing.T) {

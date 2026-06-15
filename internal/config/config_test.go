@@ -74,6 +74,38 @@ func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 	assert.Equal(t, "file-token", loaded.UserToken)
 }
 
+func TestFunctionAliasesPersistByScope(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	scope := FunctionAliasScope("http://localhost:8000/", "project-123")
+	otherScope := FunctionAliasScope("https://api.volcano.dev", "project-123")
+	cfg := &Config{}
+	cfg.SetFunctionAlias(scope, "hello", "33333333-3333-4333-8333-333333333333")
+	cfg.SetFunctionAlias(otherScope, "hello", "44444444-4444-4444-8444-444444444444")
+	require.NoError(t, cfg.Save())
+
+	loaded, err := Load()
+	require.NoError(t, err)
+
+	got, ok := loaded.FunctionAlias(scope, "hello")
+	require.True(t, ok)
+	assert.Equal(t, "33333333-3333-4333-8333-333333333333", got)
+	got, ok = loaded.FunctionAlias(otherScope, "hello")
+	require.True(t, ok)
+	assert.Equal(t, "44444444-4444-4444-8444-444444444444", got)
+	assert.Equal(t, "http://localhost:8000|project-123", scope)
+}
+
+func TestDeleteFunctionAliasCleansEmptyScope(t *testing.T) {
+	scope := FunctionAliasScope("https://api.volcano.dev", "project-123")
+	cfg := &Config{}
+	cfg.SetFunctionAlias(scope, "hello", "33333333-3333-4333-8333-333333333333")
+
+	assert.True(t, cfg.DeleteFunctionAlias(scope, "hello"))
+	assert.False(t, cfg.DeleteFunctionAlias(scope, "hello"))
+	assert.Empty(t, cfg.FunctionAliases)
+}
+
 func TestSaveRepairsExistingConfigPermissions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
