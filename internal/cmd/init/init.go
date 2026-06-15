@@ -82,7 +82,7 @@ func run(opts options) error {
 	result, err := projectinit.RunStarter(starter, opts.force)
 	if err != nil {
 		if strings.Contains(err.Error(), "unknown starter") {
-			return fmt.Errorf("unknown template %q (supported: nextjs, javascript, js, python, ruby)", opts.starter)
+			return fmt.Errorf("unknown template %q (supported: nextjs, javascript, python, ruby)", opts.starter)
 		}
 		if conflicts, ok := projectinit.ConflictMessages(err); ok {
 			printConflicts(opts.out, conflicts, projectinit.ConflictsCanBeForced(err))
@@ -99,7 +99,7 @@ func resolveStarter(raw, example string) (string, error) {
 	example = normalizeStarterName(example)
 	if value == "" {
 		if example != "" {
-			return "", errors.New("--example requires a template (supported: nextjs, javascript, js, python, ruby)")
+			return "", errors.New("--example requires a template (supported: nextjs, javascript, python, ruby)")
 		}
 		return "", nil
 	}
