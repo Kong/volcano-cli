@@ -181,7 +181,7 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" dist/release-assets/* \
               --target "$GITHUB_SHA" \
-              --title "volcano-cli ${GITHUB_REF_NAME}" \
+              --title "$GITHUB_REF_NAME" \
               --generate-notes
           fi
 
