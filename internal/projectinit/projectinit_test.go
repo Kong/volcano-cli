@@ -39,6 +39,8 @@ func TestRunCreatesScaffold(t *testing.T) {
 
 	readme := readProjectFile(t, dir, filepath.Join("volcano", "README.md"))
 	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml")
+	assert.Contains(t, readme, "If this project includes volcano/functions:")
+	assert.NotContains(t, readme, "configuration, functions, migrations")
 }
 
 func TestRunRejectsInvalidStarterNames(t *testing.T) {
