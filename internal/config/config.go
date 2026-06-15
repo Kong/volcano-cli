@@ -42,6 +42,7 @@ type Config struct {
 	APIBaseURL     string         `json:"-"`
 	UserToken      string         `json:"user_token,omitempty"`
 	UserID         string         `json:"user_id,omitempty"`
+	AnonKey        string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
@@ -150,6 +151,16 @@ func (c *Config) Token() string {
 		return token
 	}
 	return c.UserToken
+}
+
+// FunctionInvokeToken returns the token used for runtime function invocation.
+// Local mode supplies an anon key for invoke endpoints; cloud falls back to the
+// normal configured token until a project anon key is explicitly available.
+func (c *Config) FunctionInvokeToken() string {
+	if strings.TrimSpace(c.AnonKey) != "" {
+		return c.AnonKey
+	}
+	return c.Token()
 }
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.

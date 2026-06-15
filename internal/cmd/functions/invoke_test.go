@@ -102,6 +102,57 @@ func TestFunctionsInvokeByNameFallsBackToFunctionResolution(t *testing.T) {
 	}, requests)
 }
 
+func TestFunctionsInvokeLocalUsesAnonKeyForInvokeOnly(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "cloud-token")
+	t.Setenv("VOLCANO_PROJECT_ID", "99999999-9999-4999-8999-999999999999")
+	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
+
+	var sawListAuth string
+	var sawInvokeAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			sawListAuth = r.Header.Get("Authorization")
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{functionCommandPayload(functionID, "hello")},
+				"has_more": false,
+				"page":     1,
+				"limit":    100,
+				"total":    1,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
+			sawInvokeAuth = r.Header.Get("Authorization")
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		ConfigLoader: func() (*cliconfig.Config, error) {
+			return &cliconfig.Config{
+				APIBaseURL: server.URL,
+				UserToken:  "local-token",
+				AnonKey:    "local-anon-key",
+				CurrentProject: &cliconfig.ProjectConfig{
+					ID:   functionProjectID,
+					Name: "local-dev",
+				},
+				IgnoreEnv: true,
+			}, nil
+		},
+	}
+
+	out, err := executeFunctionsCommand(t, NewLocal(deps), "invoke", "hello", "--json")
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"ok":true}`, out)
+	assert.Equal(t, "Bearer local-token", sawListAuth)
+	assert.Equal(t, "Bearer local-anon-key", sawInvokeAuth)
+}
+
 func TestFunctionsInvokeRejectsInvalidTargetsAndPayload(t *testing.T) {
 	for _, tc := range []struct {
 		name string

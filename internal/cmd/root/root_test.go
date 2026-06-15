@@ -124,7 +124,7 @@ func TestDirectFunctionInvokeUsesLocalAliasConfig(t *testing.T) {
 
 	aliasFunctionID := "44444444-4444-4444-8444-444444444444"
 	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Equal(t, "Bearer local-anon-key", r.Header.Get("Authorization"))
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/functions/"+aliasFunctionID+"/invoke", r.URL.Path)
 		writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"local": true})
@@ -298,6 +298,7 @@ func rootLocalInfoJSON(apiURL string) string {
 		"project_name": "local-dev",
 		"user_id": "local-user",
 		"user_token": "local-token",
+		"anon_key": "local-anon-key",
 		"service_key": "local-service-key",
 		"default_database_name": "app",
 		"default_database_region": "metadata-region",

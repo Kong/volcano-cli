@@ -207,7 +207,11 @@ func (s Service) Invoke(ctx context.Context, identifier string, payload map[stri
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
 	}
 
-	resp, err := authenticated.API.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
+	invokeAPI, err := authenticated.APIWithToken(authenticated.Config.FunctionInvokeToken())
+	if err != nil {
+		return nil, err
+	}
+	resp, err := invokeAPI.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke function %q: %w", identifier, err)
 	}
@@ -221,7 +225,11 @@ func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload m
 		return nil, err
 	}
 
-	resp, err := authenticated.API.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
+	invokeAPI, err := authenticated.APIWithToken(authenticated.Config.FunctionInvokeToken())
+	if err != nil {
+		return nil, err
+	}
+	resp, err := invokeAPI.InvokeFunction(ctx, functionID, api.FunctionInvokeInput{Payload: payload})
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke function %q: %w", functionID.String(), err)
 	}
