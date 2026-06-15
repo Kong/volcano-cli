@@ -102,7 +102,7 @@ func TestFunctionsInvokeByNameFallsBackToFunctionResolution(t *testing.T) {
 	}, requests)
 }
 
-func TestFunctionsInvokeLocalUsesAnonKeyForInvokeOnly(t *testing.T) {
+func TestFunctionsInvokeLocalUsesServiceKeyForInvokeOnly(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", "cloud-token")
 	t.Setenv("VOLCANO_PROJECT_ID", "99999999-9999-4999-8999-999999999999")
@@ -137,6 +137,7 @@ func TestFunctionsInvokeLocalUsesAnonKeyForInvokeOnly(t *testing.T) {
 				APIBaseURL: server.URL,
 				UserToken:  "local-token",
 				AnonKey:    "local-anon-key",
+				ServiceKey: "local-service-key",
 				CurrentProject: &cliconfig.ProjectConfig{
 					ID:   functionProjectID,
 					Name: "local-dev",
@@ -150,7 +151,7 @@ func TestFunctionsInvokeLocalUsesAnonKeyForInvokeOnly(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"ok":true}`, out)
 	assert.Equal(t, "Bearer local-token", sawListAuth)
-	assert.Equal(t, "Bearer local-anon-key", sawInvokeAuth)
+	assert.Equal(t, "Bearer local-service-key", sawInvokeAuth)
 }
 
 func TestFunctionsInvokeRejectsInvalidTargetsAndPayload(t *testing.T) {

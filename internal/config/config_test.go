@@ -59,6 +59,7 @@ func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 		APIBaseURL: "http://localhost:8000",
 		UserToken:  "file-token",
 		AnonKey:    "local-anon-key",
+		ServiceKey: "local-service-key",
 	}
 	require.NoError(t, cfg.Save())
 
@@ -69,19 +70,25 @@ func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 	assert.NotContains(t, string(data), "api_url")
 	assert.NotContains(t, string(data), "http://localhost:8000")
 	assert.NotContains(t, string(data), "local-anon-key")
+	assert.NotContains(t, string(data), "local-service-key")
 
 	loaded, err := Load()
 	require.NoError(t, err)
 	assert.Empty(t, loaded.APIBaseURL)
 	assert.Empty(t, loaded.AnonKey)
+	assert.Empty(t, loaded.ServiceKey)
 	assert.Equal(t, "file-token", loaded.UserToken)
 }
 
-func TestFunctionInvokeTokenUsesAnonKeyWhenAvailable(t *testing.T) {
+func TestFunctionInvokeTokenPrefersServiceKey(t *testing.T) {
 	cfg := &Config{
-		UserToken: "user-token",
-		AnonKey:   "anon-key",
+		UserToken:  "user-token",
+		AnonKey:    "anon-key",
+		ServiceKey: "service-key",
 	}
+	assert.Equal(t, "service-key", cfg.FunctionInvokeToken())
+
+	cfg.ServiceKey = ""
 	assert.Equal(t, "anon-key", cfg.FunctionInvokeToken())
 
 	cfg.AnonKey = ""

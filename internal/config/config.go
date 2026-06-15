@@ -43,6 +43,7 @@ type Config struct {
 	UserToken      string         `json:"user_token,omitempty"`
 	UserID         string         `json:"user_id,omitempty"`
 	AnonKey        string         `json:"-"`
+	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
@@ -154,9 +155,12 @@ func (c *Config) Token() string {
 }
 
 // FunctionInvokeToken returns the token used for runtime function invocation.
-// Local mode supplies an anon key for invoke endpoints; cloud falls back to the
-// normal configured token until a project anon key is explicitly available.
+// Local mode supplies service and anon keys for invoke endpoints; cloud falls
+// back to the normal configured token until a project invoke key is available.
 func (c *Config) FunctionInvokeToken() string {
+	if strings.TrimSpace(c.ServiceKey) != "" {
+		return c.ServiceKey
+	}
 	if strings.TrimSpace(c.AnonKey) != "" {
 		return c.AnonKey
 	}
