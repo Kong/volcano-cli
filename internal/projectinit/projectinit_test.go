@@ -3,6 +3,7 @@ package projectinit
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,8 +39,14 @@ func TestRunCreatesScaffold(t *testing.T) {
 	assert.Contains(t, ignore, "volcano.env")
 
 	readme := readProjectFile(t, dir, filepath.Join("volcano", "README.md"))
-	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml")
-	assert.Contains(t, readme, "If this project includes volcano/functions:")
+	assert.Contains(t, readme, "If this project includes volcano/functions:\n\n    volcano functions deploy --all")
+	assert.Contains(t, readme, "If this project includes volcano/functions:\n\n    volcano cloud functions deploy --all")
+	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml:\n\n    volcano config deploy")
+	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml:\n\n    volcano cloud config deploy")
+	assert.Equal(t, 1, strings.Count(readme, "volcano functions deploy --all"))
+	assert.Equal(t, 1, strings.Count(readme, "volcano cloud functions deploy --all"))
+	assert.Equal(t, 1, strings.Count(readme, "volcano config deploy"))
+	assert.Equal(t, 1, strings.Count(readme, "volcano cloud config deploy"))
 	assert.NotContains(t, readme, "configuration, functions, migrations")
 }
 
