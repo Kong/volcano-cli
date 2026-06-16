@@ -19,7 +19,9 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-const authAlphaProjectID = "11111111-1111-4111-8111-111111111111"
+const (
+	authAlphaProjectID = "11111111-1111-4111-8111-111111111111"
+)
 
 func TestLoginWithTokenSuccess(t *testing.T) {
 	cfg := testAuthConfig(t)

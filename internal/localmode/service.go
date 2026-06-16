@@ -17,7 +17,7 @@ import (
 const (
 	composeProjectName  = "volcano"
 	redisContainerName  = "volcano-redis"
-	defaultVolcanoImage = "kong/volcano:nightly"
+	defaultVolcanoImage = "kong/volcano:local-nightly"
 	defaultLocalAPIURL  = "http://localhost:8000"
 	postgresAddress     = "localhost:8002"
 
