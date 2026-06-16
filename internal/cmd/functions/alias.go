@@ -38,11 +38,10 @@ func newAlias(deps cliruntime.Deps) *cobra.Command {
 
 func newAliasSet(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
-		Use:   "set <alias> <function-id>",
-		Short: "Set a function invoke alias",
-		Example: fmt.Sprintf(`  %s`,
-			cliruntime.CommandPath(deps, "functions alias set hello 33333333-3333-4333-8333-333333333333")),
-		Args: cobra.ExactArgs(2),
+		Use:     "set <alias> <function-id>",
+		Short:   "Set a function invoke alias",
+		Example: "  " + cliruntime.CommandPath(deps, "functions alias set hello 33333333-3333-4333-8333-333333333333"),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAliasSet(cmd.Context(), aliasOptions{
 				deps:       deps,

@@ -237,7 +237,7 @@ func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload m
 }
 
 // ListAliases returns configured function invoke aliases for the current target.
-func (s Service) ListAliases(ctx context.Context) ([]Alias, error) {
+func (s Service) ListAliases(_ context.Context) ([]Alias, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func (s Service) ListAliases(ctx context.Context) ([]Alias, error) {
 }
 
 // SetAlias configures one function invoke alias for the current target.
-func (s Service) SetAlias(ctx context.Context, alias, functionIDText string) (Alias, error) {
+func (s Service) SetAlias(_ context.Context, alias, functionIDText string) (Alias, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return Alias{}, err
@@ -283,7 +283,7 @@ func (s Service) SetAlias(ctx context.Context, alias, functionIDText string) (Al
 }
 
 // DeleteAlias removes one function invoke alias for the current target.
-func (s Service) DeleteAlias(ctx context.Context, alias string) error {
+func (s Service) DeleteAlias(_ context.Context, alias string) error {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return err
@@ -301,10 +301,7 @@ func (s Service) DeleteAlias(ctx context.Context, alias string) error {
 	if !cfg.DeleteFunctionAlias(functionAliasScope(authenticated), alias) {
 		return fmt.Errorf("function alias %q not found", alias)
 	}
-	if err := cfg.Save(); err != nil {
-		return err
-	}
-	return nil
+	return cfg.Save()
 }
 
 // ListSchedulers returns schedulers configured for a function.
