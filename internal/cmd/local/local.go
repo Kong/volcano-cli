@@ -76,9 +76,9 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 			return nil, err
 		}
 
-		persisted, err := cliconfig.Load()
-		if err != nil {
-			return nil, err
+		var functionAliases map[string]map[string]string
+		if persisted, err := cliconfig.Load(); err == nil {
+			functionAliases = persisted.FunctionAliases
 		}
 
 		return &cliconfig.Config{
@@ -87,7 +87,7 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 			UserID:          info.UserID,
 			AnonKey:         info.AnonKey,
 			ServiceKey:      info.ServiceKey,
-			FunctionAliases: persisted.FunctionAliases,
+			FunctionAliases: functionAliases,
 			CurrentProject: &cliconfig.ProjectConfig{
 				ID:   info.ProjectID,
 				Name: info.ProjectName,

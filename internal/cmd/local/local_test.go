@@ -90,6 +90,44 @@ func TestLocalDatabaseCommandsUseLocalMetadata(t *testing.T) {
 	assert.Equal(t, 1, infoCalls)
 }
 
+func TestLocalCommandIgnoresMalformedPersistedConfig(t *testing.T) {
+	setLocalCommandTestEnv(t)
+
+	configPath := filepath.Join(os.Getenv("HOME"), ".volcano", "config.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(configPath), 0o700))
+	require.NoError(t, os.WriteFile(configPath, []byte("{not-json"), 0o600))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+localProjectID+"/databases":
+			writeLocalCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{localDatabasePayload("33333333-3333-4333-8333-333333333333", "app")},
+				"has_more": false,
+				"page":     1,
+				"limit":    100,
+				"total":    1,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		LocalCommandRunner: localmode.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, "docker", name)
+			assert.Equal(t, []string{"exec", "volcano-server", "/app/volcano-hosting", "local", "info", "--format", "json"}, args)
+			return []byte(localInfoJSON(server.URL)), nil
+		}),
+	}
+
+	out, err := executeLocalCommand(t, New(deps), "databases", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "app")
+}
+
 func TestLocalFunctionRuntimesUseLocalMetadata(t *testing.T) {
 	setLocalCommandTestEnv(t)
 
