@@ -3,7 +3,9 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -80,4 +82,27 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 		return nil, fmt.Errorf("failed to exchange platform token: %w", err)
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403)
+}
+
+// WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
+func WebSignupURL(webURL, email string) (string, error) {
+	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
+	if webURL == "" {
+		return "", errors.New("web url cannot be empty")
+	}
+	parsed, err := url.Parse(webURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse web url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errors.New("web url must use http:// or https:// scheme")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
+	if email = strings.TrimSpace(email); email != "" {
+		query := parsed.Query()
+		query.Set("email", email)
+		query.Set("source", "cli")
+		parsed.RawQuery = query.Encode()
+	}
+	return parsed.String(), nil
 }

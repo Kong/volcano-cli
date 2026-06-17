@@ -50,6 +50,12 @@ func TestStartDeviceAuthorizationNormalizesOAuthError(t *testing.T) {
 	require.ErrorContains(t, err, "HTTP 400: client_id is required")
 }
 
+func TestWebSignupURL(t *testing.T) {
+	signupURL, err := WebSignupURL("http://localhost:3000", " ted@example.com ")
+	require.NoError(t, err)
+	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&source=cli", signupURL)
+}
+
 func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {
 	var sawPath string
 	var sawQuery string

@@ -2,9 +2,13 @@
 package auth
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/mail"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -19,6 +23,12 @@ type loginOptions struct {
 	deps  cliruntime.Deps
 	token string
 	out   io.Writer
+}
+
+type signupOptions struct {
+	deps cliruntime.Deps
+	in   io.Reader
+	out  io.Writer
 }
 
 // NewLogin returns the login command.
@@ -82,6 +92,89 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	output.Success(opts.out, "Logged in successfully")
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
+}
+
+// NewSignup returns the signup command.
+func NewSignup(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "signup",
+		Short: "Create a Volcano account",
+		Long: `Create a Volcano account from the CLI.
+
+The command uses your git user.email as the default email address when available,
+then opens Volcano's web signup flow in your browser.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runSignup(cmd.Context(), signupOptions{
+				deps: deps,
+				in:   cmd.InOrStdin(),
+				out:  cmd.OutOrStdout(),
+			})
+		},
+	}
+}
+
+func runSignup(ctx context.Context, opts signupOptions) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	reader := bufio.NewReader(opts.in)
+	email, err := promptSignupEmail(ctx, opts.deps, reader, opts.out)
+	if err != nil {
+		return err
+	}
+
+	if err := cliauth.NewService(opts.deps).Signup(ctx, cfg, email, opts.out); err != nil {
+		return fmt.Errorf("signup failed: %w", err)
+	}
+
+	fmt.Fprint(opts.out, "\nComplete signup in your browser, then press [ENTER] when done.")
+	_, err = reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
+func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.Reader, out io.Writer) (string, error) {
+	defaultEmail := gitConfigEmail(ctx, deps)
+	if defaultEmail != "" {
+		fmt.Fprintf(out, "Enter your email address (press enter to continue) [%s]: ", defaultEmail)
+	} else {
+		fmt.Fprint(out, "Enter your email address: ")
+	}
+
+	input, err := reader.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	email := strings.TrimSpace(input)
+	if email == "" {
+		email = defaultEmail
+	}
+	if email == "" {
+		return "", errors.New("email address is required")
+	}
+	parsed, err := mail.ParseAddress(email)
+	if err != nil {
+		return "", fmt.Errorf("invalid email address: %w", err)
+	}
+	return parsed.Address, nil
+}
+
+func gitConfigEmail(ctx context.Context, deps cliruntime.Deps) string {
+	runner := deps.GitCommandRunner
+	if runner == nil {
+		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
+		})
+	}
+	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // NewLogout returns the logout command.

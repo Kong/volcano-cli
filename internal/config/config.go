@@ -14,12 +14,14 @@ const (
 	envToken              = "VOLCANO_TOKEN"
 	envProjectID          = "VOLCANO_PROJECT_ID"
 	envAPIURL             = "VOLCANO_API_URL"
+	envWebURL             = "VOLCANO_WEB_URL"
 	envFirstPartyDeviceID = "VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID"
 	defaultConfigDirName  = ".volcano"
 	defaultConfigFileName = "config.json"
 	defaultConfigDirMode  = 0o700
 	defaultConfigFileMode = 0o600
 	defaultCompiledAPIURL = "https://api.volcano.dev"
+	defaultCompiledWebURL = "https://volcano.dev"
 )
 
 var (
@@ -32,6 +34,7 @@ var (
 // These variables are intentionally settable with -ldflags -X.
 var (
 	compiledDefaultAPIURL            = defaultCompiledAPIURL
+	compiledDefaultWebURL            = defaultCompiledWebURL
 	compiledFirstPartyDeviceClientID = ""
 )
 
@@ -188,6 +191,14 @@ func (c *Config) APIURL() string {
 		return c.APIBaseURL
 	}
 	return compiledDefaultAPIURL
+}
+
+// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence.
+func (c *Config) WebURL() string {
+	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); !c.IgnoreEnv && webURL != "" {
+		return webURL
+	}
+	return compiledDefaultWebURL
 }
 
 // FunctionAliasScope returns the config key for aliases bound to one API URL

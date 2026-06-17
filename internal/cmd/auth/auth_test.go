@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +17,10 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-const authProjectID = "11111111-1111-4111-8111-111111111111"
+const (
+	authProjectID     = "11111111-1111-4111-8111-111111111111"
+	authTestSignupURL = "http://localhost:3000/signup?email=ted%40example.com&source=cli"
+)
 
 func TestLoginTokenSuccessSavesConfig(t *testing.T) {
 	setAuthTestHome(t)
@@ -82,9 +86,56 @@ func TestLogoutDeletesConfig(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "config exists after logout: %v", err)
 }
 
+func TestSignupUsesGitEmailDefault(t *testing.T) {
+	setAuthTestHome(t)
+	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
+	var openedURL string
+	deps := cliruntime.Deps{
+		OpenBrowser: func(rawURL string) error {
+			openedURL = rawURL
+			return nil
+		},
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, "git", name)
+			assert.Equal(t, []string{"config", "--global", "user.email"}, args)
+			return []byte("ted@example.com\n"), nil
+		}),
+	}
+	out, err := executeAuthCommandWithInput(t, NewSignup(deps), "\n\n")
+	require.NoError(t, err)
+	assert.Equal(t, authTestSignupURL, openedURL)
+	assert.Contains(t, out, "[ted@example.com]")
+	assert.Contains(t, out, "Opening browser: "+authTestSignupURL)
+	assert.Contains(t, out, "Complete signup in your browser")
+}
+
+func TestSignupAllowsEmailOverride(t *testing.T) {
+	setAuthTestHome(t)
+	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
+	var openedURL string
+	deps := cliruntime.Deps{
+		OpenBrowser: func(rawURL string) error {
+			openedURL = rawURL
+			return nil
+		},
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("ted@example.com\n"), nil
+		}),
+	}
+	_, err := executeAuthCommandWithInput(t, NewSignup(deps), "marco@example.com\n\n")
+	require.NoError(t, err)
+	assert.Contains(t, openedURL, "email=marco%40example.com")
+}
+
 func executeAuthCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
+	return executeAuthCommandWithInput(t, cmd, "", args...)
+}
+
+func executeAuthCommandWithInput(t *testing.T, cmd *cobra.Command, input string, args ...string) (string, error) {
+	t.Helper()
 	var out bytes.Buffer
+	cmd.SetIn(bytes.NewBufferString(input))
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs(args)
@@ -98,6 +149,7 @@ func setAuthTestHome(t *testing.T) {
 	t.Setenv("VOLCANO_TOKEN", "")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_WEB_URL", "")
 	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
 }
 

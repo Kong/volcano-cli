@@ -23,6 +23,7 @@ type Deps struct {
 	ConfigLoader        func() (*config.Config, error)
 	LocalCommandRunner  CommandRunner
 	UpdateCommandRunner CommandRunner
+	GitCommandRunner    CommandRunner
 	ExecutablePath      string
 	UpdateGitHubAPIURL  string
 	CommandPathPrefix   string

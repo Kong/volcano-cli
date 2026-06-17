@@ -57,6 +57,21 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token s
 	return Credentials{Token: token}, nil
 }
 
+// Signup opens Volcano Web's signup page in a browser.
+func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w io.Writer) error {
+	_ = ctx
+	signupURL, err := api.WebSignupURL(cfg.WebURL(), email)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "\nOpening browser: %s\n", signupURL)
+	if err := cliruntime.OpenBrowser(s.deps, signupURL); err != nil { //nolint:contextcheck // browser launch is fire-and-forget; signup ctx would cancel the spawned browser
+		fmt.Fprintln(w, "\n(If browser didn't open, visit the URL above)")
+	}
+	return nil
+}
+
 // LoginWithBrowser runs the OAuth device flow and returns credentials to persist.
 func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)

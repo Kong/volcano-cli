@@ -8,6 +8,7 @@ VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DEFAULT_API_URL ?= https://api.volcano.dev
+DEFAULT_WEB_URL ?= https://volcano.dev
 FIRST_PARTY_DEVICE_CLIENT_ID ?=
 
 LDFLAGS := -s -w \
@@ -15,14 +16,35 @@ LDFLAGS := -s -w \
 	-X $(VERSION_PKG).Commit=$(COMMIT) \
 	-X $(VERSION_PKG).Date=$(DATE) \
 	-X $(CONFIG_PKG).compiledDefaultAPIURL=$(DEFAULT_API_URL) \
+	-X $(CONFIG_PKG).compiledDefaultWebURL=$(DEFAULT_WEB_URL) \
 	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID)
 
-.PHONY: all build test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help
+.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help
 
 all: build
 
 build: ## Build the volcano binary into ./$(BINARY)
 	go build -ldflags '$(LDFLAGS)' -o $(BINARY) ./cmd/volcano
+
+local: ## Build volcano using variables loaded from .env.local
+	@if [ ! -f .env.local ]; then \
+		echo ".env.local not found. Create one with VOLCANO_WEB_URL=... and VOLCANO_API_URL=..."; \
+		exit 1; \
+	fi; \
+	set -a; source .env.local; set +a; \
+	if [ -z "$${FIRST_PARTY_DEVICE_CLIENT_ID:-}" ] && [ -n "$${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}" ]; then \
+		export FIRST_PARTY_DEVICE_CLIENT_ID="$${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID}"; \
+	fi; \
+	if [ -z "$${DEFAULT_API_URL:-}" ] && [ -n "$${VOLCANO_API_URL:-}" ]; then \
+		export DEFAULT_API_URL="$${VOLCANO_API_URL}"; \
+	fi; \
+	if [ -z "$${DEFAULT_WEB_URL:-}" ] && [ -n "$${VOLCANO_WEB_URL:-}" ]; then \
+		export DEFAULT_WEB_URL="$${VOLCANO_WEB_URL}"; \
+	fi; \
+	if [ -z "$${DEFAULT_WEB_URL:-}" ] && [[ "$${VOLCANO_API_URL:-}" == http://localhost:* || "$${VOLCANO_API_URL:-}" == http://127.0.0.1:* ]]; then \
+		export DEFAULT_WEB_URL="http://localhost:3000"; \
+	fi; \
+	$(MAKE) build
 
 test: ## Run unit tests
 	go test ./...
