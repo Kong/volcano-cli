@@ -20,6 +20,7 @@ type invokeOptions struct {
 	identifier string
 	functionID string
 	payload    string
+	hasPayload bool
 	jsonOutput bool
 	out        io.Writer
 }
@@ -42,6 +43,7 @@ func newInvoke(deps cliruntime.Deps) *cobra.Command {
 			if len(args) == 1 {
 				opts.identifier = strings.TrimSpace(args[0])
 			}
+			opts.hasPayload = cmd.Flags().Changed("payload")
 			opts.out = cmd.OutOrStdout()
 			return runInvoke(cmd.Context(), opts)
 		},
@@ -62,15 +64,20 @@ func runInvoke(ctx context.Context, opts invokeOptions) error {
 		return errors.New("specify a function name or --id")
 	}
 
-	payload, err := loadInvokePayload(opts.payload)
-	if err != nil {
-		return err
+	var payload map[string]any
+	var err error
+	if opts.hasPayload {
+		payload, err = loadInvokePayload(opts.payload)
+		if err != nil {
+			return err
+		}
 	}
 
 	service := clifunction.NewService(opts.deps)
 	var resp any
 	if hasID {
-		functionID, err := uuid.Parse(strings.TrimSpace(opts.functionID))
+		var functionID uuid.UUID
+		functionID, err = uuid.Parse(strings.TrimSpace(opts.functionID))
 		if err != nil {
 			return fmt.Errorf("invalid function ID %q: %w", opts.functionID, err)
 		}

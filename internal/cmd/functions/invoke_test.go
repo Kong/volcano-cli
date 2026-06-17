@@ -46,11 +46,13 @@ func TestFunctionsInvokeByIDRequiresAuthButNotSelectedProject(t *testing.T) {
 	require.NoError(t, (&cliconfig.Config{UserToken: "token"}).Save())
 
 	var invokeHits int
+	var invokeBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
 			invokeHits++
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&invokeBody))
 			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
 			t.Fatalf("direct ID invoke should not list project functions")
@@ -63,6 +65,7 @@ func TestFunctionsInvokeByIDRequiresAuthButNotSelectedProject(t *testing.T) {
 	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "invoke", "--id", functionID, "--json")
 	require.NoError(t, err)
 	assert.Equal(t, 1, invokeHits)
+	assert.NotContains(t, invokeBody, "payload")
 	assert.JSONEq(t, `{"ok":true}`, out)
 }
 
