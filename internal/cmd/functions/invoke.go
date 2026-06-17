@@ -91,7 +91,7 @@ func runInvoke(ctx context.Context, opts invokeOptions) error {
 func loadInvokePayload(value string) (map[string]any, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return nil, nil
+		return map[string]any{}, nil
 	}
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(value), &payload); err != nil {
