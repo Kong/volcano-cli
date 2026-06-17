@@ -20,9 +20,10 @@ type Factory struct {
 
 // Session contains config and an API client for authenticated workflows.
 type Session struct {
-	Config *config.Config
-	API    *api.Client
-	apiURL string
+	Config            *config.Config
+	API               *api.Client
+	apiURL            string
+	apiClientForToken func(string) (*api.Client, error)
 }
 
 // ProjectSession contains config, an API client, and the current project ID.
@@ -30,6 +31,7 @@ type ProjectSession struct {
 	Config            *config.Config
 	API               *api.Client
 	ProjectID         uuid.UUID
+	APIURL            string
 	apiClientForToken func(string) (*api.Client, error)
 }
 
@@ -42,6 +44,15 @@ func NewFactory(deps cliruntime.Deps) Factory {
 // dependencies as this project session, using the provided bearer token.
 func (s *ProjectSession) APIWithToken(token string) (*api.Client, error) {
 	if s.apiClientForToken == nil {
+		return nil, errors.New("api client factory is unavailable")
+	}
+	return s.apiClientForToken(token)
+}
+
+// APIWithToken constructs an API client for the same API URL and runtime
+// dependencies as this authenticated session, using the provided bearer token.
+func (s *Session) APIWithToken(token string) (*api.Client, error) {
+	if s == nil || s.apiClientForToken == nil {
 		return nil, errors.New("api client factory is unavailable")
 	}
 	return s.apiClientForToken(token)
@@ -95,7 +106,14 @@ func (f Factory) Authenticated() (*Session, error) {
 		return nil, fmt.Errorf("failed to create api client: %w", err)
 	}
 
-	return &Session{Config: cfg, API: client, apiURL: apiURL}, nil
+	return &Session{
+		Config: cfg,
+		API:    client,
+		apiURL: apiURL,
+		apiClientForToken: func(token string) (*api.Client, error) {
+			return f.APIClient(apiURL, token)
+		},
+	}, nil
 }
 
 // CurrentProject builds an authenticated API client for the current project.
@@ -119,6 +137,7 @@ func (f Factory) CurrentProject() (*ProjectSession, error) {
 		Config:    authenticated.Config,
 		API:       authenticated.API,
 		ProjectID: projectID,
+		APIURL:    authenticated.apiURL,
 		apiClientForToken: func(token string) (*api.Client, error) {
 			return f.APIClient(authenticated.apiURL, token)
 		},

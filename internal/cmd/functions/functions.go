@@ -30,6 +30,8 @@ func newWithOptions(deps cliruntime.Deps, opts commandOptions) *cobra.Command {
 	cmd.AddCommand(newDeploy(deps, opts.batchDeployAll))
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
+	cmd.AddCommand(newInvoke(deps))
+	cmd.AddCommand(newAlias(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newUpdate(deps))
 	cmd.AddCommand(newLogs(deps))

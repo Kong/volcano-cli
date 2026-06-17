@@ -289,6 +289,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	}
 	var batchFilenames []string
 	var updateBody map[string]bool
+	var invokeBody map[string]any
 	var schedulerCreateBody map[string]any
 	var schedulerUpdateBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -338,6 +339,9 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 		case r.Method == http.MethodPatch && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText:
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&updateBody))
 			writeAPIJSON(t, w, http.StatusOK, functionResponse(functionIDText, projectIDText, "hello"))
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionIDText+"/invoke":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&invokeBody))
+			writeAPIJSON(t, w, http.StatusOK, map[string]any{"ok": true})
 		case r.Method == http.MethodGet && r.URL.Path == "/functions/runtimes":
 			writeAPIJSON(t, w, http.StatusOK, map[string]any{
 				"runtimes": []any{
@@ -439,6 +443,14 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	assert.Equal(t, "hello", updated.Name)
 	assert.Equal(t, map[string]bool{"is_public": true}, updateBody)
 
+	invoked, err := client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{
+		Payload: map[string]any{"k": "v"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, invoked)
+	assert.Equal(t, true, (*invoked)["ok"])
+	assert.Equal(t, map[string]any{"payload": map[string]any{"k": "v"}}, invokeBody)
+
 	runtimes, err := client.ListFunctionRuntimes(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "nodejs24.x", runtimes[0].Name)
@@ -498,6 +510,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText,
 		"DELETE /projects/" + projectIDText + "/functions/" + functionIDText,
 		"PATCH /projects/" + projectIDText + "/functions/" + functionIDText,
+		"POST /functions/" + functionIDText + "/invoke",
 		"GET /functions/runtimes",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments?page=3&limit=10",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/logs?limit=50&next_token=fn-next",
@@ -525,6 +538,20 @@ func TestDeleteFunctionAcceptsAsyncAndNoContent(t *testing.T) {
 			require.NoError(t, client.DeleteFunction(context.Background(), projectID, functionID))
 		})
 	}
+}
+
+func TestInvokeFunctionErrorsNormalize(t *testing.T) {
+	functionID := mustProjectID(t, "22222222-2222-4222-8222-222222222222")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAPIJSON(t, w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{})
+	require.ErrorContains(t, err, "HTTP 429: rate limited")
 }
 
 func mustProjectID(t *testing.T, value string) uuid.UUID {

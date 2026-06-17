@@ -42,7 +42,12 @@ type Config struct {
 	APIBaseURL     string         `json:"-"`
 	UserToken      string         `json:"user_token,omitempty"`
 	UserID         string         `json:"user_id,omitempty"`
+	AnonKey        string         `json:"-"`
+	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	// FunctionAliases stores per-user function invoke aliases by API URL and
+	// project ID scope. Scope keys are produced by FunctionAliasScope.
+	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
 }
@@ -149,6 +154,19 @@ func (c *Config) Token() string {
 	return c.UserToken
 }
 
+// FunctionInvokeToken returns the token used for runtime function invocation.
+// Local mode supplies service and anon keys for invoke endpoints; cloud falls
+// back to the normal configured token until a project invoke key is available.
+func (c *Config) FunctionInvokeToken() string {
+	if strings.TrimSpace(c.ServiceKey) != "" {
+		return c.ServiceKey
+	}
+	if strings.TrimSpace(c.AnonKey) != "" {
+		return c.AnonKey
+	}
+	return c.Token()
+}
+
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
 func (c *Config) ProjectID() string {
 	if projectID := os.Getenv(envProjectID); !c.IgnoreEnv && projectID != "" {
@@ -170,6 +188,60 @@ func (c *Config) APIURL() string {
 		return c.APIBaseURL
 	}
 	return compiledDefaultAPIURL
+}
+
+// FunctionAliasScope returns the config key for aliases bound to one API URL
+// and project ID. The API URL is trimmed so trailing slashes do not split scopes.
+func FunctionAliasScope(apiURL, projectID string) string {
+	return strings.TrimRight(strings.TrimSpace(apiURL), "/") + "|" + strings.TrimSpace(projectID)
+}
+
+// FunctionAlias returns the function ID configured for alias in the given scope.
+func (c *Config) FunctionAlias(scope, alias string) (string, bool) {
+	if c == nil || c.FunctionAliases == nil {
+		return "", false
+	}
+	aliases := c.FunctionAliases[strings.TrimSpace(scope)]
+	if aliases == nil {
+		return "", false
+	}
+	functionID, ok := aliases[strings.TrimSpace(alias)]
+	return functionID, ok
+}
+
+// SetFunctionAlias stores alias in the given scope.
+func (c *Config) SetFunctionAlias(scope, alias, functionID string) {
+	scope = strings.TrimSpace(scope)
+	alias = strings.TrimSpace(alias)
+	functionID = strings.TrimSpace(functionID)
+	if c.FunctionAliases == nil {
+		c.FunctionAliases = map[string]map[string]string{}
+	}
+	if c.FunctionAliases[scope] == nil {
+		c.FunctionAliases[scope] = map[string]string{}
+	}
+	c.FunctionAliases[scope][alias] = functionID
+}
+
+// DeleteFunctionAlias removes alias from the given scope and reports whether it existed.
+func (c *Config) DeleteFunctionAlias(scope, alias string) bool {
+	if c == nil || c.FunctionAliases == nil {
+		return false
+	}
+	scope = strings.TrimSpace(scope)
+	alias = strings.TrimSpace(alias)
+	aliases := c.FunctionAliases[scope]
+	if aliases == nil {
+		return false
+	}
+	if _, ok := aliases[alias]; !ok {
+		return false
+	}
+	delete(aliases, alias)
+	if len(aliases) == 0 {
+		delete(c.FunctionAliases, scope)
+	}
+	return true
 }
 
 // RequireAuth returns an old-CLI-compatible error when no token is available.
