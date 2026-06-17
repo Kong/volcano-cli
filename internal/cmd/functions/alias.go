@@ -87,9 +87,7 @@ func runAliasSet(ctx context.Context, opts aliasOptions) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(opts.out, "Alias: %s\n", alias.Name)
-	fmt.Fprintf(opts.out, "Function ID: %s\n", alias.FunctionID)
-	output.Success(opts.out, "Set function alias %q", alias.Name)
+	output.Success(opts.out, "Set function alias %q → %s", alias.Name, alias.FunctionID)
 	return nil
 }
 

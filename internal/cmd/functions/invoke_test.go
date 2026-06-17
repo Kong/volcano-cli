@@ -185,9 +185,7 @@ func TestFunctionsAliasSetListDelete(t *testing.T) {
 
 	out, err := executeFunctionsCommand(t, cmd, "alias", "set", "hello", functionID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Alias: hello")
-	assert.Contains(t, out, "Function ID: "+functionID)
-	assert.Contains(t, out, `Set function alias "hello"`)
+	assert.Contains(t, out, `Set function alias "hello" → `+functionID)
 
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
