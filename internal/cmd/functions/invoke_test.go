@@ -41,41 +41,55 @@ func TestFunctionsInvokeByIDSkipsNameResolution(t *testing.T) {
 	assert.Contains(t, out, "{\n  \"ok\": true\n}\n")
 }
 
-func TestFunctionsInvokeByIDRequiresSelectedProject(t *testing.T) {
+func TestFunctionsInvokeByIDRequiresAuthButNotSelectedProject(t *testing.T) {
 	setFunctionCommandTestHome(t)
 	require.NoError(t, (&cliconfig.Config{UserToken: "token"}).Save())
 
-	var hits int
+	var invokeHits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		http.NotFound(w, r)
+		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
+			invokeHits++
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			t.Fatalf("direct ID invoke should not list project functions")
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer server.Close()
 
 	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "invoke", "--id", functionID, "--json")
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "no project selected")
-	assert.Contains(t, out, "Error:")
-	assert.Equal(t, 0, hits)
+	require.NoError(t, err)
+	assert.Equal(t, 1, invokeHits)
+	assert.JSONEq(t, `{"ok":true}`, out)
 }
 
-func TestFunctionsInvokeByIDRequiresValidProjectContext(t *testing.T) {
+func TestFunctionsInvokeByIDIgnoresInvalidEnvProjectID(t *testing.T) {
 	setFunctionCommandTestHome(t)
 	t.Setenv("VOLCANO_PROJECT_ID", "not-a-project-id")
 	saveFunctionCommandTestConfig(t)
 
-	var hits int
+	var invokeHits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		http.NotFound(w, r)
+		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
+			invokeHits++
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/not-a-project-id/functions":
+			t.Fatalf("direct ID invoke should not resolve against VOLCANO_PROJECT_ID")
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer server.Close()
 
 	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "invoke", "--id", functionID, "--json")
-	require.Error(t, err)
-	assert.ErrorContains(t, err, `invalid project ID "not-a-project-id"`)
-	assert.Contains(t, out, "Error:")
-	assert.Equal(t, 0, hits)
+	require.NoError(t, err)
+	assert.Equal(t, 1, invokeHits)
+	assert.JSONEq(t, `{"ok":true}`, out)
 }
 
 func TestFunctionsInvokeByAliasTakesPrecedenceOverNameResolution(t *testing.T) {
