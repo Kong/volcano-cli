@@ -220,7 +220,7 @@ func (s Service) Invoke(ctx context.Context, identifier string, payload map[stri
 
 // InvokeByID invokes one function by ID without list-based name resolution.
 func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
