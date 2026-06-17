@@ -41,6 +41,57 @@ func TestFunctionsInvokeByIDSkipsNameResolution(t *testing.T) {
 	assert.Contains(t, out, "{\n  \"ok\": true\n}\n")
 }
 
+func TestFunctionsInvokeByIDRequiresAuthButNotSelectedProject(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	require.NoError(t, (&cliconfig.Config{UserToken: "token"}).Save())
+
+	var invokeHits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
+			invokeHits++
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			t.Fatalf("direct ID invoke should not list project functions")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "invoke", "--id", functionID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, invokeHits)
+	assert.JSONEq(t, `{"ok":true}`, out)
+}
+
+func TestFunctionsInvokeByIDIgnoresInvalidEnvProjectID(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	t.Setenv("VOLCANO_PROJECT_ID", "not-a-project-id")
+	saveFunctionCommandTestConfig(t)
+
+	var invokeHits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/functions/"+functionID+"/invoke":
+			invokeHits++
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{"ok": true})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/not-a-project-id/functions":
+			t.Fatalf("direct ID invoke should not resolve against VOLCANO_PROJECT_ID")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "invoke", "--id", functionID, "--json")
+	require.NoError(t, err)
+	assert.Equal(t, 1, invokeHits)
+	assert.JSONEq(t, `{"ok":true}`, out)
+}
+
 func TestFunctionsInvokeByAliasTakesPrecedenceOverNameResolution(t *testing.T) {
 	setFunctionCommandTestHome(t)
 	saveFunctionCommandTestConfig(t)
