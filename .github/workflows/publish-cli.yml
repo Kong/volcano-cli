@@ -243,6 +243,25 @@ jobs:
       - name: Publish release assets
         run: |
           set -euo pipefail
+
+          publish_release() {
+            local tag="$1"
+            local title="$2"
+            shift 2
+            local flags=("$@")
+
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" dist/release-assets/* --clobber
+            else
+              gh release create "$tag" dist/release-assets/* \
+                --target "$GITHUB_SHA" \
+                --title "$title" \
+                --generate-notes \
+                "${flags[@]}"
+            fi
+            gh release edit "$tag" --title "$title" "${flags[@]}"
+          }
+
           RELEASE_FLAGS=()
           if [ "$RELEASE_PRERELEASE" = "true" ]; then
             RELEASE_FLAGS+=(--prerelease)
@@ -251,16 +270,13 @@ jobs:
             RELEASE_FLAGS+=(--latest=false)
           fi
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/release-assets/* --clobber
-          else
-            gh release create "$RELEASE_TAG" dist/release-assets/* \
-              --target "$GITHUB_SHA" \
-              --title "$RELEASE_TITLE" \
-              --generate-notes \
-              "${RELEASE_FLAGS[@]}"
+          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "${RELEASE_FLAGS[@]}"
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            git tag -f nightly "$GITHUB_SHA"
+            git push origin refs/tags/nightly --force
+            publish_release nightly "$RELEASE_TITLE" --prerelease --latest=false
           fi
-          gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" "${RELEASE_FLAGS[@]}"
 
       - name: Verify uploaded Linux binary
         run: |
