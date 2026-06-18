@@ -85,7 +85,7 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 }
 
 // WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
-func WebSignupURL(webURL, email string) (string, error) {
+func WebSignupURL(webURL, email, next string) (string, error) {
 	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
 	if webURL == "" {
 		return "", errors.New("web url cannot be empty")
@@ -98,11 +98,14 @@ func WebSignupURL(webURL, email string) (string, error) {
 		return "", errors.New("web url must use http:// or https:// scheme")
 	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
+	query := parsed.Query()
 	if email = strings.TrimSpace(email); email != "" {
-		query := parsed.Query()
 		query.Set("email", email)
-		query.Set("source", "cli")
-		parsed.RawQuery = query.Encode()
 	}
+	if next = strings.TrimSpace(next); next != "" {
+		query.Set("next", next)
+	}
+	query.Set("source", "cli")
+	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
 }

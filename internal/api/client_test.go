@@ -51,9 +51,9 @@ func TestStartDeviceAuthorizationNormalizesOAuthError(t *testing.T) {
 }
 
 func TestWebSignupURL(t *testing.T) {
-	signupURL, err := WebSignupURL("http://localhost:3000", " ted@example.com ")
+	signupURL, err := WebSignupURL("http://localhost:3000", " ted@example.com ", "/device?user_code=ABCD-EFGH")
 	require.NoError(t, err)
-	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&source=cli", signupURL)
+	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", signupURL)
 }
 
 func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {

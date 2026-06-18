@@ -125,15 +125,19 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return err
 	}
 
-	if err := cliauth.NewService(opts.deps).Signup(ctx, cfg, email, opts.out); err != nil {
+	credentials, err := cliauth.NewService(opts.deps).Signup(ctx, cfg, email, opts.out)
+	if err != nil {
 		return fmt.Errorf("signup failed: %w", err)
 	}
 
-	fmt.Fprint(opts.out, "\nComplete signup in your browser, then press [ENTER] when done.")
-	_, err = reader.ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return err
+	cfg.UserToken = credentials.Token
+	cfg.UserID = credentials.UserID
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to save credentials: %w", err)
 	}
+
+	output.Success(opts.out, "Signed up and logged in successfully")
+	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }
 
