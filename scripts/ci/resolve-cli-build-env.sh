@@ -38,20 +38,8 @@ case "$REF" in
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
     if [ -z "${CLI_VERSION:-}" ]; then
-      DATE_PART="$(date -u +%Y%m%d)"
-      LATEST_STABLE_PATCH="$({
-        git tag --list 'v0.0.*' || true
-      } | awk '/^v0\.0\.[0-9]+$/ { sub(/^v0\.0\./, "", $0); print $0 }' | sort -n | tail -1)"
-      NEXT_PATCH=$(( ${LATEST_STABLE_PATCH:-0} + 1 ))
-      NIGHTLY_PREFIX="v0.0.${NEXT_PATCH}-nightly.${DATE_PART}."
-      LATEST_NIGHTLY_NUMBER=0
-      while IFS= read -r tag; do
-        suffix="${tag#${NIGHTLY_PREFIX}}"
-        if [[ "$suffix" =~ ^[0-9]+$ ]] && (( 10#$suffix > LATEST_NIGHTLY_NUMBER )); then
-          LATEST_NIGHTLY_NUMBER=$((10#$suffix))
-        fi
-      done < <(git tag --list "${NIGHTLY_PREFIX}*")
-      CLI_VERSION="${NIGHTLY_PREFIX}$((LATEST_NIGHTLY_NUMBER + 1))"
+      echo "CLI_VERSION is required for main release builds. The publish workflow must pre-resolve the nightly version."
+      exit 1
     fi
     ;;
   *)

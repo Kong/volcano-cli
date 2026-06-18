@@ -248,19 +248,31 @@ jobs:
           publish_release() {
             local tag="$1"
             local title="$2"
-            shift 2
+            local notes="$3"
+            shift 3
             local flags=("$@")
+            local notes_args=()
+
+            if [ -n "$notes" ]; then
+              notes_args=(--notes "$notes")
+            else
+              notes_args=(--generate-notes)
+            fi
 
             if gh release view "$tag" >/dev/null 2>&1; then
+              local edit_args=(--title "$title" --target "$GITHUB_SHA")
+              if [ -n "$notes" ]; then
+                edit_args+=(--notes "$notes")
+              fi
               gh release upload "$tag" dist/release-assets/* --clobber
+              gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
             else
               gh release create "$tag" dist/release-assets/* \
                 --target "$GITHUB_SHA" \
                 --title "$title" \
-                --generate-notes \
+                "${notes_args[@]}" \
                 "${flags[@]}"
             fi
-            gh release edit "$tag" --title "$title" "${flags[@]}"
           }
 
           RELEASE_FLAGS=()
@@ -271,12 +283,18 @@ jobs:
             RELEASE_FLAGS+=(--latest=false)
           fi
 
-          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "${RELEASE_FLAGS[@]}"
+          RELEASE_NOTES=""
+          if [ "$RELEASE_PRERELEASE" = "true" ]; then
+            RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
+          fi
+
+          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
             git tag -f nightly "$GITHUB_SHA"
             git push origin refs/tags/nightly --force
-            publish_release nightly "$RELEASE_TITLE" --prerelease --latest=false
+            publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
           fi
 
       - name: Verify uploaded Linux binary
