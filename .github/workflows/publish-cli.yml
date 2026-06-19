@@ -2,8 +2,11 @@ name: Publish CLI
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
+      - "!v*.*.*-nightly.*"
 
 permissions:
   contents: read
@@ -21,15 +24,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate release tag
+      - name: Validate release ref
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          STABLE_SEMVER_RE='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-          if [ "$GITHUB_REF_NAME" = "$VERSION" ] || [[ ! "$VERSION" =~ $STABLE_SEMVER_RE ]]; then
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            exit 0
+          fi
+
+          STABLE_SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          NIGHTLY_SEMVER_RE='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
+          if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]] && [[ ! "$GITHUB_REF_NAME" =~ $NIGHTLY_SEMVER_RE ]]; then
             echo "Unsupported release tag: ${GITHUB_REF_NAME}"
-            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH, for example v1.2.3."
-            echo "Prerelease and build metadata tags are not production release tags."
+            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH or nightly form v0.0.N-nightly.YYYYMMDD.NUMBER."
             exit 1
           fi
 
@@ -37,9 +43,66 @@ jobs:
           TAGGED_SHA="$(git rev-parse "${GITHUB_REF}^{commit}")"
           if ! git merge-base --is-ancestor "$TAGGED_SHA" origin/main; then
             echo "Release tag ${GITHUB_REF_NAME} points at ${TAGGED_SHA}, which is not reachable from origin/main."
-            echo "Production CLI releases must be cut from main."
+            echo "CLI releases must be cut from main."
             exit 1
           fi
+
+  resolve-release:
+    name: Resolve Release Version
+    runs-on: ubuntu-latest
+    needs: [validate-release-ref]
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      release_title: ${{ steps.release.outputs.release_title }}
+      cli_version: ${{ steps.release.outputs.cli_version }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      latest: ${{ steps.release.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: release
+        run: |
+          set -euo pipefail
+          NIGHTLY_SEMVER_RE='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            DATE_PART="$(date -u +%Y%m%d)"
+            LATEST_STABLE_PATCH="$({
+              git tag --list 'v0.0.*' || true
+            } | awk '/^v0\.0\.[0-9]+$/ { sub(/^v0\.0\./, "", $0); print $0 }' | sort -n | tail -1)"
+            NEXT_PATCH=$(( ${LATEST_STABLE_PATCH:-0} + 1 ))
+            NIGHTLY_PREFIX="v0.0.${NEXT_PATCH}-nightly.${DATE_PART}."
+            LATEST_NIGHTLY_NUMBER=0
+            while IFS= read -r tag; do
+              suffix="${tag#${NIGHTLY_PREFIX}}"
+              if [[ "$suffix" =~ ^[0-9]+$ ]] && (( 10#$suffix > LATEST_NIGHTLY_NUMBER )); then
+                LATEST_NIGHTLY_NUMBER=$((10#$suffix))
+              fi
+            done < <(git tag --list "${NIGHTLY_PREFIX}*")
+            RELEASE_TAG="${NIGHTLY_PREFIX}$((LATEST_NIGHTLY_NUMBER + 1))"
+            PRERELEASE="true"
+            LATEST="false"
+          else
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            if [[ "$GITHUB_REF_NAME" =~ $NIGHTLY_SEMVER_RE ]]; then
+              PRERELEASE="true"
+              LATEST="false"
+            else
+              PRERELEASE="false"
+              LATEST="auto"
+            fi
+          fi
+
+          {
+            echo "release_tag=${RELEASE_TAG}"
+            echo "release_title=${RELEASE_TAG}"
+            echo "cli_version=${RELEASE_TAG}"
+            echo "prerelease=${PRERELEASE}"
+            echo "latest=${LATEST}"
+          } >> "$GITHUB_OUTPUT"
 
   check:
     name: Release Check
@@ -49,7 +112,7 @@ jobs:
   build-binaries:
     name: Build Binary (${{ matrix.target.id }})
     runs-on: ubuntu-latest
-    needs: [check]
+    needs: [check, resolve-release]
     permissions:
       contents: read
       id-token: write
@@ -87,6 +150,7 @@ jobs:
 
       - name: Resolve release build environment
         env:
+          CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
           PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
         run: scripts/ci/resolve-cli-build-env.sh
 
@@ -131,12 +195,16 @@ jobs:
   publish-github-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-binaries]
+    needs: [build-binaries, resolve-release]
     permissions:
       contents: write
       id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+      RELEASE_TITLE: ${{ needs.resolve-release.outputs.release_title }}
+      RELEASE_PRERELEASE: ${{ needs.resolve-release.outputs.prerelease }}
+      RELEASE_LATEST: ${{ needs.resolve-release.outputs.latest }}
     steps:
       - uses: actions/checkout@v4
       - uses: sigstore/cosign-installer@v4.1.2
@@ -176,13 +244,57 @@ jobs:
       - name: Publish release assets
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/release-assets/* --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" dist/release-assets/* \
-              --target "$GITHUB_SHA" \
-              --title "$GITHUB_REF_NAME" \
-              --generate-notes
+
+          publish_release() {
+            local tag="$1"
+            local title="$2"
+            local notes="$3"
+            shift 3
+            local flags=("$@")
+            local notes_args=()
+
+            if [ -n "$notes" ]; then
+              notes_args=(--notes "$notes")
+            else
+              notes_args=(--generate-notes)
+            fi
+
+            if gh release view "$tag" >/dev/null 2>&1; then
+              local edit_args=(--title "$title" --target "$GITHUB_SHA")
+              if [ -n "$notes" ]; then
+                edit_args+=(--notes "$notes")
+              fi
+              gh release upload "$tag" dist/release-assets/* --clobber
+              gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
+            else
+              gh release create "$tag" dist/release-assets/* \
+                --target "$GITHUB_SHA" \
+                --title "$title" \
+                "${notes_args[@]}" \
+                "${flags[@]}"
+            fi
+          }
+
+          RELEASE_FLAGS=()
+          if [ "$RELEASE_PRERELEASE" = "true" ]; then
+            RELEASE_FLAGS+=(--prerelease)
+          fi
+          if [ "$RELEASE_LATEST" = "false" ]; then
+            RELEASE_FLAGS+=(--latest=false)
+          fi
+
+          RELEASE_NOTES=""
+          if [ "$RELEASE_PRERELEASE" = "true" ]; then
+            RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
+          fi
+
+          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
+            git tag -f nightly "$GITHUB_SHA"
+            git push origin refs/tags/nightly --force
+            publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
           fi
 
       - name: Verify uploaded Linux binary
@@ -190,7 +302,7 @@ jobs:
           set -euo pipefail
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
-          gh release download "$GITHUB_REF_NAME" \
+          gh release download "$RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
             --dir "$TMP_DIR"
           cosign verify-blob "$TMP_DIR/volcano-linux-amd64" \
