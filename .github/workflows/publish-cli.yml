@@ -288,13 +288,17 @@ jobs:
             RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
           fi
 
-          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
-
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
+            if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+              git tag "$RELEASE_TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/${RELEASE_TAG}"
+            fi
             git tag -f nightly "$GITHUB_SHA"
             git push origin refs/tags/nightly --force
             publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
+          else
+            publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
           fi
 
       - name: Verify uploaded Linux binary
@@ -302,7 +306,11 @@ jobs:
           set -euo pipefail
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
-          gh release download "$RELEASE_TAG" \
+          DOWNLOAD_RELEASE_TAG="$RELEASE_TAG"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            DOWNLOAD_RELEASE_TAG="nightly"
+          fi
+          gh release download "$DOWNLOAD_RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
             --dir "$TMP_DIR"
           cosign verify-blob "$TMP_DIR/volcano-linux-amd64" \
