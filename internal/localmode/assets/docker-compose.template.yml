@@ -78,7 +78,6 @@ services:
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
       DYNAMODB_ENDPOINT: http://dynamodb:8000
-      FUNCTION_INVOCATIONS_TABLE_NAME: volcano-local-function-invocations
       LOG_EVENTS_HOT_PATH_TABLE_NAME: volcano-local-log-events
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: local
