@@ -182,6 +182,7 @@ const (
 	CreateEmailTemplateRequestTemplateTypeConfirmation    CreateEmailTemplateRequestTemplateType = "confirmation"
 	CreateEmailTemplateRequestTemplateTypePasswordChanged CreateEmailTemplateRequestTemplateType = "password_changed"
 	CreateEmailTemplateRequestTemplateTypePasswordReset   CreateEmailTemplateRequestTemplateType = "password_reset"
+	CreateEmailTemplateRequestTemplateTypeWelcome         CreateEmailTemplateRequestTemplateType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the CreateEmailTemplateRequestTemplateType enum.
@@ -192,6 +193,8 @@ func (e CreateEmailTemplateRequestTemplateType) Valid() bool {
 	case CreateEmailTemplateRequestTemplateTypePasswordChanged:
 		return true
 	case CreateEmailTemplateRequestTemplateTypePasswordReset:
+		return true
+	case CreateEmailTemplateRequestTemplateTypeWelcome:
 		return true
 	default:
 		return false
@@ -326,6 +329,7 @@ const (
 	EmailTemplateTemplateTypeConfirmation    EmailTemplateTemplateType = "confirmation"
 	EmailTemplateTemplateTypePasswordChanged EmailTemplateTemplateType = "password_changed"
 	EmailTemplateTemplateTypePasswordReset   EmailTemplateTemplateType = "password_reset"
+	EmailTemplateTemplateTypeWelcome         EmailTemplateTemplateType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the EmailTemplateTemplateType enum.
@@ -336,6 +340,8 @@ func (e EmailTemplateTemplateType) Valid() bool {
 	case EmailTemplateTemplateTypePasswordChanged:
 		return true
 	case EmailTemplateTemplateTypePasswordReset:
+		return true
+	case EmailTemplateTemplateTypeWelcome:
 		return true
 	default:
 		return false
@@ -581,19 +587,19 @@ func (e FunctionStatus) Valid() bool {
 
 // Defines values for FunctionDeploymentOperation.
 const (
-	Delete FunctionDeploymentOperation = "delete"
-	Deploy FunctionDeploymentOperation = "deploy"
-	Update FunctionDeploymentOperation = "update"
+	FunctionDeploymentOperationDelete FunctionDeploymentOperation = "delete"
+	FunctionDeploymentOperationDeploy FunctionDeploymentOperation = "deploy"
+	FunctionDeploymentOperationUpdate FunctionDeploymentOperation = "update"
 )
 
 // Valid indicates whether the value is a known member of the FunctionDeploymentOperation enum.
 func (e FunctionDeploymentOperation) Valid() bool {
 	switch e {
-	case Delete:
+	case FunctionDeploymentOperationDelete:
 		return true
-	case Deploy:
+	case FunctionDeploymentOperationDeploy:
 		return true
-	case Update:
+	case FunctionDeploymentOperationUpdate:
 		return true
 	default:
 		return false
@@ -669,6 +675,132 @@ const (
 func (e HostedRenderablePageType) Valid() bool {
 	switch e {
 	case HostedRenderablePageTypeResetPassword:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LiveLogLevel.
+const (
+	LiveLogLevelDebug LiveLogLevel = "debug"
+	LiveLogLevelError LiveLogLevel = "error"
+	LiveLogLevelFatal LiveLogLevel = "fatal"
+	LiveLogLevelInfo  LiveLogLevel = "info"
+	LiveLogLevelTrace LiveLogLevel = "trace"
+	LiveLogLevelWarn  LiveLogLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the LiveLogLevel enum.
+func (e LiveLogLevel) Valid() bool {
+	switch e {
+	case LiveLogLevelDebug:
+		return true
+	case LiveLogLevelError:
+		return true
+	case LiveLogLevelFatal:
+		return true
+	case LiveLogLevelInfo:
+		return true
+	case LiveLogLevelTrace:
+		return true
+	case LiveLogLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LiveLogSource.
+const (
+	Cloud LiveLogSource = "cloud"
+	Local LiveLogSource = "local"
+)
+
+// Valid indicates whether the value is a known member of the LiveLogSource enum.
+func (e LiveLogSource) Valid() bool {
+	switch e {
+	case Cloud:
+		return true
+	case Local:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LiveLogWarningEventCode.
+const (
+	CursorReset          LiveLogWarningEventCode = "cursor_reset"
+	DroppedEvents        LiveLogWarningEventCode = "dropped_events"
+	MalformedLogLine     LiveLogWarningEventCode = "malformed_log_line"
+	SourceGap            LiveLogWarningEventCode = "source_gap"
+	TransientSourceError LiveLogWarningEventCode = "transient_source_error"
+)
+
+// Valid indicates whether the value is a known member of the LiveLogWarningEventCode enum.
+func (e LiveLogWarningEventCode) Valid() bool {
+	switch e {
+	case CursorReset:
+		return true
+	case DroppedEvents:
+		return true
+	case MalformedLogLine:
+		return true
+	case SourceGap:
+		return true
+	case TransientSourceError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogDeploymentStage.
+const (
+	Compile LogDeploymentStage = "compile"
+	Publish LogDeploymentStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the LogDeploymentStage enum.
+func (e LogDeploymentStage) Valid() bool {
+	switch e {
+	case Compile:
+		return true
+	case Publish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogResourceType.
+const (
+	LogResourceTypeFrontend LogResourceType = "frontend"
+	LogResourceTypeFunction LogResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogResourceType enum.
+func (e LogResourceType) Valid() bool {
+	switch e {
+	case LogResourceTypeFrontend:
+		return true
+	case LogResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogSearchRequestResourceType.
+const (
+	LogSearchRequestResourceTypeFunction LogSearchRequestResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogSearchRequestResourceType enum.
+func (e LogSearchRequestResourceType) Valid() bool {
+	switch e {
+	case LogSearchRequestResourceTypeFunction:
 		return true
 	default:
 		return false
@@ -762,6 +894,120 @@ func (e ProjectStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectFrontendCustomDomainDomainStatus.
+const (
+	ProjectFrontendCustomDomainDomainStatusActive              ProjectFrontendCustomDomainDomainStatus = "active"
+	ProjectFrontendCustomDomainDomainStatusDeleted             ProjectFrontendCustomDomainDomainStatus = "deleted"
+	ProjectFrontendCustomDomainDomainStatusDetaching           ProjectFrontendCustomDomainDomainStatus = "detaching"
+	ProjectFrontendCustomDomainDomainStatusFailed              ProjectFrontendCustomDomainDomainStatus = "failed"
+	ProjectFrontendCustomDomainDomainStatusPendingVerification ProjectFrontendCustomDomainDomainStatus = "pending_verification"
+	ProjectFrontendCustomDomainDomainStatusProvisioning        ProjectFrontendCustomDomainDomainStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainDomainStatus enum.
+func (e ProjectFrontendCustomDomainDomainStatus) Valid() bool {
+	switch e {
+	case ProjectFrontendCustomDomainDomainStatusActive:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusDeleted:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusDetaching:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusFailed:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusPendingVerification:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainTlsMode.
+const (
+	Byoc    ProjectFrontendCustomDomainTlsMode = "byoc"
+	Managed ProjectFrontendCustomDomainTlsMode = "managed"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainTlsMode enum.
+func (e ProjectFrontendCustomDomainTlsMode) Valid() bool {
+	switch e {
+	case Byoc:
+		return true
+	case Managed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainVerificationStatus.
+const (
+	ProjectFrontendCustomDomainVerificationStatusPending  ProjectFrontendCustomDomainVerificationStatus = "pending"
+	ProjectFrontendCustomDomainVerificationStatusVerified ProjectFrontendCustomDomainVerificationStatus = "verified"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainVerificationStatus enum.
+func (e ProjectFrontendCustomDomainVerificationStatus) Valid() bool {
+	switch e {
+	case ProjectFrontendCustomDomainVerificationStatusPending:
+		return true
+	case ProjectFrontendCustomDomainVerificationStatusVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendDeploymentOperation.
+const (
+	ProjectFrontendDeploymentOperationDelete   ProjectFrontendDeploymentOperation = "delete"
+	ProjectFrontendDeploymentOperationDeploy   ProjectFrontendDeploymentOperation = "deploy"
+	ProjectFrontendDeploymentOperationRedeploy ProjectFrontendDeploymentOperation = "redeploy"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendDeploymentOperation enum.
+func (e ProjectFrontendDeploymentOperation) Valid() bool {
+	switch e {
+	case ProjectFrontendDeploymentOperationDelete:
+		return true
+	case ProjectFrontendDeploymentOperationDeploy:
+		return true
+	case ProjectFrontendDeploymentOperationRedeploy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendDeploymentStatus.
+const (
+	ProjectFrontendDeploymentStatusActive       ProjectFrontendDeploymentStatus = "active"
+	ProjectFrontendDeploymentStatusDeleted      ProjectFrontendDeploymentStatus = "deleted"
+	ProjectFrontendDeploymentStatusDeleting     ProjectFrontendDeploymentStatus = "deleting"
+	ProjectFrontendDeploymentStatusFailed       ProjectFrontendDeploymentStatus = "failed"
+	ProjectFrontendDeploymentStatusProvisioning ProjectFrontendDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendDeploymentStatus enum.
+func (e ProjectFrontendDeploymentStatus) Valid() bool {
+	switch e {
+	case ProjectFrontendDeploymentStatusActive:
+		return true
+	case ProjectFrontendDeploymentStatusDeleted:
+		return true
+	case ProjectFrontendDeploymentStatusDeleting:
+		return true
+	case ProjectFrontendDeploymentStatusFailed:
+		return true
+	case ProjectFrontendDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduleRequestKind.
 const (
 	ScheduleRequestKindCron ScheduleRequestKind = "cron"
@@ -848,25 +1094,25 @@ func (e UpdateDatabaseTypeRequestDatabaseType) Valid() bool {
 
 // Defines values for UploadSessionStatusResponseStatus.
 const (
-	UploadSessionStatusResponseStatusAborted    UploadSessionStatusResponseStatus = "aborted"
-	UploadSessionStatusResponseStatusCompleted  UploadSessionStatusResponseStatus = "completed"
-	UploadSessionStatusResponseStatusCompleting UploadSessionStatusResponseStatus = "completing"
-	UploadSessionStatusResponseStatusPending    UploadSessionStatusResponseStatus = "pending"
-	UploadSessionStatusResponseStatusUploading  UploadSessionStatusResponseStatus = "uploading"
+	Aborted    UploadSessionStatusResponseStatus = "aborted"
+	Completed  UploadSessionStatusResponseStatus = "completed"
+	Completing UploadSessionStatusResponseStatus = "completing"
+	Pending    UploadSessionStatusResponseStatus = "pending"
+	Uploading  UploadSessionStatusResponseStatus = "uploading"
 )
 
 // Valid indicates whether the value is a known member of the UploadSessionStatusResponseStatus enum.
 func (e UploadSessionStatusResponseStatus) Valid() bool {
 	switch e {
-	case UploadSessionStatusResponseStatusAborted:
+	case Aborted:
 		return true
-	case UploadSessionStatusResponseStatusCompleted:
+	case Completed:
 		return true
-	case UploadSessionStatusResponseStatusCompleting:
+	case Completing:
 		return true
-	case UploadSessionStatusResponseStatusPending:
+	case Pending:
 		return true
-	case UploadSessionStatusResponseStatusUploading:
+	case Uploading:
 		return true
 	default:
 		return false
@@ -898,6 +1144,9 @@ func (e VariableStatus) Valid() bool {
 type AnonKey struct {
 	CreatedAt *time.Time         `json:"created_at,omitempty"`
 	Id        openapi_types.UUID `json:"id"`
+
+	// IsDefault Whether this is the project's configured default anon key. Only one key per project can be default.
+	IsDefault *bool `json:"is_default,omitempty"`
 
 	// KeyValue JWT token - use this in frontend Authorization header
 	KeyValue string `json:"key_value"`
@@ -990,10 +1239,12 @@ type AuthConfig struct {
 	RequireSpecialChars  *bool   `json:"require_special_chars,omitempty"`
 	RequireUppercase     *bool   `json:"require_uppercase,omitempty"`
 	SmtpHost             *string `json:"smtp_host,omitempty"`
-	SmtpPassword         *string `json:"smtp_password,omitempty"`
-	SmtpPort             *int    `json:"smtp_port,omitempty"`
-	SmtpUseTls           *bool   `json:"smtp_use_tls,omitempty"`
-	SmtpUsername         *string `json:"smtp_username,omitempty"`
+
+	// SmtpPassword SMTP password. Stored encrypted at rest (AES-256-GCM); returned decrypted only to the authenticated project owner.
+	SmtpPassword *string `json:"smtp_password,omitempty"`
+	SmtpPort     *int    `json:"smtp_port,omitempty"`
+	SmtpUseTls   *bool   `json:"smtp_use_tls,omitempty"`
+	SmtpUsername *string `json:"smtp_username,omitempty"`
 }
 
 // AuthHostedPage defines model for AuthHostedPage.
@@ -1491,21 +1742,28 @@ type FrontendCustomDomainTLSConfigMode string
 
 // FrontendDeployment defines model for FrontendDeployment.
 type FrontendDeployment struct {
-	ArtifactBucket         *string                     `json:"artifact_bucket,omitempty"`
-	ArtifactKey            *string                     `json:"artifact_key,omitempty"`
-	ArtifactVersion        *string                     `json:"artifact_version,omitempty"`
-	CloudformationStackId  *string                     `json:"cloudformation_stack_id,omitempty"`
-	CloudformationStackUrl *string                     `json:"cloudformation_stack_url,omitempty"`
-	CloudwatchLogGroup     *string                     `json:"cloudwatch_log_group,omitempty"`
-	CreatedAt              time.Time                   `json:"created_at"`
-	ErrorMessage           *string                     `json:"error_message,omitempty"`
-	FrontendId             openapi_types.UUID          `json:"frontend_id"`
-	Id                     openapi_types.UUID          `json:"id"`
-	Operation              FrontendDeploymentOperation `json:"operation"`
-	ProjectId              openapi_types.UUID          `json:"project_id"`
-	SiteUrl                *string                     `json:"site_url,omitempty"`
-	Status                 FrontendDeploymentStatus    `json:"status"`
-	UpdatedAt              time.Time                   `json:"updated_at"`
+	ArtifactBucket         *string `json:"artifact_bucket,omitempty"`
+	ArtifactKey            *string `json:"artifact_key,omitempty"`
+	ArtifactVersion        *string `json:"artifact_version,omitempty"`
+	CloudformationStackId  *string `json:"cloudformation_stack_id,omitempty"`
+	CloudformationStackUrl *string `json:"cloudformation_stack_url,omitempty"`
+	CloudwatchLogGroup     *string `json:"cloudwatch_log_group,omitempty"`
+
+	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
+	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
+	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
+
+	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
+	CodebuildDurationSeconds *int64                      `json:"codebuild_duration_seconds,omitempty"`
+	CreatedAt                time.Time                   `json:"created_at"`
+	ErrorMessage             *string                     `json:"error_message,omitempty"`
+	FrontendId               openapi_types.UUID          `json:"frontend_id"`
+	Id                       openapi_types.UUID          `json:"id"`
+	Operation                FrontendDeploymentOperation `json:"operation"`
+	ProjectId                openapi_types.UUID          `json:"project_id"`
+	SiteUrl                  *string                     `json:"site_url,omitempty"`
+	Status                   FrontendDeploymentStatus    `json:"status"`
+	UpdatedAt                time.Time                   `json:"updated_at"`
 }
 
 // FrontendDeploymentOperation defines model for FrontendDeployment.Operation.
@@ -1531,6 +1789,21 @@ type FrontendDomainVerificationRecord struct {
 	Value string `json:"value"`
 }
 
+// FrontendUsageDailyEntry One day of request and error counts for a single frontend.
+type FrontendUsageDailyEntry struct {
+	// Day UTC date (YYYY-MM-DD) the counts cover.
+	Day openapi_types.Date `json:"day"`
+
+	// Errors 5xx responses served on this day.
+	Errors int64 `json:"errors"`
+
+	// PageViews Navigable-document responses served on this day (text/html or Sec-Fetch-Dest=document) — strict subset of `requests`.
+	PageViews int64 `json:"page_views"`
+
+	// Requests Total requests served on this day.
+	Requests int64 `json:"requests"`
+}
+
 // FrontendUsageData Monthly frontend request totals grouped by frontend.
 type FrontendUsageData struct {
 	// FrontendId Frontend ID
@@ -1541,6 +1814,18 @@ type FrontendUsageData struct {
 
 	// Requests Total requests for this frontend in the current billing month
 	Requests int64 `json:"requests"`
+}
+
+// FrontendUsageHistoryResponse Zero-filled daily series of request + error counts for a single frontend, oldest first.
+type FrontendUsageHistoryResponse struct {
+	Daily []FrontendUsageDailyEntry `json:"daily"`
+
+	// Days Number of daily entries returned (always equal to the `days` query param after clamping).
+	Days           int                `json:"days"`
+	FrontendId     openapi_types.UUID `json:"frontend_id"`
+	TotalErrors    int64              `json:"total_errors"`
+	TotalPageViews int64              `json:"total_page_views"`
+	TotalRequests  int64              `json:"total_requests"`
 }
 
 // Function defines model for Function.
@@ -1581,23 +1866,30 @@ type FunctionStatus string
 
 // FunctionDeployment defines model for FunctionDeployment.
 type FunctionDeployment struct {
-	ArtifactBucket   *string                     `json:"artifact_bucket,omitempty"`
-	ArtifactKey      *string                     `json:"artifact_key,omitempty"`
-	ArtifactVersion  *string                     `json:"artifact_version,omitempty"`
-	BatchId          *openapi_types.UUID         `json:"batch_id,omitempty"`
-	CompileLogGroup  *string                     `json:"compile_log_group,omitempty"`
-	CompileLogStream *string                     `json:"compile_log_stream,omitempty"`
-	CompletedAt      *time.Time                  `json:"completed_at,omitempty"`
-	CreatedAt        time.Time                   `json:"created_at"`
-	ErrorMessage     *string                     `json:"error_message,omitempty"`
-	FunctionId       openapi_types.UUID          `json:"function_id"`
-	Id               openapi_types.UUID          `json:"id"`
-	Operation        FunctionDeploymentOperation `json:"operation"`
-	ProjectId        openapi_types.UUID          `json:"project_id"`
-	PublishLogGroup  *string                     `json:"publish_log_group,omitempty"`
-	PublishLogStream *string                     `json:"publish_log_stream,omitempty"`
-	Status           FunctionDeploymentStatus    `json:"status"`
-	UpdatedAt        time.Time                   `json:"updated_at"`
+	ArtifactBucket  *string             `json:"artifact_bucket,omitempty"`
+	ArtifactKey     *string             `json:"artifact_key,omitempty"`
+	ArtifactVersion *string             `json:"artifact_version,omitempty"`
+	BatchId         *openapi_types.UUID `json:"batch_id,omitempty"`
+
+	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
+	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
+	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
+
+	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
+	CodebuildDurationSeconds *int64                      `json:"codebuild_duration_seconds,omitempty"`
+	CompileLogGroup          *string                     `json:"compile_log_group,omitempty"`
+	CompileLogStream         *string                     `json:"compile_log_stream,omitempty"`
+	CompletedAt              *time.Time                  `json:"completed_at,omitempty"`
+	CreatedAt                time.Time                   `json:"created_at"`
+	ErrorMessage             *string                     `json:"error_message,omitempty"`
+	FunctionId               openapi_types.UUID          `json:"function_id"`
+	Id                       openapi_types.UUID          `json:"id"`
+	Operation                FunctionDeploymentOperation `json:"operation"`
+	ProjectId                openapi_types.UUID          `json:"project_id"`
+	PublishLogGroup          *string                     `json:"publish_log_group,omitempty"`
+	PublishLogStream         *string                     `json:"publish_log_stream,omitempty"`
+	Status                   FunctionDeploymentStatus    `json:"status"`
+	UpdatedAt                time.Time                   `json:"updated_at"`
 }
 
 // FunctionDeploymentOperation defines model for FunctionDeployment.Operation.
@@ -1627,6 +1919,18 @@ type FunctionInvocationRequest struct {
 
 // FunctionInvocationResponse Raw function response body returned by the invoked function.
 type FunctionInvocationResponse map[string]interface{}
+
+// FunctionRegion defines model for FunctionRegion.
+type FunctionRegion struct {
+	// Code AWS region identifier accepted by function APIs.
+	Code string `json:"code"`
+
+	// Flag Country flag emoji associated with the region's geography.
+	Flag string `json:"flag"`
+
+	// Label Human-readable region label suitable for display in pickers.
+	Label string `json:"label"`
+}
 
 // FunctionRuntimeDeployment defines model for FunctionRuntimeDeployment.
 type FunctionRuntimeDeployment struct {
@@ -1693,27 +1997,6 @@ type FunctionSchedulerListResponse struct {
 	Total   int                 `json:"total"`
 }
 
-// GetLogsResponse defines model for GetLogsResponse.
-type GetLogsResponse struct {
-	// Data Array of log events sorted by timestamp (newest first)
-	Data []LogEvent `json:"data"`
-
-	// HasMore Whether there are more log events available
-	HasMore bool `json:"has_more"`
-
-	// Limit Number of items requested per page
-	Limit int `json:"limit"`
-
-	// Next URL path to next page with all current filters (only present if has_more is true)
-	Next *string `json:"next,omitempty"`
-
-	// Partial True when one or more regions could not be queried successfully
-	Partial *bool `json:"partial,omitempty"`
-
-	// RegionErrors Per-region query errors when `partial=true`
-	RegionErrors *map[string]string `json:"region_errors,omitempty"`
-}
-
 // HostedAuthPageType defines model for HostedAuthPageType.
 type HostedAuthPageType string
 
@@ -1739,16 +2022,264 @@ type HostedLoginOptionsResponse struct {
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType string
 
-// LogEvent defines model for LogEvent.
-type LogEvent struct {
-	// Message Log message content
+// ListLogsResponse Paginated logs response using opaque cursor pagination.
+type ListLogsResponse struct {
+	// Data Array of log events sorted by timestamp, newest first.
+	Data []LogEvent `json:"data"`
+
+	// HasMore Whether there are more log events available.
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items requested per page.
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page. Send this value as `cursor` on the next request.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// LiveLogBackfillCompleteEvent SSE payload emitted as `event: backfill_complete` after initial bounded history.
+type LiveLogBackfillCompleteEvent struct {
+	// BackfillCount Number of historical log events emitted before this control event.
+	BackfillCount int `json:"backfill_count"`
+}
+
+// LiveLogEvent Structured function runtime log event emitted as SSE `event: log`.
+type LiveLogEvent struct {
+	// FunctionId Function ID that emitted the log.
+	FunctionId openapi_types.UUID `json:"function_id"`
+
+	// FunctionName Function name at stream time.
+	FunctionName string `json:"function_name"`
+
+	// Id Opaque stable log event id. Also used as the SSE event id for resume and deduplication.
+	Id string `json:"id"`
+
+	// Level Normalized function runtime log level.
+	Level LiveLogLevel `json:"level"`
+
+	// Message Display message. For parsed JSON logs, this should prefer the parsed `message` field when available.
 	Message string `json:"message"`
 
-	// Region Region where this log event originated (multi-region logs)
+	// Metadata Parsed JSON object fields when `raw_message` is JSON; otherwise null.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// RawMessage Original log line/message after platform sanitization.
+	RawMessage string `json:"raw_message"`
+
+	// Region Region where this log event originated.
 	Region *string `json:"region,omitempty"`
 
-	// Timestamp Unix timestamp in milliseconds
+	// Source Runtime environment source that produced the function log event.
+	Source LiveLogSource `json:"source"`
+
+	// Timestamp Unix timestamp in milliseconds.
 	Timestamp int64 `json:"timestamp"`
+}
+
+// LiveLogHeartbeatEvent SSE payload emitted as `event: heartbeat` every 15 seconds while idle.
+type LiveLogHeartbeatEvent struct {
+	// Timestamp Unix timestamp in milliseconds when the heartbeat was emitted.
+	Timestamp int64 `json:"timestamp"`
+}
+
+// LiveLogLevel Normalized function runtime log level.
+type LiveLogLevel string
+
+// LiveLogSource Runtime environment source that produced the function log event.
+type LiveLogSource string
+
+// LiveLogWarningEvent SSE payload emitted as `event: warning` for recoverable live log stream issues.
+type LiveLogWarningEvent struct {
+	// Code Stable warning code clients can branch on.
+	Code LiveLogWarningEventCode `json:"code"`
+
+	// LastEventId Resume cursor from the request when the warning is cursor-related.
+	LastEventId *string `json:"last_event_id,omitempty"`
+
+	// Message Human-readable warning message.
+	Message string `json:"message"`
+
+	// Metadata Source-specific diagnostic details safe to expose to the project owner.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Region Region affected by the warning, when region-specific.
+	Region *string `json:"region,omitempty"`
+}
+
+// LiveLogWarningEventCode Stable warning code clients can branch on.
+type LiveLogWarningEventCode string
+
+// LogActivityBucket Log-event counts for one activity time bucket.
+type LogActivityBucket struct {
+	// Counts Counts grouped by activity dimension.
+	Counts struct {
+		// Levels Counts by normalized log level.
+		Levels map[string]int `json:"levels"`
+
+		// Regions Counts by event region.
+		Regions map[string]int `json:"regions"`
+
+		// ResourceIds Counts by resource ID.
+		ResourceIds map[string]int `json:"resource_ids"`
+	} `json:"counts"`
+
+	// EndTime Bucket end time in milliseconds since epoch.
+	EndTime int64 `json:"end_time"`
+
+	// StartTime Bucket start time in milliseconds since epoch.
+	StartTime int64 `json:"start_time"`
+
+	// Total Total events in this bucket.
+	Total int `json:"total"`
+}
+
+// LogActivityResponse Bucketed runtime log activity.
+type LogActivityResponse struct {
+	Data []LogActivityBucket `json:"data"`
+
+	// Total Total events counted across all buckets.
+	Total int `json:"total"`
+}
+
+// LogDeployment Deployment context associated with a historical deployment log event.
+type LogDeployment struct {
+	// Id Deployment ID associated with the log event.
+	Id openapi_types.UUID `json:"id"`
+
+	// Stage Deployment stage that produced the log event, when available.
+	Stage *LogDeploymentStage `json:"stage,omitempty"`
+}
+
+// LogDeploymentStage Deployment stage that produced the log event, when available.
+type LogDeploymentStage string
+
+// LogEvent Normalized historical log event returned by paginated log APIs.
+type LogEvent struct {
+	// Deployment Deployment context associated with a historical deployment log event.
+	Deployment *LogDeployment `json:"deployment,omitempty"`
+
+	// Id Opaque stable log event ID for pagination, deduplication, and display.
+	Id *string `json:"id,omitempty"`
+
+	// InvocationId Function invocation ID associated with this log event, when available.
+	InvocationId *string `json:"invocation_id,omitempty"`
+
+	// Level Normalized function runtime log level.
+	Level *LiveLogLevel `json:"level,omitempty"`
+
+	// Message Display log message.
+	Message string `json:"message"`
+
+	// Metadata Parsed JSON fields and other indexed metadata, when available.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// RawMessage Original log line/message after platform sanitization.
+	RawMessage *string `json:"raw_message,omitempty"`
+
+	// Region Region where this log event originated.
+	Region *string `json:"region,omitempty"`
+
+	// Resource Resource that owns a historical log event.
+	Resource *LogResource `json:"resource,omitempty"`
+
+	// Timestamp Unix timestamp in milliseconds.
+	Timestamp int64 `json:"timestamp"`
+}
+
+// LogResource Resource that owns a historical log event.
+type LogResource struct {
+	// Id Function or frontend ID that owns the log event.
+	Id openapi_types.UUID `json:"id"`
+
+	// Name Resource name associated with the log event, when available.
+	Name *string `json:"name,omitempty"`
+
+	// Type Resource type that owns the log event.
+	Type LogResourceType `json:"type"`
+}
+
+// LogResourceType Resource type that owns the log event.
+type LogResourceType string
+
+// LogSearchEvent defines model for LogSearchEvent.
+type LogSearchEvent struct {
+	// Deployment Deployment context associated with a historical deployment log event.
+	Deployment *LogDeployment `json:"deployment,omitempty"`
+
+	// Id Opaque stable log event ID for pagination, deduplication, and display.
+	Id string `json:"id"`
+
+	// InvocationId Function invocation ID associated with this log event, when available.
+	InvocationId *string `json:"invocation_id,omitempty"`
+
+	// Level Normalized function runtime log level.
+	Level *LiveLogLevel `json:"level,omitempty"`
+
+	// Message Display log message.
+	Message string `json:"message"`
+
+	// Metadata Parsed JSON fields and other indexed metadata, when available.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// RawMessage Original log line/message after platform sanitization.
+	RawMessage *string `json:"raw_message,omitempty"`
+
+	// Region Region where this log event originated.
+	Region *string `json:"region,omitempty"`
+
+	// Resource Resource that owns a historical log event.
+	Resource LogResource `json:"resource"`
+
+	// Timestamp Unix timestamp in milliseconds.
+	Timestamp int64 `json:"timestamp"`
+}
+
+// LogSearchRequest Search request for runtime logs.
+type LogSearchRequest struct {
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *string `json:"cursor,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *int64 `json:"end_time,omitempty"`
+
+	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Limit Maximum number of records to return.
+	Limit *int `json:"limit,omitempty"`
+
+	// Q Optional free-text search query for log messages. When omitted or blank, stored logs are returned using structured filters only.
+	Q *string `json:"q,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, search all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// ResourceIds Optional resource identifiers within the selected resource type. For `function`, these are function IDs. Omit or send an empty array to search all functions.
+	ResourceIds *[]string `json:"resource_ids,omitempty"`
+
+	// ResourceType Resource type to search. Currently only `function` is supported.
+	ResourceType LogSearchRequestResourceType `json:"resource_type"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *int64 `json:"start_time,omitempty"`
+}
+
+// LogSearchRequestResourceType Resource type to search. Currently only `function` is supported.
+type LogSearchRequestResourceType string
+
+// LogSearchResponse Paginated project runtime log search response.
+type LogSearchResponse struct {
+	// Data Array of log events sorted by timestamp, newest first.
+	Data []LogSearchEvent `json:"data"`
+
+	// HasMore Whether there are more log events available.
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items requested per page.
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page. Send this value as `cursor` on the next request.
+	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
@@ -1759,7 +2290,10 @@ type MetricUsageData struct {
 	// Hourly Last 24 hours of hourly usage points
 	Hourly []UsageDataPoint `json:"hourly"`
 
-	// Metric Metric name (for example, "Function Invocations" or "Frontend Requests")
+	// Metric Metric name (for example, "Function Invocations", "Frontend Requests",
+	// "CodeBuild Build Seconds", "Bandwidth Ingress (Bytes)", "Bandwidth Egress (Bytes)",
+	// or "Bandwidth Total (Bytes)"). Bandwidth metrics are reported in bytes;
+	// "Bandwidth Total (Bytes)" is derived (ingress + egress) and is not billed separately.
 	Metric string `json:"metric"`
 
 	// Total Total usage for the current billing month
@@ -1910,6 +2444,46 @@ type PaginatedFunctions struct {
 	Total int `json:"total"`
 }
 
+// PaginatedProjectCustomDomains defines model for PaginatedProjectCustomDomains.
+type PaginatedProjectCustomDomains struct {
+	Data []ProjectFrontendCustomDomain `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
+// PaginatedProjectDeployments defines model for PaginatedProjectDeployments.
+type PaginatedProjectDeployments struct {
+	Data []ProjectFrontendDeployment `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
 // PaginatedProjects defines model for PaginatedProjects.
 type PaginatedProjects struct {
 	// CurrentSyncId Identifier of the latest variable propagation sync.
@@ -2017,6 +2591,74 @@ type ProjectPlan string
 
 // ProjectStatus defines model for Project.Status.
 type ProjectStatus string
+
+// ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
+type ProjectFrontendCustomDomain struct {
+	CreatedAt     time.Time                               `json:"created_at"`
+	Domain        string                                  `json:"domain"`
+	DomainStatus  ProjectFrontendCustomDomainDomainStatus `json:"domain_status"`
+	EffectiveUrls []string                                `json:"effective_urls"`
+
+	// Frontend The frontend this custom domain is attached to. Inlined to
+	// avoid a second fetch from the project-scoped feed.
+	Frontend struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"frontend"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord                  `json:"required_routing_record,omitempty"`
+	TlsMode               ProjectFrontendCustomDomainTlsMode            `json:"tls_mode"`
+	UpdatedAt             time.Time                                     `json:"updated_at"`
+	VerificationRecords   *[]FrontendDomainVerificationRecord           `json:"verification_records,omitempty"`
+	VerificationStatus    ProjectFrontendCustomDomainVerificationStatus `json:"verification_status"`
+}
+
+// ProjectFrontendCustomDomainDomainStatus defines model for ProjectFrontendCustomDomain.DomainStatus.
+type ProjectFrontendCustomDomainDomainStatus string
+
+// ProjectFrontendCustomDomainTlsMode defines model for ProjectFrontendCustomDomain.TlsMode.
+type ProjectFrontendCustomDomainTlsMode string
+
+// ProjectFrontendCustomDomainVerificationStatus defines model for ProjectFrontendCustomDomain.VerificationStatus.
+type ProjectFrontendCustomDomainVerificationStatus string
+
+// ProjectFrontendDeployment defines model for ProjectFrontendDeployment.
+type ProjectFrontendDeployment struct {
+	ArtifactBucket         *string `json:"artifact_bucket,omitempty"`
+	ArtifactKey            *string `json:"artifact_key,omitempty"`
+	ArtifactVersion        *string `json:"artifact_version,omitempty"`
+	CloudformationStackId  *string `json:"cloudformation_stack_id,omitempty"`
+	CloudformationStackUrl *string `json:"cloudformation_stack_url,omitempty"`
+	CloudwatchLogGroup     *string `json:"cloudwatch_log_group,omitempty"`
+
+	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
+	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
+	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
+
+	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
+	CodebuildDurationSeconds *int64    `json:"codebuild_duration_seconds,omitempty"`
+	CreatedAt                time.Time `json:"created_at"`
+	ErrorMessage             *string   `json:"error_message,omitempty"`
+
+	// Frontend The frontend this deployment belongs to. Inlined to avoid a
+	// second fetch from the project-scoped feed.
+	Frontend struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"frontend"`
+	FrontendId openapi_types.UUID                 `json:"frontend_id"`
+	Id         openapi_types.UUID                 `json:"id"`
+	Operation  ProjectFrontendDeploymentOperation `json:"operation"`
+	ProjectId  openapi_types.UUID                 `json:"project_id"`
+	SiteUrl    *string                            `json:"site_url,omitempty"`
+	Status     ProjectFrontendDeploymentStatus    `json:"status"`
+	UpdatedAt  time.Time                          `json:"updated_at"`
+}
+
+// ProjectFrontendDeploymentOperation defines model for ProjectFrontendDeployment.Operation.
+type ProjectFrontendDeploymentOperation string
+
+// ProjectFrontendDeploymentStatus defines model for ProjectFrontendDeployment.Status.
+type ProjectFrontendDeploymentStatus string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
@@ -2288,6 +2930,36 @@ type StorageVisibilityRequest struct {
 	IsPublic bool `json:"is_public"`
 }
 
+// TestEmailRequest When `html_body` or `text_body` is provided the backend renders
+// those (plus optional `subject`) through html/text templates
+// against the standard `EmailData` (ProjectName, Name, SiteURL)
+// and sends the result — used by the template-editor "Send Test"
+// affordance to preview an unsaved template. When both bodies are
+// omitted a hardcoded diagnostic message is sent to verify SMTP
+// credentials and `subject` is ignored. Sending `subject` alone
+// (without a body) is rejected with 400.
+type TestEmailRequest struct {
+	// HtmlBody Optional HTML body override. Rendered as an html/template. Max 256 KiB.
+	HtmlBody *string `json:"html_body,omitempty"`
+
+	// Subject Optional subject override, rendered as a text/template. Only
+	// applied on the override path — requires `html_body` or
+	// `text_body` to also be set, otherwise the request is
+	// rejected with 400.
+	Subject *string `json:"subject,omitempty"`
+
+	// TextBody Optional plain-text body override. Rendered as a text/template. Max 256 KiB.
+	TextBody *string `json:"text_body,omitempty"`
+
+	// ToEmail Recipient address for the diagnostic email.
+	ToEmail openapi_types.Email `json:"to_email"`
+}
+
+// TestEmailResponse defines model for TestEmailResponse.
+type TestEmailResponse struct {
+	Success bool `json:"success"`
+}
+
 // UnbanUserResponse Response when unbanning a user
 type UnbanUserResponse struct {
 	Email   openapi_types.Email     `json:"email"`
@@ -2352,10 +3024,12 @@ type UpdateAuthConfigRequest struct {
 	RequireSpecialChars      *bool   `json:"require_special_chars,omitempty"`
 	RequireUppercase         *bool   `json:"require_uppercase,omitempty"`
 	SmtpHost                 *string `json:"smtp_host,omitempty"`
-	SmtpPassword             *string `json:"smtp_password,omitempty"`
-	SmtpPort                 *int    `json:"smtp_port,omitempty"`
-	SmtpUseTls               *bool   `json:"smtp_use_tls,omitempty"`
-	SmtpUsername             *string `json:"smtp_username,omitempty"`
+
+	// SmtpPassword SMTP password (sensitive). Encrypted at rest (AES-256-GCM) when stored.
+	SmtpPassword *string `json:"smtp_password,omitempty"`
+	SmtpPort     *int    `json:"smtp_port,omitempty"`
+	SmtpUseTls   *bool   `json:"smtp_use_tls,omitempty"`
+	SmtpUsername *string `json:"smtp_username,omitempty"`
 }
 
 // UpdateAuthHostedPageRequest defines model for UpdateAuthHostedPageRequest.

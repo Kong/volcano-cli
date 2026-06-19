@@ -290,6 +290,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	var batchFilenames []string
 	var updateBody map[string]bool
 	var invokeBody map[string]any
+	var logSearchBody map[string]any
 	var schedulerCreateBody map[string]any
 	var schedulerUpdateBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -358,13 +359,12 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 				"limit":    10,
 				"total":    1,
 			})
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/logs":
-			assert.Equal(t, "50", r.URL.Query().Get("limit"))
-			assert.Equal(t, "fn-next", r.URL.Query().Get("next_token"))
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/logs/search":
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&logSearchBody))
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/deployments/"+deploymentIDText+"/logs":
 			assert.Equal(t, "75", r.URL.Query().Get("limit"))
-			assert.Equal(t, "dep-next", r.URL.Query().Get("next_token"))
+			assert.Equal(t, "dep-next", r.URL.Query().Get("cursor"))
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/schedulers":
 			writeAPIJSON(t, w, http.StatusOK, map[string]any{
@@ -463,6 +463,10 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	runtimeLogs, err := client.GetFunctionLogs(context.Background(), projectID, functionID, 50, "fn-next")
 	require.NoError(t, err)
 	assert.Equal(t, "function runtime", runtimeLogs.Data[0].Message)
+	assert.Equal(t, "function", logSearchBody["resource_type"])
+	assert.Equal(t, []any{functionIDText}, logSearchBody["resource_ids"])
+	assert.InEpsilon(t, 50, logSearchBody["limit"], 0)
+	assert.Equal(t, "fn-next", logSearchBody["cursor"])
 
 	deploymentLogs, err := client.GetFunctionDeploymentLogs(context.Background(), projectID, functionID, deploymentID, 75, "dep-next")
 	require.NoError(t, err)
@@ -513,8 +517,8 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 		"POST /functions/" + functionIDText + "/invoke",
 		"GET /functions/runtimes",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments?page=3&limit=10",
-		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/logs?limit=50&next_token=fn-next",
-		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&next_token=dep-next",
+		"POST /projects/" + projectIDText + "/logs/search",
+		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&cursor=dep-next",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers",
 		"POST /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers",
 		"PATCH /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers/" + schedulerIDText,

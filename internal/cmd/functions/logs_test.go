@@ -1,9 +1,9 @@
 package functions
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +21,7 @@ func TestFunctionsLogs(t *testing.T) {
 	t.Run("runtime pages with next token", func(t *testing.T) {
 		setFunctionCommandTestHome(t)
 		saveFunctionCommandTestConfig(t)
-		var logQueries []string
+		var logBodies []map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
@@ -32,13 +32,15 @@ func TestFunctionsLogs(t *testing.T) {
 					"limit":    100,
 					"total":    1,
 				})
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/logs":
-				logQueries = append(logQueries, r.URL.RawQuery)
-				if r.URL.Query().Get("next_token") == "" {
-					writeFunctionCommandJSON(t, w, http.StatusOK, logCommandResponse("first runtime", true, "/projects/"+functionProjectID+"/functions/"+functionID+"/logs?limit=2&next_token=next%20token"))
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/search":
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				logBodies = append(logBodies, body)
+				if body["cursor"] == nil {
+					writeFunctionCommandJSON(t, w, http.StatusOK, logCommandResponse("first runtime", true, "next token"))
 					return
 				}
-				assert.Equal(t, "next token", r.URL.Query().Get("next_token"))
+				assert.Equal(t, "next token", body["cursor"])
 				writeFunctionCommandJSON(t, w, http.StatusOK, logCommandResponse("second runtime", false, ""))
 			default:
 				http.NotFound(w, r)
@@ -48,48 +50,15 @@ func TestFunctionsLogs(t *testing.T) {
 
 		out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "hello", "--type", "runtime", "--limit", "2")
 		require.NoError(t, err)
-		assert.Equal(t, []string{"limit=2", "limit=2&next_token=next+token"}, logQueries)
+		require.Len(t, logBodies, 2)
+		assert.Equal(t, "function", logBodies[0]["resource_type"])
+		assert.Equal(t, []any{functionID}, logBodies[0]["resource_ids"])
+		assert.InEpsilon(t, 2, logBodies[0]["limit"], 0)
+		assert.NotContains(t, logBodies[0], "cursor")
+		assert.Equal(t, "next token", logBodies[1]["cursor"])
 		assert.Contains(t, out, "Fetching runtime logs for function hello")
 		assert.Contains(t, out, "first runtime")
 		assert.Contains(t, out, "second runtime")
-	})
-
-	t.Run("runtime warns when response is partial", func(t *testing.T) {
-		setFunctionCommandTestHome(t)
-		saveFunctionCommandTestConfig(t)
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch {
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
-				writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
-					"data":     []any{functionCommandPayload(functionID, "hello")},
-					"has_more": false,
-					"page":     1,
-					"limit":    100,
-					"total":    1,
-				})
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/logs":
-				response := logCommandResponse("partial runtime", false, "")
-				response["partial"] = true
-				response["region_errors"] = map[string]string{
-					"aws-us-west-2": "query timed out",
-					"aws-us-east-1": "access denied",
-				}
-				writeFunctionCommandJSON(t, w, http.StatusOK, response)
-			default:
-				http.NotFound(w, r)
-			}
-		}))
-		defer server.Close()
-
-		out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "hello", "--type", "runtime")
-		require.NoError(t, err)
-		assert.Contains(t, out, "partial runtime")
-		assert.Contains(t, out, "Warning: log response is partial; some regions could not be queried:")
-		eastIndex := strings.Index(out, "  aws-us-east-1: access denied")
-		westIndex := strings.Index(out, "  aws-us-west-2: query timed out")
-		require.NotEqual(t, -1, eastIndex)
-		require.NotEqual(t, -1, westIndex)
-		assert.Less(t, eastIndex, westIndex)
 	})
 
 	t.Run("build defaults latest deployment", func(t *testing.T) {
@@ -199,7 +168,7 @@ func logCommandResponse(message string, hasMore bool, next string) map[string]an
 		"total":    1,
 	}
 	if next != "" {
-		response["next"] = next
+		response["next_cursor"] = next
 	}
 	return response
 }

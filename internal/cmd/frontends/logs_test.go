@@ -3,7 +3,6 @@ package frontends
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,11 +30,11 @@ func TestFrontendsLogs(t *testing.T) {
 				})
 			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/logs":
 				logQueries = append(logQueries, r.URL.RawQuery)
-				if r.URL.Query().Get("next_token") == "" {
-					writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("first runtime", true, "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/logs?limit=2&next_token=next%20token"))
+				if r.URL.Query().Get("cursor") == "" {
+					writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("first runtime", true, "next token"))
 					return
 				}
-				assert.Equal(t, "next token", r.URL.Query().Get("next_token"))
+				assert.Equal(t, "next token", r.URL.Query().Get("cursor"))
 				writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("second runtime", false, ""))
 			default:
 				http.NotFound(w, r)
@@ -45,48 +44,10 @@ func TestFrontendsLogs(t *testing.T) {
 
 		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--limit", "2")
 		require.NoError(t, err)
-		assert.Equal(t, []string{"limit=2", "limit=2&next_token=next+token"}, logQueries)
+		assert.Equal(t, []string{"limit=2", "limit=2&cursor=next+token"}, logQueries)
 		assert.Contains(t, out, "Fetching runtime logs for frontend web")
 		assert.Contains(t, out, "first runtime")
 		assert.Contains(t, out, "second runtime")
-	})
-
-	t.Run("runtime warns when response is partial", func(t *testing.T) {
-		setFrontendCommandTestHome(t)
-		saveFrontendCommandTestConfig(t)
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch {
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
-				writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
-					"data":     []any{frontendCommandPayload(frontendID, "web")},
-					"has_more": false,
-					"page":     1,
-					"limit":    100,
-					"total":    1,
-				})
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/logs":
-				response := frontendLogCommandResponse("partial runtime", false, "")
-				response["partial"] = true
-				response["region_errors"] = map[string]string{
-					"aws-us-west-2": "query timed out",
-					"aws-us-east-1": "access denied",
-				}
-				writeFrontendCommandJSON(t, w, http.StatusOK, response)
-			default:
-				http.NotFound(w, r)
-			}
-		}))
-		defer server.Close()
-
-		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime")
-		require.NoError(t, err)
-		assert.Contains(t, out, "partial runtime")
-		assert.Contains(t, out, "Warning: log response is partial; some regions could not be queried:")
-		eastIndex := strings.Index(out, "  aws-us-east-1: access denied")
-		westIndex := strings.Index(out, "  aws-us-west-2: query timed out")
-		require.NotEqual(t, -1, eastIndex)
-		require.NotEqual(t, -1, westIndex)
-		assert.Less(t, eastIndex, westIndex)
 	})
 
 	t.Run("build defaults current deployment", func(t *testing.T) {
@@ -186,7 +147,7 @@ func frontendLogCommandResponse(message string, hasMore bool, next string) map[s
 		"total":    1,
 	}
 	if next != "" {
-		response["next"] = next
+		response["next_cursor"] = next
 	}
 	return response
 }

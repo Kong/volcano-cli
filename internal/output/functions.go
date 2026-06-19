@@ -3,7 +3,6 @@ package output
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
@@ -98,49 +97,24 @@ func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 // LogEvents renders function log events.
 func LogEvents(w io.Writer, events []apiclient.LogEvent) {
 	for _, event := range events {
-		message := strings.TrimSpace(event.Message)
-		if region := stringPtrValue(event.Region); region != "" {
-			fmt.Fprintf(w, "%s  [%s] %s\n", time.UnixMilli(event.Timestamp).Format(time.RFC3339), region, message)
-			continue
-		}
-		fmt.Fprintf(w, "%s  %s\n", time.UnixMilli(event.Timestamp).Format(time.RFC3339), message)
+		printLogEvent(w, event.Timestamp, event.Region, event.Message)
 	}
 }
 
-// LogPartialWarning renders a warning when log results are incomplete.
-func LogPartialWarning(w io.Writer, resp *apiclient.GetLogsResponse) {
-	if resp == nil {
+// LogSearchEvents renders function log search events.
+func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
+	for _, event := range events {
+		printLogEvent(w, event.Timestamp, event.Region, event.Message)
+	}
+}
+
+func printLogEvent(w io.Writer, timestamp int64, region *string, message string) {
+	message = strings.TrimSpace(message)
+	if region := stringPtrValue(region); region != "" {
+		fmt.Fprintf(w, "%s  [%s] %s\n", time.UnixMilli(timestamp).Format(time.RFC3339), region, message)
 		return
 	}
-
-	partial := resp.Partial != nil && *resp.Partial
-	regionErrors := map[string]string{}
-	if resp.RegionErrors != nil {
-		regionErrors = *resp.RegionErrors
-	}
-	if !partial && len(regionErrors) == 0 {
-		return
-	}
-
-	if len(regionErrors) == 0 {
-		fmt.Fprintln(w, "Warning: log response is partial; some regions could not be queried.")
-		return
-	}
-
-	regions := make([]string, 0, len(regionErrors))
-	for region := range regionErrors {
-		regions = append(regions, region)
-	}
-	sort.Strings(regions)
-
-	fmt.Fprintln(w, "Warning: log response is partial; some regions could not be queried:")
-	for _, region := range regions {
-		message := strings.TrimSpace(regionErrors[region])
-		if message == "" {
-			message = "unknown error"
-		}
-		fmt.Fprintf(w, "  %s: %s\n", region, message)
-	}
+	fmt.Fprintf(w, "%s  %s\n", time.UnixMilli(timestamp).Format(time.RFC3339), message)
 }
 
 func functionStatus(fn apiclient.Function) string {

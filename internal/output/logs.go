@@ -2,20 +2,23 @@ package output
 
 import (
 	"io"
-	"net/url"
+	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
-// LogsFetcher fetches one page of log events. An empty nextToken requests the first page.
-type LogsFetcher func(nextToken string) (*apiclient.GetLogsResponse, error)
+// LogsFetcher fetches one page of log events. An empty cursor requests the first page.
+type LogsFetcher func(cursor string) (*apiclient.ListLogsResponse, error)
+
+// SearchLogsFetcher fetches one page of searched log events. An empty cursor requests the first page.
+type SearchLogsFetcher func(cursor string) (*apiclient.LogSearchResponse, error)
 
 // PrintLogs renders paginated log events from fetch until the response signals
-// no more pages or the next-token cursor cannot be advanced.
+// no more pages or the cursor cannot be advanced.
 func PrintLogs(w io.Writer, fetch LogsFetcher) error {
-	nextToken := ""
+	cursor := ""
 	for {
-		resp, err := fetch(nextToken)
+		resp, err := fetch(cursor)
 		if err != nil {
 			return err
 		}
@@ -23,23 +26,35 @@ func PrintLogs(w io.Writer, fetch LogsFetcher) error {
 			return nil
 		}
 		LogEvents(w, resp.Data)
-		LogPartialWarning(w, resp)
-		if !resp.HasMore || resp.Next == nil {
+		if !resp.HasMore || resp.NextCursor == nil {
 			return nil
 		}
-		nextToken = extractNextToken(*resp.Next)
-		if nextToken == "" {
+		cursor = strings.TrimSpace(*resp.NextCursor)
+		if cursor == "" {
 			return nil
 		}
 	}
 }
 
-func extractNextToken(nextURL string) string {
-	// url.Parse accepts any well-formed cursor URL the server emits, so the
-	// previous manual next_token= scan was unreachable in practice.
-	parsed, err := url.Parse(nextURL)
-	if err != nil {
-		return ""
+// PrintSearchLogs renders paginated searched log events from fetch until the
+// response signals no more pages or the cursor cannot be advanced.
+func PrintSearchLogs(w io.Writer, fetch SearchLogsFetcher) error {
+	cursor := ""
+	for {
+		resp, err := fetch(cursor)
+		if err != nil {
+			return err
+		}
+		if resp == nil {
+			return nil
+		}
+		LogSearchEvents(w, resp.Data)
+		if !resp.HasMore || resp.NextCursor == nil {
+			return nil
+		}
+		cursor = strings.TrimSpace(*resp.NextCursor)
+		if cursor == "" {
+			return nil
+		}
 	}
-	return parsed.Query().Get("next_token")
 }

@@ -78,8 +78,8 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 
 	if logsType == logsTypeRuntime {
 		fmt.Fprintf(opts.out, "Fetching runtime logs for function %s\n\n", function.Name)
-		return output.PrintLogs(opts.out, func(nextToken string) (*apiclient.GetLogsResponse, error) {
-			return service.RuntimeLogs(ctx, function.Id, opts.limit, nextToken)
+		return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
+			return service.RuntimeLogs(ctx, function.Id, opts.limit, cursor)
 		})
 	}
 
@@ -101,8 +101,8 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	}
 
 	fmt.Fprintf(opts.out, "Fetching build logs for function %s deployment %s\n\n", function.Name, deploymentID.String())
-	return output.PrintLogs(opts.out, func(nextToken string) (*apiclient.GetLogsResponse, error) {
-		return service.DeploymentLogs(ctx, function.Id, *deploymentID, opts.limit, nextToken)
+	return output.PrintLogs(opts.out, func(cursor string) (*apiclient.ListLogsResponse, error) {
+		return service.DeploymentLogs(ctx, function.Id, *deploymentID, opts.limit, cursor)
 	})
 }
 

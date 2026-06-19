@@ -26,6 +26,39 @@ const (
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
 
+// Defines values for DeploymentStage.
+const (
+	DeploymentStageCompile DeploymentStage = "compile"
+	DeploymentStagePublish DeploymentStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the DeploymentStage enum.
+func (e DeploymentStage) Valid() bool {
+	switch e {
+	case DeploymentStageCompile:
+		return true
+	case DeploymentStagePublish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogResourceType.
+const (
+	LogResourceTypeFunction LogResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogResourceType enum.
+func (e LogResourceType) Valid() bool {
+	switch e {
+	case LogResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthConfirmEmail200JSONResponseBodyMessage.
 const (
 	EmailAlreadyConfirmed      AuthConfirmEmail200JSONResponseBodyMessage = "Email already confirmed"
@@ -400,6 +433,7 @@ const (
 	GetDefaultEmailTemplateParamsTypeConfirmation    GetDefaultEmailTemplateParamsType = "confirmation"
 	GetDefaultEmailTemplateParamsTypePasswordChanged GetDefaultEmailTemplateParamsType = "password_changed"
 	GetDefaultEmailTemplateParamsTypePasswordReset   GetDefaultEmailTemplateParamsType = "password_reset"
+	GetDefaultEmailTemplateParamsTypeWelcome         GetDefaultEmailTemplateParamsType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the GetDefaultEmailTemplateParamsType enum.
@@ -410,6 +444,8 @@ func (e GetDefaultEmailTemplateParamsType) Valid() bool {
 	case GetDefaultEmailTemplateParamsTypePasswordChanged:
 		return true
 	case GetDefaultEmailTemplateParamsTypePasswordReset:
+		return true
+	case GetDefaultEmailTemplateParamsTypeWelcome:
 		return true
 	default:
 		return false
@@ -523,6 +559,7 @@ const (
 	DeleteEmailTemplateParamsTypeConfirmation    DeleteEmailTemplateParamsType = "confirmation"
 	DeleteEmailTemplateParamsTypePasswordChanged DeleteEmailTemplateParamsType = "password_changed"
 	DeleteEmailTemplateParamsTypePasswordReset   DeleteEmailTemplateParamsType = "password_reset"
+	DeleteEmailTemplateParamsTypeWelcome         DeleteEmailTemplateParamsType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the DeleteEmailTemplateParamsType enum.
@@ -534,6 +571,8 @@ func (e DeleteEmailTemplateParamsType) Valid() bool {
 		return true
 	case DeleteEmailTemplateParamsTypePasswordReset:
 		return true
+	case DeleteEmailTemplateParamsTypeWelcome:
+		return true
 	default:
 		return false
 	}
@@ -544,6 +583,7 @@ const (
 	GetEmailTemplateParamsTypeConfirmation    GetEmailTemplateParamsType = "confirmation"
 	GetEmailTemplateParamsTypePasswordChanged GetEmailTemplateParamsType = "password_changed"
 	GetEmailTemplateParamsTypePasswordReset   GetEmailTemplateParamsType = "password_reset"
+	GetEmailTemplateParamsTypeWelcome         GetEmailTemplateParamsType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the GetEmailTemplateParamsType enum.
@@ -555,6 +595,8 @@ func (e GetEmailTemplateParamsType) Valid() bool {
 		return true
 	case GetEmailTemplateParamsTypePasswordReset:
 		return true
+	case GetEmailTemplateParamsTypeWelcome:
+		return true
 	default:
 		return false
 	}
@@ -565,6 +607,7 @@ const (
 	UpdateEmailTemplateParamsTypeConfirmation    UpdateEmailTemplateParamsType = "confirmation"
 	UpdateEmailTemplateParamsTypePasswordChanged UpdateEmailTemplateParamsType = "password_changed"
 	UpdateEmailTemplateParamsTypePasswordReset   UpdateEmailTemplateParamsType = "password_reset"
+	UpdateEmailTemplateParamsTypeWelcome         UpdateEmailTemplateParamsType = "welcome"
 )
 
 // Valid indicates whether the value is a known member of the UpdateEmailTemplateParamsType enum.
@@ -575,6 +618,8 @@ func (e UpdateEmailTemplateParamsType) Valid() bool {
 	case UpdateEmailTemplateParamsTypePasswordChanged:
 		return true
 	case UpdateEmailTemplateParamsTypePasswordReset:
+		return true
+	case UpdateEmailTemplateParamsTypeWelcome:
 		return true
 	default:
 		return false
@@ -596,26 +641,59 @@ func (e CreateFrontendMultipartBodyFramework) Valid() bool {
 	}
 }
 
+// Defines values for ListProjectFrontendDeploymentLogsParamsStage.
+const (
+	ListProjectFrontendDeploymentLogsParamsStageCompile ListProjectFrontendDeploymentLogsParamsStage = "compile"
+	ListProjectFrontendDeploymentLogsParamsStagePublish ListProjectFrontendDeploymentLogsParamsStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the ListProjectFrontendDeploymentLogsParamsStage enum.
+func (e ListProjectFrontendDeploymentLogsParamsStage) Valid() bool {
+	switch e {
+	case ListProjectFrontendDeploymentLogsParamsStageCompile:
+		return true
+	case ListProjectFrontendDeploymentLogsParamsStagePublish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetFrontendDeploymentLogsParamsStage.
+const (
+	GetFrontendDeploymentLogsParamsStageCompile GetFrontendDeploymentLogsParamsStage = "compile"
+	GetFrontendDeploymentLogsParamsStagePublish GetFrontendDeploymentLogsParamsStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the GetFrontendDeploymentLogsParamsStage enum.
+func (e GetFrontendDeploymentLogsParamsStage) Valid() bool {
+	switch e {
+	case GetFrontendDeploymentLogsParamsStageCompile:
+		return true
+	case GetFrontendDeploymentLogsParamsStagePublish:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateFunctionMultipartBodyRuntime.
 const (
-	Nodejs20X CreateFunctionMultipartBodyRuntime = "nodejs20.x"
 	Nodejs22X CreateFunctionMultipartBodyRuntime = "nodejs22.x"
 	Nodejs24X CreateFunctionMultipartBodyRuntime = "nodejs24.x"
 	Python310 CreateFunctionMultipartBodyRuntime = "python3.10"
 	Python311 CreateFunctionMultipartBodyRuntime = "python3.11"
 	Python312 CreateFunctionMultipartBodyRuntime = "python3.12"
 	Python313 CreateFunctionMultipartBodyRuntime = "python3.13"
-	Python39  CreateFunctionMultipartBodyRuntime = "python3.9"
-	Ruby32    CreateFunctionMultipartBodyRuntime = "ruby3.2"
+	Python314 CreateFunctionMultipartBodyRuntime = "python3.14"
 	Ruby33    CreateFunctionMultipartBodyRuntime = "ruby3.3"
 	Ruby34    CreateFunctionMultipartBodyRuntime = "ruby3.4"
+	Ruby40    CreateFunctionMultipartBodyRuntime = "ruby4.0"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyRuntime enum.
 func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 	switch e {
-	case Nodejs20X:
-		return true
 	case Nodejs22X:
 		return true
 	case Nodejs24X:
@@ -628,13 +706,46 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 		return true
 	case Python313:
 		return true
-	case Python39:
-		return true
-	case Ruby32:
+	case Python314:
 		return true
 	case Ruby33:
 		return true
 	case Ruby34:
+		return true
+	case Ruby40:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetFunctionDeploymentLogsParamsStage.
+const (
+	GetFunctionDeploymentLogsParamsStageCompile GetFunctionDeploymentLogsParamsStage = "compile"
+	GetFunctionDeploymentLogsParamsStagePublish GetFunctionDeploymentLogsParamsStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the GetFunctionDeploymentLogsParamsStage enum.
+func (e GetFunctionDeploymentLogsParamsStage) Valid() bool {
+	switch e {
+	case GetFunctionDeploymentLogsParamsStageCompile:
+		return true
+	case GetFunctionDeploymentLogsParamsStagePublish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProjectLogActivityParamsResourceType.
+const (
+	GetProjectLogActivityParamsResourceTypeFunction GetProjectLogActivityParamsResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectLogActivityParamsResourceType enum.
+func (e GetProjectLogActivityParamsResourceType) Valid() bool {
+	switch e {
+	case GetProjectLogActivityParamsResourceTypeFunction:
 		return true
 	default:
 		return false
@@ -840,8 +951,14 @@ type FrontendDomainRoutingRecord = externalRef0.FrontendDomainRoutingRecord
 // FrontendDomainVerificationRecord defines model for FrontendDomainVerificationRecord.
 type FrontendDomainVerificationRecord = externalRef0.FrontendDomainVerificationRecord
 
+// FrontendUsageDailyEntry One day of request and error counts for a single frontend.
+type FrontendUsageDailyEntry = externalRef0.FrontendUsageDailyEntry
+
 // FrontendUsageData Monthly frontend request totals grouped by frontend.
 type FrontendUsageData = externalRef0.FrontendUsageData
+
+// FrontendUsageHistoryResponse Zero-filled daily series of request + error counts for a single frontend, oldest first.
+type FrontendUsageHistoryResponse = externalRef0.FrontendUsageHistoryResponse
 
 // Function defines model for Function.
 type Function = externalRef0.Function
@@ -855,6 +972,9 @@ type FunctionInvocationRequest = externalRef0.FunctionInvocationRequest
 // FunctionInvocationResponse Raw function response body returned by the invoked function.
 type FunctionInvocationResponse = externalRef0.FunctionInvocationResponse
 
+// FunctionRegion defines model for FunctionRegion.
+type FunctionRegion = externalRef0.FunctionRegion
+
 // FunctionRuntimeOption defines model for FunctionRuntimeOption.
 type FunctionRuntimeOption = externalRef0.FunctionRuntimeOption
 
@@ -866,9 +986,6 @@ type FunctionScheduler = externalRef0.FunctionScheduler
 
 // FunctionSchedulerListResponse defines model for FunctionSchedulerListResponse.
 type FunctionSchedulerListResponse = externalRef0.FunctionSchedulerListResponse
-
-// GetLogsResponse defines model for GetLogsResponse.
-type GetLogsResponse = externalRef0.GetLogsResponse
 
 // HostedAuthPageType defines model for HostedAuthPageType.
 type HostedAuthPageType = externalRef0.HostedAuthPageType
@@ -885,8 +1002,44 @@ type HostedLoginOptionsResponse = externalRef0.HostedLoginOptionsResponse
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType = externalRef0.HostedRenderablePageType
 
-// LogEvent defines model for LogEvent.
+// ListLogsResponse Paginated logs response using opaque cursor pagination.
+type ListLogsResponse = externalRef0.ListLogsResponse
+
+// LiveLogBackfillCompleteEvent SSE payload emitted as `event: backfill_complete` after initial bounded history.
+type LiveLogBackfillCompleteEvent = externalRef0.LiveLogBackfillCompleteEvent
+
+// LiveLogEvent Structured function runtime log event emitted as SSE `event: log`.
+type LiveLogEvent = externalRef0.LiveLogEvent
+
+// LiveLogHeartbeatEvent SSE payload emitted as `event: heartbeat` every 15 seconds while idle.
+type LiveLogHeartbeatEvent = externalRef0.LiveLogHeartbeatEvent
+
+// LiveLogLevel Normalized function runtime log level.
+type LiveLogLevel = externalRef0.LiveLogLevel
+
+// LiveLogSource Runtime environment source that produced the function log event.
+type LiveLogSource = externalRef0.LiveLogSource
+
+// LiveLogWarningEvent SSE payload emitted as `event: warning` for recoverable live log stream issues.
+type LiveLogWarningEvent = externalRef0.LiveLogWarningEvent
+
+// LogActivityBucket Log-event counts for one activity time bucket.
+type LogActivityBucket = externalRef0.LogActivityBucket
+
+// LogActivityResponse Bucketed runtime log activity.
+type LogActivityResponse = externalRef0.LogActivityResponse
+
+// LogEvent Normalized historical log event returned by paginated log APIs.
 type LogEvent = externalRef0.LogEvent
+
+// LogSearchEvent defines model for LogSearchEvent.
+type LogSearchEvent = externalRef0.LogSearchEvent
+
+// LogSearchRequest Search request for runtime logs.
+type LogSearchRequest = externalRef0.LogSearchRequest
+
+// LogSearchResponse Paginated project runtime log search response.
+type LogSearchResponse = externalRef0.LogSearchResponse
 
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
 type MetricUsageData = externalRef0.MetricUsageData
@@ -915,6 +1068,12 @@ type PaginatedFunctionDeployments = externalRef0.PaginatedFunctionDeployments
 // PaginatedFunctions defines model for PaginatedFunctions.
 type PaginatedFunctions = externalRef0.PaginatedFunctions
 
+// PaginatedProjectCustomDomains defines model for PaginatedProjectCustomDomains.
+type PaginatedProjectCustomDomains = externalRef0.PaginatedProjectCustomDomains
+
+// PaginatedProjectDeployments defines model for PaginatedProjectDeployments.
+type PaginatedProjectDeployments = externalRef0.PaginatedProjectDeployments
+
 // PaginatedProjects defines model for PaginatedProjects.
 type PaginatedProjects = externalRef0.PaginatedProjects
 
@@ -929,6 +1088,12 @@ type PlatformExchangeResponse = externalRef0.PlatformExchangeResponse
 
 // Project defines model for Project.
 type Project = externalRef0.Project
+
+// ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
+type ProjectFrontendCustomDomain = externalRef0.ProjectFrontendCustomDomain
+
+// ProjectFrontendDeployment defines model for ProjectFrontendDeployment.
+type ProjectFrontendDeployment = externalRef0.ProjectFrontendDeployment
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse = externalRef0.ProjectUsageResponse
@@ -980,6 +1145,19 @@ type StorageStats = externalRef0.StorageStats
 
 // StorageVisibilityRequest defines model for StorageVisibilityRequest.
 type StorageVisibilityRequest = externalRef0.StorageVisibilityRequest
+
+// TestEmailRequest When `html_body` or `text_body` is provided the backend renders
+// those (plus optional `subject`) through html/text templates
+// against the standard `EmailData` (ProjectName, Name, SiteURL)
+// and sends the result — used by the template-editor "Send Test"
+// affordance to preview an unsaved template. When both bodies are
+// omitted a hardcoded diagnostic message is sent to verify SMTP
+// credentials and `subject` is ignored. Sending `subject` alone
+// (without a body) is rejected with 400.
+type TestEmailRequest = externalRef0.TestEmailRequest
+
+// TestEmailResponse defines model for TestEmailResponse.
+type TestEmailResponse = externalRef0.TestEmailResponse
 
 // UnbanUserResponse Response when unbanning a user
 type UnbanUserResponse = externalRef0.UnbanUserResponse
@@ -1039,6 +1217,12 @@ type DatabaseName = string
 // DeploymentId defines model for DeploymentId.
 type DeploymentId = openapi_types.UUID
 
+// DeploymentIdQuery defines model for DeploymentIdQuery.
+type DeploymentIdQuery = openapi_types.UUID
+
+// DeploymentStage defines model for DeploymentStage.
+type DeploymentStage string
+
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
 
@@ -1047,6 +1231,33 @@ type FunctionId = openapi_types.UUID
 
 // Limit defines model for Limit.
 type Limit = int
+
+// LogCursor defines model for LogCursor.
+type LogCursor = string
+
+// LogEndTime defines model for LogEndTime.
+type LogEndTime = int64
+
+// LogLevel Normalized function runtime log level.
+type LogLevel = LiveLogLevel
+
+// LogLimit defines model for LogLimit.
+type LogLimit = int
+
+// LogQuery defines model for LogQuery.
+type LogQuery = string
+
+// LogRegion defines model for LogRegion.
+type LogRegion = string
+
+// LogResourceId defines model for LogResourceId.
+type LogResourceId = string
+
+// LogResourceType defines model for LogResourceType.
+type LogResourceType string
+
+// LogStartTime defines model for LogStartTime.
+type LogStartTime = int64
 
 // Page defines model for Page.
 type Page = int
@@ -1509,6 +1720,24 @@ type GetDatabaseStatsParams struct {
 // GetDatabaseStatsParamsGranularity defines parameters for GetDatabaseStats.
 type GetDatabaseStatsParamsGranularity string
 
+// ListProjectDeploymentsParams defines parameters for ListProjectDeployments.
+type ListProjectDeploymentsParams struct {
+	// Page Page number (1-indexed)
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListProjectCustomDomainsParams defines parameters for ListProjectCustomDomains.
+type ListProjectCustomDomainsParams struct {
+	// Page Page number (1-indexed)
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // DeleteEmailTemplateParamsType defines parameters for DeleteEmailTemplate.
 type DeleteEmailTemplateParamsType string
 
@@ -1545,6 +1774,63 @@ type CreateFrontendMultipartBody struct {
 // CreateFrontendMultipartBodyFramework defines parameters for CreateFrontend.
 type CreateFrontendMultipartBodyFramework string
 
+// ListProjectFrontendDeploymentLogsParams defines parameters for ListProjectFrontendDeploymentLogs.
+type ListProjectFrontendDeploymentLogsParams struct {
+	// Limit Maximum number of records to return.
+	Limit *LogLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *LogCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
+
+	// Q Free-text search query for log messages and indexed metadata.
+	Q *LogQuery `form:"q,omitempty" json:"q,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+
+	// DeploymentId Deployment ID to filter aggregate deployment logs by.
+	DeploymentId *DeploymentIdQuery `form:"deployment_id,omitempty" json:"deployment_id,omitempty"`
+
+	// Stage Deployment log stage to filter by.
+	Stage *ListProjectFrontendDeploymentLogsParamsStage `form:"stage,omitempty" json:"stage,omitempty"`
+}
+
+// ListProjectFrontendDeploymentLogsParamsStage defines parameters for ListProjectFrontendDeploymentLogs.
+type ListProjectFrontendDeploymentLogsParamsStage string
+
+// ListProjectFrontendLogsParams defines parameters for ListProjectFrontendLogs.
+type ListProjectFrontendLogsParams struct {
+	// Limit Maximum number of records to return.
+	Limit *LogLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *LogCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
+
+	// Q Free-text search query for log messages and indexed metadata.
+	Q *LogQuery `form:"q,omitempty" json:"q,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+}
+
 // ListFrontendDeploymentsParams defines parameters for ListFrontendDeployments.
 type ListFrontendDeploymentsParams struct {
 	// Page Page number (1-indexed)
@@ -1556,29 +1842,62 @@ type ListFrontendDeploymentsParams struct {
 
 // GetFrontendDeploymentLogsParams defines parameters for GetFrontendDeploymentLogs.
 type GetFrontendDeploymentLogsParams struct {
-	Limit         *int    `form:"limit,omitempty" json:"limit,omitempty"`
-	StartTime     *int64  `form:"start_time,omitempty" json:"start_time,omitempty"`
-	EndTime       *int64  `form:"end_time,omitempty" json:"end_time,omitempty"`
-	FilterPattern *string `form:"filter_pattern,omitempty" json:"filter_pattern,omitempty"`
-	NextToken     *string `form:"next_token,omitempty" json:"next_token,omitempty"`
+	// Limit Maximum number of records to return.
+	Limit *LogLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *LogCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
+
+	// Q Free-text search query for log messages and indexed metadata.
+	Q *LogQuery `form:"q,omitempty" json:"q,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+
+	// Stage Deployment log stage to filter by.
+	Stage *GetFrontendDeploymentLogsParamsStage `form:"stage,omitempty" json:"stage,omitempty"`
 }
+
+// GetFrontendDeploymentLogsParamsStage defines parameters for GetFrontendDeploymentLogs.
+type GetFrontendDeploymentLogsParamsStage string
 
 // GetFrontendLogsParams defines parameters for GetFrontendLogs.
 type GetFrontendLogsParams struct {
-	// Limit Maximum number of log events to return
-	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+	// Limit Maximum number of records to return.
+	Limit *LogLimit `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// StartTime Start time in milliseconds since epoch (Unix timestamp)
-	StartTime *int64 `form:"start_time,omitempty" json:"start_time,omitempty"`
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *LogCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 
-	// EndTime End time in milliseconds since epoch (Unix timestamp)
-	EndTime *int64 `form:"end_time,omitempty" json:"end_time,omitempty"`
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
 
-	// FilterPattern CloudWatch Logs filter pattern to search/filter log messages
-	FilterPattern *string `form:"filter_pattern,omitempty" json:"filter_pattern,omitempty"`
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
 
-	// NextToken Pagination token from previous response to get next page of results
-	NextToken *string `form:"next_token,omitempty" json:"next_token,omitempty"`
+	// Q Free-text search query for log messages and indexed metadata.
+	Q *LogQuery `form:"q,omitempty" json:"q,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+}
+
+// GetFrontendUsageHistoryParams defines parameters for GetFrontendUsageHistory.
+type GetFrontendUsageHistoryParams struct {
+	// Days Number of trailing days to return (1–90, default 30).
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListFunctionsParams defines parameters for ListFunctions.
@@ -1606,9 +1925,9 @@ type CreateFunctionMultipartBody struct {
 	Name string `json:"name"`
 
 	// Runtime Runtime environment. Required.
-	// - Node.js: nodejs20.x, nodejs22.x, nodejs24.x
-	// - Python: python3.9, python3.10, python3.11, python3.12, python3.13
-	// - Ruby: ruby3.2, ruby3.3, ruby3.4
+	// - Node.js: nodejs22.x, nodejs24.x
+	// - Python: python3.10, python3.11, python3.12, python3.13, python3.14
+	// - Ruby: ruby3.3, ruby3.4, ruby4.0
 	Runtime CreateFunctionMultipartBodyRuntime `json:"runtime"`
 }
 
@@ -1624,6 +1943,21 @@ type CreateFunctionsBatchMultipartBody struct {
 	Functions string `json:"functions"`
 }
 
+// StreamProjectFunctionLogsParams defines parameters for StreamProjectFunctionLogs.
+type StreamProjectFunctionLogsParams struct {
+	// BackfillLimit Maximum number of historical events to emit before live tail. Use 0 for live-only.
+	BackfillLimit *int `form:"backfill_limit,omitempty" json:"backfill_limit,omitempty"`
+
+	// StartTime Optional lower bound for initial backfill, in milliseconds since epoch.
+	StartTime *int64 `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// Q Free-text search query for the initial backfill.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// LastEventID SSE resume cursor. Must be the last processed `log` event id.
+	LastEventID *string `json:"Last-Event-ID,omitempty"`
+}
+
 // ListFunctionDeploymentsParams defines parameters for ListFunctionDeployments.
 type ListFunctionDeploymentsParams struct {
 	// Page Page number (1-indexed)
@@ -1635,28 +1969,75 @@ type ListFunctionDeploymentsParams struct {
 
 // GetFunctionDeploymentLogsParams defines parameters for GetFunctionDeploymentLogs.
 type GetFunctionDeploymentLogsParams struct {
-	Limit     *int    `form:"limit,omitempty" json:"limit,omitempty"`
-	NextToken *string `form:"next_token,omitempty" json:"next_token,omitempty"`
+	// Limit Maximum number of records to return.
+	Limit *LogLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *LogCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
+
+	// Q Free-text search query for log messages and indexed metadata.
+	Q *LogQuery `form:"q,omitempty" json:"q,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+
+	// Stage Deployment log stage to filter by.
+	Stage *GetFunctionDeploymentLogsParamsStage `form:"stage,omitempty" json:"stage,omitempty"`
 }
 
-// GetFunctionLogsParams defines parameters for GetFunctionLogs.
-type GetFunctionLogsParams struct {
-	// Limit Maximum number of log events to return
-	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+// GetFunctionDeploymentLogsParamsStage defines parameters for GetFunctionDeploymentLogs.
+type GetFunctionDeploymentLogsParamsStage string
 
-	// StartTime Start time in milliseconds since epoch (Unix timestamp)
+// StreamFunctionLogsParams defines parameters for StreamFunctionLogs.
+type StreamFunctionLogsParams struct {
+	// BackfillLimit Maximum number of historical events to emit before live tail. Use 0 for live-only.
+	BackfillLimit *int `form:"backfill_limit,omitempty" json:"backfill_limit,omitempty"`
+
+	// StartTime Optional lower bound for initial backfill, in milliseconds since epoch.
 	StartTime *int64 `form:"start_time,omitempty" json:"start_time,omitempty"`
 
-	// EndTime End time in milliseconds since epoch (Unix timestamp)
-	EndTime *int64 `form:"end_time,omitempty" json:"end_time,omitempty"`
+	// Q Free-text search query for the initial backfill.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
 
-	// FilterPattern CloudWatch Logs filter pattern to search/filter log messages.
-	// Supports literal text, JSON field matching, and regular expressions.
-	FilterPattern *string `form:"filter_pattern,omitempty" json:"filter_pattern,omitempty"`
-
-	// NextToken Pagination token from previous response to get next page of results
-	NextToken *string `form:"next_token,omitempty" json:"next_token,omitempty"`
+	// LastEventID SSE resume cursor. Must be the last processed `log` event id.
+	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
+
+// GetProjectLogActivityParams defines parameters for GetProjectLogActivity.
+type GetProjectLogActivityParams struct {
+	// ResourceType Resource type to read logs for. Currently only `function` is supported.
+	ResourceType GetProjectLogActivityParamsResourceType `form:"resource_type" json:"resource_type"`
+
+	// ResourceId Optional resource identifier within the selected resource type. For `function`, this is the function ID.
+	ResourceId *LogResourceId `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
+
+	// Level Normalized log level to filter by.
+	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Region Region to filter by, for example `us-east-1`.
+	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
+
+	// BucketCount Number of activity buckets to return.
+	BucketCount *int `form:"bucket_count,omitempty" json:"bucket_count,omitempty"`
+}
+
+// GetProjectLogActivityParamsResourceType defines parameters for GetProjectLogActivity.
+type GetProjectLogActivityParamsResourceType string
 
 // DeleteOAuthConfigParams defines parameters for DeleteOAuthConfig.
 type DeleteOAuthConfigParams struct {
@@ -1684,6 +2065,15 @@ type UpdateOAuthConfigParams struct {
 
 // UpdateOAuthConfigParamsProvider defines parameters for UpdateOAuthConfig.
 type UpdateOAuthConfigParamsProvider string
+
+// ListProjectSchedulersParams defines parameters for ListProjectSchedulers.
+type ListProjectSchedulersParams struct {
+	// Page Page number (1-indexed)
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
 
 // ListServiceKeysParams defines parameters for ListServiceKeys.
 type ListServiceKeysParams struct {
@@ -1864,6 +2254,9 @@ type CreateAnonKeyJSONRequestBody CreateAnonKeyJSONBody
 // UpdateAuthConfigJSONRequestBody defines body for UpdateAuthConfig for application/json ContentType.
 type UpdateAuthConfigJSONRequestBody = UpdateAuthConfigRequest
 
+// TestEmailConfigJSONRequestBody defines body for TestEmailConfig for application/json ContentType.
+type TestEmailConfigJSONRequestBody = TestEmailRequest
+
 // UpdateAuthHostedPageJSONRequestBody defines body for UpdateAuthHostedPage for application/json ContentType.
 type UpdateAuthHostedPageJSONRequestBody = UpdateAuthHostedPageRequest
 
@@ -1908,6 +2301,9 @@ type CreateFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
 
 // UpdateFunctionSchedulerJSONRequestBody defines body for UpdateFunctionScheduler for application/json ContentType.
 type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
+
+// SearchProjectLogsJSONRequestBody defines body for SearchProjectLogs for application/json ContentType.
+type SearchProjectLogsJSONRequestBody = LogSearchRequest
 
 // CreateOAuthConfigJSONRequestBody defines body for CreateOAuthConfig for application/json ContentType.
 type CreateOAuthConfigJSONRequestBody = CreateOAuthConfigRequest
@@ -2622,6 +3018,9 @@ type ClientInterface interface {
 	// GetDefaultEmailTemplate request
 	GetDefaultEmailTemplate(ctx context.Context, pType GetDefaultEmailTemplateParamsType, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFunctionRegions request
+	ListFunctionRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ResolveFunctionForInvocation request
 	ResolveFunctionForInvocation(ctx context.Context, params *ResolveFunctionForInvocationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2672,6 +3071,9 @@ type ClientInterface interface {
 	// RegenerateAnonKey request
 	RegenerateAnonKey(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetDefaultAnonKey request
+	SetDefaultAnonKey(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAuthConfig request
 	GetAuthConfig(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2679,6 +3081,11 @@ type ClientInterface interface {
 	UpdateAuthConfigWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateAuthConfig(ctx context.Context, id ProjectId, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestEmailConfigWithBody request with any body
+	TestEmailConfigWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TestEmailConfig(ctx context.Context, id ProjectId, body TestEmailConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RenderDefaultManagedAuthPage request
 	RenderDefaultManagedAuthPage(ctx context.Context, id ProjectId, params *RenderDefaultManagedAuthPageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2761,6 +3168,12 @@ type ClientInterface interface {
 
 	UpdateDatabaseType(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectDeployments request
+	ListProjectDeployments(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectCustomDomains request
+	ListProjectCustomDomains(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListEmailTemplates request
 	ListEmailTemplates(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2785,6 +3198,12 @@ type ClientInterface interface {
 
 	// CreateFrontendWithBody request with any body
 	CreateFrontendWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectFrontendDeploymentLogs request
+	ListProjectFrontendDeploymentLogs(ctx context.Context, id ProjectId, params *ListProjectFrontendDeploymentLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectFrontendLogs request
+	ListProjectFrontendLogs(ctx context.Context, id ProjectId, params *ListProjectFrontendLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFrontend request
 	DeleteFrontend(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2815,6 +3234,9 @@ type ClientInterface interface {
 	// RedeployFrontend request
 	RedeployFrontend(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetFrontendUsageHistory request
+	GetFrontendUsageHistory(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFunctions request
 	ListFunctions(ctx context.Context, id ProjectId, params *ListFunctionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2823,6 +3245,9 @@ type ClientInterface interface {
 
 	// CreateFunctionsBatchWithBody request with any body
 	CreateFunctionsBatchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StreamProjectFunctionLogs request
+	StreamProjectFunctionLogs(ctx context.Context, id ProjectId, params *StreamProjectFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFunction request
 	DeleteFunction(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2841,8 +3266,8 @@ type ClientInterface interface {
 	// GetFunctionDeploymentLogs request
 	GetFunctionDeploymentLogs(ctx context.Context, id ProjectId, functionId FunctionId, deploymentId DeploymentId, params *GetFunctionDeploymentLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetFunctionLogs request
-	GetFunctionLogs(ctx context.Context, id ProjectId, functionId FunctionId, params *GetFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// StreamFunctionLogs request
+	StreamFunctionLogs(ctx context.Context, id ProjectId, functionId FunctionId, params *StreamFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFunctionSchedulers request
 	ListFunctionSchedulers(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2862,6 +3287,14 @@ type ClientInterface interface {
 	UpdateFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectLogActivity request
+	GetProjectLogActivity(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchProjectLogsWithBody request with any body
+	SearchProjectLogsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SearchProjectLogs(ctx context.Context, id ProjectId, body SearchProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOAuthConfigs request
 	ListOAuthConfigs(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2895,6 +3328,9 @@ type ClientInterface interface {
 
 	// GetRealtimeStats request
 	GetRealtimeStats(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectSchedulers request
+	ListProjectSchedulers(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListServiceKeys request
 	ListServiceKeys(ctx context.Context, id ProjectId, params *ListServiceKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3727,6 +4163,18 @@ func (c *Client) GetDefaultEmailTemplate(ctx context.Context, pType GetDefaultEm
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListFunctionRegions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFunctionRegionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ResolveFunctionForInvocation(ctx context.Context, params *ResolveFunctionForInvocationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResolveFunctionForInvocationRequest(c.Server, params)
 	if err != nil {
@@ -3943,6 +4391,18 @@ func (c *Client) RegenerateAnonKey(ctx context.Context, id ProjectId, keyId open
 	return c.Client.Do(req)
 }
 
+func (c *Client) SetDefaultAnonKey(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDefaultAnonKeyRequest(c.Server, id, keyId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetAuthConfig(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAuthConfigRequest(c.Server, id)
 	if err != nil {
@@ -3969,6 +4429,30 @@ func (c *Client) UpdateAuthConfigWithBody(ctx context.Context, id ProjectId, con
 
 func (c *Client) UpdateAuthConfig(ctx context.Context, id ProjectId, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateAuthConfigRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestEmailConfigWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestEmailConfigRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestEmailConfig(ctx context.Context, id ProjectId, body TestEmailConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestEmailConfigRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4327,6 +4811,30 @@ func (c *Client) UpdateDatabaseType(ctx context.Context, id ProjectId, databaseN
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListProjectDeployments(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectDeploymentsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectCustomDomains(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectCustomDomainsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListEmailTemplates(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListEmailTemplatesRequest(c.Server, id)
 	if err != nil {
@@ -4425,6 +4933,30 @@ func (c *Client) ListFrontends(ctx context.Context, id ProjectId, params *ListFr
 
 func (c *Client) CreateFrontendWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateFrontendRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectFrontendDeploymentLogs(ctx context.Context, id ProjectId, params *ListProjectFrontendDeploymentLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectFrontendDeploymentLogsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectFrontendLogs(ctx context.Context, id ProjectId, params *ListProjectFrontendLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectFrontendLogsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4555,6 +5087,18 @@ func (c *Client) RedeployFrontend(ctx context.Context, id ProjectId, frontendId 
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetFrontendUsageHistory(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFrontendUsageHistoryRequest(c.Server, id, frontendId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListFunctions(ctx context.Context, id ProjectId, params *ListFunctionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListFunctionsRequest(c.Server, id, params)
 	if err != nil {
@@ -4581,6 +5125,18 @@ func (c *Client) CreateFunctionWithBody(ctx context.Context, id ProjectId, conte
 
 func (c *Client) CreateFunctionsBatchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateFunctionsBatchRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StreamProjectFunctionLogs(ctx context.Context, id ProjectId, params *StreamProjectFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamProjectFunctionLogsRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4663,8 +5219,8 @@ func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, id ProjectId, fu
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetFunctionLogs(ctx context.Context, id ProjectId, functionId FunctionId, params *GetFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetFunctionLogsRequest(c.Server, id, functionId, params)
+func (c *Client) StreamFunctionLogs(ctx context.Context, id ProjectId, functionId FunctionId, params *StreamFunctionLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamFunctionLogsRequest(c.Server, id, functionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4749,6 +5305,42 @@ func (c *Client) UpdateFunctionSchedulerWithBody(ctx context.Context, id Project
 
 func (c *Client) UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectLogActivity(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectLogActivityRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchProjectLogsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchProjectLogsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchProjectLogs(ctx context.Context, id ProjectId, body SearchProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchProjectLogsRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4893,6 +5485,18 @@ func (c *Client) UpdateRealtimeConfig(ctx context.Context, id ProjectId, body Up
 
 func (c *Client) GetRealtimeStats(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRealtimeStatsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectSchedulers(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectSchedulersRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6903,6 +7507,33 @@ func NewGetDefaultEmailTemplateRequest(server string, pType GetDefaultEmailTempl
 	return req, nil
 }
 
+// NewListFunctionRegionsRequest generates requests for ListFunctionRegions
+func NewListFunctionRegionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/functions/regions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewResolveFunctionForInvocationRequest generates requests for ResolveFunctionForInvocation
 func NewResolveFunctionForInvocationRequest(server string, params *ResolveFunctionForInvocationParams) (*http.Request, error) {
 	var err error
@@ -7479,6 +8110,47 @@ func NewRegenerateAnonKeyRequest(server string, id ProjectId, keyId openapi_type
 	return req, nil
 }
 
+// NewSetDefaultAnonKeyRequest generates requests for SetDefaultAnonKey
+func NewSetDefaultAnonKeyRequest(server string, id ProjectId, keyId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "keyId", keyId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/anon-keys/%s/set-default", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetAuthConfigRequest generates requests for GetAuthConfig
 func NewGetAuthConfigRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -7551,6 +8223,53 @@ func NewUpdateAuthConfigRequestWithBody(server string, id ProjectId, contentType
 	}
 
 	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewTestEmailConfigRequest calls the generic TestEmailConfig builder with application/json body
+func NewTestEmailConfigRequest(server string, id ProjectId, body TestEmailConfigJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTestEmailConfigRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewTestEmailConfigRequestWithBody generates requests for TestEmailConfig with any type of body
+func NewTestEmailConfigRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/config/test-email", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -8787,6 +9506,152 @@ func NewUpdateDatabaseTypeRequestWithBody(server string, id ProjectId, databaseN
 	return req, nil
 }
 
+// NewListProjectDeploymentsRequest generates requests for ListProjectDeployments
+func NewListProjectDeploymentsRequest(server string, id ProjectId, params *ListProjectDeploymentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deployments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListProjectCustomDomainsRequest generates requests for ListProjectCustomDomains
+func NewListProjectCustomDomainsRequest(server string, id ProjectId, params *ListProjectCustomDomainsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/domains", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListEmailTemplatesRequest generates requests for ListEmailTemplates
 func NewListEmailTemplatesRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -9113,6 +9978,296 @@ func NewCreateFrontendRequestWithBody(server string, id ProjectId, contentType s
 	return req, nil
 }
 
+// NewListProjectFrontendDeploymentLogsRequest generates requests for ListProjectFrontendDeploymentLogs
+func NewListProjectFrontendDeploymentLogsRequest(server string, id ProjectId, params *ListProjectFrontendDeploymentLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/deployments/logs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time", *params.EndTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Level != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.DeploymentId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deployment_id", *params.DeploymentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Stage != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "stage", *params.Stage, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListProjectFrontendLogsRequest generates requests for ListProjectFrontendLogs
+func NewListProjectFrontendLogsRequest(server string, id ProjectId, params *ListProjectFrontendLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/logs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time", *params.EndTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Level != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteFrontendRequest generates requests for DeleteFrontend
 func NewDeleteFrontendRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
 	var err error
@@ -9336,6 +10491,18 @@ func NewGetFrontendDeploymentLogsRequest(server string, id ProjectId, frontendId
 
 		}
 
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.StartTime != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
@@ -9360,9 +10527,9 @@ func NewGetFrontendDeploymentLogsRequest(server string, id ProjectId, frontendId
 
 		}
 
-		if params.FilterPattern != nil {
+		if params.Q != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter_pattern", *params.FilterPattern, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -9372,9 +10539,33 @@ func NewGetFrontendDeploymentLogsRequest(server string, id ProjectId, frontendId
 
 		}
 
-		if params.NextToken != nil {
+		if params.Level != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "next_token", *params.NextToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Stage != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "stage", *params.Stage, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -9588,6 +10779,18 @@ func NewGetFrontendLogsRequest(server string, id ProjectId, frontendId FrontendI
 
 		}
 
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.StartTime != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
@@ -9612,9 +10815,9 @@ func NewGetFrontendLogsRequest(server string, id ProjectId, frontendId FrontendI
 
 		}
 
-		if params.FilterPattern != nil {
+		if params.Q != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter_pattern", *params.FilterPattern, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -9624,9 +10827,21 @@ func NewGetFrontendLogsRequest(server string, id ProjectId, frontendId FrontendI
 
 		}
 
-		if params.NextToken != nil {
+		if params.Level != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "next_token", *params.NextToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -9684,6 +10899,74 @@ func NewRedeployFrontendRequest(server string, id ProjectId, frontendId Frontend
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFrontendUsageHistoryRequest generates requests for GetFrontendUsageHistory
+func NewGetFrontendUsageHistoryRequest(server string, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/usage", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -9832,6 +11115,106 @@ func NewCreateFunctionsBatchRequestWithBody(server string, id ProjectId, content
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStreamProjectFunctionLogsRequest generates requests for StreamProjectFunctionLogs
+func NewStreamProjectFunctionLogsRequest(server string, id ProjectId, params *StreamProjectFunctionLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/logs/stream", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.BackfillLimit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backfill_limit", *params.BackfillLimit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.LastEventID != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Last-Event-ID", *params.LastEventID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Last-Event-ID", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -10113,77 +11496,9 @@ func NewGetFunctionDeploymentLogsRequest(server string, id ProjectId, functionId
 
 		}
 
-		if params.NextToken != nil {
+		if params.Cursor != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "next_token", *params.NextToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetFunctionLogsRequest generates requests for GetFunctionLogs
-func NewGetFunctionLogsRequest(server string, id ProjectId, functionId FunctionId, params *GetFunctionLogsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/projects/%s/functions/%s/logs", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -10217,9 +11532,9 @@ func NewGetFunctionLogsRequest(server string, id ProjectId, functionId FunctionI
 
 		}
 
-		if params.FilterPattern != nil {
+		if params.Q != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter_pattern", *params.FilterPattern, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -10229,9 +11544,33 @@ func NewGetFunctionLogsRequest(server string, id ProjectId, functionId FunctionI
 
 		}
 
-		if params.NextToken != nil {
+		if params.Level != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "next_token", *params.NextToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Stage != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "stage", *params.Stage, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -10250,6 +11589,113 @@ func NewGetFunctionLogsRequest(server string, id ProjectId, functionId FunctionI
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStreamFunctionLogsRequest generates requests for StreamFunctionLogs
+func NewStreamFunctionLogsRequest(server string, id ProjectId, functionId FunctionId, params *StreamFunctionLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/functions/%s/logs/stream", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.BackfillLimit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backfill_limit", *params.BackfillLimit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Q != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "q", *params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.LastEventID != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Last-Event-ID", *params.LastEventID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Last-Event-ID", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -10498,6 +11944,182 @@ func NewUpdateFunctionSchedulerRequestWithBody(server string, id ProjectId, func
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProjectLogActivityRequest generates requests for GetProjectLogActivity
+func NewGetProjectLogActivityRequest(server string, id ProjectId, params *GetProjectLogActivityParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/logs/activity", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_type", params.ResourceType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.ResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.StartTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndTime != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time", *params.EndTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Level != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.BucketCount != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "bucket_count", *params.BucketCount, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSearchProjectLogsRequest calls the generic SearchProjectLogs builder with application/json body
+func NewSearchProjectLogsRequest(server string, id ProjectId, body SearchProjectLogsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchProjectLogsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSearchProjectLogsRequestWithBody generates requests for SearchProjectLogs with any type of body
+func NewSearchProjectLogsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/logs/search", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -10944,6 +12566,79 @@ func NewGetRealtimeStatsRequest(server string, id ProjectId) (*http.Request, err
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListProjectSchedulersRequest generates requests for ListProjectSchedulers
+func NewListProjectSchedulersRequest(server string, id ProjectId, params *ListProjectSchedulersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/schedulers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -12716,6 +14411,9 @@ type ClientWithResponsesInterface interface {
 	// GetDefaultEmailTemplateWithResponse request
 	GetDefaultEmailTemplateWithResponse(ctx context.Context, pType GetDefaultEmailTemplateParamsType, reqEditors ...RequestEditorFn) (*GetDefaultEmailTemplateClientResponse, error)
 
+	// ListFunctionRegionsWithResponse request
+	ListFunctionRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFunctionRegionsClientResponse, error)
+
 	// ResolveFunctionForInvocationWithResponse request
 	ResolveFunctionForInvocationWithResponse(ctx context.Context, params *ResolveFunctionForInvocationParams, reqEditors ...RequestEditorFn) (*ResolveFunctionForInvocationClientResponse, error)
 
@@ -12766,6 +14464,9 @@ type ClientWithResponsesInterface interface {
 	// RegenerateAnonKeyWithResponse request
 	RegenerateAnonKeyWithResponse(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RegenerateAnonKeyClientResponse, error)
 
+	// SetDefaultAnonKeyWithResponse request
+	SetDefaultAnonKeyWithResponse(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SetDefaultAnonKeyClientResponse, error)
+
 	// GetAuthConfigWithResponse request
 	GetAuthConfigWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetAuthConfigClientResponse, error)
 
@@ -12773,6 +14474,11 @@ type ClientWithResponsesInterface interface {
 	UpdateAuthConfigWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthConfigClientResponse, error)
 
 	UpdateAuthConfigWithResponse(ctx context.Context, id ProjectId, body UpdateAuthConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthConfigClientResponse, error)
+
+	// TestEmailConfigWithBodyWithResponse request with any body
+	TestEmailConfigWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestEmailConfigClientResponse, error)
+
+	TestEmailConfigWithResponse(ctx context.Context, id ProjectId, body TestEmailConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*TestEmailConfigClientResponse, error)
 
 	// RenderDefaultManagedAuthPageWithResponse request
 	RenderDefaultManagedAuthPageWithResponse(ctx context.Context, id ProjectId, params *RenderDefaultManagedAuthPageParams, reqEditors ...RequestEditorFn) (*RenderDefaultManagedAuthPageClientResponse, error)
@@ -12855,6 +14561,12 @@ type ClientWithResponsesInterface interface {
 
 	UpdateDatabaseTypeWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDatabaseTypeClientResponse, error)
 
+	// ListProjectDeploymentsWithResponse request
+	ListProjectDeploymentsWithResponse(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*ListProjectDeploymentsClientResponse, error)
+
+	// ListProjectCustomDomainsWithResponse request
+	ListProjectCustomDomainsWithResponse(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*ListProjectCustomDomainsClientResponse, error)
+
 	// ListEmailTemplatesWithResponse request
 	ListEmailTemplatesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListEmailTemplatesClientResponse, error)
 
@@ -12879,6 +14591,12 @@ type ClientWithResponsesInterface interface {
 
 	// CreateFrontendWithBodyWithResponse request with any body
 	CreateFrontendWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendClientResponse, error)
+
+	// ListProjectFrontendDeploymentLogsWithResponse request
+	ListProjectFrontendDeploymentLogsWithResponse(ctx context.Context, id ProjectId, params *ListProjectFrontendDeploymentLogsParams, reqEditors ...RequestEditorFn) (*ListProjectFrontendDeploymentLogsClientResponse, error)
+
+	// ListProjectFrontendLogsWithResponse request
+	ListProjectFrontendLogsWithResponse(ctx context.Context, id ProjectId, params *ListProjectFrontendLogsParams, reqEditors ...RequestEditorFn) (*ListProjectFrontendLogsClientResponse, error)
 
 	// DeleteFrontendWithResponse request
 	DeleteFrontendWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*DeleteFrontendClientResponse, error)
@@ -12909,6 +14627,9 @@ type ClientWithResponsesInterface interface {
 	// RedeployFrontendWithResponse request
 	RedeployFrontendWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*RedeployFrontendClientResponse, error)
 
+	// GetFrontendUsageHistoryWithResponse request
+	GetFrontendUsageHistoryWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*GetFrontendUsageHistoryClientResponse, error)
+
 	// ListFunctionsWithResponse request
 	ListFunctionsWithResponse(ctx context.Context, id ProjectId, params *ListFunctionsParams, reqEditors ...RequestEditorFn) (*ListFunctionsClientResponse, error)
 
@@ -12917,6 +14638,9 @@ type ClientWithResponsesInterface interface {
 
 	// CreateFunctionsBatchWithBodyWithResponse request with any body
 	CreateFunctionsBatchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFunctionsBatchClientResponse, error)
+
+	// StreamProjectFunctionLogsWithResponse request
+	StreamProjectFunctionLogsWithResponse(ctx context.Context, id ProjectId, params *StreamProjectFunctionLogsParams, reqEditors ...RequestEditorFn) (*StreamProjectFunctionLogsClientResponse, error)
 
 	// DeleteFunctionWithResponse request
 	DeleteFunctionWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*DeleteFunctionClientResponse, error)
@@ -12935,8 +14659,8 @@ type ClientWithResponsesInterface interface {
 	// GetFunctionDeploymentLogsWithResponse request
 	GetFunctionDeploymentLogsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, deploymentId DeploymentId, params *GetFunctionDeploymentLogsParams, reqEditors ...RequestEditorFn) (*GetFunctionDeploymentLogsClientResponse, error)
 
-	// GetFunctionLogsWithResponse request
-	GetFunctionLogsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *GetFunctionLogsParams, reqEditors ...RequestEditorFn) (*GetFunctionLogsClientResponse, error)
+	// StreamFunctionLogsWithResponse request
+	StreamFunctionLogsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *StreamFunctionLogsParams, reqEditors ...RequestEditorFn) (*StreamFunctionLogsClientResponse, error)
 
 	// ListFunctionSchedulersWithResponse request
 	ListFunctionSchedulersWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, reqEditors ...RequestEditorFn) (*ListFunctionSchedulersClientResponse, error)
@@ -12956,6 +14680,14 @@ type ClientWithResponsesInterface interface {
 	UpdateFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
 
 	UpdateFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
+
+	// GetProjectLogActivityWithResponse request
+	GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error)
+
+	// SearchProjectLogsWithBodyWithResponse request with any body
+	SearchProjectLogsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchProjectLogsClientResponse, error)
+
+	SearchProjectLogsWithResponse(ctx context.Context, id ProjectId, body SearchProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchProjectLogsClientResponse, error)
 
 	// ListOAuthConfigsWithResponse request
 	ListOAuthConfigsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListOAuthConfigsClientResponse, error)
@@ -12989,6 +14721,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetRealtimeStatsWithResponse request
 	GetRealtimeStatsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetRealtimeStatsClientResponse, error)
+
+	// ListProjectSchedulersWithResponse request
+	ListProjectSchedulersWithResponse(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*ListProjectSchedulersClientResponse, error)
 
 	// ListServiceKeysWithResponse request
 	ListServiceKeysWithResponse(ctx context.Context, id ProjectId, params *ListServiceKeysParams, reqEditors ...RequestEditorFn) (*ListServiceKeysClientResponse, error)
@@ -14387,6 +16122,36 @@ func (r GetDefaultEmailTemplateClientResponse) ContentType() string {
 	return ""
 }
 
+type ListFunctionRegionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]FunctionRegion
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFunctionRegionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFunctionRegionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFunctionRegionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResolveFunctionForInvocationClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14739,6 +16504,8 @@ func (r CreateAnonKeyClientResponse) ContentType() string {
 type RevokeAnonKeyClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -14825,6 +16592,37 @@ func (r RegenerateAnonKeyClientResponse) ContentType() string {
 	return ""
 }
 
+type SetDefaultAnonKeyClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AnonKey
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetDefaultAnonKeyClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetDefaultAnonKeyClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetDefaultAnonKeyClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetAuthConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14879,6 +16677,36 @@ func (r UpdateAuthConfigClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateAuthConfigClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TestEmailConfigClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TestEmailResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r TestEmailConfigClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestEmailConfigClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TestEmailConfigClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -15518,10 +17346,15 @@ type ResetDatabasePasswordClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
+		// ConnectionString Updated pgproxy connection string using Volcano-managed credentials.
 		ConnectionString *string `json:"connection_string,omitempty"`
 		Message          *string `json:"message,omitempty"`
-		NewPassword      *string `json:"new_password,omitempty"`
-		RoleName         *string `json:"role_name,omitempty"`
+
+		// NewPassword New Volcano-managed client password. Always starts with `vpg_`.
+		NewPassword *string `json:"new_password,omitempty"`
+
+		// RoleName Volcano-managed client database role name
+		RoleName *string `json:"role_name,omitempty"`
 	}
 }
 
@@ -15606,6 +17439,74 @@ func (r UpdateDatabaseTypeClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateDatabaseTypeClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectDeploymentsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedProjectDeployments
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectDeploymentsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectDeploymentsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectDeploymentsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectCustomDomainsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedProjectCustomDomains
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectCustomDomainsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectCustomDomainsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectCustomDomainsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -15837,6 +17738,76 @@ func (r CreateFrontendClientResponse) ContentType() string {
 	return ""
 }
 
+type ListProjectFrontendDeploymentLogsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListLogsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectFrontendDeploymentLogsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectFrontendDeploymentLogsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectFrontendDeploymentLogsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectFrontendLogsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListLogsResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectFrontendLogsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectFrontendLogsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectFrontendLogsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteFrontendClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15945,7 +17916,7 @@ func (r ListFrontendDeploymentsClientResponse) ContentType() string {
 type GetFrontendDeploymentLogsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GetLogsResponse
+	JSON200      *ListLogsResponse
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -16088,7 +18059,7 @@ func (r CreateFrontendCustomDomainClientResponse) ContentType() string {
 type GetFrontendLogsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GetLogsResponse
+	JSON200      *ListLogsResponse
 	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
@@ -16152,6 +18123,41 @@ func (r RedeployFrontendClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RedeployFrontendClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFrontendUsageHistoryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendUsageHistoryResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFrontendUsageHistoryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFrontendUsageHistoryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFrontendUsageHistoryClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16249,6 +18255,39 @@ func (r CreateFunctionsBatchClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateFunctionsBatchClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StreamProjectFunctionLogsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamProjectFunctionLogsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamProjectFunctionLogsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StreamProjectFunctionLogsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16382,10 +18421,12 @@ func (r ListFunctionDeploymentsClientResponse) ContentType() string {
 type GetFunctionDeploymentLogsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GetLogsResponse
+	JSON200      *ListLogsResponse
+	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -16412,17 +18453,18 @@ func (r GetFunctionDeploymentLogsClientResponse) ContentType() string {
 	return ""
 }
 
-type GetFunctionLogsClientResponse struct {
+type StreamFunctionLogsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *GetLogsResponse
+	JSON400      *Error
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetFunctionLogsClientResponse) Status() string {
+func (r StreamFunctionLogsClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -16430,7 +18472,7 @@ func (r GetFunctionLogsClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetFunctionLogsClientResponse) StatusCode() int {
+func (r StreamFunctionLogsClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16438,7 +18480,7 @@ func (r GetFunctionLogsClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetFunctionLogsClientResponse) ContentType() string {
+func (r StreamFunctionLogsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16589,6 +18631,76 @@ func (r UpdateFunctionSchedulerClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectLogActivityClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LogActivityResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectLogActivityClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectLogActivityClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectLogActivityClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SearchProjectLogsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LogSearchResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchProjectLogsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchProjectLogsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SearchProjectLogsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16871,6 +18983,36 @@ func (r GetRealtimeStatsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetRealtimeStatsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectSchedulersClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionSchedulerListResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectSchedulersClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectSchedulersClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectSchedulersClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18303,6 +20445,15 @@ func (c *ClientWithResponses) GetDefaultEmailTemplateWithResponse(ctx context.Co
 	return ParseGetDefaultEmailTemplateClientResponse(rsp)
 }
 
+// ListFunctionRegionsWithResponse request returning *ListFunctionRegionsClientResponse
+func (c *ClientWithResponses) ListFunctionRegionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFunctionRegionsClientResponse, error) {
+	rsp, err := c.ListFunctionRegions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFunctionRegionsClientResponse(rsp)
+}
+
 // ResolveFunctionForInvocationWithResponse request returning *ResolveFunctionForInvocationClientResponse
 func (c *ClientWithResponses) ResolveFunctionForInvocationWithResponse(ctx context.Context, params *ResolveFunctionForInvocationParams, reqEditors ...RequestEditorFn) (*ResolveFunctionForInvocationClientResponse, error) {
 	rsp, err := c.ResolveFunctionForInvocation(ctx, params, reqEditors...)
@@ -18461,6 +20612,15 @@ func (c *ClientWithResponses) RegenerateAnonKeyWithResponse(ctx context.Context,
 	return ParseRegenerateAnonKeyClientResponse(rsp)
 }
 
+// SetDefaultAnonKeyWithResponse request returning *SetDefaultAnonKeyClientResponse
+func (c *ClientWithResponses) SetDefaultAnonKeyWithResponse(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SetDefaultAnonKeyClientResponse, error) {
+	rsp, err := c.SetDefaultAnonKey(ctx, id, keyId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDefaultAnonKeyClientResponse(rsp)
+}
+
 // GetAuthConfigWithResponse request returning *GetAuthConfigClientResponse
 func (c *ClientWithResponses) GetAuthConfigWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetAuthConfigClientResponse, error) {
 	rsp, err := c.GetAuthConfig(ctx, id, reqEditors...)
@@ -18485,6 +20645,23 @@ func (c *ClientWithResponses) UpdateAuthConfigWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseUpdateAuthConfigClientResponse(rsp)
+}
+
+// TestEmailConfigWithBodyWithResponse request with arbitrary body returning *TestEmailConfigClientResponse
+func (c *ClientWithResponses) TestEmailConfigWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestEmailConfigClientResponse, error) {
+	rsp, err := c.TestEmailConfigWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestEmailConfigClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) TestEmailConfigWithResponse(ctx context.Context, id ProjectId, body TestEmailConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*TestEmailConfigClientResponse, error) {
+	rsp, err := c.TestEmailConfig(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestEmailConfigClientResponse(rsp)
 }
 
 // RenderDefaultManagedAuthPageWithResponse request returning *RenderDefaultManagedAuthPageClientResponse
@@ -18742,6 +20919,24 @@ func (c *ClientWithResponses) UpdateDatabaseTypeWithResponse(ctx context.Context
 	return ParseUpdateDatabaseTypeClientResponse(rsp)
 }
 
+// ListProjectDeploymentsWithResponse request returning *ListProjectDeploymentsClientResponse
+func (c *ClientWithResponses) ListProjectDeploymentsWithResponse(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*ListProjectDeploymentsClientResponse, error) {
+	rsp, err := c.ListProjectDeployments(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectDeploymentsClientResponse(rsp)
+}
+
+// ListProjectCustomDomainsWithResponse request returning *ListProjectCustomDomainsClientResponse
+func (c *ClientWithResponses) ListProjectCustomDomainsWithResponse(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*ListProjectCustomDomainsClientResponse, error) {
+	rsp, err := c.ListProjectCustomDomains(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectCustomDomainsClientResponse(rsp)
+}
+
 // ListEmailTemplatesWithResponse request returning *ListEmailTemplatesClientResponse
 func (c *ClientWithResponses) ListEmailTemplatesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListEmailTemplatesClientResponse, error) {
 	rsp, err := c.ListEmailTemplates(ctx, id, reqEditors...)
@@ -18819,6 +21014,24 @@ func (c *ClientWithResponses) CreateFrontendWithBodyWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseCreateFrontendClientResponse(rsp)
+}
+
+// ListProjectFrontendDeploymentLogsWithResponse request returning *ListProjectFrontendDeploymentLogsClientResponse
+func (c *ClientWithResponses) ListProjectFrontendDeploymentLogsWithResponse(ctx context.Context, id ProjectId, params *ListProjectFrontendDeploymentLogsParams, reqEditors ...RequestEditorFn) (*ListProjectFrontendDeploymentLogsClientResponse, error) {
+	rsp, err := c.ListProjectFrontendDeploymentLogs(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectFrontendDeploymentLogsClientResponse(rsp)
+}
+
+// ListProjectFrontendLogsWithResponse request returning *ListProjectFrontendLogsClientResponse
+func (c *ClientWithResponses) ListProjectFrontendLogsWithResponse(ctx context.Context, id ProjectId, params *ListProjectFrontendLogsParams, reqEditors ...RequestEditorFn) (*ListProjectFrontendLogsClientResponse, error) {
+	rsp, err := c.ListProjectFrontendLogs(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectFrontendLogsClientResponse(rsp)
 }
 
 // DeleteFrontendWithResponse request returning *DeleteFrontendClientResponse
@@ -18910,6 +21123,15 @@ func (c *ClientWithResponses) RedeployFrontendWithResponse(ctx context.Context, 
 	return ParseRedeployFrontendClientResponse(rsp)
 }
 
+// GetFrontendUsageHistoryWithResponse request returning *GetFrontendUsageHistoryClientResponse
+func (c *ClientWithResponses) GetFrontendUsageHistoryWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*GetFrontendUsageHistoryClientResponse, error) {
+	rsp, err := c.GetFrontendUsageHistory(ctx, id, frontendId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFrontendUsageHistoryClientResponse(rsp)
+}
+
 // ListFunctionsWithResponse request returning *ListFunctionsClientResponse
 func (c *ClientWithResponses) ListFunctionsWithResponse(ctx context.Context, id ProjectId, params *ListFunctionsParams, reqEditors ...RequestEditorFn) (*ListFunctionsClientResponse, error) {
 	rsp, err := c.ListFunctions(ctx, id, params, reqEditors...)
@@ -18935,6 +21157,15 @@ func (c *ClientWithResponses) CreateFunctionsBatchWithBodyWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseCreateFunctionsBatchClientResponse(rsp)
+}
+
+// StreamProjectFunctionLogsWithResponse request returning *StreamProjectFunctionLogsClientResponse
+func (c *ClientWithResponses) StreamProjectFunctionLogsWithResponse(ctx context.Context, id ProjectId, params *StreamProjectFunctionLogsParams, reqEditors ...RequestEditorFn) (*StreamProjectFunctionLogsClientResponse, error) {
+	rsp, err := c.StreamProjectFunctionLogs(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamProjectFunctionLogsClientResponse(rsp)
 }
 
 // DeleteFunctionWithResponse request returning *DeleteFunctionClientResponse
@@ -18990,13 +21221,13 @@ func (c *ClientWithResponses) GetFunctionDeploymentLogsWithResponse(ctx context.
 	return ParseGetFunctionDeploymentLogsClientResponse(rsp)
 }
 
-// GetFunctionLogsWithResponse request returning *GetFunctionLogsClientResponse
-func (c *ClientWithResponses) GetFunctionLogsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *GetFunctionLogsParams, reqEditors ...RequestEditorFn) (*GetFunctionLogsClientResponse, error) {
-	rsp, err := c.GetFunctionLogs(ctx, id, functionId, params, reqEditors...)
+// StreamFunctionLogsWithResponse request returning *StreamFunctionLogsClientResponse
+func (c *ClientWithResponses) StreamFunctionLogsWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, params *StreamFunctionLogsParams, reqEditors ...RequestEditorFn) (*StreamFunctionLogsClientResponse, error) {
+	rsp, err := c.StreamFunctionLogs(ctx, id, functionId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetFunctionLogsClientResponse(rsp)
+	return ParseStreamFunctionLogsClientResponse(rsp)
 }
 
 // ListFunctionSchedulersWithResponse request returning *ListFunctionSchedulersClientResponse
@@ -19058,6 +21289,32 @@ func (c *ClientWithResponses) UpdateFunctionSchedulerWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateFunctionSchedulerClientResponse(rsp)
+}
+
+// GetProjectLogActivityWithResponse request returning *GetProjectLogActivityClientResponse
+func (c *ClientWithResponses) GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error) {
+	rsp, err := c.GetProjectLogActivity(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectLogActivityClientResponse(rsp)
+}
+
+// SearchProjectLogsWithBodyWithResponse request with arbitrary body returning *SearchProjectLogsClientResponse
+func (c *ClientWithResponses) SearchProjectLogsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchProjectLogsClientResponse, error) {
+	rsp, err := c.SearchProjectLogsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchProjectLogsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SearchProjectLogsWithResponse(ctx context.Context, id ProjectId, body SearchProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchProjectLogsClientResponse, error) {
+	rsp, err := c.SearchProjectLogs(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchProjectLogsClientResponse(rsp)
 }
 
 // ListOAuthConfigsWithResponse request returning *ListOAuthConfigsClientResponse
@@ -19163,6 +21420,15 @@ func (c *ClientWithResponses) GetRealtimeStatsWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetRealtimeStatsClientResponse(rsp)
+}
+
+// ListProjectSchedulersWithResponse request returning *ListProjectSchedulersClientResponse
+func (c *ClientWithResponses) ListProjectSchedulersWithResponse(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*ListProjectSchedulersClientResponse, error) {
+	rsp, err := c.ListProjectSchedulers(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectSchedulersClientResponse(rsp)
 }
 
 // ListServiceKeysWithResponse request returning *ListServiceKeysClientResponse
@@ -20949,6 +23215,32 @@ func ParseGetDefaultEmailTemplateClientResponse(rsp *http.Response) (*GetDefault
 	return response, nil
 }
 
+// ParseListFunctionRegionsClientResponse parses an HTTP response from a ListFunctionRegionsWithResponse call
+func ParseListFunctionRegionsClientResponse(rsp *http.Response) (*ListFunctionRegionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFunctionRegionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []FunctionRegion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseResolveFunctionForInvocationClientResponse parses an HTTP response from a ResolveFunctionForInvocationWithResponse call
 func ParseResolveFunctionForInvocationClientResponse(rsp *http.Response) (*ResolveFunctionForInvocationClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -21366,6 +23658,23 @@ func ParseRevokeAnonKeyClientResponse(rsp *http.Response) (*RevokeAnonKeyClientR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -21421,6 +23730,39 @@ func ParseRegenerateAnonKeyClientResponse(rsp *http.Response) (*RegenerateAnonKe
 	return response, nil
 }
 
+// ParseSetDefaultAnonKeyClientResponse parses an HTTP response from a SetDefaultAnonKeyWithResponse call
+func ParseSetDefaultAnonKeyClientResponse(rsp *http.Response) (*SetDefaultAnonKeyClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetDefaultAnonKeyClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AnonKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetAuthConfigClientResponse parses an HTTP response from a GetAuthConfigWithResponse call
 func ParseGetAuthConfigClientResponse(rsp *http.Response) (*GetAuthConfigClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -21463,6 +23805,32 @@ func ParseUpdateAuthConfigClientResponse(rsp *http.Response) (*UpdateAuthConfigC
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AuthConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestEmailConfigClientResponse parses an HTTP response from a TestEmailConfigWithResponse call
+func ParseTestEmailConfigClientResponse(rsp *http.Response) (*TestEmailConfigClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestEmailConfigClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TestEmailResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21993,10 +24361,15 @@ func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabas
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			// ConnectionString Updated pgproxy connection string using Volcano-managed credentials.
 			ConnectionString *string `json:"connection_string,omitempty"`
 			Message          *string `json:"message,omitempty"`
-			NewPassword      *string `json:"new_password,omitempty"`
-			RoleName         *string `json:"role_name,omitempty"`
+
+			// NewPassword New Volcano-managed client password. Always starts with `vpg_`.
+			NewPassword *string `json:"new_password,omitempty"`
+
+			// RoleName Volcano-managed client database role name
+			RoleName *string `json:"role_name,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -22075,6 +24448,114 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectDeploymentsClientResponse parses an HTTP response from a ListProjectDeploymentsWithResponse call
+func ParseListProjectDeploymentsClientResponse(rsp *http.Response) (*ListProjectDeploymentsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectDeploymentsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedProjectDeployments
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectCustomDomainsClientResponse parses an HTTP response from a ListProjectCustomDomainsWithResponse call
+func ParseListProjectCustomDomainsClientResponse(rsp *http.Response) (*ListProjectCustomDomainsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectCustomDomainsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedProjectCustomDomains
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -22353,6 +24834,128 @@ func ParseCreateFrontendClientResponse(rsp *http.Response) (*CreateFrontendClien
 	return response, nil
 }
 
+// ParseListProjectFrontendDeploymentLogsClientResponse parses an HTTP response from a ListProjectFrontendDeploymentLogsWithResponse call
+func ParseListProjectFrontendDeploymentLogsClientResponse(rsp *http.Response) (*ListProjectFrontendDeploymentLogsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectFrontendDeploymentLogsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListLogsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectFrontendLogsClientResponse parses an HTTP response from a ListProjectFrontendLogsWithResponse call
+func ParseListProjectFrontendLogsClientResponse(rsp *http.Response) (*ListProjectFrontendLogsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectFrontendLogsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListLogsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteFrontendClientResponse parses an HTTP response from a DeleteFrontendWithResponse call
 func ParseDeleteFrontendClientResponse(rsp *http.Response) (*DeleteFrontendClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22551,7 +25154,7 @@ func ParseGetFrontendDeploymentLogsClientResponse(rsp *http.Response) (*GetFront
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GetLogsResponse
+		var dest ListLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -22816,7 +25419,7 @@ func ParseGetFrontendLogsClientResponse(rsp *http.Response) (*GetFrontendLogsCli
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GetLogsResponse
+		var dest ListLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -22944,6 +25547,67 @@ func ParseRedeployFrontendClientResponse(rsp *http.Response) (*RedeployFrontendC
 	return response, nil
 }
 
+// ParseGetFrontendUsageHistoryClientResponse parses an HTTP response from a GetFrontendUsageHistoryWithResponse call
+func ParseGetFrontendUsageHistoryClientResponse(rsp *http.Response) (*GetFrontendUsageHistoryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFrontendUsageHistoryClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendUsageHistoryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFunctionsClientResponse parses an HTTP response from a ListFunctionsWithResponse call
 func ParseListFunctionsClientResponse(rsp *http.Response) (*ListFunctionsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -23065,6 +25729,53 @@ func ParseCreateFunctionsBatchClientResponse(rsp *http.Response) (*CreateFunctio
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStreamProjectFunctionLogsClientResponse parses an HTTP response from a StreamProjectFunctionLogsWithResponse call
+func ParseStreamProjectFunctionLogsClientResponse(rsp *http.Response) (*StreamProjectFunctionLogsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamProjectFunctionLogsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -23218,11 +25929,18 @@ func ParseGetFunctionDeploymentLogsClientResponse(rsp *http.Response) (*GetFunct
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GetLogsResponse
+		var dest ListLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
@@ -23244,32 +25962,39 @@ func ParseGetFunctionDeploymentLogsClientResponse(rsp *http.Response) (*GetFunct
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
 	return response, nil
 }
 
-// ParseGetFunctionLogsClientResponse parses an HTTP response from a GetFunctionLogsWithResponse call
-func ParseGetFunctionLogsClientResponse(rsp *http.Response) (*GetFunctionLogsClientResponse, error) {
+// ParseStreamFunctionLogsClientResponse parses an HTTP response from a StreamFunctionLogsWithResponse call
+func ParseStreamFunctionLogsClientResponse(rsp *http.Response) (*StreamFunctionLogsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetFunctionLogsClientResponse{
+	response := &StreamFunctionLogsClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest GetLogsResponse
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
@@ -23291,6 +26016,13 @@ func ParseGetFunctionLogsClientResponse(rsp *http.Response) (*GetFunctionLogsCli
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -23418,6 +26150,128 @@ func ParseUpdateFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateFunc
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectLogActivityClientResponse parses an HTTP response from a GetProjectLogActivityWithResponse call
+func ParseGetProjectLogActivityClientResponse(rsp *http.Response) (*GetProjectLogActivityClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectLogActivityClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LogActivityResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchProjectLogsClientResponse parses an HTTP response from a SearchProjectLogsWithResponse call
+func ParseSearchProjectLogsClientResponse(rsp *http.Response) (*SearchProjectLogsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchProjectLogsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LogSearchResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -23685,6 +26539,32 @@ func ParseGetRealtimeStatsClientResponse(rsp *http.Response) (*GetRealtimeStatsC
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectSchedulersClientResponse parses an HTTP response from a ListProjectSchedulersWithResponse call
+func ParseListProjectSchedulersClientResponse(rsp *http.Response) (*ListProjectSchedulersClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectSchedulersClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionSchedulerListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 

@@ -430,14 +430,14 @@ func (s Service) ResolveDeployment(ctx context.Context, functionID uuid.UUID, de
 	}
 }
 
-// RuntimeLogs returns one runtime log page for a function.
-func (s Service) RuntimeLogs(ctx context.Context, functionID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+// RuntimeLogs returns one runtime log search page for a function.
+func (s Service) RuntimeLogs(ctx context.Context, functionID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := authenticated.API.GetFunctionLogs(ctx, authenticated.ProjectID, functionID, limit, nextToken)
+	logs, err := authenticated.API.GetFunctionLogs(ctx, authenticated.ProjectID, functionID, limit, cursor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch runtime logs: %w", err)
 	}
@@ -445,13 +445,13 @@ func (s Service) RuntimeLogs(ctx context.Context, functionID uuid.UUID, limit in
 }
 
 // DeploymentLogs returns one build log page for a function deployment.
-func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := authenticated.API.GetFunctionDeploymentLogs(ctx, authenticated.ProjectID, functionID, deploymentID, limit, nextToken)
+	logs, err := authenticated.API.GetFunctionDeploymentLogs(ctx, authenticated.ProjectID, functionID, deploymentID, limit, cursor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
 	}

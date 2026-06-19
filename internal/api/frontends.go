@@ -118,13 +118,13 @@ func (c *Client) ListFrontendDeployments(ctx context.Context, projectID, fronten
 }
 
 // GetFrontendLogs returns one runtime log page for a frontend.
-func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	params := &apiclient.GetFrontendLogsParams{}
 	if limit > 0 {
 		params.Limit = &limit
 	}
-	if nextToken = strings.TrimSpace(nextToken); nextToken != "" {
-		params.NextToken = &nextToken
+	if cursor = strings.TrimSpace(cursor); cursor != "" {
+		params.Cursor = &cursor
 	}
 
 	resp, err := c.client.GetFrontendLogsWithResponse(ctx, projectID, frontendID, params)
@@ -135,13 +135,13 @@ func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid
 }
 
 // GetFrontendDeploymentLogs returns one build log page for a frontend deployment.
-func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	params := &apiclient.GetFrontendDeploymentLogsParams{}
 	if limit > 0 {
 		params.Limit = &limit
 	}
-	if nextToken = strings.TrimSpace(nextToken); nextToken != "" {
-		params.NextToken = &nextToken
+	if cursor = strings.TrimSpace(cursor); cursor != "" {
+		params.Cursor = &cursor
 	}
 
 	resp, err := c.client.GetFrontendDeploymentLogsWithResponse(ctx, projectID, frontendID, deploymentID, params)
