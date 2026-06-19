@@ -729,6 +729,21 @@ func (e LiveLogSource) Valid() bool {
 	}
 }
 
+// Defines values for LogActivityRequestResourceType.
+const (
+	LogActivityRequestResourceTypeFunction LogActivityRequestResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogActivityRequestResourceType enum.
+func (e LogActivityRequestResourceType) Valid() bool {
+	switch e {
+	case LogActivityRequestResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LiveLogWarningEventCode.
 const (
 	CursorReset          LiveLogWarningEventCode = "cursor_reset"
@@ -2140,6 +2155,33 @@ type LogActivityResponse struct {
 	// Total Total events counted across all buckets.
 	Total int `json:"total"`
 }
+
+// LogActivityRequest Activity request for bucketed runtime log counts.
+type LogActivityRequest struct {
+	// BucketCount Number of activity buckets to return.
+	BucketCount *int `json:"bucket_count,omitempty"`
+
+	// EndTime End time in milliseconds since epoch.
+	EndTime *int64 `json:"end_time,omitempty"`
+
+	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, aggregate all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// ResourceIds Optional resource identifiers within the selected resource type. For `function`, these are function IDs. Omit or send an empty array to aggregate all functions.
+	ResourceIds *[]string `json:"resource_ids,omitempty"`
+
+	// ResourceType Resource type to read activity for. Currently only `function` is supported.
+	ResourceType LogActivityRequestResourceType `json:"resource_type"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *int64 `json:"start_time,omitempty"`
+}
+
+// LogActivityRequestResourceType Resource type to read activity for. Currently only `function` is supported.
+type LogActivityRequestResourceType string
 
 // LogDeployment Deployment context associated with a historical deployment log event.
 type LogDeployment struct {

@@ -737,21 +737,6 @@ func (e GetFunctionDeploymentLogsParamsStage) Valid() bool {
 	}
 }
 
-// Defines values for GetProjectLogActivityParamsResourceType.
-const (
-	GetProjectLogActivityParamsResourceTypeFunction GetProjectLogActivityParamsResourceType = "function"
-)
-
-// Valid indicates whether the value is a known member of the GetProjectLogActivityParamsResourceType enum.
-func (e GetProjectLogActivityParamsResourceType) Valid() bool {
-	switch e {
-	case GetProjectLogActivityParamsResourceTypeFunction:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for DeleteOAuthConfigParamsProvider.
 const (
 	DeleteOAuthConfigParamsProviderApple     DeleteOAuthConfigParamsProvider = "apple"
@@ -1025,6 +1010,9 @@ type LiveLogWarningEvent = externalRef0.LiveLogWarningEvent
 
 // LogActivityBucket Log-event counts for one activity time bucket.
 type LogActivityBucket = externalRef0.LogActivityBucket
+
+// LogActivityRequest Activity request for bucketed runtime log counts.
+type LogActivityRequest = externalRef0.LogActivityRequest
 
 // LogActivityResponse Bucketed runtime log activity.
 type LogActivityResponse = externalRef0.LogActivityResponse
@@ -2012,33 +2000,6 @@ type StreamFunctionLogsParams struct {
 	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
 
-// GetProjectLogActivityParams defines parameters for GetProjectLogActivity.
-type GetProjectLogActivityParams struct {
-	// ResourceType Resource type to read logs for. Currently only `function` is supported.
-	ResourceType GetProjectLogActivityParamsResourceType `form:"resource_type" json:"resource_type"`
-
-	// ResourceId Optional resource identifier within the selected resource type. For `function`, this is the function ID.
-	ResourceId *LogResourceId `form:"resource_id,omitempty" json:"resource_id,omitempty"`
-
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *LogStartTime `form:"start_time,omitempty" json:"start_time,omitempty"`
-
-	// EndTime End time in milliseconds since epoch.
-	EndTime *LogEndTime `form:"end_time,omitempty" json:"end_time,omitempty"`
-
-	// Level Normalized log level to filter by.
-	Level *LogLevel `form:"level,omitempty" json:"level,omitempty"`
-
-	// Region Region to filter by, for example `us-east-1`.
-	Region *LogRegion `form:"region,omitempty" json:"region,omitempty"`
-
-	// BucketCount Number of activity buckets to return.
-	BucketCount *int `form:"bucket_count,omitempty" json:"bucket_count,omitempty"`
-}
-
-// GetProjectLogActivityParamsResourceType defines parameters for GetProjectLogActivity.
-type GetProjectLogActivityParamsResourceType string
-
 // DeleteOAuthConfigParams defines parameters for DeleteOAuthConfig.
 type DeleteOAuthConfigParams struct {
 	// ClientId Required when `provider=device` to select a specific device client.
@@ -2301,6 +2262,9 @@ type CreateFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
 
 // UpdateFunctionSchedulerJSONRequestBody defines body for UpdateFunctionScheduler for application/json ContentType.
 type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
+
+// GetProjectLogActivityJSONRequestBody defines body for GetProjectLogActivity for application/json ContentType.
+type GetProjectLogActivityJSONRequestBody = LogActivityRequest
 
 // SearchProjectLogsJSONRequestBody defines body for SearchProjectLogs for application/json ContentType.
 type SearchProjectLogsJSONRequestBody = LogSearchRequest
@@ -3288,8 +3252,10 @@ type ClientInterface interface {
 
 	UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetProjectLogActivity request
-	GetProjectLogActivity(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetProjectLogActivityWithBody request with any body
+	GetProjectLogActivityWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	GetProjectLogActivity(ctx context.Context, id ProjectId, body GetProjectLogActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchProjectLogsWithBody request with any body
 	SearchProjectLogsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -5315,8 +5281,20 @@ func (c *Client) UpdateFunctionScheduler(ctx context.Context, id ProjectId, func
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProjectLogActivity(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetProjectLogActivityRequest(c.Server, id, params)
+func (c *Client) GetProjectLogActivityWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectLogActivityRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectLogActivity(ctx context.Context, id ProjectId, body GetProjectLogActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectLogActivityRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11953,8 +11931,19 @@ func NewUpdateFunctionSchedulerRequestWithBody(server string, id ProjectId, func
 	return req, nil
 }
 
-// NewGetProjectLogActivityRequest generates requests for GetProjectLogActivity
-func NewGetProjectLogActivityRequest(server string, id ProjectId, params *GetProjectLogActivityParams) (*http.Request, error) {
+// NewGetProjectLogActivityRequest calls the generic GetProjectLogActivity builder with application/json body
+func NewGetProjectLogActivityRequest(server string, id ProjectId, body GetProjectLogActivityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewGetProjectLogActivityRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewGetProjectLogActivityRequestWithBody generates requests for GetProjectLogActivity with any type of body
+func NewGetProjectLogActivityRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -11979,105 +11968,12 @@ func NewGetProjectLogActivityRequest(server string, id ProjectId, params *GetPro
 		return nil, err
 	}
 
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_type", params.ResourceType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if params.ResourceId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource_id", *params.ResourceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.StartTime != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time", *params.StartTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.EndTime != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time", *params.EndTime, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Level != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Region != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", *params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.BucketCount != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "bucket_count", *params.BucketCount, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -14681,8 +14577,10 @@ type ClientWithResponsesInterface interface {
 
 	UpdateFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
 
-	// GetProjectLogActivityWithResponse request
-	GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error)
+	// GetProjectLogActivityWithBodyWithResponse request with any body
+	GetProjectLogActivityWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error)
+
+	GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, body GetProjectLogActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error)
 
 	// SearchProjectLogsWithBodyWithResponse request with any body
 	SearchProjectLogsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchProjectLogsClientResponse, error)
@@ -21291,9 +21189,17 @@ func (c *ClientWithResponses) UpdateFunctionSchedulerWithResponse(ctx context.Co
 	return ParseUpdateFunctionSchedulerClientResponse(rsp)
 }
 
-// GetProjectLogActivityWithResponse request returning *GetProjectLogActivityClientResponse
-func (c *ClientWithResponses) GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, params *GetProjectLogActivityParams, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error) {
-	rsp, err := c.GetProjectLogActivity(ctx, id, params, reqEditors...)
+// GetProjectLogActivityWithBodyWithResponse request with arbitrary body returning *GetProjectLogActivityClientResponse
+func (c *ClientWithResponses) GetProjectLogActivityWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error) {
+	rsp, err := c.GetProjectLogActivityWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectLogActivityClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) GetProjectLogActivityWithResponse(ctx context.Context, id ProjectId, body GetProjectLogActivityJSONRequestBody, reqEditors ...RequestEditorFn) (*GetProjectLogActivityClientResponse, error) {
+	rsp, err := c.GetProjectLogActivity(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
