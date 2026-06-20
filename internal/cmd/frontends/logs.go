@@ -78,8 +78,8 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 
 	if logsType == frontendLogsTypeRuntime {
 		fmt.Fprintf(opts.out, "Fetching runtime logs for frontend %s\n\n", frontend.Name)
-		return output.PrintLogs(opts.out, func(nextToken string) (*apiclient.GetLogsResponse, error) {
-			return service.RuntimeLogs(ctx, frontend.Id, opts.limit, nextToken)
+		return output.PrintLogs(opts.out, func(cursor string) (*apiclient.ListLogsResponse, error) {
+			return service.RuntimeLogs(ctx, frontend.Id, opts.limit, cursor)
 		})
 	}
 
@@ -110,8 +110,8 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 	}
 
 	fmt.Fprintf(opts.out, "Fetching build logs for frontend %s deployment %s\n\n", frontend.Name, deploymentID.String())
-	return output.PrintLogs(opts.out, func(nextToken string) (*apiclient.GetLogsResponse, error) {
-		return service.DeploymentLogs(ctx, frontend.Id, *deploymentID, opts.limit, nextToken)
+	return output.PrintLogs(opts.out, func(cursor string) (*apiclient.ListLogsResponse, error) {
+		return service.DeploymentLogs(ctx, frontend.Id, *deploymentID, opts.limit, cursor)
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/archive"
 )
 
@@ -155,17 +156,21 @@ func (c *Client) ListFunctionDeployments(ctx context.Context, projectID, functio
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
 }
 
-// GetFunctionLogs returns one runtime log page for a function.
-func (c *Client) GetFunctionLogs(ctx context.Context, projectID, functionID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
-	params := &apiclient.GetFunctionLogsParams{}
-	if limit > 0 {
-		params.Limit = &limit
+// GetFunctionLogs returns one runtime log search page for a function.
+func (c *Client) GetFunctionLogs(ctx context.Context, projectID, functionID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
+	resourceID := functionID.String()
+	body := apiclient.SearchProjectLogsJSONRequestBody{
+		ResourceType: apicommon.LogSearchRequestResourceTypeFunction,
+		ResourceIds:  &[]string{resourceID},
 	}
-	if nextToken = strings.TrimSpace(nextToken); nextToken != "" {
-		params.NextToken = &nextToken
+	if limit > 0 {
+		body.Limit = &limit
+	}
+	if cursor = strings.TrimSpace(cursor); cursor != "" {
+		body.Cursor = &cursor
 	}
 
-	resp, err := c.client.GetFunctionLogsWithResponse(ctx, projectID, functionID, params)
+	resp, err := c.client.SearchProjectLogsWithResponse(ctx, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -301,13 +306,13 @@ func (c *Client) DeleteFunctionScheduler(ctx context.Context, projectID, functio
 }
 
 // GetFunctionDeploymentLogs returns one build log page for a function deployment.
-func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	params := &apiclient.GetFunctionDeploymentLogsParams{}
 	if limit > 0 {
 		params.Limit = &limit
 	}
-	if nextToken = strings.TrimSpace(nextToken); nextToken != "" {
-		params.NextToken = &nextToken
+	if cursor = strings.TrimSpace(cursor); cursor != "" {
+		params.Cursor = &cursor
 	}
 
 	resp, err := c.client.GetFunctionDeploymentLogsWithResponse(ctx, projectID, functionID, deploymentID, params)

@@ -184,13 +184,13 @@ func (s Service) LatestDeployment(ctx context.Context, frontendID uuid.UUID) (*a
 }
 
 // RuntimeLogs returns one runtime log page for a frontend.
-func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := authenticated.API.GetFrontendLogs(ctx, authenticated.ProjectID, frontendID, limit, nextToken)
+	logs, err := authenticated.API.GetFrontendLogs(ctx, authenticated.ProjectID, frontendID, limit, cursor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch runtime logs: %w", err)
 	}
@@ -198,13 +198,13 @@ func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit in
 }
 
 // DeploymentLogs returns one build log page for a frontend deployment.
-func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int, nextToken string) (*apiclient.GetLogsResponse, error) {
+func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := authenticated.API.GetFrontendDeploymentLogs(ctx, authenticated.ProjectID, frontendID, deploymentID, limit, nextToken)
+	logs, err := authenticated.API.GetFrontendDeploymentLogs(ctx, authenticated.ProjectID, frontendID, deploymentID, limit, cursor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
 	}

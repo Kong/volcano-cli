@@ -93,11 +93,11 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 			})
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/logs":
 			assert.Equal(t, "50", r.URL.Query().Get("limit"))
-			assert.Equal(t, "fe-next", r.URL.Query().Get("next_token"))
+			assert.Equal(t, "fe-next", r.URL.Query().Get("cursor"))
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend runtime"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/deployments/"+deploymentIDText+"/logs":
 			assert.Equal(t, "75", r.URL.Query().Get("limit"))
-			assert.Equal(t, "dep-next", r.URL.Query().Get("next_token"))
+			assert.Equal(t, "dep-next", r.URL.Query().Get("cursor"))
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend build"))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/domain":
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
@@ -151,8 +151,8 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	require.NoError(t, client.DeleteFrontendCustomDomain(context.Background(), projectID, frontendID))
 	assert.Equal(t, []string{
 		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/deployments?page=3&limit=10",
-		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/logs?limit=50&next_token=fe-next",
-		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&next_token=dep-next",
+		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/logs?limit=50&cursor=fe-next",
+		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&cursor=dep-next",
 		"POST /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",
 		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",
 		"DELETE /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",
