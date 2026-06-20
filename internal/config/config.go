@@ -155,8 +155,8 @@ func (c *Config) Token() string {
 }
 
 // FunctionInvokeToken returns the token used for runtime function invocation.
-// Local mode supplies service and anon keys for invoke endpoints; cloud falls
-// back to the normal configured token until a project invoke key is available.
+// Local mode supplies credentials from local info; cloud uses the configured
+// token from `volcano login` or VOLCANO_TOKEN and relies on hosting to authorize it.
 func (c *Config) FunctionInvokeToken() string {
 	if strings.TrimSpace(c.ServiceKey) != "" {
 		return c.ServiceKey
