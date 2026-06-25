@@ -40,6 +40,36 @@ files, migrations directory, and README). Use a template to add
 language-specific files: `javascript` (aliases: `js`, `node`, `nodejs`),
 `nextjs`, `python`, or `ruby`.
 
+## Project configuration (`volcano-config.yaml`)
+
+`volcano config deploy` reconciles declarative project configuration
+(`volcano/volcano-config.yaml` or `./volcano-config.yaml`) against the active
+target — the same manifest applies to local mode and cloud.
+
+Functions may declare scheduled invocations. `name` and `cron` are required;
+`enabled` (default `true`), `payload`, and `regions` are optional. A function
+entry is valid if it sets `public` **or** declares at least one scheduler.
+
+```yaml
+version: 1
+functions:
+  - name: hello
+    public: false
+    schedulers:
+      - name: refresh-cache      # required, unique per function (the reconcile key)
+        cron: "*/5 * * * *"
+        enabled: true
+        payload: { job: refresh }
+        regions: [us-east-1]     # omit to let the server pick one deployed region
+```
+
+Scheduler reconciliation is **non-destructive**: `config deploy` creates and
+updates the schedulers a function declares (matched by `name`, preserving the
+scheduler ID) but never deletes one. Removing a scheduler from the manifest is
+a no-op — delete it explicitly with `volcano functions schedulers delete`.
+Likewise, `cron`/`payload`/`enabled` are reconciled, but `regions` are only
+enforced when declared (an omitted `regions` is left server-managed).
+
 ## Contributing
 
 See `CONTRIBUTING.md` for local workflows, generated-code guidance, release
