@@ -40,6 +40,7 @@ type Service struct {
 	environ       func() []string
 	getenv        func(string) string
 	tempDir       string
+	image         string
 }
 
 // Option configures a Service.
@@ -106,6 +107,16 @@ func WithTempDir(tempDir string) Option {
 	}
 }
 
+// WithImage sets an explicit local-mode server image, taking precedence over the
+// VOLCANO_IMAGE environment variable, any project .env.local value, and the
+// bundled default. An empty value is ignored. An explicitly selected image is
+// never pulled: it must already exist locally (see Start's pre-flight check).
+func WithImage(image string) Option {
+	return func(s *Service) {
+		s.image = strings.TrimSpace(image)
+	}
+}
+
 // NewService returns a local-mode environment service.
 func NewService(deps cliruntime.Deps, opts ...Option) Service {
 	healthClient := deps.HTTPClient
@@ -162,6 +173,17 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(w, "Using Docker image: %s\n", image)
+
+	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
+	// it must already exist locally. The CLI never pulls unpublished local-mode
+	// images, so fail fast with an actionable message instead of letting
+	// `docker compose up` emit a confusing registry-pull error.
+	if _, overridden := s.resolveImage(); overridden {
+		if !s.imageExistsLocally(ctx, image) {
+			return fmt.Errorf("image %q not found locally; the CLI does not pull unpublished local-mode images. Build it (e.g. in volcano-hosting: make docker-build DOCKER_TAG=<tag>) and ensure the tag matches, or run `docker pull %s` first if it is published", image, image)
+		}
+		output.Success(w, "Using local image %q (not pulled)", image)
+	}
 
 	if err := s.startDockerServices(ctx, composeEnv); err != nil {
 		return fmt.Errorf("failed to start Docker services: %w", err)

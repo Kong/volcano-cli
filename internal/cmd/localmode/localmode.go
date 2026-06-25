@@ -10,18 +10,26 @@ import (
 
 // NewStart returns the start command.
 func NewStart(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var image string
+	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the local Volcano development environment",
 		Long: `Start PostgreSQL, Redis, and the Volcano local-mode server with Docker Compose.
 
-To pin or select a specific server image, set VOLCANO_IMAGE:
-  VOLCANO_IMAGE=kong/volcano:local-nightly volcano start`,
+To run a specific or locally-built server image, use --image (highest precedence)
+or set VOLCANO_IMAGE:
+  volcano start --image kong/volcano:local-dev
+  VOLCANO_IMAGE=kong/volcano:local-nightly volcano start
+
+An explicitly selected image must already exist locally: the CLI never pulls an
+unpublished local-mode image and fails fast if it is missing.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return localmodecore.NewService(deps).Start(cmd.Context(), cmd.OutOrStdout())
+			return localmodecore.NewService(deps, localmodecore.WithImage(image)).Start(cmd.Context(), cmd.OutOrStdout())
 		},
 	}
+	cmd.Flags().StringVar(&image, "image", "", "Local-mode server image to run (overrides VOLCANO_IMAGE and the bundled default; must already exist locally)")
+	return cmd
 }
 
 // NewStatus returns the status command.
@@ -58,13 +66,19 @@ Use --clean to also remove all data volumes and local dev state.`,
 
 // NewRestart returns the restart command.
 func NewRestart(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var image string
+	cmd := &cobra.Command{
 		Use:   "restart",
 		Short: "Restart the local Volcano development environment",
-		Long:  "Stop and start the local Volcano development environment while preserving data.",
-		Args:  cobra.NoArgs,
+		Long: `Stop and start the local Volcano development environment while preserving data.
+
+Use --image (or VOLCANO_IMAGE) to select the server image; an explicitly
+selected image must already exist locally and is never pulled.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return localmodecore.NewService(deps).Restart(cmd.Context(), cmd.OutOrStdout())
+			return localmodecore.NewService(deps, localmodecore.WithImage(image)).Restart(cmd.Context(), cmd.OutOrStdout())
 		},
 	}
+	cmd.Flags().StringVar(&image, "image", "", "Local-mode server image to run (overrides VOLCANO_IMAGE and the bundled default; must already exist locally)")
+	return cmd
 }
