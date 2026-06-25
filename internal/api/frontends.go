@@ -117,38 +117,32 @@ func (c *Client) ListFrontendDeployments(ctx context.Context, projectID, fronten
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }
 
-// GetFrontendLogs returns one runtime log page for a frontend.
-func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
-	params := &apiclient.GetFrontendLogsParams{}
+// GetFrontendLogs returns one runtime log search page for a frontend.
+func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
+	body := logSearchRequest{
+		Resource: logResource(logResourceTypeFrontend, frontendID),
+	}
 	if limit > 0 {
-		params.Limit = &limit
+		body.Limit = &limit
 	}
-	if cursor = strings.TrimSpace(cursor); cursor != "" {
-		params.Cursor = &cursor
+	if cursor != "" {
+		body.Cursor = &cursor
 	}
-
-	resp, err := c.client.GetFrontendLogsWithResponse(ctx, projectID, frontendID, params)
-	if err != nil {
-		return nil, err
-	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+	return c.searchProjectLogs(ctx, projectID, body)
 }
 
-// GetFrontendDeploymentLogs returns one build log page for a frontend deployment.
-func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
-	params := &apiclient.GetFrontendDeploymentLogsParams{}
+// GetFrontendDeploymentLogs returns one build log search page for a frontend deployment.
+func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
+	body := logSearchRequest{
+		Resource: logDeploymentResource(logResourceTypeFrontend, frontendID, deploymentID),
+	}
 	if limit > 0 {
-		params.Limit = &limit
+		body.Limit = &limit
 	}
-	if cursor = strings.TrimSpace(cursor); cursor != "" {
-		params.Cursor = &cursor
+	if cursor != "" {
+		body.Cursor = &cursor
 	}
-
-	resp, err := c.client.GetFrontendDeploymentLogsWithResponse(ctx, projectID, frontendID, deploymentID, params)
-	if err != nil {
-		return nil, err
-	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+	return c.searchProjectLogs(ctx, projectID, body)
 }
 
 // CreateFrontendCustomDomain attaches a BYOC custom domain to a frontend.

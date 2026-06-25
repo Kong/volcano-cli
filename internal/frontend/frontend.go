@@ -183,8 +183,8 @@ func (s Service) LatestDeployment(ctx context.Context, frontendID uuid.UUID) (*a
 	return &deployments.Data[0], nil
 }
 
-// RuntimeLogs returns one runtime log page for a frontend.
-func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
+// RuntimeLogs returns one runtime log search page for a frontend.
+func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -197,8 +197,8 @@ func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit in
 	return logs, nil
 }
 
-// DeploymentLogs returns one build log page for a frontend deployment.
-func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
+// DeploymentLogs returns one build log search page for a frontend deployment.
+func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err

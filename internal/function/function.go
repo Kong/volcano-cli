@@ -444,8 +444,8 @@ func (s Service) RuntimeLogs(ctx context.Context, functionID uuid.UUID, limit in
 	return logs, nil
 }
 
-// DeploymentLogs returns one build log page for a function deployment.
-func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
+// DeploymentLogs returns one build log search page for a function deployment.
+func (s Service) DeploymentLogs(ctx context.Context, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
