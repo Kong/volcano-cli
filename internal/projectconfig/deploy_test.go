@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"testing"
 
@@ -597,14 +598,13 @@ func TestDeployLeavesBucketUnchangedWhenMimeTypesDifferInOrder(t *testing.T) {
 }
 
 type fakeSchedulers struct {
-	functions      map[string]*apiclient.Function
-	schedulers     map[string][]apiclient.FunctionScheduler
-	createdCalls   []schedulerCreateCall
-	updatedCalls   []schedulerUpdateCall
-	listErr        error
-	createErr      error
-	updateErr      error
-	duplicateNames map[string]bool // function names with duplicate scheduler names
+	functions    map[string]*apiclient.Function
+	schedulers   map[string][]apiclient.FunctionScheduler
+	createdCalls []schedulerCreateCall
+	updatedCalls []schedulerUpdateCall
+	listErr      error
+	createErr    error
+	updateErr    error
 }
 
 type schedulerCreateCall struct {
@@ -620,9 +620,8 @@ type schedulerUpdateCall struct {
 
 func newFakeSchedulers() *fakeSchedulers {
 	return &fakeSchedulers{
-		functions:      make(map[string]*apiclient.Function),
-		schedulers:     make(map[string][]apiclient.FunctionScheduler),
-		duplicateNames: make(map[string]bool),
+		functions:  make(map[string]*apiclient.Function),
+		schedulers: make(map[string][]apiclient.FunctionScheduler),
 	}
 }
 
@@ -635,10 +634,6 @@ func (f *fakeSchedulers) ListSchedulers(_ context.Context, identifier string) (*
 		return nil, nil, api.ErrNotFound
 	}
 	schedulers := f.schedulers[identifier]
-	// Simulate duplicate names on server if marked
-	if f.duplicateNames[identifier] {
-		// Already has duplicates in the slice
-	}
 	resp := &apiclient.FunctionSchedulerListResponse{
 		Data: append([]apiclient.FunctionScheduler(nil), schedulers...),
 	}
@@ -659,10 +654,7 @@ func (f *fakeSchedulers) CreateSchedulerByID(_ context.Context, functionID uuid.
 		Enabled:        input.Enabled,
 	}
 	if input.Payload != nil {
-		payload := make(map[string]interface{})
-		for k, v := range input.Payload {
-			payload[k] = v
-		}
+		payload := maps.Clone(input.Payload)
 		scheduler.Payload = &payload
 	}
 	if len(input.Regions) > 0 {
@@ -688,32 +680,30 @@ func (f *fakeSchedulers) UpdateSchedulerByID(_ context.Context, functionID, sche
 	for name, fn := range f.functions {
 		if fn.Id == functionID {
 			for i := range f.schedulers[name] {
-				if f.schedulers[name][i].Id != nil && *f.schedulers[name][i].Id == schedulerID {
-					f.schedulers[name][i].Name = &input.Name
-					f.schedulers[name][i].CronExpression = &input.CronExpression
-					f.schedulers[name][i].Enabled = input.Enabled
-					if input.Payload != nil {
-						payload := make(map[string]interface{})
-						for k, v := range input.Payload {
-							payload[k] = v
-						}
-						f.schedulers[name][i].Payload = &payload
-					} else {
-						f.schedulers[name][i].Payload = nil
-					}
-					if len(input.Regions) > 0 {
-						regions := append([]string(nil), input.Regions...)
-						f.schedulers[name][i].Regions = &regions
-					} else {
-						f.schedulers[name][i].Regions = nil
-					}
-					return &f.schedulers[name][i], nil
+				if f.schedulers[name][i].Id == nil || *f.schedulers[name][i].Id != schedulerID {
+					continue
 				}
+				f.schedulers[name][i].Name = &input.Name
+				f.schedulers[name][i].CronExpression = &input.CronExpression
+				f.schedulers[name][i].Enabled = input.Enabled
+				if input.Payload != nil {
+					payload := maps.Clone(input.Payload)
+					f.schedulers[name][i].Payload = &payload
+				} else {
+					f.schedulers[name][i].Payload = nil
+				}
+				if len(input.Regions) > 0 {
+					regions := append([]string(nil), input.Regions...)
+					f.schedulers[name][i].Regions = &regions
+				} else {
+					f.schedulers[name][i].Regions = nil
+				}
+				return &f.schedulers[name][i], nil
 			}
 			break
 		}
 	}
-	return nil, fmt.Errorf("scheduler not found")
+	return nil, errors.New("scheduler not found")
 }
 
 func TestReconcileSchedulersCreatesNew(t *testing.T) {
@@ -904,8 +894,6 @@ func TestReconcileSchedulersDuplicateNameError(t *testing.T) {
 			Enabled:        &enabled,
 		},
 	}
-	schedulers.duplicateNames["hello"] = true
-
 	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
 	manifest := &Manifest{
 		Version: 1,

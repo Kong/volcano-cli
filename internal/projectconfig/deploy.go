@@ -1,6 +1,7 @@
 package projectconfig
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -477,5 +478,5 @@ func payloadEqual(a, b map[string]any) bool {
 	if errA != nil || errB != nil {
 		return reflect.DeepEqual(a, b)
 	}
-	return string(aJSON) == string(bJSON)
+	return bytes.Equal(aJSON, bJSON)
 }
