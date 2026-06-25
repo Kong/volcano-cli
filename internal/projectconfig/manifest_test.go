@@ -126,12 +126,82 @@ func TestValidate(t *testing.T) {
 			errContains: "definition is required",
 		},
 		{
-			name: "missing function public flag",
+			name: "missing function public flag and no schedulers",
 			manifest: Manifest{
 				Version:   1,
 				Functions: []FunctionManifest{{Name: "hello"}},
 			},
-			errContains: `function "hello": public is required`,
+			errContains: `function "hello": must set 'public' or declare at least one scheduler`,
+		},
+		{
+			name: "function with schedulers only (no public)",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name: "hello",
+					Schedulers: []SchedulerManifest{{
+						Name: "daily",
+						Cron: "0 0 * * *",
+					}},
+				}},
+			},
+		},
+		{
+			name: "function with both public and schedulers",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name:   "hello",
+					Public: &pub,
+					Schedulers: []SchedulerManifest{{
+						Name: "hourly",
+						Cron: "0 * * * *",
+					}},
+				}},
+			},
+		},
+		{
+			name: "scheduler missing name",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name:   "hello",
+					Public: &pub,
+					Schedulers: []SchedulerManifest{{
+						Cron: "0 0 * * *",
+					}},
+				}},
+			},
+			errContains: `function "hello": scheduler name is required`,
+		},
+		{
+			name: "scheduler missing cron",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name:   "hello",
+					Public: &pub,
+					Schedulers: []SchedulerManifest{{
+						Name: "daily",
+					}},
+				}},
+			},
+			errContains: `function "hello" scheduler "daily": cron is required`,
+		},
+		{
+			name: "duplicate scheduler name",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name:   "hello",
+					Public: &pub,
+					Schedulers: []SchedulerManifest{
+						{Name: "daily", Cron: "0 0 * * *"},
+						{Name: "daily", Cron: "0 12 * * *"},
+					},
+				}},
+			},
+			errContains: `function "hello": duplicate scheduler name "daily"`,
 		},
 		{
 			name: "duplicate function name",
@@ -143,6 +213,23 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			errContains: `duplicate function name "hello"`,
+		},
+		{
+			name: "scheduler with full fields",
+			manifest: Manifest{
+				Version: 1,
+				Functions: []FunctionManifest{{
+					Name:   "hello",
+					Public: &pub,
+					Schedulers: []SchedulerManifest{{
+						Name:    "daily",
+						Cron:    "0 0 * * *",
+						Enabled: &pub,
+						Payload: map[string]any{"key": "value"},
+						Regions: []string{"us-east-1"},
+					}},
+				}},
+			},
 		},
 		{
 			name: "normalization: operation lowercase, file size limit kept",
