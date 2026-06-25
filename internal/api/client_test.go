@@ -290,7 +290,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	var batchFilenames []string
 	var updateBody map[string]bool
 	var invokeBody map[string]any
-	var logSearchBody map[string]any
+	var logSearchBodies []map[string]any
 	var schedulerCreateBody map[string]any
 	var schedulerUpdateBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -360,11 +360,13 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 				"total":    1,
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/logs/search":
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&logSearchBody))
-			writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/deployments/"+deploymentIDText+"/logs":
-			assert.Equal(t, "75", r.URL.Query().Get("limit"))
-			assert.Equal(t, "dep-next", r.URL.Query().Get("cursor"))
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			logSearchBodies = append(logSearchBodies, body)
+			if len(logSearchBodies) == 1 {
+				writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
+				return
+			}
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/schedulers":
 			writeAPIJSON(t, w, http.StatusOK, map[string]any{
@@ -463,14 +465,27 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 	runtimeLogs, err := client.GetFunctionLogs(context.Background(), projectID, functionID, 50, "fn-next")
 	require.NoError(t, err)
 	assert.Equal(t, "function runtime", runtimeLogs.Data[0].Message)
-	assert.Equal(t, "function", logSearchBody["resource_type"])
-	assert.Equal(t, []any{functionIDText}, logSearchBody["resource_ids"])
-	assert.InEpsilon(t, 50, logSearchBody["limit"], 0)
-	assert.Equal(t, "fn-next", logSearchBody["cursor"])
+	require.Len(t, logSearchBodies, 1)
+	runtimeResource, ok := logSearchBodies[0]["resource"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "function", runtimeResource["type"])
+	assert.Equal(t, []any{functionIDText}, runtimeResource["ids"])
+	assert.InEpsilon(t, 50, logSearchBodies[0]["limit"], 0)
+	assert.Equal(t, "fn-next", logSearchBodies[0]["cursor"])
 
 	deploymentLogs, err := client.GetFunctionDeploymentLogs(context.Background(), projectID, functionID, deploymentID, 75, "dep-next")
 	require.NoError(t, err)
 	assert.Equal(t, "deployment build", deploymentLogs.Data[0].Message)
+	require.Len(t, logSearchBodies, 2)
+	buildResource, ok := logSearchBodies[1]["resource"].(map[string]any)
+	require.True(t, ok)
+	buildDeployments, ok := buildResource["deployments"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "function", buildResource["type"])
+	assert.Equal(t, []any{functionIDText}, buildResource["ids"])
+	assert.Equal(t, []any{deploymentIDText}, buildDeployments["ids"])
+	assert.InEpsilon(t, 75, logSearchBodies[1]["limit"], 0)
+	assert.Equal(t, "dep-next", logSearchBodies[1]["cursor"])
 
 	schedulers, err := client.ListFunctionSchedulers(context.Background(), projectID, functionID)
 	require.NoError(t, err)
@@ -518,7 +533,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 		"GET /functions/runtimes",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments?page=3&limit=10",
 		"POST /projects/" + projectIDText + "/logs/search",
-		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&cursor=dep-next",
+		"POST /projects/" + projectIDText + "/logs/search",
 		"GET /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers",
 		"POST /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers",
 		"PATCH /projects/" + projectIDText + "/functions/" + functionIDText + "/schedulers/" + schedulerIDText,

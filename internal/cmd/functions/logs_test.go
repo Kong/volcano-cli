@@ -51,8 +51,10 @@ func TestFunctionsLogs(t *testing.T) {
 		out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "hello", "--type", "runtime", "--limit", "2")
 		require.NoError(t, err)
 		require.Len(t, logBodies, 2)
-		assert.Equal(t, "function", logBodies[0]["resource_type"])
-		assert.Equal(t, []any{functionID}, logBodies[0]["resource_ids"])
+		resource, ok := logBodies[0]["resource"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "function", resource["type"])
+		assert.Equal(t, []any{functionID}, resource["ids"])
 		assert.InEpsilon(t, 2, logBodies[0]["limit"], 0)
 		assert.NotContains(t, logBodies[0], "cursor")
 		assert.Equal(t, "next token", logBodies[1]["cursor"])
@@ -133,7 +135,16 @@ func functionLogsBuildServer(t *testing.T, logDeploymentID string, includeCurren
 				"limit":    100,
 				"total":    1,
 			})
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/deployments/"+logDeploymentID+"/logs":
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/search":
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			resource, ok := body["resource"].(map[string]any)
+			require.True(t, ok)
+			deployments, ok := resource["deployments"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "function", resource["type"])
+			assert.Equal(t, []any{functionID}, resource["ids"])
+			assert.Equal(t, []any{logDeploymentID}, deployments["ids"])
 			writeFunctionCommandJSON(t, w, http.StatusOK, logCommandResponse("build log", false, ""))
 		default:
 			http.NotFound(w, r)

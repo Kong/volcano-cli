@@ -1,6 +1,7 @@
 package frontends
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,7 +18,7 @@ func TestFrontendsLogs(t *testing.T) {
 	t.Run("runtime pages with next token", func(t *testing.T) {
 		setFrontendCommandTestHome(t)
 		saveFrontendCommandTestConfig(t)
-		var logQueries []string
+		var logBodies []map[string]any
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
@@ -28,13 +29,15 @@ func TestFrontendsLogs(t *testing.T) {
 					"limit":    100,
 					"total":    1,
 				})
-			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/logs":
-				logQueries = append(logQueries, r.URL.RawQuery)
-				if r.URL.Query().Get("cursor") == "" {
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				logBodies = append(logBodies, body)
+				if body["cursor"] == nil {
 					writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("first runtime", true, "next token"))
 					return
 				}
-				assert.Equal(t, "next token", r.URL.Query().Get("cursor"))
+				assert.Equal(t, "next token", body["cursor"])
 				writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("second runtime", false, ""))
 			default:
 				http.NotFound(w, r)
@@ -44,7 +47,14 @@ func TestFrontendsLogs(t *testing.T) {
 
 		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--limit", "2")
 		require.NoError(t, err)
-		assert.Equal(t, []string{"limit=2", "limit=2&cursor=next+token"}, logQueries)
+		require.Len(t, logBodies, 2)
+		resource, ok := logBodies[0]["resource"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "frontend", resource["type"])
+		assert.Equal(t, []any{frontendID}, resource["ids"])
+		assert.InEpsilon(t, 2, logBodies[0]["limit"], 0)
+		assert.NotContains(t, logBodies[0], "cursor")
+		assert.Equal(t, "next token", logBodies[1]["cursor"])
 		assert.Contains(t, out, "Fetching runtime logs for frontend web")
 		assert.Contains(t, out, "first runtime")
 		assert.Contains(t, out, "second runtime")
@@ -112,7 +122,16 @@ func frontendLogsBuildServer(t *testing.T, logDeploymentID string, includeCurren
 				"limit":    100,
 				"total":    1,
 			})
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/deployments/"+logDeploymentID+"/logs":
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			resource, ok := body["resource"].(map[string]any)
+			require.True(t, ok)
+			deployments, ok := resource["deployments"].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, "frontend", resource["type"])
+			assert.Equal(t, []any{frontendID}, resource["ids"])
+			assert.Equal(t, []any{logDeploymentID}, deployments["ids"])
 			writeFrontendCommandJSON(t, w, http.StatusOK, frontendLogCommandResponse("build log", false, ""))
 		default:
 			http.NotFound(w, r)

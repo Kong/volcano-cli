@@ -77,6 +77,7 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	deploymentID := uuid.MustParse(deploymentIDText)
 	var requests []string
 	var createBody map[string]any
+	var logSearchBodies []map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		requests = append(requests, r.Method+" "+r.URL.RequestURI())
@@ -91,13 +92,14 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 				"limit":    10,
 				"total":    1,
 			})
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/logs":
-			assert.Equal(t, "50", r.URL.Query().Get("limit"))
-			assert.Equal(t, "fe-next", r.URL.Query().Get("cursor"))
-			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend runtime"))
-		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/deployments/"+deploymentIDText+"/logs":
-			assert.Equal(t, "75", r.URL.Query().Get("limit"))
-			assert.Equal(t, "dep-next", r.URL.Query().Get("cursor"))
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/logs/search":
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			logSearchBodies = append(logSearchBodies, body)
+			if len(logSearchBodies) == 1 {
+				writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend runtime"))
+				return
+			}
 			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend build"))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/domain":
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
@@ -123,10 +125,27 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	runtimeLogs, err := client.GetFrontendLogs(context.Background(), projectID, frontendID, 50, "fe-next")
 	require.NoError(t, err)
 	assert.Equal(t, "frontend runtime", runtimeLogs.Data[0].Message)
+	require.Len(t, logSearchBodies, 1)
+	runtimeResource, ok := logSearchBodies[0]["resource"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "frontend", runtimeResource["type"])
+	assert.Equal(t, []any{frontendIDText}, runtimeResource["ids"])
+	assert.InEpsilon(t, 50, logSearchBodies[0]["limit"], 0)
+	assert.Equal(t, "fe-next", logSearchBodies[0]["cursor"])
 
 	deploymentLogs, err := client.GetFrontendDeploymentLogs(context.Background(), projectID, frontendID, deploymentID, 75, "dep-next")
 	require.NoError(t, err)
 	assert.Equal(t, "frontend build", deploymentLogs.Data[0].Message)
+	require.Len(t, logSearchBodies, 2)
+	buildResource, ok := logSearchBodies[1]["resource"].(map[string]any)
+	require.True(t, ok)
+	buildDeployments, ok := buildResource["deployments"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "frontend", buildResource["type"])
+	assert.Equal(t, []any{frontendIDText}, buildResource["ids"])
+	assert.Equal(t, []any{deploymentIDText}, buildDeployments["ids"])
+	assert.InEpsilon(t, 75, logSearchBodies[1]["limit"], 0)
+	assert.Equal(t, "dep-next", logSearchBodies[1]["cursor"])
 
 	createdDomain, err := client.CreateFrontendCustomDomain(context.Background(), projectID, frontendID, FrontendCustomDomainInput{
 		Domain:              " app.example.com ",
@@ -151,8 +170,8 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	require.NoError(t, client.DeleteFrontendCustomDomain(context.Background(), projectID, frontendID))
 	assert.Equal(t, []string{
 		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/deployments?page=3&limit=10",
-		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/logs?limit=50&cursor=fe-next",
-		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/deployments/" + deploymentIDText + "/logs?limit=75&cursor=dep-next",
+		"POST /projects/" + projectIDText + "/logs/search",
+		"POST /projects/" + projectIDText + "/logs/search",
 		"POST /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",
 		"GET /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",
 		"DELETE /projects/" + projectIDText + "/frontends/" + frontendIDText + "/domain",

@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
-	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/archive"
 )
 
@@ -158,23 +156,16 @@ func (c *Client) ListFunctionDeployments(ctx context.Context, projectID, functio
 
 // GetFunctionLogs returns one runtime log search page for a function.
 func (c *Client) GetFunctionLogs(ctx context.Context, projectID, functionID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
-	resourceID := functionID.String()
-	body := apiclient.SearchProjectLogsJSONRequestBody{
-		ResourceType: apicommon.LogSearchRequestResourceTypeFunction,
-		ResourceIds:  &[]string{resourceID},
+	body := logSearchRequest{
+		Resource: logResource(logResourceTypeFunction, functionID),
 	}
 	if limit > 0 {
 		body.Limit = &limit
 	}
-	if cursor = strings.TrimSpace(cursor); cursor != "" {
+	if cursor != "" {
 		body.Cursor = &cursor
 	}
-
-	resp, err := c.client.SearchProjectLogsWithResponse(ctx, projectID, body)
-	if err != nil {
-		return nil, err
-	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404)
+	return c.searchProjectLogs(ctx, projectID, body)
 }
 
 func buildFunctionDeployMultipart(fn FunctionDeployInput) (*bytes.Buffer, string, error) {
@@ -305,19 +296,16 @@ func (c *Client) DeleteFunctionScheduler(ctx context.Context, projectID, functio
 	return apiOK(resp.StatusCode(), resp.Body)
 }
 
-// GetFunctionDeploymentLogs returns one build log page for a function deployment.
-func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.ListLogsResponse, error) {
-	params := &apiclient.GetFunctionDeploymentLogsParams{}
+// GetFunctionDeploymentLogs returns one build log search page for a function deployment.
+func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
+	body := logSearchRequest{
+		Resource: logDeploymentResource(logResourceTypeFunction, functionID, deploymentID),
+	}
 	if limit > 0 {
-		params.Limit = &limit
+		body.Limit = &limit
 	}
-	if cursor = strings.TrimSpace(cursor); cursor != "" {
-		params.Cursor = &cursor
+	if cursor != "" {
+		body.Cursor = &cursor
 	}
-
-	resp, err := c.client.GetFunctionDeploymentLogsWithResponse(ctx, projectID, functionID, deploymentID, params)
-	if err != nil {
-		return nil, err
-	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404)
+	return c.searchProjectLogs(ctx, projectID, body)
 }

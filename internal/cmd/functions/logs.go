@@ -101,7 +101,7 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	}
 
 	fmt.Fprintf(opts.out, "Fetching build logs for function %s deployment %s\n\n", function.Name, deploymentID.String())
-	return output.PrintLogs(opts.out, func(cursor string) (*apiclient.ListLogsResponse, error) {
+	return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
 		return service.DeploymentLogs(ctx, function.Id, *deploymentID, opts.limit, cursor)
 	})
 }
