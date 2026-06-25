@@ -984,4 +984,12 @@ func TestSchedulerNeedsUpdateIdempotency(t *testing.T) {
 			t.Fatalf("expected update when explicit regions differ")
 		}
 	})
+
+	t.Run("nil existing enabled treated as enabled", func(t *testing.T) {
+		existing := apiclient.FunctionScheduler{CronExpression: &cron} // Enabled nil
+		desired := SchedulerManifest{Name: "daily", Cron: cron}        // enabled omitted -> true
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update: nil existing Enabled should be treated as enabled")
+		}
+	})
 }

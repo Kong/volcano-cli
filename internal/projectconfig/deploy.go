@@ -422,7 +422,10 @@ func schedulerNeedsUpdate(existing apiclient.FunctionScheduler, desired Schedule
 	if desired.Enabled != nil {
 		desiredEnabled = *desired.Enabled
 	}
-	existingEnabled := false
+	// A nil Enabled from the API means enabled (matches schedulerState rendering),
+	// so default to true; otherwise an omitted field would force a spurious update
+	// on every deploy.
+	existingEnabled := true
 	if existing.Enabled != nil {
 		existingEnabled = *existing.Enabled
 	}
