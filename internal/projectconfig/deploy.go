@@ -434,18 +434,21 @@ func schedulerNeedsUpdate(existing apiclient.FunctionScheduler, desired Schedule
 		return true
 	}
 
-	// Compare payload using a JSON-canonical comparison. The manifest payload
-	// comes from YAML (numbers decode as int), while the server returns JSON
-	// (numbers decode as float64); reflect.DeepEqual would flag those as
-	// different every deploy. Marshalling both to JSON normalizes number
-	// formatting and key order, and treats an omitted payload as the server's
-	// empty-object default.
-	var existingPayload map[string]any
-	if existing.Payload != nil {
-		existingPayload = *existing.Payload
-	}
-	if !payloadEqual(existingPayload, desired.Payload) {
-		return true
+	// Only reconcile payload when the manifest declares one. An omitted payload is
+	// treated as server-managed: the API does not serialize a nil payload on update
+	// (so we could never clear it), and the server defaults it to {}. Diffing an
+	// omitted payload against an existing non-empty one would report an update that
+	// can never converge, so we leave it alone — mirroring how omitted regions are
+	// handled below. When a payload IS declared, compare on canonical JSON so YAML
+	// ints vs server float64s (and key order) don't produce false differences.
+	if len(desired.Payload) > 0 {
+		var existingPayload map[string]any
+		if existing.Payload != nil {
+			existingPayload = *existing.Payload
+		}
+		if !payloadEqual(existingPayload, desired.Payload) {
+			return true
+		}
 	}
 
 	// Compare regions only when the manifest explicitly declares them. When

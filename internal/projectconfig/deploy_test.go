@@ -980,4 +980,16 @@ func TestSchedulerNeedsUpdateIdempotency(t *testing.T) {
 			t.Fatalf("expected no update: nil existing Enabled should be treated as enabled")
 		}
 	})
+
+	t.Run("omitted payload is server-managed (no churn)", func(t *testing.T) {
+		existing := base
+		serverPayload := map[string]any{"job": "refresh"}
+		existing.Payload = &serverPayload
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // payload omitted
+		// Manifest omits payload; the API can't clear it and the server keeps its
+		// value, so reporting an update would never converge. Expect no update.
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update when manifest omits payload (server-managed)")
+		}
+	})
 }
