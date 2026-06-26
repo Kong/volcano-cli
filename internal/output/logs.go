@@ -1,7 +1,6 @@
 package output
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -54,23 +53,6 @@ func filterSkippedLogSearchEvents(events []apiclient.LogSearchEvent, skip map[st
 		filtered = append(filtered, event)
 	}
 	return filtered
-}
-
-// PrintLogStream renders log events from a live project log stream.
-func PrintLogStream(w io.Writer, stream *api.ProjectLogStream) error {
-	defer func() {
-		_ = stream.Close()
-	}()
-	for {
-		event, err := stream.Next()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		PrintLogStreamEvent(w, event)
-	}
 }
 
 // PrintLogStreamEvent renders one parsed project log stream event.

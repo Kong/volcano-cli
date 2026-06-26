@@ -1,11 +1,13 @@
 package frontends
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,6 +80,9 @@ func TestFrontendsLogs(t *testing.T) {
 			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/stream":
 				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
 				writeFrontendLogStream(t, w, "runtime follow")
+				// A healthy backend holds the connection open and tails new
+				// events, so keep it open until the client cancels.
+				<-r.Context().Done()
 			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
 				t.Errorf("runtime --follow should use logs/stream")
 				http.NotFound(w, r)
@@ -87,16 +92,23 @@ func TestFrontendsLogs(t *testing.T) {
 		}))
 		defer server.Close()
 
-		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--follow", "--limit", "2")
-		require.NoError(t, err)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		out, errCh := streamFrontendsCommand(ctx, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--follow", "--limit", "2")
+
+		require.Eventually(t, func() bool {
+			return strings.Contains(out.String(), "runtime follow")
+		}, 2*time.Second, 10*time.Millisecond)
+		cancel()
+		require.NoError(t, <-errCh)
+
 		resource, ok := streamBody["resource"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "frontend", resource["type"])
 		assert.Equal(t, []any{frontendID}, resource["ids"])
 		assert.NotContains(t, resource, "deployments")
 		assert.InEpsilon(t, 2, streamBody["limit"], 0)
-		assert.Contains(t, out, "Following runtime logs for frontend web")
-		assert.Contains(t, out, "runtime follow")
+		assert.Contains(t, out.String(), "Following runtime logs for frontend web")
 	})
 
 	t.Run("build defaults current deployment", func(t *testing.T) {
@@ -295,4 +307,7 @@ func writeFrontendLogStream(t *testing.T, w http.ResponseWriter, message string)
 	_, _ = w.Write([]byte("id: stream-cursor\n"))
 	_, _ = w.Write([]byte("event: log\n"))
 	_, _ = w.Write([]byte(`data: {"id":"stream-log","message":"` + message + `","timestamp":1760000000000,"resource":{"type":"frontend","id":"` + frontendID + `"}}` + "\n\n"))
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }

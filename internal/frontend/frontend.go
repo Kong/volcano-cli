@@ -197,14 +197,15 @@ func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit in
 	return logs, nil
 }
 
-// StreamRuntimeLogs opens a runtime log stream for a frontend.
-func (s Service) StreamRuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int) (*api.ProjectLogStream, error) {
+// StreamRuntimeLogs opens a runtime log stream for a frontend, resuming after
+// lastEventID when it is set.
+func (s Service) StreamRuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int, lastEventID string) (*api.ProjectLogStream, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	stream, err := authenticated.API.StreamFrontendLogs(ctx, authenticated.ProjectID, frontendID, limit, "")
+	stream, err := authenticated.API.StreamFrontendLogs(ctx, authenticated.ProjectID, frontendID, limit, lastEventID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stream runtime logs: %w", err)
 	}

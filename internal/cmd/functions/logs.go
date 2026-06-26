@@ -86,11 +86,9 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	if logsType == logsTypeRuntime {
 		if opts.follow {
 			fmt.Fprintf(opts.out, "Following runtime logs for function %s\n\n", function.Name)
-			stream, err := service.StreamRuntimeLogs(ctx, function.Id, opts.limit)
-			if err != nil {
-				return err
-			}
-			return logfollow.Runtime(ctx, opts.out, stream)
+			return logfollow.Runtime(ctx, opts.deps, opts.out, func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
+				return service.StreamRuntimeLogs(ctx, function.Id, opts.limit, lastEventID)
+			})
 		}
 		fmt.Fprintf(opts.out, "Fetching runtime logs for function %s\n\n", function.Name)
 		return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {

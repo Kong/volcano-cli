@@ -86,11 +86,9 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 	if logsType == frontendLogsTypeRuntime {
 		if opts.follow {
 			fmt.Fprintf(opts.out, "Following runtime logs for frontend %s\n\n", frontend.Name)
-			stream, err := service.StreamRuntimeLogs(ctx, frontend.Id, opts.limit)
-			if err != nil {
-				return err
-			}
-			return logfollow.Runtime(ctx, opts.out, stream)
+			return logfollow.Runtime(ctx, opts.deps, opts.out, func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
+				return service.StreamRuntimeLogs(ctx, frontend.Id, opts.limit, lastEventID)
+			})
 		}
 		fmt.Fprintf(opts.out, "Fetching runtime logs for frontend %s\n\n", frontend.Name)
 		return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
