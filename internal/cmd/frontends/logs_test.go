@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -150,8 +151,10 @@ func TestFrontendsLogs(t *testing.T) {
 				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
 				writeFrontendLogStream(t, w, "build follow")
 			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
-				t.Errorf("build --follow should use logs/stream while streaming")
-				http.NotFound(w, r)
+				// After the stream ends and the deployment is terminal, the
+				// follow loop runs a catch-up search that must suppress logs
+				// already printed from the stream (id "stream-log").
+				writeFrontendCommandJSON(t, w, http.StatusOK, catchUpLogResponse())
 			default:
 				http.NotFound(w, r)
 			}
@@ -169,6 +172,10 @@ func TestFrontendsLogs(t *testing.T) {
 		assert.Equal(t, []any{otherFrontendDeploymentID}, deployments["ids"])
 		assert.Contains(t, out, "Following build logs for frontend web deployment "+otherFrontendDeploymentID)
 		assert.Contains(t, out, "build follow")
+		// The catch-up search backfills logs not seen on the stream...
+		assert.Contains(t, out, "catch up log")
+		// ...without reprinting the streamed log.
+		assert.Equal(t, 1, strings.Count(out, "build follow"))
 	})
 
 	t.Run("validates type", func(t *testing.T) {
@@ -256,6 +263,29 @@ func frontendLogCommandResponse(message string, hasMore bool, next string) map[s
 		response["next_cursor"] = next
 	}
 	return response
+}
+
+func catchUpLogResponse() map[string]any {
+	return map[string]any{
+		"data": []any{
+			map[string]any{
+				"id":        "stream-log",
+				"message":   "build follow",
+				"region":    "aws-us-east-1",
+				"timestamp": int64(1760000000000),
+			},
+			map[string]any{
+				"id":        "catch-up-log",
+				"message":   "catch up log",
+				"region":    "aws-us-east-1",
+				"timestamp": int64(1760000000001),
+			},
+		},
+		"has_more": false,
+		"limit":    100,
+		"page":     1,
+		"total":    2,
+	}
 }
 
 func writeFrontendLogStream(t *testing.T, w http.ResponseWriter, message string) {

@@ -30,8 +30,10 @@ func Runtime(ctx context.Context, w io.Writer, stream *api.ProjectLogStream) err
 	return err
 }
 
-// Deployment prints a deployment log stream, stops when terminal returns true,
-// then runs catchUp with the IDs already printed from the stream.
+// Deployment prints a deployment log stream until the deployment reaches a
+// terminal status, then runs catchUp with the IDs already printed from the
+// stream. If the stream closes before the deployment is terminal, it keeps
+// polling so the catch-up search still runs.
 func Deployment(ctx context.Context, deps cliruntime.Deps, w io.Writer, stream *api.ProjectLogStream, cancel context.CancelFunc, terminal TerminalCheck, catchUp CatchUp) error {
 	if cancel == nil {
 		cancel = func() {}
@@ -60,26 +62,52 @@ func Deployment(ctx context.Context, deps cliruntime.Deps, w io.Writer, stream *
 	ticker := cliruntime.NewTicker(deps, deploymentPollInterval)
 	defer ticker.Stop()
 
+	// streamCh is set to nil once the stream goroutine has exited so the select
+	// stops waiting on it; the loop then keeps polling for terminal status.
+	var streamCh <-chan error = errCh
+
+	// finish stops the stream goroutine (if still running) and runs the
+	// duplicate-suppressed catch-up search.
+	finish := func() error {
+		cancel()
+		if streamErr := awaitStream(streamCh); !cleanStreamShutdown(ctx, streamErr) {
+			return streamErr
+		}
+		if catchUp == nil {
+			return nil
+		}
+		return catchUp(ctx, printed.snapshot())
+	}
+
 	for {
 		select {
-		case err := <-errCh:
-			if cleanStreamShutdown(ctx, err) {
-				return nil
+		case err := <-streamCh:
+			// The stream ended on its own. Surface unexpected failures; on a
+			// clean shutdown stop waiting on the stream and check terminal status
+			// now so the catch-up search runs without waiting for the next poll —
+			// the stream can close before the deployment is terminal.
+			if !cleanStreamShutdown(ctx, err) {
+				return err
 			}
-			return err
+			streamCh = nil
+			done, err := terminal(ctx)
+			if err != nil {
+				return err
+			}
+			if done {
+				return finish()
+			}
 		case <-ctx.Done():
 			cancel()
-			err := <-errCh
-			if cleanStreamShutdown(ctx, err) {
-				return nil
+			if err := awaitStream(streamCh); !cleanStreamShutdown(ctx, err) {
+				return err
 			}
-			return err
+			return nil
 		case <-ticker.C():
 			done, err := terminal(ctx)
 			if err != nil {
 				cancel()
-				streamErr := <-errCh
-				if !cleanStreamShutdown(ctx, streamErr) {
+				if streamErr := awaitStream(streamCh); !cleanStreamShutdown(ctx, streamErr) {
 					return streamErr
 				}
 				return err
@@ -87,17 +115,18 @@ func Deployment(ctx context.Context, deps cliruntime.Deps, w io.Writer, stream *
 			if !done {
 				continue
 			}
-			cancel()
-			streamErr := <-errCh
-			if !cleanStreamShutdown(ctx, streamErr) {
-				return streamErr
-			}
-			if catchUp == nil {
-				return nil
-			}
-			return catchUp(ctx, printed.snapshot())
+			return finish()
 		}
 	}
+}
+
+// awaitStream waits for the streaming goroutine to send its final error,
+// returning nil if it has already exited (streamCh is nil).
+func awaitStream(streamCh <-chan error) error {
+	if streamCh == nil {
+		return nil
+	}
+	return <-streamCh
 }
 
 func cleanStreamShutdown(ctx context.Context, err error) bool {
