@@ -340,6 +340,20 @@ func (s Service) CreateSchedulerByID(ctx context.Context, functionID uuid.UUID, 
 	return scheduler, nil
 }
 
+// UpdateSchedulerByID updates one scheduler by ID, preserving the scheduler UUID.
+func (s Service) UpdateSchedulerByID(ctx context.Context, functionID, schedulerID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	scheduler, err := authenticated.API.UpdateFunctionScheduler(ctx, authenticated.ProjectID, functionID, schedulerID, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update scheduler: %w", err)
+	}
+	return scheduler, nil
+}
+
 // EnableScheduler enables one scheduler for a function.
 func (s Service) EnableScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) (*apiclient.FunctionScheduler, error) {
 	return s.setSchedulerEnabled(ctx, identifier, schedulerID, true)

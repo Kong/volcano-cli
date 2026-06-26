@@ -3,6 +3,7 @@ package localmode
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -71,4 +72,44 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 
 	require.NoError(t, service.Restart(context.Background(), &out))
 	assert.Equal(t, []string{"down", "up"}, order)
+}
+
+func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	withTempWorkingDir(t)
+
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("true\n"), nil
+			case commandIs(command, "docker", "version"):
+				return nil, nil
+			case commandIs(command, "docker", "image", "inspect", "kong/volcano:local-dev"):
+				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
+			case commandIsComposeDown(command, false):
+				t.Fatalf("compose down must not run when the custom image is missing")
+				return nil, nil
+			case command.Name == "docker" && slices.Contains(command.Args, "up"):
+				t.Fatalf("compose up must not run when the custom image is missing")
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	service := NewService(
+		cliruntime.Deps{},
+		WithDockerRunner(runner),
+		WithImage("kong/volcano:local-dev"),
+		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
+		WithTempDir(t.TempDir()),
+	)
+
+	err := service.Restart(context.Background(), &out)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found locally")
+	assert.False(t, runner.calledWithArg("docker", "down"), "environment must not be torn down on a bad --image")
 }

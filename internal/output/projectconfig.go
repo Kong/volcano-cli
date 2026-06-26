@@ -27,4 +27,9 @@ func ProjectConfigDeploySummary(w io.Writer, summary *projectconfig.Summary) {
 		summary.FunctionsUpdated,
 		summary.FunctionsUnchanged,
 	)
+	fmt.Fprintf(w, "Schedulers: %d created, %d updated, %d unchanged\n",
+		summary.SchedulersCreated,
+		summary.SchedulersUpdated,
+		summary.SchedulersUnchanged,
+	)
 }

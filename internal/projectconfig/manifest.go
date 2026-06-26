@@ -47,8 +47,18 @@ type PolicyManifest struct {
 
 // FunctionManifest declares the desired visibility for one deployed function.
 type FunctionManifest struct {
-	Name   string `yaml:"name"`
-	Public *bool  `yaml:"public,omitempty"`
+	Name       string              `yaml:"name"`
+	Public     *bool               `yaml:"public,omitempty"`
+	Schedulers []SchedulerManifest `yaml:"schedulers,omitempty"`
+}
+
+// SchedulerManifest declares one scheduler attached to a function.
+type SchedulerManifest struct {
+	Name    string         `yaml:"name"`
+	Cron    string         `yaml:"cron"`
+	Enabled *bool          `yaml:"enabled,omitempty"`
+	Payload map[string]any `yaml:"payload,omitempty"`
+	Regions []string       `yaml:"regions,omitempty"`
 }
 
 // Load reads, parses, and validates a manifest from disk. The returned path is
@@ -125,7 +135,10 @@ func (m *Manifest) Validate() error {
 	if err := validateBuckets(m.Buckets); err != nil {
 		return err
 	}
-	return validateFunctions(m.Functions)
+	if err := validateFunctions(m.Functions); err != nil {
+		return err
+	}
+	return validateAllSchedulers(m.Functions)
 }
 
 func validateBuckets(buckets []BucketManifest) error {
@@ -198,9 +211,45 @@ func validateFunctions(functions []FunctionManifest) error {
 			return fmt.Errorf("duplicate function name %q in manifest", function.Name)
 		}
 		seen[function.Name] = struct{}{}
-		if function.Public == nil {
-			return fmt.Errorf("function %q: public is required", function.Name)
+		// A function entry is valid if it sets public OR declares at least one scheduler
+		if function.Public == nil && len(function.Schedulers) == 0 {
+			return fmt.Errorf("function %q: must set 'public' or declare at least one scheduler", function.Name)
 		}
+	}
+	return nil
+}
+
+func validateAllSchedulers(functions []FunctionManifest) error {
+	for i := range functions {
+		if err := validateSchedulers(&functions[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSchedulers(function *FunctionManifest) error {
+	if len(function.Schedulers) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(function.Schedulers))
+	for j := range function.Schedulers {
+		scheduler := &function.Schedulers[j]
+		scheduler.Name = strings.TrimSpace(scheduler.Name)
+		if scheduler.Name == "" {
+			return fmt.Errorf("function %q: scheduler name is required", function.Name)
+		}
+		if _, exists := seen[scheduler.Name]; exists {
+			return fmt.Errorf("function %q: duplicate scheduler name %q", function.Name, scheduler.Name)
+		}
+		seen[scheduler.Name] = struct{}{}
+
+		scheduler.Cron = strings.TrimSpace(scheduler.Cron)
+		if scheduler.Cron == "" {
+			return fmt.Errorf("function %q scheduler %q: cron is required", function.Name, scheduler.Name)
+		}
+		// Do not parse/validate cron client-side; the server owns cron/region rules
 	}
 	return nil
 }

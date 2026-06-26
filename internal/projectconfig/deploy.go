@@ -1,12 +1,17 @@
 package projectconfig
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -20,15 +25,18 @@ import (
 // non-decreasing across reconciliation steps so callers can render a single
 // "buckets: X created, Y updated, Z unchanged" line per resource type.
 type Summary struct {
-	BucketsCreated     int
-	BucketsUpdated     int
-	BucketsUnchanged   int
-	PoliciesCreated    int
-	PoliciesUpdated    int
-	PoliciesDeleted    int
-	PoliciesUnchanged  int
-	FunctionsUpdated   int
-	FunctionsUnchanged int
+	BucketsCreated      int
+	BucketsUpdated      int
+	BucketsUnchanged    int
+	PoliciesCreated     int
+	PoliciesUpdated     int
+	PoliciesDeleted     int
+	PoliciesUnchanged   int
+	FunctionsUpdated    int
+	FunctionsUnchanged  int
+	SchedulersCreated   int
+	SchedulersUpdated   int
+	SchedulersUnchanged int
 }
 
 // StorageReconciler is the subset of internal/storage.Service that Deploy
@@ -50,25 +58,36 @@ type FunctionReconciler interface {
 	UpdateVisibility(ctx context.Context, identifier string, isPublic bool) (*apiclient.Function, error)
 }
 
+// SchedulerReconciler is the subset of internal/function.Service used to
+// reconcile schedulers from a manifest.
+type SchedulerReconciler interface {
+	ListSchedulers(ctx context.Context, identifier string) (*apiclient.Function, *apiclient.FunctionSchedulerListResponse, error)
+	CreateSchedulerByID(ctx context.Context, functionID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error)
+	UpdateSchedulerByID(ctx context.Context, functionID, schedulerID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error)
+}
+
 // Service deploys declarative project configuration to the Volcano API.
 type Service struct {
-	storage   StorageReconciler
-	functions FunctionReconciler
+	storage    StorageReconciler
+	functions  FunctionReconciler
+	schedulers SchedulerReconciler
 }
 
 // NewService wires the projectconfig Service against the storage and function
 // services.
 func NewService(deps cliruntime.Deps) Service {
+	fnService := clifunction.NewService(deps)
 	return Service{
-		storage:   clistorage.NewService(deps),
-		functions: clifunction.NewService(deps),
+		storage:    clistorage.NewService(deps),
+		functions:  fnService,
+		schedulers: fnService,
 	}
 }
 
 // NewServiceWithReconcilers returns a Service that uses the supplied
 // reconcilers. Intended for tests.
-func NewServiceWithReconcilers(storage StorageReconciler, functions FunctionReconciler) Service {
-	return Service{storage: storage, functions: functions}
+func NewServiceWithReconcilers(storage StorageReconciler, functions FunctionReconciler, schedulers SchedulerReconciler) Service {
+	return Service{storage: storage, functions: functions, schedulers: schedulers}
 }
 
 // Deploy reconciles the project state to match the manifest. Buckets and their
@@ -91,6 +110,10 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest) (*Summary, erro
 	}
 
 	if err := s.reconcileFunctions(ctx, manifest.Functions, summary); err != nil {
+		return summary, err
+	}
+
+	if err := s.reconcileSchedulers(ctx, manifest.Functions, summary); err != nil {
 		return summary, err
 	}
 	return summary, nil
@@ -243,6 +266,11 @@ func (s Service) reconcileFunctions(ctx context.Context, functions []FunctionMan
 	}
 
 	for _, target := range functions {
+		// Skip visibility reconciliation if Public is not set (schedulers-only entry)
+		if target.Public == nil {
+			continue
+		}
+
 		fn, ok := byName[target.Name]
 		if !ok {
 			available := make([]string, 0, len(deployed))
@@ -308,4 +336,161 @@ func stringSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func (s Service) reconcileSchedulers(ctx context.Context, functions []FunctionManifest, summary *Summary) error {
+	for _, fnManifest := range functions {
+		if len(fnManifest.Schedulers) == 0 {
+			continue
+		}
+
+		// Resolve the function and list existing schedulers
+		fn, listResp, err := s.schedulers.ListSchedulers(ctx, fnManifest.Name)
+		if err != nil {
+			return fmt.Errorf("function %q: failed to list schedulers: %w", fnManifest.Name, err)
+		}
+		if fn == nil {
+			return fmt.Errorf("function %q: not found", fnManifest.Name)
+		}
+		// The function-scoped scheduler list returns the full set in one response
+		// (has_more is always false today and the client exposes no page parameter).
+		// Guard against a future server change that paginates: schedulers beyond page
+		// 1 would be missed and wrongly recreated, so fail loudly instead.
+		if listResp != nil && listResp.HasMore {
+			return fmt.Errorf("function %q: scheduler list is paginated (has_more=true) but the CLI cannot page it; aborting to avoid duplicate creation", fnManifest.Name)
+		}
+
+		// Build map of existing schedulers by Name
+		existingByName := make(map[string]apiclient.FunctionScheduler)
+		if listResp != nil {
+			for _, existing := range listResp.Data {
+				if existing.Name != nil {
+					name := *existing.Name
+					if _, duplicate := existingByName[name]; duplicate {
+						return fmt.Errorf("function %q: duplicate scheduler name %q exists on server (cannot reconcile unambiguously)", fnManifest.Name, name)
+					}
+					existingByName[name] = existing
+				}
+			}
+		}
+
+		// Reconcile each desired scheduler
+		for _, desired := range fnManifest.Schedulers {
+			input := buildSchedulerInput(desired)
+
+			existing, found := existingByName[desired.Name]
+			if !found {
+				// Create new scheduler
+				if _, err := s.schedulers.CreateSchedulerByID(ctx, fn.Id, input); err != nil {
+					return fmt.Errorf("function %q: failed to create scheduler %q: %w", fnManifest.Name, desired.Name, err)
+				}
+				summary.SchedulersCreated++
+				continue
+			}
+
+			// Check if update needed
+			if schedulerNeedsUpdate(existing, desired) {
+				if existing.Id == nil {
+					return fmt.Errorf("function %q scheduler %q: existing scheduler has no ID", fnManifest.Name, desired.Name)
+				}
+				schedulerID, err := uuid.Parse(existing.Id.String())
+				if err != nil {
+					return fmt.Errorf("function %q scheduler %q: invalid scheduler ID: %w", fnManifest.Name, desired.Name, err)
+				}
+				if _, err := s.schedulers.UpdateSchedulerByID(ctx, fn.Id, schedulerID, input); err != nil {
+					return fmt.Errorf("function %q: failed to update scheduler %q: %w", fnManifest.Name, desired.Name, err)
+				}
+				summary.SchedulersUpdated++
+			} else {
+				summary.SchedulersUnchanged++
+			}
+		}
+	}
+	return nil
+}
+
+func buildSchedulerInput(manifest SchedulerManifest) api.FunctionSchedulerInput {
+	// Forward the manifest's enabled as-is. A nil (omitted) value is dropped from
+	// the update body so the server keeps the scheduler's current state, and on
+	// create the server defaults it to true. This follows the server's own
+	// "omitted = keep existing" contract and avoids re-enabling a deliberately
+	// disabled scheduler; schedulerNeedsUpdate only flags enabled when declared.
+	return api.FunctionSchedulerInput{
+		Name:           manifest.Name,
+		CronExpression: manifest.Cron,
+		Payload:        manifest.Payload,
+		Regions:        manifest.Regions,
+		Enabled:        manifest.Enabled,
+	}
+}
+
+func schedulerNeedsUpdate(existing apiclient.FunctionScheduler, desired SchedulerManifest) bool {
+	// Compare cron expression
+	if existing.CronExpression == nil || *existing.CronExpression != desired.Cron {
+		return true
+	}
+
+	// Only reconcile enabled when the manifest declares it. This mirrors the
+	// server, whose update contract treats an omitted enabled as "keep existing"
+	// (payload/regions below are handled the same way). Forcing the default would
+	// re-enable a deliberately-disabled scheduler on every deploy. A nil existing
+	// Enabled from the API means enabled.
+	if desired.Enabled != nil {
+		existingEnabled := true
+		if existing.Enabled != nil {
+			existingEnabled = *existing.Enabled
+		}
+		if existingEnabled != *desired.Enabled {
+			return true
+		}
+	}
+
+	// Only reconcile payload when the manifest declares one. An omitted payload is
+	// treated as server-managed: the API does not serialize a nil payload on update
+	// (so we could never clear it), and the server defaults it to {}. Diffing an
+	// omitted payload against an existing non-empty one would report an update that
+	// can never converge, so we leave it alone — mirroring how omitted regions are
+	// handled below. When a payload IS declared, compare on canonical JSON so YAML
+	// ints vs server float64s (and key order) don't produce false differences.
+	if len(desired.Payload) > 0 {
+		var existingPayload map[string]any
+		if existing.Payload != nil {
+			existingPayload = *existing.Payload
+		}
+		if !payloadEqual(existingPayload, desired.Payload) {
+			return true
+		}
+	}
+
+	// Compare regions only when the manifest explicitly declares them. When
+	// regions are omitted the server auto-assigns a deployed region, so a
+	// comparison against the empty manifest value would report a spurious
+	// update on every deploy. Treat omitted regions as server-managed.
+	if len(desired.Regions) > 0 {
+		var existingRegions []string
+		if existing.Regions != nil {
+			existingRegions = *existing.Regions
+		}
+		if !stringSlicesEqual(existingRegions, desired.Regions) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// payloadEqual reports whether two scheduler payloads are equivalent. An empty
+// or nil payload is treated as equal to the server's default empty object.
+// Comparison is done on canonical JSON so YAML ints and server float64s (and
+// map key ordering) do not produce false differences.
+func payloadEqual(a, b map[string]any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	aJSON, errA := json.Marshal(a)
+	bJSON, errB := json.Marshal(b)
+	if errA != nil || errB != nil {
+		return reflect.DeepEqual(a, b)
+	}
+	return bytes.Equal(aJSON, bJSON)
 }

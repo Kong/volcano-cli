@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"testing"
 
@@ -196,7 +197,7 @@ func (f *fakeFunctions) UpdateVisibility(_ context.Context, identifier string, i
 func TestDeployCreatesMissingBucketAndPolicies(t *testing.T) {
 	storage := newFakeStorage()
 	functions := &fakeFunctions{}
-	svc := NewServiceWithReconcilers(storage, functions)
+	svc := NewServiceWithReconcilers(storage, functions, newFakeSchedulers())
 
 	limit := int64(2048)
 	manifest := &Manifest{
@@ -243,7 +244,7 @@ func TestDeployUpdatesBucketWhenMimeTypesDiffer(t *testing.T) {
 		AllowedMimeTypes: &[]string{"image/png"},
 	}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	newLimit := int64(1024)
 	manifest := &Manifest{
 		Version: 1,
@@ -276,7 +277,7 @@ func TestDeployLeavesBucketUnchangedWhenFieldsMatch(t *testing.T) {
 		AllowedMimeTypes: &[]string{"image/png"},
 	}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{
@@ -305,7 +306,7 @@ func TestDeployRecreatesPolicyWhenDefinitionChanges(t *testing.T) {
 		Definition: "true",
 	}}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{
@@ -340,7 +341,7 @@ func TestDeployDeletesPolicyMissingFromManifest(t *testing.T) {
 		Definition: "false",
 	}}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{Name: "uploads"}},
@@ -361,7 +362,7 @@ func TestDeployUpdatesFunctionVisibility(t *testing.T) {
 			{Id: uuid.New(), Name: "world", IsPublic: true},
 		},
 	}
-	svc := NewServiceWithReconcilers(newFakeStorage(), functions)
+	svc := NewServiceWithReconcilers(newFakeStorage(), functions, newFakeSchedulers())
 
 	pub := true
 	stay := true
@@ -390,7 +391,7 @@ func TestDeployFunctionMissingReturnsAvailableList(t *testing.T) {
 			{Id: uuid.New(), Name: "world"},
 		},
 	}
-	svc := NewServiceWithReconcilers(newFakeStorage(), functions)
+	svc := NewServiceWithReconcilers(newFakeStorage(), functions, newFakeSchedulers())
 	pub := true
 	manifest := &Manifest{
 		Version:   1,
@@ -404,7 +405,7 @@ func TestDeployFunctionMissingReturnsAvailableList(t *testing.T) {
 }
 
 func TestDeployFunctionMissingNoFunctions(t *testing.T) {
-	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{})
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, newFakeSchedulers())
 	pub := true
 	manifest := &Manifest{
 		Version:   1,
@@ -419,7 +420,7 @@ func TestDeployFunctionMissingNoFunctions(t *testing.T) {
 func TestDeployBucketFetchErrorPropagates(t *testing.T) {
 	storage := newFakeStorage()
 	storage.getBucketErr = errors.New("boom")
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 
 	manifest := &Manifest{
 		Version: 1,
@@ -431,7 +432,7 @@ func TestDeployBucketFetchErrorPropagates(t *testing.T) {
 }
 
 func TestDeployNilManifest(t *testing.T) {
-	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{})
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, newFakeSchedulers())
 	_, err := svc.Deploy(context.Background(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manifest is required")
@@ -452,7 +453,7 @@ func TestDeployRollsBackPolicyWhenRecreateFails(t *testing.T) {
 	// Fail the new-definition create; let the rollback create succeed.
 	storage.createPolicyErrs = []error{errors.New("boom"), nil}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{
@@ -490,7 +491,7 @@ func TestDeployPolicyRollbackFailureSurfacesBothErrors(t *testing.T) {
 	}}
 	storage.createPolicyErrs = []error{errors.New("create failed"), errors.New("rollback failed")}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{
@@ -550,7 +551,7 @@ func TestDeployListsFunctionsAcrossMultiplePages(t *testing.T) {
 			{{Id: secondID, Name: "second", IsPublic: false}},
 		},
 	}
-	svc := NewServiceWithReconcilers(newFakeStorage(), functions)
+	svc := NewServiceWithReconcilers(newFakeStorage(), functions, newFakeSchedulers())
 
 	pub := true
 	manifest := &Manifest{
@@ -580,7 +581,7 @@ func TestDeployLeavesBucketUnchangedWhenMimeTypesDifferInOrder(t *testing.T) {
 		AllowedMimeTypes: &[]string{"image/jpeg", "image/png"},
 	}
 
-	svc := NewServiceWithReconcilers(storage, &fakeFunctions{})
+	svc := NewServiceWithReconcilers(storage, &fakeFunctions{}, newFakeSchedulers())
 	manifest := &Manifest{
 		Version: 1,
 		Buckets: []BucketManifest{{
@@ -594,4 +595,492 @@ func TestDeployLeavesBucketUnchangedWhenMimeTypesDifferInOrder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary.BucketsUnchanged)
 	assert.Empty(t, storage.updateBuckets, "MIME types differing only in order must not trigger an update")
+}
+
+type fakeSchedulers struct {
+	functions    map[string]*apiclient.Function
+	schedulers   map[string][]apiclient.FunctionScheduler
+	createdCalls []schedulerCreateCall
+	updatedCalls []schedulerUpdateCall
+	listErr      error
+	createErr    error
+	updateErr    error
+	hasMore      bool
+}
+
+type schedulerCreateCall struct {
+	FunctionID uuid.UUID
+	Input      api.FunctionSchedulerInput
+}
+
+type schedulerUpdateCall struct {
+	FunctionID  uuid.UUID
+	SchedulerID uuid.UUID
+	Input       api.FunctionSchedulerInput
+}
+
+func newFakeSchedulers() *fakeSchedulers {
+	return &fakeSchedulers{
+		functions:  make(map[string]*apiclient.Function),
+		schedulers: make(map[string][]apiclient.FunctionScheduler),
+	}
+}
+
+func (f *fakeSchedulers) ListSchedulers(_ context.Context, identifier string) (*apiclient.Function, *apiclient.FunctionSchedulerListResponse, error) {
+	if f.listErr != nil {
+		return nil, nil, f.listErr
+	}
+	fn, ok := f.functions[identifier]
+	if !ok {
+		return nil, nil, api.ErrNotFound
+	}
+	schedulers := f.schedulers[identifier]
+	resp := &apiclient.FunctionSchedulerListResponse{
+		Data:    append([]apiclient.FunctionScheduler(nil), schedulers...),
+		HasMore: f.hasMore,
+	}
+	return fn, resp, nil
+}
+
+func (f *fakeSchedulers) CreateSchedulerByID(_ context.Context, functionID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error) {
+	f.createdCalls = append(f.createdCalls, schedulerCreateCall{FunctionID: functionID, Input: input})
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
+	schedulerID := uuid.New()
+	scheduler := apiclient.FunctionScheduler{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           &input.Name,
+		CronExpression: &input.CronExpression,
+		Enabled:        input.Enabled,
+	}
+	if input.Payload != nil {
+		payload := maps.Clone(input.Payload)
+		scheduler.Payload = &payload
+	}
+	if len(input.Regions) > 0 {
+		regions := append([]string(nil), input.Regions...)
+		scheduler.Regions = &regions
+	}
+	// Store by function name (need to find it)
+	for name, fn := range f.functions {
+		if fn.Id == functionID {
+			f.schedulers[name] = append(f.schedulers[name], scheduler)
+			break
+		}
+	}
+	return &scheduler, nil
+}
+
+func (f *fakeSchedulers) UpdateSchedulerByID(_ context.Context, functionID, schedulerID uuid.UUID, input api.FunctionSchedulerInput) (*apiclient.FunctionScheduler, error) {
+	f.updatedCalls = append(f.updatedCalls, schedulerUpdateCall{FunctionID: functionID, SchedulerID: schedulerID, Input: input})
+	if f.updateErr != nil {
+		return nil, f.updateErr
+	}
+	// Find and update the scheduler
+	for name, fn := range f.functions {
+		if fn.Id == functionID {
+			for i := range f.schedulers[name] {
+				if f.schedulers[name][i].Id == nil || *f.schedulers[name][i].Id != schedulerID {
+					continue
+				}
+				f.schedulers[name][i].Name = &input.Name
+				f.schedulers[name][i].CronExpression = &input.CronExpression
+				f.schedulers[name][i].Enabled = input.Enabled
+				if input.Payload != nil {
+					payload := maps.Clone(input.Payload)
+					f.schedulers[name][i].Payload = &payload
+				} else {
+					f.schedulers[name][i].Payload = nil
+				}
+				if len(input.Regions) > 0 {
+					regions := append([]string(nil), input.Regions...)
+					f.schedulers[name][i].Regions = &regions
+				} else {
+					f.schedulers[name][i].Regions = nil
+				}
+				return &f.schedulers[name][i], nil
+			}
+			break
+		}
+	}
+	return nil, errors.New("scheduler not found")
+}
+
+func TestReconcileSchedulersCreatesNew(t *testing.T) {
+	functionID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{
+		Id:   functionID,
+		Name: "hello",
+	}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name: "hello",
+			Schedulers: []SchedulerManifest{{
+				Name: "daily",
+				Cron: "0 0 * * *",
+			}},
+		}},
+	}
+
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 1, summary.SchedulersCreated)
+	assert.Equal(t, 0, summary.SchedulersUpdated)
+	assert.Equal(t, 0, summary.SchedulersUnchanged)
+
+	require.Len(t, schedulers.createdCalls, 1)
+	assert.Equal(t, functionID, schedulers.createdCalls[0].FunctionID)
+	assert.Equal(t, "daily", schedulers.createdCalls[0].Input.Name)
+	assert.Equal(t, "0 0 * * *", schedulers.createdCalls[0].Input.CronExpression)
+}
+
+func TestReconcileSchedulersUpdatesChanged(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{
+		Id:   functionID,
+		Name: "hello",
+	}
+	cron := "0 0 * * *"
+	enabled := true
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           strPtr("daily"),
+		CronExpression: &cron,
+		Enabled:        &enabled,
+	}}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	newCron := "0 12 * * *" // Changed time
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name: "hello",
+			Schedulers: []SchedulerManifest{{
+				Name: "daily",
+				Cron: newCron,
+			}},
+		}},
+	}
+
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.SchedulersCreated)
+	assert.Equal(t, 1, summary.SchedulersUpdated)
+	assert.Equal(t, 0, summary.SchedulersUnchanged)
+
+	require.Len(t, schedulers.updatedCalls, 1)
+	assert.Equal(t, functionID, schedulers.updatedCalls[0].FunctionID)
+	assert.Equal(t, schedulerID, schedulers.updatedCalls[0].SchedulerID)
+	assert.Equal(t, "daily", schedulers.updatedCalls[0].Input.Name)
+	assert.Equal(t, newCron, schedulers.updatedCalls[0].Input.CronExpression)
+}
+
+func TestReconcileSchedulersUnchanged(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{
+		Id:   functionID,
+		Name: "hello",
+	}
+	cron := "0 0 * * *"
+	enabled := true
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           strPtr("daily"),
+		CronExpression: &cron,
+		Enabled:        &enabled,
+	}}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name: "hello",
+			Schedulers: []SchedulerManifest{{
+				Name:    "daily",
+				Cron:    "0 0 * * *",
+				Enabled: &enabled,
+			}},
+		}},
+	}
+
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.SchedulersCreated)
+	assert.Equal(t, 0, summary.SchedulersUpdated)
+	assert.Equal(t, 1, summary.SchedulersUnchanged)
+
+	assert.Empty(t, schedulers.createdCalls)
+	assert.Empty(t, schedulers.updatedCalls)
+}
+
+func TestReconcileSchedulersDoesNotDeleteUndeclared(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{
+		Id:   functionID,
+		Name: "hello",
+	}
+	cron := "0 0 * * *"
+	enabled := true
+	// Server has an existing scheduler not in manifest
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           strPtr("adhoc"),
+		CronExpression: &cron,
+		Enabled:        &enabled,
+	}}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	// Manifest declares a different scheduler
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name: "hello",
+			Schedulers: []SchedulerManifest{{
+				Name: "daily",
+				Cron: "0 12 * * *",
+			}},
+		}},
+	}
+
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 1, summary.SchedulersCreated) // Creates "daily"
+	assert.Equal(t, 0, summary.SchedulersUpdated)
+	assert.Equal(t, 0, summary.SchedulersUnchanged)
+
+	// Verify "adhoc" was not deleted (still in fake storage)
+	assert.Len(t, schedulers.schedulers["hello"], 2, "undeclared scheduler should not be deleted")
+}
+
+func TestReconcileSchedulersDuplicateNameError(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID1 := uuid.New()
+	schedulerID2 := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{
+		Id:   functionID,
+		Name: "hello",
+	}
+	cron := "0 0 * * *"
+	enabled := true
+	// Server has duplicate scheduler names
+	name := "daily"
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{
+		{
+			Id:             &schedulerID1,
+			FunctionId:     &functionID,
+			Name:           &name,
+			CronExpression: &cron,
+			Enabled:        &enabled,
+		},
+		{
+			Id:             &schedulerID2,
+			FunctionId:     &functionID,
+			Name:           &name,
+			CronExpression: &cron,
+			Enabled:        &enabled,
+		},
+	}
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name: "hello",
+			Schedulers: []SchedulerManifest{{
+				Name: "daily",
+				Cron: "0 0 * * *",
+			}},
+		}},
+	}
+
+	_, err := svc.Deploy(context.Background(), manifest)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate scheduler name")
+	assert.Contains(t, err.Error(), "daily")
+}
+
+func strPtr(s string) *string {
+	return &s
+}
+
+func TestSchedulerNeedsUpdateIdempotency(t *testing.T) {
+	cron := "0 9 * * *"
+	enabled := true
+
+	base := apiclient.FunctionScheduler{
+		CronExpression: &cron,
+		Enabled:        &enabled,
+	}
+
+	t.Run("omitted regions are server-managed", func(t *testing.T) {
+		existing := base
+		regions := []string{"us-east-1"}
+		existing.Regions = &regions
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // regions omitted
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update when manifest omits regions (server-managed)")
+		}
+	})
+
+	t.Run("payload int equals server float64", func(t *testing.T) {
+		existing := base
+		p := map[string]any{"count": float64(5)}
+		existing.Payload = &p
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Payload: map[string]any{"count": 5}}
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update for numerically equivalent payload")
+		}
+	})
+
+	t.Run("omitted payload equals server empty object", func(t *testing.T) {
+		existing := base
+		empty := map[string]any{}
+		existing.Payload = &empty
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // payload omitted
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update when payload omitted")
+		}
+	})
+
+	t.Run("cron change triggers update", func(t *testing.T) {
+		existing := base
+		desired := SchedulerManifest{Name: "daily", Cron: "0 10 * * *"}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when cron differs")
+		}
+	})
+
+	t.Run("explicit region mismatch triggers update", func(t *testing.T) {
+		existing := base
+		regions := []string{"us-east-1"}
+		existing.Regions = &regions
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Regions: []string{"eu-west-1"}}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when explicit regions differ")
+		}
+	})
+
+	t.Run("nil existing enabled treated as enabled", func(t *testing.T) {
+		existing := apiclient.FunctionScheduler{CronExpression: &cron} // Enabled nil
+		desired := SchedulerManifest{Name: "daily", Cron: cron}        // enabled omitted -> true
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update: nil existing Enabled should be treated as enabled")
+		}
+	})
+
+	t.Run("omitted payload is server-managed (no churn)", func(t *testing.T) {
+		existing := base
+		serverPayload := map[string]any{"job": "refresh"}
+		existing.Payload = &serverPayload
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // payload omitted
+		// Manifest omits payload; the API can't clear it and the server keeps its
+		// value, so reporting an update would never converge. Expect no update.
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update when manifest omits payload (server-managed)")
+		}
+	})
+
+	t.Run("existing disabled + omitted enabled is server-managed (no churn)", func(t *testing.T) {
+		existing := base
+		disabled := false
+		existing.Enabled = &disabled
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // enabled omitted
+		// Following server behavior, omitted enabled is left alone; flagging an update
+		// would never converge and would re-enable a deliberately-disabled scheduler.
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update: omitted enabled is server-managed (must converge)")
+		}
+	})
+
+	t.Run("existing disabled + explicit enable triggers update", func(t *testing.T) {
+		existing := base
+		disabled := false
+		existing.Enabled = &disabled
+		want := true
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Enabled: &want}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when manifest explicitly enables a disabled scheduler")
+		}
+	})
+
+	t.Run("existing enabled + explicit disable triggers update", func(t *testing.T) {
+		existing := base // enabled
+		want := false
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Enabled: &want}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when manifest explicitly disables an enabled scheduler")
+		}
+	})
+}
+
+func TestReconcileSchedulersLeavesDisabledWhenEnabledOmitted(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{Id: functionID, Name: "hello"}
+	cron := "0 0 * * *"
+	disabled := false
+	// Server scheduler is disabled (e.g. an operator ran `schedulers disable`); the
+	// manifest re-declares it but omits enabled.
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           strPtr("daily"),
+		CronExpression: &cron,
+		Enabled:        &disabled,
+	}}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name:       "hello",
+			Schedulers: []SchedulerManifest{{Name: "daily", Cron: cron}}, // enabled omitted
+		}},
+	}
+
+	// Following server behavior, an omitted enabled is server-managed: the deploy
+	// must NOT re-enable the scheduler, and it converges immediately (no update).
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.SchedulersUpdated)
+	assert.Equal(t, 1, summary.SchedulersUnchanged)
+	assert.Empty(t, schedulers.updatedCalls, "omitted enabled must not trigger an update that re-enables a disabled scheduler")
+}
+
+func TestReconcileSchedulersAbortsOnPaginatedList(t *testing.T) {
+	functionID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{Id: functionID, Name: "hello"}
+	schedulers.hasMore = true // simulate a server that paginates the scheduler list
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name:       "hello",
+			Schedulers: []SchedulerManifest{{Name: "daily", Cron: "0 0 * * *"}},
+		}},
+	}
+
+	_, err := svc.Deploy(context.Background(), manifest)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "paginated")
+	// Must not create when it cannot see the full set (avoids duplicate creation).
+	assert.Empty(t, schedulers.createdCalls)
 }

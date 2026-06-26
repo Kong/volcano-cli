@@ -316,3 +316,96 @@ func lastEnvValue(env []string, key string) (string, bool) {
 	}
 	return "", false
 }
+
+func TestResolveImagePrecedence(t *testing.T) {
+	setLocalDevTestHome(t)
+	withTempWorkingDir(t)
+
+	emptyEnv := func(string) string { return "" }
+	newSvc := func(image string, getenv func(string) string) Service {
+		return NewService(cliruntime.Deps{},
+			WithImage(image),
+			WithEnvironment(func() []string { return []string{"PATH=/bin"} }, getenv),
+		)
+	}
+	envWith := func(value string) func(string) string {
+		return func(k string) string {
+			if k == "VOLCANO_IMAGE" {
+				return value
+			}
+			return ""
+		}
+	}
+
+	t.Run("default when nothing set", func(t *testing.T) {
+		_ = os.Remove(".env.local")
+		img, overridden := newSvc("", emptyEnv).resolveImage()
+		assert.Equal(t, defaultVolcanoImage, img)
+		assert.False(t, overridden)
+	})
+
+	t.Run("env overrides default", func(t *testing.T) {
+		_ = os.Remove(".env.local")
+		img, overridden := newSvc("", envWith("kong/volcano:from-env")).resolveImage()
+		assert.Equal(t, "kong/volcano:from-env", img)
+		assert.True(t, overridden)
+	})
+
+	t.Run(".env.local used when env unset", func(t *testing.T) {
+		require.NoError(t, os.WriteFile(".env.local", []byte("VOLCANO_IMAGE=kong/volcano:from-file\n"), 0o600))
+		img, overridden := newSvc("", emptyEnv).resolveImage()
+		assert.Equal(t, "kong/volcano:from-file", img)
+		assert.True(t, overridden)
+	})
+
+	t.Run("flag beats env and .env.local", func(t *testing.T) {
+		require.NoError(t, os.WriteFile(".env.local", []byte("VOLCANO_IMAGE=kong/volcano:from-file\n"), 0o600))
+		img, overridden := newSvc("kong/volcano:from-flag", envWith("kong/volcano:from-env")).resolveImage()
+		assert.Equal(t, "kong/volcano:from-flag", img)
+		assert.True(t, overridden)
+	})
+
+	t.Run("explicit default value is not treated as custom", func(t *testing.T) {
+		_ = os.Remove(".env.local")
+		img, overridden := newSvc(defaultVolcanoImage, emptyEnv).resolveImage()
+		assert.Equal(t, defaultVolcanoImage, img)
+		assert.False(t, overridden)
+	})
+}
+
+func TestStartFailsWhenCustomImageMissing(t *testing.T) {
+	setLocalDevTestHome(t)
+	withTempWorkingDir(t)
+
+	runner := &fakeCommandRunner{
+		run: func(_ context.Context, command Command) ([]byte, error) {
+			switch {
+			case commandIs(command, "docker", "inspect", "--format={{.State.Running}}", serverContainerName):
+				return []byte("false\n"), nil
+			case commandIs(command, "docker", "version"):
+				return []byte("Docker version 1\n"), nil
+			case commandIs(command, "docker", "image", "inspect", "kong/volcano:local-dev"):
+				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
+			case command.Name == "docker" && slices.Contains(command.Args, "up"):
+				t.Fatalf("compose up must not run when the custom image is missing")
+				return nil, nil
+			default:
+				return nil, nil
+			}
+		},
+	}
+
+	var out bytes.Buffer
+	service := NewService(
+		cliruntime.Deps{},
+		WithDockerRunner(runner),
+		WithImage("kong/volcano:local-dev"),
+		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
+		WithTempDir(t.TempDir()),
+	)
+
+	err := service.Start(context.Background(), &out)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found locally")
+	assert.False(t, runner.calledWithArg("docker", "up"))
+}

@@ -40,6 +40,7 @@ type Service struct {
 	environ       func() []string
 	getenv        func(string) string
 	tempDir       string
+	image         string
 }
 
 // Option configures a Service.
@@ -106,6 +107,16 @@ func WithTempDir(tempDir string) Option {
 	}
 }
 
+// WithImage sets an explicit local-mode server image, taking precedence over the
+// VOLCANO_IMAGE environment variable, any project .env.local value, and the
+// bundled default. An empty value is ignored. An explicitly selected image is
+// never pulled: it must already exist locally (see Start's pre-flight check).
+func WithImage(image string) Option {
+	return func(s *Service) {
+		s.image = strings.TrimSpace(image)
+	}
+}
+
 // NewService returns a local-mode environment service.
 func NewService(deps cliruntime.Deps, opts ...Option) Service {
 	healthClient := deps.HTTPClient
@@ -157,11 +168,24 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 	}
 	output.Success(w, "Docker is available")
 
+	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
+	// it must already exist locally before we announce or start it. Fail fast here
+	// (Restart calls this before tearing the environment down) instead of letting
+	// `docker compose up` emit a confusing registry-pull error.
+	if err := s.ensureCustomImageAvailable(ctx); err != nil {
+		return err
+	}
+
 	composeEnv, image, err := s.composeEnvironment()
 	if err != nil {
 		return err
 	}
+	_, customImage := s.resolveImage()
+
 	fmt.Fprintf(w, "Using Docker image: %s\n", image)
+	if customImage {
+		output.Success(w, "Using local image %q (not pulled)", image)
+	}
 
 	if err := s.startDockerServices(ctx, composeEnv); err != nil {
 		return fmt.Errorf("failed to start Docker services: %w", err)
@@ -250,6 +274,11 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 
 // Restart restarts the local Volcano Docker stack while preserving data.
 func (s Service) Restart(ctx context.Context, w io.Writer) error {
+	// Validate a custom image before tearing the environment down, so a bad
+	// --image leaves the running stack intact instead of stopped.
+	if err := s.ensureCustomImageAvailable(ctx); err != nil {
+		return err
+	}
 	if err := s.Stop(ctx, w, false); err != nil {
 		return err
 	}
