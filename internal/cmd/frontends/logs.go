@@ -7,11 +7,14 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
+	"github.com/Kong/volcano-cli/internal/logfollow"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -28,12 +31,14 @@ type frontendLogsOptions struct {
 	deploymentID string
 	logsType     string
 	limit        int
+	follow       bool
 	out          io.Writer
 }
 
 func newLogs(deps cliruntime.Deps) *cobra.Command {
 	var limit int
 	var logsType string
+	var follow bool
 	cmd := &cobra.Command{
 		Use:   "logs <name-or-id> [deployment-id]",
 		Short: "Show frontend build or runtime logs",
@@ -49,11 +54,13 @@ func newLogs(deps cliruntime.Deps) *cobra.Command {
 				deploymentID: deploymentID,
 				logsType:     logsType,
 				limit:        limit,
+				follow:       follow,
 				out:          cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().IntVarP(&limit, "limit", "l", defaultFrontendLogLimit, "Maximum logs per API page")
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Stream logs as new events arrive")
 	cmd.Flags().StringVar(&logsType, "type", "", "Log type to fetch: build or runtime")
 	if err := cmd.MarkFlagRequired("type"); err != nil {
 		panic(err)
@@ -77,6 +84,14 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 	}
 
 	if logsType == frontendLogsTypeRuntime {
+		if opts.follow {
+			fmt.Fprintf(opts.out, "Following runtime logs for frontend %s\n\n", frontend.Name)
+			stream, err := service.StreamRuntimeLogs(ctx, frontend.Id, opts.limit)
+			if err != nil {
+				return err
+			}
+			return logfollow.Runtime(ctx, opts.out, stream)
+		}
 		fmt.Fprintf(opts.out, "Fetching runtime logs for frontend %s\n\n", frontend.Name)
 		return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
 			return service.RuntimeLogs(ctx, frontend.Id, opts.limit, cursor)
@@ -109,10 +124,49 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 		deploymentID = &deployment.Id
 	}
 
+	if opts.follow {
+		fmt.Fprintf(opts.out, "Following build logs for frontend %s deployment %s\n\n", frontend.Name, deploymentID.String())
+		return followDeploymentLogs(ctx, opts, service, frontend.Id, *deploymentID)
+	}
 	fmt.Fprintf(opts.out, "Fetching build logs for frontend %s deployment %s\n\n", frontend.Name, deploymentID.String())
 	return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
 		return service.DeploymentLogs(ctx, frontend.Id, *deploymentID, opts.limit, cursor)
 	})
+}
+
+func followDeploymentLogs(ctx context.Context, opts frontendLogsOptions, service clifrontend.Service, frontendID, deploymentID uuid.UUID) error {
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := service.StreamDeploymentLogs(streamCtx, frontendID, deploymentID, opts.limit)
+	if err != nil {
+		cancel()
+		return err
+	}
+	return logfollow.Deployment(ctx, opts.deps, opts.out, stream, cancel, func(ctx context.Context) (bool, error) {
+		deployment, err := service.ResolveDeployment(ctx, frontendID, deploymentID.String())
+		if err != nil {
+			return false, err
+		}
+		return frontendDeploymentTerminal(deployment), nil
+	}, func(ctx context.Context, printed map[string]struct{}) error {
+		return output.PrintSearchLogsSkipping(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
+			return service.DeploymentLogs(ctx, frontendID, deploymentID, opts.limit, cursor)
+		}, printed)
+	})
+}
+
+func frontendDeploymentTerminal(deployment *apiclient.FrontendDeployment) bool {
+	if deployment == nil {
+		return false
+	}
+	switch deployment.Status {
+	case apicommon.FrontendDeploymentStatusActive,
+		apicommon.FrontendDeploymentStatusDeleted,
+		apicommon.FrontendDeploymentStatusDeleting,
+		apicommon.FrontendDeploymentStatusFailed:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeLogsType(value string) (string, error) {

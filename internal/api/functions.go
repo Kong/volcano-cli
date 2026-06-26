@@ -168,6 +168,17 @@ func (c *Client) GetFunctionLogs(ctx context.Context, projectID, functionID uuid
 	return c.searchProjectLogs(ctx, projectID, body)
 }
 
+// StreamFunctionLogs opens a runtime log stream for a function.
+func (c *Client) StreamFunctionLogs(ctx context.Context, projectID, functionID uuid.UUID, limit int, lastEventID string) (*ProjectLogStream, error) {
+	body := logSearchRequest{
+		Resource: logResource(logResourceTypeFunction, functionID),
+	}
+	if limit > 0 {
+		body.Limit = &limit
+	}
+	return c.streamProjectLogs(ctx, projectID, body, lastEventID)
+}
+
 func buildFunctionDeployMultipart(fn FunctionDeployInput) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -308,4 +319,15 @@ func (c *Client) GetFunctionDeploymentLogs(ctx context.Context, projectID, funct
 		body.Cursor = &cursor
 	}
 	return c.searchProjectLogs(ctx, projectID, body)
+}
+
+// StreamFunctionDeploymentLogs opens a build log stream for a function deployment.
+func (c *Client) StreamFunctionDeploymentLogs(ctx context.Context, projectID, functionID, deploymentID uuid.UUID, limit int, lastEventID string) (*ProjectLogStream, error) {
+	body := logSearchRequest{
+		Resource: logDeploymentResource(logResourceTypeFunction, functionID, deploymentID),
+	}
+	if limit > 0 {
+		body.Limit = &limit
+	}
+	return c.streamProjectLogs(ctx, projectID, body, lastEventID)
 }

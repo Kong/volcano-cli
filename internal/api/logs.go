@@ -34,17 +34,7 @@ type logDeploymentRequestSelector struct {
 }
 
 func (c *Client) searchProjectLogs(ctx context.Context, projectID uuid.UUID, body logSearchRequest) (*apiclient.LogSearchResponse, error) {
-	if body.Limit != nil && *body.Limit <= 0 {
-		body.Limit = nil
-	}
-	if body.Cursor != nil {
-		cursor := strings.TrimSpace(*body.Cursor)
-		if cursor == "" {
-			body.Cursor = nil
-		} else {
-			body.Cursor = &cursor
-		}
-	}
+	normalizeLogSearchRequest(&body)
 
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -56,6 +46,23 @@ func (c *Client) searchProjectLogs(ctx context.Context, projectID uuid.UUID, bod
 		return nil, err
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON503)
+}
+
+func normalizeLogSearchRequest(body *logSearchRequest) {
+	if body == nil {
+		return
+	}
+	if body.Limit != nil && *body.Limit <= 0 {
+		body.Limit = nil
+	}
+	if body.Cursor != nil {
+		cursor := strings.TrimSpace(*body.Cursor)
+		if cursor == "" {
+			body.Cursor = nil
+		} else {
+			body.Cursor = &cursor
+		}
+	}
 }
 
 func logResource(resourceType string, resourceID uuid.UUID) logRequestResource {

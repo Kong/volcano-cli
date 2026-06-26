@@ -60,6 +60,44 @@ func TestFrontendsLogs(t *testing.T) {
 		assert.Contains(t, out, "second runtime")
 	})
 
+	t.Run("runtime follow streams", func(t *testing.T) {
+		setFrontendCommandTestHome(t)
+		saveFrontendCommandTestConfig(t)
+		var streamBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
+				writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{frontendCommandPayload(frontendID, "web")},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/stream":
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
+				writeFrontendLogStream(t, w, "runtime follow")
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
+				t.Errorf("runtime --follow should use logs/stream")
+				http.NotFound(w, r)
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--follow", "--limit", "2")
+		require.NoError(t, err)
+		resource, ok := streamBody["resource"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "frontend", resource["type"])
+		assert.Equal(t, []any{frontendID}, resource["ids"])
+		assert.NotContains(t, resource, "deployments")
+		assert.InEpsilon(t, 2, streamBody["limit"], 0)
+		assert.Contains(t, out, "Following runtime logs for frontend web")
+		assert.Contains(t, out, "runtime follow")
+	})
+
 	t.Run("build defaults current deployment", func(t *testing.T) {
 		setFrontendCommandTestHome(t)
 		saveFrontendCommandTestConfig(t)
@@ -82,6 +120,55 @@ func TestFrontendsLogs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, out, "Fetching build logs for frontend web deployment "+otherFrontendDeploymentID)
 		assert.Contains(t, out, "build log")
+	})
+
+	t.Run("build follow streams deployment", func(t *testing.T) {
+		setFrontendCommandTestHome(t)
+		saveFrontendCommandTestConfig(t)
+		var streamBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
+				frontend := frontendCommandPayload(frontendID, "web")
+				delete(frontend, "current_deployment_id")
+				writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{frontend},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/deployments":
+				writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{frontendDeploymentCommandPayload(otherFrontendDeploymentID)},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/stream":
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
+				writeFrontendLogStream(t, w, "build follow")
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/search":
+				t.Errorf("build --follow should use logs/stream while streaming")
+				http.NotFound(w, r)
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", otherFrontendDeploymentID, "--type", "build", "--follow")
+		require.NoError(t, err)
+		resource, ok := streamBody["resource"].(map[string]any)
+		require.True(t, ok)
+		deployments, ok := resource["deployments"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "frontend", resource["type"])
+		assert.Equal(t, []any{frontendID}, resource["ids"])
+		assert.Equal(t, []any{otherFrontendDeploymentID}, deployments["ids"])
+		assert.Contains(t, out, "Following build logs for frontend web deployment "+otherFrontendDeploymentID)
+		assert.Contains(t, out, "build follow")
 	})
 
 	t.Run("validates type", func(t *testing.T) {
@@ -169,4 +256,13 @@ func frontendLogCommandResponse(message string, hasMore bool, next string) map[s
 		response["next_cursor"] = next
 	}
 	return response
+}
+
+func writeFrontendLogStream(t *testing.T, w http.ResponseWriter, message string) {
+	t.Helper()
+	w.Header().Set("Content-Type", "text/event-stream")
+	_, _ = w.Write([]byte(": connected\n\n"))
+	_, _ = w.Write([]byte("id: stream-cursor\n"))
+	_, _ = w.Write([]byte("event: log\n"))
+	_, _ = w.Write([]byte(`data: {"id":"stream-log","message":"` + message + `","timestamp":1760000000000,"resource":{"type":"frontend","id":"` + frontendID + `"}}` + "\n\n"))
 }

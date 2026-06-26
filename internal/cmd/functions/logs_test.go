@@ -63,6 +63,44 @@ func TestFunctionsLogs(t *testing.T) {
 		assert.Contains(t, out, "second runtime")
 	})
 
+	t.Run("runtime follow streams", func(t *testing.T) {
+		setFunctionCommandTestHome(t)
+		saveFunctionCommandTestConfig(t)
+		var streamBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+				writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{functionCommandPayload(functionID, "hello")},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/stream":
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
+				writeFunctionLogStream(t, w, "runtime follow")
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/search":
+				t.Errorf("runtime --follow should use logs/stream")
+				http.NotFound(w, r)
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "hello", "--type", "runtime", "--follow", "--limit", "2")
+		require.NoError(t, err)
+		resource, ok := streamBody["resource"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "function", resource["type"])
+		assert.Equal(t, []any{functionID}, resource["ids"])
+		assert.NotContains(t, resource, "deployments")
+		assert.InEpsilon(t, 2, streamBody["limit"], 0)
+		assert.Contains(t, out, "Following runtime logs for function hello")
+		assert.Contains(t, out, "runtime follow")
+	})
+
 	t.Run("build defaults latest deployment", func(t *testing.T) {
 		setFunctionCommandTestHome(t)
 		saveFunctionCommandTestConfig(t)
@@ -85,6 +123,53 @@ func TestFunctionsLogs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, out, "Fetching build logs for function hello deployment "+otherDeploymentID)
 		assert.Contains(t, out, "build log")
+	})
+
+	t.Run("build follow streams deployment", func(t *testing.T) {
+		setFunctionCommandTestHome(t)
+		saveFunctionCommandTestConfig(t)
+		var streamBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+				writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{functionCommandPayload(functionID, "hello")},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/deployments":
+				writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{deploymentCommandPayload(otherDeploymentID)},
+					"has_more": false,
+					"page":     1,
+					"limit":    100,
+					"total":    1,
+				})
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/stream":
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
+				writeFunctionLogStream(t, w, "build follow")
+			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/logs/search":
+				t.Errorf("build --follow should use logs/stream while streaming")
+				http.NotFound(w, r)
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "hello", otherDeploymentID, "--type", "build", "--follow")
+		require.NoError(t, err)
+		resource, ok := streamBody["resource"].(map[string]any)
+		require.True(t, ok)
+		deployments, ok := resource["deployments"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "function", resource["type"])
+		assert.Equal(t, []any{functionID}, resource["ids"])
+		assert.Equal(t, []any{otherDeploymentID}, deployments["ids"])
+		assert.Contains(t, out, "Following build logs for function hello deployment "+otherDeploymentID)
+		assert.Contains(t, out, "build follow")
 	})
 
 	t.Run("validates type", func(t *testing.T) {
@@ -182,4 +267,13 @@ func logCommandResponse(message string, hasMore bool, next string) map[string]an
 		response["next_cursor"] = next
 	}
 	return response
+}
+
+func writeFunctionLogStream(t *testing.T, w http.ResponseWriter, message string) {
+	t.Helper()
+	w.Header().Set("Content-Type", "text/event-stream")
+	_, _ = w.Write([]byte(": connected\n\n"))
+	_, _ = w.Write([]byte("id: stream-cursor\n"))
+	_, _ = w.Write([]byte("event: log\n"))
+	_, _ = w.Write([]byte(`data: {"id":"stream-log","message":"` + message + `","timestamp":1760000000000,"resource":{"type":"function","id":"` + functionID + `"}}` + "\n\n"))
 }

@@ -197,6 +197,20 @@ func (s Service) RuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit in
 	return logs, nil
 }
 
+// StreamRuntimeLogs opens a runtime log stream for a frontend.
+func (s Service) StreamRuntimeLogs(ctx context.Context, frontendID uuid.UUID, limit int) (*api.ProjectLogStream, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := authenticated.API.StreamFrontendLogs(ctx, authenticated.ProjectID, frontendID, limit, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to stream runtime logs: %w", err)
+	}
+	return stream, nil
+}
+
 // DeploymentLogs returns one build log search page for a frontend deployment.
 func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	authenticated, err := s.sessions.CurrentProject()
@@ -209,6 +223,20 @@ func (s Service) DeploymentLogs(ctx context.Context, frontendID, deploymentID uu
 		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
 	}
 	return logs, nil
+}
+
+// StreamDeploymentLogs opens a build log stream for a frontend deployment.
+func (s Service) StreamDeploymentLogs(ctx context.Context, frontendID, deploymentID uuid.UUID, limit int) (*api.ProjectLogStream, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := authenticated.API.StreamFrontendDeploymentLogs(ctx, authenticated.ProjectID, frontendID, deploymentID, limit, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to stream deployment logs: %w", err)
+	}
+	return stream, nil
 }
 
 // CreateCustomDomain attaches a custom domain to a frontend.
