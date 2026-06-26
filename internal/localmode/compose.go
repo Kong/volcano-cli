@@ -90,6 +90,19 @@ func (s Service) imageExistsLocally(ctx context.Context, ref string) bool {
 	return err == nil
 }
 
+// ensureCustomImageAvailable fails fast when an explicitly selected (custom)
+// local-mode image is not present locally. The CLI never pulls unpublished
+// local-mode images, so this surfaces an actionable build message instead of a
+// confusing registry-pull error. The bundled default is left to Compose's
+// normal pull-if-missing behavior even when selected explicitly.
+func (s Service) ensureCustomImageAvailable(ctx context.Context) error {
+	image, customImage := s.resolveImage()
+	if customImage && !s.imageExistsLocally(ctx, image) {
+		return fmt.Errorf("image %q not found locally; the CLI does not pull unpublished local-mode images. Build it (e.g. in volcano-hosting: make docker-build DOCKER_TAG=<tag>) and ensure the tag matches, or run `docker pull %s` first if it is published", image, image)
+	}
+	return nil
+}
+
 func (s Service) startDockerServices(ctx context.Context, env []string) error {
 	composePath, cleanup, err := s.writeComposeFile()
 	if err != nil {

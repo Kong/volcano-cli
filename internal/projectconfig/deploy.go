@@ -403,12 +403,21 @@ func (s Service) reconcileSchedulers(ctx context.Context, functions []FunctionMa
 }
 
 func buildSchedulerInput(manifest SchedulerManifest) api.FunctionSchedulerInput {
+	// Default enabled to true when the manifest omits it, matching both the
+	// documented default and schedulerNeedsUpdate's comparison. Sending an
+	// explicit value (rather than nil) ensures the update actually applies: a nil
+	// Enabled is omitted on the wire and left server-managed, so an update that
+	// relied on it would never converge.
+	enabled := true
+	if manifest.Enabled != nil {
+		enabled = *manifest.Enabled
+	}
 	return api.FunctionSchedulerInput{
 		Name:           manifest.Name,
 		CronExpression: manifest.Cron,
 		Payload:        manifest.Payload,
 		Regions:        manifest.Regions,
-		Enabled:        manifest.Enabled,
+		Enabled:        &enabled,
 	}
 }
 

@@ -993,3 +993,44 @@ func TestSchedulerNeedsUpdateIdempotency(t *testing.T) {
 		}
 	})
 }
+
+func TestReconcileSchedulersReenablesAndConverges(t *testing.T) {
+	functionID := uuid.New()
+	schedulerID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{Id: functionID, Name: "hello"}
+	cron := "0 0 * * *"
+	disabled := false
+	// Server scheduler is disabled; the manifest omits enabled (defaults to true).
+	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
+		Id:             &schedulerID,
+		FunctionId:     &functionID,
+		Name:           strPtr("daily"),
+		CronExpression: &cron,
+		Enabled:        &disabled,
+	}}
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name:       "hello",
+			Schedulers: []SchedulerManifest{{Name: "daily", Cron: cron}}, // enabled omitted
+		}},
+	}
+
+	// First deploy: re-enables the scheduler with an explicit Enabled=true.
+	summary, err := svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 1, summary.SchedulersUpdated)
+	require.Len(t, schedulers.updatedCalls, 1)
+	require.NotNil(t, schedulers.updatedCalls[0].Input.Enabled)
+	assert.True(t, *schedulers.updatedCalls[0].Input.Enabled, "omitted enabled must be sent as true so the update applies")
+
+	// Second deploy: scheduler is now enabled, so the run converges (no churn).
+	summary, err = svc.Deploy(context.Background(), manifest)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.SchedulersUpdated)
+	assert.Equal(t, 1, summary.SchedulersUnchanged)
+	assert.Len(t, schedulers.updatedCalls, 1, "second deploy must not issue another update")
+}

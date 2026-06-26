@@ -168,18 +168,19 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 	}
 	output.Success(w, "Docker is available")
 
+	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
+	// it must already exist locally before we announce or start it. Fail fast here
+	// (Restart calls this before tearing the environment down) instead of letting
+	// `docker compose up` emit a confusing registry-pull error.
+	if err := s.ensureCustomImageAvailable(ctx); err != nil {
+		return err
+	}
+
 	composeEnv, image, err := s.composeEnvironment()
 	if err != nil {
 		return err
 	}
-	// When the image is an explicit override (--image / VOLCANO_IMAGE / .env.local)
-	// it must already exist locally before we announce or start it. The CLI never
-	// pulls unpublished local-mode images, so fail fast with an actionable message
-	// instead of letting `docker compose up` emit a confusing registry-pull error.
 	_, customImage := s.resolveImage()
-	if customImage && !s.imageExistsLocally(ctx, image) {
-		return fmt.Errorf("image %q not found locally; the CLI does not pull unpublished local-mode images. Build it (e.g. in volcano-hosting: make docker-build DOCKER_TAG=<tag>) and ensure the tag matches, or run `docker pull %s` first if it is published", image, image)
-	}
 
 	fmt.Fprintf(w, "Using Docker image: %s\n", image)
 	if customImage {
@@ -273,6 +274,11 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 
 // Restart restarts the local Volcano Docker stack while preserving data.
 func (s Service) Restart(ctx context.Context, w io.Writer) error {
+	// Validate a custom image before tearing the environment down, so a bad
+	// --image leaves the running stack intact instead of stopped.
+	if err := s.ensureCustomImageAvailable(ctx); err != nil {
+		return err
+	}
 	if err := s.Stop(ctx, w, false); err != nil {
 		return err
 	}
