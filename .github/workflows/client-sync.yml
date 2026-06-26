@@ -1,0 +1,109 @@
+name: Sync OpenAPI client
+
+# Regenerate the checked-in Volcano API client (internal/apiclient) from
+# volcano-hosting's public OpenAPI contract and open a PR when it drifts.
+#
+# Generation lives in volcano-hosting (scripts/ci/gen-volcano-cli-apiclient.sh,
+# shared with its openapi-check gate); this workflow checks that repo out
+# read-only and runs `make volcano-cli-apiclient-generate`. The PR is opened with
+# this repo's own GITHUB_TOKEN, so no write access to a shared GitHub App is
+# needed. Because GITHUB_TOKEN-opened PRs don't trigger `pull_request` CI, this
+# job builds and tests the regenerated client itself before opening the PR.
+
+on:
+  schedule:
+    - cron: "17 7 * * *" # daily ~07:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: client-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Regenerate API client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout volcano-cli
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Read-only token to fetch volcano-hosting's spec and shared generator.
+      - name: Mint volcano-hosting read token
+        id: hosting-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.KONG_GH_APP_ID }}
+          private-key: ${{ secrets.KONG_GH_APP_PRIVATE_KEY }}
+          owner: Kong
+          repositories: volcano-hosting
+          permission-contents: read
+
+      - name: Checkout volcano-hosting
+        uses: actions/checkout@v4
+        with:
+          repository: Kong/volcano-hosting
+          ref: main
+          path: volcano-hosting
+          token: ${{ steps.hosting-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Regenerate API client
+        run: |
+          make -C volcano-hosting volcano-cli-apiclient-generate \
+            VOLCANO_CLI_APICLIENT_DIR="${GITHUB_WORKSPACE}/internal/apiclient"
+
+      - name: Resolve volcano-hosting revision
+        id: hosting-rev
+        working-directory: volcano-hosting
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # GITHUB_TOKEN-opened PRs don't run pull_request CI, so validate here.
+      - name: Build and test regenerated client
+        id: validate
+        continue-on-error: true
+        run: |
+          go build ./...
+          go test ./internal/apiclient/...
+
+      - name: Create or update PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: internal/apiclient
+          branch: auto/openapi-client
+          delete-branch: true
+          base: main
+          commit-message: "chore: sync generated Volcano API client from volcano-hosting"
+          title: "chore: sync generated Volcano API client"
+          body: |
+            Regenerated `internal/apiclient` from
+            [`Kong/volcano-hosting@${{ steps.hosting-rev.outputs.sha }}`](https://github.com/Kong/volcano-hosting/commit/${{ steps.hosting-rev.outputs.sha }})
+            (`api/openapi.yaml`), using the shared generator
+            `scripts/ci/gen-volcano-cli-apiclient.sh`.
+
+            Build + test in the sync run: **${{ steps.validate.outcome }}**.
+            (PRs opened with `GITHUB_TOKEN` don't trigger `pull_request` CI, so the
+            `client-sync` run validates the client instead — see its logs.)
+
+            Do not hand-edit the generated files — change the OpenAPI spec in
+            volcano-hosting and let this workflow regenerate the client.
+          labels: |
+            openapi
+            automated
+
+      - name: Fail if validation failed
+        if: steps.validate.outcome == 'failure'
+        run: |
+          echo "::error::Regenerated client failed build/test. Any open auto/openapi-client PR needs wrapper changes in internal/api before it can merge."
+          exit 1
