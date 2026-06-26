@@ -63,12 +63,19 @@ functions:
         regions: [us-east-1]     # omit to let the server pick one deployed region
 ```
 
-Scheduler reconciliation is **non-destructive**: `config deploy` creates and
-updates the schedulers a function declares (matched by `name`, preserving the
-scheduler ID) but never deletes one. Removing a scheduler from the manifest is
-a no-op — delete it explicitly with `volcano functions schedulers delete`.
-Likewise, `cron`/`payload`/`enabled` are reconciled, but `regions` are only
-enforced when declared (an omitted `regions` is left server-managed).
+Reconciliation follows one rule that mirrors the server: **fields you declare
+are enforced; fields you omit are left server-managed.** An omitted `enabled`,
+`payload`, or `regions` keeps whatever the scheduler already has on the server
+(on first create the server applies its defaults — `enabled: true`, an empty
+payload, and one chosen region). In particular, `config deploy` will not
+re-enable a scheduler you disabled out of band unless the manifest sets
+`enabled: true`. `cron` is always required and enforced.
+
+Reconciliation is also **non-destructive**: it creates and updates the
+schedulers a function declares (matched by `name`, preserving the scheduler ID)
+but never deletes or disables one. A scheduler the manifest no longer declares
+is left running; to remove or disable one, use the imperative commands
+(`volcano functions schedulers delete` / `disable`).
 
 ## Contributing
 

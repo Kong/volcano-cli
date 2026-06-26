@@ -605,6 +605,7 @@ type fakeSchedulers struct {
 	listErr      error
 	createErr    error
 	updateErr    error
+	hasMore      bool
 }
 
 type schedulerCreateCall struct {
@@ -635,7 +636,8 @@ func (f *fakeSchedulers) ListSchedulers(_ context.Context, identifier string) (*
 	}
 	schedulers := f.schedulers[identifier]
 	resp := &apiclient.FunctionSchedulerListResponse{
-		Data: append([]apiclient.FunctionScheduler(nil), schedulers...),
+		Data:    append([]apiclient.FunctionScheduler(nil), schedulers...),
+		HasMore: f.hasMore,
 	}
 	return fn, resp, nil
 }
@@ -992,16 +994,49 @@ func TestSchedulerNeedsUpdateIdempotency(t *testing.T) {
 			t.Fatalf("expected no update when manifest omits payload (server-managed)")
 		}
 	})
+
+	t.Run("existing disabled + omitted enabled is server-managed (no churn)", func(t *testing.T) {
+		existing := base
+		disabled := false
+		existing.Enabled = &disabled
+		desired := SchedulerManifest{Name: "daily", Cron: cron} // enabled omitted
+		// Following server behavior, omitted enabled is left alone; flagging an update
+		// would never converge and would re-enable a deliberately-disabled scheduler.
+		if schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected no update: omitted enabled is server-managed (must converge)")
+		}
+	})
+
+	t.Run("existing disabled + explicit enable triggers update", func(t *testing.T) {
+		existing := base
+		disabled := false
+		existing.Enabled = &disabled
+		want := true
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Enabled: &want}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when manifest explicitly enables a disabled scheduler")
+		}
+	})
+
+	t.Run("existing enabled + explicit disable triggers update", func(t *testing.T) {
+		existing := base // enabled
+		want := false
+		desired := SchedulerManifest{Name: "daily", Cron: cron, Enabled: &want}
+		if !schedulerNeedsUpdate(existing, desired) {
+			t.Fatalf("expected update when manifest explicitly disables an enabled scheduler")
+		}
+	})
 }
 
-func TestReconcileSchedulersReenablesAndConverges(t *testing.T) {
+func TestReconcileSchedulersLeavesDisabledWhenEnabledOmitted(t *testing.T) {
 	functionID := uuid.New()
 	schedulerID := uuid.New()
 	schedulers := newFakeSchedulers()
 	schedulers.functions["hello"] = &apiclient.Function{Id: functionID, Name: "hello"}
 	cron := "0 0 * * *"
 	disabled := false
-	// Server scheduler is disabled; the manifest omits enabled (defaults to true).
+	// Server scheduler is disabled (e.g. an operator ran `schedulers disable`); the
+	// manifest re-declares it but omits enabled.
 	schedulers.schedulers["hello"] = []apiclient.FunctionScheduler{{
 		Id:             &schedulerID,
 		FunctionId:     &functionID,
@@ -1019,18 +1054,33 @@ func TestReconcileSchedulersReenablesAndConverges(t *testing.T) {
 		}},
 	}
 
-	// First deploy: re-enables the scheduler with an explicit Enabled=true.
+	// Following server behavior, an omitted enabled is server-managed: the deploy
+	// must NOT re-enable the scheduler, and it converges immediately (no update).
 	summary, err := svc.Deploy(context.Background(), manifest)
-	require.NoError(t, err)
-	assert.Equal(t, 1, summary.SchedulersUpdated)
-	require.Len(t, schedulers.updatedCalls, 1)
-	require.NotNil(t, schedulers.updatedCalls[0].Input.Enabled)
-	assert.True(t, *schedulers.updatedCalls[0].Input.Enabled, "omitted enabled must be sent as true so the update applies")
-
-	// Second deploy: scheduler is now enabled, so the run converges (no churn).
-	summary, err = svc.Deploy(context.Background(), manifest)
 	require.NoError(t, err)
 	assert.Equal(t, 0, summary.SchedulersUpdated)
 	assert.Equal(t, 1, summary.SchedulersUnchanged)
-	assert.Len(t, schedulers.updatedCalls, 1, "second deploy must not issue another update")
+	assert.Empty(t, schedulers.updatedCalls, "omitted enabled must not trigger an update that re-enables a disabled scheduler")
+}
+
+func TestReconcileSchedulersAbortsOnPaginatedList(t *testing.T) {
+	functionID := uuid.New()
+	schedulers := newFakeSchedulers()
+	schedulers.functions["hello"] = &apiclient.Function{Id: functionID, Name: "hello"}
+	schedulers.hasMore = true // simulate a server that paginates the scheduler list
+
+	svc := NewServiceWithReconcilers(newFakeStorage(), &fakeFunctions{}, schedulers)
+	manifest := &Manifest{
+		Version: 1,
+		Functions: []FunctionManifest{{
+			Name:       "hello",
+			Schedulers: []SchedulerManifest{{Name: "daily", Cron: "0 0 * * *"}},
+		}},
+	}
+
+	_, err := svc.Deploy(context.Background(), manifest)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "paginated")
+	// Must not create when it cannot see the full set (avoids duplicate creation).
+	assert.Empty(t, schedulers.createdCalls)
 }

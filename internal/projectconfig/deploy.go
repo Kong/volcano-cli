@@ -352,6 +352,13 @@ func (s Service) reconcileSchedulers(ctx context.Context, functions []FunctionMa
 		if fn == nil {
 			return fmt.Errorf("function %q: not found", fnManifest.Name)
 		}
+		// The function-scoped scheduler list returns the full set in one response
+		// (has_more is always false today and the client exposes no page parameter).
+		// Guard against a future server change that paginates: schedulers beyond page
+		// 1 would be missed and wrongly recreated, so fail loudly instead.
+		if listResp != nil && listResp.HasMore {
+			return fmt.Errorf("function %q: scheduler list is paginated (has_more=true) but the CLI cannot page it; aborting to avoid duplicate creation", fnManifest.Name)
+		}
 
 		// Build map of existing schedulers by Name
 		existingByName := make(map[string]apiclient.FunctionScheduler)
@@ -403,21 +410,17 @@ func (s Service) reconcileSchedulers(ctx context.Context, functions []FunctionMa
 }
 
 func buildSchedulerInput(manifest SchedulerManifest) api.FunctionSchedulerInput {
-	// Default enabled to true when the manifest omits it, matching both the
-	// documented default and schedulerNeedsUpdate's comparison. Sending an
-	// explicit value (rather than nil) ensures the update actually applies: a nil
-	// Enabled is omitted on the wire and left server-managed, so an update that
-	// relied on it would never converge.
-	enabled := true
-	if manifest.Enabled != nil {
-		enabled = *manifest.Enabled
-	}
+	// Forward the manifest's enabled as-is. A nil (omitted) value is dropped from
+	// the update body so the server keeps the scheduler's current state, and on
+	// create the server defaults it to true. This follows the server's own
+	// "omitted = keep existing" contract and avoids re-enabling a deliberately
+	// disabled scheduler; schedulerNeedsUpdate only flags enabled when declared.
 	return api.FunctionSchedulerInput{
 		Name:           manifest.Name,
 		CronExpression: manifest.Cron,
 		Payload:        manifest.Payload,
 		Regions:        manifest.Regions,
-		Enabled:        &enabled,
+		Enabled:        manifest.Enabled,
 	}
 }
 
@@ -427,20 +430,19 @@ func schedulerNeedsUpdate(existing apiclient.FunctionScheduler, desired Schedule
 		return true
 	}
 
-	// Compare enabled (default true if not set in manifest)
-	desiredEnabled := true
+	// Only reconcile enabled when the manifest declares it. This mirrors the
+	// server, whose update contract treats an omitted enabled as "keep existing"
+	// (payload/regions below are handled the same way). Forcing the default would
+	// re-enable a deliberately-disabled scheduler on every deploy. A nil existing
+	// Enabled from the API means enabled.
 	if desired.Enabled != nil {
-		desiredEnabled = *desired.Enabled
-	}
-	// A nil Enabled from the API means enabled (matches schedulerState rendering),
-	// so default to true; otherwise an omitted field would force a spurious update
-	// on every deploy.
-	existingEnabled := true
-	if existing.Enabled != nil {
-		existingEnabled = *existing.Enabled
-	}
-	if existingEnabled != desiredEnabled {
-		return true
+		existingEnabled := true
+		if existing.Enabled != nil {
+			existingEnabled = *existing.Enabled
+		}
+		if existingEnabled != *desired.Enabled {
+			return true
+		}
 	}
 
 	// Only reconcile payload when the manifest declares one. An omitted payload is
