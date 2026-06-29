@@ -14,12 +14,14 @@ const (
 	envToken              = "VOLCANO_TOKEN"
 	envProjectID          = "VOLCANO_PROJECT_ID"
 	envAPIURL             = "VOLCANO_API_URL"
+	envWebURL             = "VOLCANO_WEB_URL"
 	envFirstPartyDeviceID = "VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID"
 	defaultConfigDirName  = ".volcano"
 	defaultConfigFileName = "config.json"
 	defaultConfigDirMode  = 0o700
 	defaultConfigFileMode = 0o600
 	defaultCompiledAPIURL = "https://api.volcano.dev"
+	defaultCompiledWebURL = "https://volcano.dev"
 )
 
 var (
@@ -32,6 +34,7 @@ var (
 // These variables are intentionally settable with -ldflags -X.
 var (
 	compiledDefaultAPIURL            = defaultCompiledAPIURL
+	compiledDefaultWebURL            = defaultCompiledWebURL
 	compiledFirstPartyDeviceClientID = ""
 )
 
@@ -188,6 +191,28 @@ func (c *Config) APIURL() string {
 		return c.APIBaseURL
 	}
 	return compiledDefaultAPIURL
+}
+
+// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence.
+func (c *Config) WebURL() string {
+	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); !c.IgnoreEnv && webURL != "" {
+		return webURL
+	}
+	return compiledDefaultWebURL
+}
+
+// WebURLOverride returns an explicit VOLCANO_WEB_URL value when one is set,
+// reporting false otherwise. Callers that derive the web origin from another
+// source (e.g. the device-flow verification URI) use this to let an explicit
+// override win without mistaking the compiled default for an override.
+func (c *Config) WebURLOverride() (string, bool) {
+	if c.IgnoreEnv {
+		return "", false
+	}
+	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); webURL != "" {
+		return webURL, true
+	}
+	return "", false
 }
 
 // FunctionAliasScope returns the config key for aliases bound to one API URL

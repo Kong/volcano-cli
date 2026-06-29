@@ -28,6 +28,7 @@ func TestRootHelp(t *testing.T) {
 	assert.Contains(t, out, "cloud")
 	assert.Contains(t, out, "projects")
 	assert.Contains(t, out, "restart")
+	assert.Contains(t, out, "signup")
 	assert.Contains(t, out, "start")
 	assert.Contains(t, out, "status")
 	assert.Contains(t, out, "stop")

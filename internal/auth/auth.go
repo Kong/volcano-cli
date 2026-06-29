@@ -57,6 +57,58 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token s
 	return Credentials{Token: token}, nil
 }
 
+// Signup runs the same device flow as login but routes the browser through
+// Volcano Web's signup page first. The signup origin is taken from the device
+// authorization response's verification URI, so signup always targets the same
+// environment as login; an explicit VOLCANO_WEB_URL still wins.
+func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w io.Writer) (Credentials, error) {
+	apiURL := s.apiURL(cfg)
+	clientID, err := resolveDeviceClientID(apiURL)
+	if err != nil {
+		return Credentials{}, err
+	}
+	// Fail fast on an explicitly misconfigured VOLCANO_WEB_URL before allocating a
+	// device code, instead of burning a device authorization.
+	webOverride, hasWebOverride := cfg.WebURLOverride()
+	if hasWebOverride {
+		if _, err := api.WebSignupURL(webOverride, email, ""); err != nil {
+			return Credentials{}, err
+		}
+	}
+	client, err := s.sessions.APIClient(apiURL, "")
+	if err != nil {
+		return Credentials{}, err
+	}
+
+	deviceAuth, err := client.StartDeviceAuthorization(ctx, clientID)
+	if err != nil {
+		return Credentials{}, err
+	}
+
+	// Follow the backend the device flow points at, exactly like login does.
+	webURL, devicePath := api.VerificationWebTarget(deviceAuth)
+	if hasWebOverride {
+		webURL = webOverride
+	}
+	if webURL == "" {
+		webURL = cfg.WebURL()
+	}
+	if devicePath == "" {
+		devicePath = "/device"
+		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
+			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
+		}
+	}
+
+	signupURL, err := api.WebSignupURL(webURL, email, devicePath)
+	if err != nil {
+		return Credentials{}, err
+	}
+
+	fmt.Fprintln(w, "\nInitiating browser signup...")
+	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
+}
+
 // LoginWithBrowser runs the OAuth device flow and returns credentials to persist.
 func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
@@ -75,7 +127,11 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 	}
 
 	fmt.Fprintln(w, "\nInitiating browser authentication...")
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w)
+	verificationURL := strings.TrimSpace(deviceAuth.VerificationUriComplete)
+	if verificationURL == "" {
+		verificationURL = strings.TrimSpace(deviceAuth.VerificationUri)
+	}
+	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
 }
 
 // resolveDeviceClientID returns the device OAuth client id for the login flow.
@@ -117,16 +173,11 @@ func (s Service) apiURL(cfg *config.Config) string {
 	return s.sessions.APIURL(cfg)
 }
 
-func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, clientID string, deviceAuth *apiclient.DeviceAuthorizationResponse, w io.Writer) (Credentials, error) {
-	verificationURL := strings.TrimSpace(deviceAuth.VerificationUriComplete)
-	if verificationURL == "" {
-		verificationURL = strings.TrimSpace(deviceAuth.VerificationUri)
-	}
-
+func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, clientID string, deviceAuth *apiclient.DeviceAuthorizationResponse, w io.Writer, browserURL string) (Credentials, error) {
 	fmt.Fprintf(w, "\nCode: %s\n", deviceAuth.UserCode)
-	fmt.Fprintf(w, "Opening browser: %s\n", verificationURL)
+	fmt.Fprintf(w, "Opening browser: %s\n", browserURL)
 
-	if err := cliruntime.OpenBrowser(s.deps, verificationURL); err != nil { //nolint:contextcheck // browser launch is fire-and-forget; auth ctx would cancel the spawned browser
+	if err := cliruntime.OpenBrowser(s.deps, browserURL); err != nil { //nolint:contextcheck // browser launch is fire-and-forget; auth ctx would cancel the spawned browser
 		fmt.Fprintln(w, "\n(If browser didn't open, visit the URL above)")
 	}
 

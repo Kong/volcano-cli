@@ -95,6 +95,12 @@ func TestFunctionInvokeTokenPrefersServiceKey(t *testing.T) {
 	assert.Equal(t, "user-token", cfg.FunctionInvokeToken())
 }
 
+func TestWebURLFromEnv(t *testing.T) {
+	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
+
+	assert.Equal(t, "http://localhost:3000", Default().WebURL())
+}
+
 func TestFunctionAliasesPersistByScope(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

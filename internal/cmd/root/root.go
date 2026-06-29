@@ -42,6 +42,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
+	root.AddCommand(authcmd.NewSignup(deps))
 	root.AddCommand(authcmd.NewLogout())
 	root.AddCommand(initcmd.New())
 	root.AddCommand(projectcmd.NewProjects(deps))

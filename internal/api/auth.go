@@ -3,7 +3,9 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -80,4 +82,62 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 		return nil, fmt.Errorf("failed to exchange platform token: %w", err)
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403)
+}
+
+// WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
+func WebSignupURL(webURL, email, next string) (string, error) {
+	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
+	if webURL == "" {
+		return "", errors.New("web url cannot be empty")
+	}
+	parsed, err := url.Parse(webURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse web url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errors.New("web url must use http:// or https:// scheme")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
+	query := parsed.Query()
+	if email = strings.TrimSpace(email); email != "" {
+		query.Set("email", email)
+	}
+	if next = strings.TrimSpace(next); next != "" {
+		query.Set("next", next)
+	}
+	query.Set("source", "cli")
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
+}
+
+// VerificationWebTarget extracts the web origin and device-approval path advertised
+// by a device-authorization response. The signup flow uses these so the browser is
+// sent to the same environment that issued the device code — mirroring how login
+// follows the API's verification URI. Both values are empty when the response does
+// not carry a usable verification URI.
+func VerificationWebTarget(deviceAuth *apiclient.DeviceAuthorizationResponse) (origin, devicePath string) {
+	if deviceAuth == nil {
+		return "", ""
+	}
+	base, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUri))
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return "", ""
+	}
+	origin = base.Scheme + "://" + base.Host
+
+	// verification_uri_complete already carries the prefilled user_code, so prefer it.
+	if complete, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUriComplete)); err == nil && complete.Path != "" {
+		return origin, complete.RequestURI()
+	}
+
+	devicePath = base.Path
+	if devicePath == "" {
+		devicePath = "/device"
+	}
+	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
+		values := base.Query()
+		values.Set("user_code", userCode)
+		devicePath += "?" + values.Encode()
+	}
+	return origin, devicePath
 }
