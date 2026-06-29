@@ -26,7 +26,9 @@ gitignored `.env.local` file, so you can point the CLI at a non-production
 backend without exporting variables each time. Supported keys: `VOLCANO_API_URL`,
 `VOLCANO_WEB_URL` (signup/login pages), and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`.
 When only a loopback `VOLCANO_API_URL` is set, `VOLCANO_WEB_URL` defaults to
-`http://localhost:3000`.
+`http://localhost:3000`. At runtime, `volcano signup` follows the backend's
+device-flow verification URL (like `volcano login`), so `VOLCANO_WEB_URL` only
+overrides that web origin.
 
 `make localmode-e2e` uses Docker and is intentionally heavier than the normal
 unit-test workflow. Run it when changing local-mode startup, reset, health, or

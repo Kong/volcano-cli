@@ -201,6 +201,20 @@ func (c *Config) WebURL() string {
 	return compiledDefaultWebURL
 }
 
+// WebURLOverride returns an explicit VOLCANO_WEB_URL value when one is set,
+// reporting false otherwise. Callers that derive the web origin from another
+// source (e.g. the device-flow verification URI) use this to let an explicit
+// override win without mistaking the compiled default for an override.
+func (c *Config) WebURLOverride() (string, bool) {
+	if c.IgnoreEnv {
+		return "", false
+	}
+	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); webURL != "" {
+		return webURL, true
+	}
+	return "", false
+}
+
 // FunctionAliasScope returns the config key for aliases bound to one API URL
 // and project ID. The API URL is trimmed so trailing slashes do not split scopes.
 func FunctionAliasScope(apiURL, projectID string) string {

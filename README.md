@@ -75,9 +75,11 @@ token — revoke it in the Volcano dashboard to fully cut off access):
 volcano logout
 ```
 
-To target a non-production environment, override the compiled defaults with
-`VOLCANO_API_URL` (API endpoint) and `VOLCANO_WEB_URL` (web signup/login
-pages).
+To target a non-production environment, set `VOLCANO_API_URL` to that backend's
+API endpoint. `volcano signup` then opens the signup page on the **same**
+environment the API points at — it follows the device-flow verification URL,
+just like `volcano login` — so you normally don't need anything else. Set
+`VOLCANO_WEB_URL` only to force a specific web origin.
 
 ## Project configuration (`volcano-config.yaml`)
 

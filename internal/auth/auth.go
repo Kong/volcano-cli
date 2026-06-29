@@ -57,17 +57,23 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token s
 	return Credentials{Token: token}, nil
 }
 
-// Signup runs the device login flow but opens Volcano Web's signup page first.
+// Signup runs the same device flow as login but routes the browser through
+// Volcano Web's signup page first. The signup origin is taken from the device
+// authorization response's verification URI, so signup always targets the same
+// environment as login; an explicit VOLCANO_WEB_URL still wins.
 func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
 	clientID, err := resolveDeviceClientID(apiURL)
 	if err != nil {
 		return Credentials{}, err
 	}
-	// Validate the web config before allocating a device code so a misconfigured
-	// VOLCANO_WEB_URL fails fast instead of burning a device authorization.
-	if _, err := api.WebSignupURL(cfg.WebURL(), email, ""); err != nil {
-		return Credentials{}, err
+	// Fail fast on an explicitly misconfigured VOLCANO_WEB_URL before allocating a
+	// device code, instead of burning a device authorization.
+	webOverride, hasWebOverride := cfg.WebURLOverride()
+	if hasWebOverride {
+		if _, err := api.WebSignupURL(webOverride, email, ""); err != nil {
+			return Credentials{}, err
+		}
 	}
 	client, err := s.sessions.APIClient(apiURL, "")
 	if err != nil {
@@ -79,11 +85,22 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 		return Credentials{}, err
 	}
 
-	devicePath := "/device"
-	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-		devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
+	// Follow the backend the device flow points at, exactly like login does.
+	webURL, devicePath := api.VerificationWebTarget(deviceAuth)
+	if hasWebOverride {
+		webURL = webOverride
 	}
-	signupURL, err := api.WebSignupURL(cfg.WebURL(), email, devicePath)
+	if webURL == "" {
+		webURL = cfg.WebURL()
+	}
+	if devicePath == "" {
+		devicePath = "/device"
+		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
+			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
+		}
+	}
+
+	signupURL, err := api.WebSignupURL(webURL, email, devicePath)
 	if err != nil {
 		return Credentials{}, err
 	}

@@ -21,8 +21,12 @@ import (
 )
 
 const (
-	authProjectID     = "11111111-1111-4111-8111-111111111111"
-	authTestSignupURL = "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	authProjectID = "11111111-1111-4111-8111-111111111111"
+	// Derived from the device-flow verification URI returned by signupBrowserDeps
+	// (https://volcano.dev/device), so signup follows the backend like login.
+	authTestSignupURL = "https://volcano.dev/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	// Used when VOLCANO_WEB_URL is set, which overrides the backend-derived origin.
+	authTestSignupOverrideURL = "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
 )
 
 func TestLoginTokenSuccessSavesConfig(t *testing.T) {
@@ -91,7 +95,6 @@ func TestLogoutDeletesConfig(t *testing.T) {
 
 func TestSignupUsesGitEmailDefault(t *testing.T) {
 	setAuthTestHome(t)
-	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
 	deps, openedURL, pollTicker := signupBrowserDeps(t)
 	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
 		assert.Equal(t, "git", name)
@@ -99,6 +102,7 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 		return []byte("ted@example.com\n"), nil
 	})
 
+	// No VOLCANO_WEB_URL set, so signup must follow the backend's verification URI.
 	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "\n", pollTicker)
 	require.NoError(t, err)
 	assert.Equal(t, authTestSignupURL, *openedURL)
@@ -113,7 +117,6 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 
 func TestSignupAllowsEmailOverride(t *testing.T) {
 	setAuthTestHome(t)
-	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
 	deps, openedURL, pollTicker := signupBrowserDeps(t)
 	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
 		return []byte("ted@example.com\n"), nil
@@ -121,7 +124,22 @@ func TestSignupAllowsEmailOverride(t *testing.T) {
 
 	_, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "marco@example.com\n", pollTicker)
 	require.NoError(t, err)
+	assert.Contains(t, *openedURL, "https://volcano.dev/signup")
 	assert.Contains(t, *openedURL, "email=marco%40example.com")
+}
+
+func TestSignupHonorsWebURLOverride(t *testing.T) {
+	setAuthTestHome(t)
+	// An explicit VOLCANO_WEB_URL overrides the backend-derived origin.
+	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
+	deps, openedURL, pollTicker := signupBrowserDeps(t)
+	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("ted@example.com\n"), nil
+	})
+
+	_, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "\n", pollTicker)
+	require.NoError(t, err)
+	assert.Equal(t, authTestSignupOverrideURL, *openedURL)
 }
 
 func TestPromptSignupEmailRejectsInvalid(t *testing.T) {

@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func TestPollDeviceTokenUnexpectedStatusReturnsError(t *testing.T) {
@@ -54,6 +56,31 @@ func TestWebSignupURL(t *testing.T) {
 	signupURL, err := WebSignupURL("http://localhost:3000", " ted@example.com ", "/device?user_code=ABCD-EFGH")
 	require.NoError(t, err)
 	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", signupURL)
+}
+
+func TestVerificationWebTarget(t *testing.T) {
+	t.Run("prefers complete uri", func(t *testing.T) {
+		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
+			VerificationUri:         "https://volcano.dev/device",
+			VerificationUriComplete: "https://volcano.dev/device?user_code=ABCD-EFGH",
+			UserCode:                "ABCD-EFGH",
+		})
+		assert.Equal(t, "https://volcano.dev", origin)
+		assert.Equal(t, "/device?user_code=ABCD-EFGH", devicePath)
+	})
+	t.Run("falls back to base uri and attaches user code", func(t *testing.T) {
+		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
+			VerificationUri: "http://localhost:3000/device",
+			UserCode:        "WXYZ-1234",
+		})
+		assert.Equal(t, "http://localhost:3000", origin)
+		assert.Equal(t, "/device?user_code=WXYZ-1234", devicePath)
+	})
+	t.Run("empty when no verification uri", func(t *testing.T) {
+		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{})
+		assert.Empty(t, origin)
+		assert.Empty(t, devicePath)
+	})
 }
 
 func TestWebSignupURLOmitsEmptyEmailAndNext(t *testing.T) {
