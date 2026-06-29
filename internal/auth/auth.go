@@ -64,6 +64,11 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	if err != nil {
 		return Credentials{}, err
 	}
+	// Validate the web config before allocating a device code so a misconfigured
+	// VOLCANO_WEB_URL fails fast instead of burning a device authorization.
+	if _, err := api.WebSignupURL(cfg.WebURL(), email, ""); err != nil {
+		return Credentials{}, err
+	}
 	client, err := s.sessions.APIClient(apiURL, "")
 	if err != nil {
 		return Credentials{}, err

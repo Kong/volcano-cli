@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -120,6 +122,24 @@ func TestSignupAllowsEmailOverride(t *testing.T) {
 	_, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "marco@example.com\n", pollTicker)
 	require.NoError(t, err)
 	assert.Contains(t, *openedURL, "email=marco%40example.com")
+}
+
+func TestPromptSignupEmailRejectsInvalid(t *testing.T) {
+	deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("no git email")
+	})}
+	var out bytes.Buffer
+	_, err := promptSignupEmail(context.Background(), deps, bufio.NewReader(bytes.NewBufferString("not-an-email\n")), &out)
+	require.ErrorContains(t, err, "invalid email address")
+}
+
+func TestPromptSignupEmailRequiresEmail(t *testing.T) {
+	deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("no git email")
+	})}
+	var out bytes.Buffer
+	_, err := promptSignupEmail(context.Background(), deps, bufio.NewReader(bytes.NewBufferString("\n")), &out)
+	require.ErrorContains(t, err, "email address is required")
 }
 
 func executeAuthCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {

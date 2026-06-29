@@ -56,6 +56,31 @@ func TestWebSignupURL(t *testing.T) {
 	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", signupURL)
 }
 
+func TestWebSignupURLOmitsEmptyEmailAndNext(t *testing.T) {
+	signupURL, err := WebSignupURL("https://volcano.dev/", "  ", " ")
+	require.NoError(t, err)
+	assert.Equal(t, "https://volcano.dev/signup?source=cli", signupURL)
+}
+
+func TestWebSignupURLRejectsBadInput(t *testing.T) {
+	tests := []struct {
+		name    string
+		webURL  string
+		wantErr string
+	}{
+		{name: "empty", webURL: "   ", wantErr: "web url cannot be empty"},
+		{name: "missing scheme", webURL: "volcano.dev", wantErr: "must use http:// or https://"},
+		{name: "non-http scheme", webURL: "ftp://volcano.dev", wantErr: "must use http:// or https://"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			signupURL, err := WebSignupURL(tt.webURL, "ted@example.com", "/device")
+			assert.Empty(t, signupURL)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
 func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {
 	var sawPath string
 	var sawQuery string
