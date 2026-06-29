@@ -4,8 +4,11 @@
 package common
 
 import (
+	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -711,66 +714,6 @@ func (e LiveLogLevel) Valid() bool {
 	}
 }
 
-// Defines values for LiveLogSource.
-const (
-	Cloud LiveLogSource = "cloud"
-	Local LiveLogSource = "local"
-)
-
-// Valid indicates whether the value is a known member of the LiveLogSource enum.
-func (e LiveLogSource) Valid() bool {
-	switch e {
-	case Cloud:
-		return true
-	case Local:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LogActivityRequestResourceType.
-const (
-	LogActivityRequestResourceTypeFunction LogActivityRequestResourceType = "function"
-)
-
-// Valid indicates whether the value is a known member of the LogActivityRequestResourceType enum.
-func (e LogActivityRequestResourceType) Valid() bool {
-	switch e {
-	case LogActivityRequestResourceTypeFunction:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LiveLogWarningEventCode.
-const (
-	CursorReset          LiveLogWarningEventCode = "cursor_reset"
-	DroppedEvents        LiveLogWarningEventCode = "dropped_events"
-	MalformedLogLine     LiveLogWarningEventCode = "malformed_log_line"
-	SourceGap            LiveLogWarningEventCode = "source_gap"
-	TransientSourceError LiveLogWarningEventCode = "transient_source_error"
-)
-
-// Valid indicates whether the value is a known member of the LiveLogWarningEventCode enum.
-func (e LiveLogWarningEventCode) Valid() bool {
-	switch e {
-	case CursorReset:
-		return true
-	case DroppedEvents:
-		return true
-	case MalformedLogLine:
-		return true
-	case SourceGap:
-		return true
-	case TransientSourceError:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LogDeploymentStage.
 const (
 	Compile LogDeploymentStage = "compile"
@@ -789,6 +732,36 @@ func (e LogDeploymentStage) Valid() bool {
 	}
 }
 
+// Defines values for LogFrontendRequestResourceType.
+const (
+	LogFrontendRequestResourceTypeFrontend LogFrontendRequestResourceType = "frontend"
+)
+
+// Valid indicates whether the value is a known member of the LogFrontendRequestResourceType enum.
+func (e LogFrontendRequestResourceType) Valid() bool {
+	switch e {
+	case LogFrontendRequestResourceTypeFrontend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogFunctionRequestResourceType.
+const (
+	LogFunctionRequestResourceTypeFunction LogFunctionRequestResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogFunctionRequestResourceType enum.
+func (e LogFunctionRequestResourceType) Valid() bool {
+	switch e {
+	case LogFunctionRequestResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LogResourceType.
 const (
 	LogResourceTypeFrontend LogResourceType = "frontend"
@@ -801,21 +774,6 @@ func (e LogResourceType) Valid() bool {
 	case LogResourceTypeFrontend:
 		return true
 	case LogResourceTypeFunction:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LogSearchRequestResourceType.
-const (
-	LogSearchRequestResourceTypeFunction LogSearchRequestResourceType = "function"
-)
-
-// Valid indicates whether the value is a known member of the LogSearchRequestResourceType enum.
-func (e LogSearchRequestResourceType) Valid() bool {
-	switch e {
-	case LogSearchRequestResourceTypeFunction:
 		return true
 	default:
 		return false
@@ -1193,7 +1151,14 @@ type AuthConfig struct {
 	CorsEnabled          *bool     `json:"cors_enabled,omitempty"`
 
 	// CorsMaxAge CORS preflight cache duration (seconds)
-	CorsMaxAge               *int    `json:"cors_max_age,omitempty"`
+	CorsMaxAge *int `json:"cors_max_age,omitempty"`
+
+	// DeviceVerificationUrl Optional override for the device-authorization verification page.
+	// When set, POST /auth/device/authorize returns this URL (with the
+	// user_code) as verification_uri/verification_uri_complete instead of
+	// the built-in managed device page. Lets a CLI surface the project's
+	// own RFC 8628 approval page. Empty falls back to the managed page.
+	DeviceVerificationUrl    *string `json:"device_verification_url,omitempty"`
 	EmailConfirmationSubject *string `json:"email_confirmation_subject,omitempty"`
 
 	// EmailEnabled Enable transactional email sending (confirmation, reset, change notifications). Must be true when require_email_confirmation is true.
@@ -1647,10 +1612,16 @@ type DeviceAuthorizationResponse struct {
 	Interval   int    `json:"interval"`
 	UserCode   string `json:"user_code"`
 
-	// VerificationUri Browser verification URL
+	// VerificationUri Browser verification URL. Points at the project's managed device
+	// approval page served by this API:
+	// `/projects/{projectId}/auth/hosted?action=device&anon_key=...`.
+	// Requires the project to have managed auth enabled and a default anon
+	// key. A custom CLI may ignore this and direct users to its own
+	// RFC 8628-compatible page instead (see the device-auth guide).
 	VerificationUri string `json:"verification_uri"`
 
-	// VerificationUriComplete Browser verification URL including prefilled `user_code`
+	// VerificationUriComplete Same as `verification_uri` but with the `user_code` prefilled
+	// (`&user_code=...`). This is the URL most device clients open.
 	VerificationUriComplete string `json:"verification_uri_complete"`
 }
 
@@ -1827,7 +1798,7 @@ type FrontendUsageData struct {
 	// FrontendName Frontend name at the time usage was fetched
 	FrontendName *string `json:"frontend_name,omitempty"`
 
-	// Requests Total requests for this frontend in the current billing month
+	// Requests Total requests for this frontend in the current usage month
 	Requests int64 `json:"requests"`
 }
 
@@ -2037,92 +2008,8 @@ type HostedLoginOptionsResponse struct {
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType string
 
-// ListLogsResponse Paginated logs response using opaque cursor pagination.
-type ListLogsResponse struct {
-	// Data Array of log events sorted by timestamp, newest first.
-	Data []LogEvent `json:"data"`
-
-	// HasMore Whether there are more log events available.
-	HasMore bool `json:"has_more"`
-
-	// Limit Number of items requested per page.
-	Limit int `json:"limit"`
-
-	// NextCursor Opaque cursor for the next page. Send this value as `cursor` on the next request.
-	NextCursor *string `json:"next_cursor,omitempty"`
-}
-
-// LiveLogBackfillCompleteEvent SSE payload emitted as `event: backfill_complete` after initial bounded history.
-type LiveLogBackfillCompleteEvent struct {
-	// BackfillCount Number of historical log events emitted before this control event.
-	BackfillCount int `json:"backfill_count"`
-}
-
-// LiveLogEvent Structured function runtime log event emitted as SSE `event: log`.
-type LiveLogEvent struct {
-	// FunctionId Function ID that emitted the log.
-	FunctionId openapi_types.UUID `json:"function_id"`
-
-	// FunctionName Function name at stream time.
-	FunctionName string `json:"function_name"`
-
-	// Id Opaque stable log event id. Also used as the SSE event id for resume and deduplication.
-	Id string `json:"id"`
-
-	// Level Normalized function runtime log level.
-	Level LiveLogLevel `json:"level"`
-
-	// Message Display message. For parsed JSON logs, this should prefer the parsed `message` field when available.
-	Message string `json:"message"`
-
-	// Metadata Parsed JSON object fields when `raw_message` is JSON; otherwise null.
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// RawMessage Original log line/message after platform sanitization.
-	RawMessage string `json:"raw_message"`
-
-	// Region Region where this log event originated.
-	Region *string `json:"region,omitempty"`
-
-	// Source Runtime environment source that produced the function log event.
-	Source LiveLogSource `json:"source"`
-
-	// Timestamp Unix timestamp in milliseconds.
-	Timestamp int64 `json:"timestamp"`
-}
-
-// LiveLogHeartbeatEvent SSE payload emitted as `event: heartbeat` every 15 seconds while idle.
-type LiveLogHeartbeatEvent struct {
-	// Timestamp Unix timestamp in milliseconds when the heartbeat was emitted.
-	Timestamp int64 `json:"timestamp"`
-}
-
 // LiveLogLevel Normalized function runtime log level.
 type LiveLogLevel string
-
-// LiveLogSource Runtime environment source that produced the function log event.
-type LiveLogSource string
-
-// LiveLogWarningEvent SSE payload emitted as `event: warning` for recoverable live log stream issues.
-type LiveLogWarningEvent struct {
-	// Code Stable warning code clients can branch on.
-	Code LiveLogWarningEventCode `json:"code"`
-
-	// LastEventId Resume cursor from the request when the warning is cursor-related.
-	LastEventId *string `json:"last_event_id,omitempty"`
-
-	// Message Human-readable warning message.
-	Message string `json:"message"`
-
-	// Metadata Source-specific diagnostic details safe to expose to the project owner.
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// Region Region affected by the warning, when region-specific.
-	Region *string `json:"region,omitempty"`
-}
-
-// LiveLogWarningEventCode Stable warning code clients can branch on.
-type LiveLogWarningEventCode string
 
 // LogActivityBucket Log-event counts for one activity time bucket.
 type LogActivityBucket struct {
@@ -2148,15 +2035,7 @@ type LogActivityBucket struct {
 	Total int `json:"total"`
 }
 
-// LogActivityResponse Bucketed runtime log activity.
-type LogActivityResponse struct {
-	Data []LogActivityBucket `json:"data"`
-
-	// Total Total events counted across all buckets.
-	Total int `json:"total"`
-}
-
-// LogActivityRequest Activity request for bucketed runtime log counts.
+// LogActivityRequest Activity request for bucketed log counts.
 type LogActivityRequest struct {
 	// BucketCount Number of activity buckets to return.
 	BucketCount *int `json:"bucket_count,omitempty"`
@@ -2167,21 +2046,26 @@ type LogActivityRequest struct {
 	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
 
+	// Q Optional free-text search query for log messages.
+	Q *string `json:"q,omitempty"`
+
 	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, aggregate all deployed regions.
 	Regions *[]string `json:"regions,omitempty"`
 
-	// ResourceIds Optional resource identifiers within the selected resource type. For `function`, these are function IDs. Omit or send an empty array to aggregate all functions.
-	ResourceIds *[]string `json:"resource_ids,omitempty"`
-
-	// ResourceType Resource type to read activity for. Currently only `function` is supported.
-	ResourceType LogActivityRequestResourceType `json:"resource_type"`
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
 
 	// StartTime Start time in milliseconds since epoch.
 	StartTime *int64 `json:"start_time,omitempty"`
 }
 
-// LogActivityRequestResourceType Resource type to read activity for. Currently only `function` is supported.
-type LogActivityRequestResourceType string
+// LogActivityResponse Bucketed runtime log activity.
+type LogActivityResponse struct {
+	Data []LogActivityBucket `json:"data"`
+
+	// Total Total events counted across all buckets.
+	Total int `json:"total"`
+}
 
 // LogDeployment Deployment context associated with a historical deployment log event.
 type LogDeployment struct {
@@ -2194,6 +2078,12 @@ type LogDeployment struct {
 
 // LogDeploymentStage Deployment stage that produced the log event, when available.
 type LogDeploymentStage string
+
+// LogDeploymentRequestSelector Deployment log selector for deployable resources.
+type LogDeploymentRequestSelector struct {
+	// Ids Optional deployment identifiers. Omit or send an empty array to include every deployment for the selected resources.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+}
 
 // LogEvent Normalized historical log event returned by paginated log APIs.
 type LogEvent struct {
@@ -2226,6 +2116,41 @@ type LogEvent struct {
 
 	// Timestamp Unix timestamp in milliseconds.
 	Timestamp int64 `json:"timestamp"`
+}
+
+// LogFrontendRequestResource Frontend log resource selector.
+type LogFrontendRequestResource struct {
+	// Deployments Deployment log selector for deployable resources.
+	Deployments *LogDeploymentRequestSelector `json:"deployments,omitempty"`
+
+	// Ids Optional frontend identifiers. Omit or send an empty array to include every frontend in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogFrontendRequestResourceType `json:"type"`
+}
+
+// LogFrontendRequestResourceType Resource type to read logs for.
+type LogFrontendRequestResourceType string
+
+// LogFunctionRequestResource Edge Function log resource selector.
+type LogFunctionRequestResource struct {
+	// Deployments Deployment log selector for deployable resources.
+	Deployments *LogDeploymentRequestSelector `json:"deployments,omitempty"`
+
+	// Ids Optional function identifiers. Omit or send an empty array to include every function in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogFunctionRequestResourceType `json:"type"`
+}
+
+// LogFunctionRequestResourceType Resource type to read logs for.
+type LogFunctionRequestResourceType string
+
+// LogRequestResource Resource selectors for project log reads.
+type LogRequestResource struct {
+	union json.RawMessage
 }
 
 // LogResource Resource that owns a historical log event.
@@ -2276,7 +2201,7 @@ type LogSearchEvent struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
-// LogSearchRequest Search request for runtime logs.
+// LogSearchRequest Search request for project logs.
 type LogSearchRequest struct {
 	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
 	Cursor *string `json:"cursor,omitempty"`
@@ -2290,24 +2215,18 @@ type LogSearchRequest struct {
 	// Limit Maximum number of records to return.
 	Limit *int `json:"limit,omitempty"`
 
-	// Q Optional free-text search query for log messages. When omitted or blank, stored logs are returned using structured filters only.
+	// Q Optional free-text search query for log messages.
 	Q *string `json:"q,omitempty"`
 
 	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, search all deployed regions.
 	Regions *[]string `json:"regions,omitempty"`
 
-	// ResourceIds Optional resource identifiers within the selected resource type. For `function`, these are function IDs. Omit or send an empty array to search all functions.
-	ResourceIds *[]string `json:"resource_ids,omitempty"`
-
-	// ResourceType Resource type to search. Currently only `function` is supported.
-	ResourceType LogSearchRequestResourceType `json:"resource_type"`
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
 
 	// StartTime Start time in milliseconds since epoch.
 	StartTime *int64 `json:"start_time,omitempty"`
 }
-
-// LogSearchRequestResourceType Resource type to search. Currently only `function` is supported.
-type LogSearchRequestResourceType string
 
 // LogSearchResponse Paginated project runtime log search response.
 type LogSearchResponse struct {
@@ -2324,6 +2243,24 @@ type LogSearchResponse struct {
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
+// LogStreamRequest Stream request for live project logs. Text search, pagination cursors, and fixed end times are not supported.
+type LogStreamRequest struct {
+	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Limit Maximum number of records to deliver on connect or reconnect before following new events.
+	Limit *int `json:"limit,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, stream all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
+
+	// StartTime Start time in milliseconds since epoch.
+	StartTime *int64 `json:"start_time,omitempty"`
+}
+
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
 type MetricUsageData struct {
 	// Daily Last 30 days of daily usage points
@@ -2338,7 +2275,7 @@ type MetricUsageData struct {
 	// "Bandwidth Total (Bytes)" is derived (ingress + egress) and is not billed separately.
 	Metric string `json:"metric"`
 
-	// Total Total usage for the current billing month
+	// Total Total usage for the current usage month
 	Total int64 `json:"total"`
 }
 
@@ -2617,9 +2554,15 @@ type Project struct {
 
 	// LastInvokedAt Most recent activity timestamp across project resources
 	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
-	Name          string     `json:"name"`
 
-	// Plan Billing plan applied to the project when available
+	// LogoUrl Relative API path that serves the project logo when one has been
+	// uploaded. The path is versioned with a `?v=` cache-busting query
+	// param that changes on each upload. Absent when the project has no
+	// logo. The logo image is stored in the project's S3 folder.
+	LogoUrl *string `json:"logo_url,omitempty"`
+	Name    string  `json:"name"`
+
+	// Plan Platform plan applied to the project when available
 	Plan *ProjectPlan `json:"plan,omitempty"`
 
 	// SelectedRegions Effective region set for this project (normalized and deduplicated)
@@ -2628,7 +2571,7 @@ type Project struct {
 	UpdatedAt       time.Time     `json:"updated_at"`
 }
 
-// ProjectPlan Billing plan applied to the project when available
+// ProjectPlan Platform plan applied to the project when available
 type ProjectPlan string
 
 // ProjectStatus defines model for Project.Status.
@@ -2704,13 +2647,13 @@ type ProjectFrontendDeploymentStatus string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
-	// Frontends Per-frontend request totals for the current billing month
+	// Frontends Per-frontend request totals for the current usage month
 	Frontends *[]FrontendUsageData `json:"frontends,omitempty"`
 
 	// Metrics Usage metrics for the project
 	Metrics []MetricUsageData `json:"metrics"`
 
-	// Month Billing month in YYYY-MM format
+	// Month Usage month in YYYY-MM format
 	Month string `json:"month"`
 
 	// ProjectId Project ID
@@ -2771,7 +2714,7 @@ type RealtimeStats struct {
 	// NumConnections Current number of active connections
 	NumConnections *int `json:"num_connections,omitempty"`
 
-	// PeakConnections Peak concurrent connections this billing period
+	// PeakConnections Peak concurrent connections this usage period
 	PeakConnections *int `json:"peak_connections,omitempty"`
 }
 
@@ -2974,7 +2917,7 @@ type StorageVisibilityRequest struct {
 
 // TestEmailRequest When `html_body` or `text_body` is provided the backend renders
 // those (plus optional `subject`) through html/text templates
-// against the standard `EmailData` (ProjectName, Name, SiteURL)
+// against the standard `Data` (ProjectName, Name, SiteURL)
 // and sends the result — used by the template-editor "Send Test"
 // affordance to preview an unsaved template. When both bodies are
 // omitted a hardcoded diagnostic message is sent to verify SMTP
@@ -3019,10 +2962,16 @@ type UpdateAuthConfigRequest struct {
 	AllowPasswordReset  *bool `json:"allow_password_reset,omitempty"`
 
 	// AllowedRedirectUrls Redirect allowlist. Every entry must be a valid http/https URL.
-	AllowedRedirectUrls      *[]string `json:"allowed_redirect_urls,omitempty"`
-	CorsAllowCredentials     *bool     `json:"cors_allow_credentials,omitempty"`
-	CorsMaxAge               *int      `json:"cors_max_age,omitempty"`
-	EmailConfirmationSubject *string   `json:"email_confirmation_subject,omitempty"`
+	AllowedRedirectUrls  *[]string `json:"allowed_redirect_urls,omitempty"`
+	CorsAllowCredentials *bool     `json:"cors_allow_credentials,omitempty"`
+	CorsMaxAge           *int      `json:"cors_max_age,omitempty"`
+
+	// DeviceVerificationUrl Optional custom device-authorization verification page. Must be a
+	// valid http/https URL (not tied to allowed_redirect_urls). When set,
+	// device-code logins return this URL (with user_code) instead of the
+	// managed device page. Send an empty string to clear the override.
+	DeviceVerificationUrl    *string `json:"device_verification_url,omitempty"`
+	EmailConfirmationSubject *string `json:"email_confirmation_subject,omitempty"`
 
 	// EmailConfirmationTimeout Email confirmation token expiry in seconds.
 	EmailConfirmationTimeout *int `json:"email_confirmation_timeout,omitempty"`
@@ -3251,3 +3200,92 @@ type Variable struct {
 
 // VariableStatus Latest project variable propagation status, when a sync has run.
 type VariableStatus string
+
+// AsLogFunctionRequestResource returns the union data inside the LogRequestResource as a LogFunctionRequestResource
+func (t LogRequestResource) AsLogFunctionRequestResource() (LogFunctionRequestResource, error) {
+	var body LogFunctionRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogFunctionRequestResource overwrites any union data inside the LogRequestResource as the provided LogFunctionRequestResource
+func (t *LogRequestResource) FromLogFunctionRequestResource(v LogFunctionRequestResource) error {
+	v.Type = "function"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogFunctionRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogFunctionRequestResource
+func (t *LogRequestResource) MergeLogFunctionRequestResource(v LogFunctionRequestResource) error {
+	v.Type = "function"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogFrontendRequestResource returns the union data inside the LogRequestResource as a LogFrontendRequestResource
+func (t LogRequestResource) AsLogFrontendRequestResource() (LogFrontendRequestResource, error) {
+	var body LogFrontendRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogFrontendRequestResource overwrites any union data inside the LogRequestResource as the provided LogFrontendRequestResource
+func (t *LogRequestResource) FromLogFrontendRequestResource(v LogFrontendRequestResource) error {
+	v.Type = "frontend"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogFrontendRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogFrontendRequestResource
+func (t *LogRequestResource) MergeLogFrontendRequestResource(v LogFrontendRequestResource) error {
+	v.Type = "frontend"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogRequestResource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t LogRequestResource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "frontend":
+		return t.AsLogFrontendRequestResource()
+	case "function":
+		return t.AsLogFunctionRequestResource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t LogRequestResource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogRequestResource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}

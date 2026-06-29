@@ -45,7 +45,7 @@ func (c *Client) searchProjectLogs(ctx context.Context, projectID uuid.UUID, bod
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404)
 }
 
 func normalizeLogSearchRequest(body *logSearchRequest) {
