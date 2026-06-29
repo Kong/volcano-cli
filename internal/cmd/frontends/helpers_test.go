@@ -2,8 +2,10 @@ package frontends
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -26,6 +28,41 @@ func executeFrontendsCommand(t *testing.T, cmd *cobra.Command, args ...string) (
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return out.String(), err
+}
+
+// syncBuffer is an io.Writer safe for concurrent writes and reads, used to
+// capture command output while a follow command streams on another goroutine.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// streamFrontendsCommand runs cmd with a cancelable context on its own
+// goroutine, returning the captured output and a channel that receives the
+// command's error when it exits. Use it for --follow commands, which run until
+// the context is canceled.
+func streamFrontendsCommand(ctx context.Context, cmd *cobra.Command, args ...string) (*syncBuffer, <-chan error) {
+	out := &syncBuffer{}
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	cmd.SetArgs(args)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- cmd.ExecuteContext(ctx)
+	}()
+	return out, errCh
 }
 
 func setFrontendCommandTestHome(t *testing.T) {

@@ -131,6 +131,17 @@ func (c *Client) GetFrontendLogs(ctx context.Context, projectID, frontendID uuid
 	return c.searchProjectLogs(ctx, projectID, body)
 }
 
+// StreamFrontendLogs opens a runtime log stream for a frontend.
+func (c *Client) StreamFrontendLogs(ctx context.Context, projectID, frontendID uuid.UUID, limit int, lastEventID string) (*ProjectLogStream, error) {
+	body := logSearchRequest{
+		Resource: logResource(logResourceTypeFrontend, frontendID),
+	}
+	if limit > 0 {
+		body.Limit = &limit
+	}
+	return c.streamProjectLogs(ctx, projectID, body, lastEventID)
+}
+
 // GetFrontendDeploymentLogs returns one build log search page for a frontend deployment.
 func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, cursor string) (*apiclient.LogSearchResponse, error) {
 	body := logSearchRequest{
@@ -143,6 +154,17 @@ func (c *Client) GetFrontendDeploymentLogs(ctx context.Context, projectID, front
 		body.Cursor = &cursor
 	}
 	return c.searchProjectLogs(ctx, projectID, body)
+}
+
+// StreamFrontendDeploymentLogs opens a build log stream for a frontend deployment.
+func (c *Client) StreamFrontendDeploymentLogs(ctx context.Context, projectID, frontendID, deploymentID uuid.UUID, limit int, lastEventID string) (*ProjectLogStream, error) {
+	body := logSearchRequest{
+		Resource: logDeploymentResource(logResourceTypeFrontend, frontendID, deploymentID),
+	}
+	if limit > 0 {
+		body.Limit = &limit
+	}
+	return c.streamProjectLogs(ctx, projectID, body, lastEventID)
 }
 
 // CreateFrontendCustomDomain attaches a BYOC custom domain to a frontend.
