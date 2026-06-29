@@ -40,6 +40,45 @@ files, migrations directory, and README). Use a template to add
 language-specific files: `javascript` (aliases: `js`, `node`, `nodejs`),
 `nextjs`, `python`, or `ruby`.
 
+## Authentication
+
+New to Volcano? Create an account from the CLI:
+
+```bash
+volcano signup
+```
+
+`volcano signup` prefills your email from `git config --global user.email`
+when available (press Enter to accept, or type a different address), then
+opens Volcano's web signup flow in your browser. Once you finish in the
+browser, the CLI completes the device-authorization handshake and saves your
+credentials to `~/.volcano/config.json` — so a single command signs you up
+**and** logs you in.
+
+Already have an account? Authenticate with `volcano login`:
+
+```bash
+# Browser-based login (default)
+volcano login
+
+# Token-based login (for CI/CD)
+volcano login --token pk-xxxxxxxxxx
+
+# Or skip login entirely with an environment variable
+export VOLCANO_TOKEN=pk-xxxxxxxxxx
+```
+
+Log out at any time (this deletes local credentials but does not revoke the
+token — revoke it in the Volcano dashboard to fully cut off access):
+
+```bash
+volcano logout
+```
+
+To target a non-production environment, override the compiled defaults with
+`VOLCANO_API_URL` (API endpoint) and `VOLCANO_WEB_URL` (web signup/login
+pages).
+
 ## Project configuration (`volcano-config.yaml`)
 
 `volcano config deploy` reconciles declarative project configuration
