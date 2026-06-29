@@ -14,11 +14,19 @@ no separate install step is required.
 | Goal                          | Command                                  |
 | ----------------------------- | ---------------------------------------- |
 | Build the binary              | `make build`                             |
+| Build against a dev backend   | `make local`                             |
 | Run tests                     | `make test`                              |
 | Lint (golangci-lint)          | `make lint`                              |
 | Lint + test                   | `make check`                             |
 | Tidy module dependencies      | `make tidy`                              |
 | Local-mode smoke test         | `make localmode-e2e`                     |
+
+`make local` builds the binary with the compiled-in defaults loaded from a
+gitignored `.env.local` file, so you can point the CLI at a non-production
+backend without exporting variables each time. Supported keys: `VOLCANO_API_URL`,
+`VOLCANO_WEB_URL` (signup/login pages), and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`.
+When only a loopback `VOLCANO_API_URL` is set, `VOLCANO_WEB_URL` defaults to
+`http://localhost:3000`.
 
 `make localmode-e2e` uses Docker and is intentionally heavier than the normal
 unit-test workflow. Run it when changing local-mode startup, reset, health, or

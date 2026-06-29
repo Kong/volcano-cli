@@ -18,7 +18,7 @@ If this project includes volcano/volcano-config.yaml:
 
 Cloud deployment:
 
-    volcano login
+    volcano login                          # new to Volcano? run: volcano signup
     volcano use <project-id-or-name>
     volcano cloud variables deploy
 

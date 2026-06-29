@@ -176,7 +176,7 @@ func printResult(w io.Writer, result *projectinit.Result, starter string) {
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Cloud deployment:")
-	fmt.Fprintln(w, "  - Run: volcano login")
+	fmt.Fprintln(w, "  - Run: volcano login    (new to Volcano? run: volcano signup)")
 	fmt.Fprintln(w, "  - Run: volcano use <project-id-or-name>")
 	fmt.Fprintln(w, "  - Run: volcano cloud variables deploy")
 	fmt.Fprintln(w, "  - Run: volcano cloud functions deploy --all")
