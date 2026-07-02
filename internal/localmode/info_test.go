@@ -30,7 +30,7 @@ func TestFetchInfoRunsDockerExecLocalInfo(t *testing.T) {
 			"default_database_name":"app",
 			"default_database_region":"local",
 			"default_database_postgres_version":"16",
-			"database_url":"postgres://volcano:volcano@localhost:8002/app?sslmode=disable&application_name=volcano_full_access:app",
+			"database_url":"postgres://volcano_client_22222222-2222-2222-2222-222222222222:vpg_local_secret@localhost:8002/app?sslmode=disable&application_name=volcano_full_access",
 			"redis_url":"redis://localhost:6379",
 			"jwt_secret":"server-owned-jwt-secret",
 			"encryption_key":"server-owned-encryption-key",
@@ -54,7 +54,7 @@ func TestFetchInfoRunsDockerExecLocalInfo(t *testing.T) {
 	assert.Equal(t, "app", info.DefaultDatabaseName)
 	assert.Equal(t, "local", info.DefaultDatabaseRegion)
 	assert.Equal(t, "16", info.DefaultDatabasePostgresVersion)
-	assert.Equal(t, "postgres://volcano:volcano@localhost:8002/app?sslmode=disable&application_name=volcano_full_access:app", info.DatabaseURL)
+	assert.Equal(t, "postgres://volcano_client_22222222-2222-2222-2222-222222222222:vpg_local_secret@localhost:8002/app?sslmode=disable&application_name=volcano_full_access", info.DatabaseURL)
 	assert.Equal(t, "redis://localhost:6379", info.RedisURL)
 	assert.Equal(t, "server-owned-jwt-secret", info.JWTSecret)
 	assert.Equal(t, "server-owned-encryption-key", info.EncryptionKey)
