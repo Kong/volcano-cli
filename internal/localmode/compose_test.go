@@ -95,10 +95,22 @@ func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
 func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
+	// The local server generates and owns these secrets, so they must never
+	// appear in the template at all.
 	assert.NotContains(t, template, "JWT_SECRET:")
 	assert.NotContains(t, template, "ENCRYPTION_KEY:")
-	assert.NotContains(t, template, "ANON_KEY_SECRET:")
 	assert.NotContains(t, template, "SERVICE_KEY_SECRET:")
+
+	// ANON_KEY_SECRET is an optional first-party-bootstrap passthrough. It may
+	// appear only as an empty ${ANON_KEY_SECRET:-} default (which leaves it unset
+	// so the server still owns it), never as a hardcoded secret value.
+	for _, line := range strings.Split(template, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "ANON_KEY_SECRET:") {
+			assert.Equal(t, "ANON_KEY_SECRET: ${ANON_KEY_SECRET:-}", trimmed,
+				"ANON_KEY_SECRET must only be an empty passthrough, not a hardcoded secret")
+		}
+	}
 }
 
 func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
