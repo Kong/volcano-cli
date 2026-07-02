@@ -104,7 +104,7 @@ func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 	// ANON_KEY_SECRET is an optional first-party-bootstrap passthrough. It may
 	// appear only as an empty ${ANON_KEY_SECRET:-} default (which leaves it unset
 	// so the server still owns it), never as a hardcoded secret value.
-	for _, line := range strings.Split(template, "\n") {
+	for line := range strings.SplitSeq(template, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "ANON_KEY_SECRET:") {
 			assert.Equal(t, "ANON_KEY_SECRET: ${ANON_KEY_SECRET:-}", trimmed,
