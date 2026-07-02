@@ -11,6 +11,7 @@ import (
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
+	"github.com/Kong/volcano-cli/internal/dataplane"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -33,12 +34,13 @@ func New(deps cliruntime.Deps) *cobra.Command {
 // NewResourceCommands returns cloud resource commands.
 func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	deps.CommandPathPrefix = "volcano cloud"
+	dataPlaneKeys := dataplane.NewService(deps)
 	return []*cobra.Command{
 		configcmd.New(deps),
 		databasescmd.New(deps),
 		frontendscmd.New(deps),
-		functionscmd.New(deps),
-		storagecmd.New(deps),
+		functionscmd.NewWithOptions(deps, functionscmd.WithInvokeTokenProvider(dataPlaneKeys.ServiceKeyForProject)),
+		storagecmd.NewWithOptions(deps, storagecmd.WithObjectTokenProvider(dataPlaneKeys.ServiceKey)),
 		variablescmd.New(deps),
 	}
 }

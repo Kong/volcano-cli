@@ -1,0 +1,134 @@
+// Package dataplane obtains project data-plane credentials for cloud commands.
+package dataplane
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
+)
+
+// CLIServiceKeyName is the reserved project service key used by cloud data-plane
+// commands when the platform token cannot call the runtime route directly.
+const CLIServiceKeyName = "volcano-cli-data-plane"
+
+// Service obtains data-plane credentials for the current cloud project.
+type Service struct {
+	sessions clisession.Factory
+	keyName  string
+}
+
+// NewService returns a data-plane credential service.
+func NewService(deps cliruntime.Deps) Service {
+	return Service{
+		sessions: clisession.NewFactory(deps),
+		keyName:  CLIServiceKeyName,
+	}
+}
+
+// ServiceKey returns the reserved service key for the current project, creating
+// it when it does not already exist.
+func (s Service) ServiceKey(ctx context.Context) (string, error) {
+	project, err := s.sessions.CurrentProject()
+	if err != nil {
+		return "", err
+	}
+	return s.ServiceKeyForProject(ctx, project)
+}
+
+// ServiceKeyForProject returns the reserved service key for project, creating it
+// when it does not already exist.
+func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.ProjectSession) (string, error) {
+	if project == nil {
+		return "", fmt.Errorf("project session is required")
+	}
+	name := s.serviceKeyName()
+	key, found, err := s.findServiceKey(ctx, project, name)
+	if err != nil {
+		return "", err
+	}
+	if found {
+		return s.serviceKeyValue(ctx, project, key)
+	}
+
+	created, err := project.API.CreateServiceKey(ctx, project.ProjectID, name)
+	if api.Status(err) == http.StatusConflict {
+		return s.serviceKeyAfterCreateConflict(ctx, project, name)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to create CLI service key %q: %w", name, err)
+	}
+	return serviceKeyPlaintext(created, name)
+}
+
+func (s Service) serviceKeyName() string {
+	name := strings.TrimSpace(s.keyName)
+	if name == "" {
+		return CLIServiceKeyName
+	}
+	return name
+}
+
+func (s Service) serviceKeyAfterCreateConflict(ctx context.Context, project *clisession.ProjectSession, name string) (string, error) {
+	key, found, err := s.findServiceKey(ctx, project, name)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf("CLI service key %q already exists but could not be loaded", name)
+	}
+	return s.serviceKeyValue(ctx, project, key)
+}
+
+func (s Service) findServiceKey(ctx context.Context, project *clisession.ProjectSession, name string) (*apiclient.ServiceKey, bool, error) {
+	for page := api.DefaultPage; ; page++ {
+		keys, err := project.API.ListServiceKeys(ctx, project.ProjectID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to list service keys: %w", err)
+		}
+		if keys == nil {
+			return nil, false, nil
+		}
+		for i := range keys.Data {
+			if strings.EqualFold(keys.Data[i].Name, name) {
+				return &keys.Data[i], true, nil
+			}
+		}
+		if !keys.HasMore {
+			return nil, false, nil
+		}
+	}
+}
+
+func (s Service) serviceKeyValue(ctx context.Context, project *clisession.ProjectSession, key *apiclient.ServiceKey) (string, error) {
+	if value, ok := serviceKeyPlaintextOK(key); ok {
+		return value, nil
+	}
+	loaded, err := project.API.GetServiceKey(ctx, project.ProjectID, uuid.UUID(key.Id))
+	if err != nil {
+		return "", fmt.Errorf("failed to load CLI service key %q: %w", key.Name, err)
+	}
+	return serviceKeyPlaintext(loaded, key.Name)
+}
+
+func serviceKeyPlaintext(key *apiclient.ServiceKey, name string) (string, error) {
+	if value, ok := serviceKeyPlaintextOK(key); ok {
+		return value, nil
+	}
+	return "", fmt.Errorf("service key %q did not include key material", name)
+}
+
+func serviceKeyPlaintextOK(key *apiclient.ServiceKey) (string, bool) {
+	if key == nil || key.KeyValue == nil {
+		return "", false
+	}
+	value := strings.TrimSpace(*key.KeyValue)
+	return value, value != ""
+}
