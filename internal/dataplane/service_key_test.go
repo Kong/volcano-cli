@@ -78,7 +78,13 @@ func TestServiceKeyCreatesMissingCLIKey(t *testing.T) {
 	key, err := service.ServiceKey(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "sk-created", key)
-	assert.Equal(t, map[string]any{"name": CLIServiceKeyName}, createBody)
+	assert.Equal(t, map[string]any{
+		"name": CLIServiceKeyName,
+		"permissions": []any{
+			"functions.invoke", "storage.upload", "storage.download",
+			"storage.list", "storage.delete",
+		},
+	}, createBody)
 }
 
 func TestServiceKeyReloadsAfterCreateConflict(t *testing.T) {

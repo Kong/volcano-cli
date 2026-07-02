@@ -20,9 +20,15 @@ func (c *Client) ListServiceKeys(ctx context.Context, projectID uuid.UUID, page,
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
 }
 
-// CreateServiceKey creates one service key in a project.
-func (c *Client) CreateServiceKey(ctx context.Context, projectID uuid.UUID, name string) (*apiclient.ServiceKey, error) {
-	resp, err := c.client.CreateServiceKeyWithResponse(ctx, projectID, apiclient.CreateServiceKeyJSONRequestBody{Name: name})
+// CreateServiceKey creates one service key in a project. When permissions is
+// non-empty the key is scoped to exactly those operations; otherwise the server
+// grants full access (["*"]).
+func (c *Client) CreateServiceKey(ctx context.Context, projectID uuid.UUID, name string, permissions []string) (*apiclient.ServiceKey, error) {
+	body := apiclient.CreateServiceKeyJSONRequestBody{Name: name}
+	if len(permissions) > 0 {
+		body.Permissions = &permissions
+	}
+	resp, err := c.client.CreateServiceKeyWithResponse(ctx, projectID, body)
 	if err != nil {
 		return nil, err
 	}

@@ -1124,6 +1124,12 @@ type SchedulerId = openapi_types.UUID
 // VariableName defines model for VariableName.
 type VariableName = string
 
+// BandwidthCapExceeded defines model for BandwidthCapExceeded.
+type BandwidthCapExceeded = Error
+
+// DatabaseQueryCapExceeded defines model for DatabaseQueryCapExceeded.
+type DatabaseQueryCapExceeded = Error
+
 // anonKeyContextKey is the context key for AnonKey security scheme
 type anonKeyContextKey string
 
@@ -1773,6 +1779,12 @@ type CreateServiceKeyJSONBody struct {
 	// Name Descriptive name for the key (e.g., "admin-dashboard", "background-jobs").
 	// Can only contain letters, numbers, underscores, and hyphens.
 	Name string `json:"name"`
+
+	// Permissions Optional least-privilege scope for the key. When omitted, the key
+	// is granted full access (["*"]) for backward compatibility. Provide
+	// an explicit list (e.g. ["functions.invoke", "storage.download"]) to
+	// restrict the operations the key may perform. "*" grants everything.
+	Permissions *[]string `json:"permissions,omitempty"`
 }
 
 // ListStorageObjectsAdminParams defines parameters for ListStorageObjectsAdmin.
@@ -14755,6 +14767,7 @@ type QueryDatabaseDeleteClientResponse struct {
 	JSON401 *Error
 	JSON403 *Error
 	JSON404 *Error
+	JSON429 *DatabaseQueryCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -14794,6 +14807,7 @@ type QueryDatabaseInsertClientResponse struct {
 	JSON401 *Error
 	JSON403 *Error
 	JSON404 *Error
+	JSON429 *DatabaseQueryCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -14834,6 +14848,7 @@ type QueryDatabaseSelectClientResponse struct {
 	JSON401 *Error
 	JSON403 *Error
 	JSON404 *Error
+	JSON429 *DatabaseQueryCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -14873,6 +14888,7 @@ type QueryDatabaseUpdateClientResponse struct {
 	JSON401 *Error
 	JSON403 *Error
 	JSON404 *Error
+	JSON429 *DatabaseQueryCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -16389,6 +16405,7 @@ type CreateEmailTemplateClientResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *EmailTemplate
 	JSON400      *Error
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -16418,6 +16435,7 @@ func (r CreateEmailTemplateClientResponse) ContentType() string {
 type DeleteEmailTemplateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -16478,6 +16496,7 @@ type UpdateEmailTemplateClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EmailTemplate
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -18387,6 +18406,7 @@ func (r UpdateVariableClientResponse) ContentType() string {
 type DownloadPublicFileClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18417,6 +18437,7 @@ type ListStorageObjectsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *StorageListResponse
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18447,6 +18468,7 @@ type CopyStorageObjectClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *StorageObject
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18477,6 +18499,7 @@ type MoveStorageObjectClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *StorageObject
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18506,6 +18529,7 @@ func (r MoveStorageObjectClientResponse) ContentType() string {
 type DeleteStorageObjectClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18536,6 +18560,7 @@ type DownloadStorageObjectClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *UploadSessionStatusResponse
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -18567,6 +18592,7 @@ type UploadStorageObjectClientResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *CompleteUploadSessionResponse
 	JSON201      *UploadStorageObject201JSONResponseBody
+	JSON429      *BandwidthCapExceeded
 }
 
 // Status returns HTTPResponse.Status
@@ -21693,6 +21719,13 @@ func ParseQueryDatabaseDeleteClientResponse(rsp *http.Response) (*QueryDatabaseD
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest DatabaseQueryCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	}
 
 	return response, nil
@@ -21751,6 +21784,13 @@ func ParseQueryDatabaseInsertClientResponse(rsp *http.Response) (*QueryDatabaseI
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest DatabaseQueryCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
@@ -21812,6 +21852,13 @@ func ParseQueryDatabaseSelectClientResponse(rsp *http.Response) (*QueryDatabaseS
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest DatabaseQueryCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	}
 
 	return response, nil
@@ -21870,6 +21917,13 @@ func ParseQueryDatabaseUpdateClientResponse(rsp *http.Response) (*QueryDatabaseU
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest DatabaseQueryCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
@@ -23333,6 +23387,13 @@ func ParseCreateEmailTemplateClientResponse(rsp *http.Response) (*CreateEmailTem
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -23349,6 +23410,16 @@ func ParseDeleteEmailTemplateClientResponse(rsp *http.Response) (*DeleteEmailTem
 	response := &DeleteEmailTemplateClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -23400,6 +23471,13 @@ func ParseUpdateEmailTemplateClientResponse(rsp *http.Response) (*UpdateEmailTem
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -25624,6 +25702,16 @@ func ParseDownloadPublicFileClientResponse(rsp *http.Response) (*DownloadPublicF
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -25647,6 +25735,13 @@ func ParseListStorageObjectsClientResponse(rsp *http.Response) (*ListStorageObje
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
@@ -25674,6 +25769,13 @@ func ParseCopyStorageObjectClientResponse(rsp *http.Response) (*CopyStorageObjec
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	}
 
 	return response, nil
@@ -25700,6 +25802,13 @@ func ParseMoveStorageObjectClientResponse(rsp *http.Response) (*MoveStorageObjec
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	}
 
 	return response, nil
@@ -25716,6 +25825,16 @@ func ParseDeleteStorageObjectClientResponse(rsp *http.Response) (*DeleteStorageO
 	response := &DeleteStorageObjectClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	}
 
 	return response, nil
@@ -25741,6 +25860,13 @@ func ParseDownloadStorageObjectClientResponse(rsp *http.Response) (*DownloadStor
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case rsp.StatusCode == 200:
 		// Content-type (application/octet-stream) unsupported
@@ -25777,6 +25903,13 @@ func ParseUploadStorageObjectClientResponse(rsp *http.Response) (*UploadStorageO
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest BandwidthCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 

@@ -19,6 +19,18 @@ import (
 // commands when the platform token cannot call the runtime route directly.
 const CLIServiceKeyName = "volcano-cli-data-plane"
 
+// cliDataPlanePermissions is the least-privilege scope requested for the reserved
+// data-plane key: function invocation and storage object I/O only. It must cover
+// every operation the CLI performs with this key (copy/move/set-visibility map
+// to storage.upload server-side), and nothing else.
+var cliDataPlanePermissions = []string{
+	"functions.invoke",
+	"storage.upload",
+	"storage.download",
+	"storage.list",
+	"storage.delete",
+}
+
 // Service obtains data-plane credentials for the current cloud project.
 type Service struct {
 	sessions clisession.Factory
@@ -58,7 +70,7 @@ func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.P
 		return s.serviceKeyValue(ctx, project, key)
 	}
 
-	created, err := project.API.CreateServiceKey(ctx, project.ProjectID, name)
+	created, err := project.API.CreateServiceKey(ctx, project.ProjectID, name, cliDataPlanePermissions)
 	if api.Status(err) == http.StatusConflict {
 		return s.serviceKeyAfterCreateConflict(ctx, project, name)
 	}
