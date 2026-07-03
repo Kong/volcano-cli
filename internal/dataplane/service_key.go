@@ -3,11 +3,10 @@ package dataplane
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -59,7 +58,7 @@ func (s Service) ServiceKey(ctx context.Context) (string, error) {
 // when it does not already exist.
 func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.ProjectSession) (string, error) {
 	if project == nil {
-		return "", fmt.Errorf("project session is required")
+		return "", errors.New("project session is required")
 	}
 	name := s.serviceKeyName()
 	key, found, err := s.findServiceKey(ctx, project, name)
@@ -123,7 +122,7 @@ func (s Service) serviceKeyValue(ctx context.Context, project *clisession.Projec
 	if value, ok := serviceKeyPlaintextOK(key); ok {
 		return value, nil
 	}
-	loaded, err := project.API.GetServiceKey(ctx, project.ProjectID, uuid.UUID(key.Id))
+	loaded, err := project.API.GetServiceKey(ctx, project.ProjectID, key.Id)
 	if err != nil {
 		return "", fmt.Errorf("failed to load CLI service key %q: %w", key.Name, err)
 	}
