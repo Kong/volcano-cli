@@ -78,12 +78,14 @@ func TestServiceKeyCreatesMissingCLIKey(t *testing.T) {
 	key, err := service.ServiceKey(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "sk-created", key)
+	// Derive the expected scope from the source of truth so the two cannot drift.
+	expectedPermissions := make([]any, len(cliDataPlanePermissions))
+	for i, p := range cliDataPlanePermissions {
+		expectedPermissions[i] = p
+	}
 	assert.Equal(t, map[string]any{
-		"name": CLIServiceKeyName,
-		"permissions": []any{
-			"functions.invoke", "storage.upload", "storage.download",
-			"storage.list", "storage.delete",
-		},
+		"name":        CLIServiceKeyName,
+		"permissions": expectedPermissions,
 	}, createBody)
 }
 
