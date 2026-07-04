@@ -2,8 +2,10 @@ package localmode
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,8 +126,9 @@ func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 func TestDockerComposeTemplateSetsPlanLimitsAndRegions(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
-	// Plan-limit env vars are required >0 for function/frontend deploy parity;
-	// guard against an upstream regen that drops or renames them.
+	// Plan-limit env vars must survive an upstream template regen; guard against
+	// one that drops or renames them. Presence only -- some are legitimately "0"
+	// (unlimited/disabled), so this does not assert a value.
 	for _, key := range []string{
 		"FREE_FUNCTION_TIMEOUT",
 		"FREE_FUNCTION_MEMORY",
@@ -137,10 +140,56 @@ func TestDockerComposeTemplateSetsPlanLimitsAndRegions(t *testing.T) {
 		"PRO_FRONTEND_CUSTOM_DOMAINS",
 		"FREE_SCHEDULER_COUNT",
 		"PRO_SCHEDULER_COUNT",
+		"FREE_BUILD_MAX_MINUTES",
+		"PRO_BUILD_MAX_MINUTES",
+		"FREE_LOG_RETENTION_DAYS",
+		"PRO_LOG_RETENTION_DAYS",
+		"FREE_IMAGE_OPTIMIZER_TIMEOUT",
+		"PRO_IMAGE_OPTIMIZER_TIMEOUT",
+		"FREE_IMAGE_OPTIMIZER_MEMORY",
+		"PRO_IMAGE_OPTIMIZER_MEMORY",
+		"FREE_IMAGE_OPTIMIZER_DISK",
+		"PRO_IMAGE_OPTIMIZER_DISK",
+		"FREE_DATABASE_CAP",
+		"PRO_DATABASE_CAP",
+		"FREE_DATABASE_STORAGE_LIMIT_MB",
+		"PRO_DATABASE_STORAGE_LIMIT_MB",
+		"FREE_STORAGE_BUCKETS_PER_PROJECT",
+		"PRO_STORAGE_BUCKETS_PER_PROJECT",
 		"AWS_REGIONS",
 	} {
 		assert.Contains(t, template, key+":", "compose template missing required env var %s", key)
 	}
+}
+
+// TestDockerComposeTemplateUsesDurationStringsForTimingVars guards the
+// duration-string contract with the server. The server parses these as Go
+// time.Duration (RedisTimeout/UsageSyncInterval/UsageSyncLockTTL in
+// cmd/server/internal/config), so a bare integer like "60" fails
+// time.ParseDuration and the container refuses to start. Guard against an
+// upstream regen that drops the duration suffix.
+func TestDockerComposeTemplateUsesDurationStringsForTimingVars(t *testing.T) {
+	template := string(dockerComposeTemplate)
+
+	for _, key := range []string{
+		"REDIS_TIMEOUT",
+		"USAGE_SYNC_INTERVAL",
+		"USAGE_SYNC_LOCK_TTL",
+	} {
+		value := composeTemplateEnvValue(t, template, key)
+		_, err := time.ParseDuration(value)
+		assert.NoErrorf(t, err, "%s must be a Go duration string (got %q); the server rejects bare integers", key, value)
+	}
+}
+
+// composeTemplateEnvValue extracts the (optionally quoted) value assigned to key
+// in the raw compose template, e.g. `REDIS_TIMEOUT: "60s"` -> "60s".
+func composeTemplateEnvValue(t *testing.T, template, key string) string {
+	t.Helper()
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+)"?\s*$`)
+	match := re.FindStringSubmatch(template)
+	require.Len(t, match, 2, "compose template missing env var %s", key)
+	return strings.TrimSpace(match[1])
 }
 
 func envValues(env []string, key string) []string {
