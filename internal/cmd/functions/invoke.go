@@ -16,16 +16,17 @@ import (
 )
 
 type invokeOptions struct {
-	deps       cliruntime.Deps
-	identifier string
-	functionID string
-	payload    string
-	hasPayload bool
-	jsonOutput bool
-	out        io.Writer
+	deps            cliruntime.Deps
+	functionOptions []clifunction.Option
+	identifier      string
+	functionID      string
+	payload         string
+	hasPayload      bool
+	jsonOutput      bool
+	out             io.Writer
 }
 
-func newInvoke(deps cliruntime.Deps) *cobra.Command {
+func newInvoke(deps cliruntime.Deps, functionOptions ...clifunction.Option) *cobra.Command {
 	opts := invokeOptions{}
 	cmd := &cobra.Command{
 		Use:   "invoke [name]",
@@ -40,6 +41,7 @@ func newInvoke(deps cliruntime.Deps) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps
+			opts.functionOptions = functionOptions
 			if len(args) == 1 {
 				opts.identifier = strings.TrimSpace(args[0])
 			}
@@ -73,7 +75,7 @@ func runInvoke(ctx context.Context, opts invokeOptions) error {
 		}
 	}
 
-	service := clifunction.NewService(opts.deps)
+	service := clifunction.NewService(opts.deps, opts.functionOptions...)
 	var resp any
 	if hasID {
 		var functionID uuid.UUID

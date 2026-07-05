@@ -714,6 +714,21 @@ func (e LiveLogLevel) Valid() bool {
 	}
 }
 
+// Defines values for LogDatabaseRequestResourceType.
+const (
+	LogDatabaseRequestResourceTypeDatabase LogDatabaseRequestResourceType = "database"
+)
+
+// Valid indicates whether the value is a known member of the LogDatabaseRequestResourceType enum.
+func (e LogDatabaseRequestResourceType) Valid() bool {
+	switch e {
+	case LogDatabaseRequestResourceTypeDatabase:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LogDeploymentStage.
 const (
 	Compile LogDeploymentStage = "compile"
@@ -764,6 +779,7 @@ func (e LogFunctionRequestResourceType) Valid() bool {
 
 // Defines values for LogResourceType.
 const (
+	LogResourceTypeDatabase LogResourceType = "database"
 	LogResourceTypeFrontend LogResourceType = "frontend"
 	LogResourceTypeFunction LogResourceType = "function"
 )
@@ -771,6 +787,8 @@ const (
 // Valid indicates whether the value is a known member of the LogResourceType enum.
 func (e LogResourceType) Valid() bool {
 	switch e {
+	case LogResourceTypeDatabase:
+		return true
 	case LogResourceTypeFrontend:
 		return true
 	case LogResourceTypeFunction:
@@ -2067,6 +2085,18 @@ type LogActivityResponse struct {
 	Total int `json:"total"`
 }
 
+// LogDatabaseRequestResource Database runtime log resource selector. Deployment logs are not supported for databases.
+type LogDatabaseRequestResource struct {
+	// Ids Optional database identifiers. Omit or send an empty array to include every database in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogDatabaseRequestResourceType `json:"type"`
+}
+
+// LogDatabaseRequestResourceType Resource type to read logs for.
+type LogDatabaseRequestResourceType string
+
 // LogDeployment Deployment context associated with a historical deployment log event.
 type LogDeployment struct {
 	// Id Deployment ID associated with the log event.
@@ -2155,7 +2185,7 @@ type LogRequestResource struct {
 
 // LogResource Resource that owns a historical log event.
 type LogResource struct {
-	// Id Function or frontend ID that owns the log event.
+	// Id Resource ID that owns the log event.
 	Id openapi_types.UUID `json:"id"`
 
 	// Name Resource name associated with the log event, when available.
@@ -2263,16 +2293,21 @@ type LogStreamRequest struct {
 
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
 type MetricUsageData struct {
+	// AllTime Lifetime cumulative usage across every month for this metric
+	AllTime int64 `json:"all_time"`
+
 	// Daily Last 30 days of daily usage points
 	Daily []UsageDataPoint `json:"daily"`
 
 	// Hourly Last 24 hours of hourly usage points
 	Hourly []UsageDataPoint `json:"hourly"`
 
-	// Metric Metric name (for example, "Function Invocations", "Frontend Requests",
+	// Metric Metric name (for example, "Function & Frontend Invocations", "Frontend Requests",
 	// "CodeBuild Build Seconds", "Bandwidth Ingress (Bytes)", "Bandwidth Egress (Bytes)",
-	// or "Bandwidth Total (Bytes)"). Bandwidth metrics are reported in bytes;
-	// "Bandwidth Total (Bytes)" is derived (ingress + egress) and is not billed separately.
+	// "Bandwidth Total (Bytes)", or "Database Storage (Bytes)"). Byte-based metrics are
+	// reported in bytes. "Bandwidth Total (Bytes)" is derived (ingress + egress) and
+	// is not billed separately. "Database Storage (Bytes)" is a current observed gauge,
+	// not a cumulative counter.
 	Metric string `json:"metric"`
 
 	// Total Total usage for the current usage month
@@ -2757,7 +2792,9 @@ type ServiceKey struct {
 	// Name Descriptive name for the key
 	Name string `json:"name"`
 
-	// Permissions Always ["*"] for full admin access
+	// Permissions Operations this key may perform. ["*"] grants full admin access
+	// (default for keys created without an explicit scope). Scoped keys
+	// list specific permissions, e.g. ["functions.invoke"].
 	Permissions []string            `json:"permissions"`
 	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
@@ -3257,6 +3294,34 @@ func (t *LogRequestResource) MergeLogFrontendRequestResource(v LogFrontendReques
 	return err
 }
 
+// AsLogDatabaseRequestResource returns the union data inside the LogRequestResource as a LogDatabaseRequestResource
+func (t LogRequestResource) AsLogDatabaseRequestResource() (LogDatabaseRequestResource, error) {
+	var body LogDatabaseRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogDatabaseRequestResource overwrites any union data inside the LogRequestResource as the provided LogDatabaseRequestResource
+func (t *LogRequestResource) FromLogDatabaseRequestResource(v LogDatabaseRequestResource) error {
+	v.Type = "database"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogDatabaseRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogDatabaseRequestResource
+func (t *LogRequestResource) MergeLogDatabaseRequestResource(v LogDatabaseRequestResource) error {
+	v.Type = "database"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t LogRequestResource) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -3271,6 +3336,8 @@ func (t LogRequestResource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "database":
+		return t.AsLogDatabaseRequestResource()
 	case "frontend":
 		return t.AsLogFrontendRequestResource()
 	case "function":

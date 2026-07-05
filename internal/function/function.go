@@ -18,9 +18,23 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
+// InvokeTokenProvider returns the bearer token to use for function invoke routes.
+type InvokeTokenProvider func(context.Context, *clisession.ProjectSession) (string, error)
+
 // Service performs authenticated Volcano function workflows.
 type Service struct {
-	sessions clisession.Factory
+	sessions            clisession.Factory
+	invokeTokenProvider InvokeTokenProvider
+}
+
+// Option configures function workflows.
+type Option func(*Service)
+
+// WithInvokeTokenProvider configures the bearer token source for function invoke routes.
+func WithInvokeTokenProvider(provider InvokeTokenProvider) Option {
+	return func(s *Service) {
+		s.invokeTokenProvider = provider
+	}
 }
 
 // Alias describes one configured function invoke alias.
@@ -30,8 +44,12 @@ type Alias struct {
 }
 
 // NewService returns a function service.
-func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+func NewService(deps cliruntime.Deps, opts ...Option) Service {
+	service := Service{sessions: clisession.NewFactory(deps)}
+	for _, opt := range opts {
+		opt(&service)
+	}
+	return service
 }
 
 // ListPage returns one function page in the current project.
@@ -207,7 +225,7 @@ func (s Service) Invoke(ctx context.Context, identifier string, payload map[stri
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
 	}
 
-	invokeAPI, err := authenticated.APIWithToken(authenticated.Config.FunctionInvokeToken())
+	invokeAPI, err := s.invokeAPI(ctx, authenticated)
 	if err != nil {
 		return nil, err
 	}
@@ -220,12 +238,7 @@ func (s Service) Invoke(ctx context.Context, identifier string, payload map[stri
 
 // InvokeByID invokes one function by ID without list-based name resolution.
 func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {
-	authenticated, err := s.sessions.Authenticated()
-	if err != nil {
-		return nil, err
-	}
-
-	invokeAPI, err := authenticated.APIWithToken(authenticated.Config.FunctionInvokeToken())
+	invokeAPI, err := s.invokeAPIForID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,6 +247,43 @@ func (s Service) InvokeByID(ctx context.Context, functionID uuid.UUID, payload m
 		return nil, fmt.Errorf("failed to invoke function %q: %w", functionID.String(), err)
 	}
 	return resp, nil
+}
+
+func (s Service) invokeAPIForID(ctx context.Context) (*api.Client, error) {
+	if s.invokeTokenProvider == nil {
+		authenticated, err := s.sessions.Authenticated()
+		if err != nil {
+			return nil, err
+		}
+		return authenticated.APIWithToken(authenticated.Config.FunctionInvokeToken())
+	}
+
+	project, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+	return s.invokeAPI(ctx, project)
+}
+
+func (s Service) invokeAPI(ctx context.Context, project *clisession.ProjectSession) (*api.Client, error) {
+	token, err := s.invokeToken(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	return project.APIWithToken(token)
+}
+
+func (s Service) invokeToken(ctx context.Context, project *clisession.ProjectSession) (string, error) {
+	if project == nil || project.Config == nil {
+		return "", errors.New("project session is required")
+	}
+	if strings.TrimSpace(project.Config.ServiceKey) != "" || strings.TrimSpace(project.Config.AnonKey) != "" {
+		return project.Config.FunctionInvokeToken(), nil
+	}
+	if s.invokeTokenProvider != nil {
+		return s.invokeTokenProvider(ctx, project)
+	}
+	return project.Config.FunctionInvokeToken(), nil
 }
 
 // ListAliases returns configured function invoke aliases for the current target.
