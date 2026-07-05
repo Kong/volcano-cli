@@ -125,6 +125,26 @@ func TestServiceKeyReloadsAfterCreateConflict(t *testing.T) {
 	assert.Equal(t, 2, listHits)
 }
 
+func TestServiceKeyUsesConfiguredServiceKeyDirectly(t *testing.T) {
+	setServiceKeyTestHome(t)
+	saveServiceKeyTestConfig(t)
+	// The caller already holds a scoped data-plane service key (e.g. in CI via
+	// VOLCANO_TOKEN); the CLI must use it as-is and never attempt the reserved-key
+	// list/create, which a service key cannot perform against control-plane routes.
+	t.Setenv("VOLCANO_TOKEN", "sk-provided-data-plane-key")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected API call %s %s: a provided service key must be used without a control-plane lookup", r.Method, r.URL.Path)
+		http.Error(w, "unexpected control-plane call", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	service := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	key, err := service.ServiceKey(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "sk-provided-data-plane-key", key)
+}
+
 func setServiceKeyTestHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
