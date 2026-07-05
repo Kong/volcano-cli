@@ -18,6 +18,12 @@ import (
 // commands when the platform token cannot call the runtime route directly.
 const CLIServiceKeyName = "volcano-cli-data-plane"
 
+// serviceKeyTokenPrefix identifies a data-plane service key (mirrors the server's
+// auth.ServiceKeyPrefix). A caller already holding such a key is authenticated
+// for the data plane directly, so the reserved-key list/create is neither needed
+// nor possible (control-plane routes reject a service key with 401).
+const serviceKeyTokenPrefix = "sk-"
+
 // cliDataPlanePermissions is the least-privilege scope requested for the reserved
 // data-plane key: function invocation and storage object I/O only. It must cover
 // every operation the CLI performs with this key (copy/move/set-visibility map
@@ -60,6 +66,13 @@ func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.P
 	if project == nil {
 		return "", errors.New("project session is required")
 	}
+	// When the session is already authenticated with a service key (e.g.
+	// VOLCANO_TOKEN is a scoped data-plane key), use it directly. It is already a
+	// data-plane credential, and resolving the reserved CLI key would require a
+	// control-plane list/create that a service key is not permitted to make (401).
+	if token := sessionServiceKey(project); token != "" {
+		return token, nil
+	}
 	name := s.serviceKeyName()
 	key, found, err := s.findServiceKey(ctx, project, name)
 	if err != nil {
@@ -77,6 +90,17 @@ func (s Service) ServiceKeyForProject(ctx context.Context, project *clisession.P
 		return "", fmt.Errorf("failed to create CLI service key %q: %w", name, err)
 	}
 	return serviceKeyPlaintext(created, name)
+}
+
+func sessionServiceKey(project *clisession.ProjectSession) string {
+	if project.Config == nil {
+		return ""
+	}
+	token := strings.TrimSpace(project.Config.Token())
+	if strings.HasPrefix(token, serviceKeyTokenPrefix) {
+		return token
+	}
+	return ""
 }
 
 func (s Service) serviceKeyName() string {
