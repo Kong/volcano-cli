@@ -74,6 +74,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, functionGetOutput, "Name: hello")
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
+	assertVolcanoLocalModeE2EUserIsPro(t, info)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
@@ -249,6 +250,8 @@ type localModeE2EInfo struct {
 	ServiceKey string `json:"service_key"`
 }
 
+const localModeE2EDefaultUserID = "11111111-1111-1111-1111-111111111111"
+
 func fetchVolcanoLocalModeE2EInfo(t *testing.T, env []string) localModeE2EInfo {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -268,6 +271,70 @@ func fetchVolcanoLocalModeE2EInfo(t *testing.T, env []string) localModeE2EInfo {
 		t.Fatalf("local-mode info missing required fields: %s", output)
 	}
 	return info
+}
+
+func assertVolcanoLocalModeE2EUserIsPro(t *testing.T, info localModeE2EInfo) {
+	t.Helper()
+
+	user := fetchVolcanoLocalModeE2EUser(t, info)
+	if user.Plan != "PRO" {
+		t.Fatalf("local-mode default user plan = %q, want PRO", user.Plan)
+	}
+
+	// Local mode must not expose the management downgrade path. The server should
+	// behave as PRO locally; if this route starts accepting FREE, the following
+	// re-read catches it.
+	body := strings.NewReader(`{"plan":"FREE"}`)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/users/%s/plan", strings.TrimRight(info.APIURL, "/"), localModeE2EDefaultUserID), body)
+	if err != nil {
+		t.Fatalf("create downgrade request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("downgrade request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		data, _ := io.ReadAll(resp.Body)
+		t.Fatalf("local-mode management API unexpectedly accepted plan downgrade: status=%d body=%s", resp.StatusCode, data)
+	}
+
+	user = fetchVolcanoLocalModeE2EUser(t, info)
+	if user.Plan != "PRO" {
+		t.Fatalf("local-mode default user plan after attempted downgrade = %q, want PRO", user.Plan)
+	}
+}
+
+func fetchVolcanoLocalModeE2EUser(t *testing.T, info localModeE2EInfo) struct {
+	ID   string `json:"id"`
+	Plan string `json:"plan"`
+} {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/users/%s", strings.TrimRight(info.APIURL, "/"), localModeE2EDefaultUserID), http.NoBody)
+	if err != nil {
+		t.Fatalf("create user request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("fetch local user: %v", err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("fetch local user returned %d: %s", resp.StatusCode, data)
+	}
+	var user struct {
+		ID   string `json:"id"`
+		Plan string `json:"plan"`
+	}
+	if err := json.Unmarshal(data, &user); err != nil {
+		t.Fatalf("parse local user: %v\n%s", err, data)
+	}
+	if user.ID != localModeE2EDefaultUserID {
+		t.Fatalf("local user id = %q, want %q", user.ID, localModeE2EDefaultUserID)
+	}
+	return user
 }
 
 func waitForVolcanoLocalModeE2EFunctionID(t *testing.T, info localModeE2EInfo, name string) string {

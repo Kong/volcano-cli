@@ -5,6 +5,7 @@ services:
   postgres:
     image: ${VOLCANO_POSTGRES_IMAGE:-mirror.gcr.io/library/postgres:16-alpine}
     container_name: volcano-postgres
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_DB: volcano
       POSTGRES_USER: volcano
@@ -100,53 +101,8 @@ services:
       # frontend at <frontend-id>.frontends.localhost:8080 is browser-reachable.
       FRONTENDS_HTTP_PORT: "8080"
       FRONTEND_INVOCATION_DNS: "*.frontends.localhost"
-      # Plan limits (local-mode defaults; required >0 for function/frontend deploy workflows)
-      FREE_FUNCTION_TIMEOUT: "30"
-      FREE_FUNCTION_MEMORY: "128"
-      FREE_FUNCTION_DISK: "512"
-      FREE_FUNCTION_RATELIMIT: "10"
-      FREE_FUNCTION_ALL_RATELIMIT: "60"
-      FREE_FUNC_INVOCATIONS_PER_MONTH: "100000"
-      FREE_BUILD_TIMEOUT_MINUTES: "30"
-      # Monthly build-minutes cap (0 = unlimited). Local-mode keeps builds
-      # unconstrained so dev iteration is never blocked.
-      FREE_BUILD_MAX_MINUTES: "0"
-      PRO_BUILD_MAX_MINUTES: "0"
-      # Runtime log retention (TTL) and max search lookback in days.
-      FREE_LOG_RETENTION_DAYS: "1"
-      PRO_LOG_RETENTION_DAYS: "30"
-      PRO_FUNCTION_TIMEOUT: "180"
-      PRO_FUNCTION_MEMORY: "256"
-      PRO_FUNCTION_DISK: "1024"
-      PRO_FUNCTION_RATELIMIT: "0"
-      PRO_FUNCTION_ALL_RATELIMIT: "0"
-      PRO_FUNC_INVOCATIONS_PER_MONTH: "0"
-      PRO_BUILD_TIMEOUT_MINUTES: "60"
-      FREE_IMAGE_OPTIMIZER_TIMEOUT: "90"
-      PRO_IMAGE_OPTIMIZER_TIMEOUT: "90"
-      FREE_IMAGE_OPTIMIZER_MEMORY: "1024"
-      PRO_IMAGE_OPTIMIZER_MEMORY: "1024"
-      FREE_IMAGE_OPTIMIZER_DISK: "1024"
-      PRO_IMAGE_OPTIMIZER_DISK: "1024"
-      # Custom-domain plan limits (cloud separates FREE/PRO; meaningless locally)
-      FREE_FRONTEND_CUSTOM_DOMAINS: "10"
-      PRO_FRONTEND_CUSTOM_DOMAINS: "10"
-      # Function scheduler limits. Sentinel convention: -1 = disabled, 0 =
-      # unlimited, N = cap. Cloud sets FREE=-1 (disabled), PRO=5; local-mode
-      # keeps cloud parity for plan-limit testing.
-      FREE_SCHEDULER_COUNT: "-1"
-      PRO_SCHEDULER_COUNT: "5"
-      # Database count caps. Sentinel convention: 0 = unlimited, N = cap. Cloud
-      # sets FREE=1, PRO=0 (unlimited); local-mode keeps both unlimited so signup
-      # users on the default FREE plan can create as many databases as they need.
-      FREE_DATABASE_CAP: "0"
-      PRO_DATABASE_CAP: "0"
-      # Database storage caps in MB. 0 = unlimited. Cloud sets FREE=1024 (1 GB),
-      # PRO=0; local-mode keeps both unlimited so dev databases can grow freely.
-      FREE_DATABASE_STORAGE_LIMIT_MB: "0"
-      PRO_DATABASE_STORAGE_LIMIT_MB: "0"
-      FREE_STORAGE_BUCKETS_PER_PROJECT: "20"
-      PRO_STORAGE_BUCKETS_PER_PROJECT: "0"
+      # Local plan defaults are baked into the server binary (cmd/server/internal/config).
+      # Do not put FREE_*/PRO_* values here: this template ships in the CLI image.
       # Deployable regions used by project region resolution (`all_regions=true`
       # projects default to this list). Cloud passes the real multi-region set;
       # locally we surface a representative subset so feature pickers and
