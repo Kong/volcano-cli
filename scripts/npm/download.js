@@ -128,22 +128,25 @@ function parseChecksum(manifest, name) {
 }
 
 async function downloadToFile(url, dest) {
-  const hash = crypto.createHash('sha256');
   const tmp = `${dest}.download-${process.pid}`;
   try {
     const res = await get(url);
-    res.on('data', (chunk) => hash.update(chunk));
     await streamPipeline(res, fs.createWriteStream(tmp));
+    // Hash the fully-written file so we verify exactly what landed on disk
+    // (also avoids the flowing-mode subtleties of hashing mid-stream).
+    const hash = crypto.createHash('sha256');
+    await streamPipeline(fs.createReadStream(tmp), hash);
+    const digest = hash.digest('hex');
     // rename does not overwrite an existing destination on Windows, so clear it
     // first (also covers a check-then-write race and force re-downloads).
     fs.rmSync(dest, { force: true });
     fs.renameSync(tmp, dest);
+    return digest;
   } catch (err) {
     // Never leave a partial download behind.
     fs.rmSync(tmp, { force: true });
     throw err;
   }
-  return hash.digest('hex');
 }
 
 // Download the correct binary for the current platform and verify its checksum

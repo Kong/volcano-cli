@@ -93,10 +93,12 @@ jobs:
               asset="${asset}.exe"
             fi
             echo "Checking ${base}/${asset}"
-            curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -o /dev/null -I "${base}/${asset}"
+            # Ranged GET (first byte) confirms the asset is actually downloadable
+            # (what postinstall does), which is more reliable than a HEAD request.
+            curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/${asset}"
           done
           echo "Checking ${base}/SHA256SUMS"
-          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -o /dev/null -I "${base}/SHA256SUMS"
+          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/SHA256SUMS"
 
       # OIDC trusted publishing: npm detects the id-token and authenticates
       # automatically. Provenance is generated automatically for public repos.
