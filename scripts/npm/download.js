@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 const { pipeline } = require('stream');
@@ -67,7 +68,21 @@ function get(url, redirects = 0) {
       reject(new Error(`Too many redirects while fetching ${url}`));
       return;
     }
-    const req = https.get(
+    let protocol;
+    try {
+      protocol = new URL(url).protocol;
+    } catch (err) {
+      reject(new Error(`Invalid download URL "${url}": ${err.message}`));
+      return;
+    }
+    // Pick the client by scheme so an http:// mirror
+    // (VOLCANO_GITHUB_RELEASES_URL) works too.
+    const client = protocol === 'https:' ? https : protocol === 'http:' ? http : null;
+    if (!client) {
+      reject(new Error(`Unsupported URL scheme "${protocol}" for ${url}; use http or https.`));
+      return;
+    }
+    const req = client.get(
       url,
       { headers: { 'User-Agent': `volcano-cli-npm/${pkg.version}` } },
       (res) => {
@@ -115,10 +130,19 @@ function parseChecksum(manifest, name) {
 async function downloadToFile(url, dest) {
   const hash = crypto.createHash('sha256');
   const tmp = `${dest}.download-${process.pid}`;
-  const res = await get(url);
-  res.on('data', (chunk) => hash.update(chunk));
-  await streamPipeline(res, fs.createWriteStream(tmp));
-  fs.renameSync(tmp, dest);
+  try {
+    const res = await get(url);
+    res.on('data', (chunk) => hash.update(chunk));
+    await streamPipeline(res, fs.createWriteStream(tmp));
+    // rename does not overwrite an existing destination on Windows, so clear it
+    // first (also covers a check-then-write race and force re-downloads).
+    fs.rmSync(dest, { force: true });
+    fs.renameSync(tmp, dest);
+  } catch (err) {
+    // Never leave a partial download behind.
+    fs.rmSync(tmp, { force: true });
+    throw err;
+  }
   return hash.digest('hex');
 }
 

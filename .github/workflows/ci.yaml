@@ -50,9 +50,10 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
-      # Trusted publishing requires npm >= 11.5.1 (newer than what ships by default).
+      # Trusted publishing requires npm >= 11.5.1. Pin to the npm 11 line for
+      # reproducibility rather than tracking npm@latest across major versions.
       - name: Upgrade npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - name: Resolve release version
         id: version
