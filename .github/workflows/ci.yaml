@@ -1,0 +1,103 @@
+name: Publish to npm
+
+# Publishes the @kong/volcano-cli npm package using npm trusted publishing
+# (OIDC) — no long-lived NPM_TOKEN required.
+#
+# This runs AFTER publish-cli.yml has created the GitHub Release and uploaded
+# the signed binaries + SHA256SUMS, because the published npm package downloads
+# those assets in its postinstall step.
+#
+# Trusted publisher setup (one-time, on npmjs.com -> package Settings ->
+# Trusted Publisher):
+#   Organization or user:  Kong
+#   Repository:            volcano-cli
+#   Workflow filename:     ci.yaml   (must match this file's name exactly)
+
+on:
+  # Fires when publish-cli.yml publishes the GitHub Release for a version tag.
+  release:
+    types: [published]
+  # Manual re-publish (e.g. if the release existed before this workflow).
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, without a leading v (e.g. 1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # REQUIRED for npm trusted publishing (OIDC)
+
+concurrency:
+  group: npm-publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish-npm:
+    name: Publish npm package
+    runs-on: ubuntu-latest # Trusted publishing requires GitHub-hosted runners
+    # Only publish stable (non-prerelease) versions to npm.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' && github.event.release.prerelease == false)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      # Trusted publishing requires npm >= 11.5.1 (newer than what ships by default).
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - name: Resolve release version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW="${{ github.event.inputs.version }}"
+          else
+            RAW="${{ github.event.release.tag_name }}"
+          fi
+          VERSION="${RAW#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Refusing to publish non-stable version to npm: ${RAW}"
+            echo "Only stable vMAJOR.MINOR.PATCH releases are published to npm."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set package version
+        run: |
+          npm version "${{ steps.version.outputs.version }}" \
+            --no-git-tag-version --allow-same-version
+
+      - name: Verify release assets exist
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
+            asset="volcano-${target}"
+            if [ "$target" = "windows-amd64" ]; then
+              asset="${asset}.exe"
+            fi
+            echo "Checking ${base}/${asset}"
+            curl -fsSL --retry 3 --retry-delay 5 -o /dev/null -I "${base}/${asset}"
+          done
+          echo "Checking ${base}/SHA256SUMS"
+          curl -fsSL --retry 3 --retry-delay 5 -o /dev/null -I "${base}/SHA256SUMS"
+
+      # OIDC trusted publishing: npm detects the id-token and authenticates
+      # automatically. Provenance is generated automatically for public repos.
+      # VOLCANO_SKIP_DOWNLOAD prevents the postinstall from fetching a binary
+      # in CI if any install lifecycle runs.
+      - name: Publish to npm
+        env:
+          VOLCANO_SKIP_DOWNLOAD: "1"
+        run: npm publish
