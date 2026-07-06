@@ -15,8 +15,8 @@ func TestGetProjectLogActivityUsesPostBody(t *testing.T) {
 	resourceIDs := []string{"22222222-2222-4222-8222-222222222222"}
 	levels := []string{"warn"}
 	regions := []string{"us-east-1"}
-	startTime := int64(1_700_000_000_000)
-	endTime := int64(1_700_000_300_000)
+	startTime := "2023-11-14T22:13:20Z"
+	endTime := "2023-11-14T23:03:20Z"
 	bucketCount := 24
 	requestBody, err := json.Marshal(map[string]any{
 		"resource": map[string]any{
@@ -47,7 +47,7 @@ func TestGetProjectLogActivityUsesPostBody(t *testing.T) {
 	assert.Equal(t, []any{resourceIDs[0]}, resource["ids"])
 	assert.Equal(t, []any{levels[0]}, decodedBody["levels"])
 	assert.Equal(t, []any{regions[0]}, decodedBody["regions"])
-	assert.InEpsilon(t, startTime, decodedBody["start_time"], 0)
-	assert.InEpsilon(t, endTime, decodedBody["end_time"], 0)
+	assert.Equal(t, startTime, decodedBody["start_time"])
+	assert.Equal(t, endTime, decodedBody["end_time"])
 	assert.InEpsilon(t, bucketCount, decodedBody["bucket_count"], 0)
 }

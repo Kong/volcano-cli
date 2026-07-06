@@ -108,13 +108,14 @@ func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
 	}
 }
 
-func printLogEvent(w io.Writer, timestamp int64, region *string, message string) {
+func printLogEvent(w io.Writer, timestamp time.Time, region *string, message string) {
 	message = strings.TrimSpace(message)
+	formattedTimestamp := FormatTimestamp(timestamp)
 	if region := stringPtrValue(region); region != "" {
-		fmt.Fprintf(w, "%s  [%s] %s\n", time.UnixMilli(timestamp).Format(time.RFC3339), region, message)
+		fmt.Fprintf(w, "%s  [%s] %s\n", formattedTimestamp, region, message)
 		return
 	}
-	fmt.Fprintf(w, "%s  %s\n", time.UnixMilli(timestamp).Format(time.RFC3339), message)
+	fmt.Fprintf(w, "%s  %s\n", formattedTimestamp, message)
 }
 
 func functionStatus(fn apiclient.Function) string {

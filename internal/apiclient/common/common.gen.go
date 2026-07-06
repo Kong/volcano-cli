@@ -2043,11 +2043,11 @@ type LogActivityBucket struct {
 		ResourceIds map[string]int `json:"resource_ids"`
 	} `json:"counts"`
 
-	// EndTime Bucket end time in milliseconds since epoch.
-	EndTime int64 `json:"end_time"`
+	// EndTime Bucket end time.
+	EndTime time.Time `json:"end_time"`
 
-	// StartTime Bucket start time in milliseconds since epoch.
-	StartTime int64 `json:"start_time"`
+	// StartTime Bucket start time.
+	StartTime time.Time `json:"start_time"`
 
 	// Total Total events in this bucket.
 	Total int `json:"total"`
@@ -2058,8 +2058,8 @@ type LogActivityRequest struct {
 	// BucketCount Number of activity buckets to return.
 	BucketCount *int `json:"bucket_count,omitempty"`
 
-	// EndTime End time in milliseconds since epoch.
-	EndTime *int64 `json:"end_time,omitempty"`
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
 
 	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
@@ -2073,8 +2073,8 @@ type LogActivityRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // LogActivityResponse Bucketed runtime log activity.
@@ -2144,8 +2144,8 @@ type LogEvent struct {
 	// Resource Resource that owns a historical log event.
 	Resource *LogResource `json:"resource,omitempty"`
 
-	// Timestamp Unix timestamp in milliseconds.
-	Timestamp int64 `json:"timestamp"`
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // LogFrontendRequestResource Frontend log resource selector.
@@ -2227,8 +2227,8 @@ type LogSearchEvent struct {
 	// Resource Resource that owns a historical log event.
 	Resource LogResource `json:"resource"`
 
-	// Timestamp Unix timestamp in milliseconds.
-	Timestamp int64 `json:"timestamp"`
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // LogSearchRequest Search request for project logs.
@@ -2236,8 +2236,8 @@ type LogSearchRequest struct {
 	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
 	Cursor *string `json:"cursor,omitempty"`
 
-	// EndTime End time in milliseconds since epoch.
-	EndTime *int64 `json:"end_time,omitempty"`
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
 
 	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
@@ -2254,8 +2254,8 @@ type LogSearchRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // LogSearchResponse Paginated project runtime log search response.
@@ -2287,8 +2287,8 @@ type LogStreamRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
