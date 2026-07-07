@@ -427,6 +427,12 @@ func TestPullRefusesToOverwriteWithoutForce(t *testing.T) {
 	assert.Contains(t, out, "Configuration written to volcano-config.yaml")
 
 	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
+
+	// Forcing over a pre-existing 0644 manifest must still restrict it to
+	// owner-only: pulled manifests include variable values.
+	info, err := os.Stat(filepath.Join(dir, "volcano-config.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
 func TestPullExplicitFileCreatesDirectory(t *testing.T) {

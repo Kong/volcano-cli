@@ -201,12 +201,45 @@ func runPull(ctx context.Context, opts pullOptions) error {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	if err := os.WriteFile(targetPath, manifest, pulledManifestMode); err != nil {
-		return fmt.Errorf("failed to write configuration to %s: %w", targetPath, err)
+	if err := writePulledManifest(targetPath, manifest); err != nil {
+		return err
 	}
 
 	output.Success(opts.out, "Configuration written to %s", targetPath)
 	output.Note(opts.out, "write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
+	return nil
+}
+
+// writePulledManifest writes the pulled manifest owner-only (pulledManifestMode)
+// even when overwriting an existing file. os.WriteFile only applies its mode
+// when it creates the file, so a --force overwrite of a pre-existing 0644
+// manifest would keep the looser mode and leave the exported variable values
+// readable by other local users. Writing a fresh 0600 temp file in the target
+// directory and renaming it into place makes the write atomic and guarantees
+// the owner-only mode regardless of any pre-existing file.
+func writePulledManifest(targetPath string, manifest []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(targetPath), ".volcano-config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary configuration file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	// Best-effort cleanup of the temp file if we fail before the rename lands.
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	if err := tmp.Chmod(pulledManifestMode); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to secure temporary configuration file %s: %w", tmpPath, err)
+	}
+	if _, err := tmp.Write(manifest); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to write configuration to %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to finalize configuration file %s: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, targetPath); err != nil {
+		return fmt.Errorf("failed to write configuration to %s: %w", targetPath, err)
+	}
 	return nil
 }
 
