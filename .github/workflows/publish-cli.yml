@@ -395,7 +395,6 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-          package-manager-cache: false
 
       # Trusted publishing requires npm >= 11.5.1; pin to the npm 11 line for
       # reproducibility rather than tracking npm@latest across major versions.
