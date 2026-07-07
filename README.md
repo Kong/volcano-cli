@@ -15,7 +15,7 @@ curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.
 Or install from npm:
 
 ```bash
-npm install -g @kong/volcano-cli
+npm install -g @volcano.dev/cli
 volcano --help
 ```
 
