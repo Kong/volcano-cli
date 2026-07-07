@@ -157,6 +157,13 @@ async function ensureBinary({ force = false } = {}) {
     return dest;
   }
 
+  if (pkg.version === '0.0.0') {
+    throw new Error(
+      'No published binary for development version 0.0.0; build from source ' +
+        'with `make build` or install a released version.'
+    );
+  }
+
   const name = assetName();
   const tag = releaseTag();
   const base = `${RELEASES_BASE}/download/${tag}`;
