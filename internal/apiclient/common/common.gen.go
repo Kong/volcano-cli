@@ -1191,6 +1191,93 @@ func (e ProjectFrontendDeploymentStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectHealthComponentName.
+const (
+	ProjectHealthComponentNameDatabases ProjectHealthComponentName = "databases"
+	ProjectHealthComponentNameFrontends ProjectHealthComponentName = "frontends"
+	ProjectHealthComponentNameFunctions ProjectHealthComponentName = "functions"
+	ProjectHealthComponentNameProject   ProjectHealthComponentName = "project"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthComponentName enum.
+func (e ProjectHealthComponentName) Valid() bool {
+	switch e {
+	case ProjectHealthComponentNameDatabases:
+		return true
+	case ProjectHealthComponentNameFrontends:
+		return true
+	case ProjectHealthComponentNameFunctions:
+		return true
+	case ProjectHealthComponentNameProject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthIssueSeverity.
+const (
+	Critical ProjectHealthIssueSeverity = "critical"
+	Warning  ProjectHealthIssueSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthIssueSeverity enum.
+func (e ProjectHealthIssueSeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Warning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthResourceType.
+const (
+	ProjectHealthResourceTypeDatabase ProjectHealthResourceType = "database"
+	ProjectHealthResourceTypeFrontend ProjectHealthResourceType = "frontend"
+	ProjectHealthResourceTypeFunction ProjectHealthResourceType = "function"
+	ProjectHealthResourceTypeProject  ProjectHealthResourceType = "project"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthResourceType enum.
+func (e ProjectHealthResourceType) Valid() bool {
+	switch e {
+	case ProjectHealthResourceTypeDatabase:
+		return true
+	case ProjectHealthResourceTypeFrontend:
+		return true
+	case ProjectHealthResourceTypeFunction:
+		return true
+	case ProjectHealthResourceTypeProject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthStatus.
+const (
+	Degraded  ProjectHealthStatus = "degraded"
+	Healthy   ProjectHealthStatus = "healthy"
+	Unhealthy ProjectHealthStatus = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthStatus enum.
+func (e ProjectHealthStatus) Valid() bool {
+	switch e {
+	case Degraded:
+		return true
+	case Healthy:
+		return true
+	case Unhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduleRequestKind.
 const (
 	ScheduleRequestKindCron ScheduleRequestKind = "cron"
@@ -3355,6 +3442,64 @@ type ProjectFrontendDeploymentOperation string
 
 // ProjectFrontendDeploymentStatus defines model for ProjectFrontendDeployment.Status.
 type ProjectFrontendDeploymentStatus string
+
+// ProjectHealthComponent defines model for ProjectHealthComponent.
+type ProjectHealthComponent struct {
+	Counts ProjectHealthCounts        `json:"counts"`
+	Name   ProjectHealthComponentName `json:"name"`
+	Status ProjectHealthStatus        `json:"status"`
+}
+
+// ProjectHealthComponentName defines model for ProjectHealthComponent.Name.
+type ProjectHealthComponentName string
+
+// ProjectHealthCounts defines model for ProjectHealthCounts.
+type ProjectHealthCounts struct {
+	Active       int `json:"active"`
+	Deleting     int `json:"deleting"`
+	Failed       int `json:"failed"`
+	Provisioning int `json:"provisioning"`
+	Total        int `json:"total"`
+	Unknown      int `json:"unknown"`
+}
+
+// ProjectHealthIssue defines model for ProjectHealthIssue.
+type ProjectHealthIssue struct {
+	CreatedAt             time.Time                  `json:"created_at"`
+	LastError             *string                    `json:"last_error,omitempty"`
+	Message               string                     `json:"message"`
+	ProvisioningStartedAt *time.Time                 `json:"provisioning_started_at,omitempty"`
+	Resource              ProjectHealthResource      `json:"resource"`
+	Severity              ProjectHealthIssueSeverity `json:"severity"`
+	Status                string                     `json:"status"`
+	UpdatedAt             time.Time                  `json:"updated_at"`
+}
+
+// ProjectHealthIssueSeverity defines model for ProjectHealthIssueSeverity.
+type ProjectHealthIssueSeverity string
+
+// ProjectHealthResource defines model for ProjectHealthResource.
+type ProjectHealthResource struct {
+	Id   openapi_types.UUID        `json:"id"`
+	Name string                    `json:"name"`
+	Type ProjectHealthResourceType `json:"type"`
+}
+
+// ProjectHealthResourceType defines model for ProjectHealthResource.Type.
+type ProjectHealthResourceType string
+
+// ProjectHealthResponse defines model for ProjectHealthResponse.
+type ProjectHealthResponse struct {
+	CheckedAt  time.Time                `json:"checked_at"`
+	Components []ProjectHealthComponent `json:"components"`
+	Counts     ProjectHealthCounts      `json:"counts"`
+	Issues     []ProjectHealthIssue     `json:"issues"`
+	ProjectId  openapi_types.UUID       `json:"project_id"`
+	Status     ProjectHealthStatus      `json:"status"`
+}
+
+// ProjectHealthStatus defines model for ProjectHealthStatus.
+type ProjectHealthStatus string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {

@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"go.yaml.in/yaml/v3"
-
 	externalRef0 "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -964,6 +962,9 @@ type ProjectConfigApplyResult = externalRef0.ProjectConfigApplyResult
 
 // ProjectConfigValidationErrorResponse Returned when manifest validation fails. Nothing was applied.
 type ProjectConfigValidationErrorResponse = externalRef0.ProjectConfigValidationErrorResponse
+
+// ProjectHealthResponse defines model for ProjectHealthResponse.
+type ProjectHealthResponse = externalRef0.ProjectHealthResponse
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse = externalRef0.ProjectUsageResponse
@@ -2983,6 +2984,9 @@ type ClientInterface interface {
 
 	UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetProjectHealth request
+	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4980,6 +4984,18 @@ func (c *Client) UpdateFunctionSchedulerWithBody(ctx context.Context, id Project
 
 func (c *Client) UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectHealthRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -10960,6 +10976,40 @@ func NewUpdateFunctionSchedulerRequestWithBody(server string, id ProjectId, func
 	return req, nil
 }
 
+// NewGetProjectHealthRequest generates requests for GetProjectHealth
+func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/health", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteProjectLogoRequest generates requests for DeleteProjectLogo
 func NewDeleteProjectLogoRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -13789,6 +13839,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
 
+	// GetProjectHealthWithResponse request
+	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
+
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
 
@@ -16354,7 +16407,6 @@ type GetProjectConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectConfig
-	YAML200      *string
 	JSON401      *Error
 	JSON404      *Error
 }
@@ -17625,6 +17677,40 @@ func (r UpdateFunctionSchedulerClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectHealthClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectHealthResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectHealthClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectHealthClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectHealthClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -20393,6 +20479,15 @@ func (c *ClientWithResponses) UpdateFunctionSchedulerWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateFunctionSchedulerClientResponse(rsp)
+}
+
+// GetProjectHealthWithResponse request returning *GetProjectHealthClientResponse
+func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error) {
+	rsp, err := c.GetProjectHealth(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectHealthClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -23463,13 +23558,6 @@ func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigC
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
-		var dest string
-		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.YAML200 = &dest
-
 	}
 
 	return response, nil
@@ -25120,6 +25208,60 @@ func ParseUpdateFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateFunc
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectHealthClientResponse parses an HTTP response from a GetProjectHealthWithResponse call
+func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectHealthClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectHealthResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

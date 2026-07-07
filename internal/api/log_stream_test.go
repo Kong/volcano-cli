@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 		_, _ = w.Write([]byte(": connected\n\n"))
 		_, _ = w.Write([]byte("id: next-id\n"))
 		_, _ = w.Write([]byte("event: log\n"))
-		_, _ = w.Write([]byte(`data: {"id":"log-1","message":"build finished","timestamp":"2026-07-06T12:00:00Z","resource":{"type":"function","id":"` + functionID.String() + `"},"deployment":{"id":"` + deploymentID.String() + `"}}` + "\n\n"))
+		_, _ = w.Write([]byte(`data: {"id":"log-1","message":"build finished","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"` + functionID.String() + `"},"deployment":{"id":"` + deploymentID.String() + `"}}` + "\n\n"))
 		_, _ = w.Write([]byte("event: warning\n"))
 		_, _ = w.Write([]byte(`data: {"error":"temporary read failure"}` + "\n\n"))
 	}))
@@ -61,6 +62,7 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 	assert.Equal(t, "next-id", event.ID)
 	assert.Equal(t, "log-1", event.Log.Id)
 	assert.Equal(t, "build finished", event.Log.Message)
+	assert.Equal(t, time.Date(2025, 10, 9, 8, 53, 20, 0, time.UTC), event.Log.Timestamp)
 
 	event, err = stream.Next()
 	require.NoError(t, err)

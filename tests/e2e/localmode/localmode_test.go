@@ -74,6 +74,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, functionGetOutput, "Name: hello")
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
+	assertVolcanoLocalModeE2EUserIsPro(t, env, info)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
@@ -279,9 +280,22 @@ func waitForVolcanoLocalModeE2EContains(t *testing.T, binary string, env []strin
 type localModeE2EInfo struct {
 	APIURL     string `json:"api_url"`
 	ProjectID  string `json:"project_id"`
+	UserID     string `json:"user_id"`
 	UserToken  string `json:"user_token"`
 	ServiceKey string `json:"service_key"`
 }
+
+type localModeE2EUser struct {
+	ID   string `json:"id"`
+	Plan string `json:"plan"`
+}
+
+// localModeE2EManagementURL is the container-internal management API address. It
+// is bound to localhost:8001 inside volcano-server and intentionally NOT
+// published to the host, so the plan checks below reach it via `docker exec`
+// (like `local info` above) rather than over info.APIURL, which is the public API
+// on 8000 and does not serve management routes.
+const localModeE2EManagementURL = "http://localhost:8001"
 
 func fetchVolcanoLocalModeE2EInfo(t *testing.T, env []string) localModeE2EInfo {
 	t.Helper()
@@ -298,10 +312,69 @@ func fetchVolcanoLocalModeE2EInfo(t *testing.T, env []string) localModeE2EInfo {
 	if err := json.Unmarshal(output, &info); err != nil {
 		t.Fatalf("failed to parse local-mode info: %v\n%s", err, output)
 	}
-	if info.APIURL == "" || info.ProjectID == "" || info.UserToken == "" || info.ServiceKey == "" {
+	if info.APIURL == "" || info.ProjectID == "" || info.UserID == "" || info.UserToken == "" || info.ServiceKey == "" {
 		t.Fatalf("local-mode info missing required fields: %s", output)
 	}
 	return info
+}
+
+// requestVolcanoLocalModeE2EManagement calls the container's management API from
+// inside volcano-server. That API is network-isolated (localhost:8001, not
+// published, not token-protected), so requests run through `docker exec` and busybox
+// wget, mirroring how the hosting CI exercises the same routes. It returns the
+// response body and whether the server answered 2xx (wget exits non-zero on 4xx/5xx).
+func requestVolcanoLocalModeE2EManagement(t *testing.T, env []string, method, path, jsonBody string) (string, bool) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	args := []string{"exec", "volcano-server", "wget", "-qO-"}
+	if method == http.MethodPost {
+		args = append(args, "--header", "Content-Type: application/json", "--post-data", jsonBody)
+	}
+	args = append(args, localModeE2EManagementURL+path)
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Env = env
+	output, err := cmd.CombinedOutput()
+	return string(output), err == nil
+}
+
+func assertVolcanoLocalModeE2EUserIsPro(t *testing.T, env []string, info localModeE2EInfo) {
+	t.Helper()
+
+	user := fetchVolcanoLocalModeE2EUser(t, env, info)
+	if user.Plan != "PRO" {
+		t.Fatalf("local-mode default user plan = %q, want PRO", user.Plan)
+	}
+
+	// Local mode must not expose the management downgrade path. The server runs
+	// every user as PRO locally; the route is unregistered in local mode, so this
+	// must fail. If it ever starts accepting FREE, the re-read below catches it.
+	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", `{"plan":"FREE"}`); ok {
+		t.Fatalf("local-mode management API unexpectedly accepted a plan downgrade: %s", body)
+	}
+
+	user = fetchVolcanoLocalModeE2EUser(t, env, info)
+	if user.Plan != "PRO" {
+		t.Fatalf("local-mode default user plan after attempted downgrade = %q, want PRO", user.Plan)
+	}
+}
+
+func fetchVolcanoLocalModeE2EUser(t *testing.T, env []string, info localModeE2EInfo) localModeE2EUser {
+	t.Helper()
+	body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodGet, "/users/"+info.UserID, "")
+	if !ok {
+		t.Fatalf("fetch local user %s failed: %s", info.UserID, body)
+	}
+	var user localModeE2EUser
+	if err := json.Unmarshal([]byte(body), &user); err != nil {
+		t.Fatalf("parse local user: %v\n%s", err, body)
+	}
+	if user.ID != info.UserID {
+		t.Fatalf("local user id = %q, want %q", user.ID, info.UserID)
+	}
+	return user
 }
 
 func waitForVolcanoLocalModeE2EFunctionID(t *testing.T, info localModeE2EInfo, name string) string {

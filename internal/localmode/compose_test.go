@@ -123,43 +123,17 @@ func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	assert.Contains(t, template, `"8080:8080"`)
 }
 
-func TestDockerComposeTemplateSetsPlanLimitsAndRegions(t *testing.T) {
+func TestDockerComposeTemplateSetsRegionsButNotPlanLimits(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
-	// Plan-limit env vars must survive an upstream template regen; guard against
-	// one that drops or renames them. Presence only -- some are legitimately "0"
-	// (unlimited/disabled), so this does not assert a value.
-	for _, key := range []string{
-		"FREE_FUNCTION_TIMEOUT",
-		"FREE_FUNCTION_MEMORY",
-		"FREE_FUNCTION_DISK",
-		"PRO_FUNCTION_TIMEOUT",
-		"PRO_FUNCTION_MEMORY",
-		"PRO_FUNCTION_DISK",
-		"FREE_FRONTEND_CUSTOM_DOMAINS",
-		"PRO_FRONTEND_CUSTOM_DOMAINS",
-		"FREE_SCHEDULER_COUNT",
-		"PRO_SCHEDULER_COUNT",
-		"FREE_BUILD_MAX_MINUTES",
-		"PRO_BUILD_MAX_MINUTES",
-		"FREE_LOG_RETENTION_DAYS",
-		"PRO_LOG_RETENTION_DAYS",
-		"FREE_IMAGE_OPTIMIZER_TIMEOUT",
-		"PRO_IMAGE_OPTIMIZER_TIMEOUT",
-		"FREE_IMAGE_OPTIMIZER_MEMORY",
-		"PRO_IMAGE_OPTIMIZER_MEMORY",
-		"FREE_IMAGE_OPTIMIZER_DISK",
-		"PRO_IMAGE_OPTIMIZER_DISK",
-		"FREE_DATABASE_CAP",
-		"PRO_DATABASE_CAP",
-		"FREE_DATABASE_STORAGE_LIMIT_MB",
-		"PRO_DATABASE_STORAGE_LIMIT_MB",
-		"FREE_STORAGE_BUCKETS_PER_PROJECT",
-		"PRO_STORAGE_BUCKETS_PER_PROJECT",
-		"AWS_REGIONS",
-	} {
-		assert.Contains(t, template, key+":", "compose template missing required env var %s", key)
-	}
+	assert.Contains(t, template, "AWS_REGIONS:", "compose template must still advertise local deployable regions")
+
+	// Local plan defaults are baked into the server binary so the distributed CLI
+	// template does not leak FREE_*/PRO_* entitlement numbers. The hosting config
+	// package has a reflection guard that fails when a new plan env var is added
+	// without a baked local default.
+	planEnv := regexp.MustCompile(`(?m)^\s*(FREE|PRO)_[A-Z0-9_]+:`)
+	assert.Empty(t, planEnv.FindString(template), "local-mode template must not ship FREE_*/PRO_* plan-limit env vars")
 }
 
 // TestDockerComposeTemplateUsesDurationStringsForTimingVars guards the
@@ -190,6 +164,35 @@ func composeTemplateEnvValue(t *testing.T, template, key string) string {
 	match := re.FindStringSubmatch(template)
 	require.Len(t, match, 2, "compose template missing env var %s", key)
 	return strings.TrimSpace(match[1])
+}
+
+// TestDockerComposeTemplateHasNoProductionIdentifiers fails if the shipped
+// local-mode template carries any production/staging identifier. The template is
+// generated verbatim from the hosting source with no sanitization pass, so this
+// is the defense-in-depth guard on the artifact that actually ships in the CLI.
+// The template is controlled config (no legitimate examples), so a strict
+// denylist is safe.
+func TestDockerComposeTemplateHasNoProductionIdentifiers(t *testing.T) {
+	template := string(dockerComposeTemplate)
+
+	forbidden := map[string]*regexp.Regexp{
+		"AWS ARN":              regexp.MustCompile(`arn:aws:`),
+		"12-digit AWS account": regexp.MustCompile(`\b\d{12}\b`),
+		"volcano.dev domain":   regexp.MustCompile(`\bvolcano\.dev\b`),
+		"AWS access key id":    regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+	}
+	for label, re := range forbidden {
+		match := re.FindString(template)
+		assert.Emptyf(t, match, "local-mode template leaks %s (%q); it must not carry production identifiers", label, match)
+	}
+
+	// AWS credentials must be the inert "local" placeholder, never a real key.
+	for _, key := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"} {
+		re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `:\s*"?([^"\n]+?)"?\s*$`)
+		for _, match := range re.FindAllStringSubmatch(template, -1) {
+			assert.Equalf(t, "local", strings.TrimSpace(match[1]), "%s must be the inert local placeholder", key)
+		}
+	}
 }
 
 func envValues(env []string, key string) []string {
