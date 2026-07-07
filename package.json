@@ -1,6 +1,6 @@
 {
   "name": "@volcano.dev/cli",
-  "version": "0.0.0",
+  "version": "0.0.4",
   "description": "Command-line client for Volcano, Kong's hosting platform.",
   "keywords": [
     "volcano",
