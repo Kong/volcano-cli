@@ -375,3 +375,79 @@ jobs:
           chmod +x "$TMP_DIR/volcano-linux-amd64"
           "$TMP_DIR/volcano-linux-amd64" --help
           "$TMP_DIR/volcano-linux-amd64" --version
+
+  publish-npm:
+    name: Publish npm package
+    runs-on: ubuntu-latest # Trusted publishing requires GitHub-hosted runners
+    needs: [resolve-release, publish-github-release]
+    # Publish to npm only for stable releases (skip main/nightly prereleases).
+    # This job runs npm publish directly in the release-triggered run, so npm's
+    # OIDC trusted publisher must be configured with this workflow's filename
+    # (publish-cli.yml). Dispatched/reusable workflows are not supported.
+    if: needs.resolve-release.outputs.prerelease == 'false'
+    permissions:
+      contents: read
+      id-token: write # REQUIRED for npm trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing requires npm >= 11.5.1; pin to the npm 11 line for
+      # reproducibility rather than tracking npm@latest across major versions.
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
+      - name: Resolve npm version
+        id: npm_version
+        env:
+          CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
+        run: |
+          set -euo pipefail
+          VERSION="${CLI_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Refusing to publish non-stable version to npm: ${CLI_VERSION}"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set package version
+        run: |
+          npm version "${{ steps.npm_version.outputs.version }}" \
+            --no-git-tag-version --allow-same-version
+
+      - name: Verify release assets exist
+        env:
+          VERSION: ${{ steps.npm_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          # Ranged GET (first byte) confirms each asset is actually downloadable,
+          # which is what the package's postinstall does.
+          for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
+            asset="volcano-${target}"
+            if [ "$target" = "windows-amd64" ]; then
+              asset="${asset}.exe"
+            fi
+            echo "Checking ${base}/${asset}"
+            curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/${asset}"
+          done
+          echo "Checking ${base}/SHA256SUMS"
+          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/SHA256SUMS"
+
+      # OIDC trusted publishing: npm detects the id-token and authenticates
+      # automatically; provenance is generated for public repos. No NPM_TOKEN.
+      # VOLCANO_SKIP_DOWNLOAD stops the postinstall fetching a binary in CI.
+      #
+      # BOOTSTRAP: until an npm admin does the first manual publish and sets the
+      # OIDC trusted publisher (workflow file: publish-cli.yml), this step fails
+      # with ENEEDAUTH. continue-on-error keeps the release green meanwhile --
+      # REMOVE it once trusted publishing is live so real failures surface.
+      - name: Publish to npm
+        continue-on-error: true
+        env:
+          VOLCANO_SKIP_DOWNLOAD: "1"
+        run: npm publish

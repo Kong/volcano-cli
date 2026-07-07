@@ -1,5 +1,8 @@
 /volcano
 /dist/
+# Downloaded platform binaries fetched by the npm postinstall (keep bin/volcano.js)
+/bin/volcano-*
+node_modules/
 /.env
 /.env.local
 /.env.*
