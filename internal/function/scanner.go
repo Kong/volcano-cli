@@ -7,20 +7,20 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Kong/volcano-cli/internal/apiclient"
+	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // RuntimeCatalog indexes API-provided default runtime metadata for local source detection.
 type RuntimeCatalog struct {
-	byExtension  map[string]apiclient.FunctionRuntimeOption
-	byEntrypoint map[string]apiclient.FunctionRuntimeOption
+	byExtension  map[string]apicommon.FunctionRuntimeOption
+	byEntrypoint map[string]apicommon.FunctionRuntimeOption
 }
 
 // RuntimeCatalogFromOptions converts the API runtime catalog to scanner/package metadata.
-func RuntimeCatalogFromOptions(options []apiclient.FunctionRuntimeOption) RuntimeCatalog {
+func RuntimeCatalogFromOptions(options []apicommon.FunctionRuntimeOption) RuntimeCatalog {
 	catalog := RuntimeCatalog{
-		byExtension:  map[string]apiclient.FunctionRuntimeOption{},
-		byEntrypoint: map[string]apiclient.FunctionRuntimeOption{},
+		byExtension:  map[string]apicommon.FunctionRuntimeOption{},
+		byEntrypoint: map[string]apicommon.FunctionRuntimeOption{},
 	}
 
 	for _, option := range options {
@@ -36,12 +36,12 @@ func RuntimeCatalogFromOptions(options []apiclient.FunctionRuntimeOption) Runtim
 	return catalog
 }
 
-func (c RuntimeCatalog) runtimeForFile(filename string) (apiclient.FunctionRuntimeOption, bool) {
+func (c RuntimeCatalog) runtimeForFile(filename string) (apicommon.FunctionRuntimeOption, bool) {
 	runtime, ok := c.byExtension[filepath.Ext(filename)]
 	return runtime, ok
 }
 
-func (c RuntimeCatalog) runtimeForEntrypoint(filename string) (apiclient.FunctionRuntimeOption, bool) {
+func (c RuntimeCatalog) runtimeForEntrypoint(filename string) (apicommon.FunctionRuntimeOption, bool) {
 	runtime, ok := c.byEntrypoint[filename]
 	return runtime, ok
 }
@@ -50,7 +50,7 @@ func (c RuntimeCatalog) runtimeForEntrypoint(filename string) (apiclient.Functio
 type SourceInfo struct {
 	Path    string
 	Name    string
-	Runtime apiclient.FunctionRuntimeOption
+	Runtime apicommon.FunctionRuntimeOption
 	IsDir   bool
 }
 
@@ -101,10 +101,10 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 	return functions, nil
 }
 
-func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
+func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apicommon.FunctionRuntimeOption, string, bool) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return apiclient.FunctionRuntimeOption{}, "", false
+		return apicommon.FunctionRuntimeOption{}, "", false
 	}
 
 	for _, entry := range entries {
@@ -119,7 +119,7 @@ func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.F
 			}
 		}
 	}
-	return apiclient.FunctionRuntimeOption{}, "", false
+	return apicommon.FunctionRuntimeOption{}, "", false
 }
 
 // SharedLibrary represents a shared function library file or directory.

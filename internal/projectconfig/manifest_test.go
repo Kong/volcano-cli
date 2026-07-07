@@ -1,6 +1,7 @@
 package projectconfig
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,290 +10,372 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidate(t *testing.T) {
-	limit := int64(1024)
-	zero := int64(0)
-	pub := true
-	priv := false
+func noEnv(string) (string, bool) { return "", false }
 
+func envMap(values map[string]string) func(string) (string, bool) {
+	return func(name string) (string, bool) {
+		value, ok := values[name]
+		return value, ok
+	}
+}
+
+func TestParseFullManifest(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+project:
+  name: my-app
+  all_regions: false
+  selected_regions: [us-east-1, us-west-2]
+databases:
+  - name: appdb
+    region: aws-us-east-1
+    pg_version: "16"
+    database_type: volcano-db-xs
+variables:
+  - name: STRIPE_SECRET_KEY
+    value: sk_test_123
+buckets:
+  - name: avatars
+    file_size_limit: 5242880
+    allowed_mime_types: [image/png]
+    policies:
+      - name: public-read
+        operation: SELECT
+        definition: "true"
+realtime:
+  enabled: true
+  broadcast_enabled: false
+auth:
+  tokens:
+    access_token_lifetime: 3600
+  signup:
+    enable_signup: true
+  providers:
+    email_password:
+      enabled: true
+    oauth:
+      - provider: google
+        enabled: true
+        client_id: cid
+        client_secret: secret
+        redirect_url: https://api.myapp.com/callback
+        scopes: [openid, email]
+      - provider: device
+        enabled: true
+  email:
+    enabled: true
+    from:
+      address: no-reply@myapp.com
+      name: My App
+    smtp:
+      host: smtp.example.com
+      port: 587
+      username: mailer
+      password: hunter2
+      use_tls: true
+    templates:
+      confirmation:
+        subject: "Confirm"
+        html_body: "<p>{{.Token}}</p>"
+        text_body: "{{.Token}}"
+      welcome:
+        subject: "Welcome"
+  managed_pages:
+    enabled: true
+    redirects:
+      allowed: [https://myapp.com/welcome]
+      post_auth: https://myapp.com/welcome
+    pages:
+      login:
+        html: "<html></html>"
+        css: "body{}"
+functions:
+  - name: hello
+    public: true
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+        enabled: true
+        payload: { source: cron }
+frontends:
+  - name: web
+    custom_domain:
+      domain: app.myapp.com
+      tls:
+        mode: byoc
+        certificate_pem: CERT
+        private_key_pem: KEY
+        certificate_chain_pem: CHAIN
+`), noEnv)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, manifest.Version)
+	require.NotNil(t, manifest.Project)
+	assert.Equal(t, "my-app", *manifest.Project.Name)
+	require.NotNil(t, manifest.Project.AllRegions)
+	assert.False(t, *manifest.Project.AllRegions)
+	assert.Equal(t, []string{"us-east-1", "us-west-2"}, *manifest.Project.SelectedRegions)
+
+	require.NotNil(t, manifest.Databases)
+	require.Len(t, *manifest.Databases, 1)
+	assert.Equal(t, "16", (*manifest.Databases)[0].PgVersion)
+	assert.Equal(t, "volcano-db-xs", *(*manifest.Databases)[0].DatabaseType)
+
+	require.NotNil(t, manifest.Variables)
+	assert.Equal(t, "sk_test_123", (*manifest.Variables)[0].Value)
+
+	require.NotNil(t, manifest.Buckets)
+	bucket := (*manifest.Buckets)[0]
+	assert.EqualValues(t, 5242880, *bucket.FileSizeLimit)
+	require.NotNil(t, bucket.Policies)
+	assert.Equal(t, "SELECT", (*bucket.Policies)[0].Operation)
+
+	require.NotNil(t, manifest.Realtime)
+	assert.True(t, *manifest.Realtime.Enabled)
+	assert.False(t, *manifest.Realtime.BroadcastEnabled)
+	assert.Nil(t, manifest.Realtime.PresenceEnabled)
+
+	require.NotNil(t, manifest.Auth)
+	assert.Equal(t, 3600, *manifest.Auth.Tokens.AccessTokenLifetime)
+	require.NotNil(t, manifest.Auth.Providers.Oauth)
+	oauth := *manifest.Auth.Providers.Oauth
+	require.Len(t, oauth, 2)
+	assert.Equal(t, "google", oauth[0].Provider)
+	assert.Equal(t, "secret", *oauth[0].ClientSecret)
+	assert.Equal(t, "device", oauth[1].Provider)
+	assert.Equal(t, "hunter2", *manifest.Auth.Email.SMTP.Password)
+	assert.Equal(t, "Confirm", *manifest.Auth.Email.Templates.Confirmation.Subject)
+	assert.Nil(t, manifest.Auth.Email.Templates.PasswordReset)
+	assert.Equal(t, "<html></html>", manifest.Auth.ManagedPages.Pages.Login.HTML)
+
+	require.NotNil(t, manifest.Functions)
+	function := (*manifest.Functions)[0]
+	assert.True(t, *function.Public)
+	require.NotNil(t, function.Schedulers)
+	scheduler := (*function.Schedulers)[0]
+	assert.Equal(t, "0 3 * * *", scheduler.Cron)
+	require.NotNil(t, scheduler.Payload)
+	assert.Equal(t, map[string]any{"source": "cron"}, *scheduler.Payload)
+
+	require.NotNil(t, manifest.Frontends)
+	frontend := (*manifest.Frontends)[0]
+	require.NotNil(t, frontend.CustomDomain)
+	assert.Equal(t, "app.myapp.com", frontend.CustomDomain.Domain)
+	require.NotNil(t, frontend.CustomDomain.TLS)
+	assert.Equal(t, "byoc", frontend.CustomDomain.TLS.Mode)
+	assert.Equal(t, "CHAIN", *frontend.CustomDomain.TLS.CertificateChainPEM)
+}
+
+func TestParseErrors(t *testing.T) {
 	tests := []struct {
 		name        string
-		manifest    Manifest
+		yaml        string
 		errContains string
 	}{
 		{
-			name: "valid buckets only",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{Name: "uploads"}},
-			},
-		},
-		{
-			name: "valid functions only",
-			manifest: Manifest{
-				Version:   1,
-				Functions: []FunctionManifest{{Name: "hello", Public: &pub}},
-			},
-		},
-		{
-			name: "version 0 rejected",
-			manifest: Manifest{
-				Buckets: []BucketManifest{{Name: "uploads"}},
-			},
+			name:        "version 0 rejected",
+			yaml:        "buckets:\n  - name: uploads\n",
 			errContains: "unsupported manifest version 0",
 		},
 		{
 			name:        "version 2 rejected",
-			manifest:    Manifest{Version: 2, Buckets: []BucketManifest{{Name: "uploads"}}},
+			yaml:        "version: 2\n",
 			errContains: "unsupported manifest version 2",
 		},
 		{
-			name:        "empty manifest rejected",
-			manifest:    Manifest{Version: 1},
-			errContains: "must include at least one bucket or function",
+			name:        "empty manifest",
+			yaml:        "",
+			errContains: "manifest is empty",
 		},
 		{
-			name: "duplicate bucket name",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{Name: "uploads"}, {Name: "uploads"}},
-			},
-			errContains: `duplicate bucket name "uploads"`,
+			name:        "invalid yaml",
+			yaml:        "not: valid: yaml: :",
+			errContains: "failed to parse YAML",
 		},
 		{
-			name: "blank bucket name",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{Name: "   "}},
-			},
-			errContains: "bucket name is required",
+			name:        "unknown field rejected",
+			yaml:        "version: 1\nbuckets:\n  - name: uploads\n    file_size: 10\n",
+			errContains: "field file_size not found",
 		},
 		{
-			name: "non-positive file size limit",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{Name: "uploads", FileSizeLimit: &zero}},
-			},
-			errContains: "file_size_limit must be greater than 0",
-		},
-		{
-			name: "all-empty allowed mime types",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{
-					{Name: "uploads", AllowedMimeTypes: &[]string{"", "  "}},
-				},
-			},
-			errContains: "contains only empty values",
-		},
-		{
-			name: "duplicate policy name within bucket",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{
-					Name: "uploads",
-					Policies: []PolicyManifest{
-						{Name: "owner", Operation: "select", Definition: "true"},
-						{Name: "owner", Operation: "insert", Definition: "true"},
-					},
-				}},
-			},
-			errContains: `duplicate policy name "owner"`,
-		},
-		{
-			name: "invalid policy operation",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{
-					Name: "uploads",
-					Policies: []PolicyManifest{
-						{Name: "owner", Operation: "READ", Definition: "true"},
-					},
-				}},
-			},
-			errContains: "operation must be SELECT, INSERT, UPDATE, or DELETE",
-		},
-		{
-			name: "missing policy definition",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{
-					Name: "uploads",
-					Policies: []PolicyManifest{
-						{Name: "owner", Operation: "select"},
-					},
-				}},
-			},
-			errContains: "definition is required",
-		},
-		{
-			name: "missing function public flag and no schedulers",
-			manifest: Manifest{
-				Version:   1,
-				Functions: []FunctionManifest{{Name: "hello"}},
-			},
-			errContains: `function "hello": must set 'public' or declare at least one scheduler`,
-		},
-		{
-			name: "function with schedulers only (no public)",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name: "hello",
-					Schedulers: []SchedulerManifest{{
-						Name: "daily",
-						Cron: "0 0 * * *",
-					}},
-				}},
-			},
-		},
-		{
-			name: "function with both public and schedulers",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name:   "hello",
-					Public: &pub,
-					Schedulers: []SchedulerManifest{{
-						Name: "hourly",
-						Cron: "0 * * * *",
-					}},
-				}},
-			},
-		},
-		{
-			name: "scheduler missing name",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name:   "hello",
-					Public: &pub,
-					Schedulers: []SchedulerManifest{{
-						Cron: "0 0 * * *",
-					}},
-				}},
-			},
-			errContains: `function "hello": scheduler name is required`,
-		},
-		{
-			name: "scheduler missing cron",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name:   "hello",
-					Public: &pub,
-					Schedulers: []SchedulerManifest{{
-						Name: "daily",
-					}},
-				}},
-			},
-			errContains: `function "hello" scheduler "daily": cron is required`,
-		},
-		{
-			name: "duplicate scheduler name",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name:   "hello",
-					Public: &pub,
-					Schedulers: []SchedulerManifest{
-						{Name: "daily", Cron: "0 0 * * *"},
-						{Name: "daily", Cron: "0 12 * * *"},
-					},
-				}},
-			},
-			errContains: `function "hello": duplicate scheduler name "daily"`,
-		},
-		{
-			name: "duplicate function name",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{
-					{Name: "hello", Public: &pub},
-					{Name: "hello", Public: &priv},
-				},
-			},
-			errContains: `duplicate function name "hello"`,
-		},
-		{
-			name: "scheduler with full fields",
-			manifest: Manifest{
-				Version: 1,
-				Functions: []FunctionManifest{{
-					Name:   "hello",
-					Public: &pub,
-					Schedulers: []SchedulerManifest{{
-						Name:    "daily",
-						Cron:    "0 0 * * *",
-						Enabled: &pub,
-						Payload: map[string]any{"key": "value"},
-						Regions: []string{"us-east-1"},
-					}},
-				}},
-			},
-		},
-		{
-			name: "normalization: operation lowercase, file size limit kept",
-			manifest: Manifest{
-				Version: 1,
-				Buckets: []BucketManifest{{
-					Name:          "uploads",
-					FileSizeLimit: &limit,
-					Policies: []PolicyManifest{
-						{Name: "owner", Operation: "select", Definition: "true"},
-					},
-				}},
-			},
+			name: "scheduler regions rejected",
+			yaml: `version: 1
+functions:
+  - name: hello
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+        regions: [aws-us-east-1]
+`,
+			errContains: `scheduler placement is managed by the server`,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			m := tc.manifest
-			err := m.Validate()
-			if tc.errContains != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tc.errContains)
-				return
-			}
-			require.NoError(t, err)
+			_, err := Parse([]byte(tc.yaml), noEnv)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errContains)
 		})
 	}
 }
 
-func TestValidateNormalizesPolicyOperationAndMIME(t *testing.T) {
-	m := Manifest{
-		Version: 1,
-		Buckets: []BucketManifest{{
-			Name:             "uploads",
-			AllowedMimeTypes: &[]string{"image/png", " ", "image/jpeg"},
-			Policies: []PolicyManifest{
-				{Name: "owner", Operation: " select ", Definition: " true "},
-			},
-		}},
-	}
-	require.NoError(t, m.Validate())
+func TestParseInterpolation(t *testing.T) {
+	lookup := envMap(map[string]string{
+		"SECRET":   "s3cr3t",
+		"EMPTY":    "",
+		"REGION_1": "us-east-1",
+	})
 
-	bucket := m.Buckets[0]
-	require.NotNil(t, bucket.AllowedMimeTypes)
-	assert.Equal(t, []string{"image/png", "image/jpeg"}, *bucket.AllowedMimeTypes)
-	assert.Equal(t, "SELECT", bucket.Policies[0].Operation)
-	assert.Equal(t, "true", bucket.Policies[0].Definition)
+	t.Run("values interpolated", func(t *testing.T) {
+		manifest, err := Parse([]byte(`version: 1
+variables:
+  - name: API_KEY
+    value: ${SECRET}
+  - name: COMPOSED
+    value: pre-${SECRET}-post
+  - name: SET_BUT_EMPTY
+    value: ${EMPTY}
+`), lookup)
+		require.NoError(t, err)
+		variables := *manifest.Variables
+		assert.Equal(t, "s3cr3t", variables[0].Value)
+		assert.Equal(t, "pre-s3cr3t-post", variables[1].Value)
+		assert.Empty(t, variables[2].Value)
+	})
+
+	t.Run("dollar escape", func(t *testing.T) {
+		manifest, err := Parse([]byte(`version: 1
+variables:
+  - name: LITERAL
+    value: cost is $$5 for ${SECRET}
+  - name: LONE_DOLLAR
+    value: 5$ and $techno
+`), lookup)
+		require.NoError(t, err)
+		variables := *manifest.Variables
+		assert.Equal(t, "cost is $5 for s3cr3t", variables[0].Value)
+		assert.Equal(t, "5$ and $techno", variables[1].Value)
+	})
+
+	t.Run("interpolates nested strings", func(t *testing.T) {
+		manifest, err := Parse([]byte(`version: 1
+auth:
+  email:
+    smtp:
+      password: ${SECRET}
+functions:
+  - name: hello
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+        payload: { key: "${SECRET}" }
+project:
+  selected_regions: ["${REGION_1}"]
+`), lookup)
+		require.NoError(t, err)
+		assert.Equal(t, "s3cr3t", *manifest.Auth.Email.SMTP.Password)
+		payload := *(*(*manifest.Functions)[0].Schedulers)[0].Payload
+		assert.Equal(t, "s3cr3t", payload["key"])
+		assert.Equal(t, []string{"us-east-1"}, *manifest.Project.SelectedRegions)
+	})
+
+	t.Run("keys are not interpolated", func(t *testing.T) {
+		manifest, err := Parse([]byte(`version: 1
+functions:
+  - name: hello
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+        payload:
+          "${SECRET}": raw-key
+`), lookup)
+		require.NoError(t, err)
+		payload := *(*(*manifest.Functions)[0].Schedulers)[0].Payload
+		assert.Equal(t, "raw-key", payload["${SECRET}"])
+	})
+
+	t.Run("missing variable is an error", func(t *testing.T) {
+		_, err := Parse([]byte("version: 1\nvariables:\n  - name: A\n    value: ${MISSING_VAR}\n"), lookup)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `environment variable "MISSING_VAR" is not set`)
+	})
+
+	t.Run("unterminated reference is an error", func(t *testing.T) {
+		_, err := Parse([]byte("version: 1\nvariables:\n  - name: A\n    value: ${SECRET\n"), lookup)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unterminated ${...} reference")
+	})
+
+	t.Run("empty reference is an error", func(t *testing.T) {
+		_, err := Parse([]byte("version: 1\nvariables:\n  - name: A\n    value: ${}\n"), lookup)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty ${} reference")
+	})
+
+	t.Run("non-string scalars untouched", func(t *testing.T) {
+		manifest, err := Parse([]byte("version: 1\nrealtime:\n  enabled: true\n"), noEnv)
+		require.NoError(t, err)
+		assert.True(t, *manifest.Realtime.Enabled)
+	})
+}
+
+// TestManifestJSONShape guards the JSON contract with the apply endpoint:
+// omitted sections are absent, declared-empty lists serialize as [] (full
+// sync deletes everything), and the rejected regions field never uploads.
+func TestManifestJSONShape(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+variables: []
+buckets:
+  - name: avatars
+    policies: []
+functions:
+  - name: hello
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+`), noEnv)
+	require.NoError(t, err)
+
+	encoded, err := json.Marshal(manifest)
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &body))
+
+	assert.EqualValues(t, 1, body["version"])
+	assert.Equal(t, []any{}, body["variables"])
+	assert.NotContains(t, body, "auth")
+	assert.NotContains(t, body, "realtime")
+	assert.NotContains(t, body, "project")
+	assert.NotContains(t, body, "databases")
+	assert.NotContains(t, body, "frontends")
+
+	buckets, ok := body["buckets"].([]any)
+	require.True(t, ok)
+	bucket, ok := buckets[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{}, bucket["policies"])
+	assert.NotContains(t, bucket, "file_size_limit")
+
+	functions, ok := body["functions"].([]any)
+	require.True(t, ok)
+	function, ok := functions[0].(map[string]any)
+	require.True(t, ok)
+	schedulers, ok := function["schedulers"].([]any)
+	require.True(t, ok)
+	scheduler, ok := schedulers[0].(map[string]any)
+	require.True(t, ok)
+	assert.NotContains(t, scheduler, "regions")
+	assert.NotContains(t, scheduler, "enabled")
 }
 
 func TestLoad(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "manifest.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(`version: 1
-buckets:
-  - name: uploads
-    file_size_limit: 2048
-    allowed_mime_types:
-      - image/png
-    policies:
-      - name: owner
-        operation: select
-        definition: "auth.uid() = owner_id"
+variables:
+  - name: KEY
+    value: literal
 functions:
   - name: hello
     public: true
@@ -301,17 +384,21 @@ functions:
 	manifest, resolved, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, path, resolved)
-	require.Len(t, manifest.Buckets, 1)
-	assert.Equal(t, "uploads", manifest.Buckets[0].Name)
-	require.NotNil(t, manifest.Buckets[0].FileSizeLimit)
-	assert.EqualValues(t, 2048, *manifest.Buckets[0].FileSizeLimit)
-	require.NotNil(t, manifest.Buckets[0].AllowedMimeTypes)
-	assert.Equal(t, []string{"image/png"}, *manifest.Buckets[0].AllowedMimeTypes)
-	require.Len(t, manifest.Buckets[0].Policies, 1)
-	assert.Equal(t, "SELECT", manifest.Buckets[0].Policies[0].Operation)
-	require.Len(t, manifest.Functions, 1)
-	require.NotNil(t, manifest.Functions[0].Public)
-	assert.True(t, *manifest.Functions[0].Public)
+	require.NotNil(t, manifest.Variables)
+	assert.Equal(t, "literal", (*manifest.Variables)[0].Value)
+	require.NotNil(t, manifest.Functions)
+	assert.True(t, *(*manifest.Functions)[0].Public)
+}
+
+func TestLoadInterpolatesFromProcessEnv(t *testing.T) {
+	t.Setenv("VOLCANO_TEST_MANIFEST_SECRET", "from-env")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "manifest.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("version: 1\nvariables:\n  - name: KEY\n    value: ${VOLCANO_TEST_MANIFEST_SECRET}\n"), 0o644))
+
+	manifest, _, err := Load(path)
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", (*manifest.Variables)[0].Value)
 }
 
 func TestLoadEmptyPath(t *testing.T) {
@@ -320,32 +407,11 @@ func TestLoadEmptyPath(t *testing.T) {
 	assert.Contains(t, err.Error(), "file path is required")
 }
 
-func TestLoadInvalidYAML(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "manifest.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("not: valid: yaml: :"), 0o644))
-
-	_, _, err := Load(path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to parse YAML")
-}
-
 func TestLoadMissingFile(t *testing.T) {
 	dir := t.TempDir()
 	_, _, err := Load(filepath.Join(dir, "absent.yaml"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read configuration file")
-}
-
-func TestLoadValidationFailure(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "manifest.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("version: 1\n"), 0o644))
-
-	_, _, err := Load(path)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must include at least one bucket or function")
-	assert.NotContains(t, err.Error(), "failed to parse")
 }
 
 // withTempWorkingDir chdirs into a fresh temp directory for the test body and
@@ -421,5 +487,35 @@ func TestResolveManifestPath_ErrorsWhenMissing(t *testing.T) {
 		_, err := ResolveManifestPath("")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no volcano-config.yaml file found")
+	})
+}
+
+func TestDefaultPullPath(t *testing.T) {
+	t.Run("existing nested manifest wins", func(t *testing.T) {
+		withTempWorkingDir(t, func(_ string) {
+			require.NoError(t, os.MkdirAll("volcano", 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+			assert.Equal(t, filepath.Join("volcano", "volcano-config.yaml"), DefaultPullPath())
+		})
+	})
+
+	t.Run("existing root manifest wins", func(t *testing.T) {
+		withTempWorkingDir(t, func(_ string) {
+			require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\n"), 0o644))
+			assert.Equal(t, "volcano-config.yaml", DefaultPullPath())
+		})
+	})
+
+	t.Run("volcano directory preferred", func(t *testing.T) {
+		withTempWorkingDir(t, func(_ string) {
+			require.NoError(t, os.MkdirAll("volcano", 0o755))
+			assert.Equal(t, filepath.Join("volcano", "volcano-config.yaml"), DefaultPullPath())
+		})
+	})
+
+	t.Run("falls back to root", func(t *testing.T) {
+		withTempWorkingDir(t, func(_ string) {
+			assert.Equal(t, "volcano-config.yaml", DefaultPullPath())
+		})
 	})
 }

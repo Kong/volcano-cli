@@ -29,7 +29,7 @@ func TestDeploymentStopsAtTerminalStatusAndRunsCatchUp(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("id: stream-cursor\n"))
 		_, _ = w.Write([]byte("event: log\n"))
-		_, _ = w.Write([]byte(`data: {"id":"streamed-id","message":"streamed log","timestamp":1760000000000,"resource":{"type":"function","id":"` + functionID.String() + `"}}` + "\n\n"))
+		_, _ = w.Write([]byte(`data: {"id":"streamed-id","message":"streamed log","timestamp":"2026-07-06T12:00:00Z","resource":{"type":"function","id":"` + functionID.String() + `"}}` + "\n\n"))
 		flusher.Flush()
 		<-r.Context().Done()
 	}))
@@ -77,7 +77,7 @@ func TestDeploymentRunsCatchUpWhenStreamEndsBeforeTerminal(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("id: stream-cursor\n"))
 		_, _ = w.Write([]byte("event: log\n"))
-		_, _ = w.Write([]byte(`data: {"id":"streamed-id","message":"streamed log","timestamp":1760000000000,"resource":{"type":"function","id":"` + functionID.String() + `"}}` + "\n\n"))
+		_, _ = w.Write([]byte(`data: {"id":"streamed-id","message":"streamed log","timestamp":"2026-07-06T12:00:00Z","resource":{"type":"function","id":"` + functionID.String() + `"}}` + "\n\n"))
 	}))
 	defer server.Close()
 
@@ -210,7 +210,7 @@ func TestRuntimeSurfacesOpenError(t *testing.T) {
 func writeStreamLog(w http.ResponseWriter, cursor, logID, message string) {
 	_, _ = w.Write([]byte("id: " + cursor + "\n"))
 	_, _ = w.Write([]byte("event: log\n"))
-	_, _ = w.Write([]byte(`data: {"id":"` + logID + `","message":"` + message + `","timestamp":1760000000000,"resource":{"type":"function","id":"22222222-2222-4222-8222-222222222222"}}` + "\n\n"))
+	_, _ = w.Write([]byte(`data: {"id":"` + logID + `","message":"` + message + `","timestamp":"2026-07-06T12:00:00Z","resource":{"type":"function","id":"22222222-2222-4222-8222-222222222222"}}` + "\n\n"))
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}

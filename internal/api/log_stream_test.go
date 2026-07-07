@@ -31,7 +31,7 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 		_, _ = w.Write([]byte(": connected\n\n"))
 		_, _ = w.Write([]byte("id: next-id\n"))
 		_, _ = w.Write([]byte("event: log\n"))
-		_, _ = w.Write([]byte(`data: {"id":"log-1","message":"build finished","timestamp":1760000000000,"resource":{"type":"function","id":"` + functionID.String() + `"},"deployment":{"id":"` + deploymentID.String() + `"}}` + "\n\n"))
+		_, _ = w.Write([]byte(`data: {"id":"log-1","message":"build finished","timestamp":"2026-07-06T12:00:00Z","resource":{"type":"function","id":"` + functionID.String() + `"},"deployment":{"id":"` + deploymentID.String() + `"}}` + "\n\n"))
 		_, _ = w.Write([]byte("event: warning\n"))
 		_, _ = w.Write([]byte(`data: {"error":"temporary read failure"}` + "\n\n"))
 	}))

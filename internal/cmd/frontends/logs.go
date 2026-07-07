@@ -152,7 +152,7 @@ func followDeploymentLogs(ctx context.Context, opts frontendLogsOptions, service
 	})
 }
 
-func frontendDeploymentTerminal(deployment *apiclient.FrontendDeployment) bool {
+func frontendDeploymentTerminal(deployment *apicommon.FrontendDeployment) bool {
 	if deployment == nil {
 		return false
 	}

@@ -77,8 +77,33 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
+	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
+version: 1
+variables:
+  - name: SMOKE_MESSAGE
+    value: hello-from-volcano-cli
+  - name: CONFIG_SMOKE
+    value: from-config-deploy
+functions:
+  - name: hello
+    public: true
+`)
+	configDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "config", "deploy")
+	requireContains(t, configDeployOutput, "Configuration deployed from volcano-config.yaml")
+	requireContains(t, configDeployOutput, "variables:")
+	variablesAfterConfig := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "list")
+	requireContains(t, variablesAfterConfig, "CONFIG_SMOKE")
+
+	configPullOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "config", "pull", "--force")
+	requireContains(t, configPullOutput, "Configuration written to")
+	pulledConfig := readLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"))
+	requireContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireContains(t, pulledConfig, "version: 1")
+
 	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
 	requireContains(t, variableDeleteOutput, "deleted")
+	variableConfigDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
+	requireContains(t, variableConfigDeleteOutput, "deleted")
 	variablesAfterDelete := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "list")
 	requireNotContains(t, variablesAfterDelete, "SMOKE_MESSAGE")
 
@@ -201,6 +226,15 @@ func writeLocalModeE2EFile(t *testing.T, projectDir, relativePath, content strin
 	if err := os.WriteFile(path, []byte(strings.TrimLeft(content, "\n")), 0o644); err != nil {
 		t.Fatalf("failed to write fixture %s: %v", relativePath, err)
 	}
+}
+
+func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(projectDir, relativePath))
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", relativePath, err)
+	}
+	return string(data)
 }
 
 func runVolcanoLocalModeE2E(t *testing.T, binary string, env []string, dir string, args ...string) string {

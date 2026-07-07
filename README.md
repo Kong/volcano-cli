@@ -83,16 +83,22 @@ just like `volcano login` — so you normally don't need anything else. Set
 
 ## Project configuration (`volcano-config.yaml`)
 
-`volcano config deploy` reconciles declarative project configuration
-(`volcano/volcano-config.yaml` or `./volcano-config.yaml`) against the active
-target — the same manifest applies to local mode and cloud.
-
-Functions may declare scheduled invocations. `name` and `cron` are required;
-`enabled` (default `true`), `payload`, and `regions` are optional. A function
-entry is valid if it sets `public` **or** declares at least one scheduler.
+`volcano config deploy` uploads a declarative manifest
+(`volcano/volcano-config.yaml` or `./volcano-config.yaml`) to the server, which
+validates and reconciles the full project configuration — project settings,
+database assertions, variables, buckets and policies, realtime, the complete
+auth configuration (providers, email, templates, managed pages), function
+visibility and schedulers, and frontend custom domains. The same manifest
+applies to local mode and cloud. `volcano config pull` downloads the current
+configuration as a canonical manifest rendered by the server.
 
 ```yaml
 version: 1
+variables:
+  - name: STRIPE_SECRET_KEY
+    value: ${STRIPE_SECRET_KEY}  # interpolated from the CLI environment
+realtime:
+  enabled: true
 functions:
   - name: hello
     public: false
@@ -101,22 +107,32 @@ functions:
         cron: "*/5 * * * *"
         enabled: true
         payload: { job: refresh }
-        regions: [us-east-1]     # omit to let the server pick one deployed region
 ```
 
-Reconciliation follows one rule that mirrors the server: **fields you declare
-are enforced; fields you omit are left server-managed.** An omitted `enabled`,
-`payload`, or `regions` keeps whatever the scheduler already has on the server
-(on first create the server applies its defaults — `enabled: true`, an empty
-payload, and one chosen region). In particular, `config deploy` will not
-re-enable a scheduler you disabled out of band unless the manifest sets
-`enabled: true`. `cron` is always required and enforced.
+Key semantics (see the hosted manifest reference for the full schema):
 
-Reconciliation is also **non-destructive**: it creates and updates the
-schedulers a function declares (matched by `name`, preserving the scheduler ID)
-but never deletes or disables one. A scheduler the manifest no longer declares
-is left running; to remove or disable one, use the imperative commands
-(`volcano functions schedulers delete` / `disable`).
+- **Declared config sections are the source of truth.** Variables, bucket
+  policies, OAuth providers, email templates, and function schedulers are
+  fully synced when declared: entries absent from the manifest are deleted.
+  Omitted sections and fields keep their server values.
+- **Functions, frontends, databases, and buckets are never created or deleted
+  through the manifest** — only their configuration is updated. A manifest
+  entry for a resource that does not exist is skipped with a warning; a
+  deployed resource missing from a declared section is reported too.
+- `${ENV_VAR}` references are interpolated before upload; a reference to an
+  unset variable is an error, and `$$` produces a literal `$`.
+- `volcano config deploy --dry-run` prints the projected actions without
+  changing anything. Validation failures (including plan-gate violations)
+  exit non-zero with the server's error list, and nothing is applied.
+- Write-only secrets (SMTP password, OAuth client secrets, TLS material) are
+  omitted from `config pull` exports; keep them in your environment and set
+  them via `${ENV_VAR}` interpolation.
+
+Behavior changes from older CLI releases: buckets are no longer auto-created,
+an omitted `policies` key now leaves a bucket's policies untouched (previously
+it deleted them all), schedulers are now deleted by omission within a declared
+`schedulers` list, and the scheduler `regions` field is no longer supported
+(placement is managed by the server).
 
 ## Contributing
 

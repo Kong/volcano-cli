@@ -128,16 +128,16 @@ func (e CreateDatabaseRequestDatabaseType) Valid() bool {
 
 // Defines values for CreateDatabaseRequestPgVersion.
 const (
-	N15 CreateDatabaseRequestPgVersion = "15"
-	N16 CreateDatabaseRequestPgVersion = "16"
+	CreateDatabaseRequestPgVersionN15 CreateDatabaseRequestPgVersion = "15"
+	CreateDatabaseRequestPgVersionN16 CreateDatabaseRequestPgVersion = "16"
 )
 
 // Valid indicates whether the value is a known member of the CreateDatabaseRequestPgVersion enum.
 func (e CreateDatabaseRequestPgVersion) Valid() bool {
 	switch e {
-	case N15:
+	case CreateDatabaseRequestPgVersionN15:
 		return true
-	case N16:
+	case CreateDatabaseRequestPgVersionN16:
 		return true
 	default:
 		return false
@@ -288,6 +288,7 @@ func (e DatabaseDatabaseType) Valid() bool {
 // Defines values for DatabaseStatus.
 const (
 	DatabaseStatusActive       DatabaseStatus = "active"
+	DatabaseStatusDeleting     DatabaseStatus = "deleting"
 	DatabaseStatusFailed       DatabaseStatus = "failed"
 	DatabaseStatusProvisioning DatabaseStatus = "provisioning"
 )
@@ -296,6 +297,8 @@ const (
 func (e DatabaseStatus) Valid() bool {
 	switch e {
 	case DatabaseStatusActive:
+		return true
+	case DatabaseStatusDeleting:
 		return true
 	case DatabaseStatusFailed:
 		return true
@@ -800,25 +803,25 @@ func (e LogResourceType) Valid() bool {
 
 // Defines values for OAuthConfigProvider.
 const (
-	Apple     OAuthConfigProvider = "apple"
-	Device    OAuthConfigProvider = "device"
-	Github    OAuthConfigProvider = "github"
-	Google    OAuthConfigProvider = "google"
-	Microsoft OAuthConfigProvider = "microsoft"
+	OAuthConfigProviderApple     OAuthConfigProvider = "apple"
+	OAuthConfigProviderDevice    OAuthConfigProvider = "device"
+	OAuthConfigProviderGithub    OAuthConfigProvider = "github"
+	OAuthConfigProviderGoogle    OAuthConfigProvider = "google"
+	OAuthConfigProviderMicrosoft OAuthConfigProvider = "microsoft"
 )
 
 // Valid indicates whether the value is a known member of the OAuthConfigProvider enum.
 func (e OAuthConfigProvider) Valid() bool {
 	switch e {
-	case Apple:
+	case OAuthConfigProviderApple:
 		return true
-	case Device:
+	case OAuthConfigProviderDevice:
 		return true
-	case Github:
+	case OAuthConfigProviderGithub:
 		return true
-	case Google:
+	case OAuthConfigProviderGoogle:
 		return true
-	case Microsoft:
+	case OAuthConfigProviderMicrosoft:
 		return true
 	default:
 		return false
@@ -879,6 +882,195 @@ func (e ProjectStatus) Valid() bool {
 	case ProjectStatusDeleting:
 		return true
 	case ProjectStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigVersion.
+const (
+	N1 ProjectConfigVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigVersion enum.
+func (e ProjectConfigVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigApplyResultEntryAction.
+const (
+	ProjectConfigApplyResultEntryActionCreated   ProjectConfigApplyResultEntryAction = "created"
+	ProjectConfigApplyResultEntryActionDeleted   ProjectConfigApplyResultEntryAction = "deleted"
+	ProjectConfigApplyResultEntryActionError     ProjectConfigApplyResultEntryAction = "error"
+	ProjectConfigApplyResultEntryActionUnchanged ProjectConfigApplyResultEntryAction = "unchanged"
+	ProjectConfigApplyResultEntryActionUpdated   ProjectConfigApplyResultEntryAction = "updated"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigApplyResultEntryAction enum.
+func (e ProjectConfigApplyResultEntryAction) Valid() bool {
+	switch e {
+	case ProjectConfigApplyResultEntryActionCreated:
+		return true
+	case ProjectConfigApplyResultEntryActionDeleted:
+		return true
+	case ProjectConfigApplyResultEntryActionError:
+		return true
+	case ProjectConfigApplyResultEntryActionUnchanged:
+		return true
+	case ProjectConfigApplyResultEntryActionUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigBucketPolicyOperation.
+const (
+	ProjectConfigBucketPolicyOperationDELETE ProjectConfigBucketPolicyOperation = "DELETE"
+	ProjectConfigBucketPolicyOperationINSERT ProjectConfigBucketPolicyOperation = "INSERT"
+	ProjectConfigBucketPolicyOperationSELECT ProjectConfigBucketPolicyOperation = "SELECT"
+	ProjectConfigBucketPolicyOperationUPDATE ProjectConfigBucketPolicyOperation = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigBucketPolicyOperation enum.
+func (e ProjectConfigBucketPolicyOperation) Valid() bool {
+	switch e {
+	case ProjectConfigBucketPolicyOperationDELETE:
+		return true
+	case ProjectConfigBucketPolicyOperationINSERT:
+		return true
+	case ProjectConfigBucketPolicyOperationSELECT:
+		return true
+	case ProjectConfigBucketPolicyOperationUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigDatabaseDatabaseType.
+const (
+	ProjectConfigDatabaseDatabaseTypeVolcanoDb2xl ProjectConfigDatabaseDatabaseType = "volcano-db-2xl"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbL   ProjectConfigDatabaseDatabaseType = "volcano-db-l"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbM   ProjectConfigDatabaseDatabaseType = "volcano-db-m"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbS   ProjectConfigDatabaseDatabaseType = "volcano-db-s"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbXl  ProjectConfigDatabaseDatabaseType = "volcano-db-xl"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbXs  ProjectConfigDatabaseDatabaseType = "volcano-db-xs"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigDatabaseDatabaseType enum.
+func (e ProjectConfigDatabaseDatabaseType) Valid() bool {
+	switch e {
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDb2xl:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbL:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbM:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbS:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbXl:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbXs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigDatabasePgVersion.
+const (
+	ProjectConfigDatabasePgVersionN15 ProjectConfigDatabasePgVersion = "15"
+	ProjectConfigDatabasePgVersionN16 ProjectConfigDatabasePgVersion = "16"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigDatabasePgVersion enum.
+func (e ProjectConfigDatabasePgVersion) Valid() bool {
+	switch e {
+	case ProjectConfigDatabasePgVersionN15:
+		return true
+	case ProjectConfigDatabasePgVersionN16:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigMissingResourceType.
+const (
+	ProjectConfigMissingResourceTypeBucket   ProjectConfigMissingResourceType = "bucket"
+	ProjectConfigMissingResourceTypeDatabase ProjectConfigMissingResourceType = "database"
+	ProjectConfigMissingResourceTypeFrontend ProjectConfigMissingResourceType = "frontend"
+	ProjectConfigMissingResourceTypeFunction ProjectConfigMissingResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigMissingResourceType enum.
+func (e ProjectConfigMissingResourceType) Valid() bool {
+	switch e {
+	case ProjectConfigMissingResourceTypeBucket:
+		return true
+	case ProjectConfigMissingResourceTypeDatabase:
+		return true
+	case ProjectConfigMissingResourceTypeFrontend:
+		return true
+	case ProjectConfigMissingResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigOAuthProviderProvider.
+const (
+	ProjectConfigOAuthProviderProviderApple     ProjectConfigOAuthProviderProvider = "apple"
+	ProjectConfigOAuthProviderProviderDevice    ProjectConfigOAuthProviderProvider = "device"
+	ProjectConfigOAuthProviderProviderGithub    ProjectConfigOAuthProviderProvider = "github"
+	ProjectConfigOAuthProviderProviderGoogle    ProjectConfigOAuthProviderProvider = "google"
+	ProjectConfigOAuthProviderProviderMicrosoft ProjectConfigOAuthProviderProvider = "microsoft"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigOAuthProviderProvider enum.
+func (e ProjectConfigOAuthProviderProvider) Valid() bool {
+	switch e {
+	case ProjectConfigOAuthProviderProviderApple:
+		return true
+	case ProjectConfigOAuthProviderProviderDevice:
+		return true
+	case ProjectConfigOAuthProviderProviderGithub:
+		return true
+	case ProjectConfigOAuthProviderProviderGoogle:
+		return true
+	case ProjectConfigOAuthProviderProviderMicrosoft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigSkippedResourceType.
+const (
+	ProjectConfigSkippedResourceTypeBucket   ProjectConfigSkippedResourceType = "bucket"
+	ProjectConfigSkippedResourceTypeDatabase ProjectConfigSkippedResourceType = "database"
+	ProjectConfigSkippedResourceTypeFrontend ProjectConfigSkippedResourceType = "frontend"
+	ProjectConfigSkippedResourceTypeFunction ProjectConfigSkippedResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigSkippedResourceType enum.
+func (e ProjectConfigSkippedResourceType) Valid() bool {
+	switch e {
+	case ProjectConfigSkippedResourceTypeBucket:
+		return true
+	case ProjectConfigSkippedResourceTypeDatabase:
+		return true
+	case ProjectConfigSkippedResourceTypeFrontend:
+		return true
+	case ProjectConfigSkippedResourceTypeFunction:
 		return true
 	default:
 		return false
@@ -1016,22 +1208,22 @@ func (e ScheduleRequestKind) Valid() bool {
 
 // Defines values for StoragePolicyOperation.
 const (
-	StoragePolicyOperationDELETE StoragePolicyOperation = "DELETE"
-	StoragePolicyOperationINSERT StoragePolicyOperation = "INSERT"
-	StoragePolicyOperationSELECT StoragePolicyOperation = "SELECT"
-	StoragePolicyOperationUPDATE StoragePolicyOperation = "UPDATE"
+	DELETE StoragePolicyOperation = "DELETE"
+	INSERT StoragePolicyOperation = "INSERT"
+	SELECT StoragePolicyOperation = "SELECT"
+	UPDATE StoragePolicyOperation = "UPDATE"
 )
 
 // Valid indicates whether the value is a known member of the StoragePolicyOperation enum.
 func (e StoragePolicyOperation) Valid() bool {
 	switch e {
-	case StoragePolicyOperationDELETE:
+	case DELETE:
 		return true
-	case StoragePolicyOperationINSERT:
+	case INSERT:
 		return true
-	case StoragePolicyOperationSELECT:
+	case SELECT:
 		return true
-	case StoragePolicyOperationUPDATE:
+	case UPDATE:
 		return true
 	default:
 		return false
@@ -1055,28 +1247,28 @@ func (e UnbanUserResponseStatus) Valid() bool {
 
 // Defines values for UpdateDatabaseTypeRequestDatabaseType.
 const (
-	VolcanoDb2xl UpdateDatabaseTypeRequestDatabaseType = "volcano-db-2xl"
-	VolcanoDbL   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-l"
-	VolcanoDbM   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-m"
-	VolcanoDbS   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-s"
-	VolcanoDbXl  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xl"
-	VolcanoDbXs  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xs"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDb2xl UpdateDatabaseTypeRequestDatabaseType = "volcano-db-2xl"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbL   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-l"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbM   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-m"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbS   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-s"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXl  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xl"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXs  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xs"
 )
 
 // Valid indicates whether the value is a known member of the UpdateDatabaseTypeRequestDatabaseType enum.
 func (e UpdateDatabaseTypeRequestDatabaseType) Valid() bool {
 	switch e {
-	case VolcanoDb2xl:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDb2xl:
 		return true
-	case VolcanoDbL:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbL:
 		return true
-	case VolcanoDbM:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbM:
 		return true
-	case VolcanoDbS:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbS:
 		return true
-	case VolcanoDbXl:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXl:
 		return true
-	case VolcanoDbXs:
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXs:
 		return true
 	default:
 		return false
@@ -1558,10 +1750,12 @@ type CreateVariableRequest struct {
 type Database struct {
 	// ConnectionString Secure PostgreSQL connection URI for your database.
 	//
-	// **Connection Modes via application_name parameter:**
-	// - `volcano_full_access:{database_name}` — Full admin access (DDL, migrations)
-	// - `volcano_user_access:{database_name}:{user_id}` — User impersonation (RLS enforced)
-	// - `volcano_user_access:{database_name}` — Anonymous access (anon role, RLS enforced)
+	// The database is identified by the globally-unique username
+	// (`volcano_client_{database_id}`) already in this URI; the
+	// `application_name` parameter only selects the access mode:
+	// - `volcano_full_access` — Full admin access (DDL, migrations)
+	// - `volcano_user_access:{user_id}` — User impersonation (RLS enforced)
+	// - `volcano_user_access` — Anonymous access (anon role, RLS enforced)
 	ConnectionString *string   `json:"connection_string,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 
@@ -1595,6 +1789,39 @@ type DatabaseDatabaseType string
 
 // DatabaseStatus Database provisioning status
 type DatabaseStatus string
+
+// DatabaseQueryPerformanceDatabase defines model for DatabaseQueryPerformanceDatabase.
+type DatabaseQueryPerformanceDatabase struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// DatabaseQueryPerformanceItem defines model for DatabaseQueryPerformanceItem.
+type DatabaseQueryPerformanceItem struct {
+	Calls               int64                            `json:"calls"`
+	Database            DatabaseQueryPerformanceDatabase `json:"database"`
+	MaxExecTimeSeconds  float64                          `json:"max_exec_time_seconds"`
+	MeanExecTimeSeconds float64                          `json:"mean_exec_time_seconds"`
+	MinExecTimeSeconds  float64                          `json:"min_exec_time_seconds"`
+
+	// Query Normalized and obfuscated representative query text.
+	Query string `json:"query"`
+
+	// QueryId pg_stat_statements query identifier.
+	QueryId string `json:"query_id"`
+
+	// Role Database role used for the query.
+	Role          string `json:"role"`
+	RowsProcessed int64  `json:"rows_processed"`
+
+	// TotalExecTimeSeconds Cumulative total execution time from pg_stat_statements in seconds.
+	TotalExecTimeSeconds float64 `json:"total_exec_time_seconds"`
+}
+
+// DatabaseQueryPerformanceResponse defines model for DatabaseQueryPerformanceResponse.
+type DatabaseQueryPerformanceResponse struct {
+	Data []DatabaseQueryPerformanceItem `json:"data"`
+}
 
 // DatabaseStats defines model for DatabaseStats.
 type DatabaseStats struct {
@@ -2026,7 +2253,7 @@ type HostedLoginOptionsResponse struct {
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType string
 
-// LiveLogLevel Normalized function runtime log level.
+// LiveLogLevel Canonical lowercase function runtime log level.
 type LiveLogLevel string
 
 // LogActivityBucket Log-event counts for one activity time bucket.
@@ -2043,11 +2270,11 @@ type LogActivityBucket struct {
 		ResourceIds map[string]int `json:"resource_ids"`
 	} `json:"counts"`
 
-	// EndTime Bucket end time in milliseconds since epoch.
-	EndTime int64 `json:"end_time"`
+	// EndTime Bucket end time.
+	EndTime time.Time `json:"end_time"`
 
-	// StartTime Bucket start time in milliseconds since epoch.
-	StartTime int64 `json:"start_time"`
+	// StartTime Bucket start time.
+	StartTime time.Time `json:"start_time"`
 
 	// Total Total events in this bucket.
 	Total int `json:"total"`
@@ -2058,10 +2285,10 @@ type LogActivityRequest struct {
 	// BucketCount Number of activity buckets to return.
 	BucketCount *int `json:"bucket_count,omitempty"`
 
-	// EndTime End time in milliseconds since epoch.
-	EndTime *int64 `json:"end_time,omitempty"`
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
 
-	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
 
 	// Q Optional free-text search query for log messages.
@@ -2073,8 +2300,8 @@ type LogActivityRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // LogActivityResponse Bucketed runtime log activity.
@@ -2126,7 +2353,7 @@ type LogEvent struct {
 	// InvocationId Function invocation ID associated with this log event, when available.
 	InvocationId *string `json:"invocation_id,omitempty"`
 
-	// Level Normalized function runtime log level.
+	// Level Canonical lowercase function runtime log level.
 	Level *LiveLogLevel `json:"level,omitempty"`
 
 	// Message Display log message.
@@ -2144,8 +2371,8 @@ type LogEvent struct {
 	// Resource Resource that owns a historical log event.
 	Resource *LogResource `json:"resource,omitempty"`
 
-	// Timestamp Unix timestamp in milliseconds.
-	Timestamp int64 `json:"timestamp"`
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // LogFrontendRequestResource Frontend log resource selector.
@@ -2209,7 +2436,7 @@ type LogSearchEvent struct {
 	// InvocationId Function invocation ID associated with this log event, when available.
 	InvocationId *string `json:"invocation_id,omitempty"`
 
-	// Level Normalized function runtime log level.
+	// Level Canonical lowercase function runtime log level.
 	Level *LiveLogLevel `json:"level,omitempty"`
 
 	// Message Display log message.
@@ -2227,8 +2454,8 @@ type LogSearchEvent struct {
 	// Resource Resource that owns a historical log event.
 	Resource LogResource `json:"resource"`
 
-	// Timestamp Unix timestamp in milliseconds.
-	Timestamp int64 `json:"timestamp"`
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // LogSearchRequest Search request for project logs.
@@ -2236,10 +2463,10 @@ type LogSearchRequest struct {
 	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
 	Cursor *string `json:"cursor,omitempty"`
 
-	// EndTime End time in milliseconds since epoch.
-	EndTime *int64 `json:"end_time,omitempty"`
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
 
-	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
 
 	// Limit Maximum number of records to return.
@@ -2254,8 +2481,8 @@ type LogSearchRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // LogSearchResponse Paginated project runtime log search response.
@@ -2275,7 +2502,7 @@ type LogSearchResponse struct {
 
 // LogStreamRequest Stream request for live project logs. Text search, pagination cursors, and fixed end times are not supported.
 type LogStreamRequest struct {
-	// Levels Normalized log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
 	Levels *[]LiveLogLevel `json:"levels,omitempty"`
 
 	// Limit Maximum number of records to deliver on connect or reconnect before following new events.
@@ -2287,8 +2514,8 @@ type LogStreamRequest struct {
 	// Resource Resource selectors for project log reads.
 	Resource LogRequestResource `json:"resource"`
 
-	// StartTime Start time in milliseconds since epoch.
-	StartTime *int64 `json:"start_time,omitempty"`
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
 }
 
 // MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
@@ -2611,6 +2838,455 @@ type ProjectPlan string
 
 // ProjectStatus defines model for Project.Status.
 type ProjectStatus string
+
+// ProjectConfig Declarative project configuration manifest (the JSON form of
+// volcano-config.yaml). Omitted sections are left untouched. Within
+// declared entries, omitted optional fields keep their current server
+// values (patch semantics). Declared collection keys are fully synced to
+// the manifest: `variables`, `buckets[].policies`, `auth.providers.oauth`,
+// `auth.email.templates`, and `functions[].schedulers` are reconciled to
+// exactly match, deleting resources absent from the manifest. Functions,
+// frontends, databases, and buckets are never created or deleted through
+// this manifest; entries referencing resources that do not exist are
+// skipped and reported.
+type ProjectConfig struct {
+	// Auth Authentication settings, grouped like the dashboard auth-settings tabs.
+	Auth      *ProjectConfigAuth       `json:"auth,omitempty"`
+	Buckets   *[]ProjectConfigBucket   `json:"buckets,omitempty"`
+	Databases *[]ProjectConfigDatabase `json:"databases,omitempty"`
+	Frontends *[]ProjectConfigFrontend `json:"frontends,omitempty"`
+	Functions *[]ProjectConfigFunction `json:"functions,omitempty"`
+
+	// Project Project-level settings. `name` renames the project.
+	Project  *ProjectConfigProject  `json:"project,omitempty"`
+	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
+
+	// Variables Fully synced when declared - variables absent from this list are deleted.
+	Variables *[]ProjectConfigVariable `json:"variables,omitempty"`
+
+	// Version Manifest schema version. Must be 1.
+	Version ProjectConfigVersion `json:"version"`
+}
+
+// ProjectConfigVersion Manifest schema version. Must be 1.
+type ProjectConfigVersion int
+
+// ProjectConfigApplyResult Per-resource report for a project config apply (or dry run).
+type ProjectConfigApplyResult struct {
+	// DryRun True when the request was a dry run and no changes were made.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Missing Existing functions, frontends, databases, or buckets that have no
+	// entry in the corresponding declared manifest section.
+	Missing []ProjectConfigMissingResource  `json:"missing"`
+	Results []ProjectConfigApplyResultEntry `json:"results"`
+
+	// Skipped Manifest entries referencing functions, frontends, databases, or
+	// buckets that do not exist. Their configuration was not applied;
+	// deploy/create the resource first, then re-apply.
+	Skipped []ProjectConfigSkippedResource `json:"skipped"`
+	Summary ProjectConfigApplySummary      `json:"summary"`
+}
+
+// ProjectConfigApplyResultEntry defines model for ProjectConfigApplyResultEntry.
+type ProjectConfigApplyResultEntry struct {
+	Action ProjectConfigApplyResultEntryAction `json:"action"`
+
+	// Error Error detail when action is `error`.
+	Error *string `json:"error,omitempty"`
+
+	// Name Resource name or key within the section. Empty for singleton sections.
+	Name *string `json:"name,omitempty"`
+
+	// Notice Optional operational note (e.g. disabling realtime drops active connections).
+	Notice *string `json:"notice,omitempty"`
+
+	// Section Manifest section the entry belongs to (e.g. variables, buckets, auth.providers.oauth).
+	Section string `json:"section"`
+}
+
+// ProjectConfigApplyResultEntryAction defines model for ProjectConfigApplyResultEntry.Action.
+type ProjectConfigApplyResultEntryAction string
+
+// ProjectConfigApplySummary defines model for ProjectConfigApplySummary.
+type ProjectConfigApplySummary struct {
+	Created   int `json:"created"`
+	Deleted   int `json:"deleted"`
+	Errors    int `json:"errors"`
+	Missing   int `json:"missing"`
+	Skipped   int `json:"skipped"`
+	Unchanged int `json:"unchanged"`
+	Updated   int `json:"updated"`
+}
+
+// ProjectConfigAuth Authentication settings, grouped like the dashboard auth-settings tabs.
+type ProjectConfigAuth struct {
+	Cors              *ProjectConfigAuthCORS              `json:"cors,omitempty"`
+	Email             *ProjectConfigAuthEmail             `json:"email,omitempty"`
+	EmailVerification *ProjectConfigAuthEmailVerification `json:"email_verification,omitempty"`
+	ManagedPages      *ProjectConfigAuthManagedPages      `json:"managed_pages,omitempty"`
+	Password          *ProjectConfigAuthPassword          `json:"password,omitempty"`
+	PasswordReset     *ProjectConfigAuthPasswordReset     `json:"password_reset,omitempty"`
+	Providers         *ProjectConfigAuthProviders         `json:"providers,omitempty"`
+
+	// RateLimits Rate limits per hour.
+	RateLimits *ProjectConfigAuthRateLimits `json:"rate_limits,omitempty"`
+	Sessions   *ProjectConfigAuthSessions   `json:"sessions,omitempty"`
+	Signup     *ProjectConfigAuthSignup     `json:"signup,omitempty"`
+
+	// Tokens Token lifetimes in seconds.
+	Tokens *ProjectConfigAuthTokens `json:"tokens,omitempty"`
+}
+
+// ProjectConfigAuthCORS defines model for ProjectConfigAuthCORS.
+type ProjectConfigAuthCORS struct {
+	AllowCredentials *bool     `json:"allow_credentials,omitempty"`
+	AllowedOrigins   *[]string `json:"allowed_origins,omitempty"`
+	Enabled          *bool     `json:"enabled,omitempty"`
+	MaxAge           *int      `json:"max_age,omitempty"`
+}
+
+// ProjectConfigAuthEmail defines model for ProjectConfigAuthEmail.
+type ProjectConfigAuthEmail struct {
+	// Enabled Enable transactional email sending
+	Enabled *bool                       `json:"enabled,omitempty"`
+	From    *ProjectConfigAuthEmailFrom `json:"from,omitempty"`
+	Smtp    *ProjectConfigAuthEmailSMTP `json:"smtp,omitempty"`
+
+	// Templates Email templates keyed by type. Fully synced when declared - template
+	// types absent from a declared map revert to server defaults (custom
+	// bodies deleted, subject overrides cleared). Custom template bodies
+	// require the PRO plan; subject-only changes are available on FREE.
+	Templates *ProjectConfigEmailTemplates `json:"templates,omitempty"`
+}
+
+// ProjectConfigAuthEmailFrom defines model for ProjectConfigAuthEmailFrom.
+type ProjectConfigAuthEmailFrom struct {
+	Address *string `json:"address,omitempty"`
+	Name    *string `json:"name,omitempty"`
+}
+
+// ProjectConfigAuthEmailPasswordProvider defines model for ProjectConfigAuthEmailPasswordProvider.
+type ProjectConfigAuthEmailPasswordProvider struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// ProjectConfigAuthEmailSMTP defines model for ProjectConfigAuthEmailSMTP.
+type ProjectConfigAuthEmailSMTP struct {
+	Host *string `json:"host,omitempty"`
+
+	// Password Write-only; omitted from config export.
+	Password *string `json:"password,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	UseTls   *bool   `json:"use_tls,omitempty"`
+	Username *string `json:"username,omitempty"`
+}
+
+// ProjectConfigAuthEmailVerification defines model for ProjectConfigAuthEmailVerification.
+type ProjectConfigAuthEmailVerification struct {
+	// ConfirmationTimeout Email confirmation token expiry in seconds
+	ConfirmationTimeout *int `json:"confirmation_timeout,omitempty"`
+
+	// RequireConfirmation Require users to confirm email before sign-in. Requires email sending to be enabled.
+	RequireConfirmation *bool `json:"require_confirmation,omitempty"`
+}
+
+// ProjectConfigAuthManagedPages defines model for ProjectConfigAuthManagedPages.
+type ProjectConfigAuthManagedPages struct {
+	// Enabled Enable or disable managed auth hosted pages
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Pages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+	// pages are left untouched (there is no delete for hosted pages).
+	Pages     *ProjectConfigHostedPages   `json:"pages,omitempty"`
+	Redirects *ProjectConfigAuthRedirects `json:"redirects,omitempty"`
+}
+
+// ProjectConfigAuthPassword defines model for ProjectConfigAuthPassword.
+type ProjectConfigAuthPassword struct {
+	MinLength           *int  `json:"min_length,omitempty"`
+	RequireLowercase    *bool `json:"require_lowercase,omitempty"`
+	RequireNumbers      *bool `json:"require_numbers,omitempty"`
+	RequireSpecialChars *bool `json:"require_special_chars,omitempty"`
+	RequireUppercase    *bool `json:"require_uppercase,omitempty"`
+}
+
+// ProjectConfigAuthPasswordReset defines model for ProjectConfigAuthPasswordReset.
+type ProjectConfigAuthPasswordReset struct {
+	Allow *bool `json:"allow,omitempty"`
+
+	// MaxHistory Number of previous passwords to disallow (0=disabled)
+	MaxHistory *int `json:"max_history,omitempty"`
+
+	// Timeout Password reset token expiry in seconds
+	Timeout *int `json:"timeout,omitempty"`
+}
+
+// ProjectConfigAuthProviders defines model for ProjectConfigAuthProviders.
+type ProjectConfigAuthProviders struct {
+	EmailPassword *ProjectConfigAuthEmailPasswordProvider `json:"email_password,omitempty"`
+
+	// Oauth Fully synced when declared - providers absent from this list are deleted.
+	Oauth *[]ProjectConfigOAuthProvider `json:"oauth,omitempty"`
+}
+
+// ProjectConfigAuthRateLimits Rate limits per hour.
+type ProjectConfigAuthRateLimits struct {
+	PasswordReset *int `json:"password_reset,omitempty"`
+	Signin        *int `json:"signin,omitempty"`
+	Signup        *int `json:"signup,omitempty"`
+	TokenRefresh  *int `json:"token_refresh,omitempty"`
+}
+
+// ProjectConfigAuthRedirects defines model for ProjectConfigAuthRedirects.
+type ProjectConfigAuthRedirects struct {
+	// Allowed Redirect allowlist. Every entry must be a valid http/https URL.
+	Allowed *[]string `json:"allowed,omitempty"`
+
+	// DeviceVerification Optional custom device-authorization verification page URL.
+	DeviceVerification *string `json:"device_verification,omitempty"`
+
+	// PostAuth Must be included in `allowed` when set.
+	PostAuth *string `json:"post_auth,omitempty"`
+
+	// PostLogout Must be included in `allowed` when set.
+	PostLogout *string `json:"post_logout,omitempty"`
+}
+
+// ProjectConfigAuthSessions defines model for ProjectConfigAuthSessions.
+type ProjectConfigAuthSessions struct {
+	// InactivityTimeout Force re-login after inactivity (seconds, 0=never)
+	InactivityTimeout *int `json:"inactivity_timeout,omitempty"`
+
+	// MaxSessionDuration Force re-login after duration (seconds, 0=never)
+	MaxSessionDuration *int `json:"max_session_duration,omitempty"`
+}
+
+// ProjectConfigAuthSignup defines model for ProjectConfigAuthSignup.
+type ProjectConfigAuthSignup struct {
+	EnableAnonymousSignins *bool `json:"enable_anonymous_signins,omitempty"`
+
+	// EnableSignup Master switch for signups across ALL providers
+	EnableSignup *bool `json:"enable_signup,omitempty"`
+}
+
+// ProjectConfigAuthTokens Token lifetimes in seconds.
+type ProjectConfigAuthTokens struct {
+	AccessTokenLifetime       *int `json:"access_token_lifetime,omitempty"`
+	PlatformTokenTtl          *int `json:"platform_token_ttl,omitempty"`
+	RefreshTokenLifetime      *int `json:"refresh_token_lifetime,omitempty"`
+	RefreshTokenReuseInterval *int `json:"refresh_token_reuse_interval,omitempty"`
+}
+
+// ProjectConfigBucket Settings for an existing storage bucket. Buckets are never created or
+// deleted through the manifest. When `policies` is declared it is fully
+// synced (policies absent from the list are deleted; an empty list
+// deletes all); omitting `policies` leaves the bucket's policies
+// untouched.
+type ProjectConfigBucket struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+
+	// FileSizeLimit Maximum file size in bytes
+	FileSizeLimit *int64                       `json:"file_size_limit,omitempty"`
+	Name          string                       `json:"name"`
+	Policies      *[]ProjectConfigBucketPolicy `json:"policies,omitempty"`
+}
+
+// ProjectConfigBucketPolicy defines model for ProjectConfigBucketPolicy.
+type ProjectConfigBucketPolicy struct {
+	// Definition Policy expression
+	Definition string                             `json:"definition"`
+	Name       string                             `json:"name"`
+	Operation  ProjectConfigBucketPolicyOperation `json:"operation"`
+}
+
+// ProjectConfigBucketPolicyOperation defines model for ProjectConfigBucketPolicy.Operation.
+type ProjectConfigBucketPolicyOperation string
+
+// ProjectConfigCustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+// domain is first created and optional afterwards: providing new TLS
+// material for the same domain rotates the certificate in place (zero
+// downtime); omitting `tls` keeps the stored certificate. TLS material is
+// write-only and omitted from config export.
+type ProjectConfigCustomDomain struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path)
+	Domain string                         `json:"domain"`
+	Tls    *FrontendCustomDomainTLSConfig `json:"tls,omitempty"`
+}
+
+// ProjectConfigDatabase Assertion-only entry for an existing database. No database property is
+// mutable through the manifest; declared values are compared against the
+// deployed database and any mismatch fails validation. Databases are
+// never created or deleted here.
+type ProjectConfigDatabase struct {
+	// DatabaseType Compute tier. Asserted, never written - tier changes are not
+	// supported via the manifest; use the databases API/CLI/GUI instead.
+	DatabaseType *ProjectConfigDatabaseDatabaseType `json:"database_type,omitempty"`
+	Name         string                             `json:"name"`
+
+	// PgVersion PostgreSQL major version. Asserted, never written.
+	PgVersion ProjectConfigDatabasePgVersion `json:"pg_version"`
+
+	// Region Deployed region (aws- prefixed, e.g. aws-us-east-1). Asserted, never written.
+	Region string `json:"region"`
+}
+
+// ProjectConfigDatabaseDatabaseType Compute tier. Asserted, never written - tier changes are not
+// supported via the manifest; use the databases API/CLI/GUI instead.
+type ProjectConfigDatabaseDatabaseType string
+
+// ProjectConfigDatabasePgVersion PostgreSQL major version. Asserted, never written.
+type ProjectConfigDatabasePgVersion string
+
+// ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.
+type ProjectConfigEmailTemplate struct {
+	// HtmlBody HTML body. Max 256 KiB. PRO plan required for custom bodies.
+	HtmlBody *string `json:"html_body,omitempty"`
+	Subject  *string `json:"subject,omitempty"`
+
+	// TextBody Plain-text body. Max 256 KiB. PRO plan required for custom bodies.
+	TextBody *string `json:"text_body,omitempty"`
+}
+
+// ProjectConfigEmailTemplates Email templates keyed by type. Fully synced when declared - template
+// types absent from a declared map revert to server defaults (custom
+// bodies deleted, subject overrides cleared). Custom template bodies
+// require the PRO plan; subject-only changes are available on FREE.
+type ProjectConfigEmailTemplates struct {
+	Confirmation    *ProjectConfigEmailTemplate `json:"confirmation,omitempty"`
+	PasswordChanged *ProjectConfigEmailTemplate `json:"password_changed,omitempty"`
+	PasswordReset   *ProjectConfigEmailTemplate `json:"password_reset,omitempty"`
+	Welcome         *ProjectConfigEmailTemplate `json:"welcome,omitempty"`
+}
+
+// ProjectConfigFrontend Configuration for an existing (deployed) frontend. Frontends are never
+// created or deleted through the manifest. A declared frontend entry
+// without `custom_domain` deletes an existing custom domain.
+type ProjectConfigFrontend struct {
+	// CustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+	// domain is first created and optional afterwards: providing new TLS
+	// material for the same domain rotates the certificate in place (zero
+	// downtime); omitting `tls` keeps the stored certificate. TLS material is
+	// write-only and omitted from config export.
+	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
+	Name         string                     `json:"name"`
+}
+
+// ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
+// created or deleted through the manifest. When `schedulers` is declared
+// it is fully synced (schedulers absent from the list are deleted);
+// omitting `schedulers` leaves the function's schedulers untouched.
+type ProjectConfigFunction struct {
+	Name string `json:"name"`
+
+	// Public Function visibility for anon-key invocation
+	Public     *bool                     `json:"public,omitempty"`
+	Schedulers *[]ProjectConfigScheduler `json:"schedulers,omitempty"`
+}
+
+// ProjectConfigHostedPage defines model for ProjectConfigHostedPage.
+type ProjectConfigHostedPage struct {
+	// Css Optional CSS injected at render time. Max 256 KiB.
+	Css *string `json:"css,omitempty"`
+
+	// Html Raw HTML markup for the page. Max 256 KiB.
+	Html string `json:"html"`
+}
+
+// ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+// pages are left untouched (there is no delete for hosted pages).
+type ProjectConfigHostedPages struct {
+	Login         *ProjectConfigHostedPage `json:"login,omitempty"`
+	ResetPassword *ProjectConfigHostedPage `json:"reset_password,omitempty"`
+}
+
+// ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
+type ProjectConfigMissingResource struct {
+	Name string                           `json:"name"`
+	Type ProjectConfigMissingResourceType `json:"type"`
+}
+
+// ProjectConfigMissingResourceType defines model for ProjectConfigMissingResource.Type.
+type ProjectConfigMissingResourceType string
+
+// ProjectConfigOAuthProvider defines model for ProjectConfigOAuthProvider.
+type ProjectConfigOAuthProvider struct {
+	// ClientId Required for non-device providers. Server-generated for
+	// `provider=device` (exported read-only, ignored on apply).
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Write-only; omitted from config export. Not used for `provider=device`.
+	ClientSecret *string                            `json:"client_secret,omitempty"`
+	Enabled      *bool                              `json:"enabled,omitempty"`
+	Provider     ProjectConfigOAuthProviderProvider `json:"provider"`
+
+	// RedirectUrl Not used for `provider=device`.
+	RedirectUrl *string   `json:"redirect_url,omitempty"`
+	Scopes      *[]string `json:"scopes,omitempty"`
+}
+
+// ProjectConfigOAuthProviderProvider defines model for ProjectConfigOAuthProvider.Provider.
+type ProjectConfigOAuthProviderProvider string
+
+// ProjectConfigProject Project-level settings. `name` renames the project.
+type ProjectConfigProject struct {
+	// AllRegions Region policy. `false` requires `selected_regions` (PRO plan).
+	AllRegions *bool   `json:"all_regions,omitempty"`
+	Name       *string `json:"name,omitempty"`
+
+	// SelectedRegions Region subset (bare AWS names). Requires `all_regions=false`.
+	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+}
+
+// ProjectConfigRealtime defines model for ProjectConfigRealtime.
+type ProjectConfigRealtime struct {
+	BroadcastEnabled       *bool `json:"broadcast_enabled,omitempty"`
+	Enabled                *bool `json:"enabled,omitempty"`
+	PostgresChangesEnabled *bool `json:"postgres_changes_enabled,omitempty"`
+	PresenceEnabled        *bool `json:"presence_enabled,omitempty"`
+}
+
+// ProjectConfigScheduler defines model for ProjectConfigScheduler.
+type ProjectConfigScheduler struct {
+	// Cron 5-field UTC cron expression
+	Cron    string                  `json:"cron"`
+	Enabled *bool                   `json:"enabled,omitempty"`
+	Name    string                  `json:"name"`
+	Payload *map[string]interface{} `json:"payload,omitempty"`
+}
+
+// ProjectConfigSkippedResource defines model for ProjectConfigSkippedResource.
+type ProjectConfigSkippedResource struct {
+	Name   string                           `json:"name"`
+	Reason string                           `json:"reason"`
+	Type   ProjectConfigSkippedResourceType `json:"type"`
+}
+
+// ProjectConfigSkippedResourceType defines model for ProjectConfigSkippedResource.Type.
+type ProjectConfigSkippedResourceType string
+
+// ProjectConfigValidationError defines model for ProjectConfigValidationError.
+type ProjectConfigValidationError struct {
+	Message string `json:"message"`
+
+	// Name Resource name or key within the section, when applicable.
+	Name *string `json:"name,omitempty"`
+
+	// Section Manifest section the error refers to (e.g. databases, functions).
+	Section string `json:"section"`
+}
+
+// ProjectConfigValidationErrorResponse Returned when manifest validation fails. Nothing was applied.
+type ProjectConfigValidationErrorResponse struct {
+	Error  string                         `json:"error"`
+	Errors []ProjectConfigValidationError `json:"errors"`
+}
+
+// ProjectConfigVariable defines model for ProjectConfigVariable.
+type ProjectConfigVariable struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
 
 // ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
 type ProjectFrontendCustomDomain struct {

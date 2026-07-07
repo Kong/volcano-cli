@@ -77,7 +77,9 @@ content and tests cover the conflict/idempotency behavior.
 ## Configuration Manifests
 
 Only include `volcano/volcano-config.yaml` when the starter has at least one
-real config resource to manage. An empty manifest like this is invalid:
+real config resource to manage. Declared sections are fully synced on deploy,
+so a manifest like this is harmful rather than a no-op — an empty declared
+`functions:` list reports every deployed function as missing from the manifest:
 
 ```yaml
 version: 1

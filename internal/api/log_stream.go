@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/Kong/volcano-cli/internal/apiclient"
+	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 const logStreamScannerMaxTokenSize = 1024 * 1024
@@ -29,7 +29,7 @@ type ProjectLogStreamEvent struct {
 	ID      string
 	Type    string
 	Data    string
-	Log     *apiclient.LogSearchEvent
+	Log     *apicommon.LogSearchEvent
 	Warning string
 }
 
@@ -108,7 +108,7 @@ func (s *ProjectLogStream) nextRaw() (*ProjectLogStreamEvent, error) {
 func parseProjectLogStreamEvent(event *ProjectLogStreamEvent) (*ProjectLogStreamEvent, error) {
 	switch event.Type {
 	case "log":
-		var logEvent apiclient.LogSearchEvent
+		var logEvent apicommon.LogSearchEvent
 		if err := json.Unmarshal([]byte(event.Data), &logEvent); err != nil {
 			return nil, fmt.Errorf("failed to decode log stream event: %w", err)
 		}

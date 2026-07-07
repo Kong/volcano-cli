@@ -725,7 +725,7 @@ func logsResponse(message string) map[string]any {
 		"data": []any{
 			map[string]any{
 				"message":   message,
-				"timestamp": int64(1760000000000),
+				"timestamp": "2026-07-06T12:00:00Z",
 			},
 		},
 		"has_more": false,

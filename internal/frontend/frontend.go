@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -125,7 +126,7 @@ func (s Service) Redeploy(ctx context.Context, identifier string) (*apiclient.Fr
 }
 
 // ResolveDeployment returns a frontend deployment by ID, paging internally.
-func (s Service) ResolveDeployment(ctx context.Context, frontendID uuid.UUID, deploymentID string) (*apiclient.FrontendDeployment, error) {
+func (s Service) ResolveDeployment(ctx context.Context, frontendID uuid.UUID, deploymentID string) (*apicommon.FrontendDeployment, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -167,7 +168,7 @@ func (s Service) ResolveDeployment(ctx context.Context, frontendID uuid.UUID, de
 }
 
 // LatestDeployment returns the first deployment on the default deployment page.
-func (s Service) LatestDeployment(ctx context.Context, frontendID uuid.UUID) (*apiclient.FrontendDeployment, error) {
+func (s Service) LatestDeployment(ctx context.Context, frontendID uuid.UUID) (*apicommon.FrontendDeployment, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
