@@ -2,6 +2,8 @@ name: Publish CLI
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
       - "!v*.*.*-nightly.*"
@@ -25,6 +27,9 @@ jobs:
       - name: Validate release ref
         run: |
           set -euo pipefail
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            exit 0
+          fi
 
           STABLE_SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
@@ -49,7 +54,6 @@ jobs:
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_title: ${{ steps.release.outputs.release_title }}
       cli_version: ${{ steps.release.outputs.cli_version }}
-      npm_version: ${{ steps.release.outputs.npm_version }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       latest: ${{ steps.release.outputs.latest }}
     steps:
@@ -64,22 +68,44 @@ jobs:
         id: release
         run: |
           set -euo pipefail
-          RELEASE_TAG="$GITHUB_REF_NAME"
-          NPM_VERSION="$(node -p "require('./package.json').version")"
 
-          if [ "v${NPM_VERSION}" != "$RELEASE_TAG" ]; then
-            echo "Release tag ${RELEASE_TAG} does not match package.json version ${NPM_VERSION}."
-            echo "Stable releases must be created from the Release Please release PR commit."
-            exit 1
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            DATE_PART="$(date -u +%Y%m%d)"
+            LATEST_STABLE_PATCH="$({
+              git tag --list 'v0.0.*' || true
+            } | awk '/^v0\.0\.[0-9]+$/ { sub(/^v0\.0\./, "", $0); print $0 }' | sort -n | tail -1)"
+            NEXT_PATCH=$(( ${LATEST_STABLE_PATCH:-0} + 1 ))
+            NIGHTLY_PREFIX="v0.0.${NEXT_PATCH}-nightly.${DATE_PART}."
+            LATEST_NIGHTLY_NUMBER=0
+            while IFS= read -r tag; do
+              suffix="${tag#${NIGHTLY_PREFIX}}"
+              if [[ "$suffix" =~ ^[0-9]+$ ]] && (( 10#$suffix > LATEST_NIGHTLY_NUMBER )); then
+                LATEST_NIGHTLY_NUMBER=$((10#$suffix))
+              fi
+            done < <(git tag --list "${NIGHTLY_PREFIX}*")
+            RELEASE_TAG="${NIGHTLY_PREFIX}$((LATEST_NIGHTLY_NUMBER + 1))"
+            PRERELEASE="true"
+            LATEST="false"
+          else
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            NPM_VERSION="$(node -p "require('./package.json').version")"
+
+            if [ "v${NPM_VERSION}" != "$RELEASE_TAG" ]; then
+              echo "Release tag ${RELEASE_TAG} does not match package.json version ${NPM_VERSION}."
+              echo "Stable releases must be created from the Release Please release PR commit."
+              exit 1
+            fi
+
+            PRERELEASE="false"
+            LATEST="auto"
           fi
 
           {
             echo "release_tag=${RELEASE_TAG}"
             echo "release_title=${RELEASE_TAG}"
             echo "cli_version=${RELEASE_TAG}"
-            echo "npm_version=${NPM_VERSION}"
-            echo "prerelease=false"
-            echo "latest=auto"
+            echo "prerelease=${PRERELEASE}"
+            echo "latest=${LATEST}"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -254,6 +280,59 @@ jobs:
             fi
           }
 
+          append_historical_assets() {
+            local version="$1"
+            local asset
+            local versioned_asset
+            local base
+            local assets=()
+
+            while IFS= read -r asset; do
+              assets+=("${asset##*/}")
+            done < <(find dist/release-assets -maxdepth 1 -type f | sort)
+
+            for asset in "${assets[@]}"; do
+              case "$asset" in
+                SHA256SUMS)
+                  continue
+                  ;;
+                *.exe.sigstore.json)
+                  base="${asset%.exe.sigstore.json}"
+                  versioned_asset="${base}-${version}.exe.sigstore.json"
+                  ;;
+                *.sh.sigstore.json)
+                  base="${asset%.sh.sigstore.json}"
+                  versioned_asset="${base}-${version}.sh.sigstore.json"
+                  ;;
+                *.sigstore.json)
+                  base="${asset%.sigstore.json}"
+                  versioned_asset="${base}-${version}.sigstore.json"
+                  ;;
+                *.exe)
+                  base="${asset%.exe}"
+                  versioned_asset="${base}-${version}.exe"
+                  ;;
+                *.sh)
+                  base="${asset%.sh}"
+                  versioned_asset="${base}-${version}.sh"
+                  ;;
+                *)
+                  versioned_asset="${asset}-${version}"
+                  ;;
+              esac
+              cp "dist/release-assets/${asset}" "dist/release-assets/${versioned_asset}"
+            done
+
+            (
+              cd dist/release-assets
+              local versioned_assets=()
+              while IFS= read -r asset; do
+                versioned_assets+=("${asset#./}")
+              done < <(find . -maxdepth 1 -type f -name "*${version}*" ! -name "SHA256SUMS-${version}" | sort)
+              shasum -a 256 "${versioned_assets[@]}" > "SHA256SUMS-${version}"
+            )
+          }
+
           RELEASE_FLAGS=()
           if [ "$RELEASE_PRERELEASE" = "true" ]; then
             RELEASE_FLAGS+=(--prerelease)
@@ -263,7 +342,23 @@ jobs:
           fi
 
           RELEASE_NOTES=""
-          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
+          if [ "$RELEASE_PRERELEASE" = "true" ]; then
+            RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
+          fi
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
+            if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+              git tag "$RELEASE_TAG" "$GITHUB_SHA"
+              git push origin "refs/tags/${RELEASE_TAG}"
+            fi
+            append_historical_assets "$RELEASE_TAG"
+            git tag -f nightly "$GITHUB_SHA"
+            git push origin refs/tags/nightly --force
+            publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
+          else
+            publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
+          fi
 
       - name: Verify uploaded Linux binary
         run: |
@@ -271,6 +366,9 @@ jobs:
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
           DOWNLOAD_RELEASE_TAG="$RELEASE_TAG"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            DOWNLOAD_RELEASE_TAG="nightly"
+          fi
           gh release download "$DOWNLOAD_RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
             --dir "$TMP_DIR"

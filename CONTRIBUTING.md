@@ -101,7 +101,8 @@ publish workflow rejects stable tags when `package.json` does not match the tag,
 or when the tag is not reachable from `origin/main`.
 
 Prerelease and build metadata tags are not stable release tags. Nightly builds
-are intentionally separate from the stable Release Please flow.
+remain automated from `main` and publish to the mutable `nightly` GitHub Release;
+they are not npm releases and are separate from the stable Release Please flow.
 
 Required repository secret and variable for stable release publishing:
 
