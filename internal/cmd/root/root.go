@@ -27,9 +27,6 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Long:          "volcano is the command-line client for the Volcano hosting platform.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			upgradecmd.MaybePrintUpdateNotice(cmd, deps)
-		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if showVersion {
 				printVersion(cmd.OutOrStdout())

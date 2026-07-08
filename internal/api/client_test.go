@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func TestPollDeviceTokenUnexpectedStatusReturnsError(t *testing.T) {
@@ -106,6 +107,36 @@ func TestWebSignupURLRejectsBadInput(t *testing.T) {
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestNewClientSendsVersionProtocolHeadersAndRecordsInstructions(t *testing.T) {
+	resetInstructions(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	var sawVersionHeader, sawUA string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawVersionHeader = r.Header.Get("X-Volcano-CLI-Version")
+		sawUA = r.Header.Get("User-Agent")
+		w.Header().Set("X-Volcano-CLI-Instruction", CLIInstructionSuggestionUpgrade)
+		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
+		writeAPIJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.ListProjects(context.Background(), DefaultPage, DefaultLimit)
+	require.NoError(t, err)
+
+	assert.Equal(t, "v1.2.3", sawVersionHeader)
+	assert.Contains(t, sawUA, "volcano-cli/v1.2.3")
+
+	got := LastInstructions()
+	assert.Equal(t, CLIInstructionSuggestionUpgrade, got.CLIInstruction)
+	assert.Equal(t, "v1.5.0", got.LatestVersion)
 }
 
 func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {
