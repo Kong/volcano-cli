@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,25 +40,6 @@ export default function Home() {
   return <main>Volcano CLI E2E</main>;
 }
 `)
-}
-
-func writeAPIE2EConfig(t *testing.T, projectDir, bucket, function string) {
-	t.Helper()
-	writeAPIE2EFile(t, filepath.Join(projectDir, "volcano", "volcano-config.yaml"), fmt.Sprintf(`
-version: 1
-buckets:
-  - name: %s
-    file_size_limit: 8192
-    allowed_mime_types:
-      - text/plain
-    policies:
-      - name: config-read
-        operation: SELECT
-        definition: "true"
-functions:
-  - name: %s
-    public: true
-`, bucket, function))
 }
 
 func writeAPIE2EFile(t *testing.T, path, content string) {

@@ -60,6 +60,11 @@ linters:
       excludes:
         - G104  # duplicates errcheck
         - G304  # CLI legitimately reads user-supplied file paths
+    misspell:
+      ignore-rules:
+        # API field name (auth enable_anonymous_signins); same exception as
+        # the volcano-hosting lint config.
+        - signins
     testifylint:
       disable:
         # require inside httptest handlers exits the handler goroutine but

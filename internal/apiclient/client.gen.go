@@ -103,6 +103,7 @@ func (e AuthOAuthAuthorizeParamsProvider) Valid() bool {
 
 // Defines values for CallOAuthProviderAPIParamsProvider.
 const (
+	CallOAuthProviderAPIParamsProviderApple     CallOAuthProviderAPIParamsProvider = "apple"
 	CallOAuthProviderAPIParamsProviderGithub    CallOAuthProviderAPIParamsProvider = "github"
 	CallOAuthProviderAPIParamsProviderGoogle    CallOAuthProviderAPIParamsProvider = "google"
 	CallOAuthProviderAPIParamsProviderMicrosoft CallOAuthProviderAPIParamsProvider = "microsoft"
@@ -111,6 +112,8 @@ const (
 // Valid indicates whether the value is a known member of the CallOAuthProviderAPIParamsProvider enum.
 func (e CallOAuthProviderAPIParamsProvider) Valid() bool {
 	switch e {
+	case CallOAuthProviderAPIParamsProviderApple:
+		return true
 	case CallOAuthProviderAPIParamsProviderGithub:
 		return true
 	case CallOAuthProviderAPIParamsProviderGoogle:
@@ -124,25 +127,16 @@ func (e CallOAuthProviderAPIParamsProvider) Valid() bool {
 
 // Defines values for CallOAuthProviderAPIJSONBodyMethod.
 const (
-	DELETE CallOAuthProviderAPIJSONBodyMethod = "DELETE"
-	GET    CallOAuthProviderAPIJSONBodyMethod = "GET"
-	PATCH  CallOAuthProviderAPIJSONBodyMethod = "PATCH"
-	POST   CallOAuthProviderAPIJSONBodyMethod = "POST"
-	PUT    CallOAuthProviderAPIJSONBodyMethod = "PUT"
+	GET  CallOAuthProviderAPIJSONBodyMethod = "GET"
+	POST CallOAuthProviderAPIJSONBodyMethod = "POST"
 )
 
 // Valid indicates whether the value is a known member of the CallOAuthProviderAPIJSONBodyMethod enum.
 func (e CallOAuthProviderAPIJSONBodyMethod) Valid() bool {
 	switch e {
-	case DELETE:
-		return true
 	case GET:
 		return true
-	case PATCH:
-		return true
 	case POST:
-		return true
-	case PUT:
 		return true
 	default:
 		return false
@@ -500,6 +494,24 @@ func (e RenderDefaultManagedAuthPageParamsAction) Valid() bool {
 	}
 }
 
+// Defines values for GetProjectConfigParamsFormat.
+const (
+	Json GetProjectConfigParamsFormat = "json"
+	Yaml GetProjectConfigParamsFormat = "yaml"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectConfigParamsFormat enum.
+func (e GetProjectConfigParamsFormat) Valid() bool {
+	switch e {
+	case Json:
+		return true
+	case Yaml:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetDatabaseStatsParamsGranularity.
 const (
 	Daily   GetDatabaseStatsParamsGranularity = "daily"
@@ -752,9 +764,6 @@ type AnonKey = externalRef0.AnonKey
 // AuthConfig defines model for AuthConfig.
 type AuthConfig = externalRef0.AuthConfig
 
-// AuthHostedPage defines model for AuthHostedPage.
-type AuthHostedPage = externalRef0.AuthHostedPage
-
 // AuthHostedPageResponse defines model for AuthHostedPageResponse.
 type AuthHostedPageResponse = externalRef0.AuthHostedPageResponse
 
@@ -769,9 +778,6 @@ type AuthUser = externalRef0.AuthUser
 
 // BanUserResponse Response when banning a user
 type BanUserResponse = externalRef0.BanUserResponse
-
-// BatchFunctionDeployFailure defines model for BatchFunctionDeployFailure.
-type BatchFunctionDeployFailure = externalRef0.BatchFunctionDeployFailure
 
 // BatchFunctionDeployResponse defines model for BatchFunctionDeployResponse.
 type BatchFunctionDeployResponse = externalRef0.BatchFunctionDeployResponse
@@ -819,6 +825,9 @@ type CreateVariableRequest = externalRef0.CreateVariableRequest
 // Database PostgreSQL database with automatic scalability and security features.
 type Database = externalRef0.Database
 
+// DatabaseQueryPerformanceResponse defines model for DatabaseQueryPerformanceResponse.
+type DatabaseQueryPerformanceResponse = externalRef0.DatabaseQueryPerformanceResponse
+
 // DatabaseStats defines model for DatabaseStats.
 type DatabaseStats = externalRef0.DatabaseStats
 
@@ -837,32 +846,11 @@ type Frontend = externalRef0.Frontend
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse = externalRef0.FrontendCustomDomainResponse
 
-// FrontendCustomDomainTLSConfig defines model for FrontendCustomDomainTLSConfig.
-type FrontendCustomDomainTLSConfig = externalRef0.FrontendCustomDomainTLSConfig
-
-// FrontendDeployment defines model for FrontendDeployment.
-type FrontendDeployment = externalRef0.FrontendDeployment
-
-// FrontendDomainRoutingRecord defines model for FrontendDomainRoutingRecord.
-type FrontendDomainRoutingRecord = externalRef0.FrontendDomainRoutingRecord
-
-// FrontendDomainVerificationRecord defines model for FrontendDomainVerificationRecord.
-type FrontendDomainVerificationRecord = externalRef0.FrontendDomainVerificationRecord
-
-// FrontendUsageDailyEntry One day of request and error counts for a single frontend.
-type FrontendUsageDailyEntry = externalRef0.FrontendUsageDailyEntry
-
-// FrontendUsageData Monthly frontend request totals grouped by frontend.
-type FrontendUsageData = externalRef0.FrontendUsageData
-
 // FrontendUsageHistoryResponse Zero-filled daily series of request + error counts for a single frontend, oldest first.
 type FrontendUsageHistoryResponse = externalRef0.FrontendUsageHistoryResponse
 
 // Function defines model for Function.
 type Function = externalRef0.Function
-
-// FunctionDeployment defines model for FunctionDeployment.
-type FunctionDeployment = externalRef0.FunctionDeployment
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
 type FunctionInvocationRequest = externalRef0.FunctionInvocationRequest
@@ -872,9 +860,6 @@ type FunctionInvocationResponse = externalRef0.FunctionInvocationResponse
 
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion = externalRef0.FunctionRegion
-
-// FunctionRuntimeOption defines model for FunctionRuntimeOption.
-type FunctionRuntimeOption = externalRef0.FunctionRuntimeOption
 
 // FunctionRuntimesResponse defines model for FunctionRuntimesResponse.
 type FunctionRuntimesResponse = externalRef0.FunctionRuntimesResponse
@@ -900,23 +885,11 @@ type HostedLoginOptionsResponse = externalRef0.HostedLoginOptionsResponse
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType = externalRef0.HostedRenderablePageType
 
-// LiveLogLevel Normalized function runtime log level.
-type LiveLogLevel = externalRef0.LiveLogLevel
-
-// LogActivityBucket Log-event counts for one activity time bucket.
-type LogActivityBucket = externalRef0.LogActivityBucket
-
 // LogActivityRequest Activity request for bucketed log counts.
 type LogActivityRequest = externalRef0.LogActivityRequest
 
 // LogActivityResponse Bucketed runtime log activity.
 type LogActivityResponse = externalRef0.LogActivityResponse
-
-// LogEvent Normalized historical log event returned by paginated log APIs.
-type LogEvent = externalRef0.LogEvent
-
-// LogSearchEvent defines model for LogSearchEvent.
-type LogSearchEvent = externalRef0.LogSearchEvent
 
 // LogSearchRequest Search request for project logs.
 type LogSearchRequest = externalRef0.LogSearchRequest
@@ -926,9 +899,6 @@ type LogSearchResponse = externalRef0.LogSearchResponse
 
 // LogStreamRequest Stream request for live project logs. Text search, pagination cursors, and fixed end times are not supported.
 type LogStreamRequest = externalRef0.LogStreamRequest
-
-// MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
-type MetricUsageData = externalRef0.MetricUsageData
 
 // OAuthConfig defines model for OAuthConfig.
 type OAuthConfig = externalRef0.OAuthConfig
@@ -975,11 +945,26 @@ type PlatformExchangeResponse = externalRef0.PlatformExchangeResponse
 // Project defines model for Project.
 type Project = externalRef0.Project
 
-// ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
-type ProjectFrontendCustomDomain = externalRef0.ProjectFrontendCustomDomain
+// ProjectConfig Declarative project configuration manifest (the JSON form of
+// volcano-config.yaml). Omitted sections are left untouched. Within
+// declared entries, omitted optional fields keep their current server
+// values (patch semantics). Declared collection keys are fully synced to
+// the manifest: `variables`, `buckets[].policies`, `auth.providers.oauth`,
+// `auth.email.templates`, and `functions[].schedulers` are reconciled to
+// exactly match, deleting resources absent from the manifest. Functions,
+// frontends, databases, and buckets are never created or deleted through
+// this manifest; entries referencing resources that do not exist are
+// skipped and reported.
+type ProjectConfig = externalRef0.ProjectConfig
 
-// ProjectFrontendDeployment defines model for ProjectFrontendDeployment.
-type ProjectFrontendDeployment = externalRef0.ProjectFrontendDeployment
+// ProjectConfigApplyResult Per-resource report for a project config apply (or dry run).
+type ProjectConfigApplyResult = externalRef0.ProjectConfigApplyResult
+
+// ProjectConfigValidationErrorResponse Returned when manifest validation fails. Nothing was applied.
+type ProjectConfigValidationErrorResponse = externalRef0.ProjectConfigValidationErrorResponse
+
+// ProjectHealthResponse defines model for ProjectHealthResponse.
+type ProjectHealthResponse = externalRef0.ProjectHealthResponse
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse = externalRef0.ProjectUsageResponse
@@ -988,17 +973,11 @@ type ProjectUsageResponse = externalRef0.ProjectUsageResponse
 // Note: Message size and channels per connection are plan-based (not configurable).
 type RealtimeConfig = externalRef0.RealtimeConfig
 
-// RealtimePlanLimits Plan-based limits for realtime features
-type RealtimePlanLimits = externalRef0.RealtimePlanLimits
-
 // RealtimeStats Realtime usage statistics for a project
 type RealtimeStats = externalRef0.RealtimeStats
 
 // ResolveFunctionResponse defines model for ResolveFunctionResponse.
 type ResolveFunctionResponse = externalRef0.ResolveFunctionResponse
-
-// ScheduleRequest defines model for ScheduleRequest.
-type ScheduleRequest = externalRef0.ScheduleRequest
 
 // ServiceKey Service role key for admin operations.
 // **WARNING:** Bypasses all RLS - backend use only!
@@ -1088,9 +1067,6 @@ type UploadSessionPart = externalRef0.UploadSessionPart
 // UploadSessionStatusResponse Status of an upload session
 type UploadSessionStatusResponse = externalRef0.UploadSessionStatusResponse
 
-// UsageDataPoint A single timestamped usage value.
-type UsageDataPoint = externalRef0.UsageDataPoint
-
 // Variable defines model for Variable.
 type Variable = externalRef0.Variable
 
@@ -1099,9 +1075,6 @@ type BucketName = string
 
 // DatabaseName defines model for DatabaseName.
 type DatabaseName = string
-
-// DeploymentId defines model for DeploymentId.
-type DeploymentId = openapi_types.UUID
 
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
@@ -1204,17 +1177,16 @@ type AuthOAuthAuthorizeParamsProvider string
 
 // CallOAuthProviderAPIJSONBody defines parameters for CallOAuthProviderAPI.
 type CallOAuthProviderAPIJSONBody struct {
-	// Body Request body for POST/PUT/PATCH requests
+	// Body Request body for POST requests
 	Body *map[string]interface{} `json:"body,omitempty"`
 
-	// Headers Additional headers to include
-	Headers *map[string]string `json:"headers,omitempty"`
+	// Endpoint Relative path on the provider's API, beginning with `/`. It is
+	// joined with the provider's fixed base URL; it must not contain a
+	// scheme, host, userinfo, or a leading `//`.
+	Endpoint string `json:"endpoint"`
 
 	// Method HTTP method to use
 	Method *CallOAuthProviderAPIJSONBodyMethod `json:"method,omitempty"`
-
-	// Url The API endpoint URL to call
-	Url string `json:"url"`
 }
 
 // CallOAuthProviderAPIParamsProvider defines parameters for CallOAuthProviderAPI.
@@ -1435,12 +1407,14 @@ type QueryDatabaseSelectJSONBody_Filters_Value struct {
 
 // QueryDatabaseUpdateJSONBody defines parameters for QueryDatabaseUpdate.
 type QueryDatabaseUpdateJSONBody struct {
-	// Filters WHERE conditions for which rows to update
-	Filters *[]struct {
+	// Filters WHERE conditions for which rows to update. At least one filter
+	// is required; a filterless update is rejected to avoid rewriting
+	// every row.
+	Filters []struct {
 		Column   string                                     `json:"column"`
 		Operator QueryDatabaseUpdateJSONBodyFiltersOperator `json:"operator"`
 		Value    QueryDatabaseUpdateJSONBody_Filters_Value  `json:"value"`
-	} `json:"filters,omitempty"`
+	} `json:"filters"`
 
 	// Table Table name
 	Table string `json:"table"`
@@ -1569,6 +1543,21 @@ type ListUserSessionsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetProjectConfigParams defines parameters for GetProjectConfig.
+type GetProjectConfigParams struct {
+	// Format Response format override. Takes precedence over the Accept header.
+	Format *GetProjectConfigParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetProjectConfigParamsFormat defines parameters for GetProjectConfig.
+type GetProjectConfigParamsFormat string
+
+// ApplyProjectConfigParams defines parameters for ApplyProjectConfig.
+type ApplyProjectConfigParams struct {
+	// DryRun Validate and report projected actions without applying changes.
+	DryRun *bool `form:"dry_run,omitempty" json:"dry_run,omitempty"`
+}
+
 // ListDatabasesParams defines parameters for ListDatabases.
 type ListDatabasesParams struct {
 	// Page Page number (1-indexed)
@@ -1576,6 +1565,12 @@ type ListDatabasesParams struct {
 
 	// Limit Number of items per page (max 100)
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetProjectDatabaseQueriesParams defines parameters for GetProjectDatabaseQueries.
+type GetProjectDatabaseQueriesParams struct {
+	// Limit Maximum number of queries to return.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetDatabaseStatsParams defines parameters for GetDatabaseStats.
@@ -1780,10 +1775,13 @@ type CreateServiceKeyJSONBody struct {
 	// Can only contain letters, numbers, underscores, and hyphens.
 	Name string `json:"name"`
 
-	// Permissions Optional least-privilege scope for the key. When omitted, the key
-	// is granted full access (["*"]) for backward compatibility. Provide
-	// an explicit list (e.g. ["functions.invoke", "storage.download"]) to
-	// restrict the operations the key may perform. "*" grants everything.
+	// Permissions Optional least-privilege scope for the key. When omitted, empty, or
+	// containing only blank strings, the key is granted full access (["*"])
+	// for backward compatibility. Provide an explicit list (e.g.
+	// ["functions.invoke", "storage.download"]) to restrict the key; "*"
+	// grants everything. Scope enforcement currently applies to function
+	// invocation and storage object operations; other service-key routes
+	// are not yet gated by scope.
 	Permissions *[]string `json:"permissions,omitempty"`
 }
 
@@ -1964,6 +1962,9 @@ type ConfigureAuthMethodsJSONRequestBody ConfigureAuthMethodsJSONBody
 
 // BanAuthUserJSONRequestBody defines body for BanAuthUser for application/json ContentType.
 type BanAuthUserJSONRequestBody BanAuthUserJSONBody
+
+// ApplyProjectConfigJSONRequestBody defines body for ApplyProjectConfig for application/json ContentType.
+type ApplyProjectConfigJSONRequestBody = ProjectConfig
 
 // CreateDatabaseJSONRequestBody defines body for CreateDatabase for application/json ContentType.
 type CreateDatabaseJSONRequestBody = CreateDatabaseRequest
@@ -2848,6 +2849,14 @@ type ClientInterface interface {
 	// UnbanAuthUser request
 	UnbanAuthUser(ctx context.Context, id ProjectId, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetProjectConfig request
+	GetProjectConfig(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplyProjectConfigWithBody request with any body
+	ApplyProjectConfigWithBody(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ApplyProjectConfig(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, body ApplyProjectConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDatabases request
 	ListDatabases(ctx context.Context, id ProjectId, params *ListDatabasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2861,6 +2870,9 @@ type ClientInterface interface {
 
 	// GetDatabase request
 	GetDatabase(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectDatabaseQueries request
+	GetProjectDatabaseQueries(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResetDatabasePassword request
 	ResetDatabasePassword(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2971,6 +2983,9 @@ type ClientInterface interface {
 	UpdateFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectHealth request
+	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4403,6 +4418,42 @@ func (c *Client) UnbanAuthUser(ctx context.Context, id ProjectId, userId openapi
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetProjectConfig(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectConfigRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ApplyProjectConfigWithBody(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyProjectConfigRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ApplyProjectConfig(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, body ApplyProjectConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyProjectConfigRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDatabases(ctx context.Context, id ProjectId, params *ListDatabasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDatabasesRequest(c.Server, id, params)
 	if err != nil {
@@ -4453,6 +4504,18 @@ func (c *Client) DeleteDatabase(ctx context.Context, id ProjectId, databaseName 
 
 func (c *Client) GetDatabase(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDatabaseRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectDatabaseQueries(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectDatabaseQueriesRequest(c.Server, id, databaseName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4921,6 +4984,18 @@ func (c *Client) UpdateFunctionSchedulerWithBody(ctx context.Context, id Project
 
 func (c *Client) UpdateFunctionScheduler(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectHealthRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -8817,6 +8892,141 @@ func NewUnbanAuthUserRequest(server string, id ProjectId, userId openapi_types.U
 	return req, nil
 }
 
+// NewGetProjectConfigRequest generates requests for GetProjectConfig
+func NewGetProjectConfigRequest(server string, id ProjectId, params *GetProjectConfigParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/config", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Format != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "format", *params.Format, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApplyProjectConfigRequest calls the generic ApplyProjectConfig builder with application/json body
+func NewApplyProjectConfigRequest(server string, id ProjectId, params *ApplyProjectConfigParams, body ApplyProjectConfigJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplyProjectConfigRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewApplyProjectConfigRequestWithBody generates requests for ApplyProjectConfig with any type of body
+func NewApplyProjectConfigRequestWithBody(server string, id ProjectId, params *ApplyProjectConfigParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/config", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.DryRun != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dry_run", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListDatabasesRequest generates requests for ListDatabases
 func NewListDatabasesRequest(server string, id ProjectId, params *ListDatabasesParams) (*http.Request, error) {
 	var err error
@@ -9009,6 +9219,74 @@ func NewGetDatabaseRequest(server string, id ProjectId, databaseName DatabaseNam
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectDatabaseQueriesRequest generates requests for GetProjectDatabaseQueries
+func NewGetProjectDatabaseQueriesRequest(server string, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/queries", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -10694,6 +10972,40 @@ func NewUpdateFunctionSchedulerRequestWithBody(server string, id ProjectId, func
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProjectHealthRequest generates requests for GetProjectHealth
+func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/health", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -13392,6 +13704,14 @@ type ClientWithResponsesInterface interface {
 	// UnbanAuthUserWithResponse request
 	UnbanAuthUserWithResponse(ctx context.Context, id ProjectId, userId openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnbanAuthUserClientResponse, error)
 
+	// GetProjectConfigWithResponse request
+	GetProjectConfigWithResponse(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*GetProjectConfigClientResponse, error)
+
+	// ApplyProjectConfigWithBodyWithResponse request with any body
+	ApplyProjectConfigWithBodyWithResponse(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProjectConfigClientResponse, error)
+
+	ApplyProjectConfigWithResponse(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, body ApplyProjectConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProjectConfigClientResponse, error)
+
 	// ListDatabasesWithResponse request
 	ListDatabasesWithResponse(ctx context.Context, id ProjectId, params *ListDatabasesParams, reqEditors ...RequestEditorFn) (*ListDatabasesClientResponse, error)
 
@@ -13405,6 +13725,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetDatabaseWithResponse request
 	GetDatabaseWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseClientResponse, error)
+
+	// GetProjectDatabaseQueriesWithResponse request
+	GetProjectDatabaseQueriesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*GetProjectDatabaseQueriesClientResponse, error)
 
 	// ResetDatabasePasswordWithResponse request
 	ResetDatabasePasswordWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ResetDatabasePasswordClientResponse, error)
@@ -13515,6 +13838,9 @@ type ClientWithResponsesInterface interface {
 	UpdateFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
 
 	UpdateFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId FunctionId, schedulerId SchedulerId, body UpdateFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionSchedulerClientResponse, error)
+
+	// GetProjectHealthWithResponse request
+	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
 
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
@@ -16077,6 +16403,73 @@ func (r UnbanAuthUserClientResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectConfigClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectConfig
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectConfigClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectConfigClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectConfigClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApplyProjectConfigClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectConfigApplyResult
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *ProjectConfigValidationErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ApplyProjectConfigClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApplyProjectConfigClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApplyProjectConfigClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDatabasesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16141,6 +16534,10 @@ func (r CreateDatabaseClientResponse) ContentType() string {
 type DeleteDatabaseClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON202      *struct {
+		Message *string `json:"message,omitempty"`
+		Status  *string `json:"status,omitempty"`
+	}
 }
 
 // Status returns HTTPResponse.Status
@@ -16197,6 +16594,41 @@ func (r GetDatabaseClientResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectDatabaseQueriesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseQueryPerformanceResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectDatabaseQueriesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectDatabaseQueriesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectDatabaseQueriesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResetDatabasePasswordClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16208,7 +16640,7 @@ type ResetDatabasePasswordClientResponse struct {
 		// NewPassword New Volcano-managed client password. Always starts with `vpg_`.
 		NewPassword *string `json:"new_password,omitempty"`
 
-		// RoleName Volcano-managed client database role name
+		// RoleName Volcano-managed per-database client login (also the pgproxy routing username)
 		RoleName *string `json:"role_name,omitempty"`
 	}
 }
@@ -17245,6 +17677,40 @@ func (r UpdateFunctionSchedulerClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectHealthClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectHealthResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectHealthClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectHealthClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectHealthClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -19592,6 +20058,32 @@ func (c *ClientWithResponses) UnbanAuthUserWithResponse(ctx context.Context, id 
 	return ParseUnbanAuthUserClientResponse(rsp)
 }
 
+// GetProjectConfigWithResponse request returning *GetProjectConfigClientResponse
+func (c *ClientWithResponses) GetProjectConfigWithResponse(ctx context.Context, id ProjectId, params *GetProjectConfigParams, reqEditors ...RequestEditorFn) (*GetProjectConfigClientResponse, error) {
+	rsp, err := c.GetProjectConfig(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectConfigClientResponse(rsp)
+}
+
+// ApplyProjectConfigWithBodyWithResponse request with arbitrary body returning *ApplyProjectConfigClientResponse
+func (c *ClientWithResponses) ApplyProjectConfigWithBodyWithResponse(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyProjectConfigClientResponse, error) {
+	rsp, err := c.ApplyProjectConfigWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplyProjectConfigClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) ApplyProjectConfigWithResponse(ctx context.Context, id ProjectId, params *ApplyProjectConfigParams, body ApplyProjectConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyProjectConfigClientResponse, error) {
+	rsp, err := c.ApplyProjectConfig(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplyProjectConfigClientResponse(rsp)
+}
+
 // ListDatabasesWithResponse request returning *ListDatabasesClientResponse
 func (c *ClientWithResponses) ListDatabasesWithResponse(ctx context.Context, id ProjectId, params *ListDatabasesParams, reqEditors ...RequestEditorFn) (*ListDatabasesClientResponse, error) {
 	rsp, err := c.ListDatabases(ctx, id, params, reqEditors...)
@@ -19634,6 +20126,15 @@ func (c *ClientWithResponses) GetDatabaseWithResponse(ctx context.Context, id Pr
 		return nil, err
 	}
 	return ParseGetDatabaseClientResponse(rsp)
+}
+
+// GetProjectDatabaseQueriesWithResponse request returning *GetProjectDatabaseQueriesClientResponse
+func (c *ClientWithResponses) GetProjectDatabaseQueriesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*GetProjectDatabaseQueriesClientResponse, error) {
+	rsp, err := c.GetProjectDatabaseQueries(ctx, id, databaseName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectDatabaseQueriesClientResponse(rsp)
 }
 
 // ResetDatabasePasswordWithResponse request returning *ResetDatabasePasswordClientResponse
@@ -19978,6 +20479,15 @@ func (c *ClientWithResponses) UpdateFunctionSchedulerWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateFunctionSchedulerClientResponse(rsp)
+}
+
+// GetProjectHealthWithResponse request returning *GetProjectHealthClientResponse
+func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error) {
+	rsp, err := c.GetProjectHealth(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectHealthClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -23013,6 +23523,107 @@ func ParseUnbanAuthUserClientResponse(rsp *http.Response) (*UnbanAuthUserClientR
 	return response, nil
 }
 
+// ParseGetProjectConfigClientResponse parses an HTTP response from a GetProjectConfigWithResponse call
+func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectConfigClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApplyProjectConfigClientResponse parses an HTTP response from a ApplyProjectConfigWithResponse call
+func ParseApplyProjectConfigClientResponse(rsp *http.Response) (*ApplyProjectConfigClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApplyProjectConfigClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectConfigApplyResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ProjectConfigValidationErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDatabasesClientResponse parses an HTTP response from a ListDatabasesWithResponse call
 func ParseListDatabasesClientResponse(rsp *http.Response) (*ListDatabasesClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -23085,6 +23696,19 @@ func ParseDeleteDatabaseClientResponse(rsp *http.Response) (*DeleteDatabaseClien
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest struct {
+			Message *string `json:"message,omitempty"`
+			Status  *string `json:"status,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -23114,6 +23738,67 @@ func ParseGetDatabaseClientResponse(rsp *http.Response) (*GetDatabaseClientRespo
 	return response, nil
 }
 
+// ParseGetProjectDatabaseQueriesClientResponse parses an HTTP response from a GetProjectDatabaseQueriesWithResponse call
+func ParseGetProjectDatabaseQueriesClientResponse(rsp *http.Response) (*GetProjectDatabaseQueriesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectDatabaseQueriesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseQueryPerformanceResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseResetDatabasePasswordClientResponse parses an HTTP response from a ResetDatabasePasswordWithResponse call
 func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabasePasswordClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -23137,7 +23822,7 @@ func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabas
 			// NewPassword New Volcano-managed client password. Always starts with `vpg_`.
 			NewPassword *string `json:"new_password,omitempty"`
 
-			// RoleName Volcano-managed client database role name
+			// RoleName Volcano-managed per-database client login (also the pgproxy routing username)
 			RoleName *string `json:"role_name,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24523,6 +25208,60 @@ func ParseUpdateFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateFunc
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectHealthClientResponse parses an HTTP response from a GetProjectHealthWithResponse call
+func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectHealthClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectHealthResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

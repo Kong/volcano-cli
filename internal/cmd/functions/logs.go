@@ -143,7 +143,7 @@ func followDeploymentLogs(ctx context.Context, opts logsOptions, service clifunc
 	})
 }
 
-func functionDeploymentTerminal(deployment *apiclient.FunctionDeployment) bool {
+func functionDeploymentTerminal(deployment *apicommon.FunctionDeployment) bool {
 	if deployment == nil {
 		return false
 	}

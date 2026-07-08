@@ -1,5 +1,9 @@
 version: 1
 
+# Deploy with `volcano config deploy` after `volcano functions deploy`.
+# Declared sections are the source of truth: schedulers listed under a
+# function are fully synced, and entries for functions that are not
+# deployed yet are skipped with a warning.
 functions:
   - name: hello
     public: true
