@@ -29,6 +29,16 @@ const (
 	// CLIInstructionRequireVersionUpgrade signals this CLI version is no longer
 	// supported. The API pairs it with an HTTP 426 on non-exempt routes.
 	CLIInstructionRequireVersionUpgrade = "require_version_upgrade"
+
+	// CLIInstructionLowCreditWarning and CLIInstructionNotEnoughCredit are
+	// RESERVED for a future billing/credit gate. The API does not emit them
+	// yet — billing integration into this protocol needs its own design pass —
+	// so there is no case for these in PrintAPIInstructionNotices either.
+	// Naming is locked in now, parallel to the version instructions, so a
+	// future implementation on both sides doesn't need a wire-format rename.
+	CLIInstructionLowCreditWarning = "low_credit_warning"
+	CLIInstructionNotEnoughCredit  = "not_enough_credit"
+
 	// DeviceInstructionReauth signals the platform token needs re-authentication.
 	DeviceInstructionReauth = "reauth"
 )
