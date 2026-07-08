@@ -6,6 +6,7 @@ package projectconfig
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -25,8 +26,14 @@ const (
 )
 
 // Manifest is the on-disk shape of volcano-config.yaml. Field names mirror the
-// server's canonical YAML rendering; the JSON tags match the ProjectConfig
-// schema so a manifest marshals directly into the apply request body.
+// server's canonical YAML rendering and the JSON tags match the ProjectConfig
+// schema. The typed struct drives local decoding and validation; the apply
+// request body is produced from the interpolated manifest as a generic shape
+// (see uploadBody) rather than by marshaling this struct, so that omitted
+// fields stay omitted and the server's required-field validation applies. A
+// non-pointer field such as VariableManifest.Value would otherwise serialize an
+// omitted value as its zero value ("") and, because empty variable values are
+// valid, silently clear the variable instead of being rejected.
 type Manifest struct {
 	Version   int                 `yaml:"version" json:"version"`
 	Project   *ProjectManifest    `yaml:"project,omitempty" json:"project,omitempty"`
@@ -37,6 +44,10 @@ type Manifest struct {
 	Auth      *AuthManifest       `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
 	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
+
+	// upload is the interpolated manifest decoded into a generic shape; it is the
+	// source of the apply request body (see uploadBody). Populated by Parse.
+	upload map[string]any
 }
 
 // ProjectManifest declares project-level settings.
@@ -333,7 +344,29 @@ func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error
 	if err := manifest.Validate(); err != nil {
 		return nil, err
 	}
+
+	// Capture the interpolated manifest as a generic shape for upload so omitted
+	// fields stay absent (see uploadBody and the Manifest doc comment).
+	if err := yaml.Unmarshal(interpolated, &manifest.upload); err != nil {
+		return nil, fmt.Errorf("failed to prepare manifest for upload: %w", err)
+	}
 	return &manifest, nil
+}
+
+// uploadBody returns the apply request body: the interpolated manifest marshaled
+// from its generic shape. Marshaling the generic shape rather than the typed
+// struct preserves omitted fields as absent — a non-pointer field such as
+// VariableManifest.Value would otherwise serialize an omitted value as "" and
+// bypass the server's required-field validation, silently clearing the variable.
+func (m *Manifest) uploadBody() ([]byte, error) {
+	if m.upload == nil {
+		return nil, errors.New("manifest was not parsed")
+	}
+	body, err := json.Marshal(m.upload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode manifest: %w", err)
+	}
+	return body, nil
 }
 
 // Validate performs the minimal local checks: the schema version and the

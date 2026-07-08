@@ -2,9 +2,7 @@ package projectconfig
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 
 	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -35,9 +33,9 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*
 		return nil, err
 	}
 
-	body, err := json.Marshal(manifest)
+	body, err := manifest.uploadBody()
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode manifest: %w", err)
+		return nil, err
 	}
 	return authenticated.API.ApplyProjectConfig(ctx, authenticated.ProjectID, body, dryRun)
 }

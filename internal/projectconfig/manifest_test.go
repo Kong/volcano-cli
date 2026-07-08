@@ -336,7 +336,7 @@ functions:
 `), noEnv)
 	require.NoError(t, err)
 
-	encoded, err := json.Marshal(manifest)
+	encoded, err := manifest.uploadBody()
 	require.NoError(t, err)
 
 	var body map[string]any
@@ -367,6 +367,185 @@ functions:
 	require.True(t, ok)
 	assert.NotContains(t, scheduler, "regions")
 	assert.NotContains(t, scheduler, "enabled")
+}
+
+// TestManifestUploadPreservesVariableValueAbsence guards that an omitted variable
+// value uploads as an absent field (so the server's required-field validation
+// rejects the typo) rather than an empty string that would silently clear the
+// variable, while an explicit empty value is preserved as such.
+func TestManifestUploadPreservesVariableValueAbsence(t *testing.T) {
+	uploadedVariable := func(t *testing.T, yamlDoc string) map[string]any {
+		t.Helper()
+		manifest, err := Parse([]byte(yamlDoc), noEnv)
+		require.NoError(t, err)
+		body, err := manifest.uploadBody()
+		require.NoError(t, err)
+		var decoded map[string]any
+		require.NoError(t, json.Unmarshal(body, &decoded))
+		variables, ok := decoded["variables"].([]any)
+		require.True(t, ok)
+		variable, ok := variables[0].(map[string]any)
+		require.True(t, ok)
+		return variable
+	}
+
+	t.Run("omitted value stays absent", func(t *testing.T) {
+		variable := uploadedVariable(t, "version: 1\nvariables:\n  - name: API_KEY\n")
+		assert.Equal(t, "API_KEY", variable["name"])
+		assert.NotContains(t, variable, "value")
+	})
+
+	t.Run("explicit empty value is preserved", func(t *testing.T) {
+		variable := uploadedVariable(t, "version: 1\nvariables:\n  - name: API_KEY\n    value: \"\"\n")
+		assert.Contains(t, variable, "value")
+		assert.Empty(t, variable["value"])
+	})
+}
+
+// TestManifestUploadFullShape verifies the apply request body emits the complete
+// interpolated manifest with the server's snake_case keys and preserves declared
+// values across every section, including explicit false booleans — which must
+// reach the server rather than be dropped as "empty". This guards the
+// generic-shape upload path against silently dropping, renaming, or retyping
+// fields.
+func TestManifestUploadFullShape(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+project:
+  name: my-app
+  all_regions: false
+  selected_regions: [us-east-1, us-west-2]
+databases:
+  - name: appdb
+    region: aws-us-east-1
+    pg_version: "16"
+    database_type: volcano-db-xs
+variables:
+  - name: STRIPE_SECRET_KEY
+    value: sk_test_123
+buckets:
+  - name: avatars
+    file_size_limit: 5242880
+    allowed_mime_types: [image/png]
+    policies:
+      - name: public-read
+        operation: SELECT
+        definition: "true"
+realtime:
+  enabled: true
+  broadcast_enabled: false
+auth:
+  tokens:
+    access_token_lifetime: 3600
+  providers:
+    oauth:
+      - provider: google
+        enabled: true
+        client_id: cid
+        scopes: [openid, email]
+  email:
+    smtp:
+      host: smtp.example.com
+      port: 587
+  managed_pages:
+    pages:
+      login:
+        html: "<html></html>"
+        css: "body{}"
+functions:
+  - name: hello
+    public: true
+    schedulers:
+      - name: nightly
+        cron: "0 3 * * *"
+        enabled: true
+        payload: { source: cron }
+frontends:
+  - name: web
+    custom_domain:
+      domain: app.myapp.com
+      tls:
+        mode: byoc
+        certificate_pem: CERT
+        private_key_pem: KEY
+`), noEnv)
+	require.NoError(t, err)
+
+	body, err := manifest.uploadBody()
+	require.NoError(t, err)
+
+	var m map[string]any
+	require.NoError(t, json.Unmarshal(body, &m))
+
+	asMap := func(v any) map[string]any {
+		got, ok := v.(map[string]any)
+		require.True(t, ok, "expected object, got %T", v)
+		return got
+	}
+	first := func(v any) any {
+		got, ok := v.([]any)
+		require.True(t, ok, "expected array, got %T", v)
+		require.NotEmpty(t, got)
+		return got[0]
+	}
+
+	assert.EqualValues(t, 1, m["version"])
+
+	// project: an explicitly declared false must be emitted, not dropped.
+	project := asMap(m["project"])
+	assert.Equal(t, "my-app", project["name"])
+	assert.Equal(t, false, project["all_regions"])
+	assert.Equal(t, []any{"us-east-1", "us-west-2"}, project["selected_regions"])
+
+	db := asMap(first(m["databases"]))
+	assert.Equal(t, "appdb", db["name"])
+	assert.Equal(t, "16", db["pg_version"])
+	assert.Equal(t, "volcano-db-xs", db["database_type"])
+
+	variable := asMap(first(m["variables"]))
+	assert.Equal(t, "STRIPE_SECRET_KEY", variable["name"])
+	assert.Equal(t, "sk_test_123", variable["value"])
+
+	bucket := asMap(first(m["buckets"]))
+	assert.EqualValues(t, 5242880, bucket["file_size_limit"])
+	assert.Equal(t, []any{"image/png"}, bucket["allowed_mime_types"])
+	policy := asMap(first(bucket["policies"]))
+	assert.Equal(t, "SELECT", policy["operation"])
+	assert.Equal(t, "true", policy["definition"])
+
+	realtime := asMap(m["realtime"])
+	assert.Equal(t, true, realtime["enabled"])
+	assert.Equal(t, false, realtime["broadcast_enabled"])
+	assert.NotContains(t, realtime, "presence_enabled")
+
+	auth := asMap(m["auth"])
+	assert.EqualValues(t, 3600, asMap(auth["tokens"])["access_token_lifetime"])
+	oauth := asMap(first(asMap(auth["providers"])["oauth"]))
+	assert.Equal(t, "google", oauth["provider"])
+	assert.Equal(t, true, oauth["enabled"])
+	assert.Equal(t, "cid", oauth["client_id"])
+	assert.Equal(t, []any{"openid", "email"}, oauth["scopes"])
+	smtp := asMap(asMap(auth["email"])["smtp"])
+	assert.Equal(t, "smtp.example.com", smtp["host"])
+	assert.EqualValues(t, 587, smtp["port"])
+	login := asMap(asMap(asMap(auth["managed_pages"])["pages"])["login"])
+	assert.Equal(t, "<html></html>", login["html"])
+	assert.Equal(t, "body{}", login["css"])
+
+	function := asMap(first(m["functions"]))
+	assert.Equal(t, "hello", function["name"])
+	assert.Equal(t, true, function["public"])
+	scheduler := asMap(first(function["schedulers"]))
+	assert.Equal(t, "0 3 * * *", scheduler["cron"])
+	assert.Equal(t, true, scheduler["enabled"])
+	assert.Equal(t, map[string]any{"source": "cron"}, scheduler["payload"])
+
+	customDomain := asMap(asMap(first(m["frontends"]))["custom_domain"])
+	assert.Equal(t, "app.myapp.com", customDomain["domain"])
+	tls := asMap(customDomain["tls"])
+	assert.Equal(t, "byoc", tls["mode"])
+	assert.Equal(t, "CERT", tls["certificate_pem"])
+	assert.Equal(t, "KEY", tls["private_key_pem"])
+	assert.NotContains(t, tls, "certificate_chain_pem")
 }
 
 func TestLoad(t *testing.T) {
