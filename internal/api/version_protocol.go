@@ -24,11 +24,11 @@ const (
 	headerCLILatestVersion  = "X-Volcano-CLI-Latest-Version"
 	headerDeviceInstruction = "X-Volcano-Device-Instruction"
 
-	// CLIInstructionSuggestionUpgrade signals a newer CLI is published; non-blocking.
-	CLIInstructionSuggestionUpgrade = "suggestion_upgrade"
-	// CLIInstructionVersionDeprecation signals this CLI version is no longer
+	// CLIInstructionSuggestionVersionUpgrade signals a newer CLI is published; non-blocking.
+	CLIInstructionSuggestionVersionUpgrade = "suggestion_version_upgrade"
+	// CLIInstructionRequireVersionUpgrade signals this CLI version is no longer
 	// supported. The API pairs it with an HTTP 426 on non-exempt routes.
-	CLIInstructionVersionDeprecation = "version_deprecation"
+	CLIInstructionRequireVersionUpgrade = "require_version_upgrade"
 	// DeviceInstructionReauth signals the platform token needs re-authentication.
 	DeviceInstructionReauth = "reauth"
 )

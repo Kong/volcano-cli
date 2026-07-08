@@ -52,7 +52,7 @@ func TestVersionProtocolDoer_RecordsInstructionHeaders(t *testing.T) {
 
 	inner := doerFunc(func(*http.Request) (*http.Response, error) {
 		rec := httptest.NewRecorder()
-		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionUpgrade)
+		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
 		rec.Header().Set(headerCLILatestVersion, "v1.5.0")
 		rec.WriteHeader(http.StatusOK)
 		return rec.Result(), nil
@@ -63,7 +63,7 @@ func TestVersionProtocolDoer_RecordsInstructionHeaders(t *testing.T) {
 	require.NoError(t, err)
 
 	got := LastInstructions()
-	assert.Equal(t, CLIInstructionSuggestionUpgrade, got.CLIInstruction)
+	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, got.CLIInstruction)
 	assert.Equal(t, "v1.5.0", got.LatestVersion)
 	assert.Empty(t, got.DeviceInstruction)
 }
@@ -106,7 +106,7 @@ func TestVersionProtocolDoer_LatestInvocationWins(t *testing.T) {
 
 	first := doerFunc(func(*http.Request) (*http.Response, error) {
 		rec := httptest.NewRecorder()
-		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionUpgrade)
+		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
 		rec.WriteHeader(http.StatusOK)
 		return rec.Result(), nil
 	})
@@ -119,7 +119,7 @@ func TestVersionProtocolDoer_LatestInvocationWins(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/projects", http.NoBody)
 	_, err := versionProtocolDoer{next: first}.Do(req)
 	require.NoError(t, err)
-	require.Equal(t, CLIInstructionSuggestionUpgrade, LastInstructions().CLIInstruction)
+	require.Equal(t, CLIInstructionSuggestionVersionUpgrade, LastInstructions().CLIInstruction)
 
 	_, err = versionProtocolDoer{next: second}.Do(req)
 	require.NoError(t, err)

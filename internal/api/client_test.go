@@ -119,7 +119,7 @@ func TestNewClientSendsVersionProtocolHeadersAndRecordsInstructions(t *testing.T
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawVersionHeader = r.Header.Get("X-Volcano-CLI-Version")
 		sawUA = r.Header.Get("User-Agent")
-		w.Header().Set("X-Volcano-CLI-Instruction", CLIInstructionSuggestionUpgrade)
+		w.Header().Set("X-Volcano-CLI-Instruction", CLIInstructionSuggestionVersionUpgrade)
 		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
 		writeAPIJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0})
 	}))
@@ -135,7 +135,7 @@ func TestNewClientSendsVersionProtocolHeadersAndRecordsInstructions(t *testing.T
 	assert.Contains(t, sawUA, "volcano-cli/v1.2.3")
 
 	got := LastInstructions()
-	assert.Equal(t, CLIInstructionSuggestionUpgrade, got.CLIInstruction)
+	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, got.CLIInstruction)
 	assert.Equal(t, "v1.5.0", got.LatestVersion)
 }
 

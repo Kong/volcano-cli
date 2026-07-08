@@ -132,7 +132,7 @@ func TestPrintAPIInstructionNotices_Suggestion(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
-	withInstructions(t, api.CLIInstructionSuggestionUpgrade, "v1.5.0", "")
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "v1.5.0", "")
 
 	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer
@@ -146,7 +146,7 @@ func TestPrintAPIInstructionNotices_SuggestionWithoutLatestVersion(t *testing.T)
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
-	withInstructions(t, api.CLIInstructionSuggestionUpgrade, "", "")
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "", "")
 
 	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer
@@ -160,7 +160,7 @@ func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "v0.9.0"
 	t.Cleanup(func() { version.Version = oldVersion })
-	withInstructions(t, api.CLIInstructionVersionDeprecation, "v1.5.0", "")
+	withInstructions(t, api.CLIInstructionRequireVersionUpgrade, "v1.5.0", "")
 
 	cmd := &cobra.Command{Use: "login"}
 	var out bytes.Buffer
@@ -171,7 +171,7 @@ func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 }
 
 func TestPrintAPIInstructionNotices_UsesCommandPathPrefix(t *testing.T) {
-	withInstructions(t, api.CLIInstructionSuggestionUpgrade, "v1.5.0", "")
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "v1.5.0", "")
 
 	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer

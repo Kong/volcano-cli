@@ -40,7 +40,7 @@ func main() {
 	}
 }
 
-// printDeprecationError renders a version_deprecation 426 error together with
+// printDeprecationError renders a require_version_upgrade 426 error together with
 // the concrete upgrade target, when the API provided one.
 func printDeprecationError(w io.Writer, err error, deps cliruntime.Deps) {
 	fmt.Fprintln(w, "Error:", err)

@@ -51,9 +51,9 @@ func updateOptions(deps cliruntime.Deps) update.Options {
 func PrintAPIInstructionNotices(cmd *cobra.Command, deps cliruntime.Deps) {
 	instructions := api.LastInstructions()
 	switch instructions.CLIInstruction {
-	case api.CLIInstructionVersionDeprecation:
+	case api.CLIInstructionRequireVersionUpgrade:
 		printDeprecationWarning(cmd, deps, instructions.LatestVersion)
-	case api.CLIInstructionSuggestionUpgrade:
+	case api.CLIInstructionSuggestionVersionUpgrade:
 		printUpgradeSuggestion(cmd, deps, instructions.LatestVersion)
 	}
 }
