@@ -1,11 +1,11 @@
 # Project configuration
 
 `volcano config deploy` uploads a declarative manifest
-(`volcano/volcano-config.yaml` or `./volcano-config.yaml`) to the server, which
-validates and reconciles the full project configuration:
+(`volcano/volcano-config.yaml` or `./volcano-config.yaml`) to Volcano, which
+validates and applies the full project configuration:
 
 - Project settings
-- Database assertions
+- Database requirements
 - Variables
 - Buckets and policies
 - Realtime
@@ -13,9 +13,9 @@ validates and reconciles the full project configuration:
 - Function visibility and schedulers
 - Frontend custom domains
 
-The same manifest applies to local mode and cloud. `volcano config pull`
-downloads the current configuration as a canonical manifest rendered by the
-server.
+The same manifest applies to local development and cloud projects.
+`volcano config pull` downloads the current configuration as a canonical
+manifest rendered by Volcano.
 
 ```yaml
 version: 1
@@ -39,7 +39,7 @@ Key semantics:
 - Declared config sections are the source of truth. Variables, bucket policies,
   OAuth providers, email templates, and function schedulers are fully synced
   when declared: entries absent from the manifest are deleted. Omitted sections
-  and fields keep their server values.
+  and fields keep their existing values.
 - Functions, frontends, databases, and buckets are never created or deleted
   through the manifest; only their configuration is updated. A manifest entry
   for a resource that does not exist is skipped with a warning. A deployed
@@ -47,8 +47,8 @@ Key semantics:
 - `${ENV_VAR}` references are interpolated before upload. A reference to an
   unset variable is an error, and `$$` produces a literal `$`.
 - `volcano config deploy --dry-run` prints the projected actions without
-  changing anything. Validation failures, including plan-gate violations, exit
-  non-zero with the server's error list, and nothing is applied.
+  changing anything. Validation failures exit non-zero with Volcano's error
+  list, and nothing is applied.
 - Write-only secrets, such as SMTP passwords, OAuth client secrets, and TLS
   material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation.
@@ -60,4 +60,4 @@ Behavior changes from older CLI releases:
   releases deleted them all.
 - Schedulers are now deleted by omission within a declared `schedulers` list.
 - The scheduler `regions` field is no longer supported. Placement is managed by
-  the server.
+  Volcano.

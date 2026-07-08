@@ -1,8 +1,7 @@
-# volcano-cli
+# Volcano CLI
 
-`volcano` is the command-line client for Volcano, Kong's hosting platform.
-It provides local development workflows and hosted API commands from a
-standalone Go CLI.
+`volcano` is the command-line client for Volcano, Kong's hosting platform. It
+helps you scaffold, run, and manage Volcano projects from your terminal.
 
 ## Quickstart
 
@@ -19,27 +18,17 @@ npm install -g @volcano.dev/cli
 volcano --help
 ```
 
-Build from source:
+Create a project directory and start local development:
 
 ```bash
-make build
-./volcano --help
-./volcano --version
-make test
-```
-
-From the CLI checkout, create an empty sibling project directory and run it:
-
-```bash
-VOLCANO_CLI="$(pwd)/volcano"
-mkdir ../volcano-quickstart
-cd ../volcano-quickstart
-"$VOLCANO_CLI" init javascript
-"$VOLCANO_CLI" start
-"$VOLCANO_CLI" variables deploy
-"$VOLCANO_CLI" functions deploy --all
-"$VOLCANO_CLI" config deploy
-"$VOLCANO_CLI" migrations deploy --all -d app
+mkdir volcano-quickstart
+cd volcano-quickstart
+volcano init javascript
+volcano start
+volcano variables deploy
+volcano functions deploy --all
+volcano config deploy
+volcano migrations deploy --all -d app
 ```
 
 `volcano init` without a template creates a base scaffold (environment
@@ -56,8 +45,8 @@ More detail lives in `docs/`:
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local workflows, generated-code
-guidance, release notes, and pull request expectations. Participation is
-governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+guidance, building from source, release notes, and pull request expectations.
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 If you believe you have found a security vulnerability, do not open a public
 issue. Follow [SECURITY.md](SECURITY.md) instead.
