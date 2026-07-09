@@ -1,20 +1,44 @@
 # Volcano CLI
 
-`volcano` is the command-line client for Volcano, Kong's hosting platform. It
-helps you scaffold, run, and manage Volcano projects from your terminal.
+Volcano is a hosting platform for building applications with functions,
+databases, and authentication. Deploy backend logic, provision PostgreSQL
+databases, and add user authentication—all through a unified API. The `volcano`
+CLI helps you scaffold, run, and manage Volcano projects from your terminal.
 
 ## Quickstart
 
-Install the latest published release:
-
-```bash
-curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
-```
-
-Or install from npm:
+Install with npm:
 
 ```bash
 npm install -g @volcano.dev/cli
+volcano --help
+```
+
+Or install with pnpm:
+
+```bash
+pnpm add -g @volcano.dev/cli
+volcano --help
+```
+
+Or install with Bun:
+
+```bash
+bun add -g @volcano.dev/cli
+volcano --help
+```
+
+Or install with Homebrew:
+
+```bash
+brew install kong-volcano/tap/volcano
+volcano --help
+```
+
+Or install manually:
+
+```bash
+curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
 volcano --help
 ```
 
