@@ -1,5 +1,5 @@
 class Volcano < Formula
-  desc "CLI for Volcano's serverless app platform"
+  desc "CLI for Volcano's hosting platform"
   homepage "https://github.com/Kong/volcano-cli"
   version "0.0.5"
   license "Apache-2.0"

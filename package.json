@@ -1,7 +1,7 @@
 {
   "name": "@volcano.dev/cli",
   "version": "0.0.5",
-  "description": "CLI for Volcano's serverless app platform.",
+  "description": "CLI for Volcano's hosting platform.",
   "keywords": [
     "volcano",
     "kong",

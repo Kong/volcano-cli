@@ -1,6 +1,6 @@
 # Volcano CLI
 
-Volcano is a serverless platform for building applications with functions,
+Volcano is a hosting platform for building applications with functions,
 databases, and authentication. Deploy backend logic, provision PostgreSQL
 databases, and add user authentication—all through a unified API. The `volcano`
 CLI helps you scaffold, run, and manage Volcano projects from your terminal.
