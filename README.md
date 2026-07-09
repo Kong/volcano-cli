@@ -11,10 +11,19 @@ Install the latest published release:
 curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
 ```
 
-Or install from npm:
+Or install with Homebrew:
+
+```bash
+brew install kong-volcano/tap/volcano
+volcano --help
+```
+
+Or install from npm-compatible package managers:
 
 ```bash
 npm install -g @volcano.dev/cli
+pnpm add -g @volcano.dev/cli
+bun install -g @volcano.dev/cli
 volcano --help
 ```
 
