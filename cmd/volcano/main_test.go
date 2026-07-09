@@ -170,6 +170,41 @@ func TestRun_SuccessWithSuggestionNotice(t *testing.T) {
 	assert.Contains(t, stderr.String(), "A newer Volcano CLI version is available: v1.5.0")
 }
 
+func TestRun_SuccessWithDeprecationNoticeOnExemptRoute(t *testing.T) {
+	// The exact scenario the notice-printing path exists for (per
+	// printDeprecationWarning's doc comment): a deprecated CLI's request lands
+	// on an exempt route (e.g. `login`) and succeeds — the server sets the
+	// require_version_upgrade header but doesn't 426 it. The user still needs
+	// to learn their CLI is deprecated even though this command was let
+	// through. Only the deprecation-error (426) path had run()-level coverage
+	// before this; this is the success-path counterpart.
+	api.ResetLastInstructionsForTest()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionRequireVersionUpgrade)
+		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	defer server.Close()
+
+	deps := runDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "list"})
+
+	code := run(root, deps)
+
+	// The command succeeded (no error to short-circuit on), so the exit code
+	// must be 0 even though the CLI is deprecated — only the 426 path (a
+	// non-exempt route) exits 1.
+	assert.Equal(t, 0, code)
+	assert.Contains(t, stderr.String(), "Volcano CLI")
+	assert.Contains(t, stderr.String(), "is no longer supported. Upgrade to v1.5.0 or later:")
+}
+
 func TestRun_DeprecationErrorShortCircuitsWithoutDuplicateNotice(t *testing.T) {
 	api.ResetLastInstructionsForTest()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
