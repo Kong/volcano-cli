@@ -23,7 +23,7 @@ Or install from npm-compatible package managers:
 ```bash
 npm install -g @volcano.dev/cli
 pnpm add -g @volcano.dev/cli
-bun install -g @volcano.dev/cli
+bun add -g @volcano.dev/cli
 volcano --help
 ```
 
