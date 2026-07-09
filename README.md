@@ -31,7 +31,7 @@ volcano --help
 Or install with Homebrew:
 
 ```bash
-brew install kong-volcano/tap/volcano
+brew install Kong/volcano/volcano
 volcano --help
 ```
 
