@@ -55,6 +55,10 @@ func PrintAPIInstructionNotices(cmd *cobra.Command, deps cliruntime.Deps) {
 		printDeprecationWarning(cmd, deps, instructions.LatestVersion)
 	case api.CLIInstructionSuggestionVersionUpgrade:
 		printUpgradeSuggestion(cmd, deps, instructions.LatestVersion)
+	case api.CLIInstructionNotEnoughCredit:
+		printNotEnoughCreditWarning(cmd)
+	case api.CLIInstructionLowCreditWarning:
+		printLowCreditWarning(cmd)
 	}
 }
 
@@ -80,4 +84,24 @@ func printDeprecationWarning(cmd *cobra.Command, deps cliruntime.Deps, latest st
 		return
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Volcano CLI %s is no longer supported. Run `%s` to upgrade.\n", version.Version, upgradeCmd)
+}
+
+// printNotEnoughCreditWarning and printLowCreditWarning handle the reserved
+// credit instructions (VOL-180 PR review discussion, api.CLIInstructionNot
+// EnoughCredit / api.CLIInstructionLowCreditWarning). The API never emits
+// these yet — billing integration needs its own design pass — so these paths
+// are unreached today; they exist so that once the server starts sending the
+// header, this is already wired and nothing else needs to change here.
+//
+// The printed notice is a placeholder, not the designed UX: the actual ask is
+// an interactive prompt ("upgrade?" / "purchase extra credits?") that takes
+// an action, which needs a real target (a URL? a command?) that doesn't
+// exist yet. internal/confirm already has the prompt primitive for that once
+// there's something concrete to confirm.
+func printNotEnoughCreditWarning(cmd *cobra.Command) {
+	fmt.Fprintln(cmd.ErrOrStderr(), "Your project does not have enough credit to complete this request.")
+}
+
+func printLowCreditWarning(cmd *cobra.Command) {
+	fmt.Fprintln(cmd.ErrOrStderr(), "Your project is running low on credit.")
 }

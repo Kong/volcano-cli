@@ -170,6 +170,31 @@ func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 	assert.Contains(t, out.String(), "Volcano CLI v0.9.0 is no longer supported. Upgrade to v1.5.0 or later:\n  volcano upgrade")
 }
 
+func TestPrintAPIInstructionNotices_NotEnoughCredit(t *testing.T) {
+	// Reserved instruction (VOL-180 PR review discussion): the API never
+	// emits this yet, but the CLI-side handling is real and testable so a
+	// future billing-service integration needs no CLI change to start working.
+	withInstructions(t, api.CLIInstructionNotEnoughCredit, "", "")
+
+	cmd := &cobra.Command{Use: "functions"}
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Your project does not have enough credit to complete this request.")
+}
+
+func TestPrintAPIInstructionNotices_LowCreditWarning(t *testing.T) {
+	withInstructions(t, api.CLIInstructionLowCreditWarning, "", "")
+
+	cmd := &cobra.Command{Use: "functions"}
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Your project is running low on credit.")
+}
+
 func TestPrintAPIInstructionNotices_UsesCommandPathPrefix(t *testing.T) {
 	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "v1.5.0", "")
 
