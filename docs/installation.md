@@ -28,7 +28,7 @@ brew install kong-volcano/tap/volcano
 volcano --help
 ```
 
-Or use the shell installer:
+Or install manually:
 
 ```bash
 curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
