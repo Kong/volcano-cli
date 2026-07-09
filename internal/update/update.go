@@ -56,12 +56,6 @@ type Options struct {
 	RequireSignatureVerification bool
 }
 
-// Notice describes an available upgrade.
-type Notice struct {
-	Current string
-	Latest  string
-}
-
 // Release is the subset of GitHub release metadata the CLI needs.
 type Release struct {
 	TagName string  `json:"tag_name"`

@@ -87,8 +87,9 @@ func printDeprecationWarning(cmd *cobra.Command, deps cliruntime.Deps, latest st
 }
 
 // printNotEnoughCreditWarning and printLowCreditWarning handle the reserved
-// credit instructions (VOL-180 PR review discussion, api.CLIInstructionNot
-// EnoughCredit / api.CLIInstructionLowCreditWarning). The API never emits
+// credit instructions (VOL-180 PR review discussion,
+// api.CLIInstructionNotEnoughCredit / api.CLIInstructionLowCreditWarning).
+// The API never emits
 // these yet — billing integration needs its own design pass — so these paths
 // are unreached today; they exist so that once the server starts sending the
 // header, this is already wired and nothing else needs to change here.

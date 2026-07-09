@@ -31,11 +31,12 @@ const (
 	CLIInstructionRequireVersionUpgrade = "require_version_upgrade"
 
 	// CLIInstructionLowCreditWarning and CLIInstructionNotEnoughCredit are
-	// RESERVED for a future billing/credit gate. The API does not emit them
-	// yet — billing integration into this protocol needs its own design pass —
-	// so there is no case for these in PrintAPIInstructionNotices either.
-	// Naming is locked in now, parallel to the version instructions, so a
-	// future implementation on both sides doesn't need a wire-format rename.
+	// RESERVED for a future billing/credit gate. PrintAPIInstructionNotices
+	// already has cases for both, but they're unreached today: the API does
+	// not emit them yet — billing integration into this protocol needs its own
+	// design pass. Naming is locked in now, parallel to the version
+	// instructions, so a future server-side implementation doesn't need a
+	// wire-format rename.
 	CLIInstructionLowCreditWarning = "low_credit_warning"
 	CLIInstructionNotEnoughCredit  = "not_enough_credit"
 
@@ -70,15 +71,32 @@ func LastInstructions() Instructions {
 	return lastInstructions
 }
 
+// recordInstructions updates the two instruction fields independently, and
+// only when a response actually carries a value for that field — a response
+// with no X-Volcano-CLI-Instruction header does not clear a CLIInstruction
+// (and its paired LatestVersion) recorded from an earlier response in the
+// same command invocation, and likewise for DeviceInstruction. A command
+// that makes several API calls must not have an earlier real notice silently
+// dropped just because a later, unrelated response didn't repeat the header.
+//
+// CLIInstruction and LatestVersion update together (never independently):
+// they come from the same server-side gate decision, so a response that sets
+// one is authoritative for both, even if that response's LatestVersion is
+// itself empty (e.g. no latest configured).
 func recordInstructions(header http.Header) {
-	next := Instructions{
-		CLIInstruction:    strings.TrimSpace(header.Get(headerCLIInstruction)),
-		LatestVersion:     strings.TrimSpace(header.Get(headerCLILatestVersion)),
-		DeviceInstruction: strings.TrimSpace(header.Get(headerDeviceInstruction)),
-	}
+	cliInstruction := strings.TrimSpace(header.Get(headerCLIInstruction))
+	latestVersion := strings.TrimSpace(header.Get(headerCLILatestVersion))
+	deviceInstruction := strings.TrimSpace(header.Get(headerDeviceInstruction))
+
 	instructionsMu.Lock()
-	lastInstructions = next
-	instructionsMu.Unlock()
+	defer instructionsMu.Unlock()
+	if cliInstruction != "" {
+		lastInstructions.CLIInstruction = cliInstruction
+		lastInstructions.LatestVersion = latestVersion
+	}
+	if deviceInstruction != "" {
+		lastInstructions.DeviceInstruction = deviceInstruction
+	}
 }
 
 // userAgent identifies this CLI build to the API — for support/debugging and
@@ -106,4 +124,17 @@ func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 		recordInstructions(resp.Header)
 	}
 	return resp, err
+}
+
+// ResetLastInstructionsForTest clears the process-global instructions state.
+// Test-only: production never needs this, since each CLI invocation is a
+// fresh process. Call it between test cases that expect LastInstructions() to
+// start from the zero value — recordInstructions is intentionally sticky (see
+// its doc comment): a response that omits a field never clears a previously
+// recorded value for it, so tests must reset explicitly rather than relying
+// on an unrelated response to clear prior state.
+func ResetLastInstructionsForTest() {
+	instructionsMu.Lock()
+	lastInstructions = Instructions{}
+	instructionsMu.Unlock()
 }

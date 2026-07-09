@@ -16,14 +16,8 @@ import (
 // cases (production never needs this: each CLI invocation is a fresh process).
 func resetInstructions(t *testing.T) {
 	t.Helper()
-	instructionsMu.Lock()
-	lastInstructions = Instructions{}
-	instructionsMu.Unlock()
-	t.Cleanup(func() {
-		instructionsMu.Lock()
-		lastInstructions = Instructions{}
-		instructionsMu.Unlock()
-	})
+	ResetLastInstructionsForTest()
+	t.Cleanup(ResetLastInstructionsForTest)
 }
 
 func TestVersionProtocolDoer_SetsVersionHeaderAndUserAgent(t *testing.T) {
@@ -99,14 +93,16 @@ func TestVersionProtocolDoer_NoResponseIsNoOp(t *testing.T) {
 	assert.Equal(t, Instructions{}, LastInstructions())
 }
 
-func TestVersionProtocolDoer_LatestInvocationWins(t *testing.T) {
-	// A CLI process runs one command per invocation; "most recent" reflects the
-	// last response observed within that single run.
+func TestVersionProtocolDoer_LaterEmptyResponseDoesNotClearEarlierInstruction(t *testing.T) {
+	// A command can make several API calls; a later response that simply
+	// doesn't repeat the instruction header (e.g. an unrelated call) must not
+	// silently drop a real notice observed earlier in the same invocation.
 	resetInstructions(t)
 
 	first := doerFunc(func(*http.Request) (*http.Response, error) {
 		rec := httptest.NewRecorder()
 		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+		rec.Header().Set(headerCLILatestVersion, "v1.5.0")
 		rec.WriteHeader(http.StatusOK)
 		return rec.Result(), nil
 	})
@@ -120,10 +116,72 @@ func TestVersionProtocolDoer_LatestInvocationWins(t *testing.T) {
 	_, err := versionProtocolDoer{next: first}.Do(req)
 	require.NoError(t, err)
 	require.Equal(t, CLIInstructionSuggestionVersionUpgrade, LastInstructions().CLIInstruction)
+	require.Equal(t, "v1.5.0", LastInstructions().LatestVersion)
 
 	_, err = versionProtocolDoer{next: second}.Do(req)
 	require.NoError(t, err)
-	assert.Empty(t, LastInstructions().CLIInstruction, "a later response with no instruction header clears the prior one")
+	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, LastInstructions().CLIInstruction, "a later response with no instruction header must not clear an earlier real one")
+	assert.Equal(t, "v1.5.0", LastInstructions().LatestVersion, "LatestVersion stays paired with the preserved CLIInstruction")
+}
+
+func TestVersionProtocolDoer_LaterNonEmptyResponseUpdatesInstruction(t *testing.T) {
+	// A genuinely different instruction (e.g. the policy changed, or a later
+	// call reports a different version comparison) must still take effect —
+	// preservation only protects against being cleared by an empty response.
+	resetInstructions(t)
+
+	first := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+		rec.Header().Set(headerCLILatestVersion, "v1.5.0")
+		rec.WriteHeader(http.StatusOK)
+		return rec.Result(), nil
+	})
+	second := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerCLIInstruction, CLIInstructionRequireVersionUpgrade)
+		rec.Header().Set(headerCLILatestVersion, "v1.6.0")
+		rec.WriteHeader(http.StatusUpgradeRequired)
+		return rec.Result(), nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/projects", http.NoBody)
+	_, err := versionProtocolDoer{next: first}.Do(req)
+	require.NoError(t, err)
+	_, err = versionProtocolDoer{next: second}.Do(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, CLIInstructionRequireVersionUpgrade, LastInstructions().CLIInstruction)
+	assert.Equal(t, "v1.6.0", LastInstructions().LatestVersion)
+}
+
+func TestVersionProtocolDoer_CLIInstructionAndDeviceInstructionTrackIndependently(t *testing.T) {
+	// A response that sets DeviceInstruction but not CLIInstruction (or vice
+	// versa) must not clear whichever one it didn't mention.
+	resetInstructions(t)
+
+	first := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+		rec.WriteHeader(http.StatusOK)
+		return rec.Result(), nil
+	})
+	second := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerDeviceInstruction, DeviceInstructionReauth)
+		rec.WriteHeader(http.StatusUnauthorized)
+		return rec.Result(), nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/projects", http.NoBody)
+	_, err := versionProtocolDoer{next: first}.Do(req)
+	require.NoError(t, err)
+	_, err = versionProtocolDoer{next: second}.Do(req)
+	require.NoError(t, err)
+
+	got := LastInstructions()
+	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, got.CLIInstruction, "unrelated device-instruction response must not clear the earlier CLI instruction")
+	assert.Equal(t, DeviceInstructionReauth, got.DeviceInstruction)
 }
 
 type doerFunc func(*http.Request) (*http.Response, error)

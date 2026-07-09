@@ -106,6 +106,10 @@ func TestUpgradeCommandRejectsArgs(t *testing.T) {
 // api's unexported state.
 func withInstructions(t *testing.T, cliInstruction, latest, deviceInstruction string) {
 	t.Helper()
+	// recordInstructions is sticky (VOL-180): a field a response omits doesn't
+	// clear a value recorded by an earlier test. Reset explicitly so each test
+	// starts from the zero value regardless of execution order.
+	api.ResetLastInstructionsForTest()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if cliInstruction != "" {
 			w.Header().Set("X-Volcano-CLI-Instruction", cliInstruction)

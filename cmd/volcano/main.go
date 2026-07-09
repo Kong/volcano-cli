@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
@@ -15,29 +17,47 @@ import (
 
 func main() {
 	deps := cliruntime.Deps{}
-	root := rootcmd.New(deps)
+	os.Exit(run(rootcmd.New(deps), deps))
+}
+
+// run executes root and returns the process exit code. Extracted from main
+// so this orchestration — 426 short-circuiting, error-before-notices
+// ordering, and exit codes — is covered by tests instead of only by the
+// individually-tested helper functions it calls. Uses root.ErrOrStderr()
+// (defaults to os.Stderr, same as before this extraction) so tests can
+// redirect it via root.SetErr.
+func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
+	stderr := root.ErrOrStderr()
 
 	if err != nil && api.Status(err) == http.StatusUpgradeRequired {
 		// The 426 body's message already reads "cli version no longer
 		// supported; run `volcano upgrade`"; just add the concrete upgrade
 		// target when the API provided one, and stop — printing the
 		// suggestion/deprecation notice below too would repeat ourselves.
-		printDeprecationError(os.Stderr, err, deps)
-		os.Exit(1)
+		printDeprecationError(stderr, err, deps)
+		return 1
 	}
-
-	// Print any VOL-180 upgrade/deprecation notice unconditionally otherwise:
-	// covers the non-blocking suggestion, and a deprecated CLI succeeding on
-	// an exempt route (e.g. `login`) where the user still needs to know their
-	// CLI is deprecated even though this particular command was let through.
-	// Reads only in-process state (api.LastInstructions); adds no network call.
-	upgradecmd.PrintAPIInstructionNotices(root, deps)
 
 	if err != nil {
-		printError(os.Stderr, err, deps)
-		os.Exit(1)
+		// Print the failure first: stderr's first line should be the actual
+		// error, for both humans skimming and log parsers/scripts that treat
+		// line 1 as the failure reason. Any pending notice is secondary
+		// context, printed after — VOL-180 instructions observed from an
+		// earlier API call in this invocation are not cleared by whatever
+		// unrelated error ended the command (see api's recordInstructions).
+		printError(stderr, err, deps)
+		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		return 1
 	}
+
+	// Success: covers the non-blocking suggestion, and a deprecated CLI
+	// succeeding on an exempt route (e.g. `login`) where the user still needs
+	// to know their CLI is deprecated even though this command was let
+	// through. Reads only in-process state (api.LastInstructions); adds no
+	// network call.
+	upgradecmd.PrintAPIInstructionNotices(root, deps)
+	return 0
 }
 
 // printDeprecationError renders a require_version_upgrade 426 error together with
