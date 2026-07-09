@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -64,6 +65,8 @@ func TestFrontendsLogs(t *testing.T) {
 	})
 
 	t.Run("runtime follow streams", func(t *testing.T) {
+		api.ResetLastInstructionsForTest()
+		t.Cleanup(api.ResetLastInstructionsForTest)
 		setFrontendCommandTestHome(t)
 		saveFrontendCommandTestConfig(t)
 		var streamBody map[string]any
@@ -79,6 +82,8 @@ func TestFrontendsLogs(t *testing.T) {
 				})
 			case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/logs/stream":
 				require.NoError(t, json.NewDecoder(r.Body).Decode(&streamBody))
+				w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionSuggestionVersionUpgrade)
+				w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
 				writeFrontendLogStream(t, w, "runtime follow")
 				// A healthy backend holds the connection open and tails new
 				// events, so keep it open until the client cancels.
@@ -97,7 +102,8 @@ func TestFrontendsLogs(t *testing.T) {
 		out, errCh := streamFrontendsCommand(ctx, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "logs", "web", "--type", "runtime", "--follow", "--limit", "2")
 
 		require.Eventually(t, func() bool {
-			return strings.Contains(out.String(), "runtime follow")
+			text := out.String()
+			return strings.Contains(text, "runtime follow") && strings.Contains(text, "A newer Volcano CLI version is available: v1.5.0")
 		}, 2*time.Second, 10*time.Millisecond)
 		cancel()
 		require.NoError(t, <-errCh)

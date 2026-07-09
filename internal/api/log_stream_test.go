@@ -11,9 +11,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
+	resetInstructions(t)
 	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	functionID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	deploymentID := uuid.MustParse("33333333-3333-4333-8333-333333333333")
@@ -25,7 +28,11 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 		assert.Equal(t, "/volcano-api/projects/"+projectID.String()+"/logs/stream", r.URL.Path)
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		assert.Equal(t, "text/event-stream", r.Header.Get("Accept"))
+		assert.Equal(t, version.Version, r.Header.Get(headerCLIVersion))
+		assert.Contains(t, r.Header.Get("User-Agent"), "volcano-cli/"+version.Version)
 		lastEventID = r.Header.Get("Last-Event-ID")
+		w.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+		w.Header().Set(headerCLILatestVersion, "v1.5.0")
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -46,6 +53,10 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 	defer stream.Close()
 
 	assert.Equal(t, "previous-id", lastEventID)
+	assert.Equal(t, Instructions{
+		CLIInstruction: CLIInstructionSuggestionVersionUpgrade,
+		LatestVersion:  "v1.5.0",
+	}, LastInstructions())
 	resource, ok := body["resource"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "function", resource["type"])
