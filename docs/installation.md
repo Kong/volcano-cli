@@ -1,9 +1,24 @@
 # Installation
 
-Install the latest published release:
+Install with npm:
 
 ```bash
-curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
+npm install -g @volcano.dev/cli
+volcano --help
+```
+
+Or install with pnpm:
+
+```bash
+pnpm add -g @volcano.dev/cli
+volcano --help
+```
+
+Or install with Bun:
+
+```bash
+bun add -g @volcano.dev/cli
+volcano --help
 ```
 
 Or install with Homebrew:
@@ -13,12 +28,10 @@ brew install kong-volcano/tap/volcano
 volcano --help
 ```
 
-Or install from npm-compatible package managers:
+Or use the shell installer:
 
 ```bash
-npm install -g @volcano.dev/cli
-pnpm add -g @volcano.dev/cli
-bun add -g @volcano.dev/cli
+curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
 volcano --help
 ```
 
