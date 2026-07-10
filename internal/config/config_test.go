@@ -52,14 +52,15 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	assert.Nil(t, empty.CurrentProject)
 }
 
-func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
+func TestSavePersistsConfiguredAPIURLButOmitsRuntimeOnlyFields(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	cfg := &Config{
-		APIBaseURL: "http://localhost:8000",
-		UserToken:  "file-token",
-		AnonKey:    "local-anon-key",
-		ServiceKey: "local-service-key",
+		APIBaseURL:       "http://runtime.example.test",
+		ConfiguredAPIURL: "http://configured.example.test",
+		UserToken:        "file-token",
+		AnonKey:          "local-anon-key",
+		ServiceKey:       "local-service-key",
 	}
 	require.NoError(t, cfg.Save())
 
@@ -67,17 +68,35 @@ func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 	require.NoError(t, err)
 	data, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	assert.NotContains(t, string(data), "api_url")
-	assert.NotContains(t, string(data), "http://localhost:8000")
+	assert.Contains(t, string(data), `"api_url": "http://configured.example.test"`)
+	assert.NotContains(t, string(data), "http://runtime.example.test")
 	assert.NotContains(t, string(data), "local-anon-key")
 	assert.NotContains(t, string(data), "local-service-key")
 
 	loaded, err := Load()
 	require.NoError(t, err)
 	assert.Empty(t, loaded.APIBaseURL)
+	assert.Equal(t, "http://configured.example.test", loaded.ConfiguredAPIURL)
 	assert.Empty(t, loaded.AnonKey)
 	assert.Empty(t, loaded.ServiceKey)
 	assert.Equal(t, "file-token", loaded.UserToken)
+}
+
+func TestAPIURLPrecedence(t *testing.T) {
+	cfg := &Config{
+		APIBaseURL:       "http://runtime.example.test",
+		ConfiguredAPIURL: "http://configured.example.test",
+	}
+	assert.Equal(t, "http://runtime.example.test", cfg.APIURL())
+
+	t.Setenv("VOLCANO_API_URL", "http://environment.example.test")
+	assert.Equal(t, "http://environment.example.test", cfg.APIURL())
+
+	cfg.IgnoreEnv = true
+	assert.Equal(t, "http://runtime.example.test", cfg.APIURL())
+
+	cfg.APIBaseURL = ""
+	assert.Equal(t, "http://configured.example.test", cfg.APIURL())
 }
 
 func TestFunctionInvokeTokenPrefersServiceKey(t *testing.T) {

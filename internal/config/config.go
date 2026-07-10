@@ -40,14 +40,17 @@ var (
 
 // Config represents the CLI configuration stored in ~/.volcano/config.json.
 type Config struct {
-	// APIBaseURL overrides the compiled API URL for synthetic command configs.
+	// APIBaseURL overrides the configured API URL for synthetic command configs.
 	// It is intentionally not persisted to the user's cloud config file.
-	APIBaseURL     string         `json:"-"`
-	UserToken      string         `json:"user_token,omitempty"`
-	UserID         string         `json:"user_id,omitempty"`
-	AnonKey        string         `json:"-"`
-	ServiceKey     string         `json:"-"`
-	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	APIBaseURL string `json:"-"`
+	// ConfiguredAPIURL is the durable API endpoint selected by the installer.
+	// VOLCANO_API_URL remains the higher-precedence, per-process override.
+	ConfiguredAPIURL string         `json:"api_url,omitempty"`
+	UserToken        string         `json:"user_token,omitempty"`
+	UserID           string         `json:"user_id,omitempty"`
+	AnonKey          string         `json:"-"`
+	ServiceKey       string         `json:"-"`
+	CurrentProject   *ProjectConfig `json:"current_project,omitempty"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
@@ -182,13 +185,16 @@ func (c *Config) ProjectID() string {
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
-// Precedence: env > runtime override (APIBaseURL) > compiled default.
+// Precedence: env > runtime override (APIBaseURL) > persisted config > compiled default.
 func (c *Config) APIURL() string {
 	if apiURL := strings.TrimSpace(os.Getenv(envAPIURL)); !c.IgnoreEnv && apiURL != "" {
 		return apiURL
 	}
 	if c.APIBaseURL != "" {
 		return c.APIBaseURL
+	}
+	if apiURL := strings.TrimSpace(c.ConfiguredAPIURL); apiURL != "" {
+		return apiURL
 	}
 	return compiledDefaultAPIURL
 }
