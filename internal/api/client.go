@@ -70,6 +70,13 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 		cfg.streamHTTPClient = &http.Client{}
 	}
 
+	// Wrap both doers with the VOL-180 version protocol: every request
+	// (including unauthenticated ones, e.g. device/token exchange) reports this
+	// CLI's version/identity, and every response's instruction headers are
+	// recorded for LastInstructions regardless of which call observed them.
+	cfg.httpClient = versionProtocolDoer{next: cfg.httpClient}
+	cfg.streamHTTPClient = versionProtocolDoer{next: cfg.streamHTTPClient}
+
 	baseURL := generatedClientBaseURL(parsed)
 	clientOpts := []apiclient.ClientOption{
 		apiclient.WithHTTPClient(cfg.httpClient),
