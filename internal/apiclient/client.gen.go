@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"go.yaml.in/yaml/v3"
+
 	externalRef0 "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -662,6 +664,87 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 	}
 }
 
+// Defines values for GetProjectMetricsSummaryParamsWindow.
+const (
+	N1h  GetProjectMetricsSummaryParamsWindow = "1h"
+	N24h GetProjectMetricsSummaryParamsWindow = "24h"
+	N30d GetProjectMetricsSummaryParamsWindow = "30d"
+	N30m GetProjectMetricsSummaryParamsWindow = "30m"
+	N7d  GetProjectMetricsSummaryParamsWindow = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectMetricsSummaryParamsWindow enum.
+func (e GetProjectMetricsSummaryParamsWindow) Valid() bool {
+	switch e {
+	case N1h:
+		return true
+	case N24h:
+		return true
+	case N30d:
+		return true
+	case N30m:
+		return true
+	case N7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProjectMetricsSummaryParamsGroupBy.
+const (
+	GetProjectMetricsSummaryParamsGroupByRegion       GetProjectMetricsSummaryParamsGroupBy = "region"
+	GetProjectMetricsSummaryParamsGroupByResourceType GetProjectMetricsSummaryParamsGroupBy = "resource_type"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectMetricsSummaryParamsGroupBy enum.
+func (e GetProjectMetricsSummaryParamsGroupBy) Valid() bool {
+	switch e {
+	case GetProjectMetricsSummaryParamsGroupByRegion:
+		return true
+	case GetProjectMetricsSummaryParamsGroupByResourceType:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProjectMetricsTimeSeriesParamsInterval.
+const (
+	Auto GetProjectMetricsTimeSeriesParamsInterval = "auto"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectMetricsTimeSeriesParamsInterval enum.
+func (e GetProjectMetricsTimeSeriesParamsInterval) Valid() bool {
+	switch e {
+	case Auto:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetProjectMetricsTimeSeriesParamsGroupBy.
+const (
+	GetProjectMetricsTimeSeriesParamsGroupByNone         GetProjectMetricsTimeSeriesParamsGroupBy = "none"
+	GetProjectMetricsTimeSeriesParamsGroupByRegion       GetProjectMetricsTimeSeriesParamsGroupBy = "region"
+	GetProjectMetricsTimeSeriesParamsGroupByResourceType GetProjectMetricsTimeSeriesParamsGroupBy = "resource_type"
+)
+
+// Valid indicates whether the value is a known member of the GetProjectMetricsTimeSeriesParamsGroupBy enum.
+func (e GetProjectMetricsTimeSeriesParamsGroupBy) Valid() bool {
+	switch e {
+	case GetProjectMetricsTimeSeriesParamsGroupByNone:
+		return true
+	case GetProjectMetricsTimeSeriesParamsGroupByRegion:
+		return true
+	case GetProjectMetricsTimeSeriesParamsGroupByResourceType:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteOAuthConfigParamsProvider.
 const (
 	DeleteOAuthConfigParamsProviderApple     DeleteOAuthConfigParamsProvider = "apple"
@@ -764,11 +847,34 @@ type AnonKey = externalRef0.AnonKey
 // AuthConfig defines model for AuthConfig.
 type AuthConfig = externalRef0.AuthConfig
 
+// AuthHostedPage defines model for AuthHostedPage.
+type AuthHostedPage = externalRef0.AuthHostedPage
+
 // AuthHostedPageResponse defines model for AuthHostedPageResponse.
 type AuthHostedPageResponse = externalRef0.AuthHostedPageResponse
 
+// AuthIdentitiesResponse defines model for AuthIdentitiesResponse.
+type AuthIdentitiesResponse = externalRef0.AuthIdentitiesResponse
+
+// AuthIdentity A real email identity owned by the account. One account can own multiple
+// identities (for example a work email plus a personal email linked via OAuth).
+type AuthIdentity = externalRef0.AuthIdentity
+
+// AuthMethodSummary A single sign-in method the account owns (password, an OAuth provider, or an
+// active anonymous method). `is_primary` reflects the account's primary_method_id.
+type AuthMethodSummary = externalRef0.AuthMethodSummary
+
+// AuthMethodsResponse defines model for AuthMethodsResponse.
+type AuthMethodsResponse = externalRef0.AuthMethodsResponse
+
 // AuthSession An authentication session for a user
 type AuthSession = externalRef0.AuthSession
+
+// AuthSignupResponse Uniform, session-less response returned by POST /auth/signup. It carries no
+// tokens and no user object, and is identical for a new account and for an
+// already-registered email (anti-enumeration). Clients obtain a session with a
+// subsequent POST /auth/signin.
+type AuthSignupResponse = externalRef0.AuthSignupResponse
 
 // AuthTokenResponse defines model for AuthTokenResponse.
 type AuthTokenResponse = externalRef0.AuthTokenResponse
@@ -778,6 +884,9 @@ type AuthUser = externalRef0.AuthUser
 
 // BanUserResponse Response when banning a user
 type BanUserResponse = externalRef0.BanUserResponse
+
+// BatchFunctionDeployFailure defines model for BatchFunctionDeployFailure.
+type BatchFunctionDeployFailure = externalRef0.BatchFunctionDeployFailure
 
 // BatchFunctionDeployResponse defines model for BatchFunctionDeployResponse.
 type BatchFunctionDeployResponse = externalRef0.BatchFunctionDeployResponse
@@ -846,11 +955,32 @@ type Frontend = externalRef0.Frontend
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse = externalRef0.FrontendCustomDomainResponse
 
+// FrontendCustomDomainTLSConfig defines model for FrontendCustomDomainTLSConfig.
+type FrontendCustomDomainTLSConfig = externalRef0.FrontendCustomDomainTLSConfig
+
+// FrontendDeployment defines model for FrontendDeployment.
+type FrontendDeployment = externalRef0.FrontendDeployment
+
+// FrontendDomainRoutingRecord defines model for FrontendDomainRoutingRecord.
+type FrontendDomainRoutingRecord = externalRef0.FrontendDomainRoutingRecord
+
+// FrontendDomainVerificationRecord defines model for FrontendDomainVerificationRecord.
+type FrontendDomainVerificationRecord = externalRef0.FrontendDomainVerificationRecord
+
+// FrontendUsageDailyEntry One day of request and error counts for a single frontend.
+type FrontendUsageDailyEntry = externalRef0.FrontendUsageDailyEntry
+
+// FrontendUsageData Monthly frontend request totals grouped by frontend.
+type FrontendUsageData = externalRef0.FrontendUsageData
+
 // FrontendUsageHistoryResponse Zero-filled daily series of request + error counts for a single frontend, oldest first.
 type FrontendUsageHistoryResponse = externalRef0.FrontendUsageHistoryResponse
 
 // Function defines model for Function.
 type Function = externalRef0.Function
+
+// FunctionDeployment defines model for FunctionDeployment.
+type FunctionDeployment = externalRef0.FunctionDeployment
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
 type FunctionInvocationRequest = externalRef0.FunctionInvocationRequest
@@ -860,6 +990,9 @@ type FunctionInvocationResponse = externalRef0.FunctionInvocationResponse
 
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion = externalRef0.FunctionRegion
+
+// FunctionRuntimeOption defines model for FunctionRuntimeOption.
+type FunctionRuntimeOption = externalRef0.FunctionRuntimeOption
 
 // FunctionRuntimesResponse defines model for FunctionRuntimesResponse.
 type FunctionRuntimesResponse = externalRef0.FunctionRuntimesResponse
@@ -885,11 +1018,23 @@ type HostedLoginOptionsResponse = externalRef0.HostedLoginOptionsResponse
 // HostedRenderablePageType defines model for HostedRenderablePageType.
 type HostedRenderablePageType = externalRef0.HostedRenderablePageType
 
+// LiveLogLevel Canonical lowercase function runtime log level.
+type LiveLogLevel = externalRef0.LiveLogLevel
+
+// LogActivityBucket Log-event counts for one activity time bucket.
+type LogActivityBucket = externalRef0.LogActivityBucket
+
 // LogActivityRequest Activity request for bucketed log counts.
 type LogActivityRequest = externalRef0.LogActivityRequest
 
 // LogActivityResponse Bucketed runtime log activity.
 type LogActivityResponse = externalRef0.LogActivityResponse
+
+// LogEvent Normalized historical log event returned by paginated log APIs.
+type LogEvent = externalRef0.LogEvent
+
+// LogSearchEvent defines model for LogSearchEvent.
+type LogSearchEvent = externalRef0.LogSearchEvent
 
 // LogSearchRequest Search request for project logs.
 type LogSearchRequest = externalRef0.LogSearchRequest
@@ -899,6 +1044,9 @@ type LogSearchResponse = externalRef0.LogSearchResponse
 
 // LogStreamRequest Stream request for live project logs. Text search, pagination cursors, and fixed end times are not supported.
 type LogStreamRequest = externalRef0.LogStreamRequest
+
+// MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
+type MetricUsageData = externalRef0.MetricUsageData
 
 // OAuthConfig defines model for OAuthConfig.
 type OAuthConfig = externalRef0.OAuthConfig
@@ -960,11 +1108,205 @@ type ProjectConfig = externalRef0.ProjectConfig
 // ProjectConfigApplyResult Per-resource report for a project config apply (or dry run).
 type ProjectConfigApplyResult = externalRef0.ProjectConfigApplyResult
 
+// ProjectConfigApplyResultEntry defines model for ProjectConfigApplyResultEntry.
+type ProjectConfigApplyResultEntry = externalRef0.ProjectConfigApplyResultEntry
+
+// ProjectConfigApplySummary defines model for ProjectConfigApplySummary.
+type ProjectConfigApplySummary = externalRef0.ProjectConfigApplySummary
+
+// ProjectConfigAuth Authentication settings, grouped like the dashboard auth-settings tabs.
+type ProjectConfigAuth = externalRef0.ProjectConfigAuth
+
+// ProjectConfigAuthCORS defines model for ProjectConfigAuthCORS.
+type ProjectConfigAuthCORS = externalRef0.ProjectConfigAuthCORS
+
+// ProjectConfigAuthEmail defines model for ProjectConfigAuthEmail.
+type ProjectConfigAuthEmail = externalRef0.ProjectConfigAuthEmail
+
+// ProjectConfigAuthEmailFrom defines model for ProjectConfigAuthEmailFrom.
+type ProjectConfigAuthEmailFrom = externalRef0.ProjectConfigAuthEmailFrom
+
+// ProjectConfigAuthEmailPasswordProvider defines model for ProjectConfigAuthEmailPasswordProvider.
+type ProjectConfigAuthEmailPasswordProvider = externalRef0.ProjectConfigAuthEmailPasswordProvider
+
+// ProjectConfigAuthEmailSMTP defines model for ProjectConfigAuthEmailSMTP.
+type ProjectConfigAuthEmailSMTP = externalRef0.ProjectConfigAuthEmailSMTP
+
+// ProjectConfigAuthEmailVerification defines model for ProjectConfigAuthEmailVerification.
+type ProjectConfigAuthEmailVerification = externalRef0.ProjectConfigAuthEmailVerification
+
+// ProjectConfigAuthManagedPages defines model for ProjectConfigAuthManagedPages.
+type ProjectConfigAuthManagedPages = externalRef0.ProjectConfigAuthManagedPages
+
+// ProjectConfigAuthPassword defines model for ProjectConfigAuthPassword.
+type ProjectConfigAuthPassword = externalRef0.ProjectConfigAuthPassword
+
+// ProjectConfigAuthPasswordReset defines model for ProjectConfigAuthPasswordReset.
+type ProjectConfigAuthPasswordReset = externalRef0.ProjectConfigAuthPasswordReset
+
+// ProjectConfigAuthProviders defines model for ProjectConfigAuthProviders.
+type ProjectConfigAuthProviders = externalRef0.ProjectConfigAuthProviders
+
+// ProjectConfigAuthRateLimits Rate limits per hour.
+type ProjectConfigAuthRateLimits = externalRef0.ProjectConfigAuthRateLimits
+
+// ProjectConfigAuthRedirects defines model for ProjectConfigAuthRedirects.
+type ProjectConfigAuthRedirects = externalRef0.ProjectConfigAuthRedirects
+
+// ProjectConfigAuthSessions defines model for ProjectConfigAuthSessions.
+type ProjectConfigAuthSessions = externalRef0.ProjectConfigAuthSessions
+
+// ProjectConfigAuthSignup defines model for ProjectConfigAuthSignup.
+type ProjectConfigAuthSignup = externalRef0.ProjectConfigAuthSignup
+
+// ProjectConfigAuthTokens Token lifetimes in seconds.
+type ProjectConfigAuthTokens = externalRef0.ProjectConfigAuthTokens
+
+// ProjectConfigBucket Settings for an existing storage bucket. Buckets are never created or
+// deleted through the manifest. When `policies` is declared it is fully
+// synced (policies absent from the list are deleted; an empty list
+// deletes all); omitting `policies` leaves the bucket's policies
+// untouched.
+type ProjectConfigBucket = externalRef0.ProjectConfigBucket
+
+// ProjectConfigBucketPolicy defines model for ProjectConfigBucketPolicy.
+type ProjectConfigBucketPolicy = externalRef0.ProjectConfigBucketPolicy
+
+// ProjectConfigCustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+// domain is first created and optional afterwards: providing new TLS
+// material for the same domain rotates the certificate in place (zero
+// downtime); omitting `tls` keeps the stored certificate. TLS material is
+// write-only and omitted from config export.
+type ProjectConfigCustomDomain = externalRef0.ProjectConfigCustomDomain
+
+// ProjectConfigDatabase Assertion-only entry for an existing database. No database property is
+// mutable through the manifest; declared values are compared against the
+// deployed database and any mismatch fails validation. Databases are
+// never created or deleted here.
+type ProjectConfigDatabase = externalRef0.ProjectConfigDatabase
+
+// ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.
+type ProjectConfigEmailTemplate = externalRef0.ProjectConfigEmailTemplate
+
+// ProjectConfigEmailTemplates Email templates keyed by type. Fully synced when declared - template
+// types absent from a declared map revert to server defaults (custom
+// bodies deleted, subject overrides cleared). Custom template bodies
+// require the PRO plan; subject-only changes are available on FREE.
+type ProjectConfigEmailTemplates = externalRef0.ProjectConfigEmailTemplates
+
+// ProjectConfigFrontend Configuration for an existing (deployed) frontend. Frontends are never
+// created or deleted through the manifest. A declared frontend entry
+// without `custom_domain` deletes an existing custom domain.
+type ProjectConfigFrontend = externalRef0.ProjectConfigFrontend
+
+// ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
+// created or deleted through the manifest. When `schedulers` is declared
+// it is fully synced (schedulers absent from the list are deleted);
+// omitting `schedulers` leaves the function's schedulers untouched.
+type ProjectConfigFunction = externalRef0.ProjectConfigFunction
+
+// ProjectConfigHostedPage defines model for ProjectConfigHostedPage.
+type ProjectConfigHostedPage = externalRef0.ProjectConfigHostedPage
+
+// ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+// pages are left untouched (there is no delete for hosted pages).
+type ProjectConfigHostedPages = externalRef0.ProjectConfigHostedPages
+
+// ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
+type ProjectConfigMissingResource = externalRef0.ProjectConfigMissingResource
+
+// ProjectConfigOAuthProvider defines model for ProjectConfigOAuthProvider.
+type ProjectConfigOAuthProvider = externalRef0.ProjectConfigOAuthProvider
+
+// ProjectConfigProject Project-level settings. `name` renames the project.
+type ProjectConfigProject = externalRef0.ProjectConfigProject
+
+// ProjectConfigRealtime defines model for ProjectConfigRealtime.
+type ProjectConfigRealtime = externalRef0.ProjectConfigRealtime
+
+// ProjectConfigScheduler defines model for ProjectConfigScheduler.
+type ProjectConfigScheduler = externalRef0.ProjectConfigScheduler
+
+// ProjectConfigSkippedResource defines model for ProjectConfigSkippedResource.
+type ProjectConfigSkippedResource = externalRef0.ProjectConfigSkippedResource
+
+// ProjectConfigValidationError defines model for ProjectConfigValidationError.
+type ProjectConfigValidationError = externalRef0.ProjectConfigValidationError
+
 // ProjectConfigValidationErrorResponse Returned when manifest validation fails. Nothing was applied.
 type ProjectConfigValidationErrorResponse = externalRef0.ProjectConfigValidationErrorResponse
 
+// ProjectConfigVariable defines model for ProjectConfigVariable.
+type ProjectConfigVariable = externalRef0.ProjectConfigVariable
+
+// ProjectDeployment A Function or Frontend deployment attempt in a project-scoped feed.
+type ProjectDeployment = externalRef0.ProjectDeployment
+
+// ProjectDeploymentResource The resource this deployment belongs to.
+type ProjectDeploymentResource = externalRef0.ProjectDeploymentResource
+
+// ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
+type ProjectFrontendCustomDomain = externalRef0.ProjectFrontendCustomDomain
+
+// ProjectHealthCategory defines model for ProjectHealthCategory.
+type ProjectHealthCategory = externalRef0.ProjectHealthCategory
+
+// ProjectHealthCheck defines model for ProjectHealthCheck.
+type ProjectHealthCheck = externalRef0.ProjectHealthCheck
+
+// ProjectHealthComponent defines model for ProjectHealthComponent.
+type ProjectHealthComponent = externalRef0.ProjectHealthComponent
+
+// ProjectHealthCounts defines model for ProjectHealthCounts.
+type ProjectHealthCounts = externalRef0.ProjectHealthCounts
+
+// ProjectHealthDataStatus defines model for ProjectHealthDataStatus.
+type ProjectHealthDataStatus = externalRef0.ProjectHealthDataStatus
+
+// ProjectHealthEvidence defines model for ProjectHealthEvidence.
+type ProjectHealthEvidence = externalRef0.ProjectHealthEvidence
+
+// ProjectHealthIssue defines model for ProjectHealthIssue.
+type ProjectHealthIssue = externalRef0.ProjectHealthIssue
+
+// ProjectHealthIssueSeverity defines model for ProjectHealthIssueSeverity.
+type ProjectHealthIssueSeverity = externalRef0.ProjectHealthIssueSeverity
+
+// ProjectHealthResource defines model for ProjectHealthResource.
+type ProjectHealthResource = externalRef0.ProjectHealthResource
+
 // ProjectHealthResponse defines model for ProjectHealthResponse.
 type ProjectHealthResponse = externalRef0.ProjectHealthResponse
+
+// ProjectHealthStatus defines model for ProjectHealthStatus.
+type ProjectHealthStatus = externalRef0.ProjectHealthStatus
+
+// ProjectMetricsDataStatus defines model for ProjectMetricsDataStatus.
+type ProjectMetricsDataStatus = externalRef0.ProjectMetricsDataStatus
+
+// ProjectMetricsDimensions defines model for ProjectMetricsDimensions.
+type ProjectMetricsDimensions = externalRef0.ProjectMetricsDimensions
+
+// ProjectMetricsDuration defines model for ProjectMetricsDuration.
+type ProjectMetricsDuration = externalRef0.ProjectMetricsDuration
+
+// ProjectMetricsGroup defines model for ProjectMetricsGroup.
+type ProjectMetricsGroup = externalRef0.ProjectMetricsGroup
+
+// ProjectMetricsPoint defines model for ProjectMetricsPoint.
+type ProjectMetricsPoint = externalRef0.ProjectMetricsPoint
+
+// ProjectMetricsSummaryResponse defines model for ProjectMetricsSummaryResponse.
+type ProjectMetricsSummaryResponse = externalRef0.ProjectMetricsSummaryResponse
+
+// ProjectMetricsTimeSeriesResponse defines model for ProjectMetricsTimeSeriesResponse.
+type ProjectMetricsTimeSeriesResponse = externalRef0.ProjectMetricsTimeSeriesResponse
+
+// ProjectMetricsValues defines model for ProjectMetricsValues.
+type ProjectMetricsValues = externalRef0.ProjectMetricsValues
+
+// ProjectMetricsWindow defines model for ProjectMetricsWindow.
+type ProjectMetricsWindow = externalRef0.ProjectMetricsWindow
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse = externalRef0.ProjectUsageResponse
@@ -973,11 +1315,17 @@ type ProjectUsageResponse = externalRef0.ProjectUsageResponse
 // Note: Message size and channels per connection are plan-based (not configurable).
 type RealtimeConfig = externalRef0.RealtimeConfig
 
+// RealtimePlanLimits Plan-based limits for realtime features
+type RealtimePlanLimits = externalRef0.RealtimePlanLimits
+
 // RealtimeStats Realtime usage statistics for a project
 type RealtimeStats = externalRef0.RealtimeStats
 
 // ResolveFunctionResponse defines model for ResolveFunctionResponse.
 type ResolveFunctionResponse = externalRef0.ResolveFunctionResponse
+
+// ScheduleRequest defines model for ScheduleRequest.
+type ScheduleRequest = externalRef0.ScheduleRequest
 
 // ServiceKey Service role key for admin operations.
 // **WARNING:** Bypasses all RLS - backend use only!
@@ -1067,6 +1415,9 @@ type UploadSessionPart = externalRef0.UploadSessionPart
 // UploadSessionStatusResponse Status of an upload session
 type UploadSessionStatusResponse = externalRef0.UploadSessionStatusResponse
 
+// UsageDataPoint A single timestamped usage value.
+type UsageDataPoint = externalRef0.UsageDataPoint
+
 // Variable defines model for Variable.
 type Variable = externalRef0.Variable
 
@@ -1075,6 +1426,9 @@ type BucketName = string
 
 // DatabaseName defines model for DatabaseName.
 type DatabaseName = string
+
+// DeploymentId defines model for DeploymentId.
+type DeploymentId = openapi_types.UUID
 
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
@@ -1723,6 +2077,32 @@ type StreamProjectLogsParams struct {
 	// LastEventID Opaque stream cursor from the most recent SSE `id` field.
 	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
+
+// GetProjectMetricsSummaryParams defines parameters for GetProjectMetricsSummary.
+type GetProjectMetricsSummaryParams struct {
+	Window  *GetProjectMetricsSummaryParamsWindow  `form:"window,omitempty" json:"window,omitempty"`
+	GroupBy *GetProjectMetricsSummaryParamsGroupBy `form:"group_by,omitempty" json:"group_by,omitempty"`
+}
+
+// GetProjectMetricsSummaryParamsWindow defines parameters for GetProjectMetricsSummary.
+type GetProjectMetricsSummaryParamsWindow string
+
+// GetProjectMetricsSummaryParamsGroupBy defines parameters for GetProjectMetricsSummary.
+type GetProjectMetricsSummaryParamsGroupBy string
+
+// GetProjectMetricsTimeSeriesParams defines parameters for GetProjectMetricsTimeSeries.
+type GetProjectMetricsTimeSeriesParams struct {
+	From     time.Time                                  `form:"from" json:"from"`
+	To       time.Time                                  `form:"to" json:"to"`
+	Interval *GetProjectMetricsTimeSeriesParamsInterval `form:"interval,omitempty" json:"interval,omitempty"`
+	GroupBy  *GetProjectMetricsTimeSeriesParamsGroupBy  `form:"group_by,omitempty" json:"group_by,omitempty"`
+}
+
+// GetProjectMetricsTimeSeriesParamsInterval defines parameters for GetProjectMetricsTimeSeries.
+type GetProjectMetricsTimeSeriesParamsInterval string
+
+// GetProjectMetricsTimeSeriesParamsGroupBy defines parameters for GetProjectMetricsTimeSeries.
+type GetProjectMetricsTimeSeriesParamsGroupBy string
 
 // DeleteOAuthConfigParams defines parameters for DeleteOAuthConfig.
 type DeleteOAuthConfigParams struct {
@@ -2683,6 +3063,18 @@ type ClientInterface interface {
 
 	AuthConvertAnonymous(ctx context.Context, body AuthConvertAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AuthListIdentities request
+	AuthListIdentities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthUnlinkIdentity request
+	AuthUnlinkIdentity(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthListMethods request
+	AuthListMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthPromoteMethod request
+	AuthPromoteMethod(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AuthDeleteAllMySessions request
 	AuthDeleteAllMySessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3010,6 +3402,12 @@ type ClientInterface interface {
 	StreamProjectLogsWithBody(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	StreamProjectLogs(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectMetricsSummary request
+	GetProjectMetricsSummary(ctx context.Context, id ProjectId, params *GetProjectMetricsSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectMetricsTimeSeries request
+	GetProjectMetricsTimeSeries(ctx context.Context, id ProjectId, params *GetProjectMetricsTimeSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOAuthConfigs request
 	ListOAuthConfigs(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3688,6 +4086,54 @@ func (c *Client) AuthConvertAnonymousWithBody(ctx context.Context, contentType s
 
 func (c *Client) AuthConvertAnonymous(ctx context.Context, body AuthConvertAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthConvertAnonymousRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthListIdentities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthListIdentitiesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthUnlinkIdentity(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthUnlinkIdentityRequest(c.Server, identityId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthListMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthListMethodsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthPromoteMethod(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthPromoteMethodRequest(c.Server, methodId)
 	if err != nil {
 		return nil, err
 	}
@@ -5104,6 +5550,30 @@ func (c *Client) StreamProjectLogsWithBody(ctx context.Context, id ProjectId, pa
 
 func (c *Client) StreamProjectLogs(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStreamProjectLogsRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectMetricsSummary(ctx context.Context, id ProjectId, params *GetProjectMetricsSummaryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectMetricsSummaryRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectMetricsTimeSeries(ctx context.Context, id ProjectId, params *GetProjectMetricsTimeSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectMetricsTimeSeriesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6836,6 +7306,128 @@ func NewAuthConvertAnonymousRequestWithBody(server string, contentType string, b
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAuthListIdentitiesRequest generates requests for AuthListIdentities
+func NewAuthListIdentitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/identities")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthUnlinkIdentityRequest generates requests for AuthUnlinkIdentity
+func NewAuthUnlinkIdentityRequest(server string, identityId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "identityId", identityId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/identities/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthListMethodsRequest generates requests for AuthListMethods
+func NewAuthListMethodsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/methods")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthPromoteMethodRequest generates requests for AuthPromoteMethod
+func NewAuthPromoteMethodRequest(server string, methodId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "methodId", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/methods/%s/promote", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -11297,6 +11889,168 @@ func NewStreamProjectLogsRequestWithBody(server string, id ProjectId, params *St
 	return req, nil
 }
 
+// NewGetProjectMetricsSummaryRequest generates requests for GetProjectMetricsSummary
+func NewGetProjectMetricsSummaryRequest(server string, id ProjectId, params *GetProjectMetricsSummaryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/metrics/summary", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Window != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "window", *params.Window, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.GroupBy != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group_by", *params.GroupBy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectMetricsTimeSeriesRequest generates requests for GetProjectMetricsTimeSeries
+func NewGetProjectMetricsTimeSeriesRequest(server string, id ProjectId, params *GetProjectMetricsTimeSeriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/metrics/timeseries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Interval != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "interval", *params.Interval, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.GroupBy != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "group_by", *params.GroupBy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOAuthConfigsRequest generates requests for ListOAuthConfigs
 func NewListOAuthConfigsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -13538,6 +14292,18 @@ type ClientWithResponsesInterface interface {
 
 	AuthConvertAnonymousWithResponse(ctx context.Context, body AuthConvertAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthConvertAnonymousClientResponse, error)
 
+	// AuthListIdentitiesWithResponse request
+	AuthListIdentitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListIdentitiesClientResponse, error)
+
+	// AuthUnlinkIdentityWithResponse request
+	AuthUnlinkIdentityWithResponse(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthUnlinkIdentityClientResponse, error)
+
+	// AuthListMethodsWithResponse request
+	AuthListMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListMethodsClientResponse, error)
+
+	// AuthPromoteMethodWithResponse request
+	AuthPromoteMethodWithResponse(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthPromoteMethodClientResponse, error)
+
 	// AuthDeleteAllMySessionsWithResponse request
 	AuthDeleteAllMySessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthDeleteAllMySessionsClientResponse, error)
 
@@ -13865,6 +14631,12 @@ type ClientWithResponsesInterface interface {
 	StreamProjectLogsWithBodyWithResponse(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StreamProjectLogsClientResponse, error)
 
 	StreamProjectLogsWithResponse(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*StreamProjectLogsClientResponse, error)
+
+	// GetProjectMetricsSummaryWithResponse request
+	GetProjectMetricsSummaryWithResponse(ctx context.Context, id ProjectId, params *GetProjectMetricsSummaryParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsSummaryClientResponse, error)
+
+	// GetProjectMetricsTimeSeriesWithResponse request
+	GetProjectMetricsTimeSeriesWithResponse(ctx context.Context, id ProjectId, params *GetProjectMetricsTimeSeriesParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsTimeSeriesClientResponse, error)
 
 	// ListOAuthConfigsWithResponse request
 	ListOAuthConfigsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListOAuthConfigsClientResponse, error)
@@ -14635,7 +15407,7 @@ func (r AuthSigninClientResponse) ContentType() string {
 type AuthSignupClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *AuthTokenResponse
+	JSON201      *AuthSignupResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -14891,6 +15663,133 @@ func (r AuthConvertAnonymousClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AuthConvertAnonymousClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthListIdentitiesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthIdentitiesResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthListIdentitiesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthListIdentitiesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthListIdentitiesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthUnlinkIdentityClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthUnlinkIdentityClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthUnlinkIdentityClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthUnlinkIdentityClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthListMethodsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethodsResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthListMethodsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthListMethodsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthListMethodsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthPromoteMethodClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethodSummary
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthPromoteMethodClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthPromoteMethodClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthPromoteMethodClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16407,6 +17306,7 @@ type GetProjectConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectConfig
+	YAML200      *openapi_types.File
 	JSON401      *Error
 	JSON404      *Error
 }
@@ -17912,6 +18812,75 @@ func (r StreamProjectLogsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r StreamProjectLogsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectMetricsSummaryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectMetricsSummaryResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectMetricsSummaryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectMetricsSummaryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectMetricsSummaryClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectMetricsTimeSeriesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectMetricsTimeSeriesResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectMetricsTimeSeriesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectMetricsTimeSeriesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectMetricsTimeSeriesClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -19532,6 +20501,42 @@ func (c *ClientWithResponses) AuthConvertAnonymousWithResponse(ctx context.Conte
 	return ParseAuthConvertAnonymousClientResponse(rsp)
 }
 
+// AuthListIdentitiesWithResponse request returning *AuthListIdentitiesClientResponse
+func (c *ClientWithResponses) AuthListIdentitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListIdentitiesClientResponse, error) {
+	rsp, err := c.AuthListIdentities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthListIdentitiesClientResponse(rsp)
+}
+
+// AuthUnlinkIdentityWithResponse request returning *AuthUnlinkIdentityClientResponse
+func (c *ClientWithResponses) AuthUnlinkIdentityWithResponse(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthUnlinkIdentityClientResponse, error) {
+	rsp, err := c.AuthUnlinkIdentity(ctx, identityId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthUnlinkIdentityClientResponse(rsp)
+}
+
+// AuthListMethodsWithResponse request returning *AuthListMethodsClientResponse
+func (c *ClientWithResponses) AuthListMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListMethodsClientResponse, error) {
+	rsp, err := c.AuthListMethods(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthListMethodsClientResponse(rsp)
+}
+
+// AuthPromoteMethodWithResponse request returning *AuthPromoteMethodClientResponse
+func (c *ClientWithResponses) AuthPromoteMethodWithResponse(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthPromoteMethodClientResponse, error) {
+	rsp, err := c.AuthPromoteMethod(ctx, methodId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthPromoteMethodClientResponse(rsp)
+}
+
 // AuthDeleteAllMySessionsWithResponse request returning *AuthDeleteAllMySessionsClientResponse
 func (c *ClientWithResponses) AuthDeleteAllMySessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthDeleteAllMySessionsClientResponse, error) {
 	rsp, err := c.AuthDeleteAllMySessions(ctx, reqEditors...)
@@ -20566,6 +21571,24 @@ func (c *ClientWithResponses) StreamProjectLogsWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseStreamProjectLogsClientResponse(rsp)
+}
+
+// GetProjectMetricsSummaryWithResponse request returning *GetProjectMetricsSummaryClientResponse
+func (c *ClientWithResponses) GetProjectMetricsSummaryWithResponse(ctx context.Context, id ProjectId, params *GetProjectMetricsSummaryParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsSummaryClientResponse, error) {
+	rsp, err := c.GetProjectMetricsSummary(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectMetricsSummaryClientResponse(rsp)
+}
+
+// GetProjectMetricsTimeSeriesWithResponse request returning *GetProjectMetricsTimeSeriesClientResponse
+func (c *ClientWithResponses) GetProjectMetricsTimeSeriesWithResponse(ctx context.Context, id ProjectId, params *GetProjectMetricsTimeSeriesParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsTimeSeriesClientResponse, error) {
+	rsp, err := c.GetProjectMetricsTimeSeries(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectMetricsTimeSeriesClientResponse(rsp)
 }
 
 // ListOAuthConfigsWithResponse request returning *ListOAuthConfigsClientResponse
@@ -21716,7 +22739,7 @@ func ParseAuthSignupClientResponse(rsp *http.Response) (*AuthSignupClientRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest AuthTokenResponse
+		var dest AuthSignupResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21994,6 +23017,159 @@ func ParseAuthConvertAnonymousClientResponse(rsp *http.Response) (*AuthConvertAn
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthListIdentitiesClientResponse parses an HTTP response from a AuthListIdentitiesWithResponse call
+func ParseAuthListIdentitiesClientResponse(rsp *http.Response) (*AuthListIdentitiesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthListIdentitiesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthIdentitiesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthUnlinkIdentityClientResponse parses an HTTP response from a AuthUnlinkIdentityWithResponse call
+func ParseAuthUnlinkIdentityClientResponse(rsp *http.Response) (*AuthUnlinkIdentityClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthUnlinkIdentityClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthListMethodsClientResponse parses an HTTP response from a AuthListMethodsWithResponse call
+func ParseAuthListMethodsClientResponse(rsp *http.Response) (*AuthListMethodsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthListMethodsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethodsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthPromoteMethodClientResponse parses an HTTP response from a AuthPromoteMethodWithResponse call
+func ParseAuthPromoteMethodClientResponse(rsp *http.Response) (*AuthPromoteMethodClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthPromoteMethodClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethodSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -23557,6 +24733,13 @@ func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigC
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML200 = &dest
 
 	}
 
@@ -25531,6 +26714,121 @@ func ParseStreamProjectLogsClientResponse(rsp *http.Response) (*StreamProjectLog
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectMetricsSummaryClientResponse parses an HTTP response from a GetProjectMetricsSummaryWithResponse call
+func ParseGetProjectMetricsSummaryClientResponse(rsp *http.Response) (*GetProjectMetricsSummaryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectMetricsSummaryClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectMetricsSummaryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectMetricsTimeSeriesClientResponse parses an HTTP response from a GetProjectMetricsTimeSeriesWithResponse call
+func ParseGetProjectMetricsTimeSeriesClientResponse(rsp *http.Response) (*GetProjectMetricsTimeSeriesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectMetricsTimeSeriesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectMetricsTimeSeriesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

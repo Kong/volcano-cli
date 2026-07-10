@@ -1077,6 +1077,75 @@ func (e ProjectConfigSkippedResourceType) Valid() bool {
 	}
 }
 
+// Defines values for ProjectDeploymentOperation.
+const (
+	ProjectDeploymentOperationDelete   ProjectDeploymentOperation = "delete"
+	ProjectDeploymentOperationDeploy   ProjectDeploymentOperation = "deploy"
+	ProjectDeploymentOperationRedeploy ProjectDeploymentOperation = "redeploy"
+	ProjectDeploymentOperationUpdate   ProjectDeploymentOperation = "update"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentOperation enum.
+func (e ProjectDeploymentOperation) Valid() bool {
+	switch e {
+	case ProjectDeploymentOperationDelete:
+		return true
+	case ProjectDeploymentOperationDeploy:
+		return true
+	case ProjectDeploymentOperationRedeploy:
+		return true
+	case ProjectDeploymentOperationUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectDeploymentStatus.
+const (
+	ProjectDeploymentStatusActive       ProjectDeploymentStatus = "active"
+	ProjectDeploymentStatusDeleted      ProjectDeploymentStatus = "deleted"
+	ProjectDeploymentStatusDeleting     ProjectDeploymentStatus = "deleting"
+	ProjectDeploymentStatusFailed       ProjectDeploymentStatus = "failed"
+	ProjectDeploymentStatusProvisioning ProjectDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentStatus enum.
+func (e ProjectDeploymentStatus) Valid() bool {
+	switch e {
+	case ProjectDeploymentStatusActive:
+		return true
+	case ProjectDeploymentStatusDeleted:
+		return true
+	case ProjectDeploymentStatusDeleting:
+		return true
+	case ProjectDeploymentStatusFailed:
+		return true
+	case ProjectDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectDeploymentResourceType.
+const (
+	ProjectDeploymentResourceTypeFrontend ProjectDeploymentResourceType = "frontend"
+	ProjectDeploymentResourceTypeFunction ProjectDeploymentResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentResourceType enum.
+func (e ProjectDeploymentResourceType) Valid() bool {
+	switch e {
+	case ProjectDeploymentResourceTypeFrontend:
+		return true
+	case ProjectDeploymentResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectFrontendCustomDomainDomainStatus.
 const (
 	ProjectFrontendCustomDomainDomainStatusActive              ProjectFrontendCustomDomainDomainStatus = "active"
@@ -1143,48 +1212,21 @@ func (e ProjectFrontendCustomDomainVerificationStatus) Valid() bool {
 	}
 }
 
-// Defines values for ProjectFrontendDeploymentOperation.
+// Defines values for ProjectHealthCategory.
 const (
-	ProjectFrontendDeploymentOperationDelete   ProjectFrontendDeploymentOperation = "delete"
-	ProjectFrontendDeploymentOperationDeploy   ProjectFrontendDeploymentOperation = "deploy"
-	ProjectFrontendDeploymentOperationRedeploy ProjectFrontendDeploymentOperation = "redeploy"
+	Lifecycle ProjectHealthCategory = "lifecycle"
+	Runtime   ProjectHealthCategory = "runtime"
+	Storage   ProjectHealthCategory = "storage"
 )
 
-// Valid indicates whether the value is a known member of the ProjectFrontendDeploymentOperation enum.
-func (e ProjectFrontendDeploymentOperation) Valid() bool {
+// Valid indicates whether the value is a known member of the ProjectHealthCategory enum.
+func (e ProjectHealthCategory) Valid() bool {
 	switch e {
-	case ProjectFrontendDeploymentOperationDelete:
+	case Lifecycle:
 		return true
-	case ProjectFrontendDeploymentOperationDeploy:
+	case Runtime:
 		return true
-	case ProjectFrontendDeploymentOperationRedeploy:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ProjectFrontendDeploymentStatus.
-const (
-	ProjectFrontendDeploymentStatusActive       ProjectFrontendDeploymentStatus = "active"
-	ProjectFrontendDeploymentStatusDeleted      ProjectFrontendDeploymentStatus = "deleted"
-	ProjectFrontendDeploymentStatusDeleting     ProjectFrontendDeploymentStatus = "deleting"
-	ProjectFrontendDeploymentStatusFailed       ProjectFrontendDeploymentStatus = "failed"
-	ProjectFrontendDeploymentStatusProvisioning ProjectFrontendDeploymentStatus = "provisioning"
-)
-
-// Valid indicates whether the value is a known member of the ProjectFrontendDeploymentStatus enum.
-func (e ProjectFrontendDeploymentStatus) Valid() bool {
-	switch e {
-	case ProjectFrontendDeploymentStatusActive:
-		return true
-	case ProjectFrontendDeploymentStatusDeleted:
-		return true
-	case ProjectFrontendDeploymentStatusDeleting:
-		return true
-	case ProjectFrontendDeploymentStatusFailed:
-		return true
-	case ProjectFrontendDeploymentStatusProvisioning:
+	case Storage:
 		return true
 	default:
 		return false
@@ -1215,18 +1257,42 @@ func (e ProjectHealthComponentName) Valid() bool {
 	}
 }
 
+// Defines values for ProjectHealthDataStatus.
+const (
+	ProjectHealthDataStatusComplete ProjectHealthDataStatus = "complete"
+	ProjectHealthDataStatusNoData   ProjectHealthDataStatus = "no_data"
+	ProjectHealthDataStatusPartial  ProjectHealthDataStatus = "partial"
+	ProjectHealthDataStatusStale    ProjectHealthDataStatus = "stale"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthDataStatus enum.
+func (e ProjectHealthDataStatus) Valid() bool {
+	switch e {
+	case ProjectHealthDataStatusComplete:
+		return true
+	case ProjectHealthDataStatusNoData:
+		return true
+	case ProjectHealthDataStatusPartial:
+		return true
+	case ProjectHealthDataStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectHealthIssueSeverity.
 const (
-	Critical ProjectHealthIssueSeverity = "critical"
-	Warning  ProjectHealthIssueSeverity = "warning"
+	ProjectHealthIssueSeverityCritical ProjectHealthIssueSeverity = "critical"
+	ProjectHealthIssueSeverityWarning  ProjectHealthIssueSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the ProjectHealthIssueSeverity enum.
 func (e ProjectHealthIssueSeverity) Valid() bool {
 	switch e {
-	case Critical:
+	case ProjectHealthIssueSeverityCritical:
 		return true
-	case Warning:
+	case ProjectHealthIssueSeverityWarning:
 		return true
 	default:
 		return false
@@ -1259,19 +1325,85 @@ func (e ProjectHealthResourceType) Valid() bool {
 
 // Defines values for ProjectHealthStatus.
 const (
-	Degraded  ProjectHealthStatus = "degraded"
-	Healthy   ProjectHealthStatus = "healthy"
-	Unhealthy ProjectHealthStatus = "unhealthy"
+	ProjectHealthStatusCritical ProjectHealthStatus = "critical"
+	ProjectHealthStatusDegraded ProjectHealthStatus = "degraded"
+	ProjectHealthStatusHealthy  ProjectHealthStatus = "healthy"
+	ProjectHealthStatusUnknown  ProjectHealthStatus = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the ProjectHealthStatus enum.
 func (e ProjectHealthStatus) Valid() bool {
 	switch e {
-	case Degraded:
+	case ProjectHealthStatusCritical:
 		return true
-	case Healthy:
+	case ProjectHealthStatusDegraded:
 		return true
-	case Unhealthy:
+	case ProjectHealthStatusHealthy:
+		return true
+	case ProjectHealthStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsDataStatus.
+const (
+	ProjectMetricsDataStatusComplete ProjectMetricsDataStatus = "complete"
+	ProjectMetricsDataStatusNoData   ProjectMetricsDataStatus = "no_data"
+	ProjectMetricsDataStatusPartial  ProjectMetricsDataStatus = "partial"
+	ProjectMetricsDataStatusStale    ProjectMetricsDataStatus = "stale"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsDataStatus enum.
+func (e ProjectMetricsDataStatus) Valid() bool {
+	switch e {
+	case ProjectMetricsDataStatusComplete:
+		return true
+	case ProjectMetricsDataStatusNoData:
+		return true
+	case ProjectMetricsDataStatusPartial:
+		return true
+	case ProjectMetricsDataStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsDimensionsResourceType.
+const (
+	ProjectMetricsDimensionsResourceTypeFrontend ProjectMetricsDimensionsResourceType = "frontend"
+	ProjectMetricsDimensionsResourceTypeFunction ProjectMetricsDimensionsResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsDimensionsResourceType enum.
+func (e ProjectMetricsDimensionsResourceType) Valid() bool {
+	switch e {
+	case ProjectMetricsDimensionsResourceTypeFrontend:
+		return true
+	case ProjectMetricsDimensionsResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsTimeSeriesResponseInterval.
+const (
+	N1d ProjectMetricsTimeSeriesResponseInterval = "1d"
+	N1h ProjectMetricsTimeSeriesResponseInterval = "1h"
+	N5m ProjectMetricsTimeSeriesResponseInterval = "5m"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsTimeSeriesResponseInterval enum.
+func (e ProjectMetricsTimeSeriesResponseInterval) Valid() bool {
+	switch e {
+	case N1d:
+		return true
+	case N1h:
+		return true
+	case N5m:
 		return true
 	default:
 		return false
@@ -1544,6 +1676,63 @@ type AuthHostedPageResponse struct {
 	Page *AuthHostedPage `json:"page,omitempty"`
 }
 
+// AuthIdentitiesResponse defines model for AuthIdentitiesResponse.
+type AuthIdentitiesResponse struct {
+	Identities []AuthIdentity `json:"identities"`
+}
+
+// AuthIdentity A real email identity owned by the account. One account can own multiple
+// identities (for example a work email plus a personal email linked via OAuth).
+type AuthIdentity struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email The email address this identity represents
+	Email openapi_types.Email `json:"email"`
+
+	// EmailVerified Whether ownership of this email has been verified
+	EmailVerified bool `json:"email_verified"`
+
+	// Id Unique identity identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IsPrimary Whether the account's primary sign-in method resolves to this identity
+	IsPrimary bool `json:"is_primary"`
+}
+
+// AuthMethodSummary A single sign-in method the account owns (password, an OAuth provider, or an
+// active anonymous method). `is_primary` reflects the account's primary_method_id.
+type AuthMethodSummary struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email The email of the method's identity (empty for anonymous)
+	Email string `json:"email"`
+
+	// Id Unique method identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IdentityId The identity this method signs in to — a UUID for password/oauth methods,
+	// empty for anonymous methods.
+	IdentityId string `json:"identity_id"`
+
+	// IsPrimary Whether this is the account's primary sign-in method
+	IsPrimary bool `json:"is_primary"`
+
+	// LastUsedAt When this method was last used to sign in, if ever
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
+	// Provider OAuth provider name; present only when type is oauth
+	Provider *string `json:"provider,omitempty"`
+
+	// Type The kind of sign-in method
+	Type      string    `json:"type"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AuthMethodsResponse defines model for AuthMethodsResponse.
+type AuthMethodsResponse struct {
+	Methods []AuthMethodSummary `json:"methods"`
+}
+
 // AuthSession An authentication session for a user
 type AuthSession struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
@@ -1585,6 +1774,20 @@ type AuthSession struct {
 
 // AuthSessionProvider Authentication provider used to create this session
 type AuthSessionProvider string
+
+// AuthSignupResponse Uniform, session-less response returned by POST /auth/signup. It carries no
+// tokens and no user object, and is identical for a new account and for an
+// already-registered email (anti-enumeration). Clients obtain a session with a
+// subsequent POST /auth/signin.
+type AuthSignupResponse struct {
+	// ConfirmationRequired Whether the project requires email confirmation. Reflects project config
+	// only (identical for a new and an existing email), so it leaks nothing about
+	// account existence.
+	ConfirmationRequired bool `json:"confirmation_required"`
+
+	// Message Human-readable acknowledgement.
+	Message string `json:"message"`
+}
 
 // AuthTokenResponse defines model for AuthTokenResponse.
 type AuthTokenResponse struct {
@@ -2794,7 +2997,7 @@ type PaginatedProjectCustomDomains struct {
 
 // PaginatedProjectDeployments defines model for PaginatedProjectDeployments.
 type PaginatedProjectDeployments struct {
-	Data []ProjectFrontendDeployment `json:"data"`
+	Data []ProjectDeployment `json:"data"`
 
 	// HasMore Whether there are more pages available
 	HasMore bool `json:"has_more"`
@@ -3375,6 +3578,38 @@ type ProjectConfigVariable struct {
 	Value string `json:"value"`
 }
 
+// ProjectDeployment A Function or Frontend deployment attempt in a project-scoped feed.
+type ProjectDeployment struct {
+	ArtifactVersion *string                    `json:"artifact_version,omitempty"`
+	CompletedAt     *time.Time                 `json:"completed_at,omitempty"`
+	CreatedAt       time.Time                  `json:"created_at"`
+	ErrorMessage    *string                    `json:"error_message,omitempty"`
+	Id              openapi_types.UUID         `json:"id"`
+	Operation       ProjectDeploymentOperation `json:"operation"`
+	ProjectId       openapi_types.UUID         `json:"project_id"`
+
+	// Resource The resource this deployment belongs to.
+	Resource  ProjectDeploymentResource `json:"resource"`
+	Status    ProjectDeploymentStatus   `json:"status"`
+	UpdatedAt time.Time                 `json:"updated_at"`
+}
+
+// ProjectDeploymentOperation defines model for ProjectDeployment.Operation.
+type ProjectDeploymentOperation string
+
+// ProjectDeploymentStatus defines model for ProjectDeployment.Status.
+type ProjectDeploymentStatus string
+
+// ProjectDeploymentResource The resource this deployment belongs to.
+type ProjectDeploymentResource struct {
+	Id   openapi_types.UUID            `json:"id"`
+	Name string                        `json:"name"`
+	Type ProjectDeploymentResourceType `json:"type"`
+}
+
+// ProjectDeploymentResourceType defines model for ProjectDeploymentResource.Type.
+type ProjectDeploymentResourceType string
+
 // ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
 type ProjectFrontendCustomDomain struct {
 	CreatedAt     time.Time                               `json:"created_at"`
@@ -3404,44 +3639,20 @@ type ProjectFrontendCustomDomainTlsMode string
 // ProjectFrontendCustomDomainVerificationStatus defines model for ProjectFrontendCustomDomain.VerificationStatus.
 type ProjectFrontendCustomDomainVerificationStatus string
 
-// ProjectFrontendDeployment defines model for ProjectFrontendDeployment.
-type ProjectFrontendDeployment struct {
-	ArtifactBucket         *string `json:"artifact_bucket,omitempty"`
-	ArtifactKey            *string `json:"artifact_key,omitempty"`
-	ArtifactVersion        *string `json:"artifact_version,omitempty"`
-	CloudformationStackId  *string `json:"cloudformation_stack_id,omitempty"`
-	CloudformationStackUrl *string `json:"cloudformation_stack_url,omitempty"`
-	CloudwatchLogGroup     *string `json:"cloudwatch_log_group,omitempty"`
+// ProjectHealthCategory defines model for ProjectHealthCategory.
+type ProjectHealthCategory string
 
-	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
-	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
-	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
-
-	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
-	CodebuildDurationSeconds *int64    `json:"codebuild_duration_seconds,omitempty"`
-	CreatedAt                time.Time `json:"created_at"`
-	ErrorMessage             *string   `json:"error_message,omitempty"`
-
-	// Frontend The frontend this deployment belongs to. Inlined to avoid a
-	// second fetch from the project-scoped feed.
-	Frontend struct {
-		Id   openapi_types.UUID `json:"id"`
-		Name string             `json:"name"`
-	} `json:"frontend"`
-	FrontendId openapi_types.UUID                 `json:"frontend_id"`
-	Id         openapi_types.UUID                 `json:"id"`
-	Operation  ProjectFrontendDeploymentOperation `json:"operation"`
-	ProjectId  openapi_types.UUID                 `json:"project_id"`
-	SiteUrl    *string                            `json:"site_url,omitempty"`
-	Status     ProjectFrontendDeploymentStatus    `json:"status"`
-	UpdatedAt  time.Time                          `json:"updated_at"`
+// ProjectHealthCheck defines model for ProjectHealthCheck.
+type ProjectHealthCheck struct {
+	Category   ProjectHealthCategory `json:"category"`
+	Evidence   ProjectHealthEvidence `json:"evidence"`
+	Id         string                `json:"id"`
+	ReasonCode string                `json:"reason_code"`
+	Scope      struct {
+		Resource ProjectHealthResource `json:"resource"`
+	} `json:"scope"`
+	Status ProjectHealthStatus `json:"status"`
 }
-
-// ProjectFrontendDeploymentOperation defines model for ProjectFrontendDeployment.Operation.
-type ProjectFrontendDeploymentOperation string
-
-// ProjectFrontendDeploymentStatus defines model for ProjectFrontendDeployment.Status.
-type ProjectFrontendDeploymentStatus string
 
 // ProjectHealthComponent defines model for ProjectHealthComponent.
 type ProjectHealthComponent struct {
@@ -3461,6 +3672,19 @@ type ProjectHealthCounts struct {
 	Provisioning int `json:"provisioning"`
 	Total        int `json:"total"`
 	Unknown      int `json:"unknown"`
+}
+
+// ProjectHealthDataStatus defines model for ProjectHealthDataStatus.
+type ProjectHealthDataStatus string
+
+// ProjectHealthEvidence defines model for ProjectHealthEvidence.
+type ProjectHealthEvidence struct {
+	Metric      string                `json:"metric"`
+	SampleCount int64                 `json:"sample_count"`
+	Thresholds  *map[string]float64   `json:"thresholds,omitempty"`
+	Unit        string                `json:"unit"`
+	Value       float64               `json:"value"`
+	Window      *ProjectMetricsWindow `json:"window,omitempty"`
 }
 
 // ProjectHealthIssue defines model for ProjectHealthIssue.
@@ -3490,16 +3714,98 @@ type ProjectHealthResourceType string
 
 // ProjectHealthResponse defines model for ProjectHealthResponse.
 type ProjectHealthResponse struct {
-	CheckedAt  time.Time                `json:"checked_at"`
-	Components []ProjectHealthComponent `json:"components"`
-	Counts     ProjectHealthCounts      `json:"counts"`
-	Issues     []ProjectHealthIssue     `json:"issues"`
-	ProjectId  openapi_types.UUID       `json:"project_id"`
-	Status     ProjectHealthStatus      `json:"status"`
+	Checks       []ProjectHealthCheck    `json:"checks"`
+	DataStatus   ProjectHealthDataStatus `json:"data_status"`
+	Findings     []ProjectHealthCheck    `json:"findings"`
+	FreshThrough time.Time               `json:"fresh_through"`
+	ObservedAt   time.Time               `json:"observed_at"`
+	ProjectId    openapi_types.UUID      `json:"project_id"`
+	Status       ProjectHealthStatus     `json:"status"`
 }
 
 // ProjectHealthStatus defines model for ProjectHealthStatus.
 type ProjectHealthStatus string
+
+// ProjectMetricsDataStatus defines model for ProjectMetricsDataStatus.
+type ProjectMetricsDataStatus string
+
+// ProjectMetricsDimensions defines model for ProjectMetricsDimensions.
+type ProjectMetricsDimensions struct {
+	Region       *string                               `json:"region,omitempty"`
+	ResourceType *ProjectMetricsDimensionsResourceType `json:"resource_type,omitempty"`
+}
+
+// ProjectMetricsDimensionsResourceType defines model for ProjectMetricsDimensions.ResourceType.
+type ProjectMetricsDimensionsResourceType string
+
+// ProjectMetricsDuration defines model for ProjectMetricsDuration.
+type ProjectMetricsDuration struct {
+	Count int64   `json:"count"`
+	Mean  float64 `json:"mean"`
+	P50   int64   `json:"p50"`
+	P95   int64   `json:"p95"`
+	P99   int64   `json:"p99"`
+}
+
+// ProjectMetricsGroup defines model for ProjectMetricsGroup.
+type ProjectMetricsGroup struct {
+	Dimensions       ProjectMetricsDimensions `json:"dimensions"`
+	DurationMs       ProjectMetricsDuration   `json:"duration_ms"`
+	RequestCount     int64                    `json:"request_count"`
+	ServerErrorCount int64                    `json:"server_error_count"`
+	ServerErrorRatio float64                  `json:"server_error_ratio"`
+	SuccessRatio     float64                  `json:"success_ratio"`
+}
+
+// ProjectMetricsPoint defines model for ProjectMetricsPoint.
+type ProjectMetricsPoint struct {
+	Dimensions       *ProjectMetricsDimensions `json:"dimensions,omitempty"`
+	DurationMs       ProjectMetricsDuration    `json:"duration_ms"`
+	End              time.Time                 `json:"end"`
+	RequestCount     int64                     `json:"request_count"`
+	ServerErrorCount int64                     `json:"server_error_count"`
+	ServerErrorRatio float64                   `json:"server_error_ratio"`
+	Start            time.Time                 `json:"start"`
+	SuccessRatio     float64                   `json:"success_ratio"`
+}
+
+// ProjectMetricsSummaryResponse defines model for ProjectMetricsSummaryResponse.
+type ProjectMetricsSummaryResponse struct {
+	DataStatus   ProjectMetricsDataStatus `json:"data_status"`
+	FreshThrough time.Time                `json:"fresh_through"`
+	Groups       []ProjectMetricsGroup    `json:"groups"`
+	ObservedAt   time.Time                `json:"observed_at"`
+	Totals       ProjectMetricsValues     `json:"totals"`
+	Window       ProjectMetricsWindow     `json:"window"`
+}
+
+// ProjectMetricsTimeSeriesResponse defines model for ProjectMetricsTimeSeriesResponse.
+type ProjectMetricsTimeSeriesResponse struct {
+	DataStatus   ProjectMetricsDataStatus                 `json:"data_status"`
+	FreshThrough time.Time                                `json:"fresh_through"`
+	Interval     ProjectMetricsTimeSeriesResponseInterval `json:"interval"`
+	ObservedAt   time.Time                                `json:"observed_at"`
+	Points       []ProjectMetricsPoint                    `json:"points"`
+	Window       ProjectMetricsWindow                     `json:"window"`
+}
+
+// ProjectMetricsTimeSeriesResponseInterval defines model for ProjectMetricsTimeSeriesResponse.Interval.
+type ProjectMetricsTimeSeriesResponseInterval string
+
+// ProjectMetricsValues defines model for ProjectMetricsValues.
+type ProjectMetricsValues struct {
+	DurationMs       ProjectMetricsDuration `json:"duration_ms"`
+	RequestCount     int64                  `json:"request_count"`
+	ServerErrorCount int64                  `json:"server_error_count"`
+	ServerErrorRatio float64                `json:"server_error_ratio"`
+	SuccessRatio     float64                `json:"success_ratio"`
+}
+
+// ProjectMetricsWindow defines model for ProjectMetricsWindow.
+type ProjectMetricsWindow struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
