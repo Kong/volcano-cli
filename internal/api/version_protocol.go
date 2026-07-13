@@ -49,17 +49,23 @@ type Instructions struct {
 	DeviceInstruction string
 }
 
+type cliInstructionPair struct {
+	instruction   string
+	latestVersion string
+}
+
 var (
-	instructionsMu   sync.RWMutex
-	lastInstructions Instructions
+	instructionsMu          sync.RWMutex
+	lastInstructions        Instructions
+	consumedCLIInstructions map[cliInstructionPair]struct{}
 )
 
 // LastInstructions returns the most recently observed VOL-180 instructions
-// from any API response in this process. CLIInstruction and LatestVersion are
-// cleared after ConsumeCLIInstructions renders their one-shot notice. It is
-// otherwise the zero value if no API call has completed yet — e.g. local-only
-// commands (init, help, version, completion) never populate this, since they
-// never make a request.
+// from any API response in this process. It retains the latest observed values
+// after ConsumeCLIInstructions renders their one-shot notice so error paths can
+// still use response metadata such as LatestVersion. It is the zero value if no
+// API call has completed yet — e.g. local-only commands (init, help, version,
+// completion) never populate this, since they never make a request.
 //
 // A CLI process runs exactly one command per invocation, so "most recent" is
 // simply "from the request(s) this command made" — there is no cross-command
@@ -70,16 +76,32 @@ func LastInstructions() Instructions {
 	return lastInstructions
 }
 
-// ConsumeCLIInstructions returns the observed instructions and clears the
-// one-shot CLI instruction and its paired latest version. It deliberately
-// preserves DeviceInstruction because callers render the reauthentication hint
-// alongside the command error before they render CLI notices.
+// ConsumeCLIInstructions returns each observed CLI instruction/latest-version
+// pair once. Repeated API responses commonly carry the same pair, so retaining
+// the last consumed pair prevents a long-running command from rendering the
+// same notice again after a poll or stream reconnect. DeviceInstruction is
+// returned unchanged because callers render the reauthentication hint from
+// LastInstructions alongside command errors.
 func ConsumeCLIInstructions() Instructions {
 	instructionsMu.Lock()
 	defer instructionsMu.Unlock()
+
 	instructions := lastInstructions
-	lastInstructions.CLIInstruction = ""
-	lastInstructions.LatestVersion = ""
+	pair := cliInstructionPair{
+		instruction:   instructions.CLIInstruction,
+		latestVersion: instructions.LatestVersion,
+	}
+	_, consumed := consumedCLIInstructions[pair]
+	if pair.instruction == "" || consumed {
+		instructions.CLIInstruction = ""
+		instructions.LatestVersion = ""
+		return instructions
+	}
+
+	if consumedCLIInstructions == nil {
+		consumedCLIInstructions = make(map[cliInstructionPair]struct{})
+	}
+	consumedCLIInstructions[pair] = struct{}{}
 	return instructions
 }
 
@@ -199,5 +221,6 @@ func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 func ResetLastInstructionsForTest() {
 	instructionsMu.Lock()
 	lastInstructions = Instructions{}
+	consumedCLIInstructions = nil
 	instructionsMu.Unlock()
 }

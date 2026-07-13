@@ -124,7 +124,7 @@ func TestVersionProtocolDoer_NoResponseIsNoOp(t *testing.T) {
 	assert.Equal(t, Instructions{}, LastInstructions())
 }
 
-func TestConsumeCLIInstructionsClearsOnlyCLIFields(t *testing.T) {
+func TestConsumeCLIInstructionsReturnsEachPairOnce(t *testing.T) {
 	resetInstructions(t)
 
 	header := http.Header{}
@@ -133,11 +133,35 @@ func TestConsumeCLIInstructionsClearsOnlyCLIFields(t *testing.T) {
 	header.Set(headerDeviceInstruction, DeviceInstructionReauth)
 	recordInstructions(header)
 
-	got := ConsumeCLIInstructions()
-	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, got.CLIInstruction)
-	assert.Equal(t, "v1.5.0", got.LatestVersion)
-	assert.Equal(t, DeviceInstructionReauth, got.DeviceInstruction)
-	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, LastInstructions())
+	first := ConsumeCLIInstructions()
+	assert.Equal(t, Instructions{
+		CLIInstruction:    CLIInstructionSuggestionVersionUpgrade,
+		LatestVersion:     "v1.5.0",
+		DeviceInstruction: DeviceInstructionReauth,
+	}, first)
+	assert.Equal(t, first, LastInstructions(), "consuming a notice must retain response metadata for error rendering")
+
+	// Polls and stream reconnects repeat the version headers. Recording the
+	// same pair again must not make the notice pending again.
+	recordInstructions(header)
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
+
+	// A changed instruction pair is new information and is rendered once.
+	header.Set(headerCLIInstruction, CLIInstructionRequireVersionUpgrade)
+	header.Set(headerCLILatestVersion, "v1.6.0")
+	recordInstructions(header)
+	assert.Equal(t, Instructions{
+		CLIInstruction:    CLIInstructionRequireVersionUpgrade,
+		LatestVersion:     "v1.6.0",
+		DeviceInstruction: DeviceInstructionReauth,
+	}, ConsumeCLIInstructions())
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
+
+	// Returning to any previously rendered pair must remain suppressed.
+	header.Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+	header.Set(headerCLILatestVersion, "v1.5.0")
+	recordInstructions(header)
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
 }
 
 func TestVersionProtocolDoer_LaterEmptyResponseDoesNotClearEarlierInstruction(t *testing.T) {
