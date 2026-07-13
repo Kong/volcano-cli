@@ -28,7 +28,7 @@ func TestStreamProjectLogsRequestAndEvents(t *testing.T) {
 		assert.Equal(t, "/volcano-api/projects/"+projectID.String()+"/logs/stream", r.URL.Path)
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		assert.Equal(t, "text/event-stream", r.Header.Get("Accept"))
-		assert.Equal(t, version.Version, r.Header.Get(headerCLIVersion))
+		assert.Equal(t, reportedCLIVersion(), r.Header.Get(headerCLIVersion))
 		assert.Contains(t, r.Header.Get("User-Agent"), "volcano-cli/"+version.Version)
 		lastEventID = r.Header.Get("Last-Event-ID")
 		w.Header().Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
