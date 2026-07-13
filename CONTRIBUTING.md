@@ -88,13 +88,26 @@ The publish workflow builds signed binaries for `linux-amd64`, `linux-arm64`,
 `macos-amd64`, `macos-arm64`, and `windows-amd64`. It publishes stable release
 assets from SemVer tags.
 
-To cut a stable release, merge the release commit to `main`, tag that commit
-with a SemVer tag such as `v1.2.3`, and push the tag. Prerelease and build
-metadata tags are not stable release tags. The publish workflow also rejects
-stable release tags that are not reachable from `origin/main`.
+Stable releases are managed by Release Please. Normal feature and fix commits
+land on `main` using Conventional Commit messages. Release Please opens or
+updates a release PR that bumps `package.json`, updates
+`.release-please-manifest.json`, and updates `CHANGELOG.md`. Merge that release
+PR to cut a stable release. Release Please then creates the SemVer tag and
+GitHub Release, such as `v1.2.3`, and the tag-triggered publish workflow
+attaches signed binaries and publishes npm.
 
-Required repository variable for stable release publishing:
+Do not manually bump `package.json` outside a Release Please release PR. The
+publish workflow rejects stable tags when `package.json` does not match the tag,
+or when the tag is not reachable from `origin/main`.
 
+Prerelease and build metadata tags are not stable release tags. Nightly builds
+remain automated from `main` and publish to the mutable `nightly` GitHub Release;
+they are not npm releases and are separate from the stable Release Please flow.
+
+Required repository secret and variable for stable release publishing:
+
+- `RELEASE_PLEASE_TOKEN` (a GitHub token that can create release PRs, tags, and
+  releases that trigger follow-on workflows)
 - `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION`
 
 Release assets include platform binaries, adjacent `.sigstore.json` bundles,

@@ -1,0 +1,11 @@
+{
+  "bootstrap-sha": "e7b68741f6a6de365f30cc95f024137963817f2e",
+  "include-component-in-tag": false,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@volcano.dev/cli",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

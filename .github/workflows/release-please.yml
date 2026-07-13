@@ -1,0 +1,27 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          # INTERIM: use a personal PAT so Release Please tags/releases trigger
+          # publish-cli.yml. Refs created with the default GITHUB_TOKEN do not
+          # trigger follow-on workflow runs.
+          # TODO(VOL-367): migrate to an org-owned GitHub App
+          # (actions/create-github-app-token) so the release identity is not
+          # tied to an individual account.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
