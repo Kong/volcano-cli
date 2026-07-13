@@ -5,6 +5,7 @@ info:
     Public API for Volcano Hosting clients, SDKs, and CLI tooling (Port 8000).
 
     This specification intentionally excludes first-party/internal APIs. See api/openapi-internal.yaml for non-public internal and Builder operations.
+    Downstream synchronization smoke test.
   version: 3.0.0
   contact:
     name: Volcano Hosting
