@@ -96,6 +96,7 @@ services:
       API_BASE_URL: "http://localhost:8000"
       WEB_BASE_URL: "http://localhost:3000"
       LOCAL_STORAGE_DIR: "/app/local-storage"
+      LOCAL_FUNCTIONS_DIR: "/app/local-functions"
       # Local frontend ingress: HTTP-only proxy with wildcard *.frontends.localhost.
       # macOS resolves *.localhost to 127.0.0.1 automatically, so a deployed
       # frontend at <frontend-id>.frontends.localhost:8080 is browser-reachable.

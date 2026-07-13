@@ -78,6 +78,11 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
+	restartOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "restart")
+	requireContains(t, restartOutput, "Volcano is ready for local development.")
+	waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "hello", "functions", "list")
+	waitForVolcanoLocalModeE2EInvokeContains(t, fetchVolcanoLocalModeE2EInfo(t, env), functionID, `"ok":true`)
+
 	runLocalModeConfigSmoke(t, volcanoBin, env, projectDir)
 
 	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
