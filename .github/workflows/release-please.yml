@@ -22,6 +22,6 @@ jobs:
           # TODO(VOL-367): migrate to an org-owned GitHub App
           # (actions/create-github-app-token) so the release identity is not
           # tied to an individual account.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ secrets.TEMP_PAT_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

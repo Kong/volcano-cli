@@ -106,7 +106,7 @@ they are not npm releases and are separate from the stable Release Please flow.
 
 Required repository secret and variable for stable release publishing:
 
-- `RELEASE_PLEASE_TOKEN` (a GitHub token that can create release PRs, tags, and
+- `TEMP_PAT_TOKEN` (a GitHub token that can create release PRs, tags, and
   releases that trigger follow-on workflows)
 - `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION`
 
