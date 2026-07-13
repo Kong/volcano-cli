@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/archive"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -259,7 +258,7 @@ func formatSourceNames(sources []clifunction.SourceInfo) string {
 	return strings.Join(names, ", ")
 }
 
-func batchFailures(resp *apiclient.BatchFunctionDeployResponse) []apicommon.BatchFunctionDeployFailure {
+func batchFailures(resp *apiclient.BatchFunctionDeployResponse) []apiclient.BatchFunctionDeployFailure {
 	if resp == nil || resp.Failed == nil {
 		return nil
 	}

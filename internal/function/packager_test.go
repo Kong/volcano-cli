@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func TestPackageSourceRenamesSingleFilesToStandardEntrypoints(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
-		runtime    common.FunctionRuntimeOption
+		runtime    apiclient.FunctionRuntimeOption
 		filename   string
 		wantEntry  string
 		sourceCode string

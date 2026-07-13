@@ -77,17 +77,19 @@ func commandIs(command Command, name string, args ...string) bool {
 }
 
 func commandIsComposeDown(command Command, clean bool) bool {
-	args := []string{"compose", "-f", "", "-p", composeProjectName, "down"}
+	args := []string{"compose", "-f", "", "-f", "", "-p", composeProjectName, "down"}
 	if clean {
 		args = append(args, "-v")
 	}
 	if command.Name != dockerCommand || len(command.Args) != len(args) {
 		return false
 	}
-	if !strings.HasPrefix(command.Args[2], "docker-compose-") && !strings.Contains(command.Args[2], "/docker-compose-") {
-		return false
+	for _, index := range []int{2, 4} {
+		if !strings.HasPrefix(command.Args[index], "docker-compose-") && !strings.Contains(command.Args[index], "/docker-compose-") {
+			return false
+		}
+		args[index] = command.Args[index]
 	}
-	args[2] = command.Args[2]
 	return slices.Equal(command.Args, args)
 }
 

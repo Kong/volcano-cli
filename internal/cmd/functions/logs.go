@@ -12,7 +12,6 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/logfollow"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -143,15 +142,15 @@ func followDeploymentLogs(ctx context.Context, opts logsOptions, service clifunc
 	})
 }
 
-func functionDeploymentTerminal(deployment *apicommon.FunctionDeployment) bool {
+func functionDeploymentTerminal(deployment *apiclient.FunctionDeployment) bool {
 	if deployment == nil {
 		return false
 	}
 	switch deployment.Status {
-	case apicommon.FunctionDeploymentStatusActive,
-		apicommon.FunctionDeploymentStatusDeleted,
-		apicommon.FunctionDeploymentStatusDeleting,
-		apicommon.FunctionDeploymentStatusFailed:
+	case apiclient.FunctionDeploymentStatusActive,
+		apiclient.FunctionDeploymentStatusDeleted,
+		apiclient.FunctionDeploymentStatusDeleting,
+		apiclient.FunctionDeploymentStatusFailed:
 		return true
 	default:
 		return false

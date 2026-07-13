@@ -19,7 +19,7 @@ LDFLAGS := -s -w \
 	-X $(CONFIG_PKG).compiledDefaultWebURL=$(DEFAULT_WEB_URL) \
 	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID)
 
-.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help
+.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check
 
 all: build
 
@@ -50,6 +50,21 @@ local: ## Build volcano using variables loaded from .env.local
 test: ## Run unit tests
 	go test ./...
 
+openapi-generate: ## Regenerate the API client from the vendored OpenAPI contract
+	go generate ./internal/apiclient
+
+openapi-generated-check: ## Verify generated API client code is current
+	@set -e; \
+	before="$$(git hash-object internal/apiclient/client.gen.go)"; \
+	$(MAKE) openapi-generate; \
+	after="$$(git hash-object internal/apiclient/client.gen.go)"; \
+	if [ "$$before" != "$$after" ]; then \
+		echo "ERROR: generated API client is out of date; run 'make openapi-generate' and commit the result"; \
+		git --no-pager diff --stat -- internal/apiclient/client.gen.go; \
+		exit 1; \
+	fi
+	@echo "Generated API client is up to date"
+
 api-e2e-smoke: ## Run CLI API smoke tests against VOLCANO_API_URL and VOLCANO_MGMT_URL
 	VOLCANO_API_E2E=1 go test ./tests/e2e/api -run '^TestAPIE2ESmoke' -count=1 -timeout 45m
 
@@ -66,7 +81,7 @@ lint: ## Run golangci-lint (includes gofmt, goimports, and go vet)
 tidy: ## Run go mod tidy
 	go mod tidy
 
-check: lint test ## Run lint + test
+check: openapi-generated-check lint test ## Run generated-code check, lint, and test
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY)

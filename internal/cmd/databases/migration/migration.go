@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -170,7 +170,7 @@ func runUp(ctx context.Context, opts upOptions) error {
 	if err != nil {
 		return err
 	}
-	if database.Status != common.DatabaseStatusActive {
+	if database.Status != apiclient.DatabaseStatusActive {
 		return fmt.Errorf("database %q is not active (status: %s)", opts.database, database.Status)
 	}
 	connectionString := stringPtrValue(database.ConnectionString)
