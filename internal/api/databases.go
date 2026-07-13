@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	"github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // ListDatabases lists one database page for a project.
@@ -26,11 +25,11 @@ func (c *Client) ListDatabases(ctx context.Context, projectID uuid.UUID, page, l
 func (c *Client) CreateDatabase(ctx context.Context, projectID uuid.UUID, name, region, pgVersion, databaseType string) (*apiclient.Database, error) {
 	body := apiclient.CreateDatabaseJSONRequestBody{
 		Name:      strings.TrimSpace(name),
-		Region:    common.CreateDatabaseRequestRegion(strings.TrimSpace(region)),
-		PgVersion: common.CreateDatabaseRequestPgVersion(strings.TrimSpace(pgVersion)),
+		Region:    apiclient.CreateDatabaseRequestRegion(strings.TrimSpace(region)),
+		PgVersion: apiclient.CreateDatabaseRequestPgVersion(strings.TrimSpace(pgVersion)),
 	}
 	if databaseType := strings.TrimSpace(databaseType); databaseType != "" {
-		typedDatabaseType := common.CreateDatabaseRequestDatabaseType(databaseType)
+		typedDatabaseType := apiclient.CreateDatabaseRequestDatabaseType(databaseType)
 		body.DatabaseType = &typedDatabaseType
 	}
 

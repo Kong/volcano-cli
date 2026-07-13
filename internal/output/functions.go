@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // Functions renders one function list page.
@@ -78,7 +77,7 @@ func Function(w io.Writer, fn *apiclient.Function) {
 }
 
 // FunctionRuntimes renders function runtime options.
-func FunctionRuntimes(w io.Writer, runtimes []apicommon.FunctionRuntimeOption) {
+func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 	if len(runtimes) == 0 {
 		fmt.Fprintln(w, "No function runtimes found")
 		return
@@ -96,14 +95,14 @@ func FunctionRuntimes(w io.Writer, runtimes []apicommon.FunctionRuntimeOption) {
 }
 
 // LogEvents renders function log events.
-func LogEvents(w io.Writer, events []apicommon.LogEvent) {
+func LogEvents(w io.Writer, events []apiclient.LogEvent) {
 	for _, event := range events {
 		printLogEvent(w, event.Timestamp, event.Region, event.Message)
 	}
 }
 
 // LogSearchEvents renders function log search events.
-func LogSearchEvents(w io.Writer, events []apicommon.LogSearchEvent) {
+func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
 	for _, event := range events {
 		printLogEvent(w, event.Timestamp, event.Region, event.Message)
 	}

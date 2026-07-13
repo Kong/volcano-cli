@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func TestRuntimeCatalogFromOptions(t *testing.T) {
-	catalog := RuntimeCatalogFromOptions([]common.FunctionRuntimeOption{
+	catalog := RuntimeCatalogFromOptions([]apiclient.FunctionRuntimeOption{
 		testRuntimeOption("nodejs24.x", "nodejs", true, []string{".js", ".mjs"}, "index.js", "handler", []string{"package.json"}),
 		testRuntimeOption("python3.12", "python", true, []string{".py"}, "main.py", "handler", []string{"requirements.txt"}),
 		testRuntimeOption("ruby3.4", "ruby", true, []string{".rb"}, "main.rb", "handler", []string{"Gemfile", "Gemfile.lock"}),
@@ -45,7 +45,7 @@ func TestScanSourcesUsesRuntimeCatalogMetadata(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "api-fn", "server.jsx"), []byte(""), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(functionsDir, "_utils", "index.js"), []byte(""), 0o644))
 
-	catalog := RuntimeCatalogFromOptions([]common.FunctionRuntimeOption{
+	catalog := RuntimeCatalogFromOptions([]apiclient.FunctionRuntimeOption{
 		testRuntimeOption("nodejs24.x", "nodejs", true, []string{".js", ".mjs"}, "index.js", "handler", []string{"package.json"}),
 		testRuntimeOption("python3.12", "python", true, []string{".py"}, "main.py", "handler", []string{"requirements.txt"}),
 		testRuntimeOption("ruby3.4", "ruby", true, []string{".rb"}, "main.rb", "handler", []string{"Gemfile", "Gemfile.lock"}),
@@ -56,7 +56,7 @@ func TestScanSourcesUsesRuntimeCatalogMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	var names []string
-	runtimes := map[string]common.FunctionRuntimeOption{}
+	runtimes := map[string]apiclient.FunctionRuntimeOption{}
 	paths := map[string]string{}
 	isDir := map[string]bool{}
 	for _, source := range sources {
@@ -133,19 +133,19 @@ func TestFindSharedLibrariesSkipsFunctionContents(t *testing.T) {
 
 func testRuntimeCatalog(t *testing.T) RuntimeCatalog {
 	t.Helper()
-	return RuntimeCatalogFromOptions([]common.FunctionRuntimeOption{
+	return RuntimeCatalogFromOptions([]apiclient.FunctionRuntimeOption{
 		testRuntimeOption("nodejs24.x", "nodejs", true, []string{".js", ".mjs"}, "index.js", "handler", []string{"package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", ".yarnrc.yml"}),
 		testRuntimeOption("python3.12", "python", true, []string{".py"}, "main.py", "handler", []string{"requirements.txt"}),
 		testRuntimeOption("ruby3.4", "ruby", true, []string{".rb"}, "main.rb", "handler", []string{"Gemfile", "Gemfile.lock"}),
 	})
 }
 
-func testRuntimeOption(name, language string, isDefault bool, fileExtensions []string, entrypoint, handler string, dependencyManifests []string) common.FunctionRuntimeOption {
-	return common.FunctionRuntimeOption{
+func testRuntimeOption(name, language string, isDefault bool, fileExtensions []string, entrypoint, handler string, dependencyManifests []string) apiclient.FunctionRuntimeOption {
+	return apiclient.FunctionRuntimeOption{
 		Name:     name,
 		Language: language,
 		Default:  isDefault,
-		Deployment: common.FunctionRuntimeDeployment{
+		Deployment: apiclient.FunctionRuntimeDeployment{
 			FileExtensions:      fileExtensions,
 			Entrypoint:          entrypoint,
 			Handler:             handler,

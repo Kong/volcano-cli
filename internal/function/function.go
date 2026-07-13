@@ -13,7 +13,6 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
@@ -68,7 +67,7 @@ func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.Pagi
 }
 
 // ListRuntimes returns the function runtime catalog.
-func (s Service) ListRuntimes(ctx context.Context) ([]apicommon.FunctionRuntimeOption, error) {
+func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeOption, error) {
 	cfg, err := s.sessions.Config()
 	if err != nil {
 		return nil, err
@@ -465,7 +464,7 @@ func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedul
 }
 
 // ResolveDeployment returns a deployment by ID, paging internally.
-func (s Service) ResolveDeployment(ctx context.Context, functionID uuid.UUID, deploymentID string) (*apicommon.FunctionDeployment, error) {
+func (s Service) ResolveDeployment(ctx context.Context, functionID uuid.UUID, deploymentID string) (*apiclient.FunctionDeployment, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err

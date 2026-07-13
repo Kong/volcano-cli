@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +15,8 @@ import (
 	"strings"
 	"time"
 
-	externalRef0 "github.com/Kong/volcano-cli/internal/apiclient/common"
+	"go.yaml.in/yaml/v3"
+
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -25,6 +27,1551 @@ const (
 	ServiceRoleKeyScopes      serviceRoleKeyContextKey      = "ServiceRoleKey.Scopes"
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
+
+// Defines values for AuthSessionProvider.
+const (
+	AuthSessionProviderAnonymous AuthSessionProvider = "anonymous"
+	AuthSessionProviderApple     AuthSessionProvider = "apple"
+	AuthSessionProviderEmail     AuthSessionProvider = "email"
+	AuthSessionProviderGithub    AuthSessionProvider = "github"
+	AuthSessionProviderGoogle    AuthSessionProvider = "google"
+	AuthSessionProviderMicrosoft AuthSessionProvider = "microsoft"
+)
+
+// Valid indicates whether the value is a known member of the AuthSessionProvider enum.
+func (e AuthSessionProvider) Valid() bool {
+	switch e {
+	case AuthSessionProviderAnonymous:
+		return true
+	case AuthSessionProviderApple:
+		return true
+	case AuthSessionProviderEmail:
+		return true
+	case AuthSessionProviderGithub:
+		return true
+	case AuthSessionProviderGoogle:
+		return true
+	case AuthSessionProviderMicrosoft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthUserStatus.
+const (
+	AuthUserStatusActive  AuthUserStatus = "active"
+	AuthUserStatusBanned  AuthUserStatus = "banned"
+	AuthUserStatusDeleted AuthUserStatus = "deleted"
+)
+
+// Valid indicates whether the value is a known member of the AuthUserStatus enum.
+func (e AuthUserStatus) Valid() bool {
+	switch e {
+	case AuthUserStatusActive:
+		return true
+	case AuthUserStatusBanned:
+		return true
+	case AuthUserStatusDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BanUserResponseStatus.
+const (
+	BanUserResponseStatusBanned BanUserResponseStatus = "banned"
+)
+
+// Valid indicates whether the value is a known member of the BanUserResponseStatus enum.
+func (e BanUserResponseStatus) Valid() bool {
+	switch e {
+	case BanUserResponseStatusBanned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BatchFunctionDeployFailureOperation.
+const (
+	BatchFunctionDeployFailureOperationDeploy BatchFunctionDeployFailureOperation = "deploy"
+	BatchFunctionDeployFailureOperationUpdate BatchFunctionDeployFailureOperation = "update"
+)
+
+// Valid indicates whether the value is a known member of the BatchFunctionDeployFailureOperation enum.
+func (e BatchFunctionDeployFailureOperation) Valid() bool {
+	switch e {
+	case BatchFunctionDeployFailureOperationDeploy:
+		return true
+	case BatchFunctionDeployFailureOperationUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDatabaseRequestDatabaseType.
+const (
+	CreateDatabaseRequestDatabaseTypeVolcanoDb2xl CreateDatabaseRequestDatabaseType = "volcano-db-2xl"
+	CreateDatabaseRequestDatabaseTypeVolcanoDbL   CreateDatabaseRequestDatabaseType = "volcano-db-l"
+	CreateDatabaseRequestDatabaseTypeVolcanoDbM   CreateDatabaseRequestDatabaseType = "volcano-db-m"
+	CreateDatabaseRequestDatabaseTypeVolcanoDbS   CreateDatabaseRequestDatabaseType = "volcano-db-s"
+	CreateDatabaseRequestDatabaseTypeVolcanoDbXl  CreateDatabaseRequestDatabaseType = "volcano-db-xl"
+	CreateDatabaseRequestDatabaseTypeVolcanoDbXs  CreateDatabaseRequestDatabaseType = "volcano-db-xs"
+)
+
+// Valid indicates whether the value is a known member of the CreateDatabaseRequestDatabaseType enum.
+func (e CreateDatabaseRequestDatabaseType) Valid() bool {
+	switch e {
+	case CreateDatabaseRequestDatabaseTypeVolcanoDb2xl:
+		return true
+	case CreateDatabaseRequestDatabaseTypeVolcanoDbL:
+		return true
+	case CreateDatabaseRequestDatabaseTypeVolcanoDbM:
+		return true
+	case CreateDatabaseRequestDatabaseTypeVolcanoDbS:
+		return true
+	case CreateDatabaseRequestDatabaseTypeVolcanoDbXl:
+		return true
+	case CreateDatabaseRequestDatabaseTypeVolcanoDbXs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDatabaseRequestPgVersion.
+const (
+	CreateDatabaseRequestPgVersionN15 CreateDatabaseRequestPgVersion = "15"
+	CreateDatabaseRequestPgVersionN16 CreateDatabaseRequestPgVersion = "16"
+)
+
+// Valid indicates whether the value is a known member of the CreateDatabaseRequestPgVersion enum.
+func (e CreateDatabaseRequestPgVersion) Valid() bool {
+	switch e {
+	case CreateDatabaseRequestPgVersionN15:
+		return true
+	case CreateDatabaseRequestPgVersionN16:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDatabaseRequestRegion.
+const (
+	AwsApSoutheast1 CreateDatabaseRequestRegion = "aws-ap-southeast-1"
+	AwsApSoutheast2 CreateDatabaseRequestRegion = "aws-ap-southeast-2"
+	AwsEuCentral1   CreateDatabaseRequestRegion = "aws-eu-central-1"
+	AwsEuWest2      CreateDatabaseRequestRegion = "aws-eu-west-2"
+	AwsSaEast1      CreateDatabaseRequestRegion = "aws-sa-east-1"
+	AwsUsEast1      CreateDatabaseRequestRegion = "aws-us-east-1"
+	AwsUsEast2      CreateDatabaseRequestRegion = "aws-us-east-2"
+	AwsUsWest2      CreateDatabaseRequestRegion = "aws-us-west-2"
+)
+
+// Valid indicates whether the value is a known member of the CreateDatabaseRequestRegion enum.
+func (e CreateDatabaseRequestRegion) Valid() bool {
+	switch e {
+	case AwsApSoutheast1:
+		return true
+	case AwsApSoutheast2:
+		return true
+	case AwsEuCentral1:
+		return true
+	case AwsEuWest2:
+		return true
+	case AwsSaEast1:
+		return true
+	case AwsUsEast1:
+		return true
+	case AwsUsEast2:
+		return true
+	case AwsUsWest2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateEmailTemplateRequestTemplateType.
+const (
+	CreateEmailTemplateRequestTemplateTypeConfirmation    CreateEmailTemplateRequestTemplateType = "confirmation"
+	CreateEmailTemplateRequestTemplateTypePasswordChanged CreateEmailTemplateRequestTemplateType = "password_changed"
+	CreateEmailTemplateRequestTemplateTypePasswordReset   CreateEmailTemplateRequestTemplateType = "password_reset"
+	CreateEmailTemplateRequestTemplateTypeWelcome         CreateEmailTemplateRequestTemplateType = "welcome"
+)
+
+// Valid indicates whether the value is a known member of the CreateEmailTemplateRequestTemplateType enum.
+func (e CreateEmailTemplateRequestTemplateType) Valid() bool {
+	switch e {
+	case CreateEmailTemplateRequestTemplateTypeConfirmation:
+		return true
+	case CreateEmailTemplateRequestTemplateTypePasswordChanged:
+		return true
+	case CreateEmailTemplateRequestTemplateTypePasswordReset:
+		return true
+	case CreateEmailTemplateRequestTemplateTypeWelcome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateOAuthConfigRequestProvider.
+const (
+	CreateOAuthConfigRequestProviderApple     CreateOAuthConfigRequestProvider = "apple"
+	CreateOAuthConfigRequestProviderDevice    CreateOAuthConfigRequestProvider = "device"
+	CreateOAuthConfigRequestProviderGithub    CreateOAuthConfigRequestProvider = "github"
+	CreateOAuthConfigRequestProviderGoogle    CreateOAuthConfigRequestProvider = "google"
+	CreateOAuthConfigRequestProviderMicrosoft CreateOAuthConfigRequestProvider = "microsoft"
+)
+
+// Valid indicates whether the value is a known member of the CreateOAuthConfigRequestProvider enum.
+func (e CreateOAuthConfigRequestProvider) Valid() bool {
+	switch e {
+	case CreateOAuthConfigRequestProviderApple:
+		return true
+	case CreateOAuthConfigRequestProviderDevice:
+		return true
+	case CreateOAuthConfigRequestProviderGithub:
+		return true
+	case CreateOAuthConfigRequestProviderGoogle:
+		return true
+	case CreateOAuthConfigRequestProviderMicrosoft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateStoragePolicyRequestOperation.
+const (
+	CreateStoragePolicyRequestOperationDELETE CreateStoragePolicyRequestOperation = "DELETE"
+	CreateStoragePolicyRequestOperationINSERT CreateStoragePolicyRequestOperation = "INSERT"
+	CreateStoragePolicyRequestOperationSELECT CreateStoragePolicyRequestOperation = "SELECT"
+	CreateStoragePolicyRequestOperationUPDATE CreateStoragePolicyRequestOperation = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the CreateStoragePolicyRequestOperation enum.
+func (e CreateStoragePolicyRequestOperation) Valid() bool {
+	switch e {
+	case CreateStoragePolicyRequestOperationDELETE:
+		return true
+	case CreateStoragePolicyRequestOperationINSERT:
+		return true
+	case CreateStoragePolicyRequestOperationSELECT:
+		return true
+	case CreateStoragePolicyRequestOperationUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseDatabaseType.
+const (
+	DatabaseDatabaseTypeVolcanoDb2xl DatabaseDatabaseType = "volcano-db-2xl"
+	DatabaseDatabaseTypeVolcanoDbL   DatabaseDatabaseType = "volcano-db-l"
+	DatabaseDatabaseTypeVolcanoDbM   DatabaseDatabaseType = "volcano-db-m"
+	DatabaseDatabaseTypeVolcanoDbS   DatabaseDatabaseType = "volcano-db-s"
+	DatabaseDatabaseTypeVolcanoDbXl  DatabaseDatabaseType = "volcano-db-xl"
+	DatabaseDatabaseTypeVolcanoDbXs  DatabaseDatabaseType = "volcano-db-xs"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseDatabaseType enum.
+func (e DatabaseDatabaseType) Valid() bool {
+	switch e {
+	case DatabaseDatabaseTypeVolcanoDb2xl:
+		return true
+	case DatabaseDatabaseTypeVolcanoDbL:
+		return true
+	case DatabaseDatabaseTypeVolcanoDbM:
+		return true
+	case DatabaseDatabaseTypeVolcanoDbS:
+		return true
+	case DatabaseDatabaseTypeVolcanoDbXl:
+		return true
+	case DatabaseDatabaseTypeVolcanoDbXs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseStatus.
+const (
+	DatabaseStatusActive       DatabaseStatus = "active"
+	DatabaseStatusDeleting     DatabaseStatus = "deleting"
+	DatabaseStatusFailed       DatabaseStatus = "failed"
+	DatabaseStatusProvisioning DatabaseStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseStatus enum.
+func (e DatabaseStatus) Valid() bool {
+	switch e {
+	case DatabaseStatusActive:
+		return true
+	case DatabaseStatusDeleting:
+		return true
+	case DatabaseStatusFailed:
+		return true
+	case DatabaseStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseStatsGranularity.
+const (
+	DatabaseStatsGranularityDaily   DatabaseStatsGranularity = "daily"
+	DatabaseStatsGranularityHourly  DatabaseStatsGranularity = "hourly"
+	DatabaseStatsGranularityMonthly DatabaseStatsGranularity = "monthly"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseStatsGranularity enum.
+func (e DatabaseStatsGranularity) Valid() bool {
+	switch e {
+	case DatabaseStatsGranularityDaily:
+		return true
+	case DatabaseStatsGranularityHourly:
+		return true
+	case DatabaseStatsGranularityMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EmailTemplateTemplateType.
+const (
+	EmailTemplateTemplateTypeConfirmation    EmailTemplateTemplateType = "confirmation"
+	EmailTemplateTemplateTypePasswordChanged EmailTemplateTemplateType = "password_changed"
+	EmailTemplateTemplateTypePasswordReset   EmailTemplateTemplateType = "password_reset"
+	EmailTemplateTemplateTypeWelcome         EmailTemplateTemplateType = "welcome"
+)
+
+// Valid indicates whether the value is a known member of the EmailTemplateTemplateType enum.
+func (e EmailTemplateTemplateType) Valid() bool {
+	switch e {
+	case EmailTemplateTemplateTypeConfirmation:
+		return true
+	case EmailTemplateTemplateTypePasswordChanged:
+		return true
+	case EmailTemplateTemplateTypePasswordReset:
+		return true
+	case EmailTemplateTemplateTypeWelcome:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainStatus.
+const (
+	FrontendCustomDomainStatusActive              FrontendCustomDomainStatus = "active"
+	FrontendCustomDomainStatusDeleted             FrontendCustomDomainStatus = "deleted"
+	FrontendCustomDomainStatusDetaching           FrontendCustomDomainStatus = "detaching"
+	FrontendCustomDomainStatusFailed              FrontendCustomDomainStatus = "failed"
+	FrontendCustomDomainStatusPendingVerification FrontendCustomDomainStatus = "pending_verification"
+	FrontendCustomDomainStatusProvisioning        FrontendCustomDomainStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainStatus enum.
+func (e FrontendCustomDomainStatus) Valid() bool {
+	switch e {
+	case FrontendCustomDomainStatusActive:
+		return true
+	case FrontendCustomDomainStatusDeleted:
+		return true
+	case FrontendCustomDomainStatusDetaching:
+		return true
+	case FrontendCustomDomainStatusFailed:
+		return true
+	case FrontendCustomDomainStatusPendingVerification:
+		return true
+	case FrontendCustomDomainStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendFramework.
+const (
+	FrontendFrameworkNextjs FrontendFramework = "nextjs"
+)
+
+// Valid indicates whether the value is a known member of the FrontendFramework enum.
+func (e FrontendFramework) Valid() bool {
+	switch e {
+	case FrontendFrameworkNextjs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendStatus.
+const (
+	FrontendStatusActive       FrontendStatus = "active"
+	FrontendStatusDeleting     FrontendStatus = "deleting"
+	FrontendStatusFailed       FrontendStatus = "failed"
+	FrontendStatusProvisioning FrontendStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FrontendStatus enum.
+func (e FrontendStatus) Valid() bool {
+	switch e {
+	case FrontendStatusActive:
+		return true
+	case FrontendStatusDeleting:
+		return true
+	case FrontendStatusFailed:
+		return true
+	case FrontendStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainResponseDomainStatus.
+const (
+	FrontendCustomDomainResponseDomainStatusActive              FrontendCustomDomainResponseDomainStatus = "active"
+	FrontendCustomDomainResponseDomainStatusDeleted             FrontendCustomDomainResponseDomainStatus = "deleted"
+	FrontendCustomDomainResponseDomainStatusDetaching           FrontendCustomDomainResponseDomainStatus = "detaching"
+	FrontendCustomDomainResponseDomainStatusFailed              FrontendCustomDomainResponseDomainStatus = "failed"
+	FrontendCustomDomainResponseDomainStatusPendingVerification FrontendCustomDomainResponseDomainStatus = "pending_verification"
+	FrontendCustomDomainResponseDomainStatusProvisioning        FrontendCustomDomainResponseDomainStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainResponseDomainStatus enum.
+func (e FrontendCustomDomainResponseDomainStatus) Valid() bool {
+	switch e {
+	case FrontendCustomDomainResponseDomainStatusActive:
+		return true
+	case FrontendCustomDomainResponseDomainStatusDeleted:
+		return true
+	case FrontendCustomDomainResponseDomainStatusDetaching:
+		return true
+	case FrontendCustomDomainResponseDomainStatusFailed:
+		return true
+	case FrontendCustomDomainResponseDomainStatusPendingVerification:
+		return true
+	case FrontendCustomDomainResponseDomainStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainResponseTlsMode.
+const (
+	FrontendCustomDomainResponseTlsModeByoc    FrontendCustomDomainResponseTlsMode = "byoc"
+	FrontendCustomDomainResponseTlsModeManaged FrontendCustomDomainResponseTlsMode = "managed"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainResponseTlsMode enum.
+func (e FrontendCustomDomainResponseTlsMode) Valid() bool {
+	switch e {
+	case FrontendCustomDomainResponseTlsModeByoc:
+		return true
+	case FrontendCustomDomainResponseTlsModeManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainResponseVerificationStatus.
+const (
+	FrontendCustomDomainResponseVerificationStatusPending  FrontendCustomDomainResponseVerificationStatus = "pending"
+	FrontendCustomDomainResponseVerificationStatusVerified FrontendCustomDomainResponseVerificationStatus = "verified"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainResponseVerificationStatus enum.
+func (e FrontendCustomDomainResponseVerificationStatus) Valid() bool {
+	switch e {
+	case FrontendCustomDomainResponseVerificationStatusPending:
+		return true
+	case FrontendCustomDomainResponseVerificationStatusVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainTLSConfigMode.
+const (
+	FrontendCustomDomainTLSConfigModeByoc FrontendCustomDomainTLSConfigMode = "byoc"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainTLSConfigMode enum.
+func (e FrontendCustomDomainTLSConfigMode) Valid() bool {
+	switch e {
+	case FrontendCustomDomainTLSConfigModeByoc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendDeploymentOperation.
+const (
+	FrontendDeploymentOperationDelete   FrontendDeploymentOperation = "delete"
+	FrontendDeploymentOperationDeploy   FrontendDeploymentOperation = "deploy"
+	FrontendDeploymentOperationRedeploy FrontendDeploymentOperation = "redeploy"
+)
+
+// Valid indicates whether the value is a known member of the FrontendDeploymentOperation enum.
+func (e FrontendDeploymentOperation) Valid() bool {
+	switch e {
+	case FrontendDeploymentOperationDelete:
+		return true
+	case FrontendDeploymentOperationDeploy:
+		return true
+	case FrontendDeploymentOperationRedeploy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendDeploymentStatus.
+const (
+	FrontendDeploymentStatusActive       FrontendDeploymentStatus = "active"
+	FrontendDeploymentStatusDeleted      FrontendDeploymentStatus = "deleted"
+	FrontendDeploymentStatusDeleting     FrontendDeploymentStatus = "deleting"
+	FrontendDeploymentStatusFailed       FrontendDeploymentStatus = "failed"
+	FrontendDeploymentStatusProvisioning FrontendDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FrontendDeploymentStatus enum.
+func (e FrontendDeploymentStatus) Valid() bool {
+	switch e {
+	case FrontendDeploymentStatusActive:
+		return true
+	case FrontendDeploymentStatusDeleted:
+		return true
+	case FrontendDeploymentStatusDeleting:
+		return true
+	case FrontendDeploymentStatusFailed:
+		return true
+	case FrontendDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendDomainRoutingRecordRecordType.
+const (
+	CNAME FrontendDomainRoutingRecordRecordType = "CNAME"
+)
+
+// Valid indicates whether the value is a known member of the FrontendDomainRoutingRecordRecordType enum.
+func (e FrontendDomainRoutingRecordRecordType) Valid() bool {
+	switch e {
+	case CNAME:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionStatus.
+const (
+	FunctionStatusActive       FunctionStatus = "active"
+	FunctionStatusDeleting     FunctionStatus = "deleting"
+	FunctionStatusFailed       FunctionStatus = "failed"
+	FunctionStatusProvisioning FunctionStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FunctionStatus enum.
+func (e FunctionStatus) Valid() bool {
+	switch e {
+	case FunctionStatusActive:
+		return true
+	case FunctionStatusDeleting:
+		return true
+	case FunctionStatusFailed:
+		return true
+	case FunctionStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionDeploymentOperation.
+const (
+	FunctionDeploymentOperationDelete FunctionDeploymentOperation = "delete"
+	FunctionDeploymentOperationDeploy FunctionDeploymentOperation = "deploy"
+	FunctionDeploymentOperationUpdate FunctionDeploymentOperation = "update"
+)
+
+// Valid indicates whether the value is a known member of the FunctionDeploymentOperation enum.
+func (e FunctionDeploymentOperation) Valid() bool {
+	switch e {
+	case FunctionDeploymentOperationDelete:
+		return true
+	case FunctionDeploymentOperationDeploy:
+		return true
+	case FunctionDeploymentOperationUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionDeploymentStatus.
+const (
+	FunctionDeploymentStatusActive       FunctionDeploymentStatus = "active"
+	FunctionDeploymentStatusDeleted      FunctionDeploymentStatus = "deleted"
+	FunctionDeploymentStatusDeleting     FunctionDeploymentStatus = "deleting"
+	FunctionDeploymentStatusFailed       FunctionDeploymentStatus = "failed"
+	FunctionDeploymentStatusProvisioning FunctionDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FunctionDeploymentStatus enum.
+func (e FunctionDeploymentStatus) Valid() bool {
+	switch e {
+	case FunctionDeploymentStatusActive:
+		return true
+	case FunctionDeploymentStatusDeleted:
+		return true
+	case FunctionDeploymentStatusDeleting:
+		return true
+	case FunctionDeploymentStatusFailed:
+		return true
+	case FunctionDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionSchedulerScheduleKind.
+const (
+	FunctionSchedulerScheduleKindCron FunctionSchedulerScheduleKind = "cron"
+)
+
+// Valid indicates whether the value is a known member of the FunctionSchedulerScheduleKind enum.
+func (e FunctionSchedulerScheduleKind) Valid() bool {
+	switch e {
+	case FunctionSchedulerScheduleKindCron:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostedAuthPageType.
+const (
+	HostedAuthPageTypeLogin         HostedAuthPageType = "login"
+	HostedAuthPageTypeResetPassword HostedAuthPageType = "reset-password"
+)
+
+// Valid indicates whether the value is a known member of the HostedAuthPageType enum.
+func (e HostedAuthPageType) Valid() bool {
+	switch e {
+	case HostedAuthPageTypeLogin:
+		return true
+	case HostedAuthPageTypeResetPassword:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostedRenderablePageType.
+const (
+	HostedRenderablePageTypeResetPassword HostedRenderablePageType = "reset-password"
+)
+
+// Valid indicates whether the value is a known member of the HostedRenderablePageType enum.
+func (e HostedRenderablePageType) Valid() bool {
+	switch e {
+	case HostedRenderablePageTypeResetPassword:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LiveLogLevel.
+const (
+	LiveLogLevelDebug LiveLogLevel = "debug"
+	LiveLogLevelError LiveLogLevel = "error"
+	LiveLogLevelFatal LiveLogLevel = "fatal"
+	LiveLogLevelInfo  LiveLogLevel = "info"
+	LiveLogLevelTrace LiveLogLevel = "trace"
+	LiveLogLevelWarn  LiveLogLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the LiveLogLevel enum.
+func (e LiveLogLevel) Valid() bool {
+	switch e {
+	case LiveLogLevelDebug:
+		return true
+	case LiveLogLevelError:
+		return true
+	case LiveLogLevelFatal:
+		return true
+	case LiveLogLevelInfo:
+		return true
+	case LiveLogLevelTrace:
+		return true
+	case LiveLogLevelWarn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogDatabaseRequestResourceType.
+const (
+	LogDatabaseRequestResourceTypeDatabase LogDatabaseRequestResourceType = "database"
+)
+
+// Valid indicates whether the value is a known member of the LogDatabaseRequestResourceType enum.
+func (e LogDatabaseRequestResourceType) Valid() bool {
+	switch e {
+	case LogDatabaseRequestResourceTypeDatabase:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogDeploymentStage.
+const (
+	Compile LogDeploymentStage = "compile"
+	Publish LogDeploymentStage = "publish"
+)
+
+// Valid indicates whether the value is a known member of the LogDeploymentStage enum.
+func (e LogDeploymentStage) Valid() bool {
+	switch e {
+	case Compile:
+		return true
+	case Publish:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogFrontendRequestResourceType.
+const (
+	LogFrontendRequestResourceTypeFrontend LogFrontendRequestResourceType = "frontend"
+)
+
+// Valid indicates whether the value is a known member of the LogFrontendRequestResourceType enum.
+func (e LogFrontendRequestResourceType) Valid() bool {
+	switch e {
+	case LogFrontendRequestResourceTypeFrontend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogFunctionRequestResourceType.
+const (
+	LogFunctionRequestResourceTypeFunction LogFunctionRequestResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogFunctionRequestResourceType enum.
+func (e LogFunctionRequestResourceType) Valid() bool {
+	switch e {
+	case LogFunctionRequestResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogResourceType.
+const (
+	LogResourceTypeDatabase LogResourceType = "database"
+	LogResourceTypeFrontend LogResourceType = "frontend"
+	LogResourceTypeFunction LogResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the LogResourceType enum.
+func (e LogResourceType) Valid() bool {
+	switch e {
+	case LogResourceTypeDatabase:
+		return true
+	case LogResourceTypeFrontend:
+		return true
+	case LogResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OAuthConfigProvider.
+const (
+	OAuthConfigProviderApple     OAuthConfigProvider = "apple"
+	OAuthConfigProviderDevice    OAuthConfigProvider = "device"
+	OAuthConfigProviderGithub    OAuthConfigProvider = "github"
+	OAuthConfigProviderGoogle    OAuthConfigProvider = "google"
+	OAuthConfigProviderMicrosoft OAuthConfigProvider = "microsoft"
+)
+
+// Valid indicates whether the value is a known member of the OAuthConfigProvider enum.
+func (e OAuthConfigProvider) Valid() bool {
+	switch e {
+	case OAuthConfigProviderApple:
+		return true
+	case OAuthConfigProviderDevice:
+		return true
+	case OAuthConfigProviderGithub:
+		return true
+	case OAuthConfigProviderGoogle:
+		return true
+	case OAuthConfigProviderMicrosoft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaginatedProjectsStatus.
+const (
+	PaginatedProjectsStatusActive       PaginatedProjectsStatus = "active"
+	PaginatedProjectsStatusFailed       PaginatedProjectsStatus = "failed"
+	PaginatedProjectsStatusProvisioning PaginatedProjectsStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the PaginatedProjectsStatus enum.
+func (e PaginatedProjectsStatus) Valid() bool {
+	switch e {
+	case PaginatedProjectsStatusActive:
+		return true
+	case PaginatedProjectsStatusFailed:
+		return true
+	case PaginatedProjectsStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectPlan.
+const (
+	FREE ProjectPlan = "FREE"
+	PRO  ProjectPlan = "PRO"
+)
+
+// Valid indicates whether the value is a known member of the ProjectPlan enum.
+func (e ProjectPlan) Valid() bool {
+	switch e {
+	case FREE:
+		return true
+	case PRO:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectStatus.
+const (
+	ProjectStatusActive   ProjectStatus = "active"
+	ProjectStatusDeleting ProjectStatus = "deleting"
+	ProjectStatusFailed   ProjectStatus = "failed"
+)
+
+// Valid indicates whether the value is a known member of the ProjectStatus enum.
+func (e ProjectStatus) Valid() bool {
+	switch e {
+	case ProjectStatusActive:
+		return true
+	case ProjectStatusDeleting:
+		return true
+	case ProjectStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigVersion.
+const (
+	N1 ProjectConfigVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigVersion enum.
+func (e ProjectConfigVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigApplyResultEntryAction.
+const (
+	ProjectConfigApplyResultEntryActionCreated   ProjectConfigApplyResultEntryAction = "created"
+	ProjectConfigApplyResultEntryActionDeleted   ProjectConfigApplyResultEntryAction = "deleted"
+	ProjectConfigApplyResultEntryActionError     ProjectConfigApplyResultEntryAction = "error"
+	ProjectConfigApplyResultEntryActionUnchanged ProjectConfigApplyResultEntryAction = "unchanged"
+	ProjectConfigApplyResultEntryActionUpdated   ProjectConfigApplyResultEntryAction = "updated"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigApplyResultEntryAction enum.
+func (e ProjectConfigApplyResultEntryAction) Valid() bool {
+	switch e {
+	case ProjectConfigApplyResultEntryActionCreated:
+		return true
+	case ProjectConfigApplyResultEntryActionDeleted:
+		return true
+	case ProjectConfigApplyResultEntryActionError:
+		return true
+	case ProjectConfigApplyResultEntryActionUnchanged:
+		return true
+	case ProjectConfigApplyResultEntryActionUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigBucketPolicyOperation.
+const (
+	ProjectConfigBucketPolicyOperationDELETE ProjectConfigBucketPolicyOperation = "DELETE"
+	ProjectConfigBucketPolicyOperationINSERT ProjectConfigBucketPolicyOperation = "INSERT"
+	ProjectConfigBucketPolicyOperationSELECT ProjectConfigBucketPolicyOperation = "SELECT"
+	ProjectConfigBucketPolicyOperationUPDATE ProjectConfigBucketPolicyOperation = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigBucketPolicyOperation enum.
+func (e ProjectConfigBucketPolicyOperation) Valid() bool {
+	switch e {
+	case ProjectConfigBucketPolicyOperationDELETE:
+		return true
+	case ProjectConfigBucketPolicyOperationINSERT:
+		return true
+	case ProjectConfigBucketPolicyOperationSELECT:
+		return true
+	case ProjectConfigBucketPolicyOperationUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigDatabaseDatabaseType.
+const (
+	ProjectConfigDatabaseDatabaseTypeVolcanoDb2xl ProjectConfigDatabaseDatabaseType = "volcano-db-2xl"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbL   ProjectConfigDatabaseDatabaseType = "volcano-db-l"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbM   ProjectConfigDatabaseDatabaseType = "volcano-db-m"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbS   ProjectConfigDatabaseDatabaseType = "volcano-db-s"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbXl  ProjectConfigDatabaseDatabaseType = "volcano-db-xl"
+	ProjectConfigDatabaseDatabaseTypeVolcanoDbXs  ProjectConfigDatabaseDatabaseType = "volcano-db-xs"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigDatabaseDatabaseType enum.
+func (e ProjectConfigDatabaseDatabaseType) Valid() bool {
+	switch e {
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDb2xl:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbL:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbM:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbS:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbXl:
+		return true
+	case ProjectConfigDatabaseDatabaseTypeVolcanoDbXs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigDatabasePgVersion.
+const (
+	ProjectConfigDatabasePgVersionN15 ProjectConfigDatabasePgVersion = "15"
+	ProjectConfigDatabasePgVersionN16 ProjectConfigDatabasePgVersion = "16"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigDatabasePgVersion enum.
+func (e ProjectConfigDatabasePgVersion) Valid() bool {
+	switch e {
+	case ProjectConfigDatabasePgVersionN15:
+		return true
+	case ProjectConfigDatabasePgVersionN16:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigMissingResourceType.
+const (
+	ProjectConfigMissingResourceTypeBucket   ProjectConfigMissingResourceType = "bucket"
+	ProjectConfigMissingResourceTypeDatabase ProjectConfigMissingResourceType = "database"
+	ProjectConfigMissingResourceTypeFrontend ProjectConfigMissingResourceType = "frontend"
+	ProjectConfigMissingResourceTypeFunction ProjectConfigMissingResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigMissingResourceType enum.
+func (e ProjectConfigMissingResourceType) Valid() bool {
+	switch e {
+	case ProjectConfigMissingResourceTypeBucket:
+		return true
+	case ProjectConfigMissingResourceTypeDatabase:
+		return true
+	case ProjectConfigMissingResourceTypeFrontend:
+		return true
+	case ProjectConfigMissingResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigOAuthProviderProvider.
+const (
+	ProjectConfigOAuthProviderProviderApple     ProjectConfigOAuthProviderProvider = "apple"
+	ProjectConfigOAuthProviderProviderDevice    ProjectConfigOAuthProviderProvider = "device"
+	ProjectConfigOAuthProviderProviderGithub    ProjectConfigOAuthProviderProvider = "github"
+	ProjectConfigOAuthProviderProviderGoogle    ProjectConfigOAuthProviderProvider = "google"
+	ProjectConfigOAuthProviderProviderMicrosoft ProjectConfigOAuthProviderProvider = "microsoft"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigOAuthProviderProvider enum.
+func (e ProjectConfigOAuthProviderProvider) Valid() bool {
+	switch e {
+	case ProjectConfigOAuthProviderProviderApple:
+		return true
+	case ProjectConfigOAuthProviderProviderDevice:
+		return true
+	case ProjectConfigOAuthProviderProviderGithub:
+		return true
+	case ProjectConfigOAuthProviderProviderGoogle:
+		return true
+	case ProjectConfigOAuthProviderProviderMicrosoft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigSkippedResourceType.
+const (
+	ProjectConfigSkippedResourceTypeBucket   ProjectConfigSkippedResourceType = "bucket"
+	ProjectConfigSkippedResourceTypeDatabase ProjectConfigSkippedResourceType = "database"
+	ProjectConfigSkippedResourceTypeFrontend ProjectConfigSkippedResourceType = "frontend"
+	ProjectConfigSkippedResourceTypeFunction ProjectConfigSkippedResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigSkippedResourceType enum.
+func (e ProjectConfigSkippedResourceType) Valid() bool {
+	switch e {
+	case ProjectConfigSkippedResourceTypeBucket:
+		return true
+	case ProjectConfigSkippedResourceTypeDatabase:
+		return true
+	case ProjectConfigSkippedResourceTypeFrontend:
+		return true
+	case ProjectConfigSkippedResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectDeploymentOperation.
+const (
+	ProjectDeploymentOperationDelete   ProjectDeploymentOperation = "delete"
+	ProjectDeploymentOperationDeploy   ProjectDeploymentOperation = "deploy"
+	ProjectDeploymentOperationRedeploy ProjectDeploymentOperation = "redeploy"
+	ProjectDeploymentOperationUpdate   ProjectDeploymentOperation = "update"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentOperation enum.
+func (e ProjectDeploymentOperation) Valid() bool {
+	switch e {
+	case ProjectDeploymentOperationDelete:
+		return true
+	case ProjectDeploymentOperationDeploy:
+		return true
+	case ProjectDeploymentOperationRedeploy:
+		return true
+	case ProjectDeploymentOperationUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectDeploymentStatus.
+const (
+	ProjectDeploymentStatusActive       ProjectDeploymentStatus = "active"
+	ProjectDeploymentStatusDeleted      ProjectDeploymentStatus = "deleted"
+	ProjectDeploymentStatusDeleting     ProjectDeploymentStatus = "deleting"
+	ProjectDeploymentStatusFailed       ProjectDeploymentStatus = "failed"
+	ProjectDeploymentStatusProvisioning ProjectDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentStatus enum.
+func (e ProjectDeploymentStatus) Valid() bool {
+	switch e {
+	case ProjectDeploymentStatusActive:
+		return true
+	case ProjectDeploymentStatusDeleted:
+		return true
+	case ProjectDeploymentStatusDeleting:
+		return true
+	case ProjectDeploymentStatusFailed:
+		return true
+	case ProjectDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectDeploymentResourceType.
+const (
+	ProjectDeploymentResourceTypeFrontend ProjectDeploymentResourceType = "frontend"
+	ProjectDeploymentResourceTypeFunction ProjectDeploymentResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectDeploymentResourceType enum.
+func (e ProjectDeploymentResourceType) Valid() bool {
+	switch e {
+	case ProjectDeploymentResourceTypeFrontend:
+		return true
+	case ProjectDeploymentResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainDomainStatus.
+const (
+	ProjectFrontendCustomDomainDomainStatusActive              ProjectFrontendCustomDomainDomainStatus = "active"
+	ProjectFrontendCustomDomainDomainStatusDeleted             ProjectFrontendCustomDomainDomainStatus = "deleted"
+	ProjectFrontendCustomDomainDomainStatusDetaching           ProjectFrontendCustomDomainDomainStatus = "detaching"
+	ProjectFrontendCustomDomainDomainStatusFailed              ProjectFrontendCustomDomainDomainStatus = "failed"
+	ProjectFrontendCustomDomainDomainStatusPendingVerification ProjectFrontendCustomDomainDomainStatus = "pending_verification"
+	ProjectFrontendCustomDomainDomainStatusProvisioning        ProjectFrontendCustomDomainDomainStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainDomainStatus enum.
+func (e ProjectFrontendCustomDomainDomainStatus) Valid() bool {
+	switch e {
+	case ProjectFrontendCustomDomainDomainStatusActive:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusDeleted:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusDetaching:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusFailed:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusPendingVerification:
+		return true
+	case ProjectFrontendCustomDomainDomainStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainTlsMode.
+const (
+	Byoc    ProjectFrontendCustomDomainTlsMode = "byoc"
+	Managed ProjectFrontendCustomDomainTlsMode = "managed"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainTlsMode enum.
+func (e ProjectFrontendCustomDomainTlsMode) Valid() bool {
+	switch e {
+	case Byoc:
+		return true
+	case Managed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainVerificationStatus.
+const (
+	ProjectFrontendCustomDomainVerificationStatusPending  ProjectFrontendCustomDomainVerificationStatus = "pending"
+	ProjectFrontendCustomDomainVerificationStatusVerified ProjectFrontendCustomDomainVerificationStatus = "verified"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainVerificationStatus enum.
+func (e ProjectFrontendCustomDomainVerificationStatus) Valid() bool {
+	switch e {
+	case ProjectFrontendCustomDomainVerificationStatusPending:
+		return true
+	case ProjectFrontendCustomDomainVerificationStatusVerified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthCategory.
+const (
+	Lifecycle ProjectHealthCategory = "lifecycle"
+	Storage   ProjectHealthCategory = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthCategory enum.
+func (e ProjectHealthCategory) Valid() bool {
+	switch e {
+	case Lifecycle:
+		return true
+	case Storage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthDataStatus.
+const (
+	ProjectHealthDataStatusComplete ProjectHealthDataStatus = "complete"
+	ProjectHealthDataStatusNoData   ProjectHealthDataStatus = "no_data"
+	ProjectHealthDataStatusPartial  ProjectHealthDataStatus = "partial"
+	ProjectHealthDataStatusStale    ProjectHealthDataStatus = "stale"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthDataStatus enum.
+func (e ProjectHealthDataStatus) Valid() bool {
+	switch e {
+	case ProjectHealthDataStatusComplete:
+		return true
+	case ProjectHealthDataStatusNoData:
+		return true
+	case ProjectHealthDataStatusPartial:
+		return true
+	case ProjectHealthDataStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthResourceType.
+const (
+	ProjectHealthResourceTypeDatabase ProjectHealthResourceType = "database"
+	ProjectHealthResourceTypeFrontend ProjectHealthResourceType = "frontend"
+	ProjectHealthResourceTypeFunction ProjectHealthResourceType = "function"
+	ProjectHealthResourceTypeProject  ProjectHealthResourceType = "project"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthResourceType enum.
+func (e ProjectHealthResourceType) Valid() bool {
+	switch e {
+	case ProjectHealthResourceTypeDatabase:
+		return true
+	case ProjectHealthResourceTypeFrontend:
+		return true
+	case ProjectHealthResourceTypeFunction:
+		return true
+	case ProjectHealthResourceTypeProject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectHealthStatus.
+const (
+	Critical ProjectHealthStatus = "critical"
+	Degraded ProjectHealthStatus = "degraded"
+	Healthy  ProjectHealthStatus = "healthy"
+	Unknown  ProjectHealthStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ProjectHealthStatus enum.
+func (e ProjectHealthStatus) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case Degraded:
+		return true
+	case Healthy:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsDataStatus.
+const (
+	ProjectMetricsDataStatusComplete ProjectMetricsDataStatus = "complete"
+	ProjectMetricsDataStatusNoData   ProjectMetricsDataStatus = "no_data"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsDataStatus enum.
+func (e ProjectMetricsDataStatus) Valid() bool {
+	switch e {
+	case ProjectMetricsDataStatusComplete:
+		return true
+	case ProjectMetricsDataStatusNoData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsDimensionsResourceType.
+const (
+	ProjectMetricsDimensionsResourceTypeFrontend ProjectMetricsDimensionsResourceType = "frontend"
+	ProjectMetricsDimensionsResourceTypeFunction ProjectMetricsDimensionsResourceType = "function"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsDimensionsResourceType enum.
+func (e ProjectMetricsDimensionsResourceType) Valid() bool {
+	switch e {
+	case ProjectMetricsDimensionsResourceTypeFrontend:
+		return true
+	case ProjectMetricsDimensionsResourceTypeFunction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsGroupBy.
+const (
+	Region       ProjectMetricsGroupBy = "region"
+	ResourceType ProjectMetricsGroupBy = "resource_type"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsGroupBy enum.
+func (e ProjectMetricsGroupBy) Valid() bool {
+	switch e {
+	case Region:
+		return true
+	case ResourceType:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsMetric.
+const (
+	Availability     ProjectMetricsMetric = "availability"
+	P95Latency       ProjectMetricsMetric = "p95_latency"
+	RequestCount     ProjectMetricsMetric = "request_count"
+	ServerErrorCount ProjectMetricsMetric = "server_error_count"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsMetric enum.
+func (e ProjectMetricsMetric) Valid() bool {
+	switch e {
+	case Availability:
+		return true
+	case P95Latency:
+		return true
+	case RequestCount:
+		return true
+	case ServerErrorCount:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsQueryTimeRangeWindow.
+const (
+	N1h  ProjectMetricsQueryTimeRangeWindow = "1h"
+	N24h ProjectMetricsQueryTimeRangeWindow = "24h"
+	N30m ProjectMetricsQueryTimeRangeWindow = "30m"
+	N7d  ProjectMetricsQueryTimeRangeWindow = "7d"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsQueryTimeRangeWindow enum.
+func (e ProjectMetricsQueryTimeRangeWindow) Valid() bool {
+	switch e {
+	case N1h:
+		return true
+	case N24h:
+		return true
+	case N30m:
+		return true
+	case N7d:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectMetricsUnit.
+const (
+	Count   ProjectMetricsUnit = "count"
+	Ratio   ProjectMetricsUnit = "ratio"
+	Seconds ProjectMetricsUnit = "seconds"
+)
+
+// Valid indicates whether the value is a known member of the ProjectMetricsUnit enum.
+func (e ProjectMetricsUnit) Valid() bool {
+	switch e {
+	case Count:
+		return true
+	case Ratio:
+		return true
+	case Seconds:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScheduleRequestKind.
+const (
+	ScheduleRequestKindCron ScheduleRequestKind = "cron"
+)
+
+// Valid indicates whether the value is a known member of the ScheduleRequestKind enum.
+func (e ScheduleRequestKind) Valid() bool {
+	switch e {
+	case ScheduleRequestKindCron:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StoragePolicyOperation.
+const (
+	DELETE StoragePolicyOperation = "DELETE"
+	INSERT StoragePolicyOperation = "INSERT"
+	SELECT StoragePolicyOperation = "SELECT"
+	UPDATE StoragePolicyOperation = "UPDATE"
+)
+
+// Valid indicates whether the value is a known member of the StoragePolicyOperation enum.
+func (e StoragePolicyOperation) Valid() bool {
+	switch e {
+	case DELETE:
+		return true
+	case INSERT:
+		return true
+	case SELECT:
+		return true
+	case UPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UnbanUserResponseStatus.
+const (
+	UnbanUserResponseStatusActive UnbanUserResponseStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the UnbanUserResponseStatus enum.
+func (e UnbanUserResponseStatus) Valid() bool {
+	switch e {
+	case UnbanUserResponseStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateDatabaseTypeRequestDatabaseType.
+const (
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDb2xl UpdateDatabaseTypeRequestDatabaseType = "volcano-db-2xl"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbL   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-l"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbM   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-m"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbS   UpdateDatabaseTypeRequestDatabaseType = "volcano-db-s"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXl  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xl"
+	UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXs  UpdateDatabaseTypeRequestDatabaseType = "volcano-db-xs"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDatabaseTypeRequestDatabaseType enum.
+func (e UpdateDatabaseTypeRequestDatabaseType) Valid() bool {
+	switch e {
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDb2xl:
+		return true
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbL:
+		return true
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbM:
+		return true
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbS:
+		return true
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXl:
+		return true
+	case UpdateDatabaseTypeRequestDatabaseTypeVolcanoDbXs:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadSessionStatusResponseStatus.
+const (
+	Aborted    UploadSessionStatusResponseStatus = "aborted"
+	Completed  UploadSessionStatusResponseStatus = "completed"
+	Completing UploadSessionStatusResponseStatus = "completing"
+	Pending    UploadSessionStatusResponseStatus = "pending"
+	Uploading  UploadSessionStatusResponseStatus = "uploading"
+)
+
+// Valid indicates whether the value is a known member of the UploadSessionStatusResponseStatus enum.
+func (e UploadSessionStatusResponseStatus) Valid() bool {
+	switch e {
+	case Aborted:
+		return true
+	case Completed:
+		return true
+	case Completing:
+		return true
+	case Pending:
+		return true
+	case Uploading:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VariableStatus.
+const (
+	Active       VariableStatus = "active"
+	Failed       VariableStatus = "failed"
+	Provisioning VariableStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the VariableStatus enum.
+func (e VariableStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Failed:
+		return true
+	case Provisioning:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for AuthConfirmEmail200JSONResponseBodyMessage.
 const (
@@ -514,19 +2061,19 @@ func (e GetProjectConfigParamsFormat) Valid() bool {
 
 // Defines values for GetDatabaseStatsParamsGranularity.
 const (
-	Daily   GetDatabaseStatsParamsGranularity = "daily"
-	Hourly  GetDatabaseStatsParamsGranularity = "hourly"
-	Monthly GetDatabaseStatsParamsGranularity = "monthly"
+	GetDatabaseStatsParamsGranularityDaily   GetDatabaseStatsParamsGranularity = "daily"
+	GetDatabaseStatsParamsGranularityHourly  GetDatabaseStatsParamsGranularity = "hourly"
+	GetDatabaseStatsParamsGranularityMonthly GetDatabaseStatsParamsGranularity = "monthly"
 )
 
 // Valid indicates whether the value is a known member of the GetDatabaseStatsParamsGranularity enum.
 func (e GetDatabaseStatsParamsGranularity) Valid() bool {
 	switch e {
-	case Daily:
+	case GetDatabaseStatsParamsGranularityDaily:
 		return true
-	case Hourly:
+	case GetDatabaseStatsParamsGranularityHourly:
 		return true
-	case Monthly:
+	case GetDatabaseStatsParamsGranularityMonthly:
 		return true
 	default:
 		return false
@@ -607,13 +2154,13 @@ func (e UpdateEmailTemplateParamsType) Valid() bool {
 
 // Defines values for CreateFrontendMultipartBodyFramework.
 const (
-	Nextjs CreateFrontendMultipartBodyFramework = "nextjs"
+	CreateFrontendMultipartBodyFrameworkNextjs CreateFrontendMultipartBodyFramework = "nextjs"
 )
 
 // Valid indicates whether the value is a known member of the CreateFrontendMultipartBodyFramework enum.
 func (e CreateFrontendMultipartBodyFramework) Valid() bool {
 	switch e {
-	case Nextjs:
+	case CreateFrontendMultipartBodyFrameworkNextjs:
 		return true
 	default:
 		return false
@@ -759,191 +2306,1591 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 }
 
 // AnonKey defines model for AnonKey.
-type AnonKey = externalRef0.AnonKey
+type AnonKey struct {
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// IsDefault Whether this is the project's configured default anon key. Only one key per project can be default.
+	IsDefault *bool `json:"is_default,omitempty"`
+
+	// KeyValue JWT token - use this in frontend Authorization header
+	KeyValue string `json:"key_value"`
+	Name     string `json:"name"`
+
+	// Permissions Permissions granted to this anon key.
+	// Auth permissions: auth.signup, auth.signin, auth.refresh, auth.logout, auth.password_reset, auth.confirm_email, auth.resend_confirmation
+	// Storage permissions: storage.upload, storage.download, storage.list, storage.delete
+	// Realtime permissions: realtime.connect, realtime.subscribe, realtime.publish
+	// Functions permissions: functions.invoke
+	Permissions *[]string           `json:"permissions,omitempty"`
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+}
 
 // AuthConfig defines model for AuthConfig.
-type AuthConfig = externalRef0.AuthConfig
+type AuthConfig struct {
+	// AccessTokenLifetime Access token lifetime in seconds
+	AccessTokenLifetime *int `json:"access_token_lifetime,omitempty"`
+
+	// AllowPasswordReset Enable forgot password flow
+	AllowPasswordReset *bool `json:"allow_password_reset,omitempty"`
+
+	// AllowedRedirectUrls Redirect allowlist used to validate post_auth_redirect_url and post_logout_redirect_url.
+	AllowedRedirectUrls *[]string `json:"allowed_redirect_urls,omitempty"`
+
+	// CorsAllowCredentials Allow credentials in CORS requests
+	CorsAllowCredentials *bool     `json:"cors_allow_credentials,omitempty"`
+	CorsAllowedOrigins   *[]string `json:"cors_allowed_origins,omitempty"`
+	CorsEnabled          *bool     `json:"cors_enabled,omitempty"`
+
+	// CorsMaxAge CORS preflight cache duration (seconds)
+	CorsMaxAge *int `json:"cors_max_age,omitempty"`
+
+	// DeviceVerificationUrl Optional override for the device-authorization verification page.
+	// When set, POST /auth/device/authorize returns this URL (with the
+	// user_code) as verification_uri/verification_uri_complete instead of
+	// the built-in managed device page. Lets a CLI surface the project's
+	// own RFC 8628 approval page. Empty falls back to the managed page.
+	DeviceVerificationUrl    *string `json:"device_verification_url,omitempty"`
+	EmailConfirmationSubject *string `json:"email_confirmation_subject,omitempty"`
+
+	// EmailEnabled Enable transactional email sending (confirmation, reset, change notifications). Must be true when require_email_confirmation is true.
+	EmailEnabled                *bool   `json:"email_enabled,omitempty"`
+	EmailFromAddress            *string `json:"email_from_address,omitempty"`
+	EmailFromName               *string `json:"email_from_name,omitempty"`
+	EmailPasswordChangedSubject *string `json:"email_password_changed_subject,omitempty"`
+	EmailPasswordResetSubject   *string `json:"email_password_reset_subject,omitempty"`
+
+	// EnableAnonymousSignins Allow creating users without email/password
+	EnableAnonymousSignins *bool `json:"enable_anonymous_signins,omitempty"`
+
+	// EnableEmailPassword Enable email/password authentication as a provider
+	EnableEmailPassword *bool `json:"enable_email_password,omitempty"`
+
+	// EnableSignup Master switch - allow new user signups via ANY provider
+	EnableSignup *bool `json:"enable_signup,omitempty"`
+
+	// InactivityTimeout Force re-login after inactivity (seconds, 0=never)
+	InactivityTimeout *int `json:"inactivity_timeout,omitempty"`
+
+	// ManagedAuthEnabled Enables project-hosted managed auth pages.
+	ManagedAuthEnabled *bool `json:"managed_auth_enabled,omitempty"`
+
+	// MaxPasswordHistory Number of previous passwords to remember (0=disabled)
+	MaxPasswordHistory *int `json:"max_password_history,omitempty"`
+
+	// MaxSessionDuration Force re-login after duration (seconds, 0=never)
+	MaxSessionDuration *int `json:"max_session_duration,omitempty"`
+	MinPasswordLength  *int `json:"min_password_length,omitempty"`
+
+	// PasswordResetTimeout Recovery token expiry in seconds
+	PasswordResetTimeout *int `json:"password_reset_timeout,omitempty"`
+
+	// PlatformTokenTtl TTL in seconds for platform tokens minted via `/auth/platform/exchange`
+	PlatformTokenTtl *int `json:"platform_token_ttl,omitempty"`
+
+	// PostAuthRedirectUrl Default redirect target after successful hosted auth.
+	PostAuthRedirectUrl *string `json:"post_auth_redirect_url,omitempty"`
+
+	// PostLogoutRedirectUrl Redirect target after logout from hosted pages.
+	PostLogoutRedirectUrl *string             `json:"post_logout_redirect_url,omitempty"`
+	ProjectId             *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// RateLimitSignin Signins per hour per IP
+	RateLimitSignin *int `json:"rate_limit_signin,omitempty"`
+
+	// RateLimitSignup Signups per hour per IP
+	RateLimitSignup *int `json:"rate_limit_signup,omitempty"`
+
+	// RateLimitTokenRefresh Refreshes per hour per IP
+	RateLimitTokenRefresh *int `json:"rate_limit_token_refresh,omitempty"`
+
+	// RefreshTokenLifetime Refresh token lifetime in seconds
+	RefreshTokenLifetime *int    `json:"refresh_token_lifetime,omitempty"`
+	RequireLowercase     *bool   `json:"require_lowercase,omitempty"`
+	RequireNumbers       *bool   `json:"require_numbers,omitempty"`
+	RequireSpecialChars  *bool   `json:"require_special_chars,omitempty"`
+	RequireUppercase     *bool   `json:"require_uppercase,omitempty"`
+	SmtpHost             *string `json:"smtp_host,omitempty"`
+
+	// SmtpPassword SMTP password. Stored encrypted at rest (AES-256-GCM); returned decrypted only to the authenticated project owner.
+	SmtpPassword *string `json:"smtp_password,omitempty"`
+	SmtpPort     *int    `json:"smtp_port,omitempty"`
+	SmtpUseTls   *bool   `json:"smtp_use_tls,omitempty"`
+	SmtpUsername *string `json:"smtp_username,omitempty"`
+}
+
+// AuthHostedPage defines model for AuthHostedPage.
+type AuthHostedPage struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Css CSS content for this page type.
+	Css *string `json:"css,omitempty"`
+
+	// Html HTML content for this page type.
+	Html      *string             `json:"html,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	PageType  *HostedAuthPageType `json:"page_type,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	UpdatedAt *time.Time          `json:"updated_at,omitempty"`
+}
 
 // AuthHostedPageResponse defines model for AuthHostedPageResponse.
-type AuthHostedPageResponse = externalRef0.AuthHostedPageResponse
+type AuthHostedPageResponse struct {
+	Page *AuthHostedPage `json:"page,omitempty"`
+}
+
+// AuthIdentitiesResponse defines model for AuthIdentitiesResponse.
+type AuthIdentitiesResponse struct {
+	Identities []AuthIdentity `json:"identities"`
+}
+
+// AuthIdentity A real email identity owned by the account. One account can own multiple
+// identities (for example a work email plus a personal email linked via OAuth).
+type AuthIdentity struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email The email address this identity represents
+	Email openapi_types.Email `json:"email"`
+
+	// EmailVerified Whether ownership of this email has been verified
+	EmailVerified bool `json:"email_verified"`
+
+	// Id Unique identity identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IsPrimary Whether the account's primary sign-in method resolves to this identity
+	IsPrimary bool `json:"is_primary"`
+}
+
+// AuthMethodSummary A single sign-in method the account owns (password, an OAuth provider, or an
+// active anonymous method). `is_primary` reflects the account's primary_method_id.
+type AuthMethodSummary struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email The email of the method's identity (empty for anonymous)
+	Email string `json:"email"`
+
+	// Id Unique method identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IdentityId The identity this method signs in to — a UUID for password/oauth methods,
+	// empty for anonymous methods.
+	IdentityId string `json:"identity_id"`
+
+	// IsPrimary Whether this is the account's primary sign-in method
+	IsPrimary bool `json:"is_primary"`
+
+	// LastUsedAt When this method was last used to sign in, if ever
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
+	// Provider OAuth provider name; present only when type is oauth
+	Provider *string `json:"provider,omitempty"`
+
+	// Type The kind of sign-in method
+	Type      string    `json:"type"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// AuthMethodsResponse defines model for AuthMethodsResponse.
+type AuthMethodsResponse struct {
+	Methods []AuthMethodSummary `json:"methods"`
+}
 
 // AuthSession An authentication session for a user
-type AuthSession = externalRef0.AuthSession
+type AuthSession struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExpiresAt When this session expires
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Id Unique session identifier
+	Id openapi_types.UUID `json:"id"`
+
+	// IpAddress IP address of the client when the session was created
+	IpAddress *string `json:"ip_address,omitempty"`
+
+	// IsActive Whether the session is currently active (not expired)
+	IsActive *bool `json:"is_active,omitempty"`
+
+	// IsCurrent Whether this is the session making the current request
+	IsCurrent *bool `json:"is_current,omitempty"`
+
+	// LastActivityAt Last activity timestamp
+	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
+
+	// LastIpAddress IP address of the most recent activity (token refresh)
+	LastIpAddress *string `json:"last_ip_address,omitempty"`
+
+	// Provider Authentication provider used to create this session
+	Provider AuthSessionProvider `json:"provider"`
+
+	// SessionStartedAt When the session was created
+	SessionStartedAt *time.Time `json:"session_started_at,omitempty"`
+	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
+
+	// UserAgent Browser/device user agent string
+	UserAgent *string `json:"user_agent,omitempty"`
+
+	// UserId The user this session belongs to
+	UserId openapi_types.UUID `json:"user_id"`
+}
+
+// AuthSessionProvider Authentication provider used to create this session
+type AuthSessionProvider string
+
+// AuthSignupResponse Uniform, session-less response returned by POST /auth/signup. It carries no
+// tokens and no user object, and is identical for a new account and for an
+// already-registered email (anti-enumeration). Clients obtain a session with a
+// subsequent POST /auth/signin.
+type AuthSignupResponse struct {
+	// ConfirmationRequired Whether the project requires email confirmation. Reflects project config
+	// only (identical for a new and an existing email), so it leaks nothing about
+	// account existence.
+	ConfirmationRequired bool `json:"confirmation_required"`
+
+	// Message Human-readable acknowledgement.
+	Message string `json:"message"`
+}
 
 // AuthTokenResponse defines model for AuthTokenResponse.
-type AuthTokenResponse = externalRef0.AuthTokenResponse
+type AuthTokenResponse struct {
+	// AccessToken JWT access token (expires after configured lifetime)
+	AccessToken string `json:"access_token"`
+
+	// ExpiresIn Access token lifetime in seconds
+	ExpiresIn int `json:"expires_in"`
+
+	// RefreshToken Long-lived token for getting new access tokens
+	RefreshToken string   `json:"refresh_token"`
+	TokenType    string   `json:"token_type"`
+	User         AuthUser `json:"user"`
+}
 
 // AuthUser defines model for AuthUser.
-type AuthUser = externalRef0.AuthUser
+type AuthUser struct {
+	// AppMetadata Application-controlled metadata (read-only for users)
+	AppMetadata *map[string]interface{} `json:"app_metadata,omitempty"`
+
+	// AvatarUrl User avatar URL (from OAuth provider or manually set)
+	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// BannedUntil When temporary ban expires (null if not banned or permanent)
+	BannedUntil    *time.Time          `json:"banned_until,omitempty"`
+	CreatedAt      *time.Time          `json:"created_at,omitempty"`
+	Email          openapi_types.Email `json:"email"`
+	EmailConfirmed *bool               `json:"email_confirmed,omitempty"`
+	Id             openapi_types.UUID  `json:"id"`
+	LastSignInAt   *time.Time          `json:"last_sign_in_at,omitempty"`
+	ProjectId      *openapi_types.UUID `json:"project_id,omitempty"`
+	Status         AuthUserStatus      `json:"status"`
+	UpdatedAt      *time.Time          `json:"updated_at,omitempty"`
+
+	// UserMetadata User-editable metadata
+	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
+}
+
+// AuthUserStatus defines model for AuthUser.Status.
+type AuthUserStatus string
 
 // BanUserResponse Response when banning a user
-type BanUserResponse = externalRef0.BanUserResponse
+type BanUserResponse struct {
+	// BannedUntil When the ban expires (null for permanent ban)
+	BannedUntil *time.Time            `json:"banned_until,omitempty"`
+	Email       openapi_types.Email   `json:"email"`
+	Message     string                `json:"message"`
+	Status      BanUserResponseStatus `json:"status"`
+	UserId      openapi_types.UUID    `json:"user_id"`
+}
+
+// BanUserResponseStatus defines model for BanUserResponse.Status.
+type BanUserResponseStatus string
+
+// BatchFunctionDeployFailure defines model for BatchFunctionDeployFailure.
+type BatchFunctionDeployFailure struct {
+	Error      string                               `json:"error"`
+	FunctionId *openapi_types.UUID                  `json:"function_id,omitempty"`
+	Name       string                               `json:"name"`
+	Operation  *BatchFunctionDeployFailureOperation `json:"operation,omitempty"`
+}
+
+// BatchFunctionDeployFailureOperation defines model for BatchFunctionDeployFailure.Operation.
+type BatchFunctionDeployFailureOperation string
 
 // BatchFunctionDeployResponse defines model for BatchFunctionDeployResponse.
-type BatchFunctionDeployResponse = externalRef0.BatchFunctionDeployResponse
+type BatchFunctionDeployResponse struct {
+	BatchId openapi_types.UUID `json:"batch_id"`
+
+	// Data Functions whose deployment workflows were started successfully
+	Data []Function `json:"data"`
+
+	// Failed Functions that failed before their workflow started. Successful functions are left running; failed new functions are deleted and failed updates are rolled back where possible.
+	Failed *[]BatchFunctionDeployFailure `json:"failed,omitempty"`
+}
 
 // CompleteUploadSessionResponse Response when completing an upload
-type CompleteUploadSessionResponse = externalRef0.CompleteUploadSessionResponse
+type CompleteUploadSessionResponse struct {
+	Object *StorageObject `json:"object,omitempty"`
+}
 
 // CreateDatabaseRequest Create a new PostgreSQL database. Volcano automatically sets up:
 // - Auth helpers (auth.uid(), auth.email(), auth.role())
 // - Database roles (anon for unauthenticated, authenticated for signed-in users)
 // - Secure multi-tenant isolation
 // - Ready for Row-Level Security
-type CreateDatabaseRequest = externalRef0.CreateDatabaseRequest
+type CreateDatabaseRequest struct {
+	// DatabaseType Compute size tier (optional, defaults to volcano-db-xs).
+	// Determines autoscaling limits for the database.
+	DatabaseType *CreateDatabaseRequestDatabaseType `json:"database_type,omitempty"`
+
+	// Name Database name (must be unique within project)
+	Name string `json:"name"`
+
+	// PgVersion PostgreSQL major version
+	PgVersion CreateDatabaseRequestPgVersion `json:"pg_version"`
+
+	// Region AWS region for database hosting
+	Region CreateDatabaseRequestRegion `json:"region"`
+}
+
+// CreateDatabaseRequestDatabaseType Compute size tier (optional, defaults to volcano-db-xs).
+// Determines autoscaling limits for the database.
+type CreateDatabaseRequestDatabaseType string
+
+// CreateDatabaseRequestPgVersion PostgreSQL major version
+type CreateDatabaseRequestPgVersion string
+
+// CreateDatabaseRequestRegion AWS region for database hosting
+type CreateDatabaseRequestRegion string
 
 // CreateEmailTemplateRequest defines model for CreateEmailTemplateRequest.
-type CreateEmailTemplateRequest = externalRef0.CreateEmailTemplateRequest
+type CreateEmailTemplateRequest struct {
+	// HtmlBody HTML template body. Available placeholders:
+	// - {{.Token}} - The confirmation/reset token
+	// - {{.ProjectName}} - The project name
+	// - {{.Email}} - User's email address
+	HtmlBody string `json:"html_body"`
+
+	// Subject Email subject line
+	Subject string `json:"subject"`
+
+	// TemplateType Type of email template
+	TemplateType CreateEmailTemplateRequestTemplateType `json:"template_type"`
+
+	// TextBody Plain text template body (same placeholders as HTML)
+	TextBody string `json:"text_body"`
+}
+
+// CreateEmailTemplateRequestTemplateType Type of email template
+type CreateEmailTemplateRequestTemplateType string
 
 // CreateFrontendCustomDomainRequest defines model for CreateFrontendCustomDomainRequest.
-type CreateFrontendCustomDomainRequest = externalRef0.CreateFrontendCustomDomainRequest
+type CreateFrontendCustomDomainRequest struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path)
+	Domain string                        `json:"domain"`
+	Tls    FrontendCustomDomainTLSConfig `json:"tls"`
+}
 
 // CreateFunctionSchedulerRequest defines model for CreateFunctionSchedulerRequest.
-type CreateFunctionSchedulerRequest = externalRef0.CreateFunctionSchedulerRequest
+type CreateFunctionSchedulerRequest struct {
+	Enabled *bool                   `json:"enabled,omitempty"`
+	Name    string                  `json:"name"`
+	Payload *map[string]interface{} `json:"payload,omitempty"`
+
+	// Regions Optional single explicit deployed region. If omitted, the scheduler chooses one deployed region and invokes according to the cron expression.
+	Regions  *[]string       `json:"regions,omitempty"`
+	Schedule ScheduleRequest `json:"schedule"`
+}
 
 // CreateOAuthConfigRequest defines model for CreateOAuthConfigRequest.
-type CreateOAuthConfigRequest = externalRef0.CreateOAuthConfigRequest
+type CreateOAuthConfigRequest struct {
+	// ClientId Required for non-device providers. Must not be provided for `provider=device`; server always auto-generates it.
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Required for non-device providers. Must not be provided for `provider=device`; server always auto-generates it.
+	ClientSecret *string                          `json:"client_secret,omitempty"`
+	Provider     CreateOAuthConfigRequestProvider `json:"provider"`
+
+	// RedirectUrl Required for non-device providers. Not used for `provider=device`.
+	RedirectUrl *string `json:"redirect_url,omitempty"`
+
+	// Scopes Optional for non-device providers, uses provider defaults if omitted. Not used for `provider=device`.
+	Scopes *[]string `json:"scopes,omitempty"`
+}
+
+// CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
+type CreateOAuthConfigRequestProvider string
 
 // CreateProjectRequest Request to create a new project
-type CreateProjectRequest = externalRef0.CreateProjectRequest
+type CreateProjectRequest struct {
+	// AllRegions Optional region policy.
+	// - `true` (default): project functions deploy to all configured regions
+	// - `false`: project deploys only to `selected_regions`
+	AllRegions *bool `json:"all_regions,omitempty"`
+
+	// Name Project name (must be unique).
+	// Can only contain letters, numbers, underscores, and hyphens.
+	Name string `json:"name"`
+
+	// SelectedRegions Optional region subset. Requires `all_regions=false`.
+	// Region names must be a subset of platform `AWS_REGIONS`.
+	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+}
 
 // CreateStorageBucketRequest defines model for CreateStorageBucketRequest.
-type CreateStorageBucketRequest = externalRef0.CreateStorageBucketRequest
+type CreateStorageBucketRequest struct {
+	// AllowedMimeTypes Allowed MIME types (e.g., ["image/png", "image/jpeg"])
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+
+	// FileSizeLimit Maximum file size in bytes
+	FileSizeLimit *int64 `json:"file_size_limit,omitempty"`
+
+	// Name Bucket name (alphanumeric, dashes, underscores)
+	Name string `json:"name"`
+}
 
 // CreateStoragePolicyRequest defines model for CreateStoragePolicyRequest.
-type CreateStoragePolicyRequest = externalRef0.CreateStoragePolicyRequest
+type CreateStoragePolicyRequest struct {
+	// Definition Policy expression
+	Definition string `json:"definition"`
+
+	// Name Policy name
+	Name string `json:"name"`
+
+	// Operation Operation this policy applies to
+	Operation CreateStoragePolicyRequestOperation `json:"operation"`
+}
+
+// CreateStoragePolicyRequestOperation Operation this policy applies to
+type CreateStoragePolicyRequestOperation string
 
 // CreateUploadSessionRequest Request to create a resumable upload session
-type CreateUploadSessionRequest = externalRef0.CreateUploadSessionRequest
+type CreateUploadSessionRequest struct {
+	// ContentType MIME type of the file
+	ContentType string `json:"content_type"`
+
+	// ObjectPath Target file path within the bucket
+	ObjectPath string `json:"object_path"`
+
+	// PartSize Part size in bytes (default: 25MB, min: 5MB, max: 25MB)
+	PartSize *int64 `json:"part_size,omitempty"`
+
+	// TotalSize Total file size in bytes (max 5TB)
+	TotalSize int64 `json:"total_size"`
+}
 
 // CreateUploadSessionResponse Response when creating an upload session
-type CreateUploadSessionResponse = externalRef0.CreateUploadSessionResponse
+type CreateUploadSessionResponse struct {
+	// ExpiresAt When the session expires (7 days from creation)
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// PartSize Actual part size to use
+	PartSize *int64 `json:"part_size,omitempty"`
+
+	// SessionId Upload session ID
+	SessionId *string `json:"session_id,omitempty"`
+
+	// TotalParts Number of parts to upload
+	TotalParts *int `json:"total_parts,omitempty"`
+}
 
 // CreateVariableRequest defines model for CreateVariableRequest.
-type CreateVariableRequest = externalRef0.CreateVariableRequest
+type CreateVariableRequest struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
 
 // Database PostgreSQL database with automatic scalability and security features.
-type Database = externalRef0.Database
+type Database struct {
+	// ConnectionString Secure PostgreSQL connection URI for your database.
+	//
+	// The database is identified by the globally-unique username
+	// (`volcano_client_{database_id}`) already in this URI; the
+	// `application_name` parameter only selects the access mode:
+	// - `volcano_full_access` — Full admin access (DDL, migrations)
+	// - `volcano_user_access:{user_id}` — User impersonation (RLS enforced)
+	// - `volcano_user_access` — Anonymous access (anon role, RLS enforced)
+	ConnectionString *string   `json:"connection_string,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+
+	// DatabaseType Database size tier that determines available RAM and scaling limits.
+	DatabaseType *DatabaseDatabaseType `json:"database_type,omitempty"`
+	Id           openapi_types.UUID    `json:"id"`
+
+	// LastInvokedAt Most recent request timestamp for this database
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+
+	// Name Database name
+	Name string `json:"name"`
+
+	// PgVersion PostgreSQL major version
+	PgVersion *string            `json:"pg_version,omitempty"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// ProvisioningStartedAt Timestamp when the current provisioning phase started
+	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
+
+	// Region AWS region where database is hosted
+	Region *string `json:"region,omitempty"`
+
+	// Status Database provisioning status
+	Status    DatabaseStatus `json:"status"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// DatabaseDatabaseType Database size tier that determines available RAM and scaling limits.
+type DatabaseDatabaseType string
+
+// DatabaseStatus Database provisioning status
+type DatabaseStatus string
+
+// DatabaseQueryPerformanceDatabase defines model for DatabaseQueryPerformanceDatabase.
+type DatabaseQueryPerformanceDatabase struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// DatabaseQueryPerformanceItem defines model for DatabaseQueryPerformanceItem.
+type DatabaseQueryPerformanceItem struct {
+	Calls               int64                            `json:"calls"`
+	Database            DatabaseQueryPerformanceDatabase `json:"database"`
+	MaxExecTimeSeconds  float64                          `json:"max_exec_time_seconds"`
+	MeanExecTimeSeconds float64                          `json:"mean_exec_time_seconds"`
+	MinExecTimeSeconds  float64                          `json:"min_exec_time_seconds"`
+
+	// Query Normalized and obfuscated representative query text.
+	Query string `json:"query"`
+
+	// QueryId pg_stat_statements query identifier.
+	QueryId string `json:"query_id"`
+
+	// Role Database role used for the query.
+	Role          string `json:"role"`
+	RowsProcessed int64  `json:"rows_processed"`
+
+	// TotalExecTimeSeconds Cumulative total execution time from pg_stat_statements in seconds.
+	TotalExecTimeSeconds float64 `json:"total_exec_time_seconds"`
+}
 
 // DatabaseQueryPerformanceResponse defines model for DatabaseQueryPerformanceResponse.
-type DatabaseQueryPerformanceResponse = externalRef0.DatabaseQueryPerformanceResponse
+type DatabaseQueryPerformanceResponse struct {
+	Data []DatabaseQueryPerformanceItem `json:"data"`
+}
 
 // DatabaseStats defines model for DatabaseStats.
-type DatabaseStats = externalRef0.DatabaseStats
+type DatabaseStats struct {
+	// ActiveTimeSeconds Total active compute time in seconds
+	ActiveTimeSeconds float64 `json:"active_time_seconds"`
+
+	// ComputeTimeSeconds Total CPU seconds consumed
+	ComputeTimeSeconds float64 `json:"compute_time_seconds"`
+
+	// DataTransferBytes Total data transferred in bytes
+	DataTransferBytes int64 `json:"data_transfer_bytes"`
+
+	// DataWrittenBytes Total data written in bytes
+	DataWrittenBytes int64 `json:"data_written_bytes"`
+
+	// Granularity Granularity of the aggregated metrics
+	Granularity *DatabaseStatsGranularity `json:"granularity,omitempty"`
+
+	// StorageBytes Total storage used in bytes (data + WAL)
+	StorageBytes int64 `json:"storage_bytes"`
+
+	// TimeRange Time range of the metrics (e.g., "2024-01-01T00:00:00Z to 2024-01-02T00:00:00Z")
+	TimeRange *string `json:"time_range,omitempty"`
+}
+
+// DatabaseStatsGranularity Granularity of the aggregated metrics
+type DatabaseStatsGranularity string
 
 // DeviceAuthorizationResponse defines model for DeviceAuthorizationResponse.
-type DeviceAuthorizationResponse = externalRef0.DeviceAuthorizationResponse
+type DeviceAuthorizationResponse struct {
+	DeviceCode string `json:"device_code"`
+	ExpiresIn  int    `json:"expires_in"`
+	Interval   int    `json:"interval"`
+	UserCode   string `json:"user_code"`
+
+	// VerificationUri Browser verification URL. Points at the project's managed device
+	// approval page served by this API:
+	// `/projects/{projectId}/auth/hosted?action=device&anon_key=...`.
+	// Requires the project to have managed auth enabled and a default anon
+	// key. A custom CLI may ignore this and direct users to its own
+	// RFC 8628-compatible page instead (see the device-auth guide).
+	VerificationUri string `json:"verification_uri"`
+
+	// VerificationUriComplete Same as `verification_uri` but with the `user_code` prefilled
+	// (`&user_code=...`). This is the URL most device clients open.
+	VerificationUriComplete string `json:"verification_uri_complete"`
+}
 
 // EmailTemplate Custom email template
-type EmailTemplate = externalRef0.EmailTemplate
+type EmailTemplate struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// HtmlBody HTML template with placeholders
+	HtmlBody     string                    `json:"html_body"`
+	Id           *openapi_types.UUID       `json:"id,omitempty"`
+	ProjectId    *openapi_types.UUID       `json:"project_id,omitempty"`
+	Subject      string                    `json:"subject"`
+	TemplateType EmailTemplateTemplateType `json:"template_type"`
+
+	// TextBody Plain text template with placeholders
+	TextBody  string     `json:"text_body"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// EmailTemplateTemplateType defines model for EmailTemplate.TemplateType.
+type EmailTemplateTemplateType string
 
 // Error defines model for Error.
-type Error = externalRef0.Error
+type Error struct {
+	Error string `json:"error"`
+}
 
 // Frontend defines model for Frontend.
-type Frontend = externalRef0.Frontend
+type Frontend struct {
+	// AppRoot Optional relative POSIX path from the uploaded archive root to the Next.js app that is deployed.
+	AppRoot   *string   `json:"app_root,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// CurrentDeploymentId Identifier of the latest frontend deployment operation
+	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
+
+	// CustomDomain Active custom domain hostname when configured
+	CustomDomain *string `json:"custom_domain,omitempty"`
+
+	// CustomDomainStatus Current custom domain lifecycle status
+	CustomDomainStatus *FrontendCustomDomainStatus `json:"custom_domain_status,omitempty"`
+	DeployedRegions    []string                    `json:"deployed_regions"`
+	Framework          FrontendFramework           `json:"framework"`
+	Id                 openapi_types.UUID          `json:"id"`
+	LastInvokedAt      *time.Time                  `json:"last_invoked_at,omitempty"`
+	Name               string                      `json:"name"`
+	ProjectId          openapi_types.UUID          `json:"project_id"`
+
+	// ProvisioningStartedAt Timestamp when the current provisioning phase started
+	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
+	SiteUrl               *string        `json:"site_url,omitempty"`
+	Status                FrontendStatus `json:"status"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+}
+
+// FrontendCustomDomainStatus Current custom domain lifecycle status
+type FrontendCustomDomainStatus string
+
+// FrontendFramework defines model for Frontend.Framework.
+type FrontendFramework string
+
+// FrontendStatus defines model for Frontend.Status.
+type FrontendStatus string
 
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
-type FrontendCustomDomainResponse = externalRef0.FrontendCustomDomainResponse
+type FrontendCustomDomainResponse struct {
+	CreatedAt             time.Time                                      `json:"created_at"`
+	Domain                string                                         `json:"domain"`
+	DomainStatus          FrontendCustomDomainResponseDomainStatus       `json:"domain_status"`
+	EffectiveUrls         []string                                       `json:"effective_urls"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord                   `json:"required_routing_record,omitempty"`
+	TlsMode               FrontendCustomDomainResponseTlsMode            `json:"tls_mode"`
+	UpdatedAt             time.Time                                      `json:"updated_at"`
+	VerificationRecords   *[]FrontendDomainVerificationRecord            `json:"verification_records,omitempty"`
+	VerificationStatus    FrontendCustomDomainResponseVerificationStatus `json:"verification_status"`
+}
+
+// FrontendCustomDomainResponseDomainStatus defines model for FrontendCustomDomainResponse.DomainStatus.
+type FrontendCustomDomainResponseDomainStatus string
+
+// FrontendCustomDomainResponseTlsMode defines model for FrontendCustomDomainResponse.TlsMode.
+type FrontendCustomDomainResponseTlsMode string
+
+// FrontendCustomDomainResponseVerificationStatus defines model for FrontendCustomDomainResponse.VerificationStatus.
+type FrontendCustomDomainResponseVerificationStatus string
+
+// FrontendCustomDomainTLSConfig defines model for FrontendCustomDomainTLSConfig.
+type FrontendCustomDomainTLSConfig struct {
+	// CertificateChainPem Optional PEM-encoded certificate chain.
+	CertificateChainPem *string `json:"certificate_chain_pem,omitempty"`
+
+	// CertificatePem Required. PEM-encoded certificate.
+	CertificatePem string `json:"certificate_pem"`
+
+	// Mode BYOC is mandatory for custom domain creation.
+	Mode FrontendCustomDomainTLSConfigMode `json:"mode"`
+
+	// PrivateKeyPem Required. PEM-encoded private key.
+	PrivateKeyPem string `json:"private_key_pem"`
+}
+
+// FrontendCustomDomainTLSConfigMode BYOC is mandatory for custom domain creation.
+type FrontendCustomDomainTLSConfigMode string
+
+// FrontendDeployment defines model for FrontendDeployment.
+type FrontendDeployment struct {
+	ArtifactBucket         *string `json:"artifact_bucket,omitempty"`
+	ArtifactKey            *string `json:"artifact_key,omitempty"`
+	ArtifactVersion        *string `json:"artifact_version,omitempty"`
+	CloudformationStackId  *string `json:"cloudformation_stack_id,omitempty"`
+	CloudformationStackUrl *string `json:"cloudformation_stack_url,omitempty"`
+	CloudwatchLogGroup     *string `json:"cloudwatch_log_group,omitempty"`
+
+	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
+	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
+	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
+
+	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
+	CodebuildDurationSeconds *int64                      `json:"codebuild_duration_seconds,omitempty"`
+	CreatedAt                time.Time                   `json:"created_at"`
+	ErrorMessage             *string                     `json:"error_message,omitempty"`
+	FrontendId               openapi_types.UUID          `json:"frontend_id"`
+	Id                       openapi_types.UUID          `json:"id"`
+	Operation                FrontendDeploymentOperation `json:"operation"`
+	ProjectId                openapi_types.UUID          `json:"project_id"`
+	SiteUrl                  *string                     `json:"site_url,omitempty"`
+	Status                   FrontendDeploymentStatus    `json:"status"`
+	UpdatedAt                time.Time                   `json:"updated_at"`
+}
+
+// FrontendDeploymentOperation defines model for FrontendDeployment.Operation.
+type FrontendDeploymentOperation string
+
+// FrontendDeploymentStatus defines model for FrontendDeployment.Status.
+type FrontendDeploymentStatus string
+
+// FrontendDomainRoutingRecord defines model for FrontendDomainRoutingRecord.
+type FrontendDomainRoutingRecord struct {
+	Name       string                                `json:"name"`
+	RecordType FrontendDomainRoutingRecordRecordType `json:"record_type"`
+	Value      string                                `json:"value"`
+}
+
+// FrontendDomainRoutingRecordRecordType defines model for FrontendDomainRoutingRecord.RecordType.
+type FrontendDomainRoutingRecordRecordType string
+
+// FrontendDomainVerificationRecord defines model for FrontendDomainVerificationRecord.
+type FrontendDomainVerificationRecord struct {
+	Name  string `json:"name"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// FrontendUsageDailyEntry One day of request and error counts for a single frontend.
+type FrontendUsageDailyEntry struct {
+	// Day UTC date (YYYY-MM-DD) the counts cover.
+	Day openapi_types.Date `json:"day"`
+
+	// Errors 5xx responses served on this day.
+	Errors int64 `json:"errors"`
+
+	// PageViews Navigable-document responses served on this day (text/html or Sec-Fetch-Dest=document) — strict subset of `requests`.
+	PageViews int64 `json:"page_views"`
+
+	// Requests Total requests served on this day.
+	Requests int64 `json:"requests"`
+}
+
+// FrontendUsageData Monthly frontend request totals grouped by frontend.
+type FrontendUsageData struct {
+	// FrontendId Frontend ID
+	FrontendId openapi_types.UUID `json:"frontend_id"`
+
+	// FrontendName Frontend name at the time usage was fetched
+	FrontendName *string `json:"frontend_name,omitempty"`
+
+	// Requests Total requests for this frontend in the current usage month
+	Requests int64 `json:"requests"`
+}
 
 // FrontendUsageHistoryResponse Zero-filled daily series of request + error counts for a single frontend, oldest first.
-type FrontendUsageHistoryResponse = externalRef0.FrontendUsageHistoryResponse
+type FrontendUsageHistoryResponse struct {
+	Daily []FrontendUsageDailyEntry `json:"daily"`
+
+	// Days Number of daily entries returned (always equal to the `days` query param after clamping).
+	Days           int                `json:"days"`
+	FrontendId     openapi_types.UUID `json:"frontend_id"`
+	TotalErrors    int64              `json:"total_errors"`
+	TotalPageViews int64              `json:"total_page_views"`
+	TotalRequests  int64              `json:"total_requests"`
+}
 
 // Function defines model for Function.
-type Function = externalRef0.Function
+type Function struct {
+	AwsFunctionArn *string   `json:"aws_function_arn,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+
+	// CurrentDeploymentId Identifier of the latest function deployment operation
+	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
+
+	// DeployedRegions Regions where this function is currently deployed
+	DeployedRegions []string           `json:"deployed_regions"`
+	Handler         *string            `json:"handler,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+
+	// InvokeUrl Canonical GeoDNS endpoint URL for invoking this function (always HTTPS)
+	InvokeUrl *string `json:"invoke_url,omitempty"`
+
+	// IsPublic Function visibility for anon-key invocation.
+	// - `false` (default): only auth user tokens and service keys can invoke
+	// - `true`: anon keys with `functions.invoke` can invoke
+	IsPublic bool `json:"is_public"`
+
+	// LastInvokedAt Most recent successful invocation timestamp
+	LastInvokedAt *time.Time         `json:"last_invoked_at,omitempty"`
+	Name          string             `json:"name"`
+	ProjectId     openapi_types.UUID `json:"project_id"`
+
+	// ProvisioningStartedAt Timestamp when the current provisioning phase started
+	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
+	Runtime               *string        `json:"runtime,omitempty"`
+	Status                FunctionStatus `json:"status"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+}
+
+// FunctionStatus defines model for Function.Status.
+type FunctionStatus string
+
+// FunctionDeployment defines model for FunctionDeployment.
+type FunctionDeployment struct {
+	ArtifactBucket  *string             `json:"artifact_bucket,omitempty"`
+	ArtifactKey     *string             `json:"artifact_key,omitempty"`
+	ArtifactVersion *string             `json:"artifact_version,omitempty"`
+	BatchId         *openapi_types.UUID `json:"batch_id,omitempty"`
+
+	// CodebuildBuildCount Number of completed CodeBuild builds included in codebuild_duration_seconds.
+	CodebuildBuildCount         *int       `json:"codebuild_build_count,omitempty"`
+	CodebuildDurationRecordedAt *time.Time `json:"codebuild_duration_recorded_at,omitempty"`
+
+	// CodebuildDurationSeconds Total CodeBuild build duration recorded for this deployment, in seconds.
+	CodebuildDurationSeconds *int64                      `json:"codebuild_duration_seconds,omitempty"`
+	CompileLogGroup          *string                     `json:"compile_log_group,omitempty"`
+	CompileLogStream         *string                     `json:"compile_log_stream,omitempty"`
+	CompletedAt              *time.Time                  `json:"completed_at,omitempty"`
+	CreatedAt                time.Time                   `json:"created_at"`
+	ErrorMessage             *string                     `json:"error_message,omitempty"`
+	FunctionId               openapi_types.UUID          `json:"function_id"`
+	Id                       openapi_types.UUID          `json:"id"`
+	Operation                FunctionDeploymentOperation `json:"operation"`
+	ProjectId                openapi_types.UUID          `json:"project_id"`
+	PublishLogGroup          *string                     `json:"publish_log_group,omitempty"`
+	PublishLogStream         *string                     `json:"publish_log_stream,omitempty"`
+	Status                   FunctionDeploymentStatus    `json:"status"`
+	UpdatedAt                time.Time                   `json:"updated_at"`
+}
+
+// FunctionDeploymentOperation defines model for FunctionDeployment.Operation.
+type FunctionDeploymentOperation string
+
+// FunctionDeploymentStatus defines model for FunctionDeployment.Status.
+type FunctionDeploymentStatus string
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
-type FunctionInvocationRequest = externalRef0.FunctionInvocationRequest
+type FunctionInvocationRequest struct {
+	// Payload Payload to send to the Lambda function.
+	//
+	// If invoked with auth user token, Volcano automatically injects `__volcano_auth` context:
+	// ```javascript
+	// {
+	//   ...yourPayload,
+	//   __volcano_auth: {
+	//     user_id: "uuid",
+	//     email: "user@example.com",
+	//     project_id: "uuid",
+	//     role: "authenticated" | "anonymous"
+	//   }
+	// }
+	// ```
+	Payload *map[string]interface{} `json:"payload,omitempty"`
+}
 
 // FunctionInvocationResponse Raw function response body returned by the invoked function.
-type FunctionInvocationResponse = externalRef0.FunctionInvocationResponse
+type FunctionInvocationResponse map[string]interface{}
 
 // FunctionRegion defines model for FunctionRegion.
-type FunctionRegion = externalRef0.FunctionRegion
+type FunctionRegion struct {
+	// Code AWS region identifier accepted by function APIs.
+	Code string `json:"code"`
+
+	// Flag Country flag emoji associated with the region's geography.
+	Flag string `json:"flag"`
+
+	// Label Human-readable region label suitable for display in pickers.
+	Label string `json:"label"`
+}
+
+// FunctionRuntimeDeployment defines model for FunctionRuntimeDeployment.
+type FunctionRuntimeDeployment struct {
+	// DependencyManifests Dependency manifest files the CLI should include for hosted builds.
+	DependencyManifests []string `json:"dependency_manifests"`
+
+	// Entrypoint Archive path the CLI should use for a single-file function source.
+	Entrypoint string `json:"entrypoint"`
+
+	// FileExtensions Source file extensions the CLI can use to detect this runtime.
+	FileExtensions []string `json:"file_extensions"`
+
+	// Handler Handler symbol the CLI should submit when deploying this runtime.
+	Handler string `json:"handler"`
+}
+
+// FunctionRuntimeOption defines model for FunctionRuntimeOption.
+type FunctionRuntimeOption struct {
+	// Default Whether this runtime is the CLI default for its language.
+	Default    bool                      `json:"default"`
+	Deployment FunctionRuntimeDeployment `json:"deployment"`
+
+	// Language Runtime language family used by the CLI to choose defaults from source files.
+	Language string `json:"language"`
+
+	// Name Runtime identifier accepted by function APIs.
+	Name string `json:"name"`
+}
 
 // FunctionRuntimesResponse defines model for FunctionRuntimesResponse.
-type FunctionRuntimesResponse = externalRef0.FunctionRuntimesResponse
+type FunctionRuntimesResponse struct {
+	Runtimes []FunctionRuntimeOption `json:"runtimes"`
+}
 
 // FunctionScheduler defines model for FunctionScheduler.
-type FunctionScheduler = externalRef0.FunctionScheduler
+type FunctionScheduler struct {
+	CreatedAt       *time.Time                     `json:"created_at,omitempty"`
+	CronExpression  *string                        `json:"cron_expression,omitempty"`
+	Enabled         *bool                          `json:"enabled,omitempty"`
+	FunctionId      *openapi_types.UUID            `json:"function_id,omitempty"`
+	Id              *openapi_types.UUID            `json:"id,omitempty"`
+	LastCompletedAt *time.Time                     `json:"last_completed_at,omitempty"`
+	LastError       *string                        `json:"last_error,omitempty"`
+	LastStartedAt   *time.Time                     `json:"last_started_at,omitempty"`
+	Name            *string                        `json:"name,omitempty"`
+	NextRunAt       *time.Time                     `json:"next_run_at,omitempty"`
+	Payload         *map[string]interface{}        `json:"payload,omitempty"`
+	ProjectId       *openapi_types.UUID            `json:"project_id,omitempty"`
+	Regions         *[]string                      `json:"regions,omitempty"`
+	RegionsExplicit *bool                          `json:"regions_explicit,omitempty"`
+	ScheduleKind    *FunctionSchedulerScheduleKind `json:"schedule_kind,omitempty"`
+	UpdatedAt       *time.Time                     `json:"updated_at,omitempty"`
+}
+
+// FunctionSchedulerScheduleKind defines model for FunctionScheduler.ScheduleKind.
+type FunctionSchedulerScheduleKind string
 
 // FunctionSchedulerListResponse defines model for FunctionSchedulerListResponse.
-type FunctionSchedulerListResponse = externalRef0.FunctionSchedulerListResponse
+type FunctionSchedulerListResponse struct {
+	Data    []FunctionScheduler `json:"data"`
+	HasMore bool                `json:"has_more"`
+	Limit   int                 `json:"limit"`
+	Page    int                 `json:"page"`
+	Total   int                 `json:"total"`
+}
 
 // HostedAuthPageType defines model for HostedAuthPageType.
-type HostedAuthPageType = externalRef0.HostedAuthPageType
+type HostedAuthPageType string
 
 // HostedLoginEmailCheckRequest defines model for HostedLoginEmailCheckRequest.
-type HostedLoginEmailCheckRequest = externalRef0.HostedLoginEmailCheckRequest
+type HostedLoginEmailCheckRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
 
 // HostedLoginEmailCheckResponse defines model for HostedLoginEmailCheckResponse.
-type HostedLoginEmailCheckResponse = externalRef0.HostedLoginEmailCheckResponse
+type HostedLoginEmailCheckResponse struct {
+	Exists *bool `json:"exists,omitempty"`
+}
 
 // HostedLoginOptionsResponse defines model for HostedLoginOptionsResponse.
-type HostedLoginOptionsResponse = externalRef0.HostedLoginOptionsResponse
+type HostedLoginOptionsResponse struct {
+	EmailPasswordEnabled     *bool     `json:"email_password_enabled,omitempty"`
+	EnableSignup             *bool     `json:"enable_signup,omitempty"`
+	OauthProviders           *[]string `json:"oauth_providers,omitempty"`
+	PostAuthRedirectUrl      *string   `json:"post_auth_redirect_url,omitempty"`
+	RequireEmailConfirmation *bool     `json:"require_email_confirmation,omitempty"`
+}
 
 // HostedRenderablePageType defines model for HostedRenderablePageType.
-type HostedRenderablePageType = externalRef0.HostedRenderablePageType
+type HostedRenderablePageType string
+
+// LiveLogLevel Canonical lowercase function runtime log level.
+type LiveLogLevel string
+
+// LogActivityBucket Log-event counts for one activity time bucket.
+type LogActivityBucket struct {
+	// Counts Counts grouped by activity dimension.
+	Counts struct {
+		// Levels Counts by normalized log level.
+		Levels map[string]int `json:"levels"`
+
+		// Regions Counts by event region.
+		Regions map[string]int `json:"regions"`
+
+		// ResourceIds Counts by resource ID.
+		ResourceIds map[string]int `json:"resource_ids"`
+	} `json:"counts"`
+
+	// EndTime Bucket end time.
+	EndTime time.Time `json:"end_time"`
+
+	// StartTime Bucket start time.
+	StartTime time.Time `json:"start_time"`
+
+	// Total Total events in this bucket.
+	Total int `json:"total"`
+}
 
 // LogActivityRequest Activity request for bucketed log counts.
-type LogActivityRequest = externalRef0.LogActivityRequest
+type LogActivityRequest struct {
+	// BucketCount Number of activity buckets to return.
+	BucketCount *int `json:"bucket_count,omitempty"`
+
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
+
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Q Optional free-text search query for log messages.
+	Q *string `json:"q,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, aggregate all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
+
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
+}
 
 // LogActivityResponse Bucketed runtime log activity.
-type LogActivityResponse = externalRef0.LogActivityResponse
+type LogActivityResponse struct {
+	Data []LogActivityBucket `json:"data"`
+
+	// Total Total events counted across all buckets.
+	Total int `json:"total"`
+}
+
+// LogDatabaseRequestResource Database runtime log resource selector. Deployment logs are not supported for databases.
+type LogDatabaseRequestResource struct {
+	// Ids Optional database identifiers. Omit or send an empty array to include every database in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogDatabaseRequestResourceType `json:"type"`
+}
+
+// LogDatabaseRequestResourceType Resource type to read logs for.
+type LogDatabaseRequestResourceType string
+
+// LogDeployment Deployment context associated with a historical deployment log event.
+type LogDeployment struct {
+	// Id Deployment ID associated with the log event.
+	Id openapi_types.UUID `json:"id"`
+
+	// Stage Deployment stage that produced the log event, when available.
+	Stage *LogDeploymentStage `json:"stage,omitempty"`
+}
+
+// LogDeploymentStage Deployment stage that produced the log event, when available.
+type LogDeploymentStage string
+
+// LogDeploymentRequestSelector Deployment log selector for deployable resources.
+type LogDeploymentRequestSelector struct {
+	// Ids Optional deployment identifiers. Omit or send an empty array to include every deployment for the selected resources.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+}
+
+// LogEvent Normalized historical log event returned by paginated log APIs.
+type LogEvent struct {
+	// Deployment Deployment context associated with a historical deployment log event.
+	Deployment *LogDeployment `json:"deployment,omitempty"`
+
+	// Id Opaque stable log event ID for pagination, deduplication, and display.
+	Id *string `json:"id,omitempty"`
+
+	// InvocationId Function invocation ID associated with this log event, when available.
+	InvocationId *string `json:"invocation_id,omitempty"`
+
+	// Level Canonical lowercase function runtime log level.
+	Level *LiveLogLevel `json:"level,omitempty"`
+
+	// Message Display log message.
+	Message string `json:"message"`
+
+	// Metadata Parsed JSON fields and other indexed metadata, when available.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// RawMessage Original log line/message after platform sanitization.
+	RawMessage *string `json:"raw_message,omitempty"`
+
+	// Region Region where this log event originated.
+	Region *string `json:"region,omitempty"`
+
+	// Resource Resource that owns a historical log event.
+	Resource *LogResource `json:"resource,omitempty"`
+
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// LogFrontendRequestResource Frontend log resource selector.
+type LogFrontendRequestResource struct {
+	// Deployments Deployment log selector for deployable resources.
+	Deployments *LogDeploymentRequestSelector `json:"deployments,omitempty"`
+
+	// Ids Optional frontend identifiers. Omit or send an empty array to include every frontend in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogFrontendRequestResourceType `json:"type"`
+}
+
+// LogFrontendRequestResourceType Resource type to read logs for.
+type LogFrontendRequestResourceType string
+
+// LogFunctionRequestResource Edge Function log resource selector.
+type LogFunctionRequestResource struct {
+	// Deployments Deployment log selector for deployable resources.
+	Deployments *LogDeploymentRequestSelector `json:"deployments,omitempty"`
+
+	// Ids Optional function identifiers. Omit or send an empty array to include every function in the project.
+	Ids *[]openapi_types.UUID `json:"ids,omitempty"`
+
+	// Type Resource type to read logs for.
+	Type LogFunctionRequestResourceType `json:"type"`
+}
+
+// LogFunctionRequestResourceType Resource type to read logs for.
+type LogFunctionRequestResourceType string
+
+// LogRequestResource Resource selectors for project log reads.
+type LogRequestResource struct {
+	union json.RawMessage
+}
+
+// LogResource Resource that owns a historical log event.
+type LogResource struct {
+	// Id Resource ID that owns the log event.
+	Id openapi_types.UUID `json:"id"`
+
+	// Name Resource name associated with the log event, when available.
+	Name *string `json:"name,omitempty"`
+
+	// Type Resource type that owns the log event.
+	Type LogResourceType `json:"type"`
+}
+
+// LogResourceType Resource type that owns the log event.
+type LogResourceType string
+
+// LogSearchEvent defines model for LogSearchEvent.
+type LogSearchEvent struct {
+	// Deployment Deployment context associated with a historical deployment log event.
+	Deployment *LogDeployment `json:"deployment,omitempty"`
+
+	// Id Opaque stable log event ID for pagination, deduplication, and display.
+	Id string `json:"id"`
+
+	// InvocationId Function invocation ID associated with this log event, when available.
+	InvocationId *string `json:"invocation_id,omitempty"`
+
+	// Level Canonical lowercase function runtime log level.
+	Level *LiveLogLevel `json:"level,omitempty"`
+
+	// Message Display log message.
+	Message string `json:"message"`
+
+	// Metadata Parsed JSON fields and other indexed metadata, when available.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// RawMessage Original log line/message after platform sanitization.
+	RawMessage *string `json:"raw_message,omitempty"`
+
+	// Region Region where this log event originated.
+	Region *string `json:"region,omitempty"`
+
+	// Resource Resource that owns a historical log event.
+	Resource LogResource `json:"resource"`
+
+	// Timestamp Event timestamp.
+	Timestamp time.Time `json:"timestamp"`
+}
 
 // LogSearchRequest Search request for project logs.
-type LogSearchRequest = externalRef0.LogSearchRequest
+type LogSearchRequest struct {
+	// Cursor Opaque pagination cursor from the previous response's `next_cursor`.
+	Cursor *string `json:"cursor,omitempty"`
+
+	// EndTime End time.
+	EndTime *time.Time `json:"end_time,omitempty"`
+
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Limit Maximum number of records to return.
+	Limit *int `json:"limit,omitempty"`
+
+	// Q Optional free-text search query for log messages.
+	Q *string `json:"q,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, search all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
+
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
+}
 
 // LogSearchResponse Paginated project runtime log search response.
-type LogSearchResponse = externalRef0.LogSearchResponse
+type LogSearchResponse struct {
+	// Data Array of log events sorted by timestamp, newest first.
+	Data []LogSearchEvent `json:"data"`
+
+	// HasMore Whether there are more log events available.
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items requested per page.
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page. Send this value as `cursor` on the next request.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
 
 // LogStreamRequest Stream request for live project logs. Text search, pagination cursors, and fixed end times are not supported.
-type LogStreamRequest = externalRef0.LogStreamRequest
+type LogStreamRequest struct {
+	// Levels Canonical lowercase log levels to filter by. If omitted, empty, or all levels are selected, no level filter is applied.
+	Levels *[]LiveLogLevel `json:"levels,omitempty"`
+
+	// Limit Maximum number of records to deliver on connect or reconnect before following new events.
+	Limit *int `json:"limit,omitempty"`
+
+	// Regions Regions to filter by, for example `["us-east-1", "eu-west-1"]`. If omitted or empty, stream all deployed regions.
+	Regions *[]string `json:"regions,omitempty"`
+
+	// Resource Resource selectors for project log reads.
+	Resource LogRequestResource `json:"resource"`
+
+	// StartTime Start time.
+	StartTime *time.Time `json:"start_time,omitempty"`
+}
+
+// MetricUsageData Usage data for one metric across totals, daily, and hourly windows.
+type MetricUsageData struct {
+	// AllTime Lifetime cumulative usage across every month for this metric
+	AllTime int64 `json:"all_time"`
+
+	// Daily Last 30 days of daily usage points
+	Daily []UsageDataPoint `json:"daily"`
+
+	// Hourly Last 24 hours of hourly usage points
+	Hourly []UsageDataPoint `json:"hourly"`
+
+	// Metric Metric name (for example, "Function & Frontend Invocations", "Frontend Requests",
+	// "CodeBuild Build Seconds", "Bandwidth Ingress (Bytes)", "Bandwidth Egress (Bytes)",
+	// "Bandwidth Total (Bytes)", or "Database Storage (Bytes)"). Byte-based metrics are
+	// reported in bytes. "Bandwidth Total (Bytes)" is derived (ingress + egress) and
+	// is not billed separately. "Database Storage (Bytes)" is a current observed gauge,
+	// not a cumulative counter.
+	Metric string `json:"metric"`
+
+	// Total Total usage for the current usage month
+	Total int64 `json:"total"`
+}
 
 // OAuthConfig defines model for OAuthConfig.
-type OAuthConfig = externalRef0.OAuthConfig
+type OAuthConfig struct {
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Masked in responses (shows only first/last 4 chars)
+	ClientSecret *string              `json:"client_secret,omitempty"`
+	CreatedAt    *time.Time           `json:"created_at,omitempty"`
+	Enabled      *bool                `json:"enabled,omitempty"`
+	Id           *openapi_types.UUID  `json:"id,omitempty"`
+	Provider     *OAuthConfigProvider `json:"provider,omitempty"`
+	RedirectUrl  *string              `json:"redirect_url,omitempty"`
+	Scopes       *[]string            `json:"scopes,omitempty"`
+	UpdatedAt    *time.Time           `json:"updated_at,omitempty"`
+}
+
+// OAuthConfigProvider defines model for OAuthConfig.Provider.
+type OAuthConfigProvider string
 
 // OAuthErrorResponse defines model for OAuthErrorResponse.
-type OAuthErrorResponse = externalRef0.OAuthErrorResponse
+type OAuthErrorResponse struct {
+	Error            string  `json:"error"`
+	ErrorDescription *string `json:"error_description,omitempty"`
+}
 
 // PaginatedAuthUsers defines model for PaginatedAuthUsers.
-type PaginatedAuthUsers = externalRef0.PaginatedAuthUsers
+type PaginatedAuthUsers struct {
+	Data []AuthUser `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedDatabases defines model for PaginatedDatabases.
-type PaginatedDatabases = externalRef0.PaginatedDatabases
+type PaginatedDatabases struct {
+	Data []Database `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedFrontendDeployments defines model for PaginatedFrontendDeployments.
-type PaginatedFrontendDeployments = externalRef0.PaginatedFrontendDeployments
+type PaginatedFrontendDeployments struct {
+	Data []FrontendDeployment `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedFrontends defines model for PaginatedFrontends.
-type PaginatedFrontends = externalRef0.PaginatedFrontends
+type PaginatedFrontends struct {
+	Data []Frontend `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedFunctionDeployments defines model for PaginatedFunctionDeployments.
-type PaginatedFunctionDeployments = externalRef0.PaginatedFunctionDeployments
+type PaginatedFunctionDeployments struct {
+	Data []FunctionDeployment `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedFunctions defines model for PaginatedFunctions.
-type PaginatedFunctions = externalRef0.PaginatedFunctions
+type PaginatedFunctions struct {
+	Data []Function `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedProjectCustomDomains defines model for PaginatedProjectCustomDomains.
-type PaginatedProjectCustomDomains = externalRef0.PaginatedProjectCustomDomains
+type PaginatedProjectCustomDomains struct {
+	Data []ProjectFrontendCustomDomain `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedProjectDeployments defines model for PaginatedProjectDeployments.
-type PaginatedProjectDeployments = externalRef0.PaginatedProjectDeployments
+type PaginatedProjectDeployments struct {
+	Data []ProjectDeployment `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedProjects defines model for PaginatedProjects.
-type PaginatedProjects = externalRef0.PaginatedProjects
+type PaginatedProjects struct {
+	// CurrentSyncId Identifier of the latest variable propagation sync.
+	CurrentSyncId *openapi_types.UUID `json:"current_sync_id,omitempty"`
+	Data          []Project           `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// ProvisioningStartedAt Timestamp when the current variable propagation phase started.
+	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
+
+	// Status Latest project variable propagation status.
+	Status *PaginatedProjectsStatus `json:"status,omitempty"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
+// PaginatedProjectsStatus Latest project variable propagation status.
+type PaginatedProjectsStatus string
 
 // PaginatedServiceKeys defines model for PaginatedServiceKeys.
-type PaginatedServiceKeys = externalRef0.PaginatedServiceKeys
+type PaginatedServiceKeys struct {
+	Data []ServiceKey `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PaginatedVariables defines model for PaginatedVariables.
-type PaginatedVariables = externalRef0.PaginatedVariables
+type PaginatedVariables struct {
+	Data []Variable `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
 
 // PlatformExchangeResponse defines model for PlatformExchangeResponse.
-type PlatformExchangeResponse = externalRef0.PlatformExchangeResponse
+type PlatformExchangeResponse struct {
+	ExpiresAt time.Time          `json:"expires_at"`
+	Token     string             `json:"token"`
+	TokenId   openapi_types.UUID `json:"token_id"`
+	UserId    string             `json:"user_id"`
+}
 
 // Project defines model for Project.
-type Project = externalRef0.Project
+type Project struct {
+	// AllRegions Region policy for function deployment.
+	// - `true`: deploy functions to all configured platform regions
+	// - `false`: deploy only to `selected_regions`
+	AllRegions         bool               `json:"all_regions"`
+	AwsApplicationName *string            `json:"aws_application_name,omitempty"`
+	CreatedAt          time.Time          `json:"created_at"`
+	Id                 openapi_types.UUID `json:"id"`
+
+	// LastInvokedAt Most recent activity timestamp across project resources
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+
+	// LogoUrl Relative API path that serves the project logo when one has been
+	// uploaded. The path is versioned with a `?v=` cache-busting query
+	// param that changes on each upload. Absent when the project has no
+	// logo. The logo image is stored in the project's S3 folder.
+	LogoUrl *string `json:"logo_url,omitempty"`
+	Name    string  `json:"name"`
+
+	// Plan Platform plan applied to the project when available
+	Plan *ProjectPlan `json:"plan,omitempty"`
+
+	// SelectedRegions Effective region set for this project (normalized and deduplicated)
+	SelectedRegions []string      `json:"selected_regions"`
+	Status          ProjectStatus `json:"status"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+}
+
+// ProjectPlan Platform plan applied to the project when available
+type ProjectPlan string
+
+// ProjectStatus defines model for Project.Status.
+type ProjectStatus string
 
 // ProjectConfig Declarative project configuration manifest (the JSON form of
 // volcano-config.yaml). Omitted sections are left untouched. Within
@@ -955,61 +3902,903 @@ type Project = externalRef0.Project
 // frontends, databases, and buckets are never created or deleted through
 // this manifest; entries referencing resources that do not exist are
 // skipped and reported.
-type ProjectConfig = externalRef0.ProjectConfig
+type ProjectConfig struct {
+	// Auth Authentication settings, grouped like the dashboard auth-settings tabs.
+	Auth      *ProjectConfigAuth       `json:"auth,omitempty"`
+	Buckets   *[]ProjectConfigBucket   `json:"buckets,omitempty"`
+	Databases *[]ProjectConfigDatabase `json:"databases,omitempty"`
+	Frontends *[]ProjectConfigFrontend `json:"frontends,omitempty"`
+	Functions *[]ProjectConfigFunction `json:"functions,omitempty"`
+
+	// Project Project-level settings. `name` renames the project.
+	Project  *ProjectConfigProject  `json:"project,omitempty"`
+	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
+
+	// Variables Fully synced when declared - variables absent from this list are deleted.
+	Variables *[]ProjectConfigVariable `json:"variables,omitempty"`
+
+	// Version Manifest schema version. Must be 1.
+	Version ProjectConfigVersion `json:"version"`
+}
+
+// ProjectConfigVersion Manifest schema version. Must be 1.
+type ProjectConfigVersion int
 
 // ProjectConfigApplyResult Per-resource report for a project config apply (or dry run).
-type ProjectConfigApplyResult = externalRef0.ProjectConfigApplyResult
+type ProjectConfigApplyResult struct {
+	// DryRun True when the request was a dry run and no changes were made.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Missing Existing functions, frontends, databases, or buckets that have no
+	// entry in the corresponding declared manifest section.
+	Missing []ProjectConfigMissingResource  `json:"missing"`
+	Results []ProjectConfigApplyResultEntry `json:"results"`
+
+	// Skipped Manifest entries referencing functions, frontends, databases, or
+	// buckets that do not exist. Their configuration was not applied;
+	// deploy/create the resource first, then re-apply.
+	Skipped []ProjectConfigSkippedResource `json:"skipped"`
+	Summary ProjectConfigApplySummary      `json:"summary"`
+}
+
+// ProjectConfigApplyResultEntry defines model for ProjectConfigApplyResultEntry.
+type ProjectConfigApplyResultEntry struct {
+	Action ProjectConfigApplyResultEntryAction `json:"action"`
+
+	// Error Error detail when action is `error`.
+	Error *string `json:"error,omitempty"`
+
+	// Name Resource name or key within the section. Empty for singleton sections.
+	Name *string `json:"name,omitempty"`
+
+	// Notice Optional operational note (e.g. disabling realtime drops active connections).
+	Notice *string `json:"notice,omitempty"`
+
+	// Section Manifest section the entry belongs to (e.g. variables, buckets, auth.providers.oauth).
+	Section string `json:"section"`
+}
+
+// ProjectConfigApplyResultEntryAction defines model for ProjectConfigApplyResultEntry.Action.
+type ProjectConfigApplyResultEntryAction string
+
+// ProjectConfigApplySummary defines model for ProjectConfigApplySummary.
+type ProjectConfigApplySummary struct {
+	Created   int `json:"created"`
+	Deleted   int `json:"deleted"`
+	Errors    int `json:"errors"`
+	Missing   int `json:"missing"`
+	Skipped   int `json:"skipped"`
+	Unchanged int `json:"unchanged"`
+	Updated   int `json:"updated"`
+}
+
+// ProjectConfigAuth Authentication settings, grouped like the dashboard auth-settings tabs.
+type ProjectConfigAuth struct {
+	Cors              *ProjectConfigAuthCORS              `json:"cors,omitempty"`
+	Email             *ProjectConfigAuthEmail             `json:"email,omitempty"`
+	EmailVerification *ProjectConfigAuthEmailVerification `json:"email_verification,omitempty"`
+	ManagedPages      *ProjectConfigAuthManagedPages      `json:"managed_pages,omitempty"`
+	Password          *ProjectConfigAuthPassword          `json:"password,omitempty"`
+	PasswordReset     *ProjectConfigAuthPasswordReset     `json:"password_reset,omitempty"`
+	Providers         *ProjectConfigAuthProviders         `json:"providers,omitempty"`
+
+	// RateLimits Rate limits per hour.
+	RateLimits *ProjectConfigAuthRateLimits `json:"rate_limits,omitempty"`
+	Sessions   *ProjectConfigAuthSessions   `json:"sessions,omitempty"`
+	Signup     *ProjectConfigAuthSignup     `json:"signup,omitempty"`
+
+	// Tokens Token lifetimes in seconds.
+	Tokens *ProjectConfigAuthTokens `json:"tokens,omitempty"`
+}
+
+// ProjectConfigAuthCORS defines model for ProjectConfigAuthCORS.
+type ProjectConfigAuthCORS struct {
+	AllowCredentials *bool     `json:"allow_credentials,omitempty"`
+	AllowedOrigins   *[]string `json:"allowed_origins,omitempty"`
+	Enabled          *bool     `json:"enabled,omitempty"`
+	MaxAge           *int      `json:"max_age,omitempty"`
+}
+
+// ProjectConfigAuthEmail defines model for ProjectConfigAuthEmail.
+type ProjectConfigAuthEmail struct {
+	// Enabled Enable transactional email sending
+	Enabled *bool                       `json:"enabled,omitempty"`
+	From    *ProjectConfigAuthEmailFrom `json:"from,omitempty"`
+	Smtp    *ProjectConfigAuthEmailSMTP `json:"smtp,omitempty"`
+
+	// Templates Email templates keyed by type. Fully synced when declared - template
+	// types absent from a declared map revert to server defaults (custom
+	// bodies deleted, subject overrides cleared). Custom template bodies
+	// require the PRO plan; subject-only changes are available on FREE.
+	Templates *ProjectConfigEmailTemplates `json:"templates,omitempty"`
+}
+
+// ProjectConfigAuthEmailFrom defines model for ProjectConfigAuthEmailFrom.
+type ProjectConfigAuthEmailFrom struct {
+	Address *string `json:"address,omitempty"`
+	Name    *string `json:"name,omitempty"`
+}
+
+// ProjectConfigAuthEmailPasswordProvider defines model for ProjectConfigAuthEmailPasswordProvider.
+type ProjectConfigAuthEmailPasswordProvider struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// ProjectConfigAuthEmailSMTP defines model for ProjectConfigAuthEmailSMTP.
+type ProjectConfigAuthEmailSMTP struct {
+	Host *string `json:"host,omitempty"`
+
+	// Password Write-only; omitted from config export.
+	Password *string `json:"password,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	UseTls   *bool   `json:"use_tls,omitempty"`
+	Username *string `json:"username,omitempty"`
+}
+
+// ProjectConfigAuthEmailVerification defines model for ProjectConfigAuthEmailVerification.
+type ProjectConfigAuthEmailVerification struct {
+	// ConfirmationTimeout Email confirmation token expiry in seconds
+	ConfirmationTimeout *int `json:"confirmation_timeout,omitempty"`
+
+	// RequireConfirmation Require users to confirm email before sign-in. Requires email sending to be enabled.
+	RequireConfirmation *bool `json:"require_confirmation,omitempty"`
+}
+
+// ProjectConfigAuthManagedPages defines model for ProjectConfigAuthManagedPages.
+type ProjectConfigAuthManagedPages struct {
+	// Enabled Enable or disable managed auth hosted pages
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Pages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+	// pages are left untouched (there is no delete for hosted pages).
+	Pages     *ProjectConfigHostedPages   `json:"pages,omitempty"`
+	Redirects *ProjectConfigAuthRedirects `json:"redirects,omitempty"`
+}
+
+// ProjectConfigAuthPassword defines model for ProjectConfigAuthPassword.
+type ProjectConfigAuthPassword struct {
+	MinLength           *int  `json:"min_length,omitempty"`
+	RequireLowercase    *bool `json:"require_lowercase,omitempty"`
+	RequireNumbers      *bool `json:"require_numbers,omitempty"`
+	RequireSpecialChars *bool `json:"require_special_chars,omitempty"`
+	RequireUppercase    *bool `json:"require_uppercase,omitempty"`
+}
+
+// ProjectConfigAuthPasswordReset defines model for ProjectConfigAuthPasswordReset.
+type ProjectConfigAuthPasswordReset struct {
+	Allow *bool `json:"allow,omitempty"`
+
+	// MaxHistory Number of previous passwords to disallow (0=disabled)
+	MaxHistory *int `json:"max_history,omitempty"`
+
+	// Timeout Password reset token expiry in seconds
+	Timeout *int `json:"timeout,omitempty"`
+}
+
+// ProjectConfigAuthProviders defines model for ProjectConfigAuthProviders.
+type ProjectConfigAuthProviders struct {
+	EmailPassword *ProjectConfigAuthEmailPasswordProvider `json:"email_password,omitempty"`
+
+	// Oauth Fully synced when declared - providers absent from this list are deleted.
+	Oauth *[]ProjectConfigOAuthProvider `json:"oauth,omitempty"`
+}
+
+// ProjectConfigAuthRateLimits Rate limits per hour.
+type ProjectConfigAuthRateLimits struct {
+	PasswordReset *int `json:"password_reset,omitempty"`
+	Signin        *int `json:"signin,omitempty"`
+	Signup        *int `json:"signup,omitempty"`
+	TokenRefresh  *int `json:"token_refresh,omitempty"`
+}
+
+// ProjectConfigAuthRedirects defines model for ProjectConfigAuthRedirects.
+type ProjectConfigAuthRedirects struct {
+	// Allowed Redirect allowlist. Every entry must be a valid http/https URL.
+	Allowed *[]string `json:"allowed,omitempty"`
+
+	// DeviceVerification Optional custom device-authorization verification page URL.
+	DeviceVerification *string `json:"device_verification,omitempty"`
+
+	// PostAuth Must be included in `allowed` when set.
+	PostAuth *string `json:"post_auth,omitempty"`
+
+	// PostLogout Must be included in `allowed` when set.
+	PostLogout *string `json:"post_logout,omitempty"`
+}
+
+// ProjectConfigAuthSessions defines model for ProjectConfigAuthSessions.
+type ProjectConfigAuthSessions struct {
+	// InactivityTimeout Force re-login after inactivity (seconds, 0=never)
+	InactivityTimeout *int `json:"inactivity_timeout,omitempty"`
+
+	// MaxSessionDuration Force re-login after duration (seconds, 0=never)
+	MaxSessionDuration *int `json:"max_session_duration,omitempty"`
+}
+
+// ProjectConfigAuthSignup defines model for ProjectConfigAuthSignup.
+type ProjectConfigAuthSignup struct {
+	EnableAnonymousSignins *bool `json:"enable_anonymous_signins,omitempty"`
+
+	// EnableSignup Master switch for signups across ALL providers
+	EnableSignup *bool `json:"enable_signup,omitempty"`
+}
+
+// ProjectConfigAuthTokens Token lifetimes in seconds.
+type ProjectConfigAuthTokens struct {
+	AccessTokenLifetime       *int `json:"access_token_lifetime,omitempty"`
+	PlatformTokenTtl          *int `json:"platform_token_ttl,omitempty"`
+	RefreshTokenLifetime      *int `json:"refresh_token_lifetime,omitempty"`
+	RefreshTokenReuseInterval *int `json:"refresh_token_reuse_interval,omitempty"`
+}
+
+// ProjectConfigBucket Settings for an existing storage bucket. Buckets are never created or
+// deleted through the manifest. When `policies` is declared it is fully
+// synced (policies absent from the list are deleted; an empty list
+// deletes all); omitting `policies` leaves the bucket's policies
+// untouched.
+type ProjectConfigBucket struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+
+	// FileSizeLimit Maximum file size in bytes
+	FileSizeLimit *int64                       `json:"file_size_limit,omitempty"`
+	Name          string                       `json:"name"`
+	Policies      *[]ProjectConfigBucketPolicy `json:"policies,omitempty"`
+}
+
+// ProjectConfigBucketPolicy defines model for ProjectConfigBucketPolicy.
+type ProjectConfigBucketPolicy struct {
+	// Definition Policy expression
+	Definition string                             `json:"definition"`
+	Name       string                             `json:"name"`
+	Operation  ProjectConfigBucketPolicyOperation `json:"operation"`
+}
+
+// ProjectConfigBucketPolicyOperation defines model for ProjectConfigBucketPolicy.Operation.
+type ProjectConfigBucketPolicyOperation string
+
+// ProjectConfigCustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+// domain is first created and optional afterwards: providing new TLS
+// material for the same domain rotates the certificate in place (zero
+// downtime); omitting `tls` keeps the stored certificate. TLS material is
+// write-only and omitted from config export.
+type ProjectConfigCustomDomain struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path)
+	Domain string                         `json:"domain"`
+	Tls    *FrontendCustomDomainTLSConfig `json:"tls,omitempty"`
+}
+
+// ProjectConfigDatabase Assertion-only entry for an existing database. No database property is
+// mutable through the manifest; declared values are compared against the
+// deployed database and any mismatch fails validation. Databases are
+// never created or deleted here.
+type ProjectConfigDatabase struct {
+	// DatabaseType Compute tier. Asserted, never written - tier changes are not
+	// supported via the manifest; use the databases API/CLI/GUI instead.
+	DatabaseType *ProjectConfigDatabaseDatabaseType `json:"database_type,omitempty"`
+	Name         string                             `json:"name"`
+
+	// PgVersion PostgreSQL major version. Asserted, never written.
+	PgVersion ProjectConfigDatabasePgVersion `json:"pg_version"`
+
+	// Region Deployed region (aws- prefixed, e.g. aws-us-east-1). Asserted, never written.
+	Region string `json:"region"`
+}
+
+// ProjectConfigDatabaseDatabaseType Compute tier. Asserted, never written - tier changes are not
+// supported via the manifest; use the databases API/CLI/GUI instead.
+type ProjectConfigDatabaseDatabaseType string
+
+// ProjectConfigDatabasePgVersion PostgreSQL major version. Asserted, never written.
+type ProjectConfigDatabasePgVersion string
+
+// ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.
+type ProjectConfigEmailTemplate struct {
+	// HtmlBody HTML body. Max 256 KiB. PRO plan required for custom bodies.
+	HtmlBody *string `json:"html_body,omitempty"`
+	Subject  *string `json:"subject,omitempty"`
+
+	// TextBody Plain-text body. Max 256 KiB. PRO plan required for custom bodies.
+	TextBody *string `json:"text_body,omitempty"`
+}
+
+// ProjectConfigEmailTemplates Email templates keyed by type. Fully synced when declared - template
+// types absent from a declared map revert to server defaults (custom
+// bodies deleted, subject overrides cleared). Custom template bodies
+// require the PRO plan; subject-only changes are available on FREE.
+type ProjectConfigEmailTemplates struct {
+	Confirmation    *ProjectConfigEmailTemplate `json:"confirmation,omitempty"`
+	PasswordChanged *ProjectConfigEmailTemplate `json:"password_changed,omitempty"`
+	PasswordReset   *ProjectConfigEmailTemplate `json:"password_reset,omitempty"`
+	Welcome         *ProjectConfigEmailTemplate `json:"welcome,omitempty"`
+}
+
+// ProjectConfigFrontend Configuration for an existing (deployed) frontend. Frontends are never
+// created or deleted through the manifest. A declared frontend entry
+// without `custom_domain` deletes an existing custom domain.
+type ProjectConfigFrontend struct {
+	// CustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+	// domain is first created and optional afterwards: providing new TLS
+	// material for the same domain rotates the certificate in place (zero
+	// downtime); omitting `tls` keeps the stored certificate. TLS material is
+	// write-only and omitted from config export.
+	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
+	Name         string                     `json:"name"`
+}
+
+// ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
+// created or deleted through the manifest. When `schedulers` is declared
+// it is fully synced (schedulers absent from the list are deleted);
+// omitting `schedulers` leaves the function's schedulers untouched.
+type ProjectConfigFunction struct {
+	Name string `json:"name"`
+
+	// Public Function visibility for anon-key invocation
+	Public     *bool                     `json:"public,omitempty"`
+	Schedulers *[]ProjectConfigScheduler `json:"schedulers,omitempty"`
+}
+
+// ProjectConfigHostedPage defines model for ProjectConfigHostedPage.
+type ProjectConfigHostedPage struct {
+	// Css Optional CSS injected at render time. Max 256 KiB.
+	Css *string `json:"css,omitempty"`
+
+	// Html Raw HTML markup for the page. Max 256 KiB.
+	Html string `json:"html"`
+}
+
+// ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+// pages are left untouched (there is no delete for hosted pages).
+type ProjectConfigHostedPages struct {
+	Login         *ProjectConfigHostedPage `json:"login,omitempty"`
+	ResetPassword *ProjectConfigHostedPage `json:"reset_password,omitempty"`
+}
+
+// ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
+type ProjectConfigMissingResource struct {
+	Name string                           `json:"name"`
+	Type ProjectConfigMissingResourceType `json:"type"`
+}
+
+// ProjectConfigMissingResourceType defines model for ProjectConfigMissingResource.Type.
+type ProjectConfigMissingResourceType string
+
+// ProjectConfigOAuthProvider defines model for ProjectConfigOAuthProvider.
+type ProjectConfigOAuthProvider struct {
+	// ClientId Required for non-device providers. Server-generated for
+	// `provider=device` (exported read-only, ignored on apply).
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Write-only; omitted from config export. Not used for `provider=device`.
+	ClientSecret *string                            `json:"client_secret,omitempty"`
+	Enabled      *bool                              `json:"enabled,omitempty"`
+	Provider     ProjectConfigOAuthProviderProvider `json:"provider"`
+
+	// RedirectUrl Not used for `provider=device`.
+	RedirectUrl *string   `json:"redirect_url,omitempty"`
+	Scopes      *[]string `json:"scopes,omitempty"`
+}
+
+// ProjectConfigOAuthProviderProvider defines model for ProjectConfigOAuthProvider.Provider.
+type ProjectConfigOAuthProviderProvider string
+
+// ProjectConfigProject Project-level settings. `name` renames the project.
+type ProjectConfigProject struct {
+	// AllRegions Region policy. `false` requires `selected_regions` (PRO plan).
+	AllRegions *bool   `json:"all_regions,omitempty"`
+	Name       *string `json:"name,omitempty"`
+
+	// SelectedRegions Region subset (bare AWS names). Requires `all_regions=false`.
+	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+}
+
+// ProjectConfigRealtime defines model for ProjectConfigRealtime.
+type ProjectConfigRealtime struct {
+	BroadcastEnabled       *bool `json:"broadcast_enabled,omitempty"`
+	Enabled                *bool `json:"enabled,omitempty"`
+	PostgresChangesEnabled *bool `json:"postgres_changes_enabled,omitempty"`
+	PresenceEnabled        *bool `json:"presence_enabled,omitempty"`
+}
+
+// ProjectConfigScheduler defines model for ProjectConfigScheduler.
+type ProjectConfigScheduler struct {
+	// Cron 5-field UTC cron expression
+	Cron    string                  `json:"cron"`
+	Enabled *bool                   `json:"enabled,omitempty"`
+	Name    string                  `json:"name"`
+	Payload *map[string]interface{} `json:"payload,omitempty"`
+}
+
+// ProjectConfigSkippedResource defines model for ProjectConfigSkippedResource.
+type ProjectConfigSkippedResource struct {
+	Name   string                           `json:"name"`
+	Reason string                           `json:"reason"`
+	Type   ProjectConfigSkippedResourceType `json:"type"`
+}
+
+// ProjectConfigSkippedResourceType defines model for ProjectConfigSkippedResource.Type.
+type ProjectConfigSkippedResourceType string
+
+// ProjectConfigValidationError defines model for ProjectConfigValidationError.
+type ProjectConfigValidationError struct {
+	Message string `json:"message"`
+
+	// Name Resource name or key within the section, when applicable.
+	Name *string `json:"name,omitempty"`
+
+	// Section Manifest section the error refers to (e.g. databases, functions).
+	Section string `json:"section"`
+}
 
 // ProjectConfigValidationErrorResponse Returned when manifest validation fails. Nothing was applied.
-type ProjectConfigValidationErrorResponse = externalRef0.ProjectConfigValidationErrorResponse
+type ProjectConfigValidationErrorResponse struct {
+	Error  string                         `json:"error"`
+	Errors []ProjectConfigValidationError `json:"errors"`
+}
+
+// ProjectConfigVariable defines model for ProjectConfigVariable.
+type ProjectConfigVariable struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ProjectDeployment A Function or Frontend deployment attempt in a project-scoped feed.
+type ProjectDeployment struct {
+	ArtifactVersion *string                    `json:"artifact_version,omitempty"`
+	CompletedAt     *time.Time                 `json:"completed_at,omitempty"`
+	CreatedAt       time.Time                  `json:"created_at"`
+	ErrorMessage    *string                    `json:"error_message,omitempty"`
+	Id              openapi_types.UUID         `json:"id"`
+	Operation       ProjectDeploymentOperation `json:"operation"`
+	ProjectId       openapi_types.UUID         `json:"project_id"`
+
+	// Resource The resource this deployment belongs to.
+	Resource  ProjectDeploymentResource `json:"resource"`
+	Status    ProjectDeploymentStatus   `json:"status"`
+	UpdatedAt time.Time                 `json:"updated_at"`
+}
+
+// ProjectDeploymentOperation defines model for ProjectDeployment.Operation.
+type ProjectDeploymentOperation string
+
+// ProjectDeploymentStatus defines model for ProjectDeployment.Status.
+type ProjectDeploymentStatus string
+
+// ProjectDeploymentResource The resource this deployment belongs to.
+type ProjectDeploymentResource struct {
+	Id   openapi_types.UUID            `json:"id"`
+	Name string                        `json:"name"`
+	Type ProjectDeploymentResourceType `json:"type"`
+}
+
+// ProjectDeploymentResourceType defines model for ProjectDeploymentResource.Type.
+type ProjectDeploymentResourceType string
+
+// ProjectFrontendCustomDomain defines model for ProjectFrontendCustomDomain.
+type ProjectFrontendCustomDomain struct {
+	CreatedAt     time.Time                               `json:"created_at"`
+	Domain        string                                  `json:"domain"`
+	DomainStatus  ProjectFrontendCustomDomainDomainStatus `json:"domain_status"`
+	EffectiveUrls []string                                `json:"effective_urls"`
+
+	// Frontend The frontend this custom domain is attached to. Inlined to
+	// avoid a second fetch from the project-scoped feed.
+	Frontend struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"frontend"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord                  `json:"required_routing_record,omitempty"`
+	TlsMode               ProjectFrontendCustomDomainTlsMode            `json:"tls_mode"`
+	UpdatedAt             time.Time                                     `json:"updated_at"`
+	VerificationRecords   *[]FrontendDomainVerificationRecord           `json:"verification_records,omitempty"`
+	VerificationStatus    ProjectFrontendCustomDomainVerificationStatus `json:"verification_status"`
+}
+
+// ProjectFrontendCustomDomainDomainStatus defines model for ProjectFrontendCustomDomain.DomainStatus.
+type ProjectFrontendCustomDomainDomainStatus string
+
+// ProjectFrontendCustomDomainTlsMode defines model for ProjectFrontendCustomDomain.TlsMode.
+type ProjectFrontendCustomDomainTlsMode string
+
+// ProjectFrontendCustomDomainVerificationStatus defines model for ProjectFrontendCustomDomain.VerificationStatus.
+type ProjectFrontendCustomDomainVerificationStatus string
+
+// ProjectHealthCategory defines model for ProjectHealthCategory.
+type ProjectHealthCategory string
+
+// ProjectHealthCheck defines model for ProjectHealthCheck.
+type ProjectHealthCheck struct {
+	Category   ProjectHealthCategory `json:"category"`
+	Evidence   ProjectHealthEvidence `json:"evidence"`
+	Id         string                `json:"id"`
+	ReasonCode string                `json:"reason_code"`
+	Scope      ProjectHealthScope    `json:"scope"`
+	Status     ProjectHealthStatus   `json:"status"`
+}
+
+// ProjectHealthDataStatus defines model for ProjectHealthDataStatus.
+type ProjectHealthDataStatus string
+
+// ProjectHealthEvidence defines model for ProjectHealthEvidence.
+type ProjectHealthEvidence struct {
+	Metric      string  `json:"metric"`
+	SampleCount int64   `json:"sample_count"`
+	Unit        string  `json:"unit"`
+	Value       float64 `json:"value"`
+}
+
+// ProjectHealthResource defines model for ProjectHealthResource.
+type ProjectHealthResource struct {
+	Id   openapi_types.UUID        `json:"id"`
+	Name string                    `json:"name"`
+	Type ProjectHealthResourceType `json:"type"`
+}
+
+// ProjectHealthResourceType defines model for ProjectHealthResource.Type.
+type ProjectHealthResourceType string
 
 // ProjectHealthResponse defines model for ProjectHealthResponse.
-type ProjectHealthResponse = externalRef0.ProjectHealthResponse
+type ProjectHealthResponse struct {
+	Checks     []ProjectHealthCheck    `json:"checks"`
+	DataStatus ProjectHealthDataStatus `json:"data_status"`
+
+	// Findings Top findings ordered by severity, then stable check ID.
+	Findings     []ProjectHealthCheck `json:"findings"`
+	FreshThrough time.Time            `json:"fresh_through"`
+	ObservedAt   time.Time            `json:"observed_at"`
+	ProjectId    openapi_types.UUID   `json:"project_id"`
+	Status       ProjectHealthStatus  `json:"status"`
+}
+
+// ProjectHealthScope defines model for ProjectHealthScope.
+type ProjectHealthScope struct {
+	Resource ProjectHealthResource `json:"resource"`
+}
+
+// ProjectHealthStatus defines model for ProjectHealthStatus.
+type ProjectHealthStatus string
+
+// ProjectMetricsDataStatus defines model for ProjectMetricsDataStatus.
+type ProjectMetricsDataStatus string
+
+// ProjectMetricsDimensions defines model for ProjectMetricsDimensions.
+type ProjectMetricsDimensions struct {
+	Region       *string                               `json:"region,omitempty"`
+	ResourceType *ProjectMetricsDimensionsResourceType `json:"resource_type,omitempty"`
+}
+
+// ProjectMetricsDimensionsResourceType defines model for ProjectMetricsDimensions.ResourceType.
+type ProjectMetricsDimensionsResourceType string
+
+// ProjectMetricsGroupBy defines model for ProjectMetricsGroupBy.
+type ProjectMetricsGroupBy string
+
+// ProjectMetricsMetric defines model for ProjectMetricsMetric.
+type ProjectMetricsMetric string
+
+// ProjectMetricsQuery defines model for ProjectMetricsQuery.
+type ProjectMetricsQuery struct {
+	GroupBy *ProjectMetricsGroupBy `json:"group_by,omitempty"`
+	Id      string                 `json:"id"`
+	Metric  ProjectMetricsMetric   `json:"metric"`
+}
+
+// ProjectMetricsQueryRequest defines model for ProjectMetricsQueryRequest.
+type ProjectMetricsQueryRequest struct {
+	Queries   []ProjectMetricsQuery        `json:"queries"`
+	TimeRange ProjectMetricsQueryTimeRange `json:"time_range"`
+}
+
+// ProjectMetricsQueryResponse defines model for ProjectMetricsQueryResponse.
+type ProjectMetricsQueryResponse struct {
+	FreshThrough *time.Time             `json:"fresh_through,omitempty"`
+	ObservedAt   time.Time              `json:"observed_at"`
+	Results      []ProjectMetricsResult `json:"results"`
+	Window       ProjectMetricsWindow   `json:"window"`
+}
+
+// ProjectMetricsQueryTimeRange defines model for ProjectMetricsQueryTimeRange.
+type ProjectMetricsQueryTimeRange struct {
+	Window ProjectMetricsQueryTimeRangeWindow `json:"window"`
+}
+
+// ProjectMetricsQueryTimeRangeWindow defines model for ProjectMetricsQueryTimeRange.Window.
+type ProjectMetricsQueryTimeRangeWindow string
+
+// ProjectMetricsResult defines model for ProjectMetricsResult.
+type ProjectMetricsResult struct {
+	DataStatus ProjectMetricsDataStatus `json:"data_status"`
+	Id         string                   `json:"id"`
+	Metric     ProjectMetricsMetric     `json:"metric"`
+	Unit       ProjectMetricsUnit       `json:"unit"`
+	Values     []ProjectMetricsValue    `json:"values"`
+}
+
+// ProjectMetricsUnit defines model for ProjectMetricsUnit.
+type ProjectMetricsUnit string
+
+// ProjectMetricsValue defines model for ProjectMetricsValue.
+type ProjectMetricsValue struct {
+	Dimensions ProjectMetricsDimensions `json:"dimensions"`
+	Value      float64                  `json:"value"`
+}
+
+// ProjectMetricsWindow defines model for ProjectMetricsWindow.
+type ProjectMetricsWindow struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
-type ProjectUsageResponse = externalRef0.ProjectUsageResponse
+type ProjectUsageResponse struct {
+	// Frontends Per-frontend request totals for the current usage month
+	Frontends *[]FrontendUsageData `json:"frontends,omitempty"`
+
+	// Metrics Usage metrics for the project
+	Metrics []MetricUsageData `json:"metrics"`
+
+	// Month Usage month in YYYY-MM format
+	Month string `json:"month"`
+
+	// ProjectId Project ID
+	ProjectId openapi_types.UUID `json:"project_id"`
+}
 
 // RealtimeConfig Realtime configuration for a project.
 // Note: Message size and channels per connection are plan-based (not configurable).
-type RealtimeConfig = externalRef0.RealtimeConfig
+type RealtimeConfig struct {
+	// BroadcastEnabled Whether broadcast channels are enabled
+	BroadcastEnabled *bool `json:"broadcast_enabled,omitempty"`
+
+	// CreatedAt When the configuration was created
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Enabled Whether realtime is enabled for this project
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// PostgresChangesEnabled Whether Postgres change notifications are enabled
+	PostgresChangesEnabled *bool `json:"postgres_changes_enabled,omitempty"`
+
+	// PresenceEnabled Whether presence tracking is enabled
+	PresenceEnabled *bool `json:"presence_enabled,omitempty"`
+
+	// ProjectId Project ID
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// UpdatedAt When the configuration was last updated
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// RealtimePlanLimits Plan-based limits for realtime features
+type RealtimePlanLimits struct {
+	// ChannelsPerConn Maximum channels per connection
+	ChannelsPerConn *int `json:"channels_per_conn,omitempty"`
+
+	// MaxConnections Maximum concurrent connections allowed
+	MaxConnections *int `json:"max_connections,omitempty"`
+
+	// MessageSizeKb Maximum message size in KB
+	MessageSizeKb *int `json:"message_size_kb,omitempty"`
+
+	// MessagesPerMonth Maximum messages per month
+	MessagesPerMonth *int `json:"messages_per_month,omitempty"`
+
+	// Plan Plan name (FREE or PRO)
+	Plan *string `json:"plan,omitempty"`
+}
 
 // RealtimeStats Realtime usage statistics for a project
-type RealtimeStats = externalRef0.RealtimeStats
+type RealtimeStats struct {
+	// LastInvokedAt Most recent realtime activity timestamp across channels
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+
+	// Limits Plan-based limits for realtime features
+	Limits *RealtimePlanLimits `json:"limits,omitempty"`
+
+	// NumConnections Current number of active connections
+	NumConnections *int `json:"num_connections,omitempty"`
+
+	// PeakConnections Peak concurrent connections this usage period
+	PeakConnections *int `json:"peak_connections,omitempty"`
+}
 
 // ResolveFunctionResponse defines model for ResolveFunctionResponse.
-type ResolveFunctionResponse = externalRef0.ResolveFunctionResponse
+type ResolveFunctionResponse struct {
+	// CacheTtlSeconds Suggested SDK cache TTL for this name-to-ID mapping
+	CacheTtlSeconds int `json:"cache_ttl_seconds"`
+
+	// FunctionId Canonical function ID used for invocation routing
+	FunctionId openapi_types.UUID `json:"function_id"`
+
+	// Name DNS-safe function name
+	Name string `json:"name"`
+}
+
+// ScheduleRequest defines model for ScheduleRequest.
+type ScheduleRequest struct {
+	// CronExpression Standard 5-field cron expression evaluated in UTC. Seconds fields, descriptors, and Quartz syntax are not supported.
+	CronExpression string               `json:"cron_expression"`
+	Kind           *ScheduleRequestKind `json:"kind,omitempty"`
+}
+
+// ScheduleRequestKind defines model for ScheduleRequest.Kind.
+type ScheduleRequestKind string
 
 // ServiceKey Service role key for admin operations.
 // **WARNING:** Bypasses all RLS - backend use only!
-type ServiceKey = externalRef0.ServiceKey
+type ServiceKey struct {
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// KeyPrefix First 12 characters of the key for display/identification
+	KeyPrefix string `json:"key_prefix"`
+
+	// KeyValue Full JWT token for Authorization header.
+	// Returned on create, get, and list (decrypted from storage).
+	// **Store securely - NEVER expose in frontend code!**
+	KeyValue *string `json:"key_value,omitempty"`
+
+	// Name Descriptive name for the key
+	Name string `json:"name"`
+
+	// Permissions Operations this key may perform. ["*"] grants full admin access
+	// (default for keys created without an explicit scope). Scoped keys
+	// list specific permissions, e.g. ["functions.invoke"].
+	Permissions []string            `json:"permissions"`
+	ProjectId   *openapi_types.UUID `json:"project_id,omitempty"`
+	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
+}
 
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
-type StorageBucket = externalRef0.StorageBucket
+type StorageBucket struct {
+	// AllowedMimeTypes Allowed MIME types (null for all types)
+	AllowedMimeTypes *[]string  `json:"allowed_mime_types,omitempty"`
+	CreatedAt        *time.Time `json:"created_at,omitempty"`
+
+	// FileSizeLimit Maximum file size in bytes (null for no limit)
+	FileSizeLimit *int64             `json:"file_size_limit,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+
+	// LastInvokedAt Most recent bucket operation timestamp
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+
+	// Name Bucket name (unique within project)
+	Name      string              `json:"name"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	UpdatedAt *time.Time          `json:"updated_at,omitempty"`
+}
 
 // StorageCopyRequest defines model for StorageCopyRequest.
-type StorageCopyRequest = externalRef0.StorageCopyRequest
+type StorageCopyRequest struct {
+	// From Source path
+	From string `json:"from"`
+
+	// To Destination path
+	To string `json:"to"`
+}
 
 // StorageListResponse defines model for StorageListResponse.
-type StorageListResponse = externalRef0.StorageListResponse
+type StorageListResponse struct {
+	// NextCursor Cursor for next page (empty if no more results)
+	NextCursor *string          `json:"next_cursor,omitempty"`
+	Objects    *[]StorageObject `json:"objects,omitempty"`
+}
 
 // StorageMoveRequest defines model for StorageMoveRequest.
-type StorageMoveRequest = externalRef0.StorageMoveRequest
+type StorageMoveRequest struct {
+	// From Source path
+	From string `json:"from"`
+
+	// To Destination path
+	To string `json:"to"`
+}
 
 // StorageObject defines model for StorageObject.
-type StorageObject = externalRef0.StorageObject
+type StorageObject struct {
+	BucketId  openapi_types.UUID `json:"bucket_id"`
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+
+	// Etag S3 ETag for cache validation
+	Etag *string            `json:"etag,omitempty"`
+	Id   openapi_types.UUID `json:"id"`
+
+	// IsPublic If true, the file can be downloaded with just an anon key (no user authentication).
+	// Files are private by default. Only the owner or a service key can change visibility.
+	IsPublic bool `json:"is_public"`
+
+	// Metadata Custom user metadata (key-value pairs).
+	// Limits: Maximum 50 keys, maximum 10KB total serialized size.
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// MimeType MIME type
+	MimeType string `json:"mime_type"`
+
+	// Name Full path within bucket (e.g., "users/abc123/avatar.png")
+	Name string `json:"name"`
+
+	// OwnerId Auth user who uploaded (null for anonymous/service)
+	OwnerId *openapi_types.UUID `json:"owner_id,omitempty"`
+
+	// PublicUrl Shareable public URL for this file (only set for public files with is_public=true).
+	// This URL requires NO authentication and can be embedded in HTML, shared via email, etc.
+	// The URL is properly URL-encoded by the server - use it as-is without additional encoding.
+	PublicUrl *string `json:"public_url,omitempty"`
+
+	// Size File size in bytes
+	Size      int64      `json:"size"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
 
 // StorageObjectWithBucket Storage object with bucket name included (for admin listing across buckets)
-type StorageObjectWithBucket = externalRef0.StorageObjectWithBucket
+type StorageObjectWithBucket struct {
+	BucketId openapi_types.UUID `json:"bucket_id"`
+
+	// BucketName Name of the bucket containing this object
+	BucketName string                  `json:"bucket_name"`
+	CreatedAt  *time.Time              `json:"created_at,omitempty"`
+	Etag       *string                 `json:"etag,omitempty"`
+	Id         openapi_types.UUID      `json:"id"`
+	IsPublic   bool                    `json:"is_public"`
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	MimeType   string                  `json:"mime_type"`
+
+	// Name Full path within bucket
+	Name string `json:"name"`
+
+	// OwnerId Auth user who uploaded (null for anonymous/service)
+	OwnerId *openapi_types.UUID `json:"owner_id,omitempty"`
+
+	// PublicUrl Shareable public URL for this file (only set for public files with is_public=true).
+	// This URL requires NO authentication and can be embedded in HTML, shared via email, etc.
+	PublicUrl *string `json:"public_url,omitempty"`
+
+	// Size File size in bytes
+	Size      int64      `json:"size"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
 
 // StoragePolicy defines model for StoragePolicy.
-type StoragePolicy = externalRef0.StoragePolicy
+type StoragePolicy struct {
+	BucketId  openapi_types.UUID `json:"bucket_id"`
+	CreatedAt *time.Time         `json:"created_at,omitempty"`
+
+	// Definition Policy expression evaluated at request time.
+	// Examples:
+	// - "true" - Allow all
+	// - "auth.uid() = owner_id" - Owner only
+	// - "auth.role() = 'authenticated'" - Authenticated users
+	// - "(storage.foldername(name))[1] = auth.uid()::text" - User's folder
+	Definition string             `json:"definition"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// Name Policy name (unique within bucket)
+	Name string `json:"name"`
+
+	// Operation Operation this policy applies to
+	Operation StoragePolicyOperation `json:"operation"`
+	UpdatedAt *time.Time             `json:"updated_at,omitempty"`
+}
+
+// StoragePolicyOperation Operation this policy applies to
+type StoragePolicyOperation string
 
 // StorageStats Aggregate storage statistics for a project
-type StorageStats = externalRef0.StorageStats
+type StorageStats struct {
+	// BucketCount Number of storage buckets
+	BucketCount int `json:"bucket_count"`
+
+	// ObjectCount Total number of stored files
+	ObjectCount int `json:"object_count"`
+
+	// TotalSize Total storage used in bytes
+	TotalSize int64 `json:"total_size"`
+}
 
 // StorageVisibilityRequest defines model for StorageVisibilityRequest.
-type StorageVisibilityRequest = externalRef0.StorageVisibilityRequest
+type StorageVisibilityRequest struct {
+	// IsPublic Whether the file should be publicly accessible
+	IsPublic bool `json:"is_public"`
+}
 
 // TestEmailRequest When `html_body` or `text_body` is provided the backend renders
 // those (plus optional `subject`) through html/text templates
@@ -1019,62 +4808,292 @@ type StorageVisibilityRequest = externalRef0.StorageVisibilityRequest
 // omitted a hardcoded diagnostic message is sent to verify SMTP
 // credentials and `subject` is ignored. Sending `subject` alone
 // (without a body) is rejected with 400.
-type TestEmailRequest = externalRef0.TestEmailRequest
+type TestEmailRequest struct {
+	// HtmlBody Optional HTML body override. Rendered as an html/template. Max 256 KiB.
+	HtmlBody *string `json:"html_body,omitempty"`
+
+	// Subject Optional subject override, rendered as a text/template. Only
+	// applied on the override path — requires `html_body` or
+	// `text_body` to also be set, otherwise the request is
+	// rejected with 400.
+	Subject *string `json:"subject,omitempty"`
+
+	// TextBody Optional plain-text body override. Rendered as a text/template. Max 256 KiB.
+	TextBody *string `json:"text_body,omitempty"`
+
+	// ToEmail Recipient address for the diagnostic email.
+	ToEmail openapi_types.Email `json:"to_email"`
+}
 
 // TestEmailResponse defines model for TestEmailResponse.
-type TestEmailResponse = externalRef0.TestEmailResponse
+type TestEmailResponse struct {
+	Success bool `json:"success"`
+}
 
 // UnbanUserResponse Response when unbanning a user
-type UnbanUserResponse = externalRef0.UnbanUserResponse
+type UnbanUserResponse struct {
+	Email   openapi_types.Email     `json:"email"`
+	Message string                  `json:"message"`
+	Status  UnbanUserResponseStatus `json:"status"`
+	UserId  openapi_types.UUID      `json:"user_id"`
+}
+
+// UnbanUserResponseStatus defines model for UnbanUserResponse.Status.
+type UnbanUserResponseStatus string
 
 // UpdateAuthConfigRequest All fields optional - only include fields you want to update. Validation rule: require_email_confirmation=true requires email_enabled=true.
-type UpdateAuthConfigRequest = externalRef0.UpdateAuthConfigRequest
+type UpdateAuthConfigRequest struct {
+	AccessTokenLifetime *int  `json:"access_token_lifetime,omitempty"`
+	AllowPasswordReset  *bool `json:"allow_password_reset,omitempty"`
+
+	// AllowedRedirectUrls Redirect allowlist. Every entry must be a valid http/https URL.
+	AllowedRedirectUrls  *[]string `json:"allowed_redirect_urls,omitempty"`
+	CorsAllowCredentials *bool     `json:"cors_allow_credentials,omitempty"`
+	CorsMaxAge           *int      `json:"cors_max_age,omitempty"`
+
+	// DeviceVerificationUrl Optional custom device-authorization verification page. Must be a
+	// valid http/https URL (not tied to allowed_redirect_urls). When set,
+	// device-code logins return this URL (with user_code) instead of the
+	// managed device page. Send an empty string to clear the override.
+	DeviceVerificationUrl    *string `json:"device_verification_url,omitempty"`
+	EmailConfirmationSubject *string `json:"email_confirmation_subject,omitempty"`
+
+	// EmailConfirmationTimeout Email confirmation token expiry in seconds.
+	EmailConfirmationTimeout *int `json:"email_confirmation_timeout,omitempty"`
+
+	// EmailEnabled Enable transactional email sending. Cannot be false while require_email_confirmation is true.
+	EmailEnabled                *bool   `json:"email_enabled,omitempty"`
+	EmailFromAddress            *string `json:"email_from_address,omitempty"`
+	EmailFromName               *string `json:"email_from_name,omitempty"`
+	EmailPasswordChangedSubject *string `json:"email_password_changed_subject,omitempty"`
+	EmailPasswordResetSubject   *string `json:"email_password_reset_subject,omitempty"`
+	EnableAnonymousSignins      *bool   `json:"enable_anonymous_signins,omitempty"`
+
+	// EnableEmailPassword Enable/disable email/password provider
+	EnableEmailPassword *bool `json:"enable_email_password,omitempty"`
+
+	// EnableSignup Master switch for signups across ALL providers
+	EnableSignup      *bool `json:"enable_signup,omitempty"`
+	InactivityTimeout *int  `json:"inactivity_timeout,omitempty"`
+
+	// ManagedAuthEnabled Enable or disable managed auth hosted pages for the project.
+	ManagedAuthEnabled   *bool `json:"managed_auth_enabled,omitempty"`
+	MaxPasswordHistory   *int  `json:"max_password_history,omitempty"`
+	MaxSessionDuration   *int  `json:"max_session_duration,omitempty"`
+	MinPasswordLength    *int  `json:"min_password_length,omitempty"`
+	PasswordResetTimeout *int  `json:"password_reset_timeout,omitempty"`
+
+	// PostAuthRedirectUrl Must be included in allowed_redirect_urls when set.
+	PostAuthRedirectUrl *string `json:"post_auth_redirect_url,omitempty"`
+
+	// PostLogoutRedirectUrl Must be included in allowed_redirect_urls when set.
+	PostLogoutRedirectUrl *string `json:"post_logout_redirect_url,omitempty"`
+	RateLimitSignin       *int    `json:"rate_limit_signin,omitempty"`
+	RateLimitSignup       *int    `json:"rate_limit_signup,omitempty"`
+	RateLimitTokenRefresh *int    `json:"rate_limit_token_refresh,omitempty"`
+	RefreshTokenLifetime  *int    `json:"refresh_token_lifetime,omitempty"`
+
+	// RequireEmailConfirmation Require users to confirm email before sign-in. Can only be true when email_enabled is true.
+	RequireEmailConfirmation *bool   `json:"require_email_confirmation,omitempty"`
+	RequireLowercase         *bool   `json:"require_lowercase,omitempty"`
+	RequireNumbers           *bool   `json:"require_numbers,omitempty"`
+	RequireSpecialChars      *bool   `json:"require_special_chars,omitempty"`
+	RequireUppercase         *bool   `json:"require_uppercase,omitempty"`
+	SmtpHost                 *string `json:"smtp_host,omitempty"`
+
+	// SmtpPassword SMTP password (sensitive). Encrypted at rest (AES-256-GCM) when stored.
+	SmtpPassword *string `json:"smtp_password,omitempty"`
+	SmtpPort     *int    `json:"smtp_port,omitempty"`
+	SmtpUseTls   *bool   `json:"smtp_use_tls,omitempty"`
+	SmtpUsername *string `json:"smtp_username,omitempty"`
+}
 
 // UpdateAuthHostedPageRequest defines model for UpdateAuthHostedPageRequest.
-type UpdateAuthHostedPageRequest = externalRef0.UpdateAuthHostedPageRequest
+type UpdateAuthHostedPageRequest struct {
+	// Css Optional CSS injected at render time. Max 256 KiB.
+	Css *string `json:"css,omitempty"`
+
+	// Html Raw HTML markup for the page. Max 256 KiB.
+	Html string `json:"html"`
+}
 
 // UpdateDatabaseTypeRequest Update database compute size tier
-type UpdateDatabaseTypeRequest = externalRef0.UpdateDatabaseTypeRequest
+type UpdateDatabaseTypeRequest struct {
+	// DatabaseType New compute size tier
+	DatabaseType UpdateDatabaseTypeRequestDatabaseType `json:"database_type"`
+}
+
+// UpdateDatabaseTypeRequestDatabaseType New compute size tier
+type UpdateDatabaseTypeRequestDatabaseType string
 
 // UpdateEmailTemplateRequest defines model for UpdateEmailTemplateRequest.
-type UpdateEmailTemplateRequest = externalRef0.UpdateEmailTemplateRequest
+type UpdateEmailTemplateRequest struct {
+	HtmlBody *string `json:"html_body,omitempty"`
+	Subject  *string `json:"subject,omitempty"`
+	TextBody *string `json:"text_body,omitempty"`
+}
 
 // UpdateFunctionRequest defines model for UpdateFunctionRequest.
-type UpdateFunctionRequest = externalRef0.UpdateFunctionRequest
+type UpdateFunctionRequest struct {
+	// IsPublic Function visibility for anon-key invocation.
+	// - `false` (default): private function
+	// - `true`: public function (anon keys with `functions.invoke` can invoke)
+	IsPublic bool `json:"is_public"`
+}
 
 // UpdateFunctionSchedulerRequest defines model for UpdateFunctionSchedulerRequest.
-type UpdateFunctionSchedulerRequest = externalRef0.UpdateFunctionSchedulerRequest
+type UpdateFunctionSchedulerRequest struct {
+	Enabled  *bool                   `json:"enabled,omitempty"`
+	Name     *string                 `json:"name,omitempty"`
+	Payload  *map[string]interface{} `json:"payload,omitempty"`
+	Regions  *[]string               `json:"regions,omitempty"`
+	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
+}
 
 // UpdateOAuthConfigRequest defines model for UpdateOAuthConfigRequest.
-type UpdateOAuthConfigRequest = externalRef0.UpdateOAuthConfigRequest
+type UpdateOAuthConfigRequest struct {
+	// ClientId Supported for non-device providers. Not supported for `provider=device`.
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Supported for non-device providers. Not supported for `provider=device`.
+	ClientSecret *string   `json:"client_secret,omitempty"`
+	Enabled      *bool     `json:"enabled,omitempty"`
+	RedirectUrl  *string   `json:"redirect_url,omitempty"`
+	Scopes       *[]string `json:"scopes,omitempty"`
+}
 
 // UpdateProjectRequest Update mutable project fields (name and/or region policy)
-type UpdateProjectRequest = externalRef0.UpdateProjectRequest
+type UpdateProjectRequest struct {
+	// AllRegions If omitted and `selected_regions` is also omitted, existing region policy is preserved.
+	// If `selected_regions` is provided without `all_regions`, it is treated as subset mode.
+	AllRegions *bool   `json:"all_regions,omitempty"`
+	Name       *string `json:"name,omitempty"`
+
+	// SelectedRegions Region subset for project deployments.
+	// Provide with `all_regions=false`.
+	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+}
 
 // UpdateRealtimeConfigRequest Request to update realtime configuration.
 // Limits (message size, channels per connection) are plan-based and cannot be configured.
-type UpdateRealtimeConfigRequest = externalRef0.UpdateRealtimeConfigRequest
+type UpdateRealtimeConfigRequest struct {
+	// BroadcastEnabled Whether broadcast channels are enabled
+	BroadcastEnabled *bool `json:"broadcast_enabled,omitempty"`
+
+	// Enabled Whether realtime is enabled for this project
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// PostgresChangesEnabled Whether Postgres change notifications are enabled
+	PostgresChangesEnabled *bool `json:"postgres_changes_enabled,omitempty"`
+
+	// PresenceEnabled Whether presence tracking is enabled
+	PresenceEnabled *bool `json:"presence_enabled,omitempty"`
+}
 
 // UpdateStorageBucketRequest defines model for UpdateStorageBucketRequest.
-type UpdateStorageBucketRequest = externalRef0.UpdateStorageBucketRequest
+type UpdateStorageBucketRequest struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+	FileSizeLimit    *int64    `json:"file_size_limit,omitempty"`
+}
 
 // UpdateVariableRequest defines model for UpdateVariableRequest.
-type UpdateVariableRequest = externalRef0.UpdateVariableRequest
+type UpdateVariableRequest struct {
+	Value string `json:"value"`
+}
 
 // UploadSessionPart Information about an uploaded part
-type UploadSessionPart = externalRef0.UploadSessionPart
+type UploadSessionPart struct {
+	// Etag ETag of the uploaded part
+	Etag *string `json:"etag,omitempty"`
+
+	// PartNumber Part number (1-10000)
+	PartNumber *int `json:"part_number,omitempty"`
+
+	// Size Size of the part in bytes
+	Size *int64 `json:"size,omitempty"`
+}
 
 // UploadSessionStatusResponse Status of an upload session
-type UploadSessionStatusResponse = externalRef0.UploadSessionStatusResponse
+type UploadSessionStatusResponse struct {
+	// BytesUploaded Total bytes uploaded so far
+	BytesUploaded *int64 `json:"bytes_uploaded,omitempty"`
+
+	// ContentType MIME type
+	ContentType *string `json:"content_type,omitempty"`
+
+	// CreatedAt Session creation time
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExpiresAt Session expiry time
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// PartSize Size of each part (except last)
+	PartSize *int64 `json:"part_size,omitempty"`
+
+	// Parts List of uploaded parts (for resume)
+	Parts *[]UploadSessionPart `json:"parts,omitempty"`
+
+	// PartsUploaded Number of parts uploaded
+	PartsUploaded *int `json:"parts_uploaded,omitempty"`
+
+	// Path Target file path
+	Path *string `json:"path,omitempty"`
+
+	// SessionId Upload session ID
+	SessionId *string `json:"session_id,omitempty"`
+
+	// Status Current status of the upload
+	Status *UploadSessionStatusResponseStatus `json:"status,omitempty"`
+
+	// TotalParts Total number of parts
+	TotalParts *int `json:"total_parts,omitempty"`
+
+	// TotalSize Total file size in bytes
+	TotalSize *int64 `json:"total_size,omitempty"`
+}
+
+// UploadSessionStatusResponseStatus Current status of the upload
+type UploadSessionStatusResponseStatus string
+
+// UsageDataPoint A single timestamped usage value.
+type UsageDataPoint struct {
+	// Timestamp UTC timestamp for the data point
+	Timestamp time.Time `json:"timestamp"`
+
+	// Value Usage value at the timestamp
+	Value int64 `json:"value"`
+}
 
 // Variable defines model for Variable.
-type Variable = externalRef0.Variable
+type Variable struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// CurrentSyncId Identifier of the latest variable propagation sync.
+	CurrentSyncId *openapi_types.UUID `json:"current_sync_id,omitempty"`
+	Id            openapi_types.UUID  `json:"id"`
+	Name          string              `json:"name"`
+	ProjectId     openapi_types.UUID  `json:"project_id"`
+
+	// ProvisioningStartedAt Timestamp when the current variable propagation phase started.
+	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
+
+	// Status Latest project variable propagation status, when a sync has run.
+	Status    *VariableStatus `json:"status,omitempty"`
+	UpdatedAt time.Time       `json:"updated_at"`
+	Value     string          `json:"value"`
+}
+
+// VariableStatus Latest project variable propagation status, when a sync has run.
+type VariableStatus string
 
 // BucketName defines model for BucketName.
 type BucketName = string
 
 // DatabaseName defines model for DatabaseName.
 type DatabaseName = string
+
+// DeploymentId defines model for DeploymentId.
+type DeploymentId = openapi_types.UUID
 
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
@@ -1348,7 +5367,7 @@ type QueryDatabaseSelectJSONBody struct {
 		// - is: IS NULL / IS NOT NULL
 		// - in: IN array
 		Operator QueryDatabaseSelectJSONBodyFiltersOperator `json:"operator"`
-		Value    *QueryDatabaseSelectJSONBody_Filters_Value `json:"value"`
+		Value    QueryDatabaseSelectJSONBody_Filters_Value  `json:"value"`
 	} `json:"filters,omitempty"`
 
 	// Limit Maximum rows to return
@@ -2011,6 +6030,9 @@ type SearchProjectLogsJSONRequestBody = LogSearchRequest
 // StreamProjectLogsJSONRequestBody defines body for StreamProjectLogs for application/json ContentType.
 type StreamProjectLogsJSONRequestBody = LogStreamRequest
 
+// QueryProjectMetricsJSONRequestBody defines body for QueryProjectMetrics for application/json ContentType.
+type QueryProjectMetricsJSONRequestBody = ProjectMetricsQueryRequest
+
 // CreateOAuthConfigJSONRequestBody defines body for CreateOAuthConfig for application/json ContentType.
 type CreateOAuthConfigJSONRequestBody = CreateOAuthConfigRequest
 
@@ -2052,6 +6074,125 @@ type UploadStorageObjectMultipartRequestBody UploadStorageObjectMultipartBody
 
 // UpdateStorageObjectVisibilityJSONRequestBody defines body for UpdateStorageObjectVisibility for application/json ContentType.
 type UpdateStorageObjectVisibilityJSONRequestBody = StorageVisibilityRequest
+
+// AsLogFunctionRequestResource returns the union data inside the LogRequestResource as a LogFunctionRequestResource
+func (t LogRequestResource) AsLogFunctionRequestResource() (LogFunctionRequestResource, error) {
+	var body LogFunctionRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogFunctionRequestResource overwrites any union data inside the LogRequestResource as the provided LogFunctionRequestResource
+func (t *LogRequestResource) FromLogFunctionRequestResource(v LogFunctionRequestResource) error {
+	v.Type = "function"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogFunctionRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogFunctionRequestResource
+func (t *LogRequestResource) MergeLogFunctionRequestResource(v LogFunctionRequestResource) error {
+	v.Type = "function"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogFrontendRequestResource returns the union data inside the LogRequestResource as a LogFrontendRequestResource
+func (t LogRequestResource) AsLogFrontendRequestResource() (LogFrontendRequestResource, error) {
+	var body LogFrontendRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogFrontendRequestResource overwrites any union data inside the LogRequestResource as the provided LogFrontendRequestResource
+func (t *LogRequestResource) FromLogFrontendRequestResource(v LogFrontendRequestResource) error {
+	v.Type = "frontend"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogFrontendRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogFrontendRequestResource
+func (t *LogRequestResource) MergeLogFrontendRequestResource(v LogFrontendRequestResource) error {
+	v.Type = "frontend"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogDatabaseRequestResource returns the union data inside the LogRequestResource as a LogDatabaseRequestResource
+func (t LogRequestResource) AsLogDatabaseRequestResource() (LogDatabaseRequestResource, error) {
+	var body LogDatabaseRequestResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogDatabaseRequestResource overwrites any union data inside the LogRequestResource as the provided LogDatabaseRequestResource
+func (t *LogRequestResource) FromLogDatabaseRequestResource(v LogDatabaseRequestResource) error {
+	v.Type = "database"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogDatabaseRequestResource performs a merge with any union data inside the LogRequestResource, using the provided LogDatabaseRequestResource
+func (t *LogRequestResource) MergeLogDatabaseRequestResource(v LogDatabaseRequestResource) error {
+	v.Type = "database"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogRequestResource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t LogRequestResource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "database":
+		return t.AsLogDatabaseRequestResource()
+	case "frontend":
+		return t.AsLogFrontendRequestResource()
+	case "function":
+		return t.AsLogFunctionRequestResource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t LogRequestResource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogRequestResource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsQueryDatabaseDeleteJSONBodyFiltersValue0 returns the union data inside the QueryDatabaseDeleteJSONBody_Filters_Value as a QueryDatabaseDeleteJSONBodyFiltersValue0
 func (t QueryDatabaseDeleteJSONBody_Filters_Value) AsQueryDatabaseDeleteJSONBodyFiltersValue0() (QueryDatabaseDeleteJSONBodyFiltersValue0, error) {
@@ -2683,6 +6824,18 @@ type ClientInterface interface {
 
 	AuthConvertAnonymous(ctx context.Context, body AuthConvertAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AuthListIdentities request
+	AuthListIdentities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthUnlinkIdentity request
+	AuthUnlinkIdentity(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthListMethods request
+	AuthListMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthPromoteMethod request
+	AuthPromoteMethod(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AuthDeleteAllMySessions request
 	AuthDeleteAllMySessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2707,6 +6860,9 @@ type ClientInterface interface {
 	QueryDatabaseInsertWithBody(ctx context.Context, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	QueryDatabaseInsert(ctx context.Context, databaseName DatabaseName, body QueryDatabaseInsertJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryDatabasePing request
+	QueryDatabasePing(ctx context.Context, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryDatabaseSelectWithBody request with any body
 	QueryDatabaseSelectWithBody(ctx context.Context, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3010,6 +7166,11 @@ type ClientInterface interface {
 	StreamProjectLogsWithBody(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	StreamProjectLogs(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryProjectMetricsWithBody request with any body
+	QueryProjectMetricsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryProjectMetrics(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOAuthConfigs request
 	ListOAuthConfigs(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3698,6 +7859,54 @@ func (c *Client) AuthConvertAnonymous(ctx context.Context, body AuthConvertAnony
 	return c.Client.Do(req)
 }
 
+func (c *Client) AuthListIdentities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthListIdentitiesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthUnlinkIdentity(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthUnlinkIdentityRequest(c.Server, identityId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthListMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthListMethodsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthPromoteMethod(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthPromoteMethodRequest(c.Server, methodId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) AuthDeleteAllMySessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthDeleteAllMySessionsRequest(c.Server)
 	if err != nil {
@@ -3796,6 +8005,18 @@ func (c *Client) QueryDatabaseInsertWithBody(ctx context.Context, databaseName D
 
 func (c *Client) QueryDatabaseInsert(ctx context.Context, databaseName DatabaseName, body QueryDatabaseInsertJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDatabaseInsertRequest(c.Server, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDatabasePing(ctx context.Context, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDatabasePingRequest(c.Server, databaseName)
 	if err != nil {
 		return nil, err
 	}
@@ -5104,6 +9325,30 @@ func (c *Client) StreamProjectLogsWithBody(ctx context.Context, id ProjectId, pa
 
 func (c *Client) StreamProjectLogs(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStreamProjectLogsRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryProjectMetricsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryProjectMetricsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryProjectMetrics(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryProjectMetricsRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6840,6 +11085,128 @@ func NewAuthConvertAnonymousRequestWithBody(server string, contentType string, b
 	return req, nil
 }
 
+// NewAuthListIdentitiesRequest generates requests for AuthListIdentities
+func NewAuthListIdentitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/identities")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthUnlinkIdentityRequest generates requests for AuthUnlinkIdentity
+func NewAuthUnlinkIdentityRequest(server string, identityId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "identityId", identityId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/identities/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthListMethodsRequest generates requests for AuthListMethods
+func NewAuthListMethodsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/methods")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthPromoteMethodRequest generates requests for AuthPromoteMethod
+func NewAuthPromoteMethodRequest(server string, methodId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "methodId", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/user/methods/%s/promote", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewAuthDeleteAllMySessionsRequest generates requests for AuthDeleteAllMySessions
 func NewAuthDeleteAllMySessionsRequest(server string) (*http.Request, error) {
 	var err error
@@ -7111,6 +11478,40 @@ func NewQueryDatabaseInsertRequestWithBody(server string, databaseName DatabaseN
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryDatabasePingRequest generates requests for QueryDatabasePing
+func NewQueryDatabasePingRequest(server string, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/databases/%s/query/ping", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -11297,6 +15698,53 @@ func NewStreamProjectLogsRequestWithBody(server string, id ProjectId, params *St
 	return req, nil
 }
 
+// NewQueryProjectMetricsRequest calls the generic QueryProjectMetrics builder with application/json body
+func NewQueryProjectMetricsRequest(server string, id ProjectId, body QueryProjectMetricsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryProjectMetricsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewQueryProjectMetricsRequestWithBody generates requests for QueryProjectMetrics with any type of body
+func NewQueryProjectMetricsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/metrics/query", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListOAuthConfigsRequest generates requests for ListOAuthConfigs
 func NewListOAuthConfigsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -13538,6 +17986,18 @@ type ClientWithResponsesInterface interface {
 
 	AuthConvertAnonymousWithResponse(ctx context.Context, body AuthConvertAnonymousJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthConvertAnonymousClientResponse, error)
 
+	// AuthListIdentitiesWithResponse request
+	AuthListIdentitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListIdentitiesClientResponse, error)
+
+	// AuthUnlinkIdentityWithResponse request
+	AuthUnlinkIdentityWithResponse(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthUnlinkIdentityClientResponse, error)
+
+	// AuthListMethodsWithResponse request
+	AuthListMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListMethodsClientResponse, error)
+
+	// AuthPromoteMethodWithResponse request
+	AuthPromoteMethodWithResponse(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthPromoteMethodClientResponse, error)
+
 	// AuthDeleteAllMySessionsWithResponse request
 	AuthDeleteAllMySessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthDeleteAllMySessionsClientResponse, error)
 
@@ -13562,6 +18022,9 @@ type ClientWithResponsesInterface interface {
 	QueryDatabaseInsertWithBodyWithResponse(ctx context.Context, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDatabaseInsertClientResponse, error)
 
 	QueryDatabaseInsertWithResponse(ctx context.Context, databaseName DatabaseName, body QueryDatabaseInsertJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDatabaseInsertClientResponse, error)
+
+	// QueryDatabasePingWithResponse request
+	QueryDatabasePingWithResponse(ctx context.Context, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*QueryDatabasePingClientResponse, error)
 
 	// QueryDatabaseSelectWithBodyWithResponse request with any body
 	QueryDatabaseSelectWithBodyWithResponse(ctx context.Context, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDatabaseSelectClientResponse, error)
@@ -13865,6 +18328,11 @@ type ClientWithResponsesInterface interface {
 	StreamProjectLogsWithBodyWithResponse(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StreamProjectLogsClientResponse, error)
 
 	StreamProjectLogsWithResponse(ctx context.Context, id ProjectId, params *StreamProjectLogsParams, body StreamProjectLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*StreamProjectLogsClientResponse, error)
+
+	// QueryProjectMetricsWithBodyWithResponse request with any body
+	QueryProjectMetricsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error)
+
+	QueryProjectMetricsWithResponse(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error)
 
 	// ListOAuthConfigsWithResponse request
 	ListOAuthConfigsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListOAuthConfigsClientResponse, error)
@@ -14635,7 +19103,7 @@ func (r AuthSigninClientResponse) ContentType() string {
 type AuthSignupClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *AuthTokenResponse
+	JSON201      *AuthSignupResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -14891,6 +19359,133 @@ func (r AuthConvertAnonymousClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AuthConvertAnonymousClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthListIdentitiesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthIdentitiesResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthListIdentitiesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthListIdentitiesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthListIdentitiesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthUnlinkIdentityClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthUnlinkIdentityClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthUnlinkIdentityClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthUnlinkIdentityClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthListMethodsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethodsResponse
+	JSON401      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthListMethodsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthListMethodsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthListMethodsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AuthPromoteMethodClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethodSummary
+	JSON400      *Error
+	JSON401      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthPromoteMethodClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthPromoteMethodClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AuthPromoteMethodClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -15154,6 +19749,46 @@ func (r QueryDatabaseInsertClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r QueryDatabaseInsertClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type QueryDatabasePingClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		// Count Number of rows returned
+		Count *int `json:"count,omitempty"`
+
+		// Data Result rows of the probe query
+		Data *[]map[string]interface{} `json:"data,omitempty"`
+	}
+	JSON401 *Error
+	JSON403 *Error
+	JSON404 *Error
+	JSON429 *DatabaseQueryCapExceeded
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryDatabasePingClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryDatabasePingClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r QueryDatabasePingClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -16407,6 +21042,7 @@ type GetProjectConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectConfig
+	YAML200      *openapi_types.File
 	JSON401      *Error
 	JSON404      *Error
 }
@@ -17912,6 +22548,42 @@ func (r StreamProjectLogsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r StreamProjectLogsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type QueryProjectMetricsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectMetricsQueryResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryProjectMetricsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryProjectMetricsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r QueryProjectMetricsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -19532,6 +24204,42 @@ func (c *ClientWithResponses) AuthConvertAnonymousWithResponse(ctx context.Conte
 	return ParseAuthConvertAnonymousClientResponse(rsp)
 }
 
+// AuthListIdentitiesWithResponse request returning *AuthListIdentitiesClientResponse
+func (c *ClientWithResponses) AuthListIdentitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListIdentitiesClientResponse, error) {
+	rsp, err := c.AuthListIdentities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthListIdentitiesClientResponse(rsp)
+}
+
+// AuthUnlinkIdentityWithResponse request returning *AuthUnlinkIdentityClientResponse
+func (c *ClientWithResponses) AuthUnlinkIdentityWithResponse(ctx context.Context, identityId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthUnlinkIdentityClientResponse, error) {
+	rsp, err := c.AuthUnlinkIdentity(ctx, identityId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthUnlinkIdentityClientResponse(rsp)
+}
+
+// AuthListMethodsWithResponse request returning *AuthListMethodsClientResponse
+func (c *ClientWithResponses) AuthListMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthListMethodsClientResponse, error) {
+	rsp, err := c.AuthListMethods(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthListMethodsClientResponse(rsp)
+}
+
+// AuthPromoteMethodWithResponse request returning *AuthPromoteMethodClientResponse
+func (c *ClientWithResponses) AuthPromoteMethodWithResponse(ctx context.Context, methodId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthPromoteMethodClientResponse, error) {
+	rsp, err := c.AuthPromoteMethod(ctx, methodId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthPromoteMethodClientResponse(rsp)
+}
+
 // AuthDeleteAllMySessionsWithResponse request returning *AuthDeleteAllMySessionsClientResponse
 func (c *ClientWithResponses) AuthDeleteAllMySessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AuthDeleteAllMySessionsClientResponse, error) {
 	rsp, err := c.AuthDeleteAllMySessions(ctx, reqEditors...)
@@ -19609,6 +24317,15 @@ func (c *ClientWithResponses) QueryDatabaseInsertWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseQueryDatabaseInsertClientResponse(rsp)
+}
+
+// QueryDatabasePingWithResponse request returning *QueryDatabasePingClientResponse
+func (c *ClientWithResponses) QueryDatabasePingWithResponse(ctx context.Context, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*QueryDatabasePingClientResponse, error) {
+	rsp, err := c.QueryDatabasePing(ctx, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDatabasePingClientResponse(rsp)
 }
 
 // QueryDatabaseSelectWithBodyWithResponse request with arbitrary body returning *QueryDatabaseSelectClientResponse
@@ -20566,6 +25283,23 @@ func (c *ClientWithResponses) StreamProjectLogsWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseStreamProjectLogsClientResponse(rsp)
+}
+
+// QueryProjectMetricsWithBodyWithResponse request with arbitrary body returning *QueryProjectMetricsClientResponse
+func (c *ClientWithResponses) QueryProjectMetricsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error) {
+	rsp, err := c.QueryProjectMetricsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryProjectMetricsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) QueryProjectMetricsWithResponse(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error) {
+	rsp, err := c.QueryProjectMetrics(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryProjectMetricsClientResponse(rsp)
 }
 
 // ListOAuthConfigsWithResponse request returning *ListOAuthConfigsClientResponse
@@ -21716,7 +26450,7 @@ func ParseAuthSignupClientResponse(rsp *http.Response) (*AuthSignupClientRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest AuthTokenResponse
+		var dest AuthSignupResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -22000,6 +26734,159 @@ func ParseAuthConvertAnonymousClientResponse(rsp *http.Response) (*AuthConvertAn
 	return response, nil
 }
 
+// ParseAuthListIdentitiesClientResponse parses an HTTP response from a AuthListIdentitiesWithResponse call
+func ParseAuthListIdentitiesClientResponse(rsp *http.Response) (*AuthListIdentitiesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthListIdentitiesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthIdentitiesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthUnlinkIdentityClientResponse parses an HTTP response from a AuthUnlinkIdentityWithResponse call
+func ParseAuthUnlinkIdentityClientResponse(rsp *http.Response) (*AuthUnlinkIdentityClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthUnlinkIdentityClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthListMethodsClientResponse parses an HTTP response from a AuthListMethodsWithResponse call
+func ParseAuthListMethodsClientResponse(rsp *http.Response) (*AuthListMethodsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthListMethodsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethodsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthPromoteMethodClientResponse parses an HTTP response from a AuthPromoteMethodWithResponse call
+func ParseAuthPromoteMethodClientResponse(rsp *http.Response) (*AuthPromoteMethodClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthPromoteMethodClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethodSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseAuthDeleteAllMySessionsClientResponse parses an HTTP response from a AuthDeleteAllMySessionsWithResponse call
 func ParseAuthDeleteAllMySessionsClientResponse(rsp *http.Response) (*AuthDeleteAllMySessionsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22273,6 +27160,66 @@ func ParseQueryDatabaseInsertClientResponse(rsp *http.Response) (*QueryDatabaseI
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest DatabaseQueryCapExceeded
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryDatabasePingClientResponse parses an HTTP response from a QueryDatabasePingWithResponse call
+func ParseQueryDatabasePingClientResponse(rsp *http.Response) (*QueryDatabasePingClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryDatabasePingClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Count Number of rows returned
+			Count *int `json:"count,omitempty"`
+
+			// Data Result rows of the probe query
+			Data *[]map[string]interface{} `json:"data,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
@@ -23557,6 +28504,13 @@ func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigC
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML200 = &dest
 
 	}
 
@@ -25565,6 +30519,74 @@ func ParseStreamProjectLogsClientResponse(rsp *http.Response) (*StreamProjectLog
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryProjectMetricsClientResponse parses an HTTP response from a QueryProjectMetricsWithResponse call
+func ParseQueryProjectMetricsClientResponse(rsp *http.Response) (*QueryProjectMetricsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryProjectMetricsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectMetricsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

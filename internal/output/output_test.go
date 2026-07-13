@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	"github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/config"
 )
 
@@ -38,7 +37,7 @@ func TestProjectsOutput(t *testing.T) {
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
 	var out bytes.Buffer
-	plan := common.ProjectPlan("FREE")
+	plan := apiclient.ProjectPlan("FREE")
 
 	Projects(&out, &config.Config{
 		CurrentProject: &config.ProjectConfig{
@@ -50,7 +49,7 @@ func TestProjectsOutput(t *testing.T) {
 			{
 				Id:        projectID,
 				Name:      "Alpha",
-				Status:    common.ProjectStatusActive,
+				Status:    apiclient.ProjectStatusActive,
 				Plan:      &plan,
 				CreatedAt: time.Now().Add(-2 * time.Hour),
 				UpdatedAt: time.Now().Add(-30 * time.Minute),
@@ -83,12 +82,12 @@ func TestProjectOutput(t *testing.T) {
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
 	var out bytes.Buffer
-	plan := common.ProjectPlan("PRO")
+	plan := apiclient.ProjectPlan("PRO")
 
 	Project(&out, &apiclient.Project{
 		Id:     projectID,
 		Name:   "Alpha",
-		Status: common.ProjectStatusActive,
+		Status: apiclient.ProjectStatusActive,
 		Plan:   &plan,
 	})
 
@@ -106,7 +105,7 @@ func TestDatabasesHideConnectionStringsByDefault(t *testing.T) {
 			{
 				Id:               databaseID,
 				Name:             "app",
-				Status:           common.DatabaseStatusActive,
+				Status:           apiclient.DatabaseStatusActive,
 				ConnectionString: &connectionString,
 			},
 		},
@@ -130,7 +129,7 @@ func TestDatabasesShowConnectionStringsWhenRequested(t *testing.T) {
 			{
 				Id:               databaseID,
 				Name:             "app",
-				Status:           common.DatabaseStatusActive,
+				Status:           apiclient.DatabaseStatusActive,
 				ConnectionString: &connectionString,
 			},
 		},
@@ -149,7 +148,7 @@ func TestDatabaseOutputHonorsConnectionStringFlag(t *testing.T) {
 	database := &apiclient.Database{
 		Id:               databaseID,
 		Name:             "app",
-		Status:           common.DatabaseStatusActive,
+		Status:           apiclient.DatabaseStatusActive,
 		ConnectionString: &connectionString,
 	}
 
@@ -167,7 +166,7 @@ func TestVariablesOutputDoesNotPrintValues(t *testing.T) {
 	require.NoError(t, err)
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
-	status := common.Active
+	status := apiclient.Active
 	var out bytes.Buffer
 
 	Variables(&out, &apiclient.PaginatedVariables{

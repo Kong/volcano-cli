@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 // ProjectConfigApplyReport renders the server's config apply (or dry-run)
 // report: per-section action counts, per-entry errors and notices, and
 // prominent warnings for skipped and missing resources.
-func ProjectConfigApplyReport(w io.Writer, result *apicommon.ProjectConfigApplyResult) {
+func ProjectConfigApplyReport(w io.Writer, result *apiclient.ProjectConfigApplyResult) {
 	if result == nil {
 		return
 	}
@@ -54,7 +54,7 @@ func ProjectConfigApplyReport(w io.Writer, result *apicommon.ProjectConfigApplyR
 	}
 }
 
-func printProjectConfigSectionCounts(w io.Writer, results []apicommon.ProjectConfigApplyResultEntry) {
+func printProjectConfigSectionCounts(w io.Writer, results []apiclient.ProjectConfigApplyResultEntry) {
 	type sectionCounts struct {
 		created, updated, deleted, unchanged, errors int
 	}
@@ -106,7 +106,7 @@ func printProjectConfigSectionCounts(w io.Writer, results []apicommon.ProjectCon
 	}
 }
 
-func projectConfigEntryRef(entry apicommon.ProjectConfigApplyResultEntry) string {
+func projectConfigEntryRef(entry apiclient.ProjectConfigApplyResultEntry) string {
 	if entry.Name != nil && *entry.Name != "" {
 		return fmt.Sprintf("%s %q", entry.Section, *entry.Name)
 	}
@@ -115,7 +115,7 @@ func projectConfigEntryRef(entry apicommon.ProjectConfigApplyResultEntry) string
 
 // ProjectConfigValidationErrors renders the server's 422 validation error
 // list, one line per entry.
-func ProjectConfigValidationErrors(w io.Writer, errs []apicommon.ProjectConfigValidationError) {
+func ProjectConfigValidationErrors(w io.Writer, errs []apiclient.ProjectConfigValidationError) {
 	if len(errs) == 0 {
 		return
 	}
