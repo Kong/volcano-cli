@@ -151,15 +151,17 @@ func renderSearch(cmd *cobra.Command, query string, results []docs.Result) {
 		return
 	}
 	for _, r := range results {
-		fmt.Fprintf(out, "%2d. %s\n", r.Rank, r.ID)
-		if crumb := strings.Join(r.HeadingPath, " › "); crumb != "" {
-			fmt.Fprintf(out, "    %s\n", crumb)
+		title := strings.Join(r.HeadingPath, " › ")
+		if title == "" {
+			title = r.Title
 		}
+		fmt.Fprintf(out, "%2d. %s\n", r.Rank, title)
+		fmt.Fprintf(out, "    id: %s\n", r.ID)
 		if r.Snippet != "" {
 			fmt.Fprintf(out, "    %s\n", r.Snippet)
 		}
 	}
-	fmt.Fprintf(out, "\n%d result(s). Read one with: volcano docs get <id>\n", len(results))
+	fmt.Fprintf(out, "\nShowing %d result(s). Read one with:\n  volcano docs get \"<id>\"\n", len(results))
 }
 
 func renderList(cmd *cobra.Command, items []docs.ListItem) {
