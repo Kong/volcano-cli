@@ -18,7 +18,7 @@ import (
 // fakeDocsServer serves the minimal GitHub API surface docs sync needs.
 func fakeDocsServer(t *testing.T, files map[string]string) *httptest.Server {
 	t.Helper()
-	const repo = "Kong/volcano-hosting"
+	const repo = "Kong/volcano-cli"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		base := "/repos/" + repo
 		switch {
@@ -93,7 +93,7 @@ func TestDocsSearchJSONEnvelope(t *testing.T) {
 	assert.Equal(t, 1, env.SchemaVersion)
 	assert.Equal(t, "search", env.Command)
 	assert.Equal(t, "github", env.Source.Provider)
-	assert.Equal(t, "Kong/volcano-hosting", env.Source.Repository)
+	assert.Equal(t, "Kong/volcano-cli", env.Source.Repository)
 	assert.Equal(t, "deadbeefcafebabe", env.Source.ResolvedCommit)
 	require.NotNil(t, env.Cache)
 	assert.False(t, env.Cache.Stale)

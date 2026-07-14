@@ -24,10 +24,12 @@ import (
 // compatible if another provider is ever added.
 const Provider = "github"
 
-// Compiled default source. Overridable via -ldflags -X if a release ever needs
-// to retarget without a code change.
+// Compiled default source. The CLI's own documentation lives in this public
+// repository, so it needs no GITHUB_TOKEN and stays versioned with the CLI.
+// Point --repo/--ref/--path (or VOLCANO_DOCS_*) at Kong/volcano-hosting to
+// search the broader product/API docs instead. Overridable via -ldflags -X.
 var (
-	defaultRepo = "Kong/volcano-hosting"
+	defaultRepo = "Kong/volcano-cli"
 	defaultRef  = "main"
 	defaultPath = "docs"
 )

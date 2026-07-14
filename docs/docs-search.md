@@ -75,7 +75,7 @@ Every command supports `--json`, emitting a single versioned envelope on stdout
   "command": "search",
   "source": {
     "provider": "github",
-    "repository": "Kong/volcano-hosting",
+    "repository": "Kong/volcano-cli",
     "ref": "main",
     "path": "docs",
     "resolved_commit": "…"
@@ -108,9 +108,11 @@ read that section. Errors use the same envelope with an `error` object
 
 ## Configuring the source
 
-The documentation source defaults to the `docs/` directory of
-`Kong/volcano-hosting` on `main`. Override it per invocation or via the
-environment; precedence is flags → environment → config → defaults:
+The documentation source defaults to the `docs/` directory of the public
+`Kong/volcano-cli` repository on `main` — the CLI's own documentation, which
+stays versioned with the CLI and needs no authentication. Override it per
+invocation or via the environment; precedence is flags → environment → config →
+defaults:
 
 | Field      | Flag     | Environment          |
 |------------|----------|----------------------|
@@ -118,5 +120,15 @@ environment; precedence is flags → environment → config → defaults:
 | git ref    | `--ref`  | `VOLCANO_DOCS_REF`   |
 | subdir     | `--path` | `VOLCANO_DOCS_PATH`  |
 
-Each source is cached separately. For private source repositories, set
-`GITHUB_TOKEN`; it is sent only to `api.github.com` and never to any other host.
+To search the broader product/API documentation instead, point it at the
+hosting repo:
+
+```bash
+volcano docs --repo Kong/volcano-hosting --path docs search "row level security"
+```
+
+Each source is cached separately. Note that `volcano <command> --help` is the
+authoritative, always-current reference for command syntax and flags; the
+`docs` corpus complements it with conceptual guides and product context. For
+private source repositories, set `GITHUB_TOKEN`; it is sent only to
+`api.github.com` and never to any other host.
