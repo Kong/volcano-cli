@@ -46,7 +46,7 @@ func NewService(opts Options) (*Service, error) {
 	}
 	src := ResolveSource(opts.Overrides, opts.Config, opts.Env)
 	if err := src.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSource, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSource, err)
 	}
 	cacheDir, err := CacheDir(opts.CacheDir, src)
 	if err != nil {
@@ -248,8 +248,8 @@ func (s *Service) Get(ctx context.Context, id string, offline bool) (*GetResult,
 
 func splitID(id string) (docPath, anchor string) {
 	id = strings.TrimSpace(id)
-	if i := strings.IndexByte(id, '#'); i >= 0 {
-		return id[:i], id[i+1:]
+	if p, a, ok := strings.Cut(id, "#"); ok {
+		return p, a
 	}
 	return id, ""
 }

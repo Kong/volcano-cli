@@ -65,7 +65,7 @@ type blob struct {
 // checked_at. Any failure leaves the previous cache untouched.
 func (s *Syncer) Sync(ctx context.Context, force bool) (*SyncResult, error) {
 	if err := s.src.Validate(); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidSource, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidSource, err)
 	}
 
 	commit, err := s.resolveCommit(ctx)
@@ -165,7 +165,7 @@ func (s *Syncer) Sync(ctx context.Context, force bool) (*SyncResult, error) {
 		CheckedAt:      now,
 	}
 	if err := stage.publish(manifest); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSyncIncomplete, err)
+		return nil, fmt.Errorf("%w: %w", ErrSyncIncomplete, err)
 	}
 	published = true
 	return result, nil
@@ -304,7 +304,7 @@ func (s *Syncer) download(ctx context.Context, commit string, blobs []blob, stag
 	}
 	wg.Wait()
 	if firstErr != nil {
-		return fmt.Errorf("%w: %v", ErrSyncIncomplete, firstErr)
+		return fmt.Errorf("%w: %w", ErrSyncIncomplete, firstErr)
 	}
 	return nil
 }
@@ -328,7 +328,7 @@ func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, erro
 		u = fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, full, commit)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +341,7 @@ func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, erro
 	}
 	resp, err := s.doer.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSourceUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrSourceUnavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
@@ -360,7 +360,7 @@ func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, erro
 // getJSON performs a GET against the GitHub API and decodes JSON. The optional
 // token is applied only to the real api.github.com host.
 func (s *Syncer) getJSON(ctx context.Context, rawURL string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func (s *Syncer) getJSON(ctx context.Context, rawURL string, out any) error {
 	}
 	resp, err := s.doer.Do(req)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrSourceUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrSourceUnavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
@@ -381,7 +381,7 @@ func (s *Syncer) getJSON(ctx context.Context, rawURL string, out any) error {
 		return fmt.Errorf("%w: GET %s -> HTTP %d: %s", ErrSourceUnavailable, rawURL, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("%w: decode %s: %v", ErrSourceUnavailable, rawURL, err)
+		return fmt.Errorf("%w: decode %s: %w", ErrSourceUnavailable, rawURL, err)
 	}
 	return nil
 }

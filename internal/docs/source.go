@@ -8,6 +8,7 @@ package docs
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -85,7 +86,7 @@ func ResolveSource(ov Overrides, cfg *config.Config, lookup envLookup) SourceRef
 		}
 	}
 
-	envOverride := !(cfg != nil && cfg.IgnoreEnv)
+	envOverride := cfg == nil || !cfg.IgnoreEnv
 	if envOverride {
 		if v, ok := lookup(EnvRepo); ok && strings.TrimSpace(v) != "" {
 			src.Repo = strings.TrimSpace(v)
@@ -123,7 +124,7 @@ func (s SourceRef) Validate() error {
 		return fmt.Errorf("invalid docs repository %q: expected GitHub owner/name", s.Repo)
 	}
 	if strings.TrimSpace(s.Ref) == "" {
-		return fmt.Errorf("invalid docs ref: must not be empty")
+		return errors.New("invalid docs ref: must not be empty")
 	}
 	if strings.ContainsAny(s.Ref, " \t\n") {
 		return fmt.Errorf("invalid docs ref %q", s.Ref)

@@ -242,10 +242,10 @@ var (
 )
 
 // tokenize returns normalized word tokens and preserved technical tokens.
-func tokenize(text string) (words []string, technical []string) {
+func tokenize(text string) (words, technical []string) {
 	lower := strings.ToLower(text)
 	for _, w := range wordSplit.Split(lower, -1) {
-		if len(w) == 0 || isStopWord(w) {
+		if w == "" || isStopWord(w) {
 			continue
 		}
 		words = append(words, w)
@@ -260,7 +260,7 @@ func tokenize(text string) (words []string, technical []string) {
 		technical = append(technical, t)
 	}
 	// Preserve leading -- flags explicitly (stripped above).
-	for _, raw := range strings.Fields(lower) {
+	for raw := range strings.FieldsSeq(lower) {
 		if strings.HasPrefix(raw, "--") {
 			f := strings.Trim(raw, ".,;:)")
 			if len(f) > 2 {
@@ -316,14 +316,8 @@ func snippet(body string, terms []string) string {
 		}
 		return flat
 	}
-	start := pos - snippetChars/3
-	if start < 0 {
-		start = 0
-	}
-	end := start + snippetChars
-	if end > len(flat) {
-		end = len(flat)
-	}
+	start := max(pos-snippetChars/3, 0)
+	end := min(start+snippetChars, len(flat))
 	out := flat[start:end]
 	if start > 0 {
 		out = "…" + out

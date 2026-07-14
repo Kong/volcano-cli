@@ -123,18 +123,6 @@ func (c *Cache) ReadFile(relPath string) ([]byte, error) {
 	return data, nil
 }
 
-// filesRoot returns the files directory of the live snapshot.
-func (c *Cache) filesRoot() (string, error) {
-	snap, err := c.currentSnapshot()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", ErrCacheMissing
-		}
-		return "", err
-	}
-	return filepath.Join(snap, "files"), nil
-}
-
 // staging represents an in-progress snapshot that is atomically published on
 // success and discarded on failure, so an interrupted sync never corrupts the
 // live cache.
@@ -147,7 +135,7 @@ type staging struct {
 func (c *Cache) newStaging(now time.Time) (*staging, error) {
 	name := fmt.Sprintf("%d-%d", now.UTC().UnixNano(), os.Getpid())
 	dir := c.snapshotDir(name)
-	if err := os.MkdirAll(filepath.Join(dir, "files"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "files"), 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create staging snapshot: %w", err)
 	}
 	return &staging{cache: c, name: name, dir: dir}, nil
@@ -155,7 +143,7 @@ func (c *Cache) newStaging(now time.Time) (*staging, error) {
 
 // copyFrom copies a cached file (by relative path) from an existing snapshot
 // into the staging snapshot, preserving reuse of unchanged blobs.
-func (s *staging) copyFrom(src string, relPath string) error {
+func (s *staging) copyFrom(src, relPath string) error {
 	clean, err := safeRelPath(relPath)
 	if err != nil {
 		return err
@@ -173,11 +161,13 @@ func (s *staging) writeFile(relPath string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	// clean is validated by safeRelPath and joined under the snapshot files
+	// root, so it cannot escape the cache directory.
 	dst := filepath.Join(s.dir, "files", clean)
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0o644)
+	return os.WriteFile(dst, data, 0o600) //nolint:gosec // path sanitized by safeRelPath
 }
 
 // publish writes the manifest and atomically swings the current pointer to
@@ -196,7 +186,7 @@ func (s *staging) publish(m *Manifest) error {
 func (s *staging) discard() { _ = os.RemoveAll(s.dir) }
 
 func (c *Cache) writePointer(name string) error {
-	if err := os.MkdirAll(c.dir, 0o755); err != nil {
+	if err := os.MkdirAll(c.dir, 0o750); err != nil {
 		return err
 	}
 	data, err := json.Marshal(pointer{Snapshot: name})
@@ -204,7 +194,7 @@ func (c *Cache) writePointer(name string) error {
 		return err
 	}
 	tmp := c.pointerPath() + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, c.pointerPath())
@@ -241,7 +231,7 @@ func writeManifest(p string, m *Manifest) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0o644)
+	return os.WriteFile(p, data, 0o600)
 }
 
 // safeRelPath validates a cache-relative path and returns its cleaned form.

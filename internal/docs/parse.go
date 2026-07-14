@@ -38,8 +38,8 @@ var (
 // Topic returns the first path segment of a doc path, e.g. "authentication"
 // for "authentication/overview.md", or "" for a top-level file.
 func topicOf(docPath string) string {
-	if i := strings.IndexByte(docPath, '/'); i >= 0 {
-		return docPath[:i]
+	if top, _, ok := strings.Cut(docPath, "/"); ok {
+		return top
 	}
 	return ""
 }
@@ -137,10 +137,6 @@ func ParseDoc(docPath string, content []byte) []Section {
 	}
 	flush(len(lines), len(lines))
 
-	// Drop an empty leading preamble (common when a doc opens with its H1).
-	if len(sections) > 1 && strings.TrimSpace(sections[0].Body) == sections[0].Heading {
-		// keep; heading-only preamble still fine
-	}
 	return sections
 }
 
@@ -170,7 +166,7 @@ func deriveTitle(docPath string, lines []string) string {
 		if inFence {
 			continue
 		}
-		if m := atxHeading.FindStringSubmatch(line); m != nil && len(m[1]) == 1 {
+		if m := atxHeading.FindStringSubmatch(line); len(m) > 1 && len(m[1]) == 1 {
 			return strings.TrimSpace(m[2])
 		}
 	}
