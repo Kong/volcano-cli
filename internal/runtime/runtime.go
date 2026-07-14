@@ -34,9 +34,11 @@ type Deps struct {
 	// https://api.github.com) for docs sync. Tests point this at an httptest
 	// server.
 	DocsGitHubAPIURL string
-	// DocsRawBaseURL overrides the raw content base (default
-	// https://raw.githubusercontent.com) for docs downloads. Tests point this
-	// at an httptest server.
+	// DocsRawBaseURL selects raw-host downloads (e.g.
+	// https://raw.githubusercontent.com) for public sources. It is empty by
+	// default: downloads then go through the authenticated GitHub contents API
+	// (which also works for private repos). Tests may point it at an httptest
+	// server to exercise the raw-host path.
 	DocsRawBaseURL string
 	// Now overrides the wall clock for deterministic freshness/staleness tests.
 	Now func() time.Time

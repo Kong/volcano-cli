@@ -30,7 +30,9 @@ func (s Section) ID() string {
 	return s.DocPath + "#" + s.Anchor
 }
 
-var atxHeading = regexp.MustCompile(`^(#{1,6})\s+(.+?)\s*#*\s*$`)
+// atxHeading matches an ATX heading. A trailing #-sequence is only a closing
+// marker when whitespace precedes it (CommonMark), so `# C#` keeps its `#`.
+var atxHeading = regexp.MustCompile(`^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$`)
 
 // fenceDelim reports the fence character and run length when line begins a
 // code fence (>=3 backticks or tildes), else n==0.
@@ -98,7 +100,7 @@ func ParseDoc(docPath string, content []byte) []Section {
 	}
 
 	var sections []Section
-	anchorCounts := map[string]int{}
+	usedAnchors := map[string]bool{}
 	var stack []string // heading breadcrumb by level
 
 	// Preamble section (content before the first heading) is attributed to the
@@ -164,7 +166,7 @@ func ParseDoc(docPath string, content []byte) []Section {
 			crumb = append([]string{title}, crumb...)
 		}
 
-		anchor := uniqueAnchor(anchorCounts, heading)
+		anchor := uniqueAnchor(usedAnchors, heading)
 		cur = openSection{
 			heading:   heading,
 			level:     level,
@@ -241,17 +243,21 @@ func slugify(heading string) string {
 
 // uniqueAnchor returns a GitHub-compatible anchor, appending -1, -2, ... for
 // duplicate headings within a document.
-func uniqueAnchor(counts map[string]int, heading string) string {
+// uniqueAnchor returns a GitHub-compatible anchor, appending -1, -2, … for
+// duplicates. It tracks every emitted anchor (not just per-base counts) so an
+// explicit heading that collides with a generated suffix — e.g. `Foo`, `Foo`,
+// `Foo-1` → `foo`, `foo-1`, `foo-1-1` — still yields unique, addressable ids.
+func uniqueAnchor(used map[string]bool, heading string) string {
 	base := slugify(heading)
 	if base == "" {
 		base = "section"
 	}
-	n := counts[base]
-	counts[base] = n + 1
-	if n == 0 {
-		return base
+	cand := base
+	for i := 1; used[cand]; i++ {
+		cand = base + "-" + itoa(i)
 	}
-	return base + "-" + itoa(n)
+	used[cand] = true
+	return cand
 }
 
 func itoa(n int) string {

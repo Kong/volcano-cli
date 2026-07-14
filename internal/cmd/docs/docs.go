@@ -60,9 +60,13 @@ type flags struct {
 }
 
 func (f *flags) service(deps cliruntime.Deps) (*docs.Service, error) {
+	cfg, err := loadConfig(deps)
+	if err != nil {
+		return nil, err
+	}
 	return docs.NewService(docs.Options{
 		Overrides:    docs.Overrides{Repo: f.repo, Ref: f.ref, Path: f.path},
-		Config:       loadConfig(deps),
+		Config:       cfg,
 		HTTPClient:   deps.HTTPClient,
 		CacheDir:     deps.DocsCacheDir,
 		GitHubAPIURL: deps.DocsGitHubAPIURL,
@@ -72,16 +76,23 @@ func (f *flags) service(deps cliruntime.Deps) (*docs.Service, error) {
 	})
 }
 
-func loadConfig(deps cliruntime.Deps) *config.Config {
+// loadConfig returns the persisted config, propagating read/parse errors so a
+// user's configured docs source is never silently replaced by the compiled
+// default. config.Load already returns an empty default (no error) for a
+// genuinely absent config file.
+func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
 	load := config.Load
 	if deps.ConfigLoader != nil {
 		load = deps.ConfigLoader
 	}
 	cfg, err := load()
-	if err != nil || cfg == nil {
-		return config.Default()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
-	return cfg
+	if cfg == nil {
+		return config.Default(), nil
+	}
+	return cfg, nil
 }
 
 // --- JSON envelope -------------------------------------------------------

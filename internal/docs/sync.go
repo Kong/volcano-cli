@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -75,7 +74,9 @@ func (s *Syncer) Sync(ctx context.Context, force bool) (*SyncResult, error) {
 
 	prev, _ := s.cache.Load() // nil when no cache yet
 	if !force && prev != nil && prev.ResolvedCommit == commit {
-		s.cache.touch(s.now())
+		if err := s.cache.touch(s.now()); err != nil {
+			return nil, err
+		}
 		return &SyncResult{ResolvedCommit: commit, Unchanged: len(prev.Files), Changed: false}, nil
 	}
 
@@ -112,15 +113,18 @@ func (s *Syncer) Sync(ctx context.Context, force bool) (*SyncResult, error) {
 
 	result := &SyncResult{ResolvedCommit: commit, Changed: true}
 
-	// Partition into reuse (unchanged SHA) and download sets.
+	// Partition into reuse (unchanged SHA) and download sets. --force skips
+	// reuse so every file is re-downloaded, as its help promises.
 	var toDownload []blob
 	for _, b := range blobs {
-		if oldSHA, ok := prevSHA[b.Rel]; ok && oldSHA == b.SHA && prevSnap != "" {
-			if err := stage.copyFrom(prevSnap, b.Rel); err == nil {
-				result.Unchanged++
-				continue
+		if !force {
+			if oldSHA, ok := prevSHA[b.Rel]; ok && oldSHA == b.SHA && prevSnap != "" {
+				if err := stage.copyFrom(prevSnap, b.Rel); err == nil {
+					result.Unchanged++
+					continue
+				}
+				// fall through to re-download if reuse failed
 			}
-			// fall through to re-download if reuse failed
 		}
 		toDownload = append(toDownload, b)
 	}
@@ -228,7 +232,7 @@ func (s *Syncer) enumerate(ctx context.Context, commit string) ([]blob, error) {
 // walkContents recursively enumerates markdown blobs via the contents API,
 // used when the recursive tree is truncated.
 func (s *Syncer) walkContents(ctx context.Context, commit, repoPath string) ([]blob, error) {
-	u := fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, repoPath, commit)
+	u := fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, escapePath(repoPath), commit)
 	var entries []struct {
 		Path string `json:"path"`
 		Type string `json:"type"`
@@ -323,9 +327,9 @@ func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, erro
 	var u string
 	useRawHost := strings.TrimSpace(s.rawURL) != ""
 	if useRawHost {
-		u = fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(s.rawURL, "/"), s.src.Repo, commit, full)
+		u = fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(s.rawURL, "/"), s.src.Repo, commit, escapePath(full))
 	} else {
-		u = fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, full, commit)
+		u = fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, escapePath(full), commit)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
@@ -386,26 +390,23 @@ func (s *Syncer) getJSON(ctx context.Context, rawURL string, out any) error {
 	return nil
 }
 
-// touch refreshes checked_at on the live manifest without a new snapshot.
-func (c *Cache) touch(now time.Time) {
-	m, err := c.Load()
-	if err != nil {
-		return
-	}
-	m.CheckedAt = now
-	snap, err := c.currentSnapshot()
-	if err != nil {
-		return
-	}
-	_ = writeManifest(path.Join(snap, "manifest.json"), m)
-}
-
 func isRealGitHubAPI(rawURL string) bool {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return false
 	}
 	return strings.EqualFold(u.Hostname(), realAPIHost)
+}
+
+// escapePath percent-escapes each path segment while preserving the `/`
+// separators, so document paths containing '#', '?', '%', or spaces resolve to
+// the correct URL rather than being parsed as fragment/query/escape syntax.
+func escapePath(p string) string {
+	segs := strings.Split(p, "/")
+	for i, s := range segs {
+		segs[i] = url.PathEscape(s)
+	}
+	return strings.Join(segs, "/")
 }
 
 // relUnder returns the path relative to prefix and whether it is under it.

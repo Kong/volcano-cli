@@ -363,3 +363,22 @@ func TestResidentIndexReuseAndInvalidation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, svc.idxBuilds, "index should rebuild after snapshot generation changes")
 }
+
+func TestSyncForceRedownloadsAll(t *testing.T) {
+	f := newFakeGitHub(t)
+	f.add("a.md", "# A")
+	f.add("b.md", "# B")
+	cache := t.TempDir()
+
+	svc := f.newService(t, cache, nil)
+	_, err := svc.Sync(context.Background(), false)
+	require.NoError(t, err)
+	rawAfterFirst := f.rawHits.Load()
+
+	// Same commit + --force must re-download every file (no SHA reuse).
+	svc2 := f.newService(t, cache, nil)
+	res, err := svc2.Sync(context.Background(), true)
+	require.NoError(t, err)
+	assert.Equal(t, 0, res.Unchanged)
+	assert.Equal(t, int64(2), f.rawHits.Load()-rawAfterFirst)
+}

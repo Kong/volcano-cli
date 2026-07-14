@@ -265,18 +265,59 @@ func (c *Cache) writePointer(name string) error {
 	return os.Rename(tmp, c.pointerPath())
 }
 
-// prune removes every snapshot except keep to bound cache growth.
+// pruneGrace keeps recently-modified snapshots so a concurrent reader that has
+// already resolved a snapshot, or another process that just published one, is
+// not pulled out from under mid-operation. (Note: this reduces but does not
+// fully eliminate cross-process races; serializing writers with a lock file is
+// a possible future hardening.)
+const pruneGrace = 10 * time.Minute
+
+// prune removes snapshots other than keep, retaining any modified within
+// pruneGrace to bound growth without disrupting in-flight readers/writers.
 func (c *Cache) prune(keep string) {
 	entries, err := os.ReadDir(c.snapshotsDir())
 	if err != nil {
 		return
 	}
+	now := time.Now()
 	for _, e := range entries {
 		if e.Name() == keep {
 			continue
 		}
+		if info, ierr := e.Info(); ierr == nil && now.Sub(info.ModTime()) < pruneGrace {
+			continue
+		}
 		_ = os.RemoveAll(c.snapshotDir(e.Name()))
 	}
+}
+
+// touch atomically refreshes checked_at on the live manifest without creating a
+// new snapshot, and propagates any read/write failure to the caller.
+func (c *Cache) touch(now time.Time) error {
+	snap, err := c.openSnapshot()
+	if err != nil {
+		return err
+	}
+	m, err := snap.manifest()
+	if err != nil {
+		return err
+	}
+	m.CheckedAt = now
+	return writeManifestAtomic(filepath.Join(snap.dir, "manifest.json"), m)
+}
+
+// writeManifestAtomic writes a manifest via a temp file + rename so an
+// interrupted update cannot truncate the only published manifest.
+func writeManifestAtomic(p string, m *Manifest) error {
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p)
 }
 
 func readManifest(p string) (*Manifest, error) {

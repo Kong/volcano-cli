@@ -27,16 +27,18 @@ func Code(err error) string {
 	switch {
 	case errors.Is(err, ErrCacheMissing):
 		return "DOCS_CACHE_MISSING"
-	case errors.Is(err, ErrSourceUnavailable):
-		return "DOCS_SOURCE_UNAVAILABLE"
 	case errors.Is(err, ErrInvalidSource):
 		return "DOCS_INVALID_SOURCE"
-	case errors.Is(err, ErrDocNotFound):
-		return "DOCS_NOT_FOUND"
 	case errors.Is(err, ErrInvalidID):
 		return "DOCS_INVALID_ID"
+	case errors.Is(err, ErrDocNotFound):
+		return "DOCS_NOT_FOUND"
+	// A partial download wraps both ErrSyncIncomplete (outer) and
+	// ErrSourceUnavailable (cause); prefer the more specific outer semantic.
 	case errors.Is(err, ErrSyncIncomplete):
 		return "DOCS_SYNC_INCOMPLETE"
+	case errors.Is(err, ErrSourceUnavailable):
+		return "DOCS_SOURCE_UNAVAILABLE"
 	default:
 		return ""
 	}

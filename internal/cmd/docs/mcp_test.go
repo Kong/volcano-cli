@@ -3,11 +3,15 @@ package docs
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 // runMCP drives the `docs mcp` command with newline-delimited JSON-RPC input
@@ -97,4 +101,23 @@ func TestMCPGetNotFoundIsDomainError(t *testing.T) {
 	sc := result["structuredContent"].(map[string]any)
 	errEnv := sc["error"].(map[string]any)
 	assert.Equal(t, "DOCS_NOT_FOUND", errEnv["code"])
+}
+
+func TestServicePropagatesConfigLoadError(t *testing.T) {
+	deps := cliruntime.Deps{
+		DocsCacheDir: t.TempDir(),
+		ConfigLoader: func() (*cliconfig.Config, error) {
+			return nil, errors.New("corrupt config file")
+		},
+	}
+	cmd := New(deps)
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
+	cmd.SetArgs([]string{"list", "--offline"})
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load config")
 }

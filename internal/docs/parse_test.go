@@ -133,3 +133,29 @@ func TestParseDocNestedFenceRequiresEqualLengthClose(t *testing.T) {
 	assert.Contains(t, headings, "Real")
 	assert.NotContains(t, headings, "Not A Heading")
 }
+
+func TestParseDocHeadingKeepsTrailingHashWithoutSpace(t *testing.T) {
+	// `# C#` — the trailing # is part of the title, not a closing marker.
+	secs := ParseDoc("d.md", []byte("# C#\nbody"))
+	assert.Equal(t, "C#", secs[0].Title)
+	assert.Equal(t, "C#", secs[0].Heading)
+	// A real closing sequence (space-preceded) is still stripped.
+	secs2 := ParseDoc("e.md", []byte("## Title ###\nbody"))
+	assert.Equal(t, "Title", secs2[len(secs2)-1].Heading)
+}
+
+func TestParseDocAnchorsUniqueOnSuffixCollision(t *testing.T) {
+	md := "# T\n## Foo\na\n## Foo\nb\n## Foo-1\nc"
+	secs := ParseDoc("d.md", []byte(md))
+	seen := map[string]bool{}
+	var anchors []string
+	for _, s := range secs {
+		if s.Anchor == "" {
+			continue
+		}
+		assert.False(t, seen[s.Anchor], "duplicate anchor %q", s.Anchor)
+		seen[s.Anchor] = true
+		anchors = append(anchors, s.Anchor)
+	}
+	assert.Equal(t, []string{"t", "foo", "foo-1", "foo-1-1"}, anchors)
+}
