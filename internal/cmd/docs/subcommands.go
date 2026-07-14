@@ -150,18 +150,21 @@ func renderSearch(cmd *cobra.Command, query string, results []docs.Result) {
 		fmt.Fprintf(out, "No docs matched %q\n", query)
 		return
 	}
+	st := newStyler(out)
 	for _, r := range results {
 		title := strings.Join(r.HeadingPath, " › ")
 		if title == "" {
 			title = r.Title
 		}
-		fmt.Fprintf(out, "%2d. %s\n", r.Rank, title)
-		fmt.Fprintf(out, "    id: %s\n", r.ID)
+		fmt.Fprintf(out, "%s %s\n", st.bold(fmt.Sprintf("%2d.", r.Rank)), st.bold(title))
+		fmt.Fprintf(out, "    %s %s\n", st.faint("id:"), st.cyan(r.ID))
 		if r.Snippet != "" {
-			fmt.Fprintf(out, "    %s\n", r.Snippet)
+			fmt.Fprintf(out, "    %s\n", st.faint(r.Snippet))
 		}
 	}
-	fmt.Fprintf(out, "\nShowing %d result(s). Read one with:\n  volcano docs get \"<id>\"\n", len(results))
+	fmt.Fprintf(out, "\n%s\n  volcano docs get %s\n",
+		st.faint(fmt.Sprintf("Showing %d result(s). Read one with:", len(results))),
+		st.cyan("\"<id>\""))
 }
 
 func renderList(cmd *cobra.Command, items []docs.ListItem) {
@@ -170,10 +173,11 @@ func renderList(cmd *cobra.Command, items []docs.ListItem) {
 		fmt.Fprintln(out, "No documents in cache")
 		return
 	}
+	st := newStyler(out)
 	for _, it := range items {
-		fmt.Fprintf(out, "%-48s %s\n", it.Path, it.Title)
+		fmt.Fprintf(out, "%-48s %s\n", st.cyan(it.Path), st.faint(it.Title))
 	}
-	fmt.Fprintf(out, "\n%d document(s)\n", len(items))
+	fmt.Fprintf(out, "\n%s\n", st.faint(fmt.Sprintf("%d document(s)", len(items))))
 }
 
 func shortCommit(c string) string {
