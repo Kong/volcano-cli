@@ -205,3 +205,11 @@ func envValues(env []string, key string) []string {
 	}
 	return values
 }
+
+func TestComposeTemplateFallsBackToCommittedDefault(t *testing.T) {
+	// A normal build embeds no git-ignored override, so composeTemplate() must
+	// return the committed default verbatim. (The override-present branch can't
+	// be exercised in a unit test — go:embed is resolved at build time.)
+	assert.NotEmpty(t, composeTemplate())
+	assert.Equal(t, dockerComposeTemplate, composeTemplate())
+}

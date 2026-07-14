@@ -12,3 +12,9 @@ coverage.out
 .DS_Store
 .idea/
 .vscode/
+
+# Local-dev override for the embedded local-mode Compose template, written by
+# volcano-web's `make dev` from the selected volcano-hosting checkout. The
+# committed docker-compose.template.yml remains the default; this override just
+# lets local builds pick up unreleased hosting changes. Never committed.
+internal/localmode/assets/docker-compose.template.local.yml

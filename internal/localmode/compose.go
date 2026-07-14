@@ -2,7 +2,7 @@ package localmode
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"fmt"
 	"io"
 	"os"
@@ -12,8 +12,31 @@ import (
 	"github.com/Kong/volcano-cli/internal/output"
 )
 
+// dockerComposeTemplate is the committed default local-mode Compose template
+// (generated from volcano-hosting; see the file header). It is embedded directly
+// so a standalone CLI build always has a template.
+//
 //go:embed assets/docker-compose.template.yml
 var dockerComposeTemplate []byte
+
+// localmodeAssets embeds the whole assets dir so an optional, git-ignored local
+// override can be picked up when present. Embedding the directory (rather than
+// the override file by name) keeps the build working when no override exists.
+//
+//go:embed assets
+var localmodeAssets embed.FS
+
+// composeTemplate returns the local-mode Compose template to write out. A
+// git-ignored local override (assets/docker-compose.template.local.yml — written
+// by volcano-web's `make dev` from the selected volcano-hosting checkout) takes
+// precedence over the committed default, so local builds pick up unreleased
+// hosting changes without editing the tracked template.
+func composeTemplate() []byte {
+	if override, err := localmodeAssets.ReadFile("assets/docker-compose.template.local.yml"); err == nil {
+		return override
+	}
+	return dockerComposeTemplate
+}
 
 func (s Service) checkDocker(ctx context.Context) error {
 	_, err := s.runDocker(ctx, "version")
@@ -126,7 +149,7 @@ func (s Service) writeComposeFile() (string, func(), error) {
 	composePath := tmpFile.Name()
 	cleanup := func() { _ = os.Remove(composePath) }
 
-	if _, err := tmpFile.Write(dockerComposeTemplate); err != nil {
+	if _, err := tmpFile.Write(composeTemplate()); err != nil {
 		_ = tmpFile.Close()
 		cleanup()
 		return "", nil, fmt.Errorf("failed to write compose file: %w", err)
