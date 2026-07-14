@@ -21,10 +21,10 @@ command namespace changes:
 | Local dev (`volcano start`) | `volcano config pull` | `volcano config deploy` |
 | Cloud project (`volcano login` + `volcano use`) | `volcano cloud config pull` | `volcano cloud config deploy` |
 
-`pull` downloads the target's current configuration as a canonical manifest
-rendered by Volcano; `deploy` uploads a manifest and reconciles the target to
-match it. Both commands take the same flags (`-f/--file`, `--force` for
-`pull`, `--dry-run` for `deploy`) regardless of namespace.
+`config pull` downloads the target's current configuration as a canonical
+manifest rendered by Volcano; `config deploy` uploads a manifest and
+reconciles the target to match it. Both take the same flags (`-f/--file`,
+`--force` for `pull`, `--dry-run` for `deploy`) regardless of namespace.
 
 ```yaml
 version: 1
@@ -83,21 +83,28 @@ Key semantics:
 ## Coming from Terraform?
 
 There is no state file (`.tfstate` or equivalent) behind `volcano-config.yaml`.
-Every `deploy` — including `--dry-run` — asks Volcano to diff the manifest
-against the project's actual live configuration, not a cached snapshot of a
-prior apply. Practical implications:
+Every `config deploy` — including `--dry-run` — asks Volcano to diff the
+manifest against the project's actual live configuration, not a cached
+snapshot of a prior apply. Practical implications:
 
 - No `import` / `state rm` / `state mv`: point the manifest at an existing
-  project and `deploy`; there's nothing to reconcile into a state file first.
-- No drift-detection step: the plan is always computed against live
-  configuration, so it can't disagree with reality the way a stale state file
-  can.
+  project and run `config deploy`; there's nothing to reconcile into a state
+  file first.
+- No separate drift-detection step: there's no stored copy to go stale —
+  every plan reads live configuration directly, so any actual drift just
+  shows up as the next diff and gets reconciled.
 - `--dry-run` is a live report, not a saved plan artifact — you can't inspect
-  it later or hand it to a later `deploy`; running `deploy` always recomputes
-  the plan from scratch.
+  it later or hand it to a later `config deploy`; running `config deploy`
+  always recomputes the plan from scratch.
 - No workspaces, no `-target`: the whole manifest reconciles against the
   currently selected project (`volcano use` / `VOLCANO_PROJECT_ID`) as one
-  unit. To leave something alone, omit it from the file.
+  unit. Omitting an entire section or field leaves it untouched. That does
+  **not** apply within a section you've already declared as fully synced
+  (`variables`, `buckets[].policies`, `auth.providers.oauth`,
+  `auth.email.templates`, `functions[].schedulers`) — omitting one entry
+  from an otherwise-declared list still deletes that entry, since the
+  declared list is the source of truth for the whole section. See "Key
+  semantics" above.
 - A failed deploy doesn't need an explicit resume step — see the apply-phase
   failure bullet above; re-running the same manifest picks up only what's
   still outstanding.
