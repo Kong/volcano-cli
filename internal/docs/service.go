@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/config"
@@ -36,6 +37,14 @@ type Service struct {
 	cache  *Cache
 	syncer *Syncer
 	now    func() time.Time
+
+	// Resident index cache. In one-shot CLI use each process builds it once;
+	// in the long-lived MCP server it is reused across tool calls and rebuilt
+	// only when the published cache snapshot generation changes. Guarded by mu.
+	mu        sync.Mutex
+	idx       *Index
+	idxGen    string
+	idxBuilds int // test-observable: number of index (re)builds
 }
 
 // NewService resolves the documentation source and prepares the cache/syncer.
@@ -150,14 +159,61 @@ func (s *Service) sections() ([]Section, error) {
 
 // Search bootstraps if needed then runs a BM25 query.
 func (s *Service) Search(ctx context.Context, query, topic string, limit int, offline bool) ([]Result, error) {
-	if err := s.ensureCache(ctx, offline); err != nil {
-		return nil, err
-	}
-	secs, err := s.sections()
+	idx, err := s.resolveIndex(ctx, offline)
 	if err != nil {
 		return nil, err
 	}
-	return NewIndex(secs).Search(query, topic, limit), nil
+	return idx.Search(query, topic, limit), nil
+}
+
+// resolveIndex returns a BM25 index for the current cache snapshot, reusing a
+// previously built one while the published snapshot generation is unchanged.
+// It bootstraps the cache once (unless offline). MCP stdio requests are
+// processed sequentially, so a mutex is sufficient; a generation recheck after
+// building guards against an external `docs sync` publishing mid-build.
+func (s *Service) resolveIndex(ctx context.Context, offline bool) (*Index, error) {
+	if err := s.ensureCache(ctx, offline); err != nil {
+		return nil, err
+	}
+
+	gen, err := s.cache.currentSnapshotName()
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	if s.idx != nil && s.idxGen == gen {
+		idx := s.idx
+		s.mu.Unlock()
+		return idx, nil
+	}
+	s.mu.Unlock()
+
+	// Build outside the lock. Retry once if the generation changed underneath.
+	for range 2 {
+		secs, err := s.sections()
+		if err != nil {
+			return nil, err
+		}
+		idx := NewIndex(secs)
+
+		after, err := s.cache.currentSnapshotName()
+		if err != nil {
+			return nil, err
+		}
+		if after != gen {
+			gen = after
+			continue
+		}
+
+		s.mu.Lock()
+		s.idx = idx
+		s.idxGen = gen
+		s.idxBuilds++
+		s.mu.Unlock()
+		return idx, nil
+	}
+	return nil, fmt.Errorf("%w: cache changed repeatedly during index build", ErrSyncIncomplete)
 }
 
 // ListItem is one document entry for `docs list`.

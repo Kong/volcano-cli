@@ -339,3 +339,27 @@ func mustCacheDir(t *testing.T, base string, f *fakeGitHub) string {
 	require.NoError(t, err)
 	return dir
 }
+
+func TestResidentIndexReuseAndInvalidation(t *testing.T) {
+	f := newFakeGitHub(t)
+	f.add("a.md", "# Alpha\nsearchable alpha content")
+	cache := t.TempDir()
+
+	svc := f.newService(t, cache, nil)
+	_, err := svc.Sync(context.Background(), false)
+	require.NoError(t, err)
+
+	// Two searches on the same service build the index once.
+	_, err = svc.Search(context.Background(), "searchable", "", 5, true)
+	require.NoError(t, err)
+	_, err = svc.Search(context.Background(), "alpha", "", 5, true)
+	require.NoError(t, err)
+	assert.Equal(t, 1, svc.idxBuilds, "index should be built once and reused")
+
+	// A new published snapshot (force sync) invalidates the resident index.
+	_, err = svc.Sync(context.Background(), true)
+	require.NoError(t, err)
+	_, err = svc.Search(context.Background(), "searchable", "", 5, true)
+	require.NoError(t, err)
+	assert.Equal(t, 2, svc.idxBuilds, "index should rebuild after snapshot generation changes")
+}

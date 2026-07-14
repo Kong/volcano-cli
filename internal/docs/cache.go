@@ -88,6 +88,20 @@ func (c *Cache) currentSnapshot() (string, error) {
 	return dir, nil
 }
 
+// currentSnapshotName returns the published snapshot's directory name, used as
+// a cheap generation token for resident-index invalidation.
+func (c *Cache) currentSnapshotName() (string, error) {
+	data, err := os.ReadFile(c.pointerPath())
+	if err != nil {
+		return "", err
+	}
+	var p pointer
+	if err := json.Unmarshal(data, &p); err != nil {
+		return "", fmt.Errorf("corrupt cache pointer: %w", err)
+	}
+	return strings.TrimSpace(p.Snapshot), nil
+}
+
 // Load reads the live manifest. Returns ErrCacheMissing when no snapshot exists.
 func (c *Cache) Load() (*Manifest, error) {
 	snap, err := c.currentSnapshot()

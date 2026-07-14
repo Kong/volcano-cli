@@ -46,6 +46,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	group.AddCommand(newSearch(deps, f))
 	group.AddCommand(newGet(deps, f))
 	group.AddCommand(newList(deps, f))
+	group.AddCommand(newMCP(deps, f))
 	return group
 }
 
@@ -131,20 +132,21 @@ func writeJSON(w io.Writer, env envelope) error {
 	return enc.Encode(env)
 }
 
-// emit writes a success payload as JSON (stdout) when requested.
-func emitJSON(cmd *cobra.Command, command string, svc *docs.Service, offline bool, resolvedCommit string, data any) error {
+// buildEnvelope assembles a success envelope, shared by the CLI --json path
+// and the MCP tool results.
+func buildEnvelope(command string, svc *docs.Service, offline bool, resolvedCommit string, data any) envelope {
 	cs := svc.CacheState(offline)
-	return writeJSON(cmd.OutOrStdout(), envelope{
-		Command: command,
-		Source:  sourceMetaOf(svc, resolvedCommit),
-		Cache:   &cs,
-		Data:    data,
-	})
+	return envelope{
+		SchemaVersion: envelopeSchemaVersion,
+		Command:       command,
+		Source:        sourceMetaOf(svc, resolvedCommit),
+		Cache:         &cs,
+		Data:          data,
+	}
 }
 
-// failJSON writes an error envelope to stdout (keeping stdout JSON-only) and
-// returns err so the process exits nonzero.
-func failJSON(cmd *cobra.Command, command string, svc *docs.Service, offline bool, err error) error {
+// buildErrorEnvelope assembles an error envelope with a DOCS_* code.
+func buildErrorEnvelope(command string, svc *docs.Service, offline bool, err error) envelope {
 	code := docs.Code(err)
 	if code == "" {
 		code = "DOCS_ERROR"
@@ -156,12 +158,24 @@ func failJSON(cmd *cobra.Command, command string, svc *docs.Service, offline boo
 		cs = &state
 		src = sourceMetaOf(svc, "")
 	}
-	_ = writeJSON(cmd.OutOrStdout(), envelope{
-		Command: command,
-		Source:  src,
-		Cache:   cs,
-		Error:   &errMeta{Code: code, Message: err.Error()},
-	})
+	return envelope{
+		SchemaVersion: envelopeSchemaVersion,
+		Command:       command,
+		Source:        src,
+		Cache:         cs,
+		Error:         &errMeta{Code: code, Message: err.Error()},
+	}
+}
+
+// emit writes a success payload as JSON (stdout) when requested.
+func emitJSON(cmd *cobra.Command, command string, svc *docs.Service, offline bool, resolvedCommit string, data any) error {
+	return writeJSON(cmd.OutOrStdout(), buildEnvelope(command, svc, offline, resolvedCommit, data))
+}
+
+// failJSON writes an error envelope to stdout (keeping stdout JSON-only) and
+// returns err so the process exits nonzero.
+func failJSON(cmd *cobra.Command, command string, svc *docs.Service, offline bool, err error) error {
+	_ = writeJSON(cmd.OutOrStdout(), buildErrorEnvelope(command, svc, offline, err))
 	return err
 }
 

@@ -28,6 +28,34 @@ Reads (`search`, `get`, `list`) bootstrap the cache automatically on first use.
 After that they never touch the network; run `volcano docs sync` to refresh.
 Pass `--offline` to guarantee no network access (a missing cache then errors).
 
+## MCP server mode (for agents)
+
+`volcano docs mcp` runs a long-lived [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio, exposing the docs as agent tools. Unlike the one-shot
+subcommands (which rebuild the ~6.7 MB BM25 index on every call), the server
+builds the index once and keeps it resident, so an agent doing repeated
+search→read loops reuses a warm index.
+
+Tools: `docs_search` (`query`, optional `topic`, `limit`), `docs_get` (`id` =
+`path` or `path#anchor`), and `docs_list` (optional `topic`). Each tool returns
+the same versioned envelope as `--json`, both as text content and as
+`structuredContent`; domain failures come back as a tool result with
+`isError: true` and a `DOCS_*` code, while malformed calls use JSON-RPC errors.
+stdout carries only JSON-RPC frames; diagnostics go to stderr.
+
+Register it with an MCP client, e.g. Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "volcano-docs": { "command": "volcano", "args": ["docs", "mcp"] }
+  }
+}
+```
+
+The index is rebuilt automatically if an external `volcano docs sync` publishes
+a new snapshot while the server is running.
+
 ## How search works
 
 The corpus is parsed into heading-delimited sections. Each search builds a small
