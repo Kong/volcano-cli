@@ -25,9 +25,9 @@ type HTTPDoer interface {
 // source.
 const (
 	maxFiles     = 2000
-	maxFileSize  = 4 << 20   // 4 MiB per file
-	maxTotalSize = 64 << 20  // 64 MiB total
-	syncWorkers  = 8         // bounded download concurrency
+	maxFileSize  = 4 << 20  // 4 MiB per file
+	maxTotalSize = 64 << 20 // 64 MiB total
+	syncWorkers  = 8        // bounded download concurrency
 	realAPIHost  = "api.github.com"
 )
 
@@ -309,18 +309,36 @@ func (s *Syncer) download(ctx context.Context, commit string, blobs []blob, stag
 	return nil
 }
 
-// fetchRaw downloads one file from the raw content host, pinned to the commit.
+// fetchRaw downloads one file's content, pinned to the commit. By default it
+// uses the authenticated GitHub contents API (Accept: raw) so private repos
+// work and the token stays on the trusted api.github.com host. When an
+// explicit raw base URL is configured (public repos / tests), it fetches from
+// that host without a token.
 func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, error) {
 	full := rel
 	if s.src.Path != "" {
 		full = s.src.Path + "/" + rel
 	}
-	u := fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(s.rawURL, "/"), s.src.Repo, commit, full)
+
+	var u string
+	useRawHost := strings.TrimSpace(s.rawURL) != ""
+	if useRawHost {
+		u = fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(s.rawURL, "/"), s.src.Repo, commit, full)
+	} else {
+		u = fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, full, commit)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
-	// Never send the API token to the raw host or injected endpoints.
+	if !useRawHost {
+		req.Header.Set("Accept", "application/vnd.github.raw")
+		// Token only ever goes to the trusted api.github.com host.
+		if s.token != "" && isRealGitHubAPI(u) {
+			req.Header.Set("Authorization", "Bearer "+s.token)
+		}
+	}
 	resp, err := s.doer.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrSourceUnavailable, err)

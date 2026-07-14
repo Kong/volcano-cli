@@ -12,7 +12,6 @@ import (
 
 const (
 	defaultAPIURL = "https://api.github.com"
-	defaultRawURL = "https://raw.githubusercontent.com"
 	httpTimeout   = 30 * time.Second
 )
 
@@ -60,7 +59,10 @@ func NewService(opts Options) (*Service, error) {
 		doer = &http.Client{Timeout: httpTimeout}
 	}
 	apiURL := strings.TrimRight(firstNonEmpty(opts.GitHubAPIURL, defaultAPIURL), "/")
-	rawURL := firstNonEmpty(opts.RawBaseURL, defaultRawURL)
+	// rawURL is intentionally empty by default: downloads then go through the
+	// authenticated contents API (works for private repos). Set RawBaseURL only
+	// for public-repo raw-host downloads or tests.
+	rawURL := strings.TrimSpace(opts.RawBaseURL)
 
 	return &Service{
 		src:   src,

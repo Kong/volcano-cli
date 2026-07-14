@@ -120,7 +120,10 @@ func ParseDoc(docPath string, content []byte) []Section {
 			stack = append(stack, "")
 		}
 		stack = append(stack, heading)
-		crumb := append([]string{title}, nonEmpty(stack)...)
+		crumb := nonEmpty(stack)
+		if len(crumb) == 0 || !strings.EqualFold(crumb[0], title) {
+			crumb = append([]string{title}, crumb...)
+		}
 
 		anchor := uniqueAnchor(anchorCounts, heading)
 		cur = openSection{

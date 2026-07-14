@@ -57,8 +57,8 @@ type Cache struct {
 // NewCache returns a Cache rooted at the per-source directory.
 func NewCache(dir string) *Cache { return &Cache{dir: dir} }
 
-func (c *Cache) pointerPath() string   { return filepath.Join(c.dir, "current.json") }
-func (c *Cache) snapshotsDir() string  { return filepath.Join(c.dir, "snapshots") }
+func (c *Cache) pointerPath() string  { return filepath.Join(c.dir, "current.json") }
+func (c *Cache) snapshotsDir() string { return filepath.Join(c.dir, "snapshots") }
 func (c *Cache) snapshotDir(n string) string {
 	return filepath.Join(c.snapshotsDir(), n)
 }
