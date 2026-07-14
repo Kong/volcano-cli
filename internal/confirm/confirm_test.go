@@ -68,6 +68,32 @@ func TestDeleteAcceptsWrappedEOF(t *testing.T) {
 	assert.True(t, confirmed)
 }
 
+func TestConfirmAffirmativeInputs(t *testing.T) {
+	for _, input := range []string{"y\n", "yes\n", " YES \n"} {
+		var out bytes.Buffer
+		confirmed, err := Confirm(bytes.NewBufferString(input), &out, "Proceed? ")
+		require.NoError(t, err)
+		assert.True(t, confirmed)
+		assert.Contains(t, out.String(), "Proceed? ")
+	}
+}
+
+func TestConfirmNonAffirmativeInputs(t *testing.T) {
+	for _, input := range []string{"n\n", "\n", "", "nope\n"} {
+		var out bytes.Buffer
+		confirmed, err := Confirm(bytes.NewBufferString(input), &out, "Proceed? ")
+		require.NoError(t, err)
+		assert.False(t, confirmed)
+	}
+}
+
+func TestConfirmReturnsReadError(t *testing.T) {
+	var out bytes.Buffer
+	confirmed, err := Confirm(errReader{}, &out, "Proceed? ")
+	require.ErrorContains(t, err, "read failed")
+	assert.False(t, confirmed)
+}
+
 type errReader struct{}
 
 func (errReader) Read(_ []byte) (int, error) {

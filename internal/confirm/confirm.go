@@ -18,6 +18,21 @@ func Delete(r io.Reader, w io.Writer, resource string, names ...string) (bool, e
 	return readConfirmation(r, w, "Delete cancelled.")
 }
 
+// Confirm prints message as a prompt and returns true only for an affirmative
+// "y"/"yes" answer. A blank line, any other input, or EOF (a closed/
+// non-interactive stdin) returns false without error, so callers can treat a
+// non-answer as a safe "no". Unlike Delete it prints no cancellation message;
+// the caller owns all surrounding messaging.
+func Confirm(r io.Reader, w io.Writer, message string) (bool, error) {
+	fmt.Fprint(w, message)
+	input, err := bufio.NewReader(r).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false, err
+	}
+	normalized := strings.ToLower(strings.TrimSpace(input))
+	return normalized == "y" || normalized == "yes", nil
+}
+
 func deletePrompt(resource string, names ...string) string {
 	if len(names) == 1 {
 		return fmt.Sprintf("Delete %s '%s'? Type 'y' or 'yes' to confirm: ", resource, names[0])

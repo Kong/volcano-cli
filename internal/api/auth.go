@@ -110,6 +110,32 @@ func WebSignupURL(webURL, email, next string) (string, error) {
 	return parsed.String(), nil
 }
 
+// WebBillingURL builds the Volcano Web billing page URL the CLI points users at
+// when the API signals a credit gate (low_credit_warning / not_enough_credit).
+// It mirrors WebSignupURL: same origin resolution (config.WebURL(), overridable
+// via VOLCANO_WEB_URL), same http/https validation, and a source=cli marker.
+// Kept here — rather than derived from a server-provided header field — so the
+// CLI does not depend on a cross-repo wire contract that has not been agreed yet
+// (see VOL-354); a future API-provided URL can be layered on top of this.
+func WebBillingURL(webURL string) (string, error) {
+	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
+	if webURL == "" {
+		return "", errors.New("web url cannot be empty")
+	}
+	parsed, err := url.Parse(webURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse web url: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errors.New("web url must use http:// or https:// scheme")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/billing"
+	query := parsed.Query()
+	query.Set("source", "cli")
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
+}
+
 // VerificationWebTarget extracts the web origin and device-approval path advertised
 // by a device-authorization response. The signup flow uses these so the browser is
 // sent to the same environment that issued the device code — mirroring how login
