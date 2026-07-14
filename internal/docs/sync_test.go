@@ -25,10 +25,11 @@ type fakeGitHub struct {
 	files     map[string]string // full repo path (docs/...) -> content
 	truncated bool
 
-	server  *httptest.Server
-	apiHits atomic.Int64
-	rawHits atomic.Int64
-	failRaw map[string]bool // full repo paths whose raw download should 500
+	server      *httptest.Server
+	apiHits     atomic.Int64
+	rawHits     atomic.Int64
+	rawAuthSeen atomic.Bool     // set if a raw-host request carried an Authorization header
+	failRaw     map[string]bool // full repo paths whose raw download should 500
 }
 
 func blobSHA(content string) string {
@@ -69,9 +70,31 @@ func (f *fakeGitHub) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.handleContentsDir(w, full)
+	case strings.HasPrefix(r.URL.Path, "/"+f.repo+"/"):
+		// Raw-host download: /{owner}/{name}/{commit}/{full}.
+		f.handleRawHost(w, r)
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
 	}
+}
+
+func (f *fakeGitHub) handleRawHost(w http.ResponseWriter, r *http.Request) {
+	f.rawHits.Add(1)
+	if r.Header.Get("Authorization") != "" {
+		f.rawAuthSeen.Store(true)
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/"+f.repo+"/")
+	_, full, ok := strings.Cut(rest, "/") // drop the commit segment
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	content, ok := f.files[full]
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	_, _ = w.Write([]byte(content))
 }
 
 func (f *fakeGitHub) handleTree(w http.ResponseWriter) {
@@ -381,4 +404,33 @@ func TestSyncForceRedownloadsAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, res.Unchanged)
 	assert.Equal(t, int64(2), f.rawHits.Load()-rawAfterFirst)
+}
+
+func TestSyncDownloadsViaRawHostWithoutToken(t *testing.T) {
+	f := newFakeGitHub(t)
+	f.add("a.md", "# A\nalpha")
+	f.add("sub/b.md", "# B\nbeta")
+
+	// Setting RawBaseURL selects the raw-host download path. A token is
+	// configured to prove it is never sent to the raw host.
+	svc, err := NewService(Options{
+		Overrides:    Overrides{Repo: f.repo, Ref: "main", Path: f.docsPath},
+		HTTPClient:   f.server.Client(),
+		CacheDir:     t.TempDir(),
+		GitHubAPIURL: f.server.URL,
+		RawBaseURL:   f.server.URL,
+		Token:        "secret-token",
+		Env:          emptyEnv,
+	})
+	require.NoError(t, err)
+
+	res, err := svc.Sync(context.Background(), false)
+	require.NoError(t, err)
+	assert.Equal(t, 2, res.Added)
+	assert.Positive(t, f.rawHits.Load(), "raw-host download path should be used")
+	assert.False(t, f.rawAuthSeen.Load(), "token must never be sent to the raw host")
+
+	got, err := svc.Get(context.Background(), "sub/b.md", true)
+	require.NoError(t, err)
+	assert.Contains(t, got.Content, "beta")
 }
