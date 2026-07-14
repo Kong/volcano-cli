@@ -65,6 +65,7 @@ More detail lives in `docs/`:
 - [Installation details](docs/installation.md)
 - [Authentication](docs/authentication.md)
 - [Project configuration](docs/project-configuration.md)
+- [Credit gating](docs/credit-gating.md)
 
 ## Contributing
 
