@@ -41,6 +41,37 @@ func TestVersionProtocolDoer_SetsVersionHeaderAndUserAgent(t *testing.T) {
 	assert.Equal(t, "volcano-cli/v1.4.2 ("+runtime.GOOS+"/"+runtime.GOARCH+")", gotUA)
 }
 
+func TestVersionProtocolDoer_ReportsGitDescribeBuildsAsDev(t *testing.T) {
+	cases := []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{name: "tagged release", version: "v1.4.2", want: "v1.4.2"},
+		{name: "commit after tag", version: "v1.4.2-6-gabcdef0", want: "dev"},
+		{name: "dirty tag", version: "v1.4.2-dirty", want: "dev"},
+		{name: "detached source revision", version: "abcdef0", want: "dev"},
+		{name: "published prerelease", version: "v1.5.0-rc.1", want: "v1.5.0-rc.1"},
+		{name: "nightly release", version: "v0.0.42-nightly.20260710.1", want: "v0.0.42-nightly.20260710.1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetInstructions(t)
+			oldVersion := version.Version
+			version.Version = tc.version
+			t.Cleanup(func() { version.Version = oldVersion })
+
+			inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+				assert.Equal(t, tc.want, req.Header.Get(headerCLIVersion))
+				return httptest.NewRecorder().Result(), nil
+			})
+			_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestVersionProtocolDoer_RecordsInstructionHeaders(t *testing.T) {
 	resetInstructions(t)
 
@@ -91,6 +122,46 @@ func TestVersionProtocolDoer_NoResponseIsNoOp(t *testing.T) {
 	_, err := versionProtocolDoer{next: inner}.Do(req)
 	require.ErrorIs(t, err, boom)
 	assert.Equal(t, Instructions{}, LastInstructions())
+}
+
+func TestConsumeCLIInstructionsReturnsEachPairOnce(t *testing.T) {
+	resetInstructions(t)
+
+	header := http.Header{}
+	header.Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+	header.Set(headerCLILatestVersion, "v1.5.0")
+	header.Set(headerDeviceInstruction, DeviceInstructionReauth)
+	recordInstructions(header)
+
+	first := ConsumeCLIInstructions()
+	assert.Equal(t, Instructions{
+		CLIInstruction:    CLIInstructionSuggestionVersionUpgrade,
+		LatestVersion:     "v1.5.0",
+		DeviceInstruction: DeviceInstructionReauth,
+	}, first)
+	assert.Equal(t, first, LastInstructions(), "consuming a notice must retain response metadata for error rendering")
+
+	// Polls and stream reconnects repeat the version headers. Recording the
+	// same pair again must not make the notice pending again.
+	recordInstructions(header)
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
+
+	// A changed instruction pair is new information and is rendered once.
+	header.Set(headerCLIInstruction, CLIInstructionRequireVersionUpgrade)
+	header.Set(headerCLILatestVersion, "v1.6.0")
+	recordInstructions(header)
+	assert.Equal(t, Instructions{
+		CLIInstruction:    CLIInstructionRequireVersionUpgrade,
+		LatestVersion:     "v1.6.0",
+		DeviceInstruction: DeviceInstructionReauth,
+	}, ConsumeCLIInstructions())
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
+
+	// Returning to any previously rendered pair must remain suppressed.
+	header.Set(headerCLIInstruction, CLIInstructionSuggestionVersionUpgrade)
+	header.Set(headerCLILatestVersion, "v1.5.0")
+	recordInstructions(header)
+	assert.Equal(t, Instructions{DeviceInstruction: DeviceInstructionReauth}, ConsumeCLIInstructions())
 }
 
 func TestVersionProtocolDoer_LaterEmptyResponseDoesNotClearEarlierInstruction(t *testing.T) {

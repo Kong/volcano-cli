@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,15 +18,20 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
+func resetInstructions(t *testing.T) {
+	t.Helper()
+	api.ResetLastInstructionsForTest()
+	t.Cleanup(api.ResetLastInstructionsForTest)
+}
+
 // withInstructions drives api.LastInstructions() through a real api.Client
 // call against a test server, mirroring how production populates it from
 // response headers (VOL-180).
 func withInstructions(t *testing.T, latest, deviceInstruction string) {
 	t.Helper()
-	// recordInstructions is sticky (VOL-180): a field a response omits doesn't
-	// clear a value recorded by an earlier test. Reset explicitly so each test
-	// starts from the zero value regardless of execution order.
-	api.ResetLastInstructionsForTest()
+	// recordInstructions is sticky (VOL-180), so isolate both the beginning and
+	// end of each test from the process-global state.
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if latest != "" {
 			// The server never sends X-Volcano-CLI-Latest-Version without a
@@ -125,7 +131,7 @@ func runDeps(server *httptest.Server) cliruntime.Deps {
 }
 
 func TestRun_SuccessNoNotice(t *testing.T) {
-	api.ResetLastInstructionsForTest()
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -147,7 +153,7 @@ func TestRun_SuccessNoNotice(t *testing.T) {
 }
 
 func TestRun_SuccessWithSuggestionNotice(t *testing.T) {
-	api.ResetLastInstructionsForTest()
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionSuggestionVersionUpgrade)
 		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
@@ -170,15 +176,10 @@ func TestRun_SuccessWithSuggestionNotice(t *testing.T) {
 	assert.Contains(t, stderr.String(), "A newer Volcano CLI version is available: v1.5.0")
 }
 
-func TestRun_SuccessWithDeprecationNoticeOnExemptRoute(t *testing.T) {
-	// The exact scenario the notice-printing path exists for (per
-	// printDeprecationWarning's doc comment): a deprecated CLI's request lands
-	// on an exempt route (e.g. `login`) and succeeds — the server sets the
-	// require_version_upgrade header but doesn't 426 it. The user still needs
-	// to learn their CLI is deprecated even though this command was let
-	// through. Only the deprecation-error (426) path had run()-level coverage
-	// before this; this is the success-path counterpart.
-	api.ResetLastInstructionsForTest()
+func TestRun_SuccessWithDeprecationNotice(t *testing.T) {
+	// A successful API response can still carry a deprecation instruction. The
+	// command must warn without changing its successful exit status.
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionRequireVersionUpgrade)
 		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
@@ -205,8 +206,69 @@ func TestRun_SuccessWithDeprecationNoticeOnExemptRoute(t *testing.T) {
 	assert.Contains(t, stderr.String(), "is no longer supported. Upgrade to v1.5.0 or later:")
 }
 
+func TestRun_SuccessWithDeprecationNoticeOnExemptAuthRoute(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "")
+	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
+
+	pollTicker := newMainTestTicker()
+	dotTicker := newMainTestTicker()
+	timeoutTimer := newMainTestTicker()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionRequireVersionUpgrade)
+		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/auth/device/authorize":
+			_, _ = w.Write([]byte(`{"device_code":"device-code","user_code":"ABCD-EFGH","verification_uri":"https://volcano.dev/device","verification_uri_complete":"https://volcano.dev/device?user_code=ABCD-EFGH","expires_in":120,"interval":1}`))
+		case "/auth/device/token":
+			_, _ = w.Write([]byte(`{"access_token":"auth-access-token"}`))
+		case "/auth/platform/exchange":
+			_, _ = w.Write([]byte(`{"token":"platform-token","user_id":"platform-user-1","token_id":"33333333-3333-4333-8333-333333333333","expires_at":"2030-01-01T00:00:00Z"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	var tickerCalls int
+	deps := cliruntime.Deps{
+		HTTPClient:  server.Client(),
+		APIBaseURL:  server.URL,
+		OpenBrowser: func(string) error { return nil },
+		NewTimer:    func(time.Duration) cliruntime.Timer { return timeoutTimer },
+		NewTicker: func(time.Duration) cliruntime.Ticker {
+			tickerCalls++
+			if tickerCalls == 1 {
+				return pollTicker
+			}
+			return dotTicker
+		},
+	}
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"login"})
+
+	done := make(chan int, 1)
+	go func() { done <- run(root, deps) }()
+	pollTicker.tick()
+	select {
+	case code := <-done:
+		assert.Equal(t, 0, code)
+	case <-time.After(2 * time.Second):
+		t.Fatal("login did not complete")
+	}
+	assert.Contains(t, stderr.String(), "Volcano CLI")
+	assert.Contains(t, stderr.String(), "is no longer supported. Upgrade to v1.5.0 or later:")
+	assert.Equal(t, 1, strings.Count(stderr.String(), "Volcano CLI"), "the early auth-route notice must not be repeated after Execute returns")
+}
+
 func TestRun_DeprecationErrorShortCircuitsWithoutDuplicateNotice(t *testing.T) {
-	api.ResetLastInstructionsForTest()
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionRequireVersionUpgrade)
 		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
@@ -238,7 +300,7 @@ func TestRun_DeprecationErrorShortCircuitsWithoutDuplicateNotice(t *testing.T) {
 func TestRun_NonBlockingErrorPrintsErrorBeforeNotice(t *testing.T) {
 	// A command that fails for an unrelated reason (404 here) while also
 	// carrying a pending suggestion notice must print the actual error first.
-	api.ResetLastInstructionsForTest()
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionSuggestionVersionUpgrade)
 		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
@@ -266,7 +328,7 @@ func TestRun_NonBlockingErrorPrintsErrorBeforeNotice(t *testing.T) {
 }
 
 func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
-	api.ResetLastInstructionsForTest()
+	resetInstructions(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("X-Volcano-Device-Instruction", api.DeviceInstructionReauth)
 		w.Header().Set("Content-Type", "application/json")
@@ -291,3 +353,16 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 	assert.Less(t, strings.Index(text, "Error:"), strings.Index(text, "Run `volcano login`"),
 		"the error line must come before the reauth hint: %q", text)
 }
+
+type mainTestTicker struct {
+	ch chan time.Time
+}
+
+func newMainTestTicker() *mainTestTicker {
+	return &mainTestTicker{ch: make(chan time.Time, 1)}
+}
+
+func (t *mainTestTicker) C() <-chan time.Time { return t.ch }
+func (t *mainTestTicker) Stop()               {}
+func (t *mainTestTicker) Reset(time.Duration) {}
+func (t *mainTestTicker) tick()               { t.ch <- time.Now() }
