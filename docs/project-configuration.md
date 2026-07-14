@@ -13,9 +13,18 @@ validates and applies the full project configuration:
 - Function visibility and schedulers
 - Frontend custom domains
 
-The same manifest applies to local development and cloud projects.
-`volcano config pull` downloads the current configuration as a canonical
-manifest rendered by Volcano.
+The same manifest applies to local development and cloud projects — only the
+command namespace changes:
+
+| Target | Export to file | Apply from file |
+|---|---|---|
+| Local dev (`volcano start`) | `volcano config pull` | `volcano config deploy` |
+| Cloud project (`volcano login` + `volcano use`) | `volcano cloud config pull` | `volcano cloud config deploy` |
+
+`pull` downloads the target's current configuration as a canonical manifest
+rendered by Volcano; `deploy` uploads a manifest and reconciles the target to
+match it. Both commands take the same flags (`-f/--file`, `--force` for
+`pull`, `--dry-run` for `deploy`) regardless of namespace.
 
 ```yaml
 version: 1
@@ -32,6 +41,18 @@ functions:
         cron: "*/5 * * * *"
         enabled: true
         payload: { job: refresh }
+```
+
+Cloud example — export the current cloud project's configuration to a file,
+edit it, and apply it back:
+
+```sh
+volcano login
+volcano use my-project
+volcano cloud config pull -f volcano-config.yaml   # export to file
+$EDITOR volcano-config.yaml
+volcano cloud config deploy -f volcano-config.yaml --dry-run   # preview
+volcano cloud config deploy -f volcano-config.yaml             # apply
 ```
 
 Key semantics:
