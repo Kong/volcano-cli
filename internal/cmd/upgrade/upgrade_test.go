@@ -175,17 +175,21 @@ func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 }
 
 func TestPrintAPIInstructionNotices_NotEnoughCredit(t *testing.T) {
-	// Reserved instruction (VOL-180 PR review discussion): the API never
-	// emits this yet, but the CLI-side handling is real and testable so a
-	// future billing-service integration needs no CLI change to start working.
+	// VOL-354 credit gate: the API does not emit this header yet, but the
+	// CLI-side handling is real and testable so a future billing-service
+	// integration needs no CLI change to start working. In a non-interactive
+	// context (bytes.Buffer is never a TTY) it prints the notice plus the
+	// actionable billing URL and never prompts.
 	withInstructions(t, api.CLIInstructionNotEnoughCredit, "", "")
 
 	cmd := &cobra.Command{Use: "functions"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+	PrintAPIInstructionNotices(cmd, fixedWebDeps())
 
 	assert.Contains(t, out.String(), "Your project does not have enough credit to complete this request.")
+	assert.Contains(t, out.String(), "Purchase credits at: https://volcano.dev/billing?source=cli")
+	assert.NotContains(t, out.String(), "Open the billing page")
 }
 
 func TestPrintAPIInstructionNotices_LowCreditWarning(t *testing.T) {
@@ -194,9 +198,11 @@ func TestPrintAPIInstructionNotices_LowCreditWarning(t *testing.T) {
 	cmd := &cobra.Command{Use: "functions"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+	PrintAPIInstructionNotices(cmd, fixedWebDeps())
 
 	assert.Contains(t, out.String(), "Your project is running low on credit.")
+	assert.Contains(t, out.String(), "Purchase credits at: https://volcano.dev/billing?source=cli")
+	assert.NotContains(t, out.String(), "Open the billing page")
 }
 
 func TestPrintAPIInstructionNotices_UsesCommandPathPrefix(t *testing.T) {

@@ -291,3 +291,34 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 	assert.Less(t, strings.Index(text, "Error:"), strings.Index(text, "Run `volcano login`"),
 		"the error line must come before the reauth hint: %q", text)
 }
+
+func TestRun_SuccessWithCreditNoticePreservesExitZero(t *testing.T) {
+	// VOL-354: a successful command carrying a not_enough_credit header must
+	// still exit 0. The instruction is observed post-execution, so it cannot
+	// retroactively fail a request that already succeeded — it only surfaces a
+	// neutral notice and the billing URL. stderr here is a bytes.Buffer (never
+	// a TTY) and `projects list` is not prompt-safe, so no prompt is offered.
+	api.ResetLastInstructionsForTest()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionNotEnoughCredit)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	defer server.Close()
+
+	deps := runDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "list"})
+
+	code := run(root, deps)
+
+	assert.Equal(t, 0, code, "a post-hoc credit notice must not change a successful exit code")
+	text := stderr.String()
+	assert.Contains(t, text, "does not have enough credit")
+	assert.Contains(t, text, "Purchase credits at: https://volcano.dev/billing?source=cli")
+	assert.NotContains(t, text, "Open the billing page", "no prompt in a non-interactive context")
+}
