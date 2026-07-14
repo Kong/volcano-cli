@@ -49,9 +49,41 @@ Key semantics:
 - `volcano config deploy --dry-run` prints the projected actions without
   changing anything. Validation failures exit non-zero with Volcano's error
   list, and nothing is applied.
+- If some entries fail to apply (a provider call failing mid-deploy),
+  `config deploy` still prints a full report — succeeded entries included —
+  and then exits non-zero because `summary.errors > 0`. Already-applied
+  changes are not rolled back. Re-running `config deploy` with the same file
+  is always safe: entries that already landed report `unchanged`, and only
+  the entries that failed or still differ are retried.
 - Write-only secrets, such as SMTP passwords, OAuth client secrets, and TLS
   material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation.
+
+## Coming from Terraform?
+
+There is no state file (`.tfstate` or equivalent) behind `volcano-config.yaml`.
+Every `deploy` — including `--dry-run` — asks Volcano to diff the manifest
+against the project's actual live configuration, not a cached snapshot of a
+prior apply. Practical implications:
+
+- No `import` / `state rm` / `state mv`: point the manifest at an existing
+  project and `deploy`; there's nothing to reconcile into a state file first.
+- No drift-detection step: the plan is always computed against live
+  configuration, so it can't disagree with reality the way a stale state file
+  can.
+- `--dry-run` is a live report, not a saved plan artifact — you can't inspect
+  it later or hand it to a later `deploy`; running `deploy` always recomputes
+  the plan from scratch.
+- No workspaces, no `-target`: the whole manifest reconciles against the
+  currently selected project (`volcano use` / `VOLCANO_PROJECT_ID`) as one
+  unit. To leave something alone, omit it from the file.
+- A failed deploy doesn't need an explicit resume step — see the apply-phase
+  failure bullet above; re-running the same manifest picks up only what's
+  still outstanding.
+
+See the server-side
+[configuration manifest reference](https://github.com/Kong/volcano-hosting/blob/main/docs/projects/configuration.md)
+for the full reconciliation semantics.
 
 Behavior changes from older CLI releases:
 
