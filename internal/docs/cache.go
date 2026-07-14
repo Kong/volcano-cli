@@ -102,6 +102,57 @@ func (c *Cache) currentSnapshotName() (string, error) {
 	return strings.TrimSpace(p.Snapshot), nil
 }
 
+// snapshot is a pinned handle to one published snapshot directory, so a
+// manifest and its files are read coherently even if an external sync
+// republishes/prunes the pointer mid-read.
+type snapshot struct {
+	dir  string
+	name string
+}
+
+// openSnapshot resolves the current pointer once and returns a pinned handle.
+func (c *Cache) openSnapshot() (*snapshot, error) {
+	data, err := os.ReadFile(c.pointerPath())
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrCacheMissing
+		}
+		return nil, err
+	}
+	var p pointer
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, fmt.Errorf("corrupt cache pointer: %w", err)
+	}
+	name := strings.TrimSpace(p.Snapshot)
+	if name == "" {
+		return nil, ErrCacheMissing
+	}
+	dir := c.snapshotDir(name)
+	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err != nil {
+		return nil, fmt.Errorf("cache pointer references missing snapshot: %w", err)
+	}
+	return &snapshot{dir: dir, name: name}, nil
+}
+
+func (s *snapshot) manifest() (*Manifest, error) {
+	return readManifest(filepath.Join(s.dir, "manifest.json"))
+}
+
+func (s *snapshot) readFile(rel string) ([]byte, error) {
+	clean, err := safeRelPath(rel)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filepath.Join(s.dir, "files", clean))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("%w: %s", ErrDocNotFound, rel)
+		}
+		return nil, err
+	}
+	return data, nil
+}
+
 // Load reads the live manifest. Returns ErrCacheMissing when no snapshot exists.
 func (c *Cache) Load() (*Manifest, error) {
 	snap, err := c.currentSnapshot()

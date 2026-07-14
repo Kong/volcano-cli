@@ -30,10 +30,40 @@ func (s Section) ID() string {
 	return s.DocPath + "#" + s.Anchor
 }
 
-var (
-	atxHeading  = regexp.MustCompile(`^(#{1,6})\s+(.+?)\s*#*\s*$`)
-	fenceMarker = regexp.MustCompile("^\\s*(```+|~~~+)")
-)
+var atxHeading = regexp.MustCompile(`^(#{1,6})\s+(.+?)\s*#*\s*$`)
+
+// fenceDelim reports the fence character and run length when line begins a
+// code fence (>=3 backticks or tildes), else n==0.
+func fenceDelim(line string) (ch byte, n int) {
+	t := strings.TrimLeft(line, " \t")
+	if t == "" {
+		return 0, 0
+	}
+	c := t[0]
+	if c != '`' && c != '~' {
+		return 0, 0
+	}
+	for n < len(t) && t[n] == c {
+		n++
+	}
+	if n < 3 {
+		return 0, 0
+	}
+	return c, n
+}
+
+// isFenceClose reports whether line closes a fence opened with openChar/openLen.
+// Per CommonMark the closing fence must use the same character, be at least as
+// long as the opening fence, and contain nothing but the fence and trailing
+// spaces (so an opener like ```go never closes another block).
+func isFenceClose(line string, openChar byte, openLen int) bool {
+	ch, n := fenceDelim(line)
+	if ch != openChar || n < openLen {
+		return false
+	}
+	rest := strings.TrimLeft(line, " \t")
+	return strings.TrimRight(rest[n:], " \t") == ""
+}
 
 // Topic returns the first path segment of a doc path, e.g. "authentication"
 // for "authentication/overview.md", or "" for a top-level file.
@@ -49,6 +79,12 @@ func topicOf(docPath string) string {
 // title is the first level-1 heading, falling back to a prettified file name.
 func ParseDoc(docPath string, content []byte) []Section {
 	lines := strings.Split(string(content), "\n")
+	// A terminating newline yields a phantom trailing empty element; drop it so
+	// line ranges reflect real content (otherwise the last section's LineEnd is
+	// one past its content).
+	if n := len(lines); n > 0 && lines[n-1] == "" {
+		lines = lines[:n-1]
+	}
 	title := deriveTitle(docPath, lines)
 	topic := topicOf(docPath)
 
@@ -69,10 +105,16 @@ func ParseDoc(docPath string, content []byte) []Section {
 	// document title with no anchor.
 	cur := openSection{heading: title, level: 0, anchor: "", path: []string{title}, startLine: 1, bodyStart: 0}
 	inFence := false
-	var fenceTok string
+	var fenceChar byte
+	var fenceLen int
 
 	flush := func(endLine, bodyEnd int) {
 		body := strings.TrimRight(strings.Join(lines[cur.bodyStart:bodyEnd], "\n"), "\n")
+		// Skip an empty synthetic preamble (e.g. a doc that opens with its H1),
+		// which would otherwise emit an inverted [1,0] range.
+		if cur.level == 0 && strings.TrimSpace(body) == "" {
+			return
+		}
 		sections = append(sections, Section{
 			DocPath:     docPath,
 			Topic:       topic,
@@ -88,13 +130,10 @@ func ParseDoc(docPath string, content []byte) []Section {
 	}
 
 	for i, line := range lines {
-		if m := fenceMarker.FindStringSubmatch(line); m != nil {
-			tok := m[1][:3]
-			switch {
-			case !inFence:
-				inFence = true
-				fenceTok = tok
-			case inFence && strings.HasPrefix(strings.TrimSpace(line), fenceTok):
+		if ch, n := fenceDelim(line); ch != 0 {
+			if !inFence {
+				inFence, fenceChar, fenceLen = true, ch, n
+			} else if isFenceClose(line, fenceChar, fenceLen) {
 				inFence = false
 			}
 			continue
@@ -152,13 +191,13 @@ func nonEmpty(in []string) []string {
 
 func deriveTitle(docPath string, lines []string) string {
 	inFence := false
-	var fenceTok string
+	var fenceChar byte
+	var fenceLen int
 	for _, line := range lines {
-		if m := fenceMarker.FindStringSubmatch(line); m != nil {
-			tok := m[1][:3]
+		if ch, n := fenceDelim(line); ch != 0 {
 			if !inFence {
-				inFence, fenceTok = true, tok
-			} else if strings.HasPrefix(strings.TrimSpace(line), fenceTok) {
+				inFence, fenceChar, fenceLen = true, ch, n
+			} else if isFenceClose(line, fenceChar, fenceLen) {
 				inFence = false
 			}
 			continue

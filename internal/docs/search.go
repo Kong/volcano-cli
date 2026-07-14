@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // BM25 parameters. Standard defaults; k1 controls term-frequency saturation,
@@ -279,6 +280,18 @@ var stopWords = map[string]bool{
 
 func isStopWord(w string) bool { return stopWords[w] }
 
+// runeFloor moves byte index i left to the nearest rune boundary so snippet
+// windows never split a multi-byte character.
+func runeFloor(s string, i int) int {
+	if i >= len(s) {
+		return len(s)
+	}
+	for i > 0 && !utf8.RuneStart(s[i]) {
+		i--
+	}
+	return i
+}
+
 func normalizePhrase(query string) string {
 	return strings.Join(strings.Fields(strings.ToLower(query)), " ")
 }
@@ -312,12 +325,12 @@ func snippet(body string, terms []string) string {
 	}
 	if pos < 0 {
 		if len(flat) > snippetChars {
-			return flat[:snippetChars] + "…"
+			return flat[:runeFloor(flat, snippetChars)] + "…"
 		}
 		return flat
 	}
-	start := max(pos-snippetChars/3, 0)
-	end := min(start+snippetChars, len(flat))
+	start := runeFloor(flat, max(pos-snippetChars/3, 0))
+	end := runeFloor(flat, min(start+snippetChars, len(flat)))
 	out := flat[start:end]
 	if start > 0 {
 		out = "…" + out

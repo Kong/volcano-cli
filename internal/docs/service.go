@@ -140,21 +140,28 @@ func (s *Service) ensureCache(ctx context.Context, offline bool) error {
 	return nil
 }
 
-// sections loads and parses the whole cached corpus.
-func (s *Service) sections() ([]Section, error) {
-	m, err := s.cache.Load()
+// sections parses the whole cached corpus from a single pinned snapshot, so the
+// manifest file list and the file contents are guaranteed to come from the same
+// generation. It returns the snapshot name so the caller can detect an external
+// republish that raced the read.
+func (s *Service) sections() ([]Section, string, error) {
+	snap, err := s.cache.openSnapshot()
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+	m, err := snap.manifest()
+	if err != nil {
+		return nil, snap.name, err
 	}
 	var all []Section
 	for _, f := range m.Files {
-		data, err := s.cache.ReadFile(f.Path)
+		data, err := snap.readFile(f.Path)
 		if err != nil {
-			return nil, err
+			return nil, snap.name, err
 		}
 		all = append(all, ParseDoc(f.Path, data)...)
 	}
-	return all, nil
+	return all, snap.name, nil
 }
 
 // Search bootstraps if needed then runs a BM25 query.
@@ -189,29 +196,38 @@ func (s *Service) resolveIndex(ctx context.Context, offline bool) (*Index, error
 	}
 	s.mu.Unlock()
 
-	// Build outside the lock. Retry once if the generation changed underneath.
-	for range 2 {
-		secs, err := s.sections()
+	// Build outside the lock from a pinned snapshot. If an external sync
+	// republishes/prunes underneath us, retry against the new snapshot instead
+	// of surfacing a transient read error.
+	const maxAttempts = 3
+	var lastErr error
+	for range maxAttempts {
+		secs, builtGen, err := s.sections()
 		if err != nil {
+			lastErr = err
+			if cur, cerr := s.cache.currentSnapshotName(); cerr == nil && cur != gen {
+				gen = cur
+				continue
+			}
 			return nil, err
 		}
-		idx := NewIndex(secs)
-
-		after, err := s.cache.currentSnapshotName()
-		if err != nil {
+		if after, err := s.cache.currentSnapshotName(); err != nil {
 			return nil, err
-		}
-		if after != gen {
+		} else if after != builtGen {
 			gen = after
 			continue
 		}
 
+		idx := NewIndex(secs)
 		s.mu.Lock()
 		s.idx = idx
-		s.idxGen = gen
+		s.idxGen = builtGen
 		s.idxBuilds++
 		s.mu.Unlock()
 		return idx, nil
+	}
+	if lastErr != nil {
+		return nil, lastErr
 	}
 	return nil, fmt.Errorf("%w: cache changed repeatedly during index build", ErrSyncIncomplete)
 }

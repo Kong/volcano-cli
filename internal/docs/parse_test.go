@@ -93,3 +93,43 @@ func TestDeriveTitleFallsBackToFileName(t *testing.T) {
 	secs := ParseDoc("getting-started/quick-start.md", []byte("no heading here\njust text"))
 	assert.Equal(t, "quick start", secs[0].Title)
 }
+
+func TestParseDocTrailingNewlineLineRanges(t *testing.T) {
+	// Trailing newline (as every GitHub-fetched markdown file has) must not
+	// inflate the last section's LineEnd or emit an inverted preamble range.
+	md := "# Title\nintro\n\n## A\nalpha body\n"
+	secs := ParseDoc("d.md", []byte(md))
+
+	var a Section
+	for _, s := range secs {
+		assert.GreaterOrEqual(t, s.LineEnd, s.LineStart, "no inverted range for %q", s.Heading)
+		if s.Heading == "A" {
+			a = s
+		}
+	}
+	// Lines: 1=# Title, 2=intro, 3=blank, 4=## A, 5=alpha body.
+	assert.Equal(t, 4, a.LineStart)
+	assert.Equal(t, 5, a.LineEnd)
+	// A doc opening with its H1 yields no empty preamble section.
+	assert.Equal(t, "Title", secs[0].Heading)
+}
+
+func TestParseDocNestedFenceRequiresEqualLengthClose(t *testing.T) {
+	md := strings.Join([]string{
+		"# T",
+		"````markdown", // 4-backtick opener
+		"```",          // inner 3-backtick line — not a valid close
+		"## Not A Heading",
+		"```",
+		"````", // 4-backtick close
+		"## Real",
+		"real body",
+	}, "\n")
+	secs := ParseDoc("d.md", []byte(md))
+	var headings []string
+	for _, s := range secs {
+		headings = append(headings, s.Heading)
+	}
+	assert.Contains(t, headings, "Real")
+	assert.NotContains(t, headings, "Not A Heading")
+}

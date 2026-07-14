@@ -1,7 +1,9 @@
 package docs
 
 import (
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,4 +66,13 @@ func TestSearchFlagQuery(t *testing.T) {
 func TestSearchEmptyQueryReturnsNil(t *testing.T) {
 	idx := NewIndex(sampleSections())
 	assert.Nil(t, idx.Search("   ", "", 10))
+}
+
+func TestSnippetIsValidUTF8(t *testing.T) {
+	// Multibyte runes longer than the snippet window must not be split.
+	noMatch := snippet(strings.Repeat("café ", 200), []string{"zzz-nomatch"})
+	assert.True(t, utf8.ValidString(noMatch))
+
+	withMatch := snippet(strings.Repeat("naïve ", 100)+"target", []string{"target"})
+	assert.True(t, utf8.ValidString(withMatch))
 }
