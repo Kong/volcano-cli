@@ -27,7 +27,15 @@ func main() {
 // (defaults to os.Stderr, same as before this extraction) so tests can
 // redirect it via root.SetErr.
 func run(root *cobra.Command, deps cliruntime.Deps) int {
-	err := root.Execute()
+	// ExecuteC returns the command that actually ran (the resolved leaf), even
+	// when it errored. PrintAPIInstructionNotices needs that leaf — not root —
+	// to read its CreditPromptSafeAnnotation and decide whether the interactive
+	// credit-gate prompt is allowed. Output still resolves through the shared
+	// stderr/stdin inherited from root.
+	executed, err := root.ExecuteC()
+	if executed == nil {
+		executed = root
+	}
 	stderr := root.ErrOrStderr()
 
 	if err != nil && api.Status(err) == http.StatusUpgradeRequired {
@@ -47,7 +55,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// earlier API call in this invocation are not cleared by whatever
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
-		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		upgradecmd.PrintAPIInstructionNotices(executed, deps)
 		return 1
 	}
 
@@ -56,7 +64,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	// to know their CLI is deprecated even though this command was let
 	// through. Reads only in-process state (api.LastInstructions); adds no
 	// network call.
-	upgradecmd.PrintAPIInstructionNotices(root, deps)
+	upgradecmd.PrintAPIInstructionNotices(executed, deps)
 	return 0
 }
 
