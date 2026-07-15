@@ -45,11 +45,13 @@ jobs:
       # change the version-determining files. A human PR that edits
       # package.json's version or .release-please-manifest.json fails here, so
       # the Release Please baseline cannot be reseeded outside the release flow.
+      # The exemption keys only on the release-please--* branch prefix, which is
+      # ruleset-locked to the release app; the autorelease label is deliberately
+      # not used, as it is forgeable by any write+triage user.
       - name: Enforce Release Please as the sole version writer
         if: >-
           github.event_name == 'pull_request' &&
-          !startsWith(github.head_ref, 'release-please--') &&
-          !contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
+          !startsWith(github.head_ref, 'release-please--')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
