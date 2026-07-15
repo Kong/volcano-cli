@@ -23,7 +23,7 @@ func newSync(deps cliruntime.Deps, f *flags) *cobra.Command {
 				return failOrErr(cmd, f, "sync", nil, err)
 			}
 			if f.offline {
-				err := fmt.Errorf("%w: cannot sync with --offline", docs.ErrSourceUnavailable)
+				err := fmt.Errorf("%w: cannot sync with --offline", docs.ErrOfflineConflict)
 				return failOrErr(cmd, f, "sync", svc, err)
 			}
 			res, err := svc.Sync(cmd.Context(), force)

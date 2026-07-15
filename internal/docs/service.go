@@ -244,7 +244,11 @@ func (s *Service) List(ctx context.Context, topic string, offline bool) ([]ListI
 	if err := s.ensureCache(ctx, offline); err != nil {
 		return nil, err
 	}
-	m, err := s.cache.Load()
+	snap, err := s.cache.openSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	m, err := snap.manifest()
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +259,7 @@ func (s *Service) List(ctx context.Context, topic string, offline bool) ([]ListI
 			continue
 		}
 		title := f.Path
-		if data, err := s.cache.ReadFile(f.Path); err == nil {
+		if data, err := snap.readFile(f.Path); err == nil {
 			title = deriveTitle(f.Path, strings.Split(string(data), "\n"))
 		}
 		out = append(out, ListItem{Path: f.Path, Topic: t, Title: title})

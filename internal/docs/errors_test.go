@@ -14,3 +14,15 @@ func TestCodePrefersSyncIncompleteOverSourceUnavailable(t *testing.T) {
 	// A pure source failure still maps to DOCS_SOURCE_UNAVAILABLE.
 	assert.Equal(t, "DOCS_SOURCE_UNAVAILABLE", Code(fmt.Errorf("%w: boom", ErrSourceUnavailable)))
 }
+
+func TestCodeOfflineConflictIsDistinctFromSourceUnavailable(t *testing.T) {
+	// `sync --offline` is an invalid flag combination, not a source failure.
+	assert.Equal(t, "DOCS_OFFLINE_CONFLICT", Code(fmt.Errorf("%w: cannot sync with --offline", ErrOfflineConflict)))
+}
+
+func TestIsRealGitHubAPIRequiresHTTPS(t *testing.T) {
+	assert.True(t, isRealGitHubAPI("https://api.github.com"))
+	// Plaintext to the API host must not be treated as trusted (no token attached).
+	assert.False(t, isRealGitHubAPI("http://api.github.com"))
+	assert.False(t, isRealGitHubAPI("https://evil.example.com"))
+}

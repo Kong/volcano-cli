@@ -139,15 +139,12 @@ func (s *Syncer) Sync(ctx context.Context, force bool) (*SyncResult, error) {
 			result.Added++
 		}
 	}
+	curRel := make(map[string]bool, len(blobs))
+	for _, b := range blobs {
+		curRel[b.Rel] = true
+	}
 	for oldPath := range prevSHA {
-		found := false
-		for _, b := range blobs {
-			if b.Rel == oldPath {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !curRel[oldPath] {
 			result.Removed++
 		}
 	}
@@ -395,7 +392,9 @@ func isRealGitHubAPI(rawURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(u.Hostname(), realAPIHost)
+	// Require HTTPS so a token is never attached over plaintext, even if the
+	// API URL were ever misconfigured to http://api.github.com.
+	return strings.EqualFold(u.Scheme, "https") && strings.EqualFold(u.Hostname(), realAPIHost)
 }
 
 // escapePath percent-escapes each path segment while preserving the `/`

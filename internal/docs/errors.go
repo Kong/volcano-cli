@@ -20,6 +20,10 @@ var (
 	// ErrSyncIncomplete indicates a sync failed partway and left the previous
 	// cache untouched.
 	ErrSyncIncomplete = errors.New("docs sync incomplete")
+	// ErrOfflineConflict indicates a network-requiring operation (e.g. `sync`)
+	// was invoked with --offline, which is an invalid flag combination rather
+	// than a source failure.
+	ErrOfflineConflict = errors.New("operation requires network access but --offline was set")
 )
 
 // Code returns the DOCS_* machine code for a docs error, or empty string.
@@ -33,6 +37,8 @@ func Code(err error) string {
 		return "DOCS_INVALID_ID"
 	case errors.Is(err, ErrDocNotFound):
 		return "DOCS_NOT_FOUND"
+	case errors.Is(err, ErrOfflineConflict):
+		return "DOCS_OFFLINE_CONFLICT"
 	// A partial download wraps both ErrSyncIncomplete (outer) and
 	// ErrSourceUnavailable (cause); prefer the more specific outer semantic.
 	case errors.Is(err, ErrSyncIncomplete):
