@@ -104,10 +104,13 @@ Prerelease and build metadata tags are not stable release tags. Nightly builds
 remain automated from `main` and publish to the mutable `nightly` GitHub Release;
 they are not npm releases and are separate from the stable Release Please flow.
 
-Required repository secret and variable for stable release publishing:
+Required repository secrets and variables for stable release publishing:
 
-- `RELEASE_PLEASE_TOKEN` (a GitHub token that can create release PRs, tags, and
-  releases that trigger follow-on workflows)
+- `VOLCANO_APP_ID` (variable) and `VOLCANO_APP_KEY` (secret): the GitHub App
+  used by Release Please to mint a short-lived installation token. A non-default
+  token is required so the release tag/release triggers the publish workflow.
+  The app must be installed on this repo with Contents and Pull requests
+  read/write.
 - `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION`
 
 Release assets include platform binaries, adjacent `.sigstore.json` bundles,

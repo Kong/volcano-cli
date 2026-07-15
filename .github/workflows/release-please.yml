@@ -14,10 +14,22 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # Mint a short-lived GitHub App installation token. Release Please must
+      # push tags/releases with a non-default token so publish-cli.yml runs:
+      # refs created with the default GITHUB_TOKEN do not trigger follow-on
+      # workflows. A GitHub App token replaces the personal access token
+      # without depending on an individual's credentials (VOL-367). The app id
+      # is a non-sensitive repo variable; the PEM private key is a secret. The
+      # app must be installed on this repo with Contents and Pull requests
+      # read/write.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.VOLCANO_APP_ID }}
+          private-key: ${{ secrets.VOLCANO_APP_KEY }}
+
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         with:
-          # Use a PAT so Release Please tags/releases trigger publish-cli.yml.
-          # GITHUB_TOKEN-created refs do not trigger follow-on workflow runs.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
