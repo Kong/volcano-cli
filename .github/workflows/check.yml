@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # Full history so the version-writer guard can diff against the PR base.
+          fetch-depth: 0
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
@@ -38,6 +41,35 @@ jobs:
             }
             console.log("Release version consistent: " + pkg);
           '
+      # Enforce the sole-version-writer invariant: only a Release Please PR may
+      # change the version-determining files. A human PR that edits
+      # package.json's version or .release-please-manifest.json fails here, so
+      # the Release Please baseline cannot be reseeded outside the release flow.
+      - name: Enforce Release Please as the sole version writer
+        if: >-
+          github.event_name == 'pull_request' &&
+          !startsWith(github.head_ref, 'release-please--') &&
+          !contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          violation=0
+          if ! git diff --quiet "$BASE_SHA" HEAD -- .release-please-manifest.json; then
+            echo "::error file=.release-please-manifest.json::Only a Release Please PR may change .release-please-manifest.json."
+            violation=1
+          fi
+          base_version="$(git show "$BASE_SHA:package.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
+          head_version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+          if [ "$base_version" != "$head_version" ]; then
+            echo "::error file=package.json::package.json version is owned by Release Please ($base_version -> $head_version)."
+            violation=1
+          fi
+          if [ "$violation" -ne 0 ]; then
+            echo "Drop these version-file changes; the Release Please PR bumps them."
+            exit 1
+          fi
+          echo "OK: no version-file changes outside a Release Please PR."
       - run: make openapi-generated-check
       - run: make lint
       - run: make test
