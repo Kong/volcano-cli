@@ -441,13 +441,9 @@ jobs:
       # OIDC trusted publishing: npm detects the id-token and authenticates
       # automatically; provenance is generated for public repos. No NPM_TOKEN.
       # VOLCANO_SKIP_DOWNLOAD stops the postinstall fetching a binary in CI.
-      #
-      # BOOTSTRAP: until an npm admin does the first manual publish and sets the
-      # OIDC trusted publisher (workflow file: publish-cli.yml), this step fails
-      # with ENEEDAUTH. continue-on-error keeps the release green meanwhile --
-      # REMOVE it once trusted publishing is live so real failures surface.
+      # Trusted publishing is live (the package is published on npm), so a
+      # publish failure is a real failure and must fail the release.
       - name: Publish to npm
-        continue-on-error: true
         env:
           VOLCANO_SKIP_DOWNLOAD: "1"
-        run: npm publish
+        run: npm publish --provenance --access public
