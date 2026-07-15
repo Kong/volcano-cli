@@ -40,10 +40,15 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Identity of the release app: PR author as GitHub CLI reports it, and
+          # the commit-author login it uses (the committer is web-flow for
+          # API-created commits, so only authors are checked).
+          RELEASE_APP_LOGIN: app/kong-volcano-app
+          RELEASE_BOT_LOGIN: kong-volcano-app[bot]
         run: |
           set -euo pipefail
-          # Only merge an open PR on this branch that carries the Release Please
-          # label, so nothing else can be merged through this path.
+          # Find the open PR on this branch that carries the Release Please label.
           number="$(gh pr list --head "$HEAD_BRANCH" --state open \
             --json number,labels \
             --jq 'map(select(any(.labels[]; .name == "autorelease: pending"))) | .[0].number // empty')"
@@ -51,5 +56,25 @@ jobs:
             echo "No open Release Please PR for ${HEAD_BRANCH}; nothing to merge."
             exit 0
           fi
-          echo "Merging release PR #${number}"
-          gh pr merge "$number" --squash
+
+          # The branch name and label are both forgeable by a write-access user,
+          # so authorship is the real gate: merge only a PR opened by the release
+          # app with no human-authored commits. This prevents a masqueraded
+          # "release" PR from being merged without review.
+          pr="$(gh pr view "$number" --json author,commits)"
+          author="$(jq -r '.author.login' <<<"$pr")"
+          if [ "$author" != "$RELEASE_APP_LOGIN" ]; then
+            echo "Refusing to merge #${number}: author is '${author}', not '${RELEASE_APP_LOGIN}'."
+            exit 1
+          fi
+          non_app_commits="$(jq -r --arg bot "$RELEASE_BOT_LOGIN" \
+            '[.commits[] | select(any(.authors[]?; .login != $bot))] | length' <<<"$pr")"
+          if [ "$non_app_commits" != "0" ]; then
+            echo "Refusing to merge #${number}: it has ${non_app_commits} commit(s) not authored by '${RELEASE_BOT_LOGIN}'."
+            exit 1
+          fi
+
+          echo "Merging release PR #${number} at ${HEAD_SHA}"
+          # --match-head-commit merges only the exact commit that passed CI, so
+          # a commit pushed after CI succeeded cannot slip in.
+          gh pr merge "$number" --squash --match-head-commit "$HEAD_SHA"
