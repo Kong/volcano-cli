@@ -5,10 +5,10 @@ on:
     branches:
       - main
 
+# Least privilege for the default GITHUB_TOKEN: the release work runs on the
+# GitHub App token minted below, so the default token needs no write scope.
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   release-please:
@@ -27,6 +27,13 @@ jobs:
         with:
           app-id: ${{ vars.VOLCANO_APP_ID }}
           private-key: ${{ secrets.VOLCANO_APP_KEY }}
+          # Down-scope the minted token to only what Release Please needs
+          # (contents + pull requests to open/merge the release PR and push
+          # the tag/release; issues for its release labels), rather than the
+          # app installation's full grant.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         with:
