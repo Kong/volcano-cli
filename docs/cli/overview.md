@@ -1,0 +1,86 @@
+# CLI operations overview
+
+This is a map of the Volcano building blocks ("elements") the CLI operates on,
+how they relate, and where the CLI can act on each. Each element has its own
+page with concrete command examples. For exact, always-current flags, run
+`volcano <command> --help`.
+
+## The model
+
+A **project** is the container for everything else. You authenticate, select an
+active project, then operate on the resources inside it:
+
+```
+account (auth)
+└── project ................... volcano projects / use
+    ├── functions ............. deployed backend logic        → functions.md
+    │     ├── uses → variables (config & secrets)
+    │     ├── connects → databases, storage
+    │     ├── runs on → a runtime
+    │     ├── invoked via → alias / HTTP / scheduler
+    ├── databases ............. managed Postgres               → databases.md
+    │     └── schema changed by → migrations
+    ├── storage ............... buckets → objects, policies    → storage.md
+    ├── variables ............. env vars / secrets             → variables.md
+    ├── frontends ............. deployed sites, custom domains → frontends.md
+    └── declarative config .... one YAML syncing the above     → ../project-configuration.md
+```
+
+Cross-cutting concerns:
+
+- **Authentication** gates all cloud access — see [authentication.md](../authentication.md).
+- **Declarative configuration** applies settings across every element from one
+  manifest — see [project-configuration.md](../project-configuration.md).
+
+## Local vs. cloud target
+
+The CLI can operate against two targets:
+
+- **Local** development environment (`volcano start` / `stop` / `restart` /
+  `status` / `reset`), used by the top-level resource commands when it is
+  running.
+- **Cloud** project — forced with the `cloud` prefix (e.g. `volcano cloud
+  functions list`).
+
+Top-level resource commands (`volcano functions …`, `volcano databases …`, etc.)
+act on your **active context**: the local environment when running, otherwise
+the cloud project.
+
+## Element → CLI ability at a glance
+
+| Element | CLI can… | Commands | Details |
+|---|---|---|---|
+| Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](../authentication.md) |
+| Project | create, list, get, delete, select | `projects …`, `use` | below |
+| Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
+| Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
+| Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
+| Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
+| Frontends | deploy, inspect, custom domains | `cloud frontends …` | [frontends.md](frontends.md) |
+| Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](../project-configuration.md) |
+| Local environment | start/stop/status/reset | `start`, `stop`, `restart`, `status`, `reset` | above |
+| Documentation | search/read the docs | `docs …` | [docs-search.md](../docs-search.md) |
+
+## Projects
+
+A project owns all resources. Authentication and an active project are
+prerequisites for cloud operations.
+
+```bash
+volcano projects create my-app     # create a project
+volcano projects list              # list your projects
+volcano use my-app                 # set the active project
+volcano projects get               # details for the active project
+volcano projects delete my-app     # delete
+```
+
+`VOLCANO_PROJECT_ID` overrides the active project for a single invocation
+(useful in CI).
+
+## Starting a project
+
+```bash
+volcano init javascript            # scaffold a local project (js/nextjs/python/ruby)
+volcano start                      # start the local dev environment
+volcano status                     # check it
+```
