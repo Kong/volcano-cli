@@ -27,8 +27,10 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Use:   "docs",
 		Short: "Search and read Volcano documentation",
 		Long: "docs fetches the Volcano documentation corpus from its source " +
-			"(default: the Kong/volcano-hosting repository) into a local cache and " +
-			"lets you search and read it offline.\n\n" +
+			"(default: the Kong/volcano-cli repository's /docs on main; point " +
+			"--repo/--ref/--path or VOLCANO_DOCS_* at Kong/volcano-hosting for the " +
+			"broader product docs) into a local cache and lets you search and read " +
+			"it offline.\n\n" +
 			"It is built for AI agents and humans alike: use `docs search` to find " +
 			"relevant docs, `docs get` to read a document or section, and `--json` " +
 			"for machine-readable output.",
