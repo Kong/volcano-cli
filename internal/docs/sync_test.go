@@ -434,3 +434,14 @@ func TestSyncDownloadsViaRawHostWithoutToken(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, got.Content, "beta")
 }
+
+func TestRawHostSelection(t *testing.T) {
+	// Explicit override always wins.
+	assert.Equal(t, "http://x", (&Syncer{rawURL: "http://x", apiURL: defaultAPIURL}).rawHost())
+	// No token + real GitHub API → raw CDN (avoids the unauth rate limit).
+	assert.Equal(t, defaultRawURL, (&Syncer{apiURL: defaultAPIURL}).rawHost())
+	// Token present → authenticated contents API (empty raw host).
+	assert.Empty(t, (&Syncer{apiURL: defaultAPIURL, token: "t"}).rawHost())
+	// Injected (test) API host → contents API, keeps tests hermetic.
+	assert.Empty(t, (&Syncer{apiURL: "http://127.0.0.1:1234"}).rawHost())
+}

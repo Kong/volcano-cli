@@ -25,7 +25,7 @@ Frontend commands live under the `cloud` group.
 | Get | `volcano cloud frontends get <name>` |
 | Delete | `volcano cloud frontends delete <name>` |
 | Logs | `volcano cloud frontends logs <name>` |
-| Custom domains | `volcano cloud frontends domain create|list|get|delete …` |
+| Custom domains | `volcano cloud frontends domain create\|list\|get\|delete …` |
 
 ## Examples
 

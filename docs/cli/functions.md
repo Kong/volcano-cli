@@ -22,7 +22,7 @@ runtime from source file extensions, and uploads a packaged archive.
 
 | Operation | Command |
 |---|---|
-| Deploy one or all | `volcano functions deploy [-a | -f <name|path>]` |
+| Deploy one or all | `volcano functions deploy [-a \| -f <name\|path>]` |
 | List | `volcano functions list` |
 | Get | `volcano functions get <name>` |
 | Update settings | `volcano functions update <name> …` |
@@ -30,8 +30,8 @@ runtime from source file extensions, and uploads a packaged archive.
 | Invoke | `volcano functions invoke <name> [--payload …] [--json]` |
 | Logs | `volcano functions logs <name>` |
 | Supported runtimes | `volcano functions runtimes` |
-| Aliases | `volcano functions alias set|list|delete …` |
-| Schedulers | `volcano functions schedulers create|list|enable|disable|delete …` |
+| Aliases | `volcano functions alias set\|list\|delete …` |
+| Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |
 
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to force the cloud
 target instead of the active context.

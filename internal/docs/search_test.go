@@ -76,3 +76,14 @@ func TestSnippetIsValidUTF8(t *testing.T) {
 	withMatch := snippet(strings.Repeat("naïve ", 100)+"target", []string{"target"})
 	assert.True(t, utf8.ValidString(withMatch))
 }
+
+func TestSearchPhraseBonusAcrossNewline(t *testing.T) {
+	// The exact-phrase bonus must fire even when the phrase spans a newline in
+	// the source. Both docs contain both terms; only one has them adjacent.
+	secs := []Section{}
+	secs = append(secs, ParseDoc("a.md", []byte("# A\ninstall\nvolcano now"))...)
+	secs = append(secs, ParseDoc("b.md", []byte("# B\nvolcano is great and you can install plugins separately"))...)
+	results := NewIndex(secs).Search("install volcano", "", 10)
+	require.NotEmpty(t, results)
+	assert.Contains(t, results[0].Path, "a.md", "adjacent (across-newline) phrase should win the phrase bonus")
+}

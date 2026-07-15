@@ -150,6 +150,14 @@ func Serve(ctx context.Context, r io.Reader, w io.Writer, info ServerInfo, h Han
 		}
 		isNotification := len(req.ID) == 0
 
+		// A JSON-RPC notification (no id) must never receive a response. Only
+		// notifications/* are meaningful as notifications; ignore any other
+		// method sent without an id rather than replying with a forbidden
+		// id:null frame.
+		if isNotification && req.Method != "notifications/initialized" {
+			continue
+		}
+
 		switch req.Method {
 		case "initialize":
 			if initialized {
@@ -179,9 +187,6 @@ func Serve(ctx context.Context, r io.Reader, w io.Writer, info ServerInfo, h Han
 			}
 			handleToolCall(ctx, w, req, h)
 		default:
-			if isNotification {
-				continue // ignore unknown notifications per JSON-RPC
-			}
 			writeError(w, req.ID, CodeMethodNotFound, fmt.Sprintf("unknown method %q", req.Method))
 		}
 	}

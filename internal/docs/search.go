@@ -198,7 +198,9 @@ func buildChunk(sec Section, body string) chunk {
 	add(sec.Title, titleBoost)
 	add(strings.Join(sec.HeadingPath, " "), headingBoost)
 	add(pathTokens(sec.DocPath), pathBoost)
-	c.lowerText = strings.ToLower(strings.Join(sec.HeadingPath, " ") + "\n" + body)
+	// Normalize whitespace the same way as the query phrase so the exact-phrase
+	// bonus can match across newlines / multiple spaces in the source.
+	c.lowerText = normalizePhrase(strings.Join(sec.HeadingPath, " ") + " " + body)
 	return c
 }
 

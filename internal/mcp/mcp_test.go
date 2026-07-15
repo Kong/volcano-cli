@@ -154,3 +154,15 @@ func TestDuplicateInitializeRejected(t *testing.T) {
 	errObj := resps[1]["error"].(map[string]any)
 	assert.EqualValues(t, CodeInvalidRequest, errObj["code"])
 }
+
+func TestNotificationForKnownMethodProducesNoResponse(t *testing.T) {
+	// ping/tools-list sent without an id are notifications — no reply allowed.
+	resps := run(t, &fakeHandler{},
+		initReq,
+		`{"jsonrpc":"2.0","method":"ping"}`,
+		`{"jsonrpc":"2.0","method":"tools/list"}`,
+	)
+	// Only the initialize response; the two id-less calls yield nothing.
+	require.Len(t, resps, 1)
+	assert.EqualValues(t, 1, resps[0]["id"])
+}

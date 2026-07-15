@@ -290,7 +290,13 @@ func (s *Service) Get(ctx context.Context, id string, offline bool) (*GetResult,
 	if strings.TrimSpace(docPath) == "" {
 		return nil, fmt.Errorf("%w: empty id", ErrInvalidID)
 	}
-	data, err := s.cache.ReadFile(docPath)
+	// Read through a pinned snapshot (consistent with sections()/List) so a
+	// concurrent external sync + prune can't spuriously 404 a doc that exists.
+	snap, err := s.cache.openSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	data, err := snap.readFile(docPath)
 	if err != nil {
 		return nil, err
 	}

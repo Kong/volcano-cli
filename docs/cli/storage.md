@@ -18,9 +18,9 @@ Object storage organized into **buckets** that hold **objects** (files).
 
 | Element | CLI can… | Command |
 |---|---|---|
-| Bucket | create, list, get, update, delete | `volcano storage bucket create|list|get|update|delete …` |
-| Object | list, upload, download, copy, move, delete, set visibility | `volcano storage object list|upload|download|copy|move|delete|visibility …` |
-| Policy | attach, list, get, delete | `volcano storage policy create|list|get|delete …` |
+| Bucket | create, list, get, update, delete | `volcano storage bucket create\|list\|get\|update\|delete …` |
+| Object | list, upload, download, copy, move, delete, set visibility | `volcano storage object list\|upload\|download\|copy\|move\|delete\|visibility …` |
+| Policy | attach, list, get, delete | `volcano storage policy create\|list\|get\|delete …` |
 | Usage | aggregate stats | `volcano storage stats` |
 
 Prefix with `cloud` to force the cloud target.

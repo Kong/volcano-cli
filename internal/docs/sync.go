@@ -321,10 +321,11 @@ func (s *Syncer) fetchRaw(ctx context.Context, commit, rel string) ([]byte, erro
 		full = s.src.Path + "/" + rel
 	}
 
+	rawBase := s.rawHost()
+	useRawHost := rawBase != ""
 	var u string
-	useRawHost := strings.TrimSpace(s.rawURL) != ""
 	if useRawHost {
-		u = fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(s.rawURL, "/"), s.src.Repo, commit, escapePath(full))
+		u = fmt.Sprintf("%s/%s/%s/%s", strings.TrimRight(rawBase, "/"), s.src.Repo, commit, escapePath(full))
 	} else {
 		u = fmt.Sprintf("%s/repos/%s/contents/%s?ref=%s", s.apiURL, s.src.Repo, escapePath(full), commit)
 	}
@@ -406,6 +407,26 @@ func escapePath(p string) string {
 		segs[i] = url.PathEscape(s)
 	}
 	return strings.Join(segs, "/")
+}
+
+// defaultRawURL is the public raw-content CDN, served without authentication
+// and not counted against the API rate limit.
+const defaultRawURL = "https://raw.githubusercontent.com"
+
+// rawHost picks the download host. An explicit override (tests / public repos)
+// wins. Otherwise, a token-less sync against the real GitHub API uses the raw
+// CDN to avoid the 60 req/hr unauthenticated contents-API limit (a large
+// public source would otherwise fail partway); an authenticated sync uses the
+// contents API (works for private repos, 5000 req/hr). The real-API gate keeps
+// tests — which inject a fake apiURL — on the contents-API path.
+func (s *Syncer) rawHost() string {
+	if v := strings.TrimSpace(s.rawURL); v != "" {
+		return v
+	}
+	if s.token == "" && isRealGitHubAPI(s.apiURL) {
+		return defaultRawURL
+	}
+	return ""
 }
 
 // relUnder returns the path relative to prefix and whether it is under it.
