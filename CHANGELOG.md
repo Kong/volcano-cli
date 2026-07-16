@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Kong/volcano-cli/compare/v0.1.1...v0.1.2) (2026-07-16)
+
+
+### Continuous Integration
+
+* fully automate Release Please merges and enforce sole version writer [VOL-383] ([#62](https://github.com/Kong/volcano-cli/issues/62)) ([74d5fa1](https://github.com/Kong/volcano-cli/commit/74d5fa1f33076c53602fba5124019c2a2abb4342))
+
 ## [0.1.1](https://github.com/Kong/volcano-cli/compare/v0.1.0...v0.1.1) (2026-07-15)
 
 
