@@ -63,12 +63,18 @@ jobs:
         run: |
           set -euo pipefail
           # Last released version is the source of truth for the current major.
-          current_version="$(gh api "repos/${GH_REPO}/contents/.release-please-manifest.json" --jq '.content' | base64 -d | jq -r '."."')"
+          # Fail closed: if the baseline is missing/malformed, arm nothing.
+          current_version="$(gh api "repos/${GH_REPO}/contents/.release-please-manifest.json" --jq '.content' | base64 -d | jq -r '.["."] // ""')"
+          if ! printf '%s' "$current_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Current version '${current_version}' is missing or not X.Y.Z; leaving all release PRs for manual merge."
+            exit 0
+          fi
           current_major="${current_version%%.*}"
           jq -r '.[].number' <<< "$RELEASE_PRS" | while read -r number; do
-            # Release PR titles follow the "release: X.Y.Z" pattern.
+            # Release PR titles follow the exact "release: X.Y.Z" pattern; the
+            # anchored match leaves anything unexpected for manual merge.
             title="$(gh pr view "$number" --json title --jq .title)"
-            new_version="$(printf '%s' "$title" | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')"
+            new_version="$(printf '%s' "$title" | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p')"
             if [ -z "$new_version" ]; then
               echo "Could not parse a version from PR #${number} title '${title}'; leaving for manual merge."
               continue
