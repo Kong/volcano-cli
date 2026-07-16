@@ -51,8 +51,21 @@ type Config struct {
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
+	// DocsSource persists a non-default documentation source override so that
+	// `volcano docs` commands resolve the same repo/ref/path across invocations
+	// without repeating --repo/--ref/--path flags. Nil means "use the compiled
+	// default source".
+	DocsSource *DocsSourceConfig `json:"docs_source,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
+}
+
+// DocsSourceConfig persists a documentation source override. Empty fields fall
+// back to the compiled defaults during resolution.
+type DocsSourceConfig struct {
+	Repo string `json:"repo,omitempty"`
+	Ref  string `json:"ref,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // ProjectConfig represents the currently selected Volcano project.

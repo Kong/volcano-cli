@@ -49,7 +49,7 @@ func updateOptions(deps cliruntime.Deps) update.Options {
 // A command that made no API call (help, version, completion, local-only
 // commands) observes a zero-value Instructions and prints nothing.
 func PrintAPIInstructionNotices(cmd *cobra.Command, deps cliruntime.Deps) {
-	instructions := api.LastInstructions()
+	instructions := api.ConsumeCLIInstructions()
 	switch instructions.CLIInstruction {
 	case api.CLIInstructionRequireVersionUpgrade:
 		printDeprecationWarning(cmd, deps, instructions.LatestVersion)

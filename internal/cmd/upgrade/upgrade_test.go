@@ -110,6 +110,7 @@ func withInstructions(t *testing.T, cliInstruction, latest, deviceInstruction st
 	// clear a value recorded by an earlier test. Reset explicitly so each test
 	// starts from the zero value regardless of execution order.
 	api.ResetLastInstructionsForTest()
+	t.Cleanup(api.ResetLastInstructionsForTest)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if cliInstruction != "" {
 			w.Header().Set("X-Volcano-CLI-Instruction", cliInstruction)
@@ -172,6 +173,20 @@ func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
 
 	assert.Contains(t, out.String(), "Volcano CLI v0.9.0 is no longer supported. Upgrade to v1.5.0 or later:\n  volcano upgrade")
+}
+
+func TestPrintAPIInstructionNotices_DeprecationWithoutLatestVersion(t *testing.T) {
+	oldVersion := version.Version
+	version.Version = "v0.9.0"
+	t.Cleanup(func() { version.Version = oldVersion })
+	withInstructions(t, api.CLIInstructionRequireVersionUpgrade, "", "")
+
+	cmd := &cobra.Command{Use: "login"}
+	var out bytes.Buffer
+	cmd.SetErr(&out)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Volcano CLI v0.9.0 is no longer supported. Run `volcano upgrade` to upgrade.")
 }
 
 func TestPrintAPIInstructionNotices_NotEnoughCredit(t *testing.T) {

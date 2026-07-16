@@ -35,7 +35,24 @@ type StreamOpener func(ctx context.Context, lastEventID string) (*api.ProjectLog
 // stream cursor — resuming without replaying recent events — until the context
 // is canceled. A failure to open the stream is surfaced to the caller.
 func Runtime(ctx context.Context, deps cliruntime.Deps, w io.Writer, open StreamOpener) error {
-	stream := newReconnectingStream(ctx, deps, open)
+	return RuntimeWithStreamOpened(ctx, deps, w, open, nil)
+}
+
+// RuntimeWithStreamOpened follows runtime logs like Runtime and invokes opened
+// once after the first stream connection succeeds. Callers use this to render
+// API instructions that arrive in the stream response headers before a healthy
+// follow session blocks indefinitely.
+func RuntimeWithStreamOpened(ctx context.Context, deps cliruntime.Deps, w io.Writer, open StreamOpener, opened func()) error {
+	var openedOnce sync.Once
+	openWithCallback := func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
+		stream, err := open(ctx, lastEventID)
+		if err == nil && opened != nil {
+			openedOnce.Do(opened)
+		}
+		return stream, err
+	}
+
+	stream := newReconnectingStream(ctx, deps, openWithCallback)
 	defer func() {
 		_ = stream.Close()
 	}()

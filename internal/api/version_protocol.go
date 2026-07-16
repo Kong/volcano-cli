@@ -10,14 +10,11 @@ import (
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
-// Header names and instruction values for the VOL-180 CLI version protocol.
-// These MUST match volcano-hosting's internal/constants/http.go and
-// docs/cli/version-gating.md. Duplicated here because this is a separate
-// repository with no shared Go module; there is intentionally no
-// cryptographic binding on the request header — see "Security model" in that
-// doc for why the claimed version is advisory input only and never a
-// privilege (the CLI cannot make this header trustworthy, and doesn't need
-// to: the API never grants anything based on it).
+// Header names and instruction values for the CLI version protocol. This is
+// the CLI's HTTP wire contract and is duplicated here because this repository
+// has no shared Go module with the API. The claimed version is advisory input
+// only and never a privilege: the CLI cannot make this request header
+// trustworthy, and it does not use the value to grant authority.
 const (
 	headerCLIVersion        = "X-Volcano-CLI-Version"
 	headerCLIInstruction    = "X-Volcano-CLI-Instruction"
@@ -52,14 +49,22 @@ type Instructions struct {
 	DeviceInstruction string
 }
 
+type cliInstructionPair struct {
+	instruction   string
+	latestVersion string
+}
+
 var (
-	instructionsMu   sync.RWMutex
-	lastInstructions Instructions
+	instructionsMu          sync.RWMutex
+	lastInstructions        Instructions
+	consumedCLIInstructions map[cliInstructionPair]struct{}
 )
 
 // LastInstructions returns the most recently observed VOL-180 instructions
-// from any API response in this process. It is the zero value if no API call
-// has completed yet — e.g. local-only commands (init, help, version,
+// from any API response in this process. It retains the latest observed values
+// after ConsumeCLIInstructions renders their one-shot notice so error paths can
+// still use response metadata such as LatestVersion. It is the zero value if no
+// API call has completed yet — e.g. local-only commands (init, help, version,
 // completion) never populate this, since they never make a request.
 //
 // A CLI process runs exactly one command per invocation, so "most recent" is
@@ -69,6 +74,35 @@ func LastInstructions() Instructions {
 	instructionsMu.RLock()
 	defer instructionsMu.RUnlock()
 	return lastInstructions
+}
+
+// ConsumeCLIInstructions returns each observed CLI instruction/latest-version
+// pair once. Repeated API responses commonly carry the same pair, so retaining
+// the last consumed pair prevents a long-running command from rendering the
+// same notice again after a poll or stream reconnect. DeviceInstruction is
+// returned unchanged because callers render the reauthentication hint from
+// LastInstructions alongside command errors.
+func ConsumeCLIInstructions() Instructions {
+	instructionsMu.Lock()
+	defer instructionsMu.Unlock()
+
+	instructions := lastInstructions
+	pair := cliInstructionPair{
+		instruction:   instructions.CLIInstruction,
+		latestVersion: instructions.LatestVersion,
+	}
+	_, consumed := consumedCLIInstructions[pair]
+	if pair.instruction == "" || consumed {
+		instructions.CLIInstruction = ""
+		instructions.LatestVersion = ""
+		return instructions
+	}
+
+	if consumedCLIInstructions == nil {
+		consumedCLIInstructions = make(map[cliInstructionPair]struct{})
+	}
+	consumedCLIInstructions[pair] = struct{}{}
+	return instructions
 }
 
 // recordInstructions updates the two instruction fields independently, and
@@ -106,6 +140,57 @@ func userAgent() string {
 	return "volcano-cli/" + version.Version + " (" + runtime.GOOS + "/" + runtime.GOARCH + ")"
 }
 
+// reportedCLIVersion avoids accidentally presenting a source build as a
+// prerelease of its nearest tag. `git describe --tags --always --dirty` emits
+// values like v1.4.2-6-gabcdef0 (or a -dirty suffix), which semver correctly
+// orders below v1.4.2 even though the source is newer. Report source-build
+// identifiers as dev while retaining the full build identifier in User-Agent
+// for support diagnostics.
+func reportedCLIVersion() string {
+	value := strings.TrimSpace(version.Version)
+	if isGitDescribeBuild(value) || isGitSHA(value) {
+		return "dev"
+	}
+	return value
+}
+
+func isGitDescribeBuild(value string) bool {
+	if strings.HasSuffix(value, "-dirty") {
+		return true
+	}
+	marker := strings.LastIndex(value, "-g")
+	if marker < 1 {
+		return false
+	}
+	sha := value[marker+2:]
+	if len(sha) < 7 || !isHex(sha) {
+		return false
+	}
+	distanceStart := strings.LastIndex(value[:marker], "-")
+	if distanceStart < 1 {
+		return false
+	}
+	for _, r := range value[distanceStart+1 : marker] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func isGitSHA(value string) bool {
+	return len(value) >= 7 && isHex(value)
+}
+
+func isHex(value string) bool {
+	for _, r := range value {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
+}
+
 // versionProtocolDoer wraps an apiclient.HttpRequestDoer to speak the VOL-180
 // CLI version protocol on every request: it reports this CLI's version and
 // identity, and records whatever instructions the API returns so callers can
@@ -117,7 +202,7 @@ type versionProtocolDoer struct {
 }
 
 func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set(headerCLIVersion, version.Version)
+	req.Header.Set(headerCLIVersion, reportedCLIVersion())
 	req.Header.Set("User-Agent", userAgent())
 	resp, err := d.next.Do(req)
 	if resp != nil {
@@ -136,5 +221,6 @@ func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 func ResetLastInstructionsForTest() {
 	instructionsMu.Lock()
 	lastInstructions = Instructions{}
+	consumedCLIInstructions = nil
 	instructionsMu.Unlock()
 }

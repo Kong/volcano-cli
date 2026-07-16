@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/logfollow"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -32,6 +33,7 @@ type frontendLogsOptions struct {
 	limit        int
 	follow       bool
 	out          io.Writer
+	printNotices func()
 }
 
 func newLogs(deps cliruntime.Deps) *cobra.Command {
@@ -55,6 +57,7 @@ func newLogs(deps cliruntime.Deps) *cobra.Command {
 				limit:        limit,
 				follow:       follow,
 				out:          cmd.OutOrStdout(),
+				printNotices: func() { upgradecmd.PrintAPIInstructionNotices(cmd, deps) },
 			})
 		},
 	}
@@ -85,9 +88,9 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 	if logsType == frontendLogsTypeRuntime {
 		if opts.follow {
 			fmt.Fprintf(opts.out, "Following runtime logs for frontend %s\n\n", frontend.Name)
-			return logfollow.Runtime(ctx, opts.deps, opts.out, func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
+			return logfollow.RuntimeWithStreamOpened(ctx, opts.deps, opts.out, func(ctx context.Context, lastEventID string) (*api.ProjectLogStream, error) {
 				return service.StreamRuntimeLogs(ctx, frontend.Id, opts.limit, lastEventID)
-			})
+			}, opts.printNotices)
 		}
 		fmt.Fprintf(opts.out, "Fetching runtime logs for frontend %s\n\n", frontend.Name)
 		return output.PrintSearchLogs(opts.out, func(cursor string) (*apiclient.LogSearchResponse, error) {
@@ -137,6 +140,9 @@ func followDeploymentLogs(ctx context.Context, opts frontendLogsOptions, service
 	if err != nil {
 		cancel()
 		return err
+	}
+	if opts.printNotices != nil {
+		opts.printNotices()
 	}
 	return logfollow.Deployment(ctx, opts.deps, opts.out, stream, cancel, func(ctx context.Context) (bool, error) {
 		deployment, err := service.ResolveDeployment(ctx, frontendID, deploymentID.String())

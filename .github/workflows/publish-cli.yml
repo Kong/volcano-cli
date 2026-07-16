@@ -20,7 +20,7 @@ jobs:
     name: Validate Release Ref
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 
@@ -32,10 +32,9 @@ jobs:
           fi
 
           STABLE_SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-          NIGHTLY_SEMVER_RE='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
-          if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]] && [[ ! "$GITHUB_REF_NAME" =~ $NIGHTLY_SEMVER_RE ]]; then
+          if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
             echo "Unsupported release tag: ${GITHUB_REF_NAME}"
-            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH or nightly form v0.0.N-nightly.YYYYMMDD.NUMBER."
+            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH."
             exit 1
           fi
 
@@ -58,15 +57,17 @@ jobs:
       prerelease: ${{ steps.release.outputs.prerelease }}
       latest: ${{ steps.release.outputs.latest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
 
       - name: Resolve release version
         id: release
         run: |
           set -euo pipefail
-          NIGHTLY_SEMVER_RE='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             DATE_PART="$(date -u +%Y%m%d)"
@@ -87,13 +88,16 @@ jobs:
             LATEST="false"
           else
             RELEASE_TAG="$GITHUB_REF_NAME"
-            if [[ "$GITHUB_REF_NAME" =~ $NIGHTLY_SEMVER_RE ]]; then
-              PRERELEASE="true"
-              LATEST="false"
-            else
-              PRERELEASE="false"
-              LATEST="auto"
+            NPM_VERSION="$(node -p "require('./package.json').version")"
+
+            if [ "v${NPM_VERSION}" != "$RELEASE_TAG" ]; then
+              echo "Release tag ${RELEASE_TAG} does not match package.json version ${NPM_VERSION}."
+              echo "Stable releases must be created from the Release Please release PR commit."
+              exit 1
             fi
+
+            PRERELEASE="false"
+            LATEST="auto"
           fi
 
           {
@@ -141,12 +145,12 @@ jobs:
             goarch: amd64
             ext: ".exe"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
-      - uses: sigstore/cosign-installer@v4.1.2
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Resolve release build environment
         env:
@@ -188,7 +192,7 @@ jobs:
           test -s "$BUNDLE_PATH"
 
       - name: Upload signed binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: volcano-binaries-${{ matrix.target.id }}
           path: dist/${{ matrix.target.id }}
@@ -207,11 +211,11 @@ jobs:
       RELEASE_PRERELEASE: ${{ needs.resolve-release.outputs.prerelease }}
       RELEASE_LATEST: ${{ needs.resolve-release.outputs.latest }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: sigstore/cosign-installer@v4.1.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Download signed binary artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: volcano-binaries-*
           path: _release
@@ -389,9 +393,9 @@ jobs:
       contents: read
       id-token: write # REQUIRED for npm trusted publishing (OIDC)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -401,23 +405,19 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@11
 
-      - name: Resolve npm version
+      - name: Verify npm package version
         id: npm_version
         env:
           CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
         run: |
           set -euo pipefail
-          VERSION="${CLI_VERSION#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Refusing to publish non-stable version to npm: ${CLI_VERSION}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${VERSION}" != "$CLI_VERSION" ]; then
+            echo "Refusing to publish npm version ${VERSION} for release ${CLI_VERSION}."
+            echo "package.json must match the stable release tag."
             exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Set package version
-        run: |
-          npm version "${{ steps.npm_version.outputs.version }}" \
-            --no-git-tag-version --allow-same-version
 
       - name: Verify release assets exist
         env:
@@ -441,13 +441,9 @@ jobs:
       # OIDC trusted publishing: npm detects the id-token and authenticates
       # automatically; provenance is generated for public repos. No NPM_TOKEN.
       # VOLCANO_SKIP_DOWNLOAD stops the postinstall fetching a binary in CI.
-      #
-      # BOOTSTRAP: until an npm admin does the first manual publish and sets the
-      # OIDC trusted publisher (workflow file: publish-cli.yml), this step fails
-      # with ENEEDAUTH. continue-on-error keeps the release green meanwhile --
-      # REMOVE it once trusted publishing is live so real failures surface.
+      # Trusted publishing is live (the package is published on npm), so a
+      # publish failure is a real failure and must fail the release.
       - name: Publish to npm
-        continue-on-error: true
         env:
           VOLCANO_SKIP_DOWNLOAD: "1"
-        run: npm publish
+        run: npm publish --provenance --access public
