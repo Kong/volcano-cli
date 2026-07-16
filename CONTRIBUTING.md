@@ -101,9 +101,10 @@ On each qualifying push to `main`, Release Please opens or updates a single
 `.release-please-manifest.json` and updates `CHANGELOG.md`. What happens next
 depends on the bump size:
 
-- Minor and patch releases auto-merge once `check / check` passes (no review is
-  required); the resulting SemVer tag triggers the publish workflow, which
-  attaches signed binaries and publishes to npm with provenance.
+- Minor and patch releases auto-merge once the required `check / check` run
+  passes; the branch requires no approving review. The resulting SemVer tag
+  triggers the publish workflow, which attaches signed binaries and publishes
+  to npm with provenance.
 - Major releases are left open for a maintainer to merge manually.
 
 While the version is pre-1.0, breaking changes bump the minor
