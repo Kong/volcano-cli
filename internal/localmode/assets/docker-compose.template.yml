@@ -50,6 +50,26 @@ services:
     networks:
       - volcano-internal
 
+  opensearch:
+    image: ${VOLCANO_OPENSEARCH_IMAGE:-opensearchproject/opensearch:3.5.0}
+    container_name: volcano-opensearch
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - volcano-opensearch:/usr/share/opensearch/data
+    networks:
+      - volcano-internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9200/_cluster/health?wait_for_status=yellow >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+
   # Local SMTP catch-all for testing auth emails. The seeded default project's
   # auth_config points its smtp_host at "mailpit" so signup confirmations,
   # password reset emails, etc. land in Mailpit's inbox at http://localhost:8025
@@ -73,13 +93,19 @@ services:
         condition: service_healthy
       dynamodb:
         condition: service_started
+      opensearch:
+        condition: service_healthy
     environment:
       # Core settings
       LOCAL_MODE: "true"
+      LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
+      LOGS_BACKEND: ${LOGS_BACKEND:-opensearch}
       DYNAMODB_ENDPOINT: http://dynamodb:8000
       LOG_EVENTS_HOT_PATH_TABLE_NAME: volcano-local-log-events
+      LOG_OPENSEARCH_COLLECTION_NAME: volcano-local-logs
+      LOG_OPENSEARCH_ENDPOINT: http://opensearch:9200
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
@@ -143,4 +169,5 @@ volumes:
   volcano-db:
   volcano-redis:
   volcano-dynamodb:
+  volcano-opensearch:
   volcano-storage:
