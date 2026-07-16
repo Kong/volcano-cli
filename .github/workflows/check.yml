@@ -53,16 +53,29 @@ jobs:
           github.event_name == 'pull_request' &&
           !startsWith(github.head_ref, 'release-please--')
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
+          # On pull_request the checked-out HEAD is the merge commit (PR head
+          # merged onto the current base). Diff against its base parent (HEAD^1)
+          # rather than the event's base.sha: HEAD^1 is the exact main tip the
+          # tree was merged onto, so a release landing on main between event
+          # dispatch and checkout can't compare against a stale base and
+          # false-fail an unrelated PR. Fall back to the event base if HEAD is
+          # somehow not a merge commit.
+          if git rev-parse --verify --quiet HEAD^2 >/dev/null; then
+            base_sha="$(git rev-parse HEAD^1)"
+          else
+            base_sha="$EVENT_BASE_SHA"
+          fi
+          read_version() { node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).version'; }
           violation=0
-          if ! git diff --quiet "$BASE_SHA" HEAD -- .release-please-manifest.json; then
+          if ! git diff --quiet "$base_sha" HEAD -- .release-please-manifest.json; then
             echo "::error file=.release-please-manifest.json::Only a Release Please PR may change .release-please-manifest.json."
             violation=1
           fi
-          base_version="$(git show "$BASE_SHA:package.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
-          head_version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+          base_version="$(git show "$base_sha:package.json" | read_version)"
+          head_version="$(read_version < package.json)"
           if [ "$base_version" != "$head_version" ]; then
             echo "::error file=package.json::package.json version is owned by Release Please ($base_version -> $head_version)."
             violation=1
