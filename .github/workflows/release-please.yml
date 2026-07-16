@@ -49,17 +49,35 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # Auto-merge the release PR so it merges as soon as it satisfies branch
-      # protection (required approval + green checks). Squash is the only
-      # enabled merge method, so the release lands as one Conventional Commit.
-      - name: Enable auto-merge for the release PR
+      # Auto-merge only non-major release PRs; a major bump is left open for a
+      # maintainer to merge manually. With no required review, an armed
+      # auto-merge completes on its own once check/check passes, so simply not
+      # arming the major PR makes it wait for a manual merge. Fails closed: if
+      # the target version can't be determined, the PR is left for manual merge.
+      - name: Auto-merge non-major release PRs
         if: ${{ steps.release.outputs.prs_created == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_PRS: ${{ steps.release.outputs.prs }}
         run: |
           set -euo pipefail
+          # Last released version is the source of truth for the current major.
+          current_version="$(gh api "repos/${GH_REPO}/contents/.release-please-manifest.json" --jq '.content' | base64 -d | jq -r '."."')"
+          current_major="${current_version%%.*}"
           jq -r '.[].number' <<< "$RELEASE_PRS" | while read -r number; do
-            echo "Enabling squash auto-merge for release PR #${number}"
-            gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --auto --squash
+            # Release PR titles follow the "release: X.Y.Z" pattern.
+            title="$(gh pr view "$number" --json title --jq .title)"
+            new_version="$(printf '%s' "$title" | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p')"
+            if [ -z "$new_version" ]; then
+              echo "Could not parse a version from PR #${number} title '${title}'; leaving for manual merge."
+              continue
+            fi
+            new_major="${new_version%%.*}"
+            if [ "$new_major" -gt "$current_major" ]; then
+              echo "Major bump ${current_version} -> ${new_version}: leaving release PR #${number} for a manual merge."
+              continue
+            fi
+            echo "Enabling squash auto-merge for release PR #${number} (${current_version} -> ${new_version})."
+            gh pr merge "$number" --repo "$GH_REPO" --auto --squash
           done
