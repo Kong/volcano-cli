@@ -1,0 +1,85 @@
+name: Release PR auto-merge
+
+# Merge the Release Please PR without a human review. The release app is a
+# ruleset bypass actor, and a *direct* merge by that app honors the bypass;
+# GitHub's native auto-merge does not apply ruleset bypass, so it can't be used
+# here. Human PRs are unaffected and still require a review. This runs only
+# after the PR CI for a release-please branch has succeeded.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-automerge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      startsWith(github.event.workflow_run.head_branch, 'release-please--')
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.VOLCANO_APP_ID }}
+          private-key: ${{ secrets.VOLCANO_APP_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Merge the release PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Slug of the app whose token we just minted. The identity gate is
+          # derived from this so it tracks the token and can't drift from a
+          # hardcoded name if the release app changes.
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          # gh reports an app PR author as "app/<slug>"; commit-author login is
+          # "<slug>[bot]". The committer is web-flow for API-created commits, so
+          # only authors are checked.
+          expected_author="app/${APP_SLUG}"
+          expected_commit_author="${APP_SLUG}[bot]"
+
+          # Find the open PR on this branch that carries the Release Please label.
+          number="$(gh pr list --head "$HEAD_BRANCH" --state open \
+            --json number,labels \
+            --jq 'map(select(any(.labels[]; .name == "autorelease: pending"))) | .[0].number // empty')"
+          if [ -z "$number" ]; then
+            echo "No open Release Please PR for ${HEAD_BRANCH}; nothing to merge."
+            exit 0
+          fi
+
+          # The branch name and label are both forgeable by a write-access user,
+          # so authorship is the real gate: merge only a PR opened by the release
+          # app with no human-authored commits. This prevents a masqueraded
+          # "release" PR from being merged without review.
+          pr="$(gh pr view "$number" --json author,commits)"
+          author="$(jq -r '.author.login' <<<"$pr")"
+          if [ "$author" != "$expected_author" ]; then
+            echo "Refusing to merge #${number}: author is '${author}', not '${expected_author}'."
+            exit 1
+          fi
+          non_app_commits="$(jq -r --arg bot "$expected_commit_author" \
+            '[.commits[] | select(any(.authors[]?; .login != $bot))] | length' <<<"$pr")"
+          if [ "$non_app_commits" != "0" ]; then
+            echo "Refusing to merge #${number}: it has ${non_app_commits} commit(s) not authored by '${expected_commit_author}'."
+            exit 1
+          fi
+
+          echo "Merging release PR #${number} at ${HEAD_SHA}"
+          # --match-head-commit merges only the exact commit that passed CI, so
+          # a commit pushed after CI succeeded cannot slip in.
+          gh pr merge "$number" --squash --match-head-commit "$HEAD_SHA"
