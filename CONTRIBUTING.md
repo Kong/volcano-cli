@@ -88,17 +88,35 @@ The publish workflow builds signed binaries for `linux-amd64`, `linux-arm64`,
 `macos-amd64`, `macos-arm64`, and `windows-amd64`. It publishes stable release
 assets from SemVer tags.
 
-Stable releases are managed by Release Please. Normal feature and fix commits
-land on `main` using Conventional Commit messages. Release Please opens or
-updates a release PR that bumps `package.json`, updates
-`.release-please-manifest.json`, and updates `CHANGELOG.md`. Merge that release
-PR to cut a stable release. Release Please then creates the SemVer tag and
-GitHub Release, such as `v1.2.3`, and the tag-triggered publish workflow
-attaches signed binaries and publishes npm.
+Stable releases are managed by Release Please and are largely automatic. Only
+`feat:` and `fix:` commits (and breaking changes) cut a release; `ci`, `chore`,
+`docs`, `refactor`, `build`, `test`, `style`, `perf`, and `revert` do not.
+Because merges to `main` are squash-only, Release Please reads the bump type
+from the squash commit — which is the PR title for multi-commit PRs — so signal
+a breaking change with a `feat!:` PR title or a `BREAKING CHANGE:` footer, not
+just a `!` on a branch commit.
 
-Do not manually bump `package.json` outside a Release Please release PR. The
-publish workflow rejects stable tags when `package.json` does not match the tag,
-or when the tag is not reachable from `origin/main`.
+On each qualifying push to `main`, Release Please opens or updates a single
+`release: <version>` PR that bumps `package.json` and
+`.release-please-manifest.json` and updates `CHANGELOG.md`. What happens next
+depends on the bump size:
+
+- Minor and patch releases auto-merge once `check / check` passes (no review is
+  required); the resulting SemVer tag triggers the publish workflow, which
+  attaches signed binaries and publishes to npm with provenance.
+- Major releases are left open for a maintainer to merge manually.
+
+While the version is pre-1.0, breaking changes bump the minor
+(`bump-minor-pre-major`), so `0.x` never jumps to `1.0.0` on its own. To set an
+exact version deliberately (for example a real `1.0.0`), land a commit with a
+`Release-As: <version>` footer and Release Please will use it.
+
+Do not hand-edit `package.json`'s version or `.release-please-manifest.json`
+outside the release PR: a CI guard rejects such changes on non-release PRs, the
+`release-please--*` branch is writable only by the release app, and the publish
+workflow rejects a stable tag whose `package.json` does not match the tag, or
+that is not reachable from `origin/main`. Merging to `main` and creating
+in-repo branches are restricted to the maintainer teams and the release app.
 
 Prerelease and build metadata tags are not stable release tags. Nightly builds
 remain automated from `main` and publish to the mutable `nightly` GitHub Release;
