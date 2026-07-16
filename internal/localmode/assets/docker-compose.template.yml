@@ -120,6 +120,17 @@ services:
       VOLCANO_FIRST_PARTY_PROJECT_NAME: ${VOLCANO_FIRST_PARTY_PROJECT_NAME:-}
       VOLCANO_FIRST_PARTY_ANON_KEY: ${VOLCANO_FIRST_PARTY_ANON_KEY:-}
       VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID: ${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}
+      # GitHub App git provider integration (optional; VOL-347). Sourced from
+      # .env.local, same as the first-party bootstrap vars above. Without
+      # slug/client ID/secret, the git-connect API responds "git provider
+      # integration is not configured" (github.Client.Configured()). AppID and
+      # the private key aren't part of that check but are needed later, for
+      # installation token exchange.
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
+      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
     volumes:
       - volcano-storage:/app/local-storage
     ports:
