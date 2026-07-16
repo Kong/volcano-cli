@@ -85,5 +85,5 @@ jobs:
               continue
             fi
             echo "Enabling squash auto-merge for release PR #${number} (${current_version} -> ${new_version})."
-            gh pr merge "$number" --repo "$GH_REPO" --auto --squash
+            gh pr merge "$number" --auto --squash
           done
