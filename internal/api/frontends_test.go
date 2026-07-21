@@ -96,11 +96,11 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			logSearchBodies = append(logSearchBodies, body)
-			if len(logSearchBodies) == 1 {
-				writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend runtime"))
+			if logSearchIsBuild(body) {
+				writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend build"))
 				return
 			}
-			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend build"))
+			writeAPIJSON(t, w, http.StatusOK, logsResponse("frontend runtime"))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+projectIDText+"/frontends/"+frontendIDText+"/domain":
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
 			writeAPIJSON(t, w, http.StatusCreated, frontendCustomDomainResponse("app.example.com", "provisioning"))

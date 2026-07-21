@@ -452,11 +452,11 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			logSearchBodies = append(logSearchBodies, body)
-			if len(logSearchBodies) == 1 {
-				writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
+			if logSearchIsBuild(body) {
+				writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
 				return
 			}
-			writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
+			writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/schedulers":
 			writeAPIJSON(t, w, http.StatusOK, map[string]any{
 				"data":     []any{functionSchedulerResponse(schedulerIDText, functionIDText, projectIDText, "hello scheduler", true)},
@@ -749,6 +749,18 @@ func functionDeploymentResponse(id, projectID, functionID string) map[string]any
 		"status":      "active",
 		"updated_at":  "2026-05-20T00:00:00Z",
 	}
+}
+
+// logSearchIsBuild reports whether a captured /logs/search request body targets
+// build logs (carries a deployment selector) rather than runtime logs. Routing
+// stub responses on request content is more robust than relying on call order.
+func logSearchIsBuild(body map[string]any) bool {
+	resource, ok := body["resource"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, hasDeployments := resource["deployments"]
+	return hasDeployments
 }
 
 func logsResponse(message string) map[string]any {

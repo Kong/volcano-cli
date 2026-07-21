@@ -17,6 +17,13 @@ const (
 	logResourceTypeFunction = "function"
 )
 
+// logSearchRequest is a hand-marshalled body for POST /projects/{id}/logs/search,
+// sent via SearchProjectLogsWithBodyWithResponse rather than the typed
+// SearchProjectLogsWithResponse. The generated apiclient models the request's
+// `resource` selector as an oapi-codegen oneOf union (apiclient.LogRequestResource),
+// built through From.../As... accessors; this flat struct produces the identical
+// wire format while keeping the call sites readable. Intentional — do not
+// "simplify" it back to the typed union call.
 type logSearchRequest struct {
 	Resource logRequestResource `json:"resource"`
 	Limit    *int               `json:"limit,omitempty"`
