@@ -22,12 +22,13 @@ import (
 
 const (
 	authProjectID = "11111111-1111-4111-8111-111111111111"
-	// signupBrowserDeps' API server is a loopback address, so cfg.WebURL() derives
-	// http://localhost:3000 with no VOLCANO_WEB_URL set; next carries the device-flow
-	// verification_uri_complete unmodified, since it isn't guaranteed to share that origin.
-	authTestSignupURL = "http://localhost:3000/signup?email=ted%40example.com&next=https%3A%2F%2Fvolcano.dev%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	// signupBrowserDeps' API server is a loopback address, so cfg.WebURLForAPIURL derives
+	// http://localhost:3000 with no VOLCANO_WEB_URL set; next is always a same-origin
+	// /device path (not derived from the device-flow verification URI -- see Signup's
+	// doc comment in internal/auth/auth.go).
+	authTestSignupURL = "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
 	// Used when VOLCANO_WEB_URL is explicitly set to something the API URL wouldn't derive.
-	authTestSignupOverrideURL = "https://custom.example/signup?email=ted%40example.com&next=https%3A%2F%2Fvolcano.dev%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	authTestSignupOverrideURL = "https://custom.example/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
 )
 
 func TestLoginTokenSuccessSavesConfig(t *testing.T) {
