@@ -91,9 +91,29 @@ func apiError(statusCode int, body []byte) error {
 			return apiErrorWithMessage(statusCode, payload.Message)
 		}
 	}
-	message := strings.TrimSpace(string(body))
+	message := cleanBody(body)
 	if message == "" {
 		message = http.StatusText(statusCode)
 	}
 	return apiErrorWithMessage(statusCode, message)
+}
+
+// maxBodyMessageLen caps how much of a non-JSON body we'll surface as an
+// error message, so a large but otherwise plain-text response doesn't flood
+// the terminal.
+const maxBodyMessageLen = 500
+
+// cleanBody returns body as a plain-text error message, or "" if it isn't fit
+// to print: markup (HTML/XML error pages served by proxies/load balancers in
+// front of the API) or a body too long to be a useful one-line message.
+//
+// ponytail: markup detection is a leading-'<' heuristic, not a Content-Type
+// check (none is threaded through here); upgrade to sniffing the response's
+// Content-Type header if a real plain-text body starting with '<' shows up.
+func cleanBody(body []byte) string {
+	message := strings.TrimSpace(string(body))
+	if message == "" || len(message) > maxBodyMessageLen || strings.HasPrefix(message, "<") {
+		return ""
+	}
+	return message
 }
