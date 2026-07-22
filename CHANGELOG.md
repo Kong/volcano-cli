@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Kong/volcano-cli/compare/v0.1.3...v0.2.0) (2026-07-22)
+
+
+### Features
+
+* **config:** derive VOLCANO_WEB_URL from VOLCANO_API_URL by convention ([#74](https://github.com/Kong/volcano-cli/issues/74)) ([3f2d7bf](https://github.com/Kong/volcano-cli/commit/3f2d7bfd3081effdfaef6661558d14395ca1f897))
+
 ## [0.1.3](https://github.com/Kong/volcano-cli/compare/v0.1.2...v0.1.3) (2026-07-22)
 
 
