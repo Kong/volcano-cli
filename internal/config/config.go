@@ -283,9 +283,12 @@ func deriveWebURL(apiURL string) string {
 }
 
 // WebURLOverride returns an explicit VOLCANO_WEB_URL value when one is set,
-// reporting false otherwise. Callers that derive the web origin from another
-// source (e.g. the device-flow verification URI) use this to let an explicit
-// override win without mistaking the compiled default for an override.
+// reporting false otherwise. Used only by Signup, to fail fast on a
+// misconfigured override before allocating a device code (see WebURLForAPIURL
+// for the derived-origin precedence Signup otherwise falls back to).
+// LoginWithBrowser does not use this: its browser flow opens the backend's
+// device-authorization verification URL directly and never routes through
+// Volcano Web.
 func (c *Config) WebURLOverride() (string, bool) {
 	if c.IgnoreEnv {
 		return "", false
