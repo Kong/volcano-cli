@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Kong/volcano-cli/compare/v0.2.0...v0.2.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* **auth:** stop routing login through a Volcano Web page that doesn't exist for it ([#75](https://github.com/Kong/volcano-cli/issues/75)) ([294d66c](https://github.com/Kong/volcano-cli/commit/294d66c4a4d27a846d3b4bd7fb1a88275b7aa2d9))
+
 ## [0.2.0](https://github.com/Kong/volcano-cli/compare/v0.1.3...v0.2.0) (2026-07-22)
 
 
