@@ -162,13 +162,13 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
 	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1"}, result.credentials)
-	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
+	assert.Equal(t, "https://volcano.dev/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")
 	assert.Contains(t, out.String(), ".")
 }
 
-func TestLoginWithBrowserFallsBackToVerificationURI(t *testing.T) {
+func TestLoginWithBrowserFallsBackToDevicePathFromBaseVerificationURI(t *testing.T) {
 	cfg := testAuthConfig(t)
 
 	timeoutTimer := newAuthFakeTicker()
@@ -233,8 +233,72 @@ func TestLoginWithBrowserFallsBackToVerificationURI(t *testing.T) {
 	pollTicker.tick()
 
 	require.NoError(t, <-done, "output:\n%s", out.String())
-	assert.Equal(t, "https://volcano.dev/device", openedURL)
-	assert.Contains(t, out.String(), "Opening browser: https://volcano.dev/device")
+	assert.Equal(t, "https://volcano.dev/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
+	assert.Contains(t, out.String(), "Opening browser: https://volcano.dev/login")
+}
+
+func TestLoginWithBrowserHonorsWebURLOverride(t *testing.T) {
+	cfg := testAuthConfig(t)
+	t.Setenv("VOLCANO_WEB_URL", "http://localhost:3000")
+
+	timeoutTimer := newAuthFakeTicker()
+	pollTicker := newAuthFakeTicker()
+	dotTicker := newAuthFakeTicker()
+	var openedURL string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch strings.TrimSuffix(r.URL.Path, "/") {
+		case "/auth/device/authorize":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"device_code":               "device-code",
+				"user_code":                 "ABCD-EFGH",
+				"verification_uri":          "https://volcano.dev/device",
+				"verification_uri_complete": "https://volcano.dev/device?user_code=ABCD-EFGH",
+				"expires_in":                120,
+				"interval":                  1,
+			})
+		case "/auth/device/token":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"access_token": "auth-access-token"})
+		case "/auth/platform/exchange":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"token":      "platform-token",
+				"user_id":    "platform-user-1",
+				"token_id":   "33333333-3333-4333-8333-333333333333",
+				"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		APIBaseURL: server.URL,
+		OpenBrowser: func(url string) error {
+			openedURL = url
+			return nil
+		},
+		NewTimer: func(time.Duration) cliruntime.Timer { return timeoutTimer },
+		NewTicker: func(time.Duration) cliruntime.Ticker {
+			if pollTicker.created.CompareAndSwap(false, true) {
+				return pollTicker
+			}
+			return dotTicker
+		},
+	}
+
+	var out bytes.Buffer
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(deps).LoginWithBrowser(context.Background(), cfg, &out)
+		done <- err
+	}()
+
+	pollTicker.tick()
+
+	require.NoError(t, <-done, "output:\n%s", out.String())
+	assert.Equal(t, "http://localhost:3000/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
 }
 
 func TestLoginWithBrowserFailsAfterConsecutivePollErrors(t *testing.T) {
@@ -372,6 +436,7 @@ func testAuthConfig(t *testing.T) *config.Config {
 	t.Setenv("VOLCANO_TOKEN", "")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_WEB_URL", "")
 	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
 	return config.Default()
 }

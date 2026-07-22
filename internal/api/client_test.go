@@ -59,6 +59,23 @@ func TestWebSignupURL(t *testing.T) {
 	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", signupURL)
 }
 
+func TestWebLoginURL(t *testing.T) {
+	loginURL, err := WebLoginURL("http://localhost:3000", "/device?user_code=ABCD-EFGH")
+	require.NoError(t, err)
+	assert.Equal(t, "http://localhost:3000/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", loginURL)
+}
+
+func TestWebLoginURLOmitsEmptyNext(t *testing.T) {
+	loginURL, err := WebLoginURL("https://volcano.dev/", " ")
+	require.NoError(t, err)
+	assert.Equal(t, "https://volcano.dev/login?source=cli", loginURL)
+}
+
+func TestWebLoginURLRejectsBadInput(t *testing.T) {
+	_, err := WebLoginURL("   ", "/device")
+	require.ErrorContains(t, err, "web url cannot be empty")
+}
+
 func TestVerificationWebTarget(t *testing.T) {
 	t.Run("prefers complete uri", func(t *testing.T) {
 		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
@@ -99,6 +116,7 @@ func TestWebSignupURLRejectsBadInput(t *testing.T) {
 		{name: "empty", webURL: "   ", wantErr: "web url cannot be empty"},
 		{name: "missing scheme", webURL: "volcano.dev", wantErr: "must use http:// or https://"},
 		{name: "non-http scheme", webURL: "ftp://volcano.dev", wantErr: "must use http:// or https://"},
+		{name: "missing host", webURL: "http:///tmp", wantErr: "must include a host"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

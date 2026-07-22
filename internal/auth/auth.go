@@ -69,8 +69,7 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	}
 	// Fail fast on an explicitly misconfigured VOLCANO_WEB_URL before allocating a
 	// device code, instead of burning a device authorization.
-	webOverride, hasWebOverride := cfg.WebURLOverride()
-	if hasWebOverride {
+	if webOverride, ok := cfg.WebURLOverride(); ok {
 		if _, err := api.WebSignupURL(webOverride, email, ""); err != nil {
 			return Credentials{}, err
 		}
@@ -85,21 +84,7 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 		return Credentials{}, err
 	}
 
-	// Follow the backend the device flow points at, exactly like login does.
-	webURL, devicePath := api.VerificationWebTarget(deviceAuth)
-	if hasWebOverride {
-		webURL = webOverride
-	}
-	if webURL == "" {
-		webURL = cfg.WebURL()
-	}
-	if devicePath == "" {
-		devicePath = "/device"
-		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
-		}
-	}
-
+	webURL, devicePath := resolveWebTarget(cfg, deviceAuth)
 	signupURL, err := api.WebSignupURL(webURL, email, devicePath)
 	if err != nil {
 		return Credentials{}, err
@@ -109,12 +94,21 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
 }
 
-// LoginWithBrowser runs the OAuth device flow and returns credentials to persist.
+// LoginWithBrowser runs the OAuth device flow, then routes the browser through
+// Volcano Web's login page (like Signup does for signup) rather than opening
+// the backend's raw device-verification URI directly.
 func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
 	clientID, err := resolveDeviceClientID(apiURL)
 	if err != nil {
 		return Credentials{}, err
+	}
+	// Fail fast on an explicitly misconfigured VOLCANO_WEB_URL before allocating a
+	// device code, instead of burning a device authorization.
+	if webOverride, ok := cfg.WebURLOverride(); ok {
+		if _, err := api.WebLoginURL(webOverride, ""); err != nil {
+			return Credentials{}, err
+		}
 	}
 	client, err := s.sessions.APIClient(apiURL, "")
 	if err != nil {
@@ -126,12 +120,45 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 		return Credentials{}, err
 	}
 
-	fmt.Fprintln(w, "\nInitiating browser authentication...")
-	verificationURL := strings.TrimSpace(deviceAuth.VerificationUriComplete)
-	if verificationURL == "" {
-		verificationURL = strings.TrimSpace(deviceAuth.VerificationUri)
+	webURL, devicePath := resolveWebTarget(cfg, deviceAuth)
+	loginURL, err := api.WebLoginURL(webURL, devicePath)
+	if err != nil {
+		return Credentials{}, err
 	}
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
+
+	fmt.Fprintln(w, "\nInitiating browser authentication...")
+	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, loginURL)
+}
+
+// resolveWebTarget picks the Volcano Web origin and device-approval path for
+// browser auth flows: an explicit VOLCANO_WEB_URL always wins, otherwise follow
+// the origin the device-authorization response points at, falling back to the
+// compiled default when the backend didn't advertise a verification URI.
+//
+// ponytail: the device-authorization response's verification URI is only
+// guaranteed to be a login/signup-capable Volcano Web origin for Volcano's own
+// first-party CLI client, which is the only client this CLI ever requests
+// (resolveDeviceClientID). The generic API contract also allows an API-hosted
+// managed-auth page or an arbitrary project's device_verification_url here;
+// this function has no way to distinguish those from a real Volcano Web origin.
+// If the first-party client's verification URI ever stops resolving to Volcano
+// Web, prefer cfg.WebURL() for the origin and carry the response's full
+// absolute URI (not just its path) as the next param.
+func resolveWebTarget(cfg *config.Config, deviceAuth *apiclient.DeviceAuthorizationResponse) (webURL, devicePath string) {
+	webURL, devicePath = api.VerificationWebTarget(deviceAuth)
+	if override, ok := cfg.WebURLOverride(); ok {
+		webURL = override
+	}
+	if webURL == "" {
+		webURL = cfg.WebURL()
+	}
+	if devicePath == "" {
+		devicePath = "/device"
+		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
+			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
+		}
+	}
+	return webURL, devicePath
 }
 
 // resolveDeviceClientID returns the device OAuth client id for the login flow.

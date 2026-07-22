@@ -86,6 +86,19 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 
 // WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
 func WebSignupURL(webURL, email, next string) (string, error) {
+	return webPageURL(webURL, "/signup", next, map[string]string{"email": email})
+}
+
+// WebLoginURL builds the Volcano Web login URL used by the CLI login flow.
+// next carries the device-approval path so Volcano Web returns the browser to
+// the device flow once the user is authenticated.
+func WebLoginURL(webURL, next string) (string, error) {
+	return webPageURL(webURL, "/login", next, nil)
+}
+
+// webPageURL builds a Volcano Web page URL, appending path and marking the
+// request as CLI-originated so both login and signup share one implementation.
+func webPageURL(webURL, path, next string, extraQuery map[string]string) (string, error) {
 	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
 	if webURL == "" {
 		return "", errors.New("web url cannot be empty")
@@ -97,10 +110,15 @@ func WebSignupURL(webURL, email, next string) (string, error) {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", errors.New("web url must use http:// or https:// scheme")
 	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
+	if parsed.Host == "" {
+		return "", errors.New("web url must include a host")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + path
 	query := parsed.Query()
-	if email = strings.TrimSpace(email); email != "" {
-		query.Set("email", email)
+	for key, value := range extraQuery {
+		if value = strings.TrimSpace(value); value != "" {
+			query.Set(key, value)
+		}
 	}
 	if next = strings.TrimSpace(next); next != "" {
 		query.Set("next", next)
