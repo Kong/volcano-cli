@@ -436,6 +436,7 @@ func testAuthConfig(t *testing.T) *config.Config {
 	t.Setenv("VOLCANO_TOKEN", "")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_WEB_URL", "")
 	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
 	return config.Default()
 }

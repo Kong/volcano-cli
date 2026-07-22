@@ -116,6 +116,7 @@ func TestWebSignupURLRejectsBadInput(t *testing.T) {
 		{name: "empty", webURL: "   ", wantErr: "web url cannot be empty"},
 		{name: "missing scheme", webURL: "volcano.dev", wantErr: "must use http:// or https://"},
 		{name: "non-http scheme", webURL: "ftp://volcano.dev", wantErr: "must use http:// or https://"},
+		{name: "missing host", webURL: "http:///tmp", wantErr: "must include a host"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

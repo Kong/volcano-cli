@@ -110,6 +110,9 @@ func webPageURL(webURL, path, next string, extraQuery map[string]string) (string
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", errors.New("web url must use http:// or https:// scheme")
 	}
+	if parsed.Host == "" {
+		return "", errors.New("web url must include a host")
+	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/") + path
 	query := parsed.Query()
 	for key, value := range extraQuery {

@@ -134,6 +134,16 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 // browser auth flows: an explicit VOLCANO_WEB_URL always wins, otherwise follow
 // the origin the device-authorization response points at, falling back to the
 // compiled default when the backend didn't advertise a verification URI.
+//
+// ponytail: the device-authorization response's verification URI is only
+// guaranteed to be a login/signup-capable Volcano Web origin for Volcano's own
+// first-party CLI client, which is the only client this CLI ever requests
+// (resolveDeviceClientID). The generic API contract also allows an API-hosted
+// managed-auth page or an arbitrary project's device_verification_url here;
+// this function has no way to distinguish those from a real Volcano Web origin.
+// If the first-party client's verification URI ever stops resolving to Volcano
+// Web, prefer cfg.WebURL() for the origin and carry the response's full
+// absolute URI (not just its path) as the next param.
 func resolveWebTarget(cfg *config.Config, deviceAuth *apiclient.DeviceAuthorizationResponse) (webURL, devicePath string) {
 	webURL, devicePath = api.VerificationWebTarget(deviceAuth)
 	if override, ok := cfg.WebURLOverride(); ok {
