@@ -13,6 +13,9 @@ if [ -z "${GITHUB_ENV:-}" ]; then
   exit 1
 fi
 
+# ponytail: staging default for the testing phase, restore these two lines before GA
+# CLI_DEFAULT_API_URL="https://api.volcano.dev"
+# CLI_DEFAULT_WEB_URL="https://volcano.dev"
 CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
 CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
 CLI_FIRST_PARTY_DEVICE_CLIENT_ID=""
@@ -29,19 +32,27 @@ case "$REF" in
       echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH or nightly form v0.0.N-nightly.YYYYMMDD.NUMBER."
       exit 1
     fi
+    # ponytail: hardcoded staging default for the testing phase, restore these four lines before GA
+    # CLI_DEFAULT_API_URL="https://api.volcano.dev"
+    # CLI_DEFAULT_WEB_URL="https://volcano.dev"
+    # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
+    # REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
     CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
     CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
     CLI_VERSION="$REF_NAME"
-    # ponytail: hardcoded staging default for the testing phase, revert to production values before GA
     ;;
   refs/heads/main)
+    # ponytail: hardcoded staging default for the testing phase, restore these four lines before GA
+    # CLI_DEFAULT_API_URL="https://api.volcano.dev"
+    # CLI_DEFAULT_WEB_URL="https://volcano.dev"
+    # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
+    # REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
     CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
     CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
-    # ponytail: hardcoded staging default for the testing phase, revert to production values before GA
     if [ -z "${CLI_VERSION:-}" ]; then
       echo "CLI_VERSION is required for main release builds. The publish workflow must pre-resolve the nightly version."
       exit 1
