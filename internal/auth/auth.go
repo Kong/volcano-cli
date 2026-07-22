@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -174,21 +173,7 @@ func resolveDeviceClientID(apiURL string) (string, error) {
 
 // isLocalAPIURL reports whether apiURL points at a loopback address.
 func isLocalAPIURL(apiURL string) bool {
-	u, err := url.Parse(strings.TrimSpace(apiURL))
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
-	if host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return true
-	}
-	return false
+	return config.IsLoopbackAPIURL(apiURL)
 }
 
 // Logout deletes local authentication state.

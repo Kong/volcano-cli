@@ -41,10 +41,6 @@ local: ## Build volcano using variables loaded from .env.local
 	if [ -z "$${DEFAULT_WEB_URL:-}" ] && [ -n "$${VOLCANO_WEB_URL:-}" ]; then \
 		export DEFAULT_WEB_URL="$${VOLCANO_WEB_URL}"; \
 	fi; \
-	: "Fall back to the conventional local Volcano Web port (3000) when pointing at a loopback API without an explicit web URL"; \
-	if [ -z "$${DEFAULT_WEB_URL:-}" ] && [[ "$${VOLCANO_API_URL:-}" == http://localhost:* || "$${VOLCANO_API_URL:-}" == http://127.0.0.1:* ]]; then \
-		export DEFAULT_WEB_URL="http://localhost:3000"; \
-	fi; \
 	$(MAKE) build
 
 test: ## Run unit tests
