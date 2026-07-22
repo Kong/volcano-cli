@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/Kong/volcano-cli/compare/v0.1.2...v0.1.3) (2026-07-22)
+
+
+### Bug Fixes
+
+* **auth:** route browser login through Volcano Web's login page ([#72](https://github.com/Kong/volcano-cli/issues/72)) ([cb74671](https://github.com/Kong/volcano-cli/commit/cb746711fd827f8d33edeb9b840ca5c9452c08de))
+
 ## [0.1.2](https://github.com/Kong/volcano-cli/compare/v0.1.1...v0.1.2) (2026-07-22)
 
 
