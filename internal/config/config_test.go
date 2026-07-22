@@ -101,6 +101,74 @@ func TestWebURLFromEnv(t *testing.T) {
 	assert.Equal(t, "http://localhost:3000", Default().WebURL())
 }
 
+func TestWebURLDerivesFromAPIHostPrefix(t *testing.T) {
+	t.Setenv(envWebURL, "")
+
+	for _, tc := range []struct {
+		apiURL string
+		want   string
+	}{
+		{"https://api.volcano.dev", "https://volcano.dev"},
+		{"https://api.staging.volcano.dev", "https://staging.volcano.dev"},
+		{"http://api.example.com:8443", "http://example.com:8443"},
+	} {
+		t.Run(tc.apiURL, func(t *testing.T) {
+			t.Setenv(envAPIURL, tc.apiURL)
+			assert.Equal(t, tc.want, Default().WebURL())
+		})
+	}
+}
+
+func TestWebURLDerivesLocalhostForLoopbackAPIURL(t *testing.T) {
+	t.Setenv(envWebURL, "")
+
+	for _, apiURL := range []string{"http://localhost:8000", "http://127.0.0.1:8000", "http://[::1]:8000"} {
+		t.Run(apiURL, func(t *testing.T) {
+			t.Setenv(envAPIURL, apiURL)
+			assert.Equal(t, "http://localhost:3000", Default().WebURL())
+		})
+	}
+}
+
+func TestWebURLFallsBackToCompiledDefaultWhenNoConventionMatches(t *testing.T) {
+	t.Setenv(envWebURL, "")
+	t.Setenv(envAPIURL, "https://backend.example.com")
+
+	original := compiledDefaultWebURL
+	compiledDefaultWebURL = "https://compiled.example"
+	t.Cleanup(func() { compiledDefaultWebURL = original })
+
+	assert.Equal(t, "https://compiled.example", Default().WebURL())
+}
+
+func TestWebURLEnvOverrideWinsOverDerivation(t *testing.T) {
+	t.Setenv(envAPIURL, "https://api.staging.volcano.dev")
+	t.Setenv(envWebURL, "http://localhost:3000")
+
+	assert.Equal(t, "http://localhost:3000", Default().WebURL())
+}
+
+func TestIsLoopbackAPIURL(t *testing.T) {
+	for _, tc := range []struct {
+		url  string
+		want bool
+	}{
+		{"http://localhost:8000", true},
+		{"https://localhost", true},
+		{"http://127.0.0.1:8000", true},
+		{"http://[::1]:8000", true},
+		{"https://api.volcano.dev", false},
+		{"https://api.staging.volcano.dev", false},
+		{"http://192.168.1.10:8000", false},
+		{"", false},
+		{"::not a url::", false},
+	} {
+		t.Run(tc.url, func(t *testing.T) {
+			assert.Equal(t, tc.want, IsLoopbackAPIURL(tc.url))
+		})
+	}
+}
+
 func TestFunctionAliasesPersistByScope(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

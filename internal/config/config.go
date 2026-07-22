@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -206,12 +208,61 @@ func (c *Config) APIURL() string {
 	return compiledDefaultAPIURL
 }
 
-// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence.
+// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence,
+// then a URL derived from the resolved API URL (see deriveWebURL), then the
+// compiled default.
 func (c *Config) WebURL() string {
 	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); !c.IgnoreEnv && webURL != "" {
 		return webURL
 	}
+	if derived := deriveWebURL(c.APIURL()); derived != "" {
+		return derived
+	}
 	return compiledDefaultWebURL
+}
+
+// IsLoopbackAPIURL reports whether apiURL points at a loopback address
+// ("localhost" or a loopback IP). Shared by local-mode's device-client
+// selection and by deriveWebURL below.
+func IsLoopbackAPIURL(apiURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(apiURL))
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// deriveWebURL derives the Volcano Web origin from an API URL for the common
+// naming conventions, so only VOLCANO_API_URL needs to be set to point the
+// CLI at a non-default environment: a loopback API host (local-mode) maps to
+// the conventional local Web port 3000, and an "api." API host maps to the
+// same host with that prefix stripped (api.volcano.dev -> volcano.dev,
+// api.staging.volcano.dev -> staging.volcano.dev). Returns "" when neither
+// convention applies, so the caller falls back to the compiled default.
+func deriveWebURL(apiURL string) string {
+	if IsLoopbackAPIURL(apiURL) {
+		return "http://localhost:3000"
+	}
+	u, err := url.Parse(strings.TrimSpace(apiURL))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	host, ok := strings.CutPrefix(u.Hostname(), "api.")
+	if !ok || host == "" {
+		return ""
+	}
+	if port := u.Port(); port != "" {
+		host += ":" + port
+	}
+	return u.Scheme + "://" + host
 }
 
 // WebURLOverride returns an explicit VOLCANO_WEB_URL value when one is set,
