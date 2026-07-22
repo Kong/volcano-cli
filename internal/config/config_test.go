@@ -119,6 +119,13 @@ func TestWebURLDerivesFromAPIHostPrefix(t *testing.T) {
 	}
 }
 
+func TestWebURLDerivesFromAPIHostPrefixIsCaseInsensitive(t *testing.T) {
+	t.Setenv(envWebURL, "")
+	t.Setenv(envAPIURL, "https://API.staging.volcano.dev")
+
+	assert.Equal(t, "https://staging.volcano.dev", Default().WebURL())
+}
+
 func TestWebURLDerivesLocalhostForLoopbackAPIURL(t *testing.T) {
 	t.Setenv(envWebURL, "")
 
@@ -130,15 +137,27 @@ func TestWebURLDerivesLocalhostForLoopbackAPIURL(t *testing.T) {
 	}
 }
 
+func TestWebURLExplicitCompiledDefaultWinsOverLoopbackDerivation(t *testing.T) {
+	// `make local` bakes both VOLCANO_API_URL and VOLCANO_WEB_URL from .env.local
+	// as compiled defaults. If the API URL is a loopback address but the developer
+	// explicitly compiled in a non-conventional web URL (e.g. a frontend dev
+	// server not on port 3000), that explicit choice must win over the :3000
+	// loopback convention, not get silently overridden by it.
+	t.Setenv(envWebURL, "")
+	t.Setenv(envAPIURL, "http://localhost:8000")
+
+	original := compiledDefaultWebURL
+	compiledDefaultWebURL = "http://localhost:4000"
+	t.Cleanup(func() { compiledDefaultWebURL = original })
+
+	assert.Equal(t, "http://localhost:4000", Default().WebURL())
+}
+
 func TestWebURLFallsBackToCompiledDefaultWhenNoConventionMatches(t *testing.T) {
 	t.Setenv(envWebURL, "")
 	t.Setenv(envAPIURL, "https://backend.example.com")
 
-	original := compiledDefaultWebURL
-	compiledDefaultWebURL = "https://compiled.example"
-	t.Cleanup(func() { compiledDefaultWebURL = original })
-
-	assert.Equal(t, "https://compiled.example", Default().WebURL())
+	assert.Equal(t, defaultCompiledWebURL, Default().WebURL())
 }
 
 func TestWebURLEnvOverrideWinsOverDerivation(t *testing.T) {
