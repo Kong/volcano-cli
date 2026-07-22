@@ -162,13 +162,13 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
 	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1"}, result.credentials)
-	assert.Equal(t, "https://volcano.dev/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
+	assert.Equal(t, "http://localhost:3000/login?next=https%3A%2F%2Fvolcano.dev%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")
 	assert.Contains(t, out.String(), ".")
 }
 
-func TestLoginWithBrowserFallsBackToDevicePathFromBaseVerificationURI(t *testing.T) {
+func TestLoginWithBrowserFallsBackToVerificationURIWhenCompleteMissing(t *testing.T) {
 	cfg := testAuthConfig(t)
 
 	timeoutTimer := newAuthFakeTicker()
@@ -233,8 +233,8 @@ func TestLoginWithBrowserFallsBackToDevicePathFromBaseVerificationURI(t *testing
 	pollTicker.tick()
 
 	require.NoError(t, <-done, "output:\n%s", out.String())
-	assert.Equal(t, "https://volcano.dev/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
-	assert.Contains(t, out.String(), "Opening browser: https://volcano.dev/login")
+	assert.Equal(t, "http://localhost:3000/login?next=https%3A%2F%2Fvolcano.dev%2Fdevice&source=cli", openedURL)
+	assert.Contains(t, out.String(), "Opening browser: http://localhost:3000/login")
 }
 
 func TestLoginWithBrowserHonorsWebURLOverride(t *testing.T) {
@@ -298,7 +298,7 @@ func TestLoginWithBrowserHonorsWebURLOverride(t *testing.T) {
 	pollTicker.tick()
 
 	require.NoError(t, <-done, "output:\n%s", out.String())
-	assert.Equal(t, "http://localhost:3000/login?next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
+	assert.Equal(t, "http://localhost:3000/login?next=https%3A%2F%2Fvolcano.dev%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", openedURL)
 }
 
 func TestLoginWithBrowserFailsAfterConsecutivePollErrors(t *testing.T) {

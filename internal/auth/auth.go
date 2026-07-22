@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -83,8 +82,8 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 		return Credentials{}, err
 	}
 
-	webURL, devicePath := resolveWebTarget(cfg, deviceAuth)
-	signupURL, err := api.WebSignupURL(webURL, email, devicePath)
+	webURL, next := resolveWebTarget(cfg, apiURL, deviceAuth)
+	signupURL, err := api.WebSignupURL(webURL, email, next)
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -119,8 +118,8 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 		return Credentials{}, err
 	}
 
-	webURL, devicePath := resolveWebTarget(cfg, deviceAuth)
-	loginURL, err := api.WebLoginURL(webURL, devicePath)
+	webURL, next := resolveWebTarget(cfg, apiURL, deviceAuth)
+	loginURL, err := api.WebLoginURL(webURL, next)
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -129,35 +128,22 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, loginURL)
 }
 
-// resolveWebTarget picks the Volcano Web origin and device-approval path for
-// browser auth flows: an explicit VOLCANO_WEB_URL always wins, otherwise follow
-// the origin the device-authorization response points at, falling back to the
-// compiled default when the backend didn't advertise a verification URI.
-//
-// ponytail: the device-authorization response's verification URI is only
-// guaranteed to be a login/signup-capable Volcano Web origin for Volcano's own
-// first-party CLI client, which is the only client this CLI ever requests
-// (resolveDeviceClientID). The generic API contract also allows an API-hosted
-// managed-auth page or an arbitrary project's device_verification_url here;
-// this function has no way to distinguish those from a real Volcano Web origin.
-// If the first-party client's verification URI ever stops resolving to Volcano
-// Web, prefer cfg.WebURL() for the origin and carry the response's full
-// absolute URI (not just its path) as the next param.
-func resolveWebTarget(cfg *config.Config, deviceAuth *apiclient.DeviceAuthorizationResponse) (webURL, devicePath string) {
-	webURL, devicePath = api.VerificationWebTarget(deviceAuth)
-	if override, ok := cfg.WebURLOverride(); ok {
-		webURL = override
+// resolveWebTarget picks the Volcano Web origin and next-hop destination for
+// browser auth flows. cfg.WebURLForAPIURL(apiURL) (explicit VOLCANO_WEB_URL,
+// else derived from apiURL, else the compiled default) is always the
+// login/signup page origin: the device-authorization response's own
+// verification URI isn't guaranteed to share that origin (it may be the API's
+// own managed-hosted-auth page, or a project's custom device_verification_url),
+// so it's carried through unmodified as the next param instead of being
+// treated as the page origin itself. apiURL is the caller's already-resolved
+// API URL (s.apiURL(cfg)) rather than cfg.APIURL(), since a runtime override
+// (e.g. deps.APIBaseURL in tests) may not flow through the latter.
+func resolveWebTarget(cfg *config.Config, apiURL string, deviceAuth *apiclient.DeviceAuthorizationResponse) (webURL, next string) {
+	next = strings.TrimSpace(deviceAuth.VerificationUriComplete)
+	if next == "" {
+		next = strings.TrimSpace(deviceAuth.VerificationUri)
 	}
-	if webURL == "" {
-		webURL = cfg.WebURL()
-	}
-	if devicePath == "" {
-		devicePath = "/device"
-		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
-		}
-	}
-	return webURL, devicePath
+	return cfg.WebURLForAPIURL(apiURL), next
 }
 
 // resolveDeviceClientID returns the device OAuth client id for the login flow.

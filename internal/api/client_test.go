@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -74,31 +73,6 @@ func TestWebLoginURLOmitsEmptyNext(t *testing.T) {
 func TestWebLoginURLRejectsBadInput(t *testing.T) {
 	_, err := WebLoginURL("   ", "/device")
 	require.ErrorContains(t, err, "web url cannot be empty")
-}
-
-func TestVerificationWebTarget(t *testing.T) {
-	t.Run("prefers complete uri", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
-			VerificationUri:         "https://volcano.dev/device",
-			VerificationUriComplete: "https://volcano.dev/device?user_code=ABCD-EFGH",
-			UserCode:                "ABCD-EFGH",
-		})
-		assert.Equal(t, "https://volcano.dev", origin)
-		assert.Equal(t, "/device?user_code=ABCD-EFGH", devicePath)
-	})
-	t.Run("falls back to base uri and attaches user code", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
-			VerificationUri: "http://localhost:3000/device",
-			UserCode:        "WXYZ-1234",
-		})
-		assert.Equal(t, "http://localhost:3000", origin)
-		assert.Equal(t, "/device?user_code=WXYZ-1234", devicePath)
-	})
-	t.Run("empty when no verification uri", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{})
-		assert.Empty(t, origin)
-		assert.Empty(t, devicePath)
-	})
 }
 
 func TestWebSignupURLOmitsEmptyEmailAndNext(t *testing.T) {

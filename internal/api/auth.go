@@ -127,35 +127,3 @@ func webPageURL(webURL, path, next string, extraQuery map[string]string) (string
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
 }
-
-// VerificationWebTarget extracts the web origin and device-approval path advertised
-// by a device-authorization response. The signup flow uses these so the browser is
-// sent to the same environment that issued the device code — mirroring how login
-// follows the API's verification URI. Both values are empty when the response does
-// not carry a usable verification URI.
-func VerificationWebTarget(deviceAuth *apiclient.DeviceAuthorizationResponse) (origin, devicePath string) {
-	if deviceAuth == nil {
-		return "", ""
-	}
-	base, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUri))
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return "", ""
-	}
-	origin = base.Scheme + "://" + base.Host
-
-	// verification_uri_complete already carries the prefilled user_code, so prefer it.
-	if complete, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUriComplete)); err == nil && complete.Path != "" {
-		return origin, complete.RequestURI()
-	}
-
-	devicePath = base.Path
-	if devicePath == "" {
-		devicePath = "/device"
-	}
-	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-		values := base.Query()
-		values.Set("user_code", userCode)
-		devicePath += "?" + values.Encode()
-	}
-	return origin, devicePath
-}

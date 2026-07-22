@@ -208,23 +208,30 @@ func (c *Config) APIURL() string {
 	return compiledDefaultAPIURL
 }
 
-// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence,
-// then an explicitly compiled-in default (e.g. via `make local`'s
-// DEFAULT_WEB_URL, which differs from the shipped defaultCompiledWebURL
-// literal only when someone set it), then a URL derived from the resolved API
-// URL (see deriveWebURL), then the shipped compiled default. The explicit
-// compiled default has to win over derivation: otherwise a loopback
-// VOLCANO_API_URL baked in alongside a non-conventional compiled web URL
+// WebURL returns the Volcano web URL for c.APIURL(). See WebURLForAPIURL for
+// callers that already resolved the API URL through another path (e.g. a
+// runtime override that doesn't flow through c.APIURL()).
+func (c *Config) WebURL() string {
+	return c.WebURLForAPIURL(c.APIURL())
+}
+
+// WebURLForAPIURL returns the Volcano web URL for a specific, already-resolved
+// API URL: VOLCANO_WEB_URL takes precedence, then an explicitly compiled-in
+// default (e.g. via `make local`'s DEFAULT_WEB_URL, which differs from the
+// shipped defaultCompiledWebURL literal only when someone set it), then a URL
+// derived from apiURL (see deriveWebURL), then the shipped compiled default.
+// The explicit compiled default has to win over derivation: otherwise a
+// loopback API URL baked in alongside a non-conventional compiled web URL
 // (e.g. a frontend dev server not on port 3000) would have its own compiled
 // default silently overridden by the :3000 convention.
-func (c *Config) WebURL() string {
+func (c *Config) WebURLForAPIURL(apiURL string) string {
 	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); !c.IgnoreEnv && webURL != "" {
 		return webURL
 	}
 	if compiledDefaultWebURL != defaultCompiledWebURL {
 		return compiledDefaultWebURL
 	}
-	if derived := deriveWebURL(c.APIURL()); derived != "" {
+	if derived := deriveWebURL(apiURL); derived != "" {
 		return derived
 	}
 	return compiledDefaultWebURL
