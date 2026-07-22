@@ -61,7 +61,7 @@ auth:
   rate_limits:
     signup: 42
   password:
-    min_length: 12
+    min_length: 15
   email:
     templates:
       confirmation:
