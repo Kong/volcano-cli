@@ -85,20 +85,9 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 }
 
 // WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
+// next must be a same-origin relative path: Volcano Web's signup page rejects
+// any next value that isn't (see isSafeInternalPath in volcano-web).
 func WebSignupURL(webURL, email, next string) (string, error) {
-	return webPageURL(webURL, "/signup", next, map[string]string{"email": email})
-}
-
-// WebLoginURL builds the Volcano Web login URL used by the CLI login flow.
-// next carries the device-approval path so Volcano Web returns the browser to
-// the device flow once the user is authenticated.
-func WebLoginURL(webURL, next string) (string, error) {
-	return webPageURL(webURL, "/login", next, nil)
-}
-
-// webPageURL builds a Volcano Web page URL, appending path and marking the
-// request as CLI-originated so both login and signup share one implementation.
-func webPageURL(webURL, path, next string, extraQuery map[string]string) (string, error) {
 	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
 	if webURL == "" {
 		return "", errors.New("web url cannot be empty")
@@ -113,12 +102,10 @@ func webPageURL(webURL, path, next string, extraQuery map[string]string) (string
 	if parsed.Host == "" {
 		return "", errors.New("web url must include a host")
 	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/") + path
+	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
 	query := parsed.Query()
-	for key, value := range extraQuery {
-		if value = strings.TrimSpace(value); value != "" {
-			query.Set(key, value)
-		}
+	if email = strings.TrimSpace(email); email != "" {
+		query.Set("email", email)
 	}
 	if next = strings.TrimSpace(next); next != "" {
 		query.Set("next", next)
@@ -126,36 +113,4 @@ func webPageURL(webURL, path, next string, extraQuery map[string]string) (string
 	query.Set("source", "cli")
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
-}
-
-// VerificationWebTarget extracts the web origin and device-approval path advertised
-// by a device-authorization response. The signup flow uses these so the browser is
-// sent to the same environment that issued the device code — mirroring how login
-// follows the API's verification URI. Both values are empty when the response does
-// not carry a usable verification URI.
-func VerificationWebTarget(deviceAuth *apiclient.DeviceAuthorizationResponse) (origin, devicePath string) {
-	if deviceAuth == nil {
-		return "", ""
-	}
-	base, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUri))
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return "", ""
-	}
-	origin = base.Scheme + "://" + base.Host
-
-	// verification_uri_complete already carries the prefilled user_code, so prefer it.
-	if complete, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUriComplete)); err == nil && complete.Path != "" {
-		return origin, complete.RequestURI()
-	}
-
-	devicePath = base.Path
-	if devicePath == "" {
-		devicePath = "/device"
-	}
-	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-		values := base.Query()
-		values.Set("user_code", userCode)
-		devicePath += "?" + values.Encode()
-	}
-	return origin, devicePath
 }

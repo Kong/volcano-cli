@@ -24,13 +24,15 @@ no separate install step is required.
 `make local` builds the binary with the compiled-in defaults loaded from a
 gitignored `.env.local` file, so you can point the CLI at a non-production
 backend without exporting variables each time. Supported keys: `VOLCANO_API_URL`,
-`VOLCANO_WEB_URL` (signup/login pages), and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`.
-`VOLCANO_WEB_URL` is optional at runtime too: when it isn't set, the CLI derives
-it from `VOLCANO_API_URL` (`config.WebURL`) — a loopback API host maps to the
-conventional local Web port 3000, and an `api.` API host maps to the same host
-with that prefix stripped (`api.volcano.dev` -> `volcano.dev`,
-`api.staging.volcano.dev` -> `staging.volcano.dev`). Set `VOLCANO_WEB_URL`
-explicitly only when your backend doesn't follow either convention.
+`VOLCANO_WEB_URL` (signup page only — `volcano login`'s browser flow opens the
+backend's device-authorization verification URL directly and never uses this),
+and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`. `VOLCANO_WEB_URL` is optional at
+runtime too: when it isn't set, the CLI derives it from `VOLCANO_API_URL`
+(`config.WebURL`) — a loopback API host maps to the conventional local Web port
+3000, and an `api.` API host maps to the same host with that prefix stripped
+(`api.volcano.dev` -> `volcano.dev`, `api.staging.volcano.dev` ->
+`staging.volcano.dev`). Set `VOLCANO_WEB_URL` explicitly only when your backend
+doesn't follow either convention.
 
 `make localmode-e2e` uses Docker and is intentionally heavier than the normal
 unit-test workflow. Run it when changing local-mode startup, reset, health, or
