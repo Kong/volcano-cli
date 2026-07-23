@@ -27,7 +27,7 @@ Frontend commands live under the `cloud` group.
 | Logs | `volcano cloud frontends logs <name>` |
 | Custom domains | `volcano cloud frontends domain create\|list\|get\|delete …` |
 
-Frontend deploys and redeploys use latest-wins queueing. A new request replaces
+Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
 queued deploys and blocks later deploys until deletion finishes.
 

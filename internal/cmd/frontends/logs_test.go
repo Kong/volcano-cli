@@ -24,6 +24,13 @@ func TestFrontendDeploymentSupersededIsTerminal(t *testing.T) {
 	}))
 }
 
+func TestFrontendDeploymentDeletingIsNotTerminal(t *testing.T) {
+	t.Parallel()
+	require.False(t, frontendDeploymentTerminal(&apiclient.FrontendDeployment{
+		Status: apiclient.FrontendDeploymentStatusDeleting,
+	}))
+}
+
 const otherFrontendDeploymentID = "77777777-7777-4777-8777-777777777777"
 
 func TestFrontendsLogs(t *testing.T) {

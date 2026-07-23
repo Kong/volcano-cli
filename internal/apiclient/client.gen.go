@@ -1135,16 +1135,21 @@ func (e ProjectDeploymentOperation) Valid() bool {
 // Defines values for ProjectDeploymentStatus.
 const (
 	ProjectDeploymentStatusActive       ProjectDeploymentStatus = "active"
+	ProjectDeploymentStatusDegraded     ProjectDeploymentStatus = "degraded"
 	ProjectDeploymentStatusDeleted      ProjectDeploymentStatus = "deleted"
 	ProjectDeploymentStatusDeleting     ProjectDeploymentStatus = "deleting"
 	ProjectDeploymentStatusFailed       ProjectDeploymentStatus = "failed"
 	ProjectDeploymentStatusProvisioning ProjectDeploymentStatus = "provisioning"
+	ProjectDeploymentStatusQueued       ProjectDeploymentStatus = "queued"
+	ProjectDeploymentStatusSuperseded   ProjectDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the ProjectDeploymentStatus enum.
 func (e ProjectDeploymentStatus) Valid() bool {
 	switch e {
 	case ProjectDeploymentStatusActive:
+		return true
+	case ProjectDeploymentStatusDegraded:
 		return true
 	case ProjectDeploymentStatusDeleted:
 		return true
@@ -1153,6 +1158,10 @@ func (e ProjectDeploymentStatus) Valid() bool {
 	case ProjectDeploymentStatusFailed:
 		return true
 	case ProjectDeploymentStatusProvisioning:
+		return true
+	case ProjectDeploymentStatusQueued:
+		return true
+	case ProjectDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -22007,6 +22016,7 @@ type CreateFunctionClientResponse struct {
 	JSON201      *Function
 	JSON400      *Error
 	JSON403      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -29877,6 +29887,13 @@ func ParseCreateFunctionClientResponse(rsp *http.Response) (*CreateFunctionClien
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error

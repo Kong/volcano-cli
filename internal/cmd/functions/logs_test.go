@@ -24,6 +24,13 @@ func TestFunctionDeploymentSupersededIsTerminal(t *testing.T) {
 	}))
 }
 
+func TestFunctionDeploymentDeletingIsNotTerminal(t *testing.T) {
+	t.Parallel()
+	require.False(t, functionDeploymentTerminal(&apiclient.FunctionDeployment{
+		Status: apiclient.FunctionDeploymentStatusDeleting,
+	}))
+}
+
 const (
 	functionDeploymentID = "55555555-5555-4555-8555-555555555555"
 	otherDeploymentID    = "66666666-6666-4666-8666-666666666666"
