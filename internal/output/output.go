@@ -85,6 +85,25 @@ func Project(w io.Writer, project *apiclient.Project) {
 	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(project.UpdatedAt))
 }
 
+// AnonKeys renders a project's anon keys. The key value is the publishable JWT
+// for the frontend/SDK Authorization header, so it is printed in full.
+func AnonKeys(w io.Writer, keys []apiclient.AnonKey) {
+	if len(keys) == 0 {
+		fmt.Fprintln(w, "No anon keys for this project.")
+		return
+	}
+	for i := range keys {
+		k := keys[i]
+		defaultMarker := ""
+		if k.IsDefault != nil && *k.IsDefault {
+			defaultMarker = " (default)"
+		}
+		fmt.Fprintf(w, "%s%s\n", k.Name, defaultMarker)
+		fmt.Fprintf(w, "  ID:  %s\n", k.Id.String())
+		fmt.Fprintf(w, "  Key: %s\n", k.KeyValue)
+	}
+}
+
 // FormatTimestamp returns a local RFC3339 timestamp or "-".
 func FormatTimestamp(t time.Time) string {
 	if t.IsZero() {

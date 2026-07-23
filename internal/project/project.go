@@ -3,6 +3,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -71,6 +72,34 @@ func (s Service) Get(ctx context.Context, projectID string) (*apiclient.Project,
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 	return project, nil
+}
+
+// ListAnonKeys returns a project's anon keys (the publishable frontend/SDK
+// keys). projectID may be empty to use the currently selected project.
+func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclient.AnonKey, error) {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		if authenticated.Config.CurrentProject == nil {
+			return nil, errors.New("failed to get project keys: no project ID given and no current project selected — pass a project ID or run `volcano use <id-or-name>`")
+		}
+		projectID = authenticated.Config.CurrentProject.ID
+	}
+
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project keys: invalid project ID %q: %w", projectID, err)
+	}
+
+	keys, err := authenticated.API.ListAnonKeys(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project keys: %w", err)
+	}
+	return keys, nil
 }
 
 // Delete starts asynchronous project deletion by ID.

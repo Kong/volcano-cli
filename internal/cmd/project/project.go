@@ -35,6 +35,12 @@ type getOptions struct {
 	out       io.Writer
 }
 
+type keysOptions struct {
+	deps      cliruntime.Deps
+	projectID string
+	out       io.Writer
+}
+
 type deleteOptions struct {
 	deps      cliruntime.Deps
 	projectID string
@@ -72,6 +78,7 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newCreate(deps))
 	cmd.AddCommand(newGet(deps))
+	cmd.AddCommand(newKeys(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newUse(deps))
 	return cmd
@@ -157,6 +164,38 @@ func runGet(ctx context.Context, opts getOptions) error {
 	}
 
 	output.Project(opts.out, project)
+	return nil
+}
+
+func newKeys(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "keys [project-id]",
+		Short: "Show a project's anon (publishable) API keys",
+		Long: `Show a project's anon keys — the publishable JWT you put in the frontend/SDK Authorization header (the value an app or staging build needs).
+
+Defaults to the currently selected project when no ID is given (see ` + "`volcano use`" + `). Anon keys are publishable client keys; this does not print server-side service keys.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var projectID string
+			if len(args) == 1 {
+				projectID = strings.TrimSpace(args[0])
+			}
+			return runKeys(cmd.Context(), keysOptions{
+				deps:      deps,
+				projectID: projectID,
+				out:       cmd.OutOrStdout(),
+			})
+		},
+	}
+}
+
+func runKeys(ctx context.Context, opts keysOptions) error {
+	keys, err := cliproject.NewService(opts.deps).ListAnonKeys(ctx, opts.projectID)
+	if err != nil {
+		return err
+	}
+
+	output.AnonKeys(opts.out, keys)
 	return nil
 }
 
