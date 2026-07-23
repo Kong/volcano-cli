@@ -85,8 +85,6 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 			APIBaseURL:      info.APIURL,
 			UserToken:       info.UserToken,
 			UserID:          info.UserID,
-			AnonKey:         info.AnonKey,
-			ServiceKey:      info.ServiceKey,
 			FunctionAliases: functionAliases,
 			CurrentProject: &cliconfig.ProjectConfig{
 				ID:   info.ProjectID,

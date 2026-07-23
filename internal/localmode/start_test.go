@@ -54,7 +54,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 		case r.Method == http.MethodGet && r.URL.Path == "/health":
 			w.WriteHeader(http.StatusOK)
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+localModeProjectID+"/databases":
-			assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+			assert.Empty(t, r.Header.Get("Authorization"))
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			createBodies = append(createBodies, body)

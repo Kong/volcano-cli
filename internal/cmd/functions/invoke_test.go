@@ -191,8 +191,6 @@ func TestFunctionsInvokeLocalSendsNoCredential(t *testing.T) {
 			return &cliconfig.Config{
 				APIBaseURL: server.URL,
 				UserToken:  "local-token",
-				AnonKey:    "local-anon-key",
-				ServiceKey: "local-service-key",
 				CurrentProject: &cliconfig.ProjectConfig{
 					ID:   functionProjectID,
 					Name: "local-dev",
