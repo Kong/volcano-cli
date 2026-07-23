@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
+
+// debugOut is where traces are written. Overridable in tests; stderr in prod so
+// it never pollutes stdout/JSON output.
+var debugOut io.Writer = os.Stderr
 
 // debugEnabled turns on stderr tracing of API requests/responses. It's seeded
 // from VOLCANO_DEBUG at startup and can be flipped by the root --debug flag.
@@ -50,19 +55,19 @@ func (d debugDoer) Do(req *http.Request) (*http.Response, error) {
 	if !debugEnabled.Load() {
 		return d.next.Do(req)
 	}
-	fmt.Fprintf(os.Stderr, "volcano: \u2192 %s %s\n", req.Method, req.URL.Redacted())
+	fmt.Fprintf(debugOut, "volcano: \u2192 %s %s\n", req.Method, req.URL.Redacted())
 	for _, name := range sortedHeaderNames(req.Header) {
-		fmt.Fprintf(os.Stderr, "volcano:   %s: %s\n", name, redactHeaderValue(name, req.Header.Values(name)))
+		fmt.Fprintf(debugOut, "volcano:   %s: %s\n", name, redactHeaderValue(name, req.Header.Values(name)))
 	}
 	start := time.Now()
 	resp, err := d.next.Do(req)
 	elapsed := time.Since(start).Round(time.Millisecond)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "volcano: \u2190 error after %s: %v\n", elapsed, err)
+		fmt.Fprintf(debugOut, "volcano: \u2190 error after %s: %v\n", elapsed, err)
 		return resp, err
 	}
 	if resp != nil {
-		fmt.Fprintf(os.Stderr, "volcano: \u2190 %s (%s)\n", resp.Status, elapsed)
+		fmt.Fprintf(debugOut, "volcano: \u2190 %s (%s)\n", resp.Status, elapsed)
 	}
 	return resp, err
 }
@@ -85,14 +90,31 @@ func redactHeaderValue(name string, values []string) string {
 	if len(values) == 0 || strings.TrimSpace(values[0]) == "" {
 		return "(absent)"
 	}
+	// For Authorization, reveal the scheme only when it is a recognized scheme
+	// cleanly separated from the credential; otherwise fully redact, so a
+	// scheme-less or oddly-formatted value can never leak the credential itself.
 	if strings.EqualFold(name, "Authorization") {
-		scheme := values[0]
-		if i := strings.IndexByte(scheme, ' '); i > 0 {
-			scheme = scheme[:i]
+		if scheme, ok := knownAuthScheme(values[0]); ok {
+			return scheme + " <redacted>"
 		}
-		return scheme + " <redacted>"
+		return "<redacted>"
 	}
 	return "<redacted>"
+}
+
+// knownAuthScheme returns the leading auth scheme when v is "<scheme> <credential>"
+// for a recognized scheme, so only the scheme (never the credential) is shown.
+func knownAuthScheme(v string) (string, bool) {
+	i := strings.IndexByte(v, ' ')
+	if i <= 0 || i >= len(v)-1 {
+		return "", false
+	}
+	scheme := v[:i]
+	switch strings.ToLower(scheme) {
+	case "bearer", "basic", "digest", "token":
+		return scheme, true
+	}
+	return "", false
 }
 
 func sensitiveHeader(name string) bool {

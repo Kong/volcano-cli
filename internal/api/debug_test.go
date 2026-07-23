@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -13,7 +15,10 @@ func TestRedactHeaderValue(t *testing.T) {
 		want   string
 	}{
 		{"authorization shows scheme only", "Authorization", []string{"Bearer sk-secret-token"}, "Bearer <redacted>"},
-		{"authorization no scheme", "Authorization", []string{"sk-raw"}, "sk-raw <redacted>"},
+		{"basic scheme shown", "Authorization", []string{"Basic dXNlcjpwYXNz"}, "Basic <redacted>"},
+		{"scheme-less value fully redacted (no leak)", "Authorization", []string{"sk-raw"}, "<redacted>"},
+		{"unknown scheme fully redacted", "Authorization", []string{"Weird sk-raw"}, "<redacted>"},
+		{"leading whitespace fully redacted", "Authorization", []string{" Bearer sk-raw"}, "<redacted>"},
 		{"authorization absent", "Authorization", []string{""}, "(absent)"},
 		{"token header redacted", "X-Api-Token", []string{"abc123"}, "<redacted>"},
 		{"api-key redacted", "X-API-Key", []string{"k"}, "<redacted>"},
@@ -57,18 +62,72 @@ func TestDebugDoerPassesThrough(t *testing.T) {
 	doer := debugDoer{next: next}
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8000/x", nil)
 
-	// disabled
+	// disabled: passthrough, and it must not write a trace
 	SetDebug(false)
+	var quiet bytes.Buffer
+	restore := swapDebugOut(&quiet)
 	if _, err := doer.Do(req); err != nil {
 		t.Fatalf("unexpected error (disabled): %v", err)
 	}
-	// enabled (traces to stderr; still passes through and returns the response)
+	restore()
+	if quiet.Len() != 0 {
+		t.Fatalf("disabled debug wrote output: %q", quiet.String())
+	}
+	// enabled: still passes through and returns the response
 	SetDebug(true)
+	restore = swapDebugOut(&bytes.Buffer{})
 	resp, err := doer.Do(req)
+	restore()
 	if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected passthrough 200, got resp=%v err=%v", resp, err)
 	}
 	if !next.called {
 		t.Fatal("debugDoer did not call next")
+	}
+}
+
+func TestDebugDoerTraceContract(t *testing.T) {
+	prev := DebugEnabled()
+	t.Cleanup(func() { SetDebug(prev) })
+	SetDebug(true)
+
+	var buf bytes.Buffer
+	restore := swapDebugOut(&buf)
+	defer restore()
+
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8000/auth/device/token", nil)
+	req.Header.Set("Authorization", "Bearer sk-super-secret-token")
+	req.Header.Set("X-Api-Token", "raw-token-value")
+	req.Header.Set("Content-Type", "application/json")
+
+	doer := debugDoer{next: &recordingDoer{}}
+	if _, err := doer.Do(req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	trace := buf.String()
+	// request line + response line present
+	assertContains(t, trace, "\u2192 POST http://localhost:8000/auth/device/token")
+	assertContains(t, trace, "\u2190 200 OK")
+	// sensitive headers redacted; non-sensitive shown
+	assertContains(t, trace, "Authorization: Bearer <redacted>")
+	assertContains(t, trace, "X-Api-Token: <redacted>")
+	assertContains(t, trace, "Content-Type: application/json")
+	// the raw credentials must never appear
+	if strings.Contains(trace, "sk-super-secret-token") || strings.Contains(trace, "raw-token-value") {
+		t.Fatalf("trace leaked a credential:\n%s", trace)
+	}
+}
+
+func swapDebugOut(w *bytes.Buffer) func() {
+	prev := debugOut
+	debugOut = w
+	return func() { debugOut = prev }
+}
+
+func assertContains(t *testing.T, haystack, needle string) {
+	t.Helper()
+	if !strings.Contains(haystack, needle) {
+		t.Fatalf("expected trace to contain %q, got:\n%s", needle, haystack)
 	}
 }
