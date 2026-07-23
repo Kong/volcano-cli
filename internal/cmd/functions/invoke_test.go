@@ -156,7 +156,7 @@ func TestFunctionsInvokeByNameFallsBackToFunctionResolution(t *testing.T) {
 	}, requests)
 }
 
-func TestFunctionsInvokeLocalUsesServiceKeyForInvokeOnly(t *testing.T) {
+func TestFunctionsInvokeLocalSendsNoCredential(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", "cloud-token")
 	t.Setenv("VOLCANO_PROJECT_ID", "99999999-9999-4999-8999-999999999999")
@@ -186,6 +186,7 @@ func TestFunctionsInvokeLocalUsesServiceKeyForInvokeOnly(t *testing.T) {
 
 	deps := cliruntime.Deps{
 		HTTPClient: server.Client(),
+		LocalMode:  true,
 		ConfigLoader: func() (*cliconfig.Config, error) {
 			return &cliconfig.Config{
 				APIBaseURL: server.URL,
@@ -204,8 +205,11 @@ func TestFunctionsInvokeLocalUsesServiceKeyForInvokeOnly(t *testing.T) {
 	out, err := executeFunctionsCommand(t, NewLocal(deps), "invoke", "hello", "--json")
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"ok":true}`, out)
-	assert.Equal(t, "Bearer local-token", sawListAuth)
-	assert.Equal(t, "Bearer local-service-key", sawInvokeAuth)
+	// Local mode sends no credential on any call: the name-resolution list and
+	// the invoke both omit Authorization, and the local server defaults to the
+	// pre-provisioned local user.
+	assert.Empty(t, sawInvokeAuth)
+	assert.Empty(t, sawListAuth)
 }
 
 func TestFunctionsInvokeRejectsInvalidTargetsAndPayload(t *testing.T) {

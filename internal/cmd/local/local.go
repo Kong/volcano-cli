@@ -39,10 +39,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 			CreateDefaults: cache.databaseCreateDefaults,
 		}),
 		migrationcmd.NewLocal(localDeps),
-		storagecmd.NewWithOptions(
-			localDeps,
-			storagecmd.WithObjectTokenProvider(cache.storageObjectToken),
-		),
+		storagecmd.New(localDeps),
 		configcmd.New(localDeps),
 		functionscmd.NewLocal(localDeps),
 		variablescmd.New(localDeps),
@@ -67,6 +64,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 
 func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 	deps.CommandPathPrefix = "volcano"
+	// Local mode is a single-tenant sandbox: session clients send no credential
+	// and the local server defaults to the pre-provisioned local user.
+	deps.LocalMode = true
 	deps.ConfigLoader = func() (*cliconfig.Config, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), localInfoTimeout)
 		defer cancel()
@@ -96,17 +96,6 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 		}, nil
 	}
 	return deps
-}
-
-func (c *infoCache) storageObjectToken(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, localInfoTimeout)
-	defer cancel()
-
-	info, err := c.load(ctx)
-	if err != nil {
-		return "", err
-	}
-	return info.ServiceKey, nil
 }
 
 func (c *infoCache) databaseCreateDefaults(ctx context.Context) (databasescmd.LocalCreateDefaults, error) {

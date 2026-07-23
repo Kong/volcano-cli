@@ -16,11 +16,15 @@ type Deps struct {
 	HTTPClient apiclient.HttpRequestDoer
 	// APIBaseURL overrides the compiled cloud API URL for tests. Synthetic
 	// local configs supply their API URL through ConfigLoader instead.
-	APIBaseURL          string
-	OpenBrowser         func(string) error
-	NewTimer            func(time.Duration) Timer
-	NewTicker           func(time.Duration) Ticker
-	ConfigLoader        func() (*config.Config, error)
+	APIBaseURL   string
+	OpenBrowser  func(string) error
+	NewTimer     func(time.Duration) Timer
+	NewTicker    func(time.Duration) Ticker
+	ConfigLoader func() (*config.Config, error)
+	// LocalMode makes session-built API clients send no credential. Local mode
+	// is a single-tenant sandbox; the local server defaults an absent credential
+	// to the pre-provisioned local user. Set by the local command wiring.
+	LocalMode           bool
 	LocalCommandRunner  CommandRunner
 	UpdateCommandRunner CommandRunner
 	GitCommandRunner    CommandRunner
