@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Kong/volcano-cli/compare/v0.4.0...v0.5.0) (2026-07-23)
+
+
+### Features
+
+* **cli:** add 'volcano projects keys' command to retrieve a project's anon key ([#86](https://github.com/Kong/volcano-cli/issues/86)) ([4b05290](https://github.com/Kong/volcano-cli/commit/4b0529070a8abc870c86e1296498d36efb938258))
+
 ## [0.4.0](https://github.com/Kong/volcano-cli/compare/v0.3.0...v0.4.0) (2026-07-23)
 
 
