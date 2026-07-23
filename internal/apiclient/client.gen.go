@@ -418,6 +418,7 @@ func (e FrontendFramework) Valid() bool {
 // Defines values for FrontendStatus.
 const (
 	FrontendStatusActive       FrontendStatus = "active"
+	FrontendStatusDegraded     FrontendStatus = "degraded"
 	FrontendStatusDeleting     FrontendStatus = "deleting"
 	FrontendStatusFailed       FrontendStatus = "failed"
 	FrontendStatusProvisioning FrontendStatus = "provisioning"
@@ -427,6 +428,8 @@ const (
 func (e FrontendStatus) Valid() bool {
 	switch e {
 	case FrontendStatusActive:
+		return true
+	case FrontendStatusDegraded:
 		return true
 	case FrontendStatusDeleting:
 		return true

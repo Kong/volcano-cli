@@ -8215,6 +8215,7 @@ components:
           enum:
             - provisioning
             - active
+            - degraded
             - failed
             - deleting
         provisioning_started_at:
