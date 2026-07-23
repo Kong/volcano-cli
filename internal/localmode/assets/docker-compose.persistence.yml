@@ -1,0 +1,7 @@
+services:
+  server:
+    volumes:
+      - volcano-functions:/app/local-functions
+
+volumes:
+  volcano-functions:

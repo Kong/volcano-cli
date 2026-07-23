@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -57,10 +56,16 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token s
 	return Credentials{Token: token}, nil
 }
 
-// Signup runs the same device flow as login but routes the browser through
-// Volcano Web's signup page first. The signup origin is taken from the device
-// authorization response's verification URI, so signup always targets the same
-// environment as login; an explicit VOLCANO_WEB_URL still wins.
+// Signup routes the browser through Volcano Web's own signup page (account
+// creation isn't something the device-authorization response's verification
+// page handles), then to a same-origin /device path. cfg.WebURLForAPIURL
+// (explicit VOLCANO_WEB_URL, else derived from apiURL, else the compiled
+// default) is the signup origin: the verification response's own URI can't be
+// used for this, since for Volcano's first-party CLI client it now points at
+// the API's own managed-hosted-auth page (a different origin, per
+// docs/api-reference/cli-authentication.md in volcano-hosting), and Volcano
+// Web's signup page only accepts a same-origin relative `next` value anyway
+// (isSafeInternalPath in volcano-web rejects absolute URLs).
 func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
 	clientID, err := resolveDeviceClientID(apiURL)
@@ -69,8 +74,7 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	}
 	// Fail fast on an explicitly misconfigured VOLCANO_WEB_URL before allocating a
 	// device code, instead of burning a device authorization.
-	webOverride, hasWebOverride := cfg.WebURLOverride()
-	if hasWebOverride {
+	if webOverride, ok := cfg.WebURLOverride(); ok {
 		if _, err := api.WebSignupURL(webOverride, email, ""); err != nil {
 			return Credentials{}, err
 		}
@@ -85,22 +89,7 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 		return Credentials{}, err
 	}
 
-	// Follow the backend the device flow points at, exactly like login does.
-	webURL, devicePath := api.VerificationWebTarget(deviceAuth)
-	if hasWebOverride {
-		webURL = webOverride
-	}
-	if webURL == "" {
-		webURL = cfg.WebURL()
-	}
-	if devicePath == "" {
-		devicePath = "/device"
-		if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-			devicePath = "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
-		}
-	}
-
-	signupURL, err := api.WebSignupURL(webURL, email, devicePath)
+	signupURL, err := api.WebSignupURL(cfg.WebURLForAPIURL(apiURL), email, deviceApprovalPath(deviceAuth))
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -109,7 +98,13 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
 }
 
-// LoginWithBrowser runs the OAuth device flow and returns credentials to persist.
+// LoginWithBrowser runs the OAuth device flow and opens the browser at the
+// verification URI the device-authorization response returned, unmodified.
+// That page (for Volcano's first-party CLI client, the API's own managed
+// hosted-auth page, action=device) is self-contained: it signs the user in
+// and asks them to approve the code itself, so login needs no Volcano Web
+// routing of its own (see docs/api-reference/cli-authentication.md and
+// docs/authentication/managed-hosted-pages.md in volcano-hosting).
 func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
 	clientID, err := resolveDeviceClientID(apiURL)
@@ -134,6 +129,16 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
 }
 
+// deviceApprovalPath is the same-origin path Volcano Web's own /device page
+// lives at, used only as signup's post-signup next hop. It doesn't derive
+// from the verification response (see the Signup doc comment above).
+func deviceApprovalPath(deviceAuth *apiclient.DeviceAuthorizationResponse) string {
+	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
+		return "/device?" + url.Values{"user_code": []string{userCode}}.Encode()
+	}
+	return "/device"
+}
+
 // resolveDeviceClientID returns the device OAuth client id for the login flow.
 // When the CLI is pointed at a loopback address the local server only knows the
 // deterministic local device client, so issue it directly; otherwise defer to
@@ -147,21 +152,7 @@ func resolveDeviceClientID(apiURL string) (string, error) {
 
 // isLocalAPIURL reports whether apiURL points at a loopback address.
 func isLocalAPIURL(apiURL string) bool {
-	u, err := url.Parse(strings.TrimSpace(apiURL))
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
-	if host == "" {
-		return false
-	}
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return true
-	}
-	return false
+	return config.IsLoopbackAPIURL(apiURL)
 }
 
 // Logout deletes local authentication state.

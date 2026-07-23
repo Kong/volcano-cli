@@ -72,6 +72,9 @@ func Frontend(w io.Writer, fe *apiclient.Frontend) {
 	if fe.CurrentDeploymentId != nil {
 		fmt.Fprintf(w, "Current Deployment: %s\n", fe.CurrentDeploymentId.String())
 	}
+	if fe.PendingDeploymentId != nil {
+		fmt.Fprintf(w, "Pending Deployment: %s\n", fe.PendingDeploymentId.String())
+	}
 	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(fe.CreatedAt))
 	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(fe.UpdatedAt))
 }

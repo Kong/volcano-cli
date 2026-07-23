@@ -7,7 +7,6 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // SearchLogsFetcher fetches one page of searched log events. An empty cursor requests the first page.
@@ -42,11 +41,11 @@ func PrintSearchLogsSkipping(w io.Writer, fetch SearchLogsFetcher, skip map[stri
 	}
 }
 
-func filterSkippedLogSearchEvents(events []apicommon.LogSearchEvent, skip map[string]struct{}) []apicommon.LogSearchEvent {
+func filterSkippedLogSearchEvents(events []apiclient.LogSearchEvent, skip map[string]struct{}) []apiclient.LogSearchEvent {
 	if len(events) == 0 || len(skip) == 0 {
 		return events
 	}
-	filtered := make([]apicommon.LogSearchEvent, 0, len(events))
+	filtered := make([]apiclient.LogSearchEvent, 0, len(events))
 	for _, event := range events {
 		if _, ok := skip[event.Id]; ok && event.Id != "" {
 			continue
@@ -63,7 +62,7 @@ func PrintLogStreamEvent(w io.Writer, event *api.ProjectLogStreamEvent) {
 	}
 	switch {
 	case event.Log != nil:
-		LogSearchEvents(w, []apicommon.LogSearchEvent{*event.Log})
+		LogSearchEvents(w, []apiclient.LogSearchEvent{*event.Log})
 	case event.Warning != "":
 		fmt.Fprintf(w, "Warning: %s\n", event.Warning)
 	}

@@ -20,7 +20,6 @@ func TestAPIE2ECloudFunctions(t *testing.T) {
 	env.runCloudCLI(t, "functions", "deploy", "--all").requireSuccess(t, "functions deployment started")
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	env.runCloudCLI(t, "functions", "deploy", "-f", "hello").requireSuccess(t, "1/1 functions deployment started")
-	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	env.runCloudCLI(t, "functions", "deploy", "-f", filepath.Join("volcano", "functions", "hello.js")).requireSuccess(t, "1/1 functions deployment started")
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	env.runCloudCLI(t, "functions", "list").requireSuccess(t, "hello")

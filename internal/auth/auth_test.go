@@ -168,7 +168,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	assert.Contains(t, out.String(), ".")
 }
 
-func TestLoginWithBrowserFallsBackToVerificationURI(t *testing.T) {
+func TestLoginWithBrowserFallsBackToVerificationURIWhenCompleteMissing(t *testing.T) {
 	cfg := testAuthConfig(t)
 
 	timeoutTimer := newAuthFakeTicker()
@@ -372,6 +372,7 @@ func testAuthConfig(t *testing.T) *config.Config {
 	t.Setenv("VOLCANO_TOKEN", "")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_WEB_URL", "")
 	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
 	return config.Default()
 }

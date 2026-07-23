@@ -12,12 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/update"
 	"github.com/Kong/volcano-cli/internal/version"
@@ -100,231 +100,129 @@ func TestUpgradeCommandRejectsArgs(t *testing.T) {
 	assert.ErrorContains(t, err, `unknown command "v1.2.3"`)
 }
 
-func TestUpdateNoticePrintsForOutdatedVersion(t *testing.T) {
-	setUpgradeTestCacheDir(t)
+// withInstructions drives api.LastInstructions() through a real api.Client
+// call against a test server, exercising PrintAPIInstructionNotices exactly
+// as production does (via observed response headers), with no reliance on
+// api's unexported state.
+func withInstructions(t *testing.T, cliInstruction, latest, deviceInstruction string) {
+	t.Helper()
+	// recordInstructions is sticky (VOL-180): a field a response omits doesn't
+	// clear a value recorded by an earlier test. Reset explicitly so each test
+	// starts from the zero value regardless of execution order.
+	api.ResetLastInstructionsForTest()
+	t.Cleanup(api.ResetLastInstructionsForTest)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if cliInstruction != "" {
+			w.Header().Set("X-Volcano-CLI-Instruction", cliInstruction)
+		}
+		if latest != "" {
+			w.Header().Set("X-Volcano-CLI-Latest-Version", latest)
+		}
+		if deviceInstruction != "" {
+			w.Header().Set("X-Volcano-Device-Instruction", deviceInstruction)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := api.NewClient(server.URL, "", api.WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	_, err = client.ListProjects(context.Background(), api.DefaultPage, api.DefaultLimit)
+	require.NoError(t, err)
+}
+
+func TestPrintAPIInstructionNotices_Suggestion(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "v1.5.0", "")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/releases/latest", r.URL.Path)
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
+	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Contains(t, out.String(), "A newer Volcano CLI version is available: v1.2.4 (current v1.2.3). Run `volcano upgrade` to upgrade.")
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "A newer Volcano CLI version is available: v1.5.0 (current v1.2.3). Run `volcano upgrade` to upgrade.")
 }
 
-func TestUpdateNoticeSkipsVersionCommand(t *testing.T) {
-	setUpgradeTestCacheDir(t)
+func TestPrintAPIInstructionNotices_SuggestionWithoutLatestVersion(t *testing.T) {
 	oldVersion := version.Version
 	version.Version = "v1.2.3"
 	t.Cleanup(func() { version.Version = oldVersion })
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "", "")
 
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("version")
+	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Empty(t, out.String())
-	assert.Zero(t, requests)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "A newer Volcano CLI version is available (current v1.2.3). Run `volcano upgrade` to upgrade.")
 }
 
-func TestUpdateNoticeSkipsImplicitRootHelp(t *testing.T) {
-	setUpgradeTestCacheDir(t)
+func TestPrintAPIInstructionNotices_Deprecation(t *testing.T) {
 	oldVersion := version.Version
-	version.Version = "v1.2.3"
+	version.Version = "v0.9.0"
 	t.Cleanup(func() { version.Version = oldVersion })
+	withInstructions(t, api.CLIInstructionRequireVersionUpgrade, "v1.5.0", "")
 
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
-	}))
-	defer server.Close()
-
-	cmd := &cobra.Command{Use: "volcano"}
+	cmd := &cobra.Command{Use: "login"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Empty(t, out.String())
-	assert.Zero(t, requests)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Volcano CLI v0.9.0 is no longer supported. Upgrade to v1.5.0 or later:\n  volcano upgrade")
 }
 
-func TestUpdateNoticeSkipsCompletionCommands(t *testing.T) {
-	setUpgradeTestCacheDir(t)
+func TestPrintAPIInstructionNotices_DeprecationWithoutLatestVersion(t *testing.T) {
 	oldVersion := version.Version
-	version.Version = "v1.2.3"
+	version.Version = "v0.9.0"
 	t.Cleanup(func() { version.Version = oldVersion })
+	withInstructions(t, api.CLIInstructionRequireVersionUpgrade, "", "")
 
-	for _, name := range []string{"completion", "__complete", "__completeNoDesc"} {
-		t.Run(name, func(t *testing.T) {
-			requests := 0
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				requests++
-				writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
-			}))
-			defer server.Close()
-
-			cmd := noticeTestCommand(name)
-			var out bytes.Buffer
-			cmd.SetErr(&out)
-			MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-				HTTPClient:         server.Client(),
-				UpdateGitHubAPIURL: server.URL,
-			})
-			assert.Empty(t, out.String())
-			assert.Zero(t, requests)
-		})
-	}
-}
-
-func TestUpdateNoticeUsesFreshCache(t *testing.T) {
-	setUpgradeTestCacheDir(t)
-	oldVersion := version.Version
-	version.Version = "v1.2.3"
-	t.Cleanup(func() { version.Version = oldVersion })
-	writeUpgradeTestCache(t, "v1.2.4", time.Now().UTC())
-
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
+	cmd := &cobra.Command{Use: "login"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Contains(t, out.String(), "v1.2.4")
-	assert.NotContains(t, out.String(), "v1.2.5")
-	assert.Zero(t, requests)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Volcano CLI v0.9.0 is no longer supported. Run `volcano upgrade` to upgrade.")
 }
 
-func TestUpdateNoticeUsesFreshUpToDateCache(t *testing.T) {
-	setUpgradeTestCacheDir(t)
-	oldVersion := version.Version
-	version.Version = "v1.2.4"
-	t.Cleanup(func() { version.Version = oldVersion })
-	writeUpgradeTestCache(t, "v1.2.4", time.Now().UTC())
+func TestPrintAPIInstructionNotices_NotEnoughCredit(t *testing.T) {
+	// Reserved instruction (VOL-180 PR review discussion): the API never
+	// emits this yet, but the CLI-side handling is real and testable so a
+	// future billing-service integration needs no CLI change to start working.
+	withInstructions(t, api.CLIInstructionNotEnoughCredit, "", "")
 
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
+	cmd := &cobra.Command{Use: "functions"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Empty(t, out.String())
-	assert.Zero(t, requests)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Your project does not have enough credit to complete this request.")
 }
 
-func TestUpdateNoticeWritesCacheWhenAlreadyUpToDate(t *testing.T) {
-	setUpgradeTestCacheDir(t)
-	oldVersion := version.Version
-	version.Version = "v1.2.4"
-	t.Cleanup(func() { version.Version = oldVersion })
+func TestPrintAPIInstructionNotices_LowCreditWarning(t *testing.T) {
+	withInstructions(t, api.CLIInstructionLowCreditWarning, "", "")
 
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
+	cmd := &cobra.Command{Use: "functions"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	deps := cliruntime.Deps{HTTPClient: server.Client(), UpdateGitHubAPIURL: server.URL}
-	MaybePrintUpdateNotice(cmd, deps)
-	assert.Empty(t, out.String())
-	assert.Equal(t, 1, requests)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
 
-	MaybePrintUpdateNotice(cmd, deps)
-	assert.Empty(t, out.String())
-	assert.Equal(t, 1, requests)
+	assert.Contains(t, out.String(), "Your project is running low on credit.")
 }
 
-func TestUpdateNoticeRejectsFutureDatedCache(t *testing.T) {
-	setUpgradeTestCacheDir(t)
-	oldVersion := version.Version
-	version.Version = "v1.2.3"
-	t.Cleanup(func() { version.Version = oldVersion })
-	// A future CheckedAt (clock skew, restored backup) must not be trusted as fresh —
-	// the notice check should re-fetch from the network instead.
-	writeUpgradeTestCache(t, "v1.2.4", time.Now().Add(48*time.Hour).UTC())
+func TestPrintAPIInstructionNotices_UsesCommandPathPrefix(t *testing.T) {
+	withInstructions(t, api.CLIInstructionSuggestionVersionUpgrade, "v1.5.0", "")
 
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
+	cmd := &cobra.Command{Use: "projects"}
 	var out bytes.Buffer
 	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Contains(t, out.String(), "v1.2.5")
-	assert.Equal(t, 1, requests)
-}
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{CommandPathPrefix: "acme"})
 
-func TestUpdateNoticeRefreshesStaleCache(t *testing.T) {
-	setUpgradeTestCacheDir(t)
-	oldVersion := version.Version
-	version.Version = "v1.2.3"
-	t.Cleanup(func() { version.Version = oldVersion })
-	writeUpgradeTestCache(t, "v1.2.4", time.Now().Add(-25*time.Hour).UTC())
-
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
-		writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.5"})
-	}))
-	defer server.Close()
-
-	cmd := noticeTestCommand("init")
-	var out bytes.Buffer
-	cmd.SetErr(&out)
-	MaybePrintUpdateNotice(cmd, cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-	})
-	assert.Contains(t, out.String(), "v1.2.5")
-	assert.Equal(t, 1, requests)
+	assert.Contains(t, out.String(), "Run `acme upgrade` to upgrade.")
 }
 
 func executeUpgradeCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
@@ -335,13 +233,6 @@ func executeUpgradeCommand(t *testing.T, cmd *cobra.Command, args ...string) (st
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return out.String(), err
-}
-
-func noticeTestCommand(name string) *cobra.Command {
-	root := &cobra.Command{Use: "volcano"}
-	cmd := &cobra.Command{Use: name}
-	root.AddCommand(cmd)
-	return cmd
 }
 
 func newUpgradeTestServer(t *testing.T, binaryName string, binary []byte, checksums string) *httptest.Server {
@@ -370,23 +261,4 @@ func writeUpgradeJSON(t *testing.T, w http.ResponseWriter, value any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	require.NoError(t, json.NewEncoder(w).Encode(value))
-}
-
-func setUpgradeTestCacheDir(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, ".cache"))
-	return dir
-}
-
-func writeUpgradeTestCache(t *testing.T, latest string, checkedAt time.Time) {
-	t.Helper()
-	path, err := noticeCachePath()
-	require.NoError(t, err)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	require.NoError(t, err)
-	defer func() { require.NoError(t, f.Close()) }()
-	require.NoError(t, json.NewEncoder(f).Encode(noticeCache{CheckedAt: checkedAt, Latest: latest}))
 }

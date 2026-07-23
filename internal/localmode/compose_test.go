@@ -123,6 +123,13 @@ func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
 	assert.Contains(t, template, `"8080:8080"`)
 }
 
+func TestDockerComposePersistencePreservesFunctionSource(t *testing.T) {
+	template := string(dockerComposePersistence)
+
+	assert.Contains(t, template, "volcano-functions:/app/local-functions")
+	assert.Contains(t, template, "volcano-functions:")
+}
+
 func TestDockerComposeTemplateSetsRegionsButNotPlanLimits(t *testing.T) {
 	template := string(dockerComposeTemplate)
 

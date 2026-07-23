@@ -1,0 +1,89 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Serialize release runs so overlapping pushes don't race the release PR/tag.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least privilege for the default GITHUB_TOKEN: the release work runs on the
+# GitHub App token minted below, so the default token needs no write scope.
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Mint a short-lived GitHub App installation token. Release Please must
+      # push tags/releases with a non-default token so publish-cli.yml runs:
+      # refs created with the default GITHUB_TOKEN do not trigger follow-on
+      # workflows. A GitHub App token replaces the personal access token
+      # without depending on an individual's credentials (VOL-367). The app id
+      # is a non-sensitive repo variable; the PEM private key is a secret. The
+      # app must be installed on this repo with Contents and Pull requests
+      # read/write.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.VOLCANO_APP_ID }}
+          private-key: ${{ secrets.VOLCANO_APP_KEY }}
+          # Down-scope the minted token to only what Release Please needs
+          # (contents + pull requests to open/merge the release PR and push
+          # the tag/release; issues for its release labels), rather than the
+          # app installation's full grant.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Auto-merge only non-major release PRs; a major bump is left open for a
+      # maintainer to merge manually. With no required review, an armed
+      # auto-merge completes on its own once check/check passes, so simply not
+      # arming the major PR makes it wait for a manual merge. Fails closed: if
+      # the target version can't be determined, the PR is left for manual merge.
+      - name: Auto-merge non-major release PRs
+        if: ${{ steps.release.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}
+        run: |
+          set -euo pipefail
+          # Last released version is the source of truth for the current major.
+          # Fail closed: if the baseline is missing/malformed, arm nothing.
+          current_version="$(gh api "repos/${GH_REPO}/contents/.release-please-manifest.json" --jq '.content' | base64 -d | jq -r '.["."] // ""')"
+          if ! printf '%s' "$current_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Current version '${current_version}' is missing or not X.Y.Z; leaving all release PRs for manual merge."
+            exit 0
+          fi
+          current_major="${current_version%%.*}"
+          jq -r '.[].number' <<< "$RELEASE_PRS" | while read -r number; do
+            # Release PR titles follow the exact "release: X.Y.Z" pattern; the
+            # anchored match leaves anything unexpected for manual merge.
+            title="$(gh pr view "$number" --json title --jq .title)"
+            new_version="$(printf '%s' "$title" | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p')"
+            if [ -z "$new_version" ]; then
+              echo "Could not parse a version from PR #${number} title '${title}'; leaving for manual merge."
+              continue
+            fi
+            new_major="${new_version%%.*}"
+            if [ "$new_major" -gt "$current_major" ]; then
+              echo "Major bump ${current_version} -> ${new_version}: leaving release PR #${number} for a manual merge."
+              continue
+            fi
+            echo "Enabling squash auto-merge for release PR #${number} (${current_version} -> ${new_version})."
+            gh pr merge "$number" --auto --squash
+          done

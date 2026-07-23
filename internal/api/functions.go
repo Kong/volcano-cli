@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/archive"
 )
 
@@ -131,7 +130,7 @@ func (c *Client) InvokeFunction(ctx context.Context, functionID uuid.UUID, input
 }
 
 // ListFunctionRuntimes returns the function runtime catalog.
-func (c *Client) ListFunctionRuntimes(ctx context.Context) ([]apicommon.FunctionRuntimeOption, error) {
+func (c *Client) ListFunctionRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeOption, error) {
 	resp, err := c.client.ListFunctionRuntimesWithResponse(ctx)
 	if err != nil {
 		return nil, err
@@ -250,7 +249,7 @@ func (c *Client) CreateFunctionScheduler(ctx context.Context, projectID, functio
 	body := apiclient.CreateFunctionSchedulerJSONRequestBody{
 		Name:    input.Name,
 		Enabled: input.Enabled,
-		Schedule: apicommon.ScheduleRequest{
+		Schedule: apiclient.ScheduleRequest{
 			CronExpression: input.CronExpression,
 		},
 	}
@@ -282,7 +281,7 @@ func (c *Client) UpdateFunctionScheduler(ctx context.Context, projectID, functio
 		body.Name = &name
 	}
 	if input.CronExpression != "" {
-		body.Schedule = &apicommon.ScheduleRequest{CronExpression: input.CronExpression}
+		body.Schedule = &apiclient.ScheduleRequest{CronExpression: input.CronExpression}
 	}
 	if input.Payload != nil {
 		payload := input.Payload

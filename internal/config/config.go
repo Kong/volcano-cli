@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,8 +53,21 @@ type Config struct {
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
+	// DocsSource persists a non-default documentation source override so that
+	// `volcano docs` commands resolve the same repo/ref/path across invocations
+	// without repeating --repo/--ref/--path flags. Nil means "use the compiled
+	// default source".
+	DocsSource *DocsSourceConfig `json:"docs_source,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
+}
+
+// DocsSourceConfig persists a documentation source override. Empty fields fall
+// back to the compiled defaults during resolution.
+type DocsSourceConfig struct {
+	Repo string `json:"repo,omitempty"`
+	Ref  string `json:"ref,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // ProjectConfig represents the currently selected Volcano project.
@@ -193,18 +208,87 @@ func (c *Config) APIURL() string {
 	return compiledDefaultAPIURL
 }
 
-// WebURL returns the Volcano web URL with VOLCANO_WEB_URL taking precedence.
+// WebURL returns the Volcano web URL for c.APIURL(). See WebURLForAPIURL for
+// callers that already resolved the API URL through another path (e.g. a
+// runtime override that doesn't flow through c.APIURL()).
 func (c *Config) WebURL() string {
+	return c.WebURLForAPIURL(c.APIURL())
+}
+
+// WebURLForAPIURL returns the Volcano web URL for a specific, already-resolved
+// API URL: VOLCANO_WEB_URL takes precedence, then an explicitly compiled-in
+// default (e.g. via `make local`'s DEFAULT_WEB_URL, which differs from the
+// shipped defaultCompiledWebURL literal only when someone set it), then a URL
+// derived from apiURL (see deriveWebURL), then the shipped compiled default.
+// The explicit compiled default has to win over derivation: otherwise a
+// loopback API URL baked in alongside a non-conventional compiled web URL
+// (e.g. a frontend dev server not on port 3000) would have its own compiled
+// default silently overridden by the :3000 convention.
+func (c *Config) WebURLForAPIURL(apiURL string) string {
 	if webURL := strings.TrimSpace(os.Getenv(envWebURL)); !c.IgnoreEnv && webURL != "" {
 		return webURL
+	}
+	if compiledDefaultWebURL != defaultCompiledWebURL {
+		return compiledDefaultWebURL
+	}
+	if derived := deriveWebURL(apiURL); derived != "" {
+		return derived
 	}
 	return compiledDefaultWebURL
 }
 
+// IsLoopbackAPIURL reports whether apiURL points at a loopback address
+// ("localhost" or a loopback IP). Shared by local-mode's device-client
+// selection and by deriveWebURL below.
+func IsLoopbackAPIURL(apiURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(apiURL))
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// deriveWebURL derives the Volcano Web origin from an API URL for the common
+// naming conventions, so only VOLCANO_API_URL needs to be set to point the
+// CLI at a non-default environment: a loopback API host (local-mode) maps to
+// the conventional local Web port 3000, and an "api." API host maps to the
+// same host with that prefix stripped (api.volcano.dev -> volcano.dev,
+// api.staging.volcano.dev -> staging.volcano.dev). Returns "" when neither
+// convention applies, so the caller falls back to the compiled default.
+func deriveWebURL(apiURL string) string {
+	if IsLoopbackAPIURL(apiURL) {
+		return "http://localhost:3000"
+	}
+	u, err := url.Parse(strings.TrimSpace(apiURL))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	// DNS hostnames are case-insensitive, so match the "api." prefix that way too.
+	host, ok := strings.CutPrefix(strings.ToLower(u.Hostname()), "api.")
+	if !ok || host == "" {
+		return ""
+	}
+	if port := u.Port(); port != "" {
+		host += ":" + port
+	}
+	return u.Scheme + "://" + host
+}
+
 // WebURLOverride returns an explicit VOLCANO_WEB_URL value when one is set,
-// reporting false otherwise. Callers that derive the web origin from another
-// source (e.g. the device-flow verification URI) use this to let an explicit
-// override win without mistaking the compiled default for an override.
+// reporting false otherwise. Used only by Signup, to fail fast on a
+// misconfigured override before allocating a device code (see WebURLForAPIURL
+// for the derived-origin precedence Signup otherwise falls back to).
+// LoginWithBrowser does not use this: its browser flow opens the backend's
+// device-authorization verification URL directly and never routes through
+// Volcano Web.
 func (c *Config) WebURLOverride() (string, bool) {
 	if c.IgnoreEnv {
 		return "", false

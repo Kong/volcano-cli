@@ -15,6 +15,9 @@ import (
 //go:embed assets/docker-compose.template.yml
 var dockerComposeTemplate []byte
 
+//go:embed assets/docker-compose.persistence.yml
+var dockerComposePersistence []byte
+
 func (s Service) checkDocker(ctx context.Context) error {
 	_, err := s.runDocker(ctx, "version")
 	return err
@@ -104,48 +107,78 @@ func (s Service) ensureCustomImageAvailable(ctx context.Context) error {
 }
 
 func (s Service) startDockerServices(ctx context.Context, env []string) error {
-	composePath, cleanup, err := s.writeComposeFile()
+	composePaths, cleanup, err := s.writeComposeFiles()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
+	args := composeFileArgs(composePaths)
+	args = append(args, "-p", composeProjectName, "up", "-d", "--force-recreate")
 	_, err = s.runner.Run(ctx, Command{
 		Name: dockerCommand,
-		Args: []string{"compose", "-f", composePath, "-p", composeProjectName, "up", "-d", "--force-recreate"},
+		Args: args,
 		Env:  env,
 	})
 	return err
 }
 
-func (s Service) writeComposeFile() (string, func(), error) {
+func (s Service) writeComposeFiles() ([]string, func(), error) {
+	paths := make([]string, 0, 2)
+	cleanup := func() {
+		for _, path := range paths {
+			_ = os.Remove(path)
+		}
+	}
+
+	for _, contents := range [][]byte{dockerComposeTemplate, dockerComposePersistence} {
+		path, err := s.writeComposeFile(contents)
+		if err != nil {
+			cleanup()
+			return nil, nil, err
+		}
+		paths = append(paths, path)
+	}
+
+	return paths, cleanup, nil
+}
+
+func (s Service) writeComposeFile(contents []byte) (string, error) {
 	tmpFile, err := os.CreateTemp(s.tempDir, "docker-compose-*.yml")
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temp compose file: %w", err)
+		return "", fmt.Errorf("failed to create temp compose file: %w", err)
 	}
 	composePath := tmpFile.Name()
-	cleanup := func() { _ = os.Remove(composePath) }
 
-	if _, err := tmpFile.Write(dockerComposeTemplate); err != nil {
+	if _, err := tmpFile.Write(contents); err != nil {
 		_ = tmpFile.Close()
-		cleanup()
-		return "", nil, fmt.Errorf("failed to write compose file: %w", err)
+		_ = os.Remove(composePath)
+		return "", fmt.Errorf("failed to write compose file: %w", err)
 	}
 	if err := tmpFile.Close(); err != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("failed to close compose file: %w", err)
+		_ = os.Remove(composePath)
+		return "", fmt.Errorf("failed to close compose file: %w", err)
 	}
-	return composePath, cleanup, nil
+	return composePath, nil
+}
+
+func composeFileArgs(paths []string) []string {
+	args := []string{"compose"}
+	for _, path := range paths {
+		args = append(args, "-f", path)
+	}
+	return args
 }
 
 func (s Service) composeDown(ctx context.Context, clean bool) error {
-	composePath, cleanup, err := s.writeComposeFile()
+	composePaths, cleanup, err := s.writeComposeFiles()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	args := []string{"compose", "-f", composePath, "-p", composeProjectName, "down"}
+	args := composeFileArgs(composePaths)
+	args = append(args, "-p", composeProjectName, "down")
 	if clean {
 		args = append(args, "-v")
 	}

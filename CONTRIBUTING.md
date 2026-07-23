@@ -24,11 +24,15 @@ no separate install step is required.
 `make local` builds the binary with the compiled-in defaults loaded from a
 gitignored `.env.local` file, so you can point the CLI at a non-production
 backend without exporting variables each time. Supported keys: `VOLCANO_API_URL`,
-`VOLCANO_WEB_URL` (signup/login pages), and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`.
-When only a loopback `VOLCANO_API_URL` is set, `VOLCANO_WEB_URL` defaults to
-`http://localhost:3000`. At runtime, `volcano signup` follows the backend's
-device-flow verification URL (like `volcano login`), so `VOLCANO_WEB_URL` only
-overrides that web origin.
+`VOLCANO_WEB_URL` (signup page only — `volcano login`'s browser flow opens the
+backend's device-authorization verification URL directly and never uses this),
+and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`. `VOLCANO_WEB_URL` is optional at
+runtime too: when it isn't set, the CLI derives it from `VOLCANO_API_URL`
+(`config.WebURL`) — a loopback API host maps to the conventional local Web port
+3000, and an `api.` API host maps to the same host with that prefix stripped
+(`api.volcano.dev` -> `volcano.dev`, `api.staging.volcano.dev` ->
+`staging.volcano.dev`). Set `VOLCANO_WEB_URL` explicitly only when your backend
+doesn't follow either convention.
 
 `make localmode-e2e` uses Docker and is intentionally heavier than the normal
 unit-test workflow. Run it when changing local-mode startup, reset, health, or
@@ -88,13 +92,48 @@ The publish workflow builds signed binaries for `linux-amd64`, `linux-arm64`,
 `macos-amd64`, `macos-arm64`, and `windows-amd64`. It publishes stable release
 assets from SemVer tags.
 
-To cut a stable release, merge the release commit to `main`, tag that commit
-with a SemVer tag such as `v1.2.3`, and push the tag. Prerelease and build
-metadata tags are not stable release tags. The publish workflow also rejects
-stable release tags that are not reachable from `origin/main`.
+Stable releases are managed by Release Please and are largely automatic. Only
+`feat:` and `fix:` commits (and breaking changes) cut a release; `ci`, `chore`,
+`docs`, `refactor`, `build`, `test`, `style`, `perf`, and `revert` do not.
+Because merges to `main` are squash-only, Release Please reads the bump type
+from the squash commit — which is the PR title for multi-commit PRs — so signal
+a breaking change with a `feat!:` PR title or a `BREAKING CHANGE:` footer, not
+just a `!` on a branch commit.
 
-Required repository variable for stable release publishing:
+On each qualifying push to `main`, Release Please opens or updates a single
+`release: <version>` PR that bumps `package.json` and
+`.release-please-manifest.json` and updates `CHANGELOG.md`. What happens next
+depends on the bump size:
 
+- Minor and patch releases auto-merge once the required `check / check` run
+  passes; the branch requires no approving review. The resulting SemVer tag
+  triggers the publish workflow, which attaches signed binaries and publishes
+  to npm with provenance.
+- Major releases are left open for a maintainer to merge manually.
+
+While the version is pre-1.0, breaking changes bump the minor
+(`bump-minor-pre-major`), so `0.x` never jumps to `1.0.0` on its own. To set an
+exact version deliberately (for example a real `1.0.0`), land a commit with a
+`Release-As: <version>` footer and Release Please will use it.
+
+Do not hand-edit `package.json`'s version or `.release-please-manifest.json`
+outside the release PR: a CI guard rejects such changes on non-release PRs, the
+`release-please--*` branch is writable only by the release app, and the publish
+workflow rejects a stable tag whose `package.json` does not match the tag, or
+that is not reachable from `origin/main`. Merging to `main` and creating
+in-repo branches are restricted to the maintainer teams and the release app.
+
+Prerelease and build metadata tags are not stable release tags. Nightly builds
+remain automated from `main` and publish to the mutable `nightly` GitHub Release;
+they are not npm releases and are separate from the stable Release Please flow.
+
+Required repository secrets and variables for stable release publishing:
+
+- `VOLCANO_APP_ID` (variable) and `VOLCANO_APP_KEY` (secret): the GitHub App
+  used by Release Please to mint a short-lived installation token. A non-default
+  token is required so the release tag/release triggers the publish workflow.
+  The app must be installed on this repo with Contents and Pull requests
+  read/write.
 - `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION`
 
 Release assets include platform binaries, adjacent `.sigstore.json` bundles,

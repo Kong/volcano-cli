@@ -15,6 +15,7 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	env.runCloudCLI(t, "frontends", "list").requireSuccess(t, frontend)
 	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	env.runCloudCLI(t, "frontends", "redeploy", frontend).requireSuccess(t, "redeploy started")
+	env.runCloudCLI(t, "frontends", "redeploy", frontend).requireSuccess(t, "redeploy started")
 	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")

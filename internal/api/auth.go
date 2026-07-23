@@ -85,6 +85,8 @@ func (c *Client) ExchangePlatformToken(ctx context.Context, authAccessToken, cli
 }
 
 // WebSignupURL builds the Volcano Web signup URL used by the CLI signup flow.
+// next must be a same-origin relative path: Volcano Web's signup page rejects
+// any next value that isn't (see isSafeInternalPath in volcano-web).
 func WebSignupURL(webURL, email, next string) (string, error) {
 	webURL = strings.TrimRight(strings.TrimSpace(webURL), "/")
 	if webURL == "" {
@@ -97,6 +99,9 @@ func WebSignupURL(webURL, email, next string) (string, error) {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", errors.New("web url must use http:// or https:// scheme")
 	}
+	if parsed.Host == "" {
+		return "", errors.New("web url must include a host")
+	}
 	parsed.Path = strings.TrimRight(parsed.Path, "/") + "/signup"
 	query := parsed.Query()
 	if email = strings.TrimSpace(email); email != "" {
@@ -108,36 +113,4 @@ func WebSignupURL(webURL, email, next string) (string, error) {
 	query.Set("source", "cli")
 	parsed.RawQuery = query.Encode()
 	return parsed.String(), nil
-}
-
-// VerificationWebTarget extracts the web origin and device-approval path advertised
-// by a device-authorization response. The signup flow uses these so the browser is
-// sent to the same environment that issued the device code — mirroring how login
-// follows the API's verification URI. Both values are empty when the response does
-// not carry a usable verification URI.
-func VerificationWebTarget(deviceAuth *apiclient.DeviceAuthorizationResponse) (origin, devicePath string) {
-	if deviceAuth == nil {
-		return "", ""
-	}
-	base, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUri))
-	if err != nil || base.Scheme == "" || base.Host == "" {
-		return "", ""
-	}
-	origin = base.Scheme + "://" + base.Host
-
-	// verification_uri_complete already carries the prefilled user_code, so prefer it.
-	if complete, err := url.Parse(strings.TrimSpace(deviceAuth.VerificationUriComplete)); err == nil && complete.Path != "" {
-		return origin, complete.RequestURI()
-	}
-
-	devicePath = base.Path
-	if devicePath == "" {
-		devicePath = "/device"
-	}
-	if userCode := strings.TrimSpace(deviceAuth.UserCode); userCode != "" {
-		values := base.Query()
-		values.Set("user_code", userCode)
-		devicePath += "?" + values.Encode()
-	}
-	return origin, devicePath
 }

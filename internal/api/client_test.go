@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func TestPollDeviceTokenUnexpectedStatusReturnsError(t *testing.T) {
@@ -58,31 +58,6 @@ func TestWebSignupURL(t *testing.T) {
 	assert.Equal(t, "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli", signupURL)
 }
 
-func TestVerificationWebTarget(t *testing.T) {
-	t.Run("prefers complete uri", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
-			VerificationUri:         "https://volcano.dev/device",
-			VerificationUriComplete: "https://volcano.dev/device?user_code=ABCD-EFGH",
-			UserCode:                "ABCD-EFGH",
-		})
-		assert.Equal(t, "https://volcano.dev", origin)
-		assert.Equal(t, "/device?user_code=ABCD-EFGH", devicePath)
-	})
-	t.Run("falls back to base uri and attaches user code", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{
-			VerificationUri: "http://localhost:3000/device",
-			UserCode:        "WXYZ-1234",
-		})
-		assert.Equal(t, "http://localhost:3000", origin)
-		assert.Equal(t, "/device?user_code=WXYZ-1234", devicePath)
-	})
-	t.Run("empty when no verification uri", func(t *testing.T) {
-		origin, devicePath := VerificationWebTarget(&apiclient.DeviceAuthorizationResponse{})
-		assert.Empty(t, origin)
-		assert.Empty(t, devicePath)
-	})
-}
-
 func TestWebSignupURLOmitsEmptyEmailAndNext(t *testing.T) {
 	signupURL, err := WebSignupURL("https://volcano.dev/", "  ", " ")
 	require.NoError(t, err)
@@ -98,6 +73,7 @@ func TestWebSignupURLRejectsBadInput(t *testing.T) {
 		{name: "empty", webURL: "   ", wantErr: "web url cannot be empty"},
 		{name: "missing scheme", webURL: "volcano.dev", wantErr: "must use http:// or https://"},
 		{name: "non-http scheme", webURL: "ftp://volcano.dev", wantErr: "must use http:// or https://"},
+		{name: "missing host", webURL: "http:///tmp", wantErr: "must include a host"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -106,6 +82,36 @@ func TestWebSignupURLRejectsBadInput(t *testing.T) {
 			require.ErrorContains(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestNewClientSendsVersionProtocolHeadersAndRecordsInstructions(t *testing.T) {
+	resetInstructions(t)
+	oldVersion := version.Version
+	version.Version = "v1.2.3"
+	t.Cleanup(func() { version.Version = oldVersion })
+
+	var sawVersionHeader, sawUA string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawVersionHeader = r.Header.Get("X-Volcano-CLI-Version")
+		sawUA = r.Header.Get("User-Agent")
+		w.Header().Set("X-Volcano-CLI-Instruction", CLIInstructionSuggestionVersionUpgrade)
+		w.Header().Set("X-Volcano-CLI-Latest-Version", "v1.5.0")
+		writeAPIJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.ListProjects(context.Background(), DefaultPage, DefaultLimit)
+	require.NoError(t, err)
+
+	assert.Equal(t, "v1.2.3", sawVersionHeader)
+	assert.Contains(t, sawUA, "volcano-cli/v1.2.3")
+
+	got := LastInstructions()
+	assert.Equal(t, CLIInstructionSuggestionVersionUpgrade, got.CLIInstruction)
+	assert.Equal(t, "v1.5.0", got.LatestVersion)
 }
 
 func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {
@@ -421,11 +427,11 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			logSearchBodies = append(logSearchBodies, body)
-			if len(logSearchBodies) == 1 {
-				writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
+			if logSearchIsBuild(body) {
+				writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
 				return
 			}
-			writeAPIJSON(t, w, http.StatusOK, logsResponse("deployment build"))
+			writeAPIJSON(t, w, http.StatusOK, logsResponse("function runtime"))
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectIDText+"/functions/"+functionIDText+"/schedulers":
 			writeAPIJSON(t, w, http.StatusOK, map[string]any{
 				"data":     []any{functionSchedulerResponse(schedulerIDText, functionIDText, projectIDText, "hello scheduler", true)},
@@ -718,6 +724,18 @@ func functionDeploymentResponse(id, projectID, functionID string) map[string]any
 		"status":      "active",
 		"updated_at":  "2026-05-20T00:00:00Z",
 	}
+}
+
+// logSearchIsBuild reports whether a captured /logs/search request body targets
+// build logs (carries a deployment selector) rather than runtime logs. Routing
+// stub responses on request content is more robust than relying on call order.
+func logSearchIsBuild(body map[string]any) bool {
+	resource, ok := body["resource"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, hasDeployments := resource["deployments"]
+	return hasDeployments
 }
 
 func logsResponse(message string) map[string]any {

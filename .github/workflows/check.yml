@@ -10,11 +10,82 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history so the version-writer guard can diff against the PR base.
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true
+      # Guard against release-version drift: Release Please is the sole version
+      # writer, so .release-please-manifest.json and package.json must always
+      # agree and be valid semver. Catches drift on the PR instead of at
+      # publish time.
+      - name: Verify release version consistency
+        run: |
+          node -e '
+            const fs = require("fs");
+            const manifest = JSON.parse(fs.readFileSync(".release-please-manifest.json", "utf8"))["."];
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
+            const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+            for (const [name, v] of [[".release-please-manifest.json", manifest], ["package.json", pkg]]) {
+              if (typeof v !== "string" || !semver.test(v)) {
+                console.error(name + " version is not valid semver: " + JSON.stringify(v));
+                process.exit(1);
+              }
+            }
+            if (manifest !== pkg) {
+              console.error("Release version drift: .release-please-manifest.json is " + manifest + " but package.json is " + pkg + ". Release Please must be the sole version writer.");
+              process.exit(1);
+            }
+            console.log("Release version consistent: " + pkg);
+          '
+      # Enforce the sole-version-writer invariant: only a Release Please PR may
+      # change the version-determining files. A human PR that edits
+      # package.json's version or .release-please-manifest.json fails here, so
+      # the Release Please baseline cannot be reseeded outside the release flow.
+      # The exemption keys only on the release-please--* branch prefix, which is
+      # ruleset-locked to the release app; the autorelease label is deliberately
+      # not used, as it is forgeable by any write+triage user.
+      - name: Enforce Release Please as the sole version writer
+        if: >-
+          github.event_name == 'pull_request' &&
+          !startsWith(github.head_ref, 'release-please--')
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          # On pull_request the checked-out HEAD is the merge commit (PR head
+          # merged onto the current base). Diff against its base parent (HEAD^1)
+          # rather than the event's base.sha: HEAD^1 is the exact main tip the
+          # tree was merged onto, so a release landing on main between event
+          # dispatch and checkout can't compare against a stale base and
+          # false-fail an unrelated PR. Fall back to the event base if HEAD is
+          # somehow not a merge commit.
+          if git rev-parse --verify --quiet HEAD^2 >/dev/null; then
+            base_sha="$(git rev-parse HEAD^1)"
+          else
+            base_sha="$EVENT_BASE_SHA"
+          fi
+          read_version() { node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).version'; }
+          violation=0
+          if ! git diff --quiet "$base_sha" HEAD -- .release-please-manifest.json; then
+            echo "::error file=.release-please-manifest.json::Only a Release Please PR may change .release-please-manifest.json."
+            violation=1
+          fi
+          base_version="$(git show "$base_sha:package.json" | read_version)"
+          head_version="$(read_version < package.json)"
+          if [ "$base_version" != "$head_version" ]; then
+            echo "::error file=package.json::package.json version is owned by Release Please ($base_version -> $head_version)."
+            violation=1
+          fi
+          if [ "$violation" -ne 0 ]; then
+            echo "Drop these version-file changes; the Release Please PR bumps them."
+            exit 1
+          fi
+          echo "OK: no version-file changes outside a Release Please PR."
+      - run: make openapi-generated-check
       - run: make lint
       - run: make test
       - run: go build ./...
@@ -28,8 +99,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
           cache: true

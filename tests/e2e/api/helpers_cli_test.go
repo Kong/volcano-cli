@@ -132,7 +132,8 @@ func (e *apiE2E) waitForCLIContains(t *testing.T, timeout time.Duration, needle 
 	var last cliResult
 	for time.Now().Before(deadline) {
 		last = e.runCLI(t, args...)
-		if last.code == 0 && strings.Contains(last.output, needle) {
+		pendingDeployment := needle == "Status: active" && strings.Contains(last.output, "Pending Deployment:")
+		if last.code == 0 && strings.Contains(last.output, needle) && !pendingDeployment {
 			return last
 		}
 		if needle == "Status: active" && last.code == 0 {

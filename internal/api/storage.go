@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // StorageBucketCreateInput captures fields supported by bucket creation.
@@ -32,7 +31,7 @@ type StorageBucketUpdateInput struct {
 type StoragePolicyCreateInput struct {
 	Name       string
 	Definition string
-	Operation  apicommon.CreateStoragePolicyRequestOperation
+	Operation  apiclient.CreateStoragePolicyRequestOperation
 }
 
 // StorageObjectListOptions controls the object list query.

@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 	"github.com/Kong/volcano-cli/internal/archive"
 )
 
@@ -171,9 +170,9 @@ func (c *Client) StreamFrontendDeploymentLogs(ctx context.Context, projectID, fr
 func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendCustomDomainInput) (*apiclient.FrontendCustomDomainResponse, error) {
 	body := apiclient.CreateFrontendCustomDomainJSONRequestBody{
 		Domain: strings.TrimSpace(input.Domain),
-		Tls: apicommon.FrontendCustomDomainTLSConfig{
+		Tls: apiclient.FrontendCustomDomainTLSConfig{
 			CertificatePem: strings.TrimSpace(input.CertificatePEM),
-			Mode:           apicommon.FrontendCustomDomainTLSConfigModeByoc,
+			Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
 			PrivateKeyPem:  strings.TrimSpace(input.PrivateKeyPEM),
 		},
 	}

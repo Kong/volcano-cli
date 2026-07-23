@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -23,7 +23,7 @@ func NewService(deps cliruntime.Deps) Service {
 // Deploy uploads the manifest to the server, which validates and reconciles
 // the project configuration. With dryRun the server only reports projected
 // actions.
-func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*apicommon.ProjectConfigApplyResult, error) {
+func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*apiclient.ProjectConfigApplyResult, error) {
 	if manifest == nil {
 		return nil, errors.New("manifest is required")
 	}

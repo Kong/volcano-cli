@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clistorage "github.com/Kong/volcano-cli/internal/storage"
@@ -83,8 +83,8 @@ func runCreate(ctx context.Context, opts createOptions) error {
 	return nil
 }
 
-func parsePolicyOperation(value string) (apicommon.CreateStoragePolicyRequestOperation, error) {
-	normalized := apicommon.CreateStoragePolicyRequestOperation(strings.ToUpper(strings.TrimSpace(value)))
+func parsePolicyOperation(value string) (apiclient.CreateStoragePolicyRequestOperation, error) {
+	normalized := apiclient.CreateStoragePolicyRequestOperation(strings.ToUpper(strings.TrimSpace(value)))
 	if !normalized.Valid() {
 		return "", fmt.Errorf("invalid operation %q (expected one of: SELECT, INSERT, UPDATE, DELETE)", value)
 	}

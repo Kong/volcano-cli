@@ -27,6 +27,21 @@ type Deps struct {
 	ExecutablePath      string
 	UpdateGitHubAPIURL  string
 	CommandPathPrefix   string
+	// DocsCacheDir overrides the base cache directory used by `volcano docs`.
+	// Empty uses os.UserCacheDir()/volcano. Tests inject a t.TempDir().
+	DocsCacheDir string
+	// DocsGitHubAPIURL overrides the GitHub API base (default
+	// https://api.github.com) for docs sync. Tests point this at an httptest
+	// server.
+	DocsGitHubAPIURL string
+	// DocsRawBaseURL selects raw-host downloads (e.g.
+	// https://raw.githubusercontent.com) for public sources. It is empty by
+	// default: downloads then go through the authenticated GitHub contents API
+	// (which also works for private repos). Tests may point it at an httptest
+	// server to exercise the raw-host path.
+	DocsRawBaseURL string
+	// Now overrides the wall clock for deterministic freshness/staleness tests.
+	Now func() time.Time
 }
 
 // CommandPath returns a user-facing command path for the current command tree.

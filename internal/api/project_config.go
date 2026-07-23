@@ -10,13 +10,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	apicommon "github.com/Kong/volcano-cli/internal/apiclient/common"
 )
 
 // ProjectConfigValidationError is returned when the server rejects a config
 // manifest with 422. Nothing was applied; Errors carries the full list.
 type ProjectConfigValidationError struct {
-	Errors []apicommon.ProjectConfigValidationError
+	Errors []apiclient.ProjectConfigValidationError
 }
 
 func (e *ProjectConfigValidationError) Error() string {
@@ -25,7 +24,7 @@ func (e *ProjectConfigValidationError) Error() string {
 
 // ApplyProjectConfig uploads a full configuration manifest (pre-encoded JSON)
 // and returns the server's per-resource apply report.
-func (c *Client) ApplyProjectConfig(ctx context.Context, projectID uuid.UUID, manifestJSON []byte, dryRun bool) (*apicommon.ProjectConfigApplyResult, error) {
+func (c *Client) ApplyProjectConfig(ctx context.Context, projectID uuid.UUID, manifestJSON []byte, dryRun bool) (*apiclient.ProjectConfigApplyResult, error) {
 	params := &apiclient.ApplyProjectConfigParams{}
 	if dryRun {
 		params.DryRun = &dryRun
