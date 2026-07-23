@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Kong/volcano-cli/compare/v0.3.0...v0.4.0) (2026-07-23)
+
+
+### Features
+
+* **cli:** add --debug / VOLCANO_DEBUG to trace API requests and responses ([#84](https://github.com/Kong/volcano-cli/issues/84)) ([03d043e](https://github.com/Kong/volcano-cli/commit/03d043ed8f3acfefb272b87c7d98b16335f663ba))
+
 ## [0.3.0](https://github.com/Kong/volcano-cli/compare/v0.2.2...v0.3.0) (2026-07-23)
 
 
