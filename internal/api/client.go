@@ -74,8 +74,12 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 	// (including unauthenticated ones, e.g. device/token exchange) reports this
 	// CLI's version/identity, and every response's instruction headers are
 	// recorded for LastInstructions regardless of which call observed them.
-	cfg.httpClient = versionProtocolDoer{next: cfg.httpClient}
-	cfg.streamHTTPClient = versionProtocolDoer{next: cfg.streamHTTPClient}
+	// debugDoer sits closest to the wire (inside the version-protocol wrapper) so
+	// its trace reflects the final request, including the version headers and any
+	// Authorization header. It's a cheap passthrough unless VOLCANO_DEBUG / the
+	// --debug flag turned tracing on.
+	cfg.httpClient = versionProtocolDoer{next: debugDoer{next: cfg.httpClient}}
+	cfg.streamHTTPClient = versionProtocolDoer{next: debugDoer{next: cfg.streamHTTPClient}}
 
 	baseURL := generatedClientBaseURL(parsed)
 	clientOpts := []apiclient.ClientOption{
