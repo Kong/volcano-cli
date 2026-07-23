@@ -19,12 +19,12 @@ var debugOut io.Writer = os.Stderr
 
 // debugEnabled turns on stderr tracing of API requests/responses. It's seeded
 // from VOLCANO_DEBUG at startup and can be flipped by the root --debug flag.
-var debugEnabled atomic.Bool
+var debugEnabled = newDebugState()
 
-func init() {
-	if envTruthy(os.Getenv("VOLCANO_DEBUG")) {
-		debugEnabled.Store(true)
-	}
+func newDebugState() *atomic.Bool {
+	b := &atomic.Bool{}
+	b.Store(envTruthy(os.Getenv("VOLCANO_DEBUG")))
+	return b
 }
 
 // SetDebug enables or disables API request/response tracing to stderr.

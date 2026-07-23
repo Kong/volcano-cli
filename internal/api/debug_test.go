@@ -60,7 +60,7 @@ func TestDebugDoerPassesThrough(t *testing.T) {
 
 	next := &recordingDoer{}
 	doer := debugDoer{next: next}
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8000/x", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8000/x", http.NoBody)
 
 	// disabled: passthrough, and it must not write a trace
 	SetDebug(false)
@@ -95,7 +95,7 @@ func TestDebugDoerTraceContract(t *testing.T) {
 	restore := swapDebugOut(&buf)
 	defer restore()
 
-	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8000/auth/device/token", nil)
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8000/auth/device/token", http.NoBody)
 	req.Header.Set("Authorization", "Bearer sk-super-secret-token")
 	req.Header.Set("X-Api-Token", "raw-token-value")
 	req.Header.Set("Content-Type", "application/json")
