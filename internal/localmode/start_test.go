@@ -324,6 +324,46 @@ func lastEnvValue(env []string, key string) (string, bool) {
 	return "", false
 }
 
+func TestRefreshDefaultServerImage(t *testing.T) {
+	withTempWorkingDir(t)
+	_ = os.Remove(".env.local")
+	paths := []string{"/tmp/a.yml", "/tmp/b.yml"}
+	newSvc := func(image string, runner *fakeCommandRunner) Service {
+		opts := []Option{
+			WithDockerRunner(runner),
+			WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
+		}
+		if image != "" {
+			opts = append(opts, WithImage(image))
+		}
+		return NewService(cliruntime.Deps{}, opts...)
+	}
+
+	t.Run("default image is pulled", func(t *testing.T) {
+		runner := &fakeCommandRunner{}
+		var out bytes.Buffer
+		newSvc("", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.True(t, runner.called("docker", "compose", "-f", "/tmp/a.yml", "-f", "/tmp/b.yml", "-p", composeProjectName, "pull", serverComposeService))
+		assert.NotContains(t, out.String(), "could not pull")
+	})
+
+	t.Run("custom image is not pulled", func(t *testing.T) {
+		runner := &fakeCommandRunner{}
+		var out bytes.Buffer
+		newSvc("kong/volcano:local-dev", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.False(t, runner.calledWithArg("docker", "pull"))
+	})
+
+	t.Run("pull failure is best-effort", func(t *testing.T) {
+		runner := &fakeCommandRunner{run: func(context.Context, Command) ([]byte, error) {
+			return nil, errors.New("offline")
+		}}
+		var out bytes.Buffer
+		newSvc("", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.Contains(t, out.String(), "could not pull latest local-mode image")
+	})
+}
+
 func TestResolveImagePrecedence(t *testing.T) {
 	setLocalDevTestHome(t)
 	withTempWorkingDir(t)
