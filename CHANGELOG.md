@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Kong/volcano-cli/compare/v0.2.1...v0.2.2) (2026-07-23)
+
+
+### Bug Fixes
+
+* **local:** send no credential in local mode so all commands work the same way ([#78](https://github.com/Kong/volcano-cli/issues/78)) ([eb97e07](https://github.com/Kong/volcano-cli/commit/eb97e07b8c3ee4af7d48a299a0a03e7257141a90))
+
 ## [0.2.1](https://github.com/Kong/volcano-cli/compare/v0.2.0...v0.2.1) (2026-07-22)
 
 
