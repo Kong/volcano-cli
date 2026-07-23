@@ -68,11 +68,13 @@ function detectManager(ua = process.env.npm_config_user_agent || '') {
 // delegates to the right package manager. Best effort: a missing marker just
 // falls back to path-based detection in the Go binary.
 function writeInstallMarker() {
-  const marker = path.join(path.dirname(binaryPath()), '.volcano-install-method');
   const ua = process.env.npm_config_user_agent;
-  // Only npm lifecycle scripts see a user agent. At shim runtime (self-heal)
-  // there is none, so don't overwrite an accurate install-time marker.
-  if (!ua && fs.existsSync(marker)) return;
+  // Only a package-manager lifecycle script sets a user agent. At shim runtime
+  // (self-heal after --ignore-scripts / VOLCANO_SKIP_DOWNLOAD) there is none, so
+  // skip the marker rather than guess `npm` and mislabel a pnpm/yarn/bun install
+  // — the Go binary's path-based detection is accurate in that case.
+  if (!ua) return;
+  const marker = path.join(path.dirname(binaryPath()), '.volcano-install-method');
   try {
     fs.mkdirSync(path.dirname(marker), { recursive: true });
     fs.writeFileSync(marker, `${detectManager(ua)}\n`);
