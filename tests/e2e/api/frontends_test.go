@@ -3,7 +3,6 @@ package api
 import (
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestAPIE2ECloudFrontends(t *testing.T) {
@@ -14,7 +13,9 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	writeAPIE2EFrontend(t, env.projectDir)
 	env.runCloudCLI(t, "frontends", "deploy", "--name", frontend, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
 	env.runCloudCLI(t, "frontends", "list").requireSuccess(t, frontend)
-	env.waitForCloudCLIContains(t, 15*time.Minute, "Status: active", "frontends", "get", frontend)
+	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	env.runCloudCLI(t, "frontends", "redeploy", frontend).requireSuccess(t, "redeploy started")
+	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")
 }

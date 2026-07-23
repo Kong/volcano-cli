@@ -528,16 +528,21 @@ func (e FrontendDeploymentOperation) Valid() bool {
 // Defines values for FrontendDeploymentStatus.
 const (
 	FrontendDeploymentStatusActive       FrontendDeploymentStatus = "active"
+	FrontendDeploymentStatusDegraded     FrontendDeploymentStatus = "degraded"
 	FrontendDeploymentStatusDeleted      FrontendDeploymentStatus = "deleted"
 	FrontendDeploymentStatusDeleting     FrontendDeploymentStatus = "deleting"
 	FrontendDeploymentStatusFailed       FrontendDeploymentStatus = "failed"
 	FrontendDeploymentStatusProvisioning FrontendDeploymentStatus = "provisioning"
+	FrontendDeploymentStatusQueued       FrontendDeploymentStatus = "queued"
+	FrontendDeploymentStatusSuperseded   FrontendDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the FrontendDeploymentStatus enum.
 func (e FrontendDeploymentStatus) Valid() bool {
 	switch e {
 	case FrontendDeploymentStatusActive:
+		return true
+	case FrontendDeploymentStatusDegraded:
 		return true
 	case FrontendDeploymentStatusDeleted:
 		return true
@@ -546,6 +551,10 @@ func (e FrontendDeploymentStatus) Valid() bool {
 	case FrontendDeploymentStatusFailed:
 		return true
 	case FrontendDeploymentStatusProvisioning:
+		return true
+	case FrontendDeploymentStatusQueued:
+		return true
+	case FrontendDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -619,6 +628,8 @@ const (
 	FunctionDeploymentStatusDeleting     FunctionDeploymentStatus = "deleting"
 	FunctionDeploymentStatusFailed       FunctionDeploymentStatus = "failed"
 	FunctionDeploymentStatusProvisioning FunctionDeploymentStatus = "provisioning"
+	FunctionDeploymentStatusQueued       FunctionDeploymentStatus = "queued"
+	FunctionDeploymentStatusSuperseded   FunctionDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the FunctionDeploymentStatus enum.
@@ -633,6 +644,10 @@ func (e FunctionDeploymentStatus) Valid() bool {
 	case FunctionDeploymentStatusFailed:
 		return true
 	case FunctionDeploymentStatusProvisioning:
+		return true
+	case FunctionDeploymentStatusQueued:
+		return true
+	case FunctionDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -1990,6 +2005,9 @@ type Frontend struct {
 	// CurrentDeploymentId Identifier of the latest frontend deployment operation
 	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
 
+	// PendingDeploymentId Newest queued deployment that will run after the current operation
+	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
+
 	// CustomDomain Active custom domain hostname when configured
 	CustomDomain *string `json:"custom_domain,omitempty"`
 
@@ -2153,6 +2171,9 @@ type Function struct {
 
 	// CurrentDeploymentId Identifier of the latest function deployment operation
 	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
+
+	// PendingDeploymentId Newest queued deployment that will run after the current operation
+	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
 
 	// DeployedRegions Regions where this function is currently deployed
 	DeployedRegions []string           `json:"deployed_regions"`

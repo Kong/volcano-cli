@@ -17,7 +17,9 @@ func TestAPIE2ESmokeVariables(t *testing.T) {
 	secondaryProject := "cli-e2e-smoke-secondary-" + apiE2ESuffix(t)
 	secondaryProjectID := createAPIE2EProject(t, env.apiURL, env.token, secondaryProject)
 	t.Cleanup(func() {
-		deleteAPIE2EProject(env.apiURL, env.token, secondaryProjectID)
+		if err := deleteAPIE2EProject(env.apiURL, env.token, secondaryProjectID); err != nil {
+			t.Errorf("delete secondary API E2E project: %v", err)
+		}
 	})
 	writeAPIE2EFile(t, filepath.Join(env.projectDir, "secondary.env"), "SECOND_PROJECT_ONLY=1\n")
 	env.runCLI(t, "use", secondaryProject).requireSuccess(t, "Now using project")

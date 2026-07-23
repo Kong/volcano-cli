@@ -135,7 +135,13 @@ func (e *apiE2E) waitForCLIContains(t *testing.T, timeout time.Duration, needle 
 		if last.code == 0 && strings.Contains(last.output, needle) {
 			return last
 		}
-		time.Sleep(10 * time.Second)
+		if needle == "Status: active" && last.code == 0 {
+			output := strings.ToLower(last.output)
+			if strings.Contains(output, "status: failed") || strings.Contains(output, "status: error") {
+				t.Fatalf("volcano %s reached a failed status while waiting for active:\n%s", strings.Join(args, " "), last.output)
+			}
+		}
+		time.Sleep(apiE2EPollInterval)
 	}
 	t.Fatalf("volcano %s did not return output containing %q before %s:\n%s", strings.Join(args, " "), needle, timeout, last.output)
 	return last

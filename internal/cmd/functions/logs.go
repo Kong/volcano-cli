@@ -151,7 +151,8 @@ func functionDeploymentTerminal(deployment *apicommon.FunctionDeployment) bool {
 	case apicommon.FunctionDeploymentStatusActive,
 		apicommon.FunctionDeploymentStatusDeleted,
 		apicommon.FunctionDeploymentStatusDeleting,
-		apicommon.FunctionDeploymentStatusFailed:
+		apicommon.FunctionDeploymentStatusFailed,
+		apicommon.FunctionDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
