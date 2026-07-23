@@ -31,7 +31,11 @@ func newInvoke(deps cliruntime.Deps, functionOptions ...clifunction.Option) *cob
 	cmd := &cobra.Command{
 		Use:   "invoke [name]",
 		Short: "Invoke a function",
-		Long:  "Invoke a deployed function by alias, name, path, or ID.",
+		Long: "Invoke a deployed function by alias, name, path, or ID.\n\n" +
+			"In local mode this is a function-logic harness: the call runs as the " +
+			"pre-provisioned local user and needs no credential. Exercise real " +
+			"per-user auth (signed-in vs anonymous) and cross-service behavior " +
+			"against a cloud deployment or the app-driven path instead.",
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,

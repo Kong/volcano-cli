@@ -173,8 +173,10 @@ func (c *Config) Token() string {
 }
 
 // FunctionInvokeToken returns the token used for runtime function invocation.
-// Local mode supplies service and anon keys for invoke endpoints; cloud falls
-// back to the normal configured token until a project invoke key is available.
+// Cloud uses the reserved data-plane service key (via the invoke token
+// provider) or falls back to the configured token. In local mode the session
+// layer sends no credential at all (see session.Factory.APIClient), so this
+// value is unused there.
 func (c *Config) FunctionInvokeToken() string {
 	if strings.TrimSpace(c.ServiceKey) != "" {
 		return c.ServiceKey

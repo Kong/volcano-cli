@@ -91,7 +91,7 @@ func TestDirectFunctionCommandUsesLocalMetadata(t *testing.T) {
 
 	var localHits int
 	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Empty(t, r.Header.Get("Authorization"))
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/functions/runtimes", r.URL.Path)
 		localHits++
@@ -126,7 +126,9 @@ func TestDirectFunctionInvokeUsesLocalAliasConfig(t *testing.T) {
 
 	aliasFunctionID := "44444444-4444-4444-8444-444444444444"
 	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-service-key", r.Header.Get("Authorization"))
+		// Local invoke sends no credential; the local server defaults to the
+		// pre-provisioned local user.
+		assert.Empty(t, r.Header.Get("Authorization"))
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/functions/"+aliasFunctionID+"/invoke", r.URL.Path)
 		writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"local": true})

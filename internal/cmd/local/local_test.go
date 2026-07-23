@@ -33,7 +33,7 @@ func TestLocalDatabaseCommandsUseLocalMetadata(t *testing.T) {
 	var listQueries []string
 	var createBodies []map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Empty(t, r.Header.Get("Authorization"))
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+localProjectID+"/databases":
 			listQueries = append(listQueries, r.URL.RawQuery)
@@ -98,7 +98,7 @@ func TestLocalCommandIgnoresMalformedPersistedConfig(t *testing.T) {
 	require.NoError(t, os.WriteFile(configPath, []byte("{not-json"), 0o600))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Empty(t, r.Header.Get("Authorization"))
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+localProjectID+"/databases":
 			writeLocalCommandJSON(t, w, http.StatusOK, map[string]any{
@@ -143,7 +143,7 @@ func TestLocalFunctionRuntimesUseLocalMetadata(t *testing.T) {
 
 	var localHits int
 	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+		assert.Empty(t, r.Header.Get("Authorization"))
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/functions/runtimes":
 			localHits++
@@ -176,7 +176,7 @@ func TestLocalFunctionRuntimesUseLocalMetadata(t *testing.T) {
 	assert.Equal(t, 1, infoCalls)
 }
 
-func TestLocalStorageObjectCommandsUseLocalServiceKey(t *testing.T) {
+func TestLocalStorageObjectCommandsSendNoCredential(t *testing.T) {
 	setLocalCommandTestEnv(t)
 
 	projectDir := t.TempDir()
@@ -185,7 +185,9 @@ func TestLocalStorageObjectCommandsUseLocalServiceKey(t *testing.T) {
 
 	var capturedFile string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "Bearer local-service-key", r.Header.Get("Authorization"))
+		// Local mode sends no credential; the local server defaults to the
+		// pre-provisioned local user.
+		assert.Empty(t, r.Header.Get("Authorization"))
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/storage/uploads/greetings/hello.txt":
 			contentType := r.Header.Get("Content-Type")

@@ -29,7 +29,10 @@ func (s Service) ensureDefaultDatabase(ctx context.Context, info Info) error {
 	if s.apiHTTPClient != nil {
 		opts = append(opts, api.WithHTTPClient(s.apiHTTPClient))
 	}
-	client, err := api.NewClient(info.APIURL, info.UserToken, opts...)
+	// Local mode is a single-tenant sandbox: send no credential. The local
+	// server (which start just launched) defaults an absent credential to the
+	// pre-provisioned local user, matching every other local command.
+	client, err := api.NewClient(info.APIURL, "", opts...)
 	if err != nil {
 		return err
 	}
