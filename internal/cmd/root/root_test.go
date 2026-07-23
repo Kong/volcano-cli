@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -339,4 +340,27 @@ func rootFunctionPayload(id, name string) map[string]any {
 		"status":           "active",
 		"updated_at":       "2026-05-20T00:00:00Z",
 	}
+}
+
+func TestDebugPersistentFlag(t *testing.T) {
+	prev := api.DebugEnabled()
+	t.Cleanup(func() { api.SetDebug(prev) })
+
+	// --debug before a subcommand enables tracing.
+	api.SetDebug(false)
+	_, err := executeRootCommand(t, "--debug", "version")
+	require.NoError(t, err)
+	assert.True(t, api.DebugEnabled(), "--debug should enable tracing")
+
+	// Placement after the subcommand also works (persistent flag).
+	api.SetDebug(false)
+	_, err = executeRootCommand(t, "version", "--debug")
+	require.NoError(t, err)
+	assert.True(t, api.DebugEnabled(), "--debug after subcommand should enable tracing")
+
+	// --debug=false overrides an already-enabled default.
+	api.SetDebug(true)
+	_, err = executeRootCommand(t, "--debug=false", "version")
+	require.NoError(t, err)
+	assert.False(t, api.DebugEnabled(), "--debug=false should disable tracing")
 }

@@ -4,9 +4,11 @@ package root
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	cloudcmd "github.com/Kong/volcano-cli/internal/cmd/cloud"
 	docscmd "github.com/Kong/volcano-cli/internal/cmd/docs"
@@ -37,6 +39,12 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		},
 	}
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print CLI version")
+	// --debug traces API requests/responses to stderr (Authorization redacted to
+	// its scheme; bodies omitted). Bound as a pflag Value so it takes effect at
+	// parse time regardless of any subcommand's PersistentPreRun. VOLCANO_DEBUG=1
+	// does the same without the flag.
+	debugFlag := root.PersistentFlags().VarPF(debugToggle{}, "debug", "", "Trace API requests/responses to stderr (or set VOLCANO_DEBUG=1)")
+	debugFlag.NoOptDefVal = "true"
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
@@ -70,4 +78,19 @@ func newVersionCmd() *cobra.Command {
 
 func printVersion(w io.Writer) {
 	fmt.Fprintf(w, "volcano %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+}
+
+// debugToggle is a boolean pflag Value that flips API tracing on/off as soon as
+// the flag is parsed, so --debug works uniformly across every subcommand.
+type debugToggle struct{}
+
+func (debugToggle) String() string { return strconv.FormatBool(api.DebugEnabled()) }
+func (debugToggle) Type() string   { return "bool" }
+func (debugToggle) Set(v string) error {
+	on, err := strconv.ParseBool(v)
+	if err != nil {
+		return err
+	}
+	api.SetDebug(on)
+	return nil
 }
