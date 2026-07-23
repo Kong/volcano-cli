@@ -187,7 +187,7 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 		output.Success(w, "Using local image %q (not pulled)", image)
 	}
 
-	if err := s.startDockerServices(ctx, composeEnv); err != nil {
+	if err := s.startDockerServices(ctx, w, composeEnv); err != nil {
 		return fmt.Errorf("failed to start Docker services: %w", err)
 	}
 	output.Success(w, "Docker services started")

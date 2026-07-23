@@ -46,6 +46,8 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 				return nil, nil
 			case commandIs(command, "docker", "version"):
 				return nil, nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				order = append(order, "up")
 				running = true
@@ -89,6 +91,8 @@ func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
 				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
 			case commandIsComposeDown(command, false):
 				t.Fatalf("compose down must not run when the custom image is missing")
+				return nil, nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				t.Fatalf("compose up must not run when the custom image is missing")

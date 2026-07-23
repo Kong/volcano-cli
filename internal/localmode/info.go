@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	dockerCommand       = "docker"
-	serverContainerName = "volcano-server"
-	serverBinaryPath    = "/app/volcano-hosting"
-	redactedValue       = "<redacted>"
+	dockerCommand        = "docker"
+	serverContainerName  = "volcano-server"
+	serverComposeService = "server"
+	serverBinaryPath     = "/app/volcano-hosting"
+	redactedValue        = "<redacted>"
 )
 
 // Info is the local-mode metadata returned by the Volcano server container.
