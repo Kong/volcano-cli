@@ -84,10 +84,12 @@ func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclien
 
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" {
-		if authenticated.Config.CurrentProject == nil {
+		// Resolve through ProjectID() so VOLCANO_PROJECT_ID takes precedence over
+		// the saved current project, matching every other current-project workflow.
+		projectID = authenticated.Config.ProjectID()
+		if projectID == "" {
 			return nil, errors.New("failed to get project keys: no project ID given and no current project selected — pass a project ID or run `volcano use <id-or-name>`")
 		}
-		projectID = authenticated.Config.CurrentProject.ID
 	}
 
 	id, err := uuid.Parse(projectID)

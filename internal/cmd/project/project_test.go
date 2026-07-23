@@ -306,3 +306,24 @@ func TestProjectsKeysExplicitIDAndEmpty(t *testing.T) {
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 	assert.Contains(t, out, "No anon keys for this project.")
 }
+
+func TestProjectsKeysHonorsEnvProjectPrecedence(t *testing.T) {
+	setProjectCommandTestHome(t)
+	// Saved current project is Beta, but VOLCANO_PROJECT_ID selects Alpha and must win.
+	saveProjectCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID, Name: "Beta"},
+	})
+	t.Setenv("VOLCANO_PROJECT_ID", projectAlphaID)
+
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+	}))
+	defer server.Close()
+
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
+}
