@@ -217,6 +217,10 @@ else
   chmod 0755 "$INSTALL_PATH" || true
 fi
 
+# Record the install method so `volcano upgrade` re-runs this installer path
+# (self-replace) rather than mistaking it for a package-manager install.
+printf 'script\n' > "${INSTALL_DIR}/.volcano-install-method" 2>/dev/null || true
+
 echo "Installed Volcano CLI to ${INSTALL_PATH}"
 PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"
 if [ -z "$PATH_VOLCANO" ]; then

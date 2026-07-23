@@ -54,6 +54,15 @@ type Options struct {
 	ExecutablePath               string
 	CommandRunner                CommandRunner
 	RequireSignatureVerification bool
+	// InstallMethod overrides auto-detection of how the CLI was installed.
+	// Empty means detect from the marker file / executable path.
+	InstallMethod InstallMethod
+	// ManagerRunner runs a package-manager upgrade command (npm/brew/…),
+	// streaming output to the writer passed to Upgrade. Nil uses os/exec with
+	// inherited stdio.
+	ManagerRunner func(ctx context.Context, out io.Writer, name string, args ...string) error
+	// LookPath resolves a command name to a path. Nil uses exec.LookPath.
+	LookPath func(name string) (string, error)
 }
 
 // Release is the subset of GitHub release metadata the CLI needs.
@@ -113,11 +122,79 @@ func assetDownloadHTTPClient(opts Options) HTTPClient {
 	return &http.Client{Transport: transport}
 }
 
-// Upgrade installs the latest release over the running binary.
+// Upgrade upgrades the CLI. It delegates to the package manager the CLI was
+// installed with (npm, brew, …); for script/manual installs it downloads the
+// latest release and replaces the running binary in place.
 func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) error {
+	exePath, err := resolveExecutablePath(opts)
+	if err != nil {
+		return err
+	}
+	method := opts.InstallMethod
+	if method == InstallUnknown {
+		method = DetectInstallMethod(exePath)
+	}
+	if name, args, managed := UpgradeCommandFor(method); managed {
+		return upgradeViaManager(ctx, out, opts, method, name, args)
+	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")
 	}
+	return upgradeViaDownload(ctx, current, out, opts, exePath)
+}
+
+func resolveExecutablePath(opts Options) (string, error) {
+	exePath := opts.ExecutablePath
+	if exePath == "" {
+		var err error
+		exePath, err = os.Executable()
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve running executable: %w", err)
+		}
+	}
+	resolved, err := filepath.EvalSymlinks(exePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+	return resolved, nil
+}
+
+// upgradeViaManager upgrades a package-manager install by running its upgrade
+// command. If the manager is not on PATH it prints the command instead so the
+// user can run it themselves.
+func upgradeViaManager(ctx context.Context, out io.Writer, opts Options, method InstallMethod, name string, args []string) error {
+	lookPath := opts.LookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	full := strings.Join(append([]string{name}, args...), " ")
+	if _, err := lookPath(name); err != nil {
+		// Manager not on PATH: printing the command is the useful outcome, not an error.
+		fmt.Fprintf(out, "Volcano CLI was installed with %s. Upgrade it with:\n  %s\n", method, full)
+		return nil //nolint:nilerr // lookPath miss is expected; we guide the user instead of failing
+	}
+	fmt.Fprintf(out, "Volcano CLI was installed with %s; upgrading with `%s`...\n", method, full)
+	run := opts.ManagerRunner
+	if run == nil {
+		run = defaultManagerRunner
+	}
+	if err := run(ctx, out, name, args...); err != nil {
+		return fmt.Errorf("failed to upgrade with %s: %w", method, err)
+	}
+	return nil
+}
+
+func defaultManagerRunner(ctx context.Context, out io.Writer, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // command from the fixed install-method mapping
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = out
+	cmd.Stderr = out
+	return cmd.Run()
+}
+
+// upgradeViaDownload downloads the latest release and replaces the running
+// binary at exePath (already resolved through symlinks).
+func upgradeViaDownload(ctx context.Context, current string, out io.Writer, opts Options, exePath string) error {
 	release, err := LatestRelease(ctx, opts)
 	if err != nil {
 		return err
@@ -152,18 +229,6 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	checksumsAsset, err := release.Asset("SHA256SUMS")
 	if err != nil {
 		return err
-	}
-
-	exePath := opts.ExecutablePath
-	if exePath == "" {
-		exePath, err = os.Executable()
-		if err != nil {
-			return fmt.Errorf("failed to resolve running executable: %w", err)
-		}
-	}
-	exePath, err = filepath.EvalSymlinks(exePath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve executable path: %w", err)
 	}
 
 	// Stage the download under the system temp dir so users without write access

@@ -20,6 +20,90 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDetectInstallMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want InstallMethod
+	}{
+		{name: "npm global", path: "/usr/local/lib/node_modules/@volcano.dev/cli/bin/volcano-macos-arm64", want: InstallNPM},
+		{name: "pnpm global", path: "/home/u/Library/pnpm/global/5/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallPNPM},
+		{name: "bun global", path: "/home/u/.bun/install/global/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallBun},
+		{name: "homebrew", path: "/opt/homebrew/Cellar/volcano/0.2.1/bin/volcano", want: InstallBrew},
+		{name: "script install", path: "/usr/local/bin/volcano", want: InstallScript},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, DetectInstallMethod(tt.path))
+		})
+	}
+}
+
+func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// A binary path that looks like an npm install, but the marker says pnpm.
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, installMarkerName), []byte("pnpm\n"), 0o644))
+	assert.Equal(t, InstallPNPM, DetectInstallMethod(exePath))
+}
+
+func TestUpgradeDelegatesToPackageManager(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var gotName string
+	var gotArgs []string
+	var out bytes.Buffer
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallNPM,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
+			gotName, gotArgs = name, args
+			return nil
+		},
+		// No HTTPClient/GitHubAPIURL: delegating must not touch GitHub.
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "npm", gotName)
+	assert.Equal(t, []string{"install", "-g", "@volcano.dev/cli@latest"}, gotArgs)
+	// The binary must be left untouched (no self-replace).
+	installed, err := os.ReadFile(exePath)
+	require.NoError(t, err)
+	assert.Equal(t, "binary", string(installed))
+}
+
+func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	ran := false
+	var out bytes.Buffer
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallBrew,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "", exec.ErrNotFound },
+		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
+			ran = true
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, ran)
+	assert.Contains(t, out.String(), "brew upgrade volcano")
+}
+
 func TestNewerThan(t *testing.T) {
 	t.Parallel()
 
