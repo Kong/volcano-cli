@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/Kong/volcano-cli/compare/v0.2.2...v0.3.0) (2026-07-23)
+
+
+### Features
+
+* **upgrade:** upgrade via the package manager the CLI was installed with ([#81](https://github.com/Kong/volcano-cli/issues/81)) ([1e37498](https://github.com/Kong/volcano-cli/commit/1e37498aba5e2309b116565b9065c4f417f40bf7))
+
+
+### Bug Fixes
+
+* **local:** pull the latest default local-mode image on volcano start ([#82](https://github.com/Kong/volcano-cli/issues/82)) ([c44df04](https://github.com/Kong/volcano-cli/commit/c44df04155bfe583692b9769c2121970173eceb3))
+
 ## [0.2.2](https://github.com/Kong/volcano-cli/compare/v0.2.1...v0.2.2) (2026-07-23)
 
 
