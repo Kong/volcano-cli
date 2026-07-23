@@ -35,6 +35,8 @@ func TestStartTearsDownOnHealthTimeout(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return nil, nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				return nil, nil
 			case commandIs(command, "docker", "logs", "--tail", "200", serverContainerName):

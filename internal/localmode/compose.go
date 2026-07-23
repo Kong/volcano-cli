@@ -106,12 +106,14 @@ func (s Service) ensureCustomImageAvailable(ctx context.Context) error {
 	return nil
 }
 
-func (s Service) startDockerServices(ctx context.Context, env []string) error {
+func (s Service) startDockerServices(ctx context.Context, w io.Writer, env []string) error {
 	composePaths, cleanup, err := s.writeComposeFiles()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
+
+	s.refreshDefaultServerImage(ctx, w, composePaths, env)
 
 	args := composeFileArgs(composePaths)
 	args = append(args, "-p", composeProjectName, "up", "-d", "--force-recreate")
@@ -121,6 +123,26 @@ func (s Service) startDockerServices(ctx context.Context, env []string) error {
 		Env:  env,
 	})
 	return err
+}
+
+// refreshDefaultServerImage pulls the rolling default local-mode image so
+// `volcano start` picks up the latest published build instead of a stale
+// cached copy (the default tag is a moving target, and Compose only pulls it
+// when absent). It is skipped for an explicitly selected custom image, which
+// the CLI never pulls and which must already exist locally. Best-effort: a
+// pull failure (e.g. offline) is a warning and `up` falls back to the cached
+// image.
+func (s Service) refreshDefaultServerImage(ctx context.Context, w io.Writer, composePaths, env []string) {
+	image, customImage := s.resolveImage()
+	if customImage {
+		return
+	}
+	fmt.Fprintf(w, "Pulling latest local-mode image: %s\n", image)
+	args := composeFileArgs(composePaths)
+	args = append(args, "-p", composeProjectName, "pull", serverComposeService)
+	if _, err := s.runner.Run(ctx, Command{Name: dockerCommand, Args: args, Env: env}); err != nil {
+		output.Warning(w, "could not pull latest local-mode image (using cached copy): %v", err)
+	}
 }
 
 func (s Service) writeComposeFiles() ([]string, func(), error) {

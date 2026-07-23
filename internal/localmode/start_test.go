@@ -76,6 +76,8 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				started = true
 				image, ok := lastEnvValue(command.Env, "VOLCANO_IMAGE")
@@ -121,6 +123,9 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 	}, createBodies[0])
 	assert.Contains(t, out.String(), "Volcano is ready for local development.")
 	assert.True(t, runner.calledWithArg("docker", "compose"))
+	// The rolling default image is pulled so start picks up the latest build
+	// instead of a stale cached copy.
+	assert.True(t, runner.calledWithArg("docker", "pull"))
 
 	statePath, err := DevStatePath()
 	require.NoError(t, err)
@@ -275,6 +280,8 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				started = true
 				return nil, nil
@@ -386,6 +393,8 @@ func TestStartFailsWhenCustomImageMissing(t *testing.T) {
 				return []byte("Docker version 1\n"), nil
 			case commandIs(command, "docker", "image", "inspect", "kong/volcano:local-dev"):
 				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				t.Fatalf("compose up must not run when the custom image is missing")
 				return nil, nil
@@ -408,4 +417,6 @@ func TestStartFailsWhenCustomImageMissing(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found locally")
 	assert.False(t, runner.calledWithArg("docker", "up"))
+	// A custom image is never pulled by the CLI.
+	assert.False(t, runner.calledWithArg("docker", "pull"))
 }
