@@ -156,6 +156,8 @@ jobs:
         env:
           CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
           PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+          # ponytail: staging client ID consumed only by the main/nightly path during the testing phase; drop this line to end the staging test phase
+          STAGING_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING }}
         run: scripts/ci/resolve-cli-build-env.sh
 
       - name: Build binary

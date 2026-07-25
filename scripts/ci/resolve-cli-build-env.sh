@@ -36,9 +36,15 @@ case "$REF" in
     CLI_VERSION="$REF_NAME"
     ;;
   refs/heads/main)
-    CLI_DEFAULT_API_URL="https://api.volcano.dev"
-    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
-    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
+    # ponytail: staging default scoped to main/nightly (prerelease, never latest/npm) for the testing phase; restore these four lines to end the staging test phase
+    # CLI_DEFAULT_API_URL="https://api.volcano.dev"
+    # CLI_DEFAULT_WEB_URL="https://volcano.dev"
+    # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
+    # REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
+    CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
+    CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
+    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
+    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
     if [ -z "${CLI_VERSION:-}" ]; then
       echo "CLI_VERSION is required for main release builds. The publish workflow must pre-resolve the nightly version."
       exit 1
