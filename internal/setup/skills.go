@@ -24,7 +24,6 @@ const maxDownload = 5 << 20 // 5 MiB
 type skillIndex struct {
 	Skills []struct {
 		Name string `json:"name"`
-		Path string `json:"path"`
 	} `json:"skills"`
 }
 
@@ -57,11 +56,11 @@ func materialize(ctx context.Context, doer HTTPDoer, webURL, skillsDir, agentsPa
 		if !validSkillName(s.Name) {
 			return count, fmt.Errorf("skills index contained an invalid skill name: %q", s.Name)
 		}
-		path := s.Path
-		if path == "" {
-			path = "/skills/" + s.Name + "/SKILL.md"
-		}
-		body, err := fetchGET(ctx, doer, webURL+path)
+		// Derive the URL from the validated name; the manifest's sibling `path`
+		// field is deliberately ignored so a manifest cannot repoint the fetch at
+		// another origin (e.g. a `path` of "@evil.example/x" turning the base into
+		// userinfo).
+		body, err := fetchGET(ctx, doer, webURL+"/skills/"+s.Name+"/SKILL.md")
 		if err != nil {
 			return count, fmt.Errorf("fetch skill %s: %w", s.Name, err)
 		}
@@ -107,9 +106,14 @@ func fetchGET(ctx context.Context, doer HTTPDoer, url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET %s returned status %d", url, resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload))
+	// Read one byte past the cap so an oversized body is rejected rather than
+	// silently truncated (io.LimitReader alone returns EOF at the limit).
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(body) > maxDownload {
+		return nil, fmt.Errorf("GET %s exceeded the %d-byte limit", url, maxDownload)
 	}
 	if len(body) == 0 {
 		return nil, fmt.Errorf("GET %s returned an empty body", url)
@@ -163,7 +167,10 @@ func writeFileAtomic(path string, data []byte) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	// os.CreateTemp already made the file 0600 (matches repo convention); rename
-	// into place so a partial download never surfaces as a truncated SKILL.md.
+	// os.CreateTemp already made the file 0600 (repo convention). os.Rename
+	// replaces an existing destination on every platform Go targets — Windows
+	// included, via MoveFileEx — so a rerun overwrites cleanly; temp+rename keeps
+	// a partial download from surfacing as a truncated SKILL.md. (Rename is not
+	// atomic on Windows, but the replace is still safe for a rerun.)
 	return os.Rename(tmpName, path)
 }

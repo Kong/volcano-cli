@@ -89,7 +89,11 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	// A dropped skill and (for opencode) AGENTS.md must exist on disk.
 	assertFile(t, filepath.Join(home, ".cursor", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
 	assertFile(t, filepath.Join(home, ".pi", "agent", "skills", "install-volcano", "SKILL.md"), "Volcano skill content")
-	assertFile(t, filepath.Join(home, ".config", "opencode", "AGENTS.md"), "Volcano AGENTS.md")
+	assertFile(t, filepath.Join(home, ".config", "opencode", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
+	// opencode's global AGENTS.md is user-owned and must never be written.
+	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("opencode AGENTS.md must not be written (user-owned)")
+	}
 }
 
 // TestRun_LandingPaths is the definitive check that each file-drop harness (and
@@ -110,9 +114,9 @@ func TestRun_LandingPaths(t *testing.T) {
 			skillsDir: func(h string) string { return filepath.Join(h, ".cursor", "skills") },
 		},
 		{
-			harness:    "opencode",
-			skillsDir:  func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") },
-			agentsPath: func(h string) string { return filepath.Join(h, ".config", "opencode", "AGENTS.md") },
+			harness:   "opencode",
+			skillsDir: func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") },
+			// user-owned AGENTS.md is intentionally not written.
 		},
 		{
 			harness:   "pi",
@@ -183,14 +187,46 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	if got := statusOf(report, "claude-code"); got != StatusInstalled {
 		t.Fatalf("claude-code status = %q, want installed", got)
 	}
-	if len(runner.calls) != 2 {
-		t.Fatalf("runner calls = %d, want 2: %v", len(runner.calls), runner.calls)
+	wantClaude := []string{
+		"claude plugin marketplace add " + marketplaceRepo,
+		"claude plugin install " + pluginRef,
 	}
-	if got := strings.Join(runner.calls[0], " "); got != "claude plugin marketplace add "+marketplaceRepo {
-		t.Errorf("first call = %q", got)
+	assertCalls(t, runner.calls, wantClaude)
+}
+
+// Codex uses a different verb (`plugin add`) and pins the marketplace ref.
+func TestRun_CodexUsesPluginAdd(t *testing.T) {
+	runner := &fakeRunner{}
+	_, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		WebURL:        "http://example.invalid",
+		HomeDir:       t.TempDir(),
+		Getenv:        emptyEnv,
+		LookPath: func(bin string) (string, error) {
+			if bin == "codex" {
+				return "/usr/bin/codex", nil
+			}
+			return "", errors.New("not found")
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
 	}
-	if got := strings.Join(runner.calls[1], " "); got != "claude plugin install "+pluginRef {
-		t.Errorf("second call = %q", got)
+	assertCalls(t, runner.calls, []string{
+		"codex plugin marketplace add " + marketplaceRepo + " --ref main",
+		"codex plugin add " + pluginRef,
+	})
+}
+
+func assertCalls(t *testing.T, got [][]string, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("runner calls = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if joined := strings.Join(got[i], " "); joined != w {
+			t.Errorf("call %d = %q, want %q", i, joined, w)
+		}
 	}
 }
 
@@ -207,7 +243,7 @@ func TestRun_NoHarnessFallsBackToManual(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if !report.Manual {
+	if !report.ManualFallback {
 		t.Fatalf("expected manual fallback, got %+v", report.Results)
 	}
 	if got := statusOf(report, "manual"); got != StatusInstalled {
@@ -232,8 +268,12 @@ func TestRun_ManualFlagForcesManual(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if !report.Manual || len(report.Results) != 1 {
-		t.Fatalf("expected single manual result, got %+v", report.Results)
+	if len(report.Results) != 1 || statusOf(report, "manual") != StatusInstalled {
+		t.Fatalf("expected single installed manual result, got %+v", report.Results)
+	}
+	// An explicit --manual is a request, not a no-detection fallback.
+	if report.ManualFallback {
+		t.Errorf("--manual must not be reported as a fallback")
 	}
 	if _, err := os.Stat(filepath.Join(home, ".cursor", "skills")); !os.IsNotExist(err) {
 		t.Errorf("cursor skills should not be written under --manual")
@@ -323,5 +363,46 @@ func assertFile(t *testing.T, path, wantSubstr string) {
 	}
 	if !strings.Contains(string(b), wantSubstr) {
 		t.Errorf("%s: %q does not contain %q", path, string(b), wantSubstr)
+	}
+}
+
+// TestRenderReport_Footer locks the summary wording for the modes the reviewers
+// flagged: a dry run must not claim an install happened, and only a genuine
+// no-detection fallback may say no harness was detected.
+func TestRenderReport_Footer(t *testing.T) {
+	cases := []struct {
+		name   string
+		report Report
+		want   string
+	}{
+		{
+			name:   "dry-run planned",
+			report: Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}, {Harness: "codex", Status: StatusSkipped}}},
+			want:   "Would install Volcano for 1 harness(es); 1 not detected.",
+		},
+		{
+			name:   "dry-run manual fallback",
+			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}},
+			want:   "would install Volcano skills to ~/.volcano/skills.",
+		},
+		{
+			name:   "manual requested is not a fallback",
+			report: Report{Results: []Result{{Harness: "manual", Status: StatusInstalled}}},
+			want:   "Installed Volcano for 1 harness(es).",
+		},
+		{
+			name:   "no-detection fallback installed",
+			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusInstalled}}},
+			want:   "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var b strings.Builder
+			RenderReport(&b, tc.report)
+			if !strings.Contains(b.String(), tc.want) {
+				t.Errorf("footer:\n%s\nwant substring %q", b.String(), tc.want)
+			}
+		})
 	}
 }

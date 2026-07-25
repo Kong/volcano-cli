@@ -53,5 +53,8 @@ is detected, skills are installed under ~/.volcano as a manual fallback.
 	cmd.Flags().StringSliceVar(&harnesses, "harness", nil, "Install only for the named harness(es): claude-code, codex, cursor, opencode, pi, manual")
 	cmd.Flags().BoolVar(&manual, "manual", false, "Force a manual install of skills under ~/.volcano")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be installed without making changes")
+	// --manual and --harness contradict (Run gives --harness precedence), so
+	// reject the combination up front rather than silently ignoring --manual.
+	cmd.MarkFlagsMutuallyExclusive("harness", "manual")
 	return cmd
 }

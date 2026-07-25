@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Status is the outcome for one harness.
@@ -38,8 +39,10 @@ type Result struct {
 // Report is the full setup outcome.
 type Report struct {
 	Results []Result
-	// Manual is true when the no-harness ~/.volcano fallback was used.
-	Manual bool
+	// ManualFallback is true only when no harness was detected and setup fell
+	// back to ~/.volcano. An explicit --manual (or --harness manual) produces a
+	// "manual" result but leaves this false: it was requested, not a fallback.
+	ManualFallback bool
 }
 
 // Failed reports whether any targeted harness failed to install.
@@ -73,7 +76,12 @@ type resolved struct {
 	webURL string
 }
 
-const defaultWebURL = "https://volcano.dev"
+const (
+	defaultWebURL = "https://volcano.dev"
+	// httpTimeout bounds each skill/manifest download when the caller does not
+	// inject its own client.
+	httpTimeout = 30 * time.Second
+)
 
 // Run detects/targets harnesses and installs Volcano into each. It returns an
 // error only for setup-wide problems (e.g. an unknown --harness); an individual
@@ -89,7 +97,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		return runOnly(ctx, all, opts.Only, env, res, opts.DryRun)
 	}
 	if opts.Manual {
-		return Report{Manual: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
+		return Report{Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
 	}
 
 	// Autodetect: record every harness, install the detected ones.
@@ -104,7 +112,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		report.Results = append(report.Results, install(ctx, h, env, res, opts.DryRun))
 	}
 	if detected == 0 {
-		return Report{Manual: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
+		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
 	}
 	return report, nil
 }
@@ -114,19 +122,34 @@ func runOnly(ctx context.Context, all []harness, only []string, env environ, res
 	for _, h := range all {
 		byName[h.name] = h
 	}
-	var report Report
+
+	// Resolve every requested name first, so an unknown target fails before any
+	// install mutates the machine (no partial setup followed by an error).
+	type target struct {
+		manual bool
+		h      harness
+	}
+	targets := make([]target, 0, len(only))
 	for _, raw := range only {
 		name := strings.ToLower(strings.TrimSpace(raw))
 		if name == manualHarness {
-			report.Manual = true
-			report.Results = append(report.Results, installManual(ctx, env, res, dryRun))
+			targets = append(targets, target{manual: true})
 			continue
 		}
 		h, ok := byName[name]
 		if !ok {
 			return Report{}, fmt.Errorf("unknown harness %q (supported: %s)", raw, strings.Join(supportedNames(all), ", "))
 		}
-		report.Results = append(report.Results, install(ctx, h, env, res, dryRun))
+		targets = append(targets, target{h: h})
+	}
+
+	var report Report
+	for _, t := range targets {
+		if t.manual {
+			report.Results = append(report.Results, installManual(ctx, env, res, dryRun))
+			continue
+		}
+		report.Results = append(report.Results, install(ctx, t.h, env, res, dryRun))
 	}
 	return report, nil
 }
@@ -180,7 +203,10 @@ func (o Options) resolve() (resolved, environ, error) {
 	}
 	doer := o.HTTPDoer
 	if doer == nil {
-		doer = http.DefaultClient
+		// A bounded client, not http.DefaultClient: production wires an empty
+		// Deps{} and cobra runs on context.Background(), so without a timeout a
+		// stalled origin would hang setup indefinitely.
+		doer = &http.Client{Timeout: httpTimeout}
 	}
 	runner := o.CommandRunner
 	if runner == nil {
@@ -207,9 +233,11 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 	return exec.CommandContext(ctx, name, args...).CombinedOutput() //nolint:gosec // fixed harness plugin commands
 }
 
-// RenderReport writes a human-readable per-harness summary to w.
+// RenderReport writes a human-readable per-harness summary to w. The footer is
+// derived from the actual result statuses, so a dry run says "would install"
+// and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	installed, failed, skipped := 0, 0, 0
+	installed, failed, skipped, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
@@ -218,6 +246,8 @@ func RenderReport(w io.Writer, r Report) {
 			failed++
 		case StatusSkipped:
 			skipped++
+		case StatusPlanned:
+			planned++
 		}
 		line := fmt.Sprintf("  %-9s %-11s", statusMark(res.Status), res.Harness)
 		if res.Detail != "" {
@@ -228,9 +258,17 @@ func RenderReport(w io.Writer, r Report) {
 
 	fmt.Fprintln(w)
 	switch {
-	case r.Manual && failed > 0:
+	case planned > 0 && r.ManualFallback:
+		fmt.Fprintln(w, "No coding-agent harness detected — would install Volcano skills to ~/.volcano/skills.")
+	case planned > 0:
+		fmt.Fprintf(w, "Would install Volcano for %d harness(es)", planned)
+		if skipped > 0 {
+			fmt.Fprintf(w, "; %d not detected", skipped)
+		}
+		fmt.Fprintln(w, ".")
+	case r.ManualFallback && failed > 0:
 		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
-	case r.Manual:
+	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)

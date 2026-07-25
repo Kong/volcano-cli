@@ -9,7 +9,9 @@ import (
 )
 
 // CommandRunner runs an external command (used for marketplace-based installs).
-// It matches runtime.CommandRunner so the CLI's injected runner can be reused.
+// Production uses the package's execRunner; tests inject a fake. runtime.Deps has
+// no general-purpose runner to reuse (only Local/Update/Git), so setup owns its
+// default rather than wiring one through the CLI.
 type CommandRunner interface {
 	Run(ctx context.Context, name string, args ...string) ([]byte, error)
 }
@@ -51,14 +53,22 @@ type harness struct {
 func harnesses() []harness {
 	return []harness{
 		{
-			name:    "claude-code",
-			detect:  func(e environ) bool { return onPath(e, "claude") },
-			install: marketplaceInstall("claude"),
+			name:   "claude-code",
+			detect: func(e environ) bool { return onPath(e, "claude") },
+			install: marketplaceInstall("claude", [][]string{
+				{"plugin", "marketplace", "add", marketplaceRepo},
+				{"plugin", "install", pluginRef},
+			}),
 		},
 		{
-			name:    "codex",
-			detect:  func(e environ) bool { return onPath(e, "codex") },
-			install: marketplaceInstall("codex"),
+			name:   "codex",
+			detect: func(e environ) bool { return onPath(e, "codex") },
+			// Codex uses `plugin add` (not `install`) and pins the marketplace to a
+			// ref when added from GitHub (per plugins/codex/README.md).
+			install: marketplaceInstall("codex", [][]string{
+				{"plugin", "marketplace", "add", marketplaceRepo, "--ref", "main"},
+				{"plugin", "add", pluginRef},
+			}),
 		},
 		{
 			name:   "cursor",
@@ -71,9 +81,12 @@ func harnesses() []harness {
 		{
 			name:   "opencode",
 			detect: func(e environ) bool { return dirExists(filepath.Join(e.configHome(), "opencode")) },
+			// Skills only: ~/.config/opencode/AGENTS.md is user-owned, so we must not
+			// overwrite it. opencode auto-discovers the dropped skills. A native
+			// opencode plugin that wires AGENTS.md safely is tracked in VOL-511.
 			install: skillsInstall(
 				func(e environ) string { return filepath.Join(e.configHome(), "opencode", "skills") },
-				func(e environ) string { return filepath.Join(e.configHome(), "opencode", "AGENTS.md") },
+				nil,
 			),
 		},
 		{
@@ -90,15 +103,15 @@ func harnesses() []harness {
 const manualHarness = "manual"
 
 // marketplaceInstall shells out to a harness's own non-interactive plugin
-// commands. Preferred over file-drop wherever a harness provides them so the
-// plugin registers in that harness's plugin registry.
-func marketplaceInstall(bin string) func(context.Context, environ, resolved) (string, error) {
+// commands, running each argv (after bin) in sequence. Preferred over file-drop
+// wherever a harness provides such commands so the plugin registers in that
+// harness's own plugin registry.
+func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
 	return func(ctx context.Context, _ environ, res resolved) (string, error) {
-		if out, err := res.runner.Run(ctx, bin, "plugin", "marketplace", "add", marketplaceRepo); err != nil {
-			return "", fmt.Errorf("%s plugin marketplace add: %w: %s", bin, err, strings.TrimSpace(string(out)))
-		}
-		if out, err := res.runner.Run(ctx, bin, "plugin", "install", pluginRef); err != nil {
-			return "", fmt.Errorf("%s plugin install: %w: %s", bin, err, strings.TrimSpace(string(out)))
+		for _, args := range cmds {
+			if out, err := res.runner.Run(ctx, bin, args...); err != nil {
+				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+			}
 		}
 		return "marketplace: " + pluginRef, nil
 	}

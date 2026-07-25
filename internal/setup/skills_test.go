@@ -26,7 +26,7 @@ func TestMaterialize(t *testing.T) {
 	assertFile(t, filepath.Join(dir, "skills", "install-volcano", "SKILL.md"), "Volcano skill content")
 	assertFile(t, agents, "Volcano AGENTS.md")
 
-	// SKILL.md files are world-readable, not executable.
+	// SKILL.md is written owner read/write only (0600), matching repo convention.
 	info, err := os.Stat(filepath.Join(dir, "skills", "volcano-platform", "SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
