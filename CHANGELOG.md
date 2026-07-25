@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/Kong/volcano-cli/compare/v0.6.1...v0.6.2) (2026-07-25)
+
+
+### Bug Fixes
+
+* **setup:** show only harnesses that install, drop the rest ([#94](https://github.com/Kong/volcano-cli/issues/94)) ([00da55f](https://github.com/Kong/volcano-cli/commit/00da55fb54d79eec4092413d5f8d2685f241fb49))
+
 ## [0.6.1](https://github.com/Kong/volcano-cli/compare/v0.6.0...v0.6.1) (2026-07-25)
 
 
