@@ -1,0 +1,408 @@
+package setup
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// skillsServer serves a minimal skills manifest + content, mirroring the
+// VOLCANO_WEB_URL endpoints the CLI fetches from.
+func skillsServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/skills/index.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"version":1,"skills":[
+			{"name":"volcano-platform","path":"/skills/volcano-platform/SKILL.md"},
+			{"name":"install-volcano","path":"/skills/install-volcano/SKILL.md"}]}`)
+	})
+	mux.HandleFunc("/skills/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "# Skill "+r.URL.Path+"\nVolcano skill content\n")
+	})
+	mux.HandleFunc("/AGENTS.md", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "# Volcano AGENTS.md\n")
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func noBins(string) (string, error) { return "", errors.New("not found") }
+
+func emptyEnv(string) string { return "" }
+
+type fakeRunner struct {
+	calls [][]string
+	err   error
+}
+
+func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	f.calls = append(f.calls, append([]string{name}, args...))
+	return nil, f.err
+}
+
+func statusOf(r Report, harness string) Status {
+	for _, res := range r.Results {
+		if res.Harness == harness {
+			return res.Status
+		}
+	}
+	return Status("<absent>")
+}
+
+func TestRun_AutodetectInstallsDetected(t *testing.T) {
+	home := t.TempDir()
+	mustMkdir(t, filepath.Join(home, ".cursor"))
+	mustMkdir(t, filepath.Join(home, ".pi", "agent"))
+	mustMkdir(t, filepath.Join(home, ".config", "opencode"))
+	srv := skillsServer(t)
+
+	report, err := Run(context.Background(), Options{
+		HTTPDoer: srv.Client(),
+		WebURL:   srv.URL,
+		HomeDir:  home,
+		Getenv:   emptyEnv,
+		LookPath: noBins, // no claude/codex on PATH
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if report.Failed() {
+		t.Fatalf("unexpected failure: %+v", report.Results)
+	}
+	for _, h := range []string{"cursor", "opencode", "pi"} {
+		if got := statusOf(report, h); got != StatusInstalled {
+			t.Errorf("%s: status = %q, want installed", h, got)
+		}
+	}
+	for _, h := range []string{"claude-code", "codex"} {
+		if got := statusOf(report, h); got != StatusSkipped {
+			t.Errorf("%s: status = %q, want skipped", h, got)
+		}
+	}
+	// A dropped skill and (for opencode) AGENTS.md must exist on disk.
+	assertFile(t, filepath.Join(home, ".cursor", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
+	assertFile(t, filepath.Join(home, ".pi", "agent", "skills", "install-volcano", "SKILL.md"), "Volcano skill content")
+	assertFile(t, filepath.Join(home, ".config", "opencode", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
+	// opencode's global AGENTS.md is user-owned and must never be written.
+	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "AGENTS.md")); !os.IsNotExist(err) {
+		t.Errorf("opencode AGENTS.md must not be written (user-owned)")
+	}
+}
+
+// TestRun_LandingPaths is the definitive check that each file-drop harness (and
+// the manual fallback) materializes the FULL skill set into its exact expected
+// directory, plus AGENTS.md where that harness expects one. Uses --harness to
+// target each in isolation.
+func TestRun_LandingPaths(t *testing.T) {
+	// Skills the test manifest advertises (skillsServer).
+	skills := []string{"volcano-platform", "install-volcano"}
+
+	cases := []struct {
+		harness    string
+		skillsDir  func(home string) string
+		agentsPath func(home string) string // nil = harness expects no AGENTS.md
+	}{
+		{
+			harness:   "cursor",
+			skillsDir: func(h string) string { return filepath.Join(h, ".cursor", "skills") },
+		},
+		{
+			harness:   "opencode",
+			skillsDir: func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") },
+			// user-owned AGENTS.md is intentionally not written.
+		},
+		{
+			harness:   "pi",
+			skillsDir: func(h string) string { return filepath.Join(h, ".pi", "agent", "skills") },
+		},
+		{
+			harness:    "manual",
+			skillsDir:  func(h string) string { return filepath.Join(h, ".volcano", "skills") },
+			agentsPath: func(h string) string { return filepath.Join(h, ".volcano", "AGENTS.md") },
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.harness, func(t *testing.T) {
+			home := t.TempDir()
+			srv := skillsServer(t)
+			report, err := Run(context.Background(), Options{
+				HTTPDoer: srv.Client(),
+				WebURL:   srv.URL,
+				HomeDir:  home,
+				Getenv:   emptyEnv,
+				LookPath: noBins,
+				Only:     []string{tc.harness},
+			})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if report.Failed() {
+				t.Fatalf("install failed: %+v", report.Results)
+			}
+
+			// Every advertised skill lands as <skillsDir>/<name>/SKILL.md.
+			dir := tc.skillsDir(home)
+			for _, name := range skills {
+				assertFile(t, filepath.Join(dir, name, "SKILL.md"), "Volcano skill content")
+			}
+			// No stray skill dirs beyond the manifest.
+			if entries, err := os.ReadDir(dir); err == nil && len(entries) != len(skills) {
+				t.Errorf("%s: %d skill dirs in %s, want %d", tc.harness, len(entries), dir, len(skills))
+			}
+
+			// AGENTS.md lands only where the harness expects it.
+			if tc.agentsPath != nil {
+				assertFile(t, tc.agentsPath(home), "Volcano AGENTS.md")
+			}
+		})
+	}
+}
+
+func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
+	home := t.TempDir()
+	runner := &fakeRunner{}
+	report, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		WebURL:        "http://example.invalid",
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath: func(bin string) (string, error) { // only claude present
+			if bin == "claude" {
+				return "/usr/bin/claude", nil
+			}
+			return "", errors.New("not found")
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got := statusOf(report, "claude-code"); got != StatusInstalled {
+		t.Fatalf("claude-code status = %q, want installed", got)
+	}
+	wantClaude := []string{
+		"claude plugin marketplace add " + marketplaceRepo,
+		"claude plugin install " + pluginRef,
+	}
+	assertCalls(t, runner.calls, wantClaude)
+}
+
+// Codex uses a different verb (`plugin add`) and pins the marketplace ref.
+func TestRun_CodexUsesPluginAdd(t *testing.T) {
+	runner := &fakeRunner{}
+	_, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		WebURL:        "http://example.invalid",
+		HomeDir:       t.TempDir(),
+		Getenv:        emptyEnv,
+		LookPath: func(bin string) (string, error) {
+			if bin == "codex" {
+				return "/usr/bin/codex", nil
+			}
+			return "", errors.New("not found")
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	assertCalls(t, runner.calls, []string{
+		"codex plugin marketplace add " + marketplaceRepo + " --ref main",
+		"codex plugin add " + pluginRef,
+	})
+}
+
+func assertCalls(t *testing.T, got [][]string, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("runner calls = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if joined := strings.Join(got[i], " "); joined != w {
+			t.Errorf("call %d = %q, want %q", i, joined, w)
+		}
+	}
+}
+
+func TestRun_NoHarnessFallsBackToManual(t *testing.T) {
+	home := t.TempDir()
+	srv := skillsServer(t)
+	report, err := Run(context.Background(), Options{
+		HTTPDoer: srv.Client(),
+		WebURL:   srv.URL,
+		HomeDir:  home,
+		Getenv:   emptyEnv,
+		LookPath: noBins,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !report.ManualFallback {
+		t.Fatalf("expected manual fallback, got %+v", report.Results)
+	}
+	if got := statusOf(report, "manual"); got != StatusInstalled {
+		t.Fatalf("manual status = %q, want installed", got)
+	}
+	assertFile(t, filepath.Join(home, ".volcano", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
+	assertFile(t, filepath.Join(home, ".volcano", "AGENTS.md"), "Volcano AGENTS.md")
+}
+
+func TestRun_ManualFlagForcesManual(t *testing.T) {
+	home := t.TempDir()
+	mustMkdir(t, filepath.Join(home, ".cursor")) // present but must be ignored
+	srv := skillsServer(t)
+	report, err := Run(context.Background(), Options{
+		HTTPDoer: srv.Client(),
+		WebURL:   srv.URL,
+		HomeDir:  home,
+		Getenv:   emptyEnv,
+		LookPath: noBins,
+		Manual:   true,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(report.Results) != 1 || statusOf(report, "manual") != StatusInstalled {
+		t.Fatalf("expected single installed manual result, got %+v", report.Results)
+	}
+	// An explicit --manual is a request, not a no-detection fallback.
+	if report.ManualFallback {
+		t.Errorf("--manual must not be reported as a fallback")
+	}
+	if _, err := os.Stat(filepath.Join(home, ".cursor", "skills")); !os.IsNotExist(err) {
+		t.Errorf("cursor skills should not be written under --manual")
+	}
+}
+
+func TestRun_OnlyUnknownHarnessErrors(t *testing.T) {
+	_, err := Run(context.Background(), Options{
+		HomeDir:  t.TempDir(),
+		Getenv:   emptyEnv,
+		LookPath: noBins,
+		Only:     []string{"eclipse"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unknown harness") {
+		t.Fatalf("want unknown harness error, got %v", err)
+	}
+}
+
+func TestRun_DryRunWritesNothing(t *testing.T) {
+	home := t.TempDir()
+	mustMkdir(t, filepath.Join(home, ".cursor"))
+	runner := &fakeRunner{}
+	report, err := Run(context.Background(), Options{
+		// A nil HTTPDoer would default to the real client; a dry run must never
+		// reach it. Inject one that fails the test if called.
+		HTTPDoer: doerFunc(func(*http.Request) (*http.Response, error) {
+			t.Fatal("dry-run must not fetch")
+			return nil, errors.New("unreachable")
+		}),
+		CommandRunner: runner,
+		WebURL:        "http://example.invalid",
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      func(bin string) (string, error) { return "/usr/bin/" + bin, nil }, // claude+codex "present"
+		DryRun:        true,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, res := range report.Results {
+		if res.Status != StatusPlanned && res.Status != StatusSkipped {
+			t.Errorf("%s: status = %q, want planned/skipped in dry-run", res.Harness, res.Status)
+		}
+	}
+	if len(runner.calls) != 0 {
+		t.Errorf("dry-run must not shell out, got %v", runner.calls)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".cursor", "skills")); !os.IsNotExist(err) {
+		t.Errorf("dry-run must not write skills")
+	}
+}
+
+func TestRun_FailedHarnessMarksReportFailed(t *testing.T) {
+	home := t.TempDir()
+	runner := &fakeRunner{err: errors.New("boom")}
+	report, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      func(bin string) (string, error) { return "/usr/bin/" + bin, nil },
+		Only:          []string{"codex"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !report.Failed() {
+		t.Fatalf("expected Report.Failed() = true, got %+v", report.Results)
+	}
+}
+
+type doerFunc func(*http.Request) (*http.Response, error)
+
+func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
+
+func mustMkdir(t *testing.T, p string) {
+	t.Helper()
+	if err := os.MkdirAll(p, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertFile(t *testing.T, path, wantSubstr string) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if !strings.Contains(string(b), wantSubstr) {
+		t.Errorf("%s: %q does not contain %q", path, string(b), wantSubstr)
+	}
+}
+
+// TestRenderReport_Footer locks the summary wording for the modes the reviewers
+// flagged: a dry run must not claim an install happened, and only a genuine
+// no-detection fallback may say no harness was detected.
+func TestRenderReport_Footer(t *testing.T) {
+	cases := []struct {
+		name   string
+		report Report
+		want   string
+	}{
+		{
+			name:   "dry-run planned",
+			report: Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}, {Harness: "codex", Status: StatusSkipped}}},
+			want:   "Would install Volcano for 1 harness(es); 1 not detected.",
+		},
+		{
+			name:   "dry-run manual fallback",
+			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}},
+			want:   "would install Volcano skills to ~/.volcano/skills.",
+		},
+		{
+			name:   "manual requested is not a fallback",
+			report: Report{Results: []Result{{Harness: "manual", Status: StatusInstalled}}},
+			want:   "Installed Volcano for 1 harness(es).",
+		},
+		{
+			name:   "no-detection fallback installed",
+			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusInstalled}}},
+			want:   "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var b strings.Builder
+			RenderReport(&b, tc.report)
+			if !strings.Contains(b.String(), tc.want) {
+				t.Errorf("footer:\n%s\nwant substring %q", b.String(), tc.want)
+			}
+		})
+	}
+}
