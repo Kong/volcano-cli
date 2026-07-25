@@ -155,8 +155,8 @@ jobs:
       - name: Resolve release build environment
         env:
           CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
-          # ponytail: staging build for the testing phase, uncomment below and drop the STAGING line before GA
-          # PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+          PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+          # ponytail: staging client ID consumed only by the main/nightly path during the testing phase; drop this line to end the staging test phase
           STAGING_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING }}
         run: scripts/ci/resolve-cli-build-env.sh
 
