@@ -92,6 +92,76 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	assertFile(t, filepath.Join(home, ".config", "opencode", "AGENTS.md"), "Volcano AGENTS.md")
 }
 
+// TestRun_LandingPaths is the definitive check that each file-drop harness (and
+// the manual fallback) materializes the FULL skill set into its exact expected
+// directory, plus AGENTS.md where that harness expects one. Uses --harness to
+// target each in isolation.
+func TestRun_LandingPaths(t *testing.T) {
+	// Skills the test manifest advertises (skillsServer).
+	skills := []string{"volcano-platform", "install-volcano"}
+
+	cases := []struct {
+		harness    string
+		skillsDir  func(home string) string
+		agentsPath func(home string) string // nil = harness expects no AGENTS.md
+	}{
+		{
+			harness:   "cursor",
+			skillsDir: func(h string) string { return filepath.Join(h, ".cursor", "skills") },
+		},
+		{
+			harness:    "opencode",
+			skillsDir:  func(h string) string { return filepath.Join(h, ".config", "opencode", "skills") },
+			agentsPath: func(h string) string { return filepath.Join(h, ".config", "opencode", "AGENTS.md") },
+		},
+		{
+			harness:   "pi",
+			skillsDir: func(h string) string { return filepath.Join(h, ".pi", "agent", "skills") },
+		},
+		{
+			harness:    "manual",
+			skillsDir:  func(h string) string { return filepath.Join(h, ".volcano", "skills") },
+			agentsPath: func(h string) string { return filepath.Join(h, ".volcano", "AGENTS.md") },
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.harness, func(t *testing.T) {
+			home := t.TempDir()
+			srv := skillsServer(t)
+			report, err := Run(context.Background(), Options{
+				HTTPDoer: srv.Client(),
+				WebURL:   srv.URL,
+				HomeDir:  home,
+				Getenv:   emptyEnv,
+				LookPath: noBins,
+				Only:     []string{tc.harness},
+			})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if report.Failed() {
+				t.Fatalf("install failed: %+v", report.Results)
+			}
+
+			// Every advertised skill lands as <skillsDir>/<name>/SKILL.md.
+			dir := tc.skillsDir(home)
+			for _, name := range skills {
+				assertFile(t, filepath.Join(dir, name, "SKILL.md"), "Volcano skill content")
+			}
+			// No stray skill dirs beyond the manifest.
+			if entries, err := os.ReadDir(dir); err == nil && len(entries) != len(skills) {
+				t.Errorf("%s: %d skill dirs in %s, want %d", tc.harness, len(entries), dir, len(skills))
+			}
+
+			// AGENTS.md lands only where the harness expects it.
+			if tc.agentsPath != nil {
+				assertFile(t, tc.agentsPath(home), "Volcano AGENTS.md")
+			}
+		})
+	}
+}
+
 func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	home := t.TempDir()
 	runner := &fakeRunner{}
