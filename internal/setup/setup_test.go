@@ -396,6 +396,31 @@ func TestRun_FailedHarnessMarksReportFailed(t *testing.T) {
 	}
 }
 
+// A landed manual install must hand the user a relay prompt (the store in
+// ~/.volcano is inert until an agent is pointed at it); a dry run or a
+// non-manual report must not.
+func TestRenderReport_ManualPickupGuidance(t *testing.T) {
+	const prompt = "ask your coding agent"
+
+	var b strings.Builder
+	RenderReport(&b, Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusInstalled, Detail: "11 skills -> ~/.volcano/skills"}}})
+	if !strings.Contains(b.String(), prompt) || !strings.Contains(b.String(), "@~/.volcano/AGENTS.md") {
+		t.Errorf("manual install should print pickup guidance:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled, Detail: "marketplace"}}})
+	if strings.Contains(b.String(), prompt) {
+		t.Errorf("non-manual report must not print pickup guidance:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}})
+	if strings.Contains(b.String(), prompt) {
+		t.Errorf("dry-run must not print pickup guidance:\n%s", b.String())
+	}
+}
+
 type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }

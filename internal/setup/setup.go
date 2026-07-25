@@ -302,6 +302,17 @@ func RenderReport(w io.Writer, r Report) {
 		}
 		fmt.Fprintln(w, ".")
 	}
+
+	// A manual install drops skills into ~/.volcano, which no agent reads on its
+	// own. Rather than auto-editing config, hand the user a prompt to relay to
+	// whatever agent they use so it wires the store into its own rules/skills.
+	for _, res := range r.Results {
+		if res.Harness == manualHarness && res.Status == StatusInstalled {
+			fmt.Fprintln(w, "To finish, ask your coding agent:")
+			fmt.Fprintln(w, `  "Import @~/.volcano/AGENTS.md into your global rules and install the skills from @~/.volcano/skills."`)
+			break
+		}
+	}
 }
 
 func statusMark(s Status) string {
