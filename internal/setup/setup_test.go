@@ -96,13 +96,9 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	}
 }
 
-// TestRun_LandingPaths is the definitive check that each file-drop harness (and
-// the manual fallback) materializes the FULL skill set into its exact expected
-// directory, plus AGENTS.md where that harness expects one. Uses --harness to
-// target each in isolation.
 // Autodetect is best-effort: a detected harness that can't finish setup (here, a
 // skills endpoint that errors) is quietly dropped, never surfaced as [fail], so
-// `volcano setup` doesn't exit non-zero. The one harness that installs is shown.
+// `volcano setup` doesn't exit non-zero.
 func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
 	home := t.TempDir()
 	mustMkdir(t, filepath.Join(home, ".cursor"))
@@ -138,6 +134,10 @@ func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
 	}
 }
 
+// TestRun_LandingPaths is the definitive check that each file-drop harness (and
+// the manual fallback) materializes the FULL skill set into its exact expected
+// directory, plus AGENTS.md where that harness expects one. Uses --harness to
+// target each in isolation.
 func TestRun_LandingPaths(t *testing.T) {
 	// Skills the test manifest advertises (skillsServer).
 	skills := []string{"volcano-platform", "install-volcano"}

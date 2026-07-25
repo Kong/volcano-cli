@@ -84,8 +84,10 @@ const (
 )
 
 // Run detects/targets harnesses and installs Volcano into each. It returns an
-// error only for setup-wide problems (e.g. an unknown --harness); an individual
-// harness failure is recorded in the report — inspect Report.Failed.
+// error only for setup-wide problems (e.g. an unknown --harness). Autodetect is
+// best-effort: a detected harness that can't be set up is dropped from the
+// report rather than failed. Only an explicit --harness target records a failure
+// — inspect Report.Failed.
 func Run(ctx context.Context, opts Options) (Report, error) {
 	res, env, err := opts.resolve()
 	if err != nil {
