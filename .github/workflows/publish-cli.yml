@@ -7,6 +7,7 @@ on:
     tags:
       - "v*.*.*"
       - "!v*.*.*-nightly.*"
+      - "staging-v*.*.*"
 
 permissions:
   contents: read
@@ -32,9 +33,10 @@ jobs:
           fi
 
           STABLE_SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-          if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
+          STAGING_SEMVER_RE='^staging-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]] && [[ ! "$GITHUB_REF_NAME" =~ $STAGING_SEMVER_RE ]]; then
             echo "Unsupported release tag: ${GITHUB_REF_NAME}"
-            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH."
+            echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH or staging form staging-vMAJOR.MINOR.PATCH."
             exit 1
           fi
 
@@ -56,6 +58,7 @@ jobs:
       cli_version: ${{ steps.release.outputs.cli_version }}
       prerelease: ${{ steps.release.outputs.prerelease }}
       latest: ${{ steps.release.outputs.latest }}
+      environment: ${{ steps.release.outputs.environment }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -84,6 +87,16 @@ jobs:
               fi
             done < <(git tag --list "${NIGHTLY_PREFIX}*")
             RELEASE_TAG="${NIGHTLY_PREFIX}$((LATEST_NIGHTLY_NUMBER + 1))"
+            ENVIRONMENT="production"
+            PRERELEASE="true"
+            LATEST="false"
+          elif [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
+            # Staging channel: a staging-vX.Y.Z tag builds against the staging
+            # environment and publishes only as a prerelease (never latest, and
+            # publish-npm stays gated off for prereleases), so it can never ship
+            # as a production GA or npm-latest release.
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            ENVIRONMENT="staging"
             PRERELEASE="true"
             LATEST="false"
           else
@@ -96,6 +109,7 @@ jobs:
               exit 1
             fi
 
+            ENVIRONMENT="production"
             PRERELEASE="false"
             LATEST="auto"
           fi
@@ -106,6 +120,7 @@ jobs:
             echo "cli_version=${RELEASE_TAG}"
             echo "prerelease=${PRERELEASE}"
             echo "latest=${LATEST}"
+            echo "environment=${ENVIRONMENT}"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -155,7 +170,9 @@ jobs:
       - name: Resolve release build environment
         env:
           CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
+          ENVIRONMENT: ${{ needs.resolve-release.outputs.environment }}
           PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+          STAGING_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING }}
         run: scripts/ci/resolve-cli-build-env.sh
 
       - name: Build binary
@@ -356,6 +373,16 @@ jobs:
             git tag -f nightly "$GITHUB_SHA"
             git push origin refs/tags/nightly --force
             publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
+          elif [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
+            # Staging mirrors the nightly moving-alias mechanic: keep versioned
+            # copies for provenance and force-move a `staging` release. It is
+            # always prerelease/--latest=false, so it never becomes the latest
+            # release and never touches the production or npm-latest channels.
+            STAGING_ALIAS_NOTES="$(printf 'Latest staging build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
+            append_historical_assets "$RELEASE_TAG"
+            git tag -f staging "$GITHUB_SHA"
+            git push origin refs/tags/staging --force
+            publish_release staging "$RELEASE_TITLE" "$STAGING_ALIAS_NOTES" --prerelease --latest=false
           else
             publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
           fi
@@ -368,6 +395,8 @@ jobs:
           DOWNLOAD_RELEASE_TAG="$RELEASE_TAG"
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             DOWNLOAD_RELEASE_TAG="nightly"
+          elif [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
+            DOWNLOAD_RELEASE_TAG="staging"
           fi
           gh release download "$DOWNLOAD_RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
