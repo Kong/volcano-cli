@@ -41,12 +41,13 @@ func emptyEnv(string) string { return "" }
 
 type fakeRunner struct {
 	calls [][]string
+	out   []byte // combined output returned for every call
 	err   error
 }
 
 func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, append([]string{name}, args...))
-	return nil, f.err
+	return f.out, f.err
 }
 
 // absentStatus is what statusOf returns when a harness is not in the report.
@@ -279,6 +280,37 @@ func assertCalls(t *testing.T, got [][]string, want []string) {
 		if joined := strings.Join(got[i], " "); joined != w {
 			t.Errorf("call %d = %q, want %q", i, joined, w)
 		}
+	}
+}
+
+// A rerun of `volcano setup` re-adds an already-registered marketplace/plugin.
+// The harness CLI exits non-zero but its output says "already added"; that must
+// be a no-op success, not a spurious failure.
+func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
+	runner := &fakeRunner{
+		out: []byte("error: marketplace 'volcano-agentic-plugins' already added from this source"),
+		err: errors.New("exit status 1"),
+	}
+	report, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		HomeDir:       t.TempDir(),
+		Getenv:        emptyEnv,
+		LookPath: func(bin string) (string, error) {
+			if bin == "codex" {
+				return "/usr/bin/codex", nil
+			}
+			return "", errors.New("not found")
+		},
+		Only: []string{"codex"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if report.Failed() {
+		t.Fatalf("rerun with 'already added' output must not fail: %+v", report.Results)
+	}
+	if got := statusOf(report, "codex"); got != StatusInstalled {
+		t.Fatalf("codex status = %q, want installed on idempotent rerun", got)
 	}
 }
 

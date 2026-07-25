@@ -106,15 +106,37 @@ const manualHarness = "manual"
 // commands, running each argv (after bin) in sequence. Preferred over file-drop
 // wherever a harness provides such commands so the plugin registers in that
 // harness's own plugin registry.
+//
+// `volcano setup` is expected to be re-run, so a command that fails only because
+// the marketplace/plugin is already registered is treated as a no-op success:
+// claude and codex share no exit-code contract for "already added", so their
+// output text is the only cross-harness signal.
 func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
 	return func(ctx context.Context, _ environ, res resolved) (string, error) {
 		for _, args := range cmds {
-			if out, err := res.runner.Run(ctx, bin, args...); err != nil {
+			if out, err := res.runner.Run(ctx, bin, args...); err != nil && !alreadyPresent(out) {
 				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
 		return "marketplace: " + pluginRef, nil
 	}
+}
+
+// alreadyPresent reports whether a failed plugin/marketplace command failed only
+// because the target was already registered — a no-op on rerun, not a real
+// error. A genuine failure (network, auth, bad repo) won't carry these phrases,
+// and if the add truly failed the following install step fails for real.
+//
+// ponytail: substring match on known phrases; widen the phrase set if a harness
+// version words "already registered" differently.
+func alreadyPresent(out []byte) bool {
+	s := strings.ToLower(string(out))
+	for _, phrase := range []string{"already added", "already installed", "already exists", "already present", "already registered"} {
+		if strings.Contains(s, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // skillsInstall file-drops skills into a harness's skills directory (and,
