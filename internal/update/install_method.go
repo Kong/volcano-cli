@@ -14,13 +14,17 @@ type InstallMethod string
 // Install method identifiers. InstallUnknown ("") means "not determined";
 // callers treat it like a script/manual install (self-replace).
 const (
-	InstallNPM     InstallMethod = "npm"
-	InstallPNPM    InstallMethod = "pnpm"
-	InstallYarn    InstallMethod = "yarn"
-	InstallBun     InstallMethod = "bun"
-	InstallBrew    InstallMethod = "brew"
-	InstallScript  InstallMethod = "script"
-	InstallUnknown InstallMethod = ""
+	InstallNPM  InstallMethod = "npm"
+	InstallPNPM InstallMethod = "pnpm"
+	InstallYarn InstallMethod = "yarn"
+	InstallBun  InstallMethod = "bun"
+	InstallBrew InstallMethod = "brew"
+	// InstallBrewStaging is a Homebrew install of the staging channel's
+	// `volcano-staging` formula, which coexists with the production `volcano`
+	// formula and must upgrade via `brew upgrade volcano-staging`.
+	InstallBrewStaging InstallMethod = "brew-staging"
+	InstallScript      InstallMethod = "script"
+	InstallUnknown     InstallMethod = ""
 )
 
 // npmPackageName is the published npm package. Upgrading a JS-package-manager
@@ -58,6 +62,8 @@ func readInstallMarker(dir string) InstallMethod {
 		return InstallBun
 	case "brew", "homebrew":
 		return InstallBrew
+	case "brew-staging":
+		return InstallBrewStaging
 	case "script":
 		return InstallScript
 	default:
@@ -68,6 +74,8 @@ func readInstallMarker(dir string) InstallMethod {
 func inferInstallMethod(exePath string) InstallMethod {
 	lower := strings.ToLower(filepath.ToSlash(exePath))
 	switch {
+	case strings.Contains(lower, "/cellar/volcano-staging/"):
+		return InstallBrewStaging
 	case strings.Contains(lower, "/cellar/volcano/"):
 		return InstallBrew
 	case strings.Contains(lower, "node_modules/"+npmPackageName):
@@ -101,6 +109,8 @@ func UpgradeCommandFor(m InstallMethod) (name string, args []string, managed boo
 		return "bun", []string{"add", "-g", npmPackageName + "@latest"}, true
 	case InstallBrew:
 		return "brew", []string{"upgrade", "volcano"}, true
+	case InstallBrewStaging:
+		return "brew", []string{"upgrade", "volcano-staging"}, true
 	default:
 		return "", nil, false
 	}

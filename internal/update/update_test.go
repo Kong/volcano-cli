@@ -32,6 +32,7 @@ func TestDetectInstallMethod(t *testing.T) {
 		{name: "pnpm global", path: "/home/u/Library/pnpm/global/5/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallPNPM},
 		{name: "bun global", path: "/home/u/.bun/install/global/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallBun},
 		{name: "homebrew", path: "/opt/homebrew/Cellar/volcano/0.2.1/bin/volcano", want: InstallBrew},
+		{name: "homebrew staging", path: "/opt/homebrew/Cellar/volcano-staging/1.2.3/bin/volcano-staging", want: InstallBrewStaging},
 		{name: "script install", path: "/usr/local/bin/volcano", want: InstallScript},
 	}
 	for _, tt := range tests {
@@ -50,6 +51,24 @@ func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
 	exePath := filepath.Join(dir, "volcano")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, installMarkerName), []byte("pnpm\n"), 0o644))
 	assert.Equal(t, InstallPNPM, DetectInstallMethod(exePath))
+}
+
+func TestUpgradeCommandForBrewStaging(t *testing.T) {
+	t.Parallel()
+
+	name, args, managed := UpgradeCommandFor(InstallBrewStaging)
+	assert.True(t, managed)
+	assert.Equal(t, "brew", name)
+	assert.Equal(t, []string{"upgrade", "volcano-staging"}, args)
+}
+
+func TestDetectInstallMethodBrewStagingMarker(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano-staging")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, installMarkerName), []byte("brew-staging\n"), 0o644))
+	assert.Equal(t, InstallBrewStaging, DetectInstallMethod(exePath))
 }
 
 func TestUpgradeDelegatesToPackageManager(t *testing.T) {

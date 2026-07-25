@@ -40,6 +40,32 @@ var (
 	compiledFirstPartyDeviceClientID = ""
 )
 
+// CompiledDefaultAPIURL returns the API URL baked into this build via -ldflags.
+// It identifies which environment the binary was built for, independent of any
+// runtime VOLCANO_API_URL override.
+func CompiledDefaultAPIURL() string {
+	return compiledDefaultAPIURL
+}
+
+// CompiledEnvironmentLabel names the environment this build targets, derived
+// from the compiled API URL host: "production" for api.volcano.dev, "staging"
+// for api.staging.volcano.dev, and "custom" for anything else (a local,
+// self-hosted, or otherwise non-standard build).
+func CompiledEnvironmentLabel() string {
+	u, err := url.Parse(strings.TrimSpace(compiledDefaultAPIURL))
+	if err != nil {
+		return "custom"
+	}
+	switch strings.ToLower(u.Hostname()) {
+	case "api.volcano.dev":
+		return "production"
+	case "api.staging.volcano.dev":
+		return "staging"
+	default:
+		return "custom"
+	}
+}
+
 // Config represents the CLI configuration stored in ~/.volcano/config.json.
 type Config struct {
 	// APIBaseURL overrides the compiled API URL for synthetic command configs.

@@ -251,19 +251,19 @@ func TestDeprecatedLocalAliasIsHiddenAndStillWorks(t *testing.T) {
 func TestVersionFlag(t *testing.T) {
 	out, err := executeRootCommand(t, "--version")
 	require.NoError(t, err)
-	assert.Equal(t, "volcano dev (commit none, built unknown)\n", out)
+	assert.Equal(t, "volcano dev (commit none, built unknown)\nenvironment: production (https://api.volcano.dev)\n", out)
 }
 
 func TestVersionShortFlag(t *testing.T) {
 	out, err := executeRootCommand(t, "-v")
 	require.NoError(t, err)
-	assert.Equal(t, "volcano dev (commit none, built unknown)\n", out)
+	assert.Equal(t, "volcano dev (commit none, built unknown)\nenvironment: production (https://api.volcano.dev)\n", out)
 }
 
 func TestVersionSubcommand(t *testing.T) {
 	out, err := executeRootCommand(t, "version")
 	require.NoError(t, err)
-	assert.Equal(t, "volcano dev (commit none, built unknown)\n", out)
+	assert.Equal(t, "volcano dev (commit none, built unknown)\nenvironment: production (https://api.volcano.dev)\n", out)
 }
 
 func executeRootCommand(t *testing.T, args ...string) (string, error) {

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Kong/volcano-cli/internal/config"
 )
 
 const (
@@ -136,6 +138,16 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	}
 	if name, args, managed := UpgradeCommandFor(method); managed {
 		return upgradeViaManager(ctx, out, opts, method, name, args)
+	}
+	// Staging builds must never silently self-replace with a production `latest`
+	// binary. Homebrew-staging installs are handled above (managed); other
+	// staging installs (e.g. the curl installer's volcano-staging) are told how
+	// to update within the staging channel instead of reverting to production.
+	if config.CompiledEnvironmentLabel() == "staging" {
+		fmt.Fprintln(out, "This is a staging build of the Volcano CLI; `volcano upgrade` does not self-update staging installs.")
+		fmt.Fprintln(out, "Re-run the staging installer to update:")
+		fmt.Fprintln(out, "  curl -fsSL https://raw.githubusercontent.com/Kong/volcano-cli/main/scripts/install-volcano.sh | VOLCANO_VERSION=staging sh")
+		return nil
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")
