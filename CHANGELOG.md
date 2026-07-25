@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/Kong/volcano-cli/compare/v0.6.0...v0.6.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* **ci:** default all CLI release builds to staging so latest/npm install staging during the testing phase ([#92](https://github.com/Kong/volcano-cli/issues/92)) ([a2c3140](https://github.com/Kong/volcano-cli/commit/a2c3140c7bc2c8dbbf94c5e168d4eafed05a3f27))
+
 ## [0.6.0](https://github.com/Kong/volcano-cli/compare/v0.5.0...v0.6.0) (2026-07-25)
 
 
