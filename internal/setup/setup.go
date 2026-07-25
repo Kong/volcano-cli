@@ -63,7 +63,7 @@ func (r Report) Failed() bool {
 type Options struct {
 	HTTPDoer      HTTPDoer                     // skills fetch; default http.DefaultClient
 	CommandRunner CommandRunner                // marketplace shell-out; default os/exec
-	WebURL        string                       // default $VOLCANO_WEB_URL or https://volcano.dev
+	SkillsBaseURL string                       // skills source; default the volcano-skills GitHub raw base (tests inject a mock)
 	HomeDir       string                       // default os.UserHomeDir()
 	Getenv        func(string) string          // default os.Getenv
 	LookPath      func(string) (string, error) // default exec.LookPath
@@ -74,13 +74,17 @@ type Options struct {
 
 // resolved is Options after defaulting, passed to per-harness install funcs.
 type resolved struct {
-	doer   HTTPDoer
-	runner CommandRunner
-	webURL string
+	doer       HTTPDoer
+	runner     CommandRunner
+	skillsBase string
 }
 
 const (
-	defaultWebURL = "https://volcano.dev"
+	// defaultSkillsBase is the canonical skills source: the Kong/volcano-skills
+	// GitHub repo (also vendored into volcano-agentic-plugins as a submodule),
+	// served as raw file content. Setup reads skills only from here — never from
+	// volcano.dev, which is the web-app origin, not a skills host.
+	defaultSkillsBase = "https://raw.githubusercontent.com/Kong/volcano-skills/main"
 	// httpTimeout bounds each skill/manifest download when the caller does not
 	// inject its own client.
 	httpTimeout = 30 * time.Second
@@ -230,16 +234,12 @@ func (o Options) resolve() (resolved, environ, error) {
 		runner = execRunner{}
 	}
 
-	webURL := strings.TrimRight(strings.TrimSpace(o.WebURL), "/")
-	if webURL == "" {
-		if env := strings.TrimRight(strings.TrimSpace(getenv("VOLCANO_WEB_URL")), "/"); env != "" {
-			webURL = env
-		} else {
-			webURL = defaultWebURL
-		}
+	skillsBase := strings.TrimRight(strings.TrimSpace(o.SkillsBaseURL), "/")
+	if skillsBase == "" {
+		skillsBase = defaultSkillsBase
 	}
 
-	return resolved{doer: doer, runner: runner, webURL: webURL},
+	return resolved{doer: doer, runner: runner, skillsBase: skillsBase},
 		environ{home: home, getenv: getenv, lookPath: lookPath},
 		nil
 }

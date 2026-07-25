@@ -127,7 +127,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 		if agentsPath != nil {
 			ap = agentsPath(e)
 		}
-		n, err := materialize(ctx, res.doer, res.webURL, dir, ap)
+		n, err := materialize(ctx, res.doer, res.skillsBase, dir, ap)
 		if err != nil {
 			return "", err
 		}
@@ -140,7 +140,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 func manualInstall(ctx context.Context, e environ, res resolved) (string, error) {
 	base := filepath.Join(e.home, ".volcano")
 	skillsDir := filepath.Join(base, "skills")
-	n, err := materialize(ctx, res.doer, res.webURL, skillsDir, filepath.Join(base, "AGENTS.md"))
+	n, err := materialize(ctx, res.doer, res.skillsBase, skillsDir, filepath.Join(base, "AGENTS.md"))
 	if err != nil {
 		return "", err
 	}

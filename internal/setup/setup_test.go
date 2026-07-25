@@ -13,20 +13,22 @@ import (
 )
 
 // skillsServer serves a minimal skills manifest + content, mirroring the
-// VOLCANO_WEB_URL endpoints the CLI fetches from.
+// Kong/volcano-skills GitHub raw layout the CLI fetches from: /index.json,
+// /<name>/SKILL.md, /AGENTS.md.
 func skillsServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/skills/index.json", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/index.json", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"version":1,"skills":[
-			{"name":"volcano-platform","path":"/skills/volcano-platform/SKILL.md"},
-			{"name":"install-volcano","path":"/skills/install-volcano/SKILL.md"}]}`)
-	})
-	mux.HandleFunc("/skills/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, "# Skill "+r.URL.Path+"\nVolcano skill content\n")
+			{"name":"volcano-platform"},
+			{"name":"install-volcano"}]}`)
 	})
 	mux.HandleFunc("/AGENTS.md", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, "# Volcano AGENTS.md\n")
+	})
+	// Everything else is a skill file: /<name>/SKILL.md.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "# Skill "+r.URL.Path+"\nVolcano skill content\n")
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -67,11 +69,11 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	srv := skillsServer(t)
 
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins, // no claude/codex on PATH
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins, // no claude/codex on PATH
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -113,11 +115,11 @@ func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	t.Cleanup(badSkills.Close)
 
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: badSkills.Client(),
-		WebURL:   badSkills.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins,
+		HTTPDoer:      badSkills.Client(),
+		SkillsBaseURL: badSkills.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -184,12 +186,12 @@ func TestRun_LandingPaths(t *testing.T) {
 			home := t.TempDir()
 			srv := skillsServer(t)
 			report, err := Run(context.Background(), Options{
-				HTTPDoer: srv.Client(),
-				WebURL:   srv.URL,
-				HomeDir:  home,
-				Getenv:   emptyEnv,
-				LookPath: noBins,
-				Only:     []string{tc.harness},
+				HTTPDoer:      srv.Client(),
+				SkillsBaseURL: srv.URL,
+				HomeDir:       home,
+				Getenv:        emptyEnv,
+				LookPath:      noBins,
+				Only:          []string{tc.harness},
 			})
 			if err != nil {
 				t.Fatalf("Run: %v", err)
@@ -221,7 +223,7 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	runner := &fakeRunner{}
 	report, err := Run(context.Background(), Options{
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       home,
 		Getenv:        emptyEnv,
 		LookPath: func(bin string) (string, error) { // only claude present
@@ -249,7 +251,7 @@ func TestRun_CodexUsesPluginAdd(t *testing.T) {
 	runner := &fakeRunner{}
 	_, err := Run(context.Background(), Options{
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       t.TempDir(),
 		Getenv:        emptyEnv,
 		LookPath: func(bin string) (string, error) {
@@ -284,11 +286,11 @@ func TestRun_NoHarnessFallsBackToManual(t *testing.T) {
 	home := t.TempDir()
 	srv := skillsServer(t)
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins,
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -308,12 +310,12 @@ func TestRun_ManualFlagForcesManual(t *testing.T) {
 	mustMkdir(t, filepath.Join(home, ".cursor")) // present but must be ignored
 	srv := skillsServer(t)
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins,
-		Manual:   true,
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
+		Manual:        true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -354,7 +356,7 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 			return nil, errors.New("unreachable")
 		}),
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       home,
 		Getenv:        emptyEnv,
 		LookPath:      func(bin string) (string, error) { return "/usr/bin/" + bin, nil }, // claude+codex "present"
