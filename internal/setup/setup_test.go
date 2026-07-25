@@ -13,20 +13,22 @@ import (
 )
 
 // skillsServer serves a minimal skills manifest + content, mirroring the
-// VOLCANO_WEB_URL endpoints the CLI fetches from.
+// Kong/volcano-skills GitHub raw layout the CLI fetches from: /index.json,
+// /<name>/SKILL.md, /AGENTS.md.
 func skillsServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/skills/index.json", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/index.json", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"version":1,"skills":[
-			{"name":"volcano-platform","path":"/skills/volcano-platform/SKILL.md"},
-			{"name":"install-volcano","path":"/skills/install-volcano/SKILL.md"}]}`)
-	})
-	mux.HandleFunc("/skills/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, "# Skill "+r.URL.Path+"\nVolcano skill content\n")
+			{"name":"volcano-platform"},
+			{"name":"install-volcano"}]}`)
 	})
 	mux.HandleFunc("/AGENTS.md", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, "# Volcano AGENTS.md\n")
+	})
+	// Everything else is a skill file: /<name>/SKILL.md.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "# Skill "+r.URL.Path+"\nVolcano skill content\n")
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -47,13 +49,16 @@ func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte
 	return nil, f.err
 }
 
+// absentStatus is what statusOf returns when a harness is not in the report.
+const absentStatus = Status("<absent>")
+
 func statusOf(r Report, harness string) Status {
 	for _, res := range r.Results {
 		if res.Harness == harness {
 			return res.Status
 		}
 	}
-	return Status("<absent>")
+	return absentStatus
 }
 
 func TestRun_AutodetectInstallsDetected(t *testing.T) {
@@ -64,11 +69,11 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	srv := skillsServer(t)
 
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins, // no claude/codex on PATH
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins, // no claude/codex on PATH
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -93,6 +98,53 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	// opencode's global AGENTS.md is user-owned and must never be written.
 	if _, err := os.Stat(filepath.Join(home, ".config", "opencode", "AGENTS.md")); !os.IsNotExist(err) {
 		t.Errorf("opencode AGENTS.md must not be written (user-owned)")
+	}
+}
+
+// Autodetect is best-effort and hides only negative detection: a detected
+// harness whose install fails (here, a skills endpoint that errors) is shown as
+// [detected], not [fail], so `volcano setup` surfaces the detection without
+// exiting non-zero.
+func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
+	home := t.TempDir()
+	mustMkdir(t, filepath.Join(home, ".cursor"))
+	mustMkdir(t, filepath.Join(home, ".pi", "agent"))
+	badSkills := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(badSkills.Close)
+
+	report, err := Run(context.Background(), Options{
+		HTTPDoer:      badSkills.Client(),
+		SkillsBaseURL: badSkills.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if report.Failed() {
+		t.Fatalf("autodetect must not fail the command: %+v", report.Results)
+	}
+	// A detected harness whose install failed is shown as detected, not installed
+	// or failed.
+	for _, h := range []string{"cursor", "pi"} {
+		if got := statusOf(report, h); got != StatusDetected {
+			t.Errorf("%s: status = %q, want detected", h, got)
+		}
+	}
+	var b strings.Builder
+	RenderReport(&b, report)
+	if strings.Contains(b.String(), "[fail]") {
+		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
+	}
+	// Each detected-but-failed row must plainly say it failed to install.
+	if !strings.Contains(b.String(), "[detected]") || !strings.Contains(b.String(), "install failed") {
+		t.Errorf("want [detected] rows saying install failed, got:\n%s", b.String())
+	}
+	if !strings.Contains(b.String(), "Detected 2 harness(es), but installation failed.") {
+		t.Errorf("footer should note detected harnesses failed to install:\n%s", b.String())
 	}
 }
 
@@ -134,12 +186,12 @@ func TestRun_LandingPaths(t *testing.T) {
 			home := t.TempDir()
 			srv := skillsServer(t)
 			report, err := Run(context.Background(), Options{
-				HTTPDoer: srv.Client(),
-				WebURL:   srv.URL,
-				HomeDir:  home,
-				Getenv:   emptyEnv,
-				LookPath: noBins,
-				Only:     []string{tc.harness},
+				HTTPDoer:      srv.Client(),
+				SkillsBaseURL: srv.URL,
+				HomeDir:       home,
+				Getenv:        emptyEnv,
+				LookPath:      noBins,
+				Only:          []string{tc.harness},
 			})
 			if err != nil {
 				t.Fatalf("Run: %v", err)
@@ -171,7 +223,7 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	runner := &fakeRunner{}
 	report, err := Run(context.Background(), Options{
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       home,
 		Getenv:        emptyEnv,
 		LookPath: func(bin string) (string, error) { // only claude present
@@ -199,7 +251,7 @@ func TestRun_CodexUsesPluginAdd(t *testing.T) {
 	runner := &fakeRunner{}
 	_, err := Run(context.Background(), Options{
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       t.TempDir(),
 		Getenv:        emptyEnv,
 		LookPath: func(bin string) (string, error) {
@@ -234,11 +286,11 @@ func TestRun_NoHarnessFallsBackToManual(t *testing.T) {
 	home := t.TempDir()
 	srv := skillsServer(t)
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins,
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -258,12 +310,12 @@ func TestRun_ManualFlagForcesManual(t *testing.T) {
 	mustMkdir(t, filepath.Join(home, ".cursor")) // present but must be ignored
 	srv := skillsServer(t)
 	report, err := Run(context.Background(), Options{
-		HTTPDoer: srv.Client(),
-		WebURL:   srv.URL,
-		HomeDir:  home,
-		Getenv:   emptyEnv,
-		LookPath: noBins,
-		Manual:   true,
+		HTTPDoer:      srv.Client(),
+		SkillsBaseURL: srv.URL,
+		HomeDir:       home,
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
+		Manual:        true,
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -304,7 +356,7 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 			return nil, errors.New("unreachable")
 		}),
 		CommandRunner: runner,
-		WebURL:        "http://example.invalid",
+		SkillsBaseURL: "http://example.invalid",
 		HomeDir:       home,
 		Getenv:        emptyEnv,
 		LookPath:      func(bin string) (string, error) { return "/usr/bin/" + bin, nil }, // claude+codex "present"
@@ -344,6 +396,31 @@ func TestRun_FailedHarnessMarksReportFailed(t *testing.T) {
 	}
 }
 
+// A landed manual install must hand the user a relay prompt (the store in
+// ~/.volcano is inert until an agent is pointed at it); a dry run or a
+// non-manual report must not.
+func TestRenderReport_ManualPickupGuidance(t *testing.T) {
+	const prompt = "ask your coding agent"
+
+	var b strings.Builder
+	RenderReport(&b, Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusInstalled, Detail: "11 skills -> ~/.volcano/skills"}}})
+	if !strings.Contains(b.String(), prompt) || !strings.Contains(b.String(), "@~/.volcano/AGENTS.md") {
+		t.Errorf("manual install should print pickup guidance:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled, Detail: "marketplace"}}})
+	if strings.Contains(b.String(), prompt) {
+		t.Errorf("non-manual report must not print pickup guidance:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}})
+	if strings.Contains(b.String(), prompt) {
+		t.Errorf("dry-run must not print pickup guidance:\n%s", b.String())
+	}
+}
+
 type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
@@ -378,12 +455,22 @@ func TestRenderReport_Footer(t *testing.T) {
 		{
 			name:   "dry-run planned",
 			report: Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}, {Harness: "codex", Status: StatusSkipped}}},
-			want:   "Would install Volcano for 1 harness(es); 1 not detected.",
+			want:   "Would install Volcano for 1 harness(es).",
 		},
 		{
 			name:   "dry-run manual fallback",
 			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}},
 			want:   "would install Volcano skills to ~/.volcano/skills.",
+		},
+		{
+			name:   "autodetect with a detected install failure",
+			report: Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}, {Harness: "cursor", Status: StatusDetected}}},
+			want:   "Installed Volcano for 1 harness(es); 1 detected but failed to install.",
+		},
+		{
+			name:   "only detected install failures",
+			report: Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}},
+			want:   "Detected 1 harness(es), but installation failed.",
 		},
 		{
 			name:   "manual requested is not a fallback",

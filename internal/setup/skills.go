@@ -27,15 +27,15 @@ type skillIndex struct {
 	} `json:"skills"`
 }
 
-// materialize downloads the skills manifest from webURL and writes each
+// materialize downloads the skills manifest from baseURL and writes each
 // <name>/SKILL.md under skillsDir. When agentsPath is non-empty, AGENTS.md is
-// written there too. Returns the number of skills written. Content is the
-// plugin-published source of truth (VOLCANO_WEB_URL/skills/...), so the CLI
+// written there too. Returns the number of skills written. baseURL points at the
+// Kong/volcano-skills GitHub repo (raw), the single source of truth, so the CLI
 // carries no copy of the skills to drift.
-func materialize(ctx context.Context, doer HTTPDoer, webURL, skillsDir, agentsPath string) (int, error) {
-	webURL = strings.TrimRight(webURL, "/")
+func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsPath string) (int, error) {
+	baseURL = strings.TrimRight(baseURL, "/")
 
-	idxBody, err := fetchGET(ctx, doer, webURL+"/skills/index.json")
+	idxBody, err := fetchGET(ctx, doer, baseURL+"/index.json")
 	if err != nil {
 		return 0, fmt.Errorf("fetch skills index: %w", err)
 	}
@@ -44,7 +44,7 @@ func materialize(ctx context.Context, doer HTTPDoer, webURL, skillsDir, agentsPa
 		return 0, fmt.Errorf("parse skills index: %w", err)
 	}
 	if len(idx.Skills) == 0 {
-		return 0, fmt.Errorf("skills index %s/skills/index.json listed no skills", webURL)
+		return 0, fmt.Errorf("skills index %s/index.json listed no skills", baseURL)
 	}
 
 	if err := os.MkdirAll(skillsDir, 0o750); err != nil {
@@ -60,7 +60,7 @@ func materialize(ctx context.Context, doer HTTPDoer, webURL, skillsDir, agentsPa
 		// field is deliberately ignored so a manifest cannot repoint the fetch at
 		// another origin (e.g. a `path` of "@evil.example/x" turning the base into
 		// userinfo).
-		body, err := fetchGET(ctx, doer, webURL+"/skills/"+s.Name+"/SKILL.md")
+		body, err := fetchGET(ctx, doer, baseURL+"/"+s.Name+"/SKILL.md")
 		if err != nil {
 			return count, fmt.Errorf("fetch skill %s: %w", s.Name, err)
 		}
@@ -75,7 +75,7 @@ func materialize(ctx context.Context, doer HTTPDoer, webURL, skillsDir, agentsPa
 	}
 
 	if agentsPath != "" {
-		body, err := fetchGET(ctx, doer, webURL+"/AGENTS.md")
+		body, err := fetchGET(ctx, doer, baseURL+"/AGENTS.md")
 		if err != nil {
 			return count, fmt.Errorf("fetch AGENTS.md: %w", err)
 		}

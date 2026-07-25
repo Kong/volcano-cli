@@ -21,6 +21,9 @@ type Status string
 const (
 	// StatusInstalled means the harness was set up successfully.
 	StatusInstalled Status = "installed"
+	// StatusDetected means the harness was found on the machine but its install
+	// didn't complete (autodetect best-effort, not a command failure).
+	StatusDetected Status = "detected"
 	// StatusSkipped means the harness was not detected on this machine.
 	StatusSkipped Status = "skipped"
 	// StatusFailed means the harness was targeted but its install failed.
@@ -60,7 +63,7 @@ func (r Report) Failed() bool {
 type Options struct {
 	HTTPDoer      HTTPDoer                     // skills fetch; default http.DefaultClient
 	CommandRunner CommandRunner                // marketplace shell-out; default os/exec
-	WebURL        string                       // default $VOLCANO_WEB_URL or https://volcano.dev
+	SkillsBaseURL string                       // skills source; default the volcano-skills GitHub raw base (tests inject a mock)
 	HomeDir       string                       // default os.UserHomeDir()
 	Getenv        func(string) string          // default os.Getenv
 	LookPath      func(string) (string, error) // default exec.LookPath
@@ -71,21 +74,27 @@ type Options struct {
 
 // resolved is Options after defaulting, passed to per-harness install funcs.
 type resolved struct {
-	doer   HTTPDoer
-	runner CommandRunner
-	webURL string
+	doer       HTTPDoer
+	runner     CommandRunner
+	skillsBase string
 }
 
 const (
-	defaultWebURL = "https://volcano.dev"
+	// defaultSkillsBase is the canonical skills source: the Kong/volcano-skills
+	// GitHub repo (also vendored into volcano-agentic-plugins as a submodule),
+	// served as raw file content. Setup reads skills only from here — never from
+	// volcano.dev, which is the web-app origin, not a skills host.
+	defaultSkillsBase = "https://raw.githubusercontent.com/Kong/volcano-skills/main"
 	// httpTimeout bounds each skill/manifest download when the caller does not
 	// inject its own client.
 	httpTimeout = 30 * time.Second
 )
 
 // Run detects/targets harnesses and installs Volcano into each. It returns an
-// error only for setup-wide problems (e.g. an unknown --harness); an individual
-// harness failure is recorded in the report — inspect Report.Failed.
+// error only for setup-wide problems (e.g. an unknown --harness). Autodetect is
+// best-effort: a detected harness whose install fails is reported as detected
+// (not installed) rather than failed. Only an explicit --harness target records
+// a failure — inspect Report.Failed.
 func Run(ctx context.Context, opts Options) (Report, error) {
 	res, env, err := opts.resolve()
 	if err != nil {
@@ -100,7 +109,11 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		return Report{Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
 	}
 
-	// Autodetect: record every harness, install the detected ones.
+	// Autodetect is best-effort. Undetected harnesses are recorded as skipped and
+	// omitted from the rendered report. A detected harness we couldn't finish
+	// setting up — e.g. the skills endpoint isn't live yet — is reported as
+	// detected (install failed), not a hard failure; only an explicit --harness
+	// target turns an install failure into a command error.
 	var report Report
 	detected := 0
 	for _, h := range all {
@@ -109,7 +122,15 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 			continue
 		}
 		detected++
-		report.Results = append(report.Results, install(ctx, h, env, res, opts.DryRun))
+		r := install(ctx, h, env, res, opts.DryRun)
+		if r.Status == StatusFailed {
+			// Detected, but its install didn't complete: say so plainly instead of
+			// failing the whole command. The raw error is dropped — it's plumbing like
+			// "fetch skills index returned HTML" that means nothing to a user; rerun
+			// with --harness <name> to see it.
+			r.Status, r.Detail = StatusDetected, "install failed"
+		}
+		report.Results = append(report.Results, r)
 	}
 	if detected == 0 {
 		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -213,16 +234,12 @@ func (o Options) resolve() (resolved, environ, error) {
 		runner = execRunner{}
 	}
 
-	webURL := strings.TrimRight(strings.TrimSpace(o.WebURL), "/")
-	if webURL == "" {
-		if env := strings.TrimRight(strings.TrimSpace(getenv("VOLCANO_WEB_URL")), "/"); env != "" {
-			webURL = env
-		} else {
-			webURL = defaultWebURL
-		}
+	skillsBase := strings.TrimRight(strings.TrimSpace(o.SkillsBaseURL), "/")
+	if skillsBase == "" {
+		skillsBase = defaultSkillsBase
 	}
 
-	return resolved{doer: doer, runner: runner, webURL: webURL},
+	return resolved{doer: doer, runner: runner, skillsBase: skillsBase},
 		environ{home: home, getenv: getenv, lookPath: lookPath},
 		nil
 }
@@ -237,19 +254,23 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	installed, failed, skipped, planned := 0, 0, 0, 0
+	installed, detected, failed, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
 			installed++
+		case StatusDetected:
+			detected++
 		case StatusFailed:
 			failed++
 		case StatusSkipped:
-			skipped++
+			// Only negative detection is hidden: undetected harnesses aren't listed,
+			// in both real and dry runs. Everything detected is shown.
+			continue
 		case StatusPlanned:
 			planned++
 		}
-		line := fmt.Sprintf("  %-9s %-11s", statusMark(res.Status), res.Harness)
+		line := fmt.Sprintf("  %-10s %-11s", statusMark(res.Status), res.Harness)
 		if res.Detail != "" {
 			line += " " + res.Detail
 		}
@@ -261,24 +282,36 @@ func RenderReport(w io.Writer, r Report) {
 	case planned > 0 && r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — would install Volcano skills to ~/.volcano/skills.")
 	case planned > 0:
-		fmt.Fprintf(w, "Would install Volcano for %d harness(es)", planned)
-		if skipped > 0 {
-			fmt.Fprintf(w, "; %d not detected", skipped)
-		}
-		fmt.Fprintln(w, ".")
+		fmt.Fprintf(w, "Would install Volcano for %d harness(es).\n", planned)
 	case r.ManualFallback && failed > 0:
 		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
+	case installed == 0 && detected == 0 && failed == 0:
+		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
+	case installed == 0 && failed == 0:
+		// Harnesses detected, but none installed (detected > 0 here).
+		fmt.Fprintf(w, "Detected %d harness(es), but installation failed.\n", detected)
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
+		if detected > 0 {
+			fmt.Fprintf(w, "; %d detected but failed to install", detected)
+		}
 		if failed > 0 {
 			fmt.Fprintf(w, "; %d failed", failed)
 		}
-		if skipped > 0 {
-			fmt.Fprintf(w, "; %d not detected", skipped)
-		}
 		fmt.Fprintln(w, ".")
+	}
+
+	// A manual install drops skills into ~/.volcano, which no agent reads on its
+	// own. Rather than auto-editing config, hand the user a prompt to relay to
+	// whatever agent they use so it wires the store into its own rules/skills.
+	for _, res := range r.Results {
+		if res.Harness == manualHarness && res.Status == StatusInstalled {
+			fmt.Fprintln(w, "To finish, ask your coding agent:")
+			fmt.Fprintln(w, `  "Import @~/.volcano/AGENTS.md into your global rules and install the skills from @~/.volcano/skills."`)
+			break
+		}
 	}
 }
 
@@ -286,6 +319,8 @@ func statusMark(s Status) string {
 	switch s {
 	case StatusInstalled:
 		return "[ok]"
+	case StatusDetected:
+		return "[detected]"
 	case StatusFailed:
 		return "[fail]"
 	case StatusPlanned:
