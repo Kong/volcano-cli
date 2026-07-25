@@ -6,6 +6,10 @@ readonly VOLCANO_DEFAULT_VERSION="latest"
 readonly VOLCANO_SIGNATURE_WORKFLOW="https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
 readonly VOLCANO_SIGNATURE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 readonly VOLCANO_STABLE_TAG_SIGNATURE_IDENTITY_RE="^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$"
+# The moving `staging` release carries binaries signed under the concrete
+# staging-v<X.Y.Z> tag that produced them, so it verifies against a regex like
+# the stable channel rather than a single fixed identity.
+readonly VOLCANO_STAGING_TAG_SIGNATURE_IDENTITY_RE="^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/staging-v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$"
 readonly VOLCANO_NIGHTLY_SIGNATURE_IDENTITY="${VOLCANO_SIGNATURE_WORKFLOW}@refs/heads/main"
 VOLCANO_INSTALL_DIR="${VOLCANO_INSTALL_DIR:-}"
 
@@ -90,6 +94,12 @@ verify_signature() {
         --certificate-identity "$VOLCANO_NIGHTLY_SIGNATURE_IDENTITY" \
         --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
       ;;
+    staging)
+      cosign verify-blob "$file" \
+        --bundle "$bundle" \
+        --certificate-identity-regexp "$VOLCANO_STAGING_TAG_SIGNATURE_IDENTITY_RE" \
+        --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
+      ;;
     *)
       if [[ "$version" =~ $semver_re ]]; then
         identity="${VOLCANO_SIGNATURE_WORKFLOW}@refs/tags/${version}"
@@ -103,7 +113,7 @@ verify_signature() {
           --certificate-identity "$VOLCANO_NIGHTLY_SIGNATURE_IDENTITY" \
           --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
       else
-        fail "cannot verify signature for unsupported Volcano CLI version selector: ${version}; use latest, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
+        fail "cannot verify signature for unsupported Volcano CLI version selector: ${version}; use latest, staging, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
       fi
       ;;
   esac
@@ -127,6 +137,9 @@ release_asset_url() {
     nightly)
       echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/nightly/${asset}"
       ;;
+    staging)
+      echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/staging/${asset}"
+      ;;
     *)
       if [[ "$version" =~ $semver_re ]]; then
         echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/${version}/${asset}"
@@ -137,7 +150,7 @@ release_asset_url() {
         fi
         echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/nightly/${versioned_asset}"
       else
-        fail "unsupported Volcano CLI version selector: ${version}; use latest, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
+        fail "unsupported Volcano CLI version selector: ${version}; use latest, staging, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
       fi
       ;;
   esac
@@ -208,8 +221,14 @@ if [ ! -w "$INSTALL_DIR" ]; then
   fail "install directory is not writable: ${INSTALL_DIR}. Set VOLCANO_INSTALL_DIR to a writable path."
 fi
 
-INSTALL_PATH="${INSTALL_DIR}/volcano${EXT}"
-CLI_COMMAND="volcano${EXT}"
+# Staging installs land as `volcano-staging` so a machine can hold both the
+# production `volcano` and the staging build side by side.
+CLI_NAME="volcano"
+if [ "$VERSION" = "staging" ]; then
+  CLI_NAME="volcano-staging"
+fi
+INSTALL_PATH="${INSTALL_DIR}/${CLI_NAME}${EXT}"
+CLI_COMMAND="${CLI_NAME}${EXT}"
 if have install && [ "$OS" != "windows" ]; then
   install -m 0755 "$TMP_FILE" "$INSTALL_PATH"
 else
