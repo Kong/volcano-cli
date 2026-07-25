@@ -13,8 +13,13 @@ if [ -z "${GITHUB_ENV:-}" ]; then
   exit 1
 fi
 
-CLI_DEFAULT_API_URL="https://api.volcano.dev"
-CLI_DEFAULT_WEB_URL="https://volcano.dev"
+# ponytail: staging default for the whole testing phase so every release path
+# (including stable tags -> `latest`/npm/brew) builds against staging; restore
+# these two lines and each per-case block below before GA
+# CLI_DEFAULT_API_URL="https://api.volcano.dev"
+# CLI_DEFAULT_WEB_URL="https://volcano.dev"
+CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
+CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
 CLI_FIRST_PARTY_DEVICE_CLIENT_ID=""
 
 case "$REF" in
@@ -29,14 +34,20 @@ case "$REF" in
       echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH or nightly form v0.0.N-nightly.YYYYMMDD.NUMBER."
       exit 1
     fi
-    CLI_DEFAULT_API_URL="https://api.volcano.dev"
-    CLI_DEFAULT_WEB_URL="https://volcano.dev"
-    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
-    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
+    # ponytail: stable tags build against staging during the testing phase so
+    # `latest`/npm default to staging; restore these four lines before GA
+    # CLI_DEFAULT_API_URL="https://api.volcano.dev"
+    # CLI_DEFAULT_WEB_URL="https://volcano.dev"
+    # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
+    # REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
+    CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
+    CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
+    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
+    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
     CLI_VERSION="$REF_NAME"
     ;;
   refs/heads/main)
-    # ponytail: staging default scoped to main/nightly (prerelease, never latest/npm) for the testing phase; restore these four lines to end the staging test phase
+    # ponytail: staging default for the testing phase (nightly); restore these four lines before GA
     # CLI_DEFAULT_API_URL="https://api.volcano.dev"
     # CLI_DEFAULT_WEB_URL="https://volcano.dev"
     # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
