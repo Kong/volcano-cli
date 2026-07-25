@@ -120,9 +120,11 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		detected++
 		r := install(ctx, h, env, res, opts.DryRun)
 		if r.Status == StatusFailed {
-			// Show it was detected but its install didn't complete, without failing
-			// the whole command.
-			r.Status = StatusDetected
+			// Detected, but its install didn't complete: say so plainly instead of
+			// failing the whole command. The raw error is dropped — it's plumbing like
+			// "fetch skills index returned HTML" that means nothing to a user; rerun
+			// with --harness <name> to see it.
+			r.Status, r.Detail = StatusDetected, "install failed"
 		}
 		report.Results = append(report.Results, r)
 	}
@@ -288,12 +290,12 @@ func RenderReport(w io.Writer, r Report) {
 	case installed == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
 	case installed == 0 && failed == 0:
-		// Harnesses detected, but none finished installing (detected > 0 here).
-		fmt.Fprintf(w, "Detected %d harness(es), but installation didn't complete.\n", detected)
+		// Harnesses detected, but none installed (detected > 0 here).
+		fmt.Fprintf(w, "Detected %d harness(es), but installation failed.\n", detected)
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
 		if detected > 0 {
-			fmt.Fprintf(w, "; %d detected but not installed", detected)
+			fmt.Fprintf(w, "; %d detected but failed to install", detected)
 		}
 		if failed > 0 {
 			fmt.Fprintf(w, "; %d failed", failed)

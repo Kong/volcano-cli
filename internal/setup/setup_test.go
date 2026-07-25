@@ -137,11 +137,12 @@ func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	if strings.Contains(b.String(), "[fail]") {
 		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
 	}
-	if !strings.Contains(b.String(), "[detected]") {
-		t.Errorf("want [detected] rows, got:\n%s", b.String())
+	// Each detected-but-failed row must plainly say it failed to install.
+	if !strings.Contains(b.String(), "[detected]") || !strings.Contains(b.String(), "install failed") {
+		t.Errorf("want [detected] rows saying install failed, got:\n%s", b.String())
 	}
-	if !strings.Contains(b.String(), "Detected 2 harness(es)") {
-		t.Errorf("footer should note detected harnesses:\n%s", b.String())
+	if !strings.Contains(b.String(), "Detected 2 harness(es), but installation failed.") {
+		t.Errorf("footer should note detected harnesses failed to install:\n%s", b.String())
 	}
 }
 
@@ -437,12 +438,12 @@ func TestRenderReport_Footer(t *testing.T) {
 		{
 			name:   "autodetect with a detected install failure",
 			report: Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}, {Harness: "cursor", Status: StatusDetected}}},
-			want:   "Installed Volcano for 1 harness(es); 1 detected but not installed.",
+			want:   "Installed Volcano for 1 harness(es); 1 detected but failed to install.",
 		},
 		{
 			name:   "only detected install failures",
 			report: Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}},
-			want:   "Detected 1 harness(es), but installation didn't complete.",
+			want:   "Detected 1 harness(es), but installation failed.",
 		},
 		{
 			name:   "manual requested is not a fallback",
