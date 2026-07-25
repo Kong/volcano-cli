@@ -17,6 +17,7 @@ import (
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -78,6 +79,9 @@ func newVersionCmd() *cobra.Command {
 
 func printVersion(w io.Writer) {
 	fmt.Fprintf(w, "volcano %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+	// Surface which environment this build targets so a user can confirm whether
+	// they are on production or staging without inspecting network traffic.
+	fmt.Fprintf(w, "environment: %s (%s)\n", config.CompiledEnvironmentLabel(), config.CompiledDefaultAPIURL())
 }
 
 // debugToggle is a boolean pflag Value that flips API tracing on/off as soon as

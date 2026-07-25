@@ -32,6 +32,7 @@ func TestDetectInstallMethod(t *testing.T) {
 		{name: "pnpm global", path: "/home/u/Library/pnpm/global/5/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallPNPM},
 		{name: "bun global", path: "/home/u/.bun/install/global/node_modules/@volcano.dev/cli/bin/volcano-linux-amd64", want: InstallBun},
 		{name: "homebrew", path: "/opt/homebrew/Cellar/volcano/0.2.1/bin/volcano", want: InstallBrew},
+		{name: "homebrew staging", path: "/opt/homebrew/Cellar/volcano-staging/1.2.3/bin/volcano-staging", want: InstallBrewStaging},
 		{name: "script install", path: "/usr/local/bin/volcano", want: InstallScript},
 	}
 	for _, tt := range tests {
@@ -50,6 +51,96 @@ func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
 	exePath := filepath.Join(dir, "volcano")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, installMarkerName), []byte("pnpm\n"), 0o644))
 	assert.Equal(t, InstallPNPM, DetectInstallMethod(exePath))
+}
+
+func TestUpgradeStagingNpmInstallUsesStagingTag(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var gotArgs []string
+	var out bytes.Buffer
+	// A staging npm install must upgrade with @staging, never @latest (prod).
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallNPM,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, _ string, args ...string) error {
+			gotArgs = args
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"install", "-g", "@volcano.dev/cli@staging"}, gotArgs)
+}
+
+func TestUpgradeStagingScriptInstallRedirects(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var out bytes.Buffer
+	// A staging script install must not self-replace with a production `latest`
+	// binary; it is redirected to the staging installer. No HTTPClient is set, so
+	// any attempt to reach GitHub would fail the test.
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallScript,
+		ExecutablePath: exePath,
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out.String(), "staging installer")
+}
+
+func TestUpgradeStagingBrewStagingRunsStagingFormula(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano-staging")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var gotName string
+	var gotArgs []string
+	var out bytes.Buffer
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallBrewStaging,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "/opt/homebrew/bin/brew", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
+			gotName, gotArgs = name, args
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "brew", gotName)
+	assert.Equal(t, []string{"upgrade", "volcano-staging"}, gotArgs)
+}
+
+func TestUpgradeCommandForBrewStaging(t *testing.T) {
+	t.Parallel()
+
+	name, args, managed := UpgradeCommandFor(InstallBrewStaging)
+	assert.True(t, managed)
+	assert.Equal(t, "brew", name)
+	assert.Equal(t, []string{"upgrade", "volcano-staging"}, args)
+}
+
+func TestDetectInstallMethodBrewStagingMarker(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano-staging")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, installMarkerName), []byte("brew-staging\n"), 0o644))
+	assert.Equal(t, InstallBrewStaging, DetectInstallMethod(exePath))
 }
 
 func TestUpgradeDelegatesToPackageManager(t *testing.T) {

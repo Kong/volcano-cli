@@ -84,7 +84,13 @@ function writeInstallMarker() {
 }
 
 function releaseTag() {
-  // The npm package version maps 1:1 to the GitHub release tag `v<version>`.
+  // Staging prereleases (`X.Y.Z-staging[.N]`, published under the npm `staging`
+  // dist-tag) resolve to the immutable `staging-vX.Y.Z` GitHub release. Every
+  // other version maps 1:1 to the `v<version>` release tag.
+  const staging = /^(\d+\.\d+\.\d+)-staging(?:\.\d+)?$/.exec(pkg.version);
+  if (staging) {
+    return `staging-v${staging[1]}`;
+  }
   return `v${pkg.version}`;
 }
 

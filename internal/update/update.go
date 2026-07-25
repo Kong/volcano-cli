@@ -20,6 +20,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Kong/volcano-cli/internal/config"
 )
 
 const (
@@ -122,6 +124,12 @@ func assetDownloadHTTPClient(opts Options) HTTPClient {
 	return &http.Client{Transport: transport}
 }
 
+// compiledEnvironmentLabel reports the environment this build targets
+// ("production"/"staging"/"custom"). It is a package-level indirection over
+// config.CompiledEnvironmentLabel so tests can exercise the staging upgrade
+// guard without rebuilding with staging ldflags.
+var compiledEnvironmentLabel = config.CompiledEnvironmentLabel
+
 // Upgrade upgrades the CLI. It delegates to the package manager the CLI was
 // installed with (npm, brew, …); for script/manual installs it downloads the
 // latest release and replaces the running binary in place.
@@ -134,8 +142,21 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if method == InstallUnknown {
 		method = DetectInstallMethod(exePath)
 	}
+	// Package-manager installs upgrade in-channel: UpgradeCommandFor already maps
+	// a staging build to `@staging` / `brew upgrade volcano-staging`, so this
+	// never reverts a staging install to production.
 	if name, args, managed := UpgradeCommandFor(method); managed {
 		return upgradeViaManager(ctx, out, opts, method, name, args)
+	}
+	// Self-replace path (script/manual installs). Automatic in-channel staging
+	// self-upgrade is not implemented yet, so a staging build is redirected to
+	// the staging installer rather than self-replacing with a production
+	// `latest` binary.
+	if compiledEnvironmentLabel() == "staging" {
+		fmt.Fprintln(out, "This is a staging build of the Volcano CLI; `volcano upgrade` does not self-update script installs.")
+		fmt.Fprintln(out, "Re-run the staging installer to update:")
+		fmt.Fprintln(out, "  curl -fsSL https://raw.githubusercontent.com/Kong/volcano-cli/main/scripts/install-volcano.sh | VOLCANO_VERSION=staging sh")
+		return nil
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")

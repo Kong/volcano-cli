@@ -14,13 +14,17 @@ type InstallMethod string
 // Install method identifiers. InstallUnknown ("") means "not determined";
 // callers treat it like a script/manual install (self-replace).
 const (
-	InstallNPM     InstallMethod = "npm"
-	InstallPNPM    InstallMethod = "pnpm"
-	InstallYarn    InstallMethod = "yarn"
-	InstallBun     InstallMethod = "bun"
-	InstallBrew    InstallMethod = "brew"
-	InstallScript  InstallMethod = "script"
-	InstallUnknown InstallMethod = ""
+	InstallNPM  InstallMethod = "npm"
+	InstallPNPM InstallMethod = "pnpm"
+	InstallYarn InstallMethod = "yarn"
+	InstallBun  InstallMethod = "bun"
+	InstallBrew InstallMethod = "brew"
+	// InstallBrewStaging is a Homebrew install of the staging channel's
+	// `volcano-staging` formula, which coexists with the production `volcano`
+	// formula and must upgrade via `brew upgrade volcano-staging`.
+	InstallBrewStaging InstallMethod = "brew-staging"
+	InstallScript      InstallMethod = "script"
+	InstallUnknown     InstallMethod = ""
 )
 
 // npmPackageName is the published npm package. Upgrading a JS-package-manager
@@ -58,6 +62,8 @@ func readInstallMarker(dir string) InstallMethod {
 		return InstallBun
 	case "brew", "homebrew":
 		return InstallBrew
+	case "brew-staging":
+		return InstallBrewStaging
 	case "script":
 		return InstallScript
 	default:
@@ -68,6 +74,8 @@ func readInstallMarker(dir string) InstallMethod {
 func inferInstallMethod(exePath string) InstallMethod {
 	lower := strings.ToLower(filepath.ToSlash(exePath))
 	switch {
+	case strings.Contains(lower, "/cellar/volcano-staging/"):
+		return InstallBrewStaging
 	case strings.Contains(lower, "/cellar/volcano/"):
 		return InstallBrew
 	case strings.Contains(lower, "node_modules/"+npmPackageName):
@@ -90,17 +98,27 @@ func inferInstallMethod(exePath string) InstallMethod {
 // upgrades the CLI. managed is false for installs (script/manual/unknown) that
 // `volcano upgrade` handles itself by replacing the binary in place.
 func UpgradeCommandFor(m InstallMethod) (name string, args []string, managed bool) {
+	// npm-family installs re-install the shared package at the dist-tag matching
+	// this build's environment: production -> @latest, staging -> @staging. This
+	// keeps `volcano upgrade` on the channel the user deliberately chose instead
+	// of reverting a staging install to production.
+	npmSpec := npmPackageName + "@latest"
+	if compiledEnvironmentLabel() == "staging" {
+		npmSpec = npmPackageName + "@staging"
+	}
 	switch m {
 	case InstallNPM:
-		return "npm", []string{"install", "-g", npmPackageName + "@latest"}, true
+		return "npm", []string{"install", "-g", npmSpec}, true
 	case InstallPNPM:
-		return "pnpm", []string{"add", "-g", npmPackageName + "@latest"}, true
+		return "pnpm", []string{"add", "-g", npmSpec}, true
 	case InstallYarn:
-		return "yarn", []string{"global", "add", npmPackageName + "@latest"}, true
+		return "yarn", []string{"global", "add", npmSpec}, true
 	case InstallBun:
-		return "bun", []string{"add", "-g", npmPackageName + "@latest"}, true
+		return "bun", []string{"add", "-g", npmSpec}, true
 	case InstallBrew:
 		return "brew", []string{"upgrade", "volcano"}, true
+	case InstallBrewStaging:
+		return "brew", []string{"upgrade", "volcano-staging"}, true
 	default:
 		return "", nil, false
 	}
