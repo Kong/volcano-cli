@@ -246,7 +246,7 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	installed, failed, skipped, planned := 0, 0, 0, 0
+	installed, failed, planned := 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
@@ -254,9 +254,8 @@ func RenderReport(w io.Writer, r Report) {
 		case StatusFailed:
 			failed++
 		case StatusSkipped:
-			// Undetected harnesses are counted but not listed: the report shows
-			// only what was set up on the machine.
-			skipped++
+			// Undetected harnesses aren't listed: the report shows only what was set
+			// up on the machine, in both real and dry runs.
 			continue
 		case StatusPlanned:
 			planned++
@@ -273,11 +272,7 @@ func RenderReport(w io.Writer, r Report) {
 	case planned > 0 && r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — would install Volcano skills to ~/.volcano/skills.")
 	case planned > 0:
-		fmt.Fprintf(w, "Would install Volcano for %d harness(es)", planned)
-		if skipped > 0 {
-			fmt.Fprintf(w, "; %d not detected", skipped)
-		}
-		fmt.Fprintln(w, ".")
+		fmt.Fprintf(w, "Would install Volcano for %d harness(es).\n", planned)
 	case r.ManualFallback && failed > 0:
 		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
 	case r.ManualFallback:

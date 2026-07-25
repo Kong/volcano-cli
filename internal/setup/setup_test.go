@@ -47,13 +47,16 @@ func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte
 	return nil, f.err
 }
 
+// absentStatus is what statusOf returns when a harness is not in the report.
+const absentStatus = Status("<absent>")
+
 func statusOf(r Report, harness string) Status {
 	for _, res := range r.Results {
 		if res.Harness == harness {
 			return res.Status
 		}
 	}
-	return Status("<absent>")
+	return absentStatus
 }
 
 func TestRun_AutodetectInstallsDetected(t *testing.T) {
@@ -121,16 +124,21 @@ func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
 	if report.Failed() {
 		t.Fatalf("autodetect must not fail the command: %+v", report.Results)
 	}
-	// A detected-but-uninstallable harness must not appear as installed or failed.
+	// A detected-but-uninstallable harness must be dropped entirely, not retained
+	// under some other status.
 	for _, h := range []string{"cursor", "pi"} {
-		if got := statusOf(report, h); got == StatusInstalled || got == StatusFailed {
-			t.Errorf("%s: status = %q, want dropped (not installed/failed)", h, got)
+		if got := statusOf(report, h); got != absentStatus {
+			t.Errorf("%s: status = %q, want absent from report", h, got)
 		}
 	}
 	var b strings.Builder
 	RenderReport(&b, report)
 	if strings.Contains(b.String(), "[fail]") {
 		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
+	}
+	// With nothing installed, the footer must say so.
+	if !strings.Contains(b.String(), "No coding-agent harnesses were set up.") {
+		t.Errorf("want all-dropped footer, got:\n%s", b.String())
 	}
 }
 
@@ -416,7 +424,7 @@ func TestRenderReport_Footer(t *testing.T) {
 		{
 			name:   "dry-run planned",
 			report: Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}, {Harness: "codex", Status: StatusSkipped}}},
-			want:   "Would install Volcano for 1 harness(es); 1 not detected.",
+			want:   "Would install Volcano for 1 harness(es).",
 		},
 		{
 			name:   "dry-run manual fallback",
