@@ -142,21 +142,21 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if method == InstallUnknown {
 		method = DetectInstallMethod(exePath)
 	}
-	// A staging build must never upgrade itself onto a production release. Only
-	// the brew-staging formula has a correct in-channel upgrade command
-	// (`brew upgrade volcano-staging`); every other method would run a production
-	// command (npm/brew @latest) or self-replace from the production `latest`
-	// release, reverting the install to production. Guard this BEFORE the manager
-	// dispatch and redirect all non-brew-staging staging installs to the staging
-	// installer instead.
-	if compiledEnvironmentLabel() == "staging" && method != InstallBrewStaging {
-		fmt.Fprintln(out, "This is a staging build of the Volcano CLI; `volcano upgrade` does not self-update staging installs.")
+	// Package-manager installs upgrade in-channel: UpgradeCommandFor already maps
+	// a staging build to `@staging` / `brew upgrade volcano-staging`, so this
+	// never reverts a staging install to production.
+	if name, args, managed := UpgradeCommandFor(method); managed {
+		return upgradeViaManager(ctx, out, opts, method, name, args)
+	}
+	// Self-replace path (script/manual installs). Automatic in-channel staging
+	// self-upgrade is not implemented yet, so a staging build is redirected to
+	// the staging installer rather than self-replacing with a production
+	// `latest` binary.
+	if compiledEnvironmentLabel() == "staging" {
+		fmt.Fprintln(out, "This is a staging build of the Volcano CLI; `volcano upgrade` does not self-update script installs.")
 		fmt.Fprintln(out, "Re-run the staging installer to update:")
 		fmt.Fprintln(out, "  curl -fsSL https://raw.githubusercontent.com/Kong/volcano-cli/main/scripts/install-volcano.sh | VOLCANO_VERSION=staging sh")
 		return nil
-	}
-	if name, args, managed := UpgradeCommandFor(method); managed {
-		return upgradeViaManager(ctx, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")

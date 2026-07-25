@@ -2,15 +2,17 @@
 #
 # This is the source-of-truth template for the `volcano-staging` formula in the
 # Kong/homebrew-volcano tap. It installs the prebuilt, cosign-signed staging
-# binary as `volcano-staging`, so it coexists on one machine with the production
-# `volcano` formula.
+# build as the single `volcano` command and `conflicts_with` the production
+# `volcano` formula: on any one machine you deliberately install production OR
+# staging, matching the npm `@volcano.dev/cli` vs `@staging` choice.
 #
 # Homebrew has no channel/dist-tag concept, so staging ships as a SEPARATE
-# formula rather than a `volcano@staging` selector. Because the `staging`
-# release is a moving prerelease, the `url`s point at the moving `staging` tag
-# and the `version` + `sha256` values below must be refreshed on every staging
-# release. Until the cross-repo tap-sync automation lands, bump this file and
-# copy it into the tap by hand (see VOL-515 follow-ups).
+# formula (`brew install Kong/volcano/volcano-staging`) rather than a
+# `volcano@staging` selector. Because the `staging` release is a moving
+# prerelease, the `url`s point at the moving `staging` tag and the `version` +
+# `sha256` values below must be refreshed on every staging release. Until the
+# cross-repo tap-sync automation lands, bump this file and copy it into the tap
+# by hand (see VOL-517).
 #
 # A source build cannot reproduce staging: the staging device OAuth client id is
 # an environment-scoped value injected at build time, and the compiled defaults
@@ -47,12 +49,16 @@ class VolcanoStaging < Formula
     end
   end
 
+  # Installs the single `volcano` command; you run production or staging, not
+  # both, so it conflicts with the production formula.
+  conflicts_with "volcano", because: "both install a volcano binary"
+
   def install
-    bin.install Dir["volcano-*"].first => "volcano-staging"
-    chmod 0755, bin/"volcano-staging"
+    bin.install Dir["volcano-*"].first => "volcano"
+    chmod 0755, bin/"volcano"
   end
 
   test do
-    system bin/"volcano-staging", "--version"
+    system bin/"volcano", "--version"
   end
 end

@@ -42,8 +42,9 @@ curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.
 volcano --help
 ```
 
-For the internal staging build, install `volcano-staging` (coexists with a
-production `volcano`) — see [Installation details](docs/installation.md#staging-channel).
+For the internal staging build, install `@volcano.dev/cli@staging` (or the
+`volcano-staging` Homebrew formula) — same `volcano` command, staging
+environment. See [Installation details](docs/installation.md#staging-channel).
 
 Create a project directory and start local development:
 

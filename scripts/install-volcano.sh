@@ -221,14 +221,11 @@ if [ ! -w "$INSTALL_DIR" ]; then
   fail "install directory is not writable: ${INSTALL_DIR}. Set VOLCANO_INSTALL_DIR to a writable path."
 fi
 
-# Staging installs land as `volcano-staging` so a machine can hold both the
-# production `volcano` and the staging build side by side.
-CLI_NAME="volcano"
-if [ "$VERSION" = "staging" ]; then
-  CLI_NAME="volcano-staging"
-fi
-INSTALL_PATH="${INSTALL_DIR}/${CLI_NAME}${EXT}"
-CLI_COMMAND="${CLI_NAME}${EXT}"
+# Every channel installs the single `volcano` command; the selector chooses
+# which environment's build you get (production `latest` vs `staging`), and a
+# staging install replaces a production one (and vice versa).
+INSTALL_PATH="${INSTALL_DIR}/volcano${EXT}"
+CLI_COMMAND="volcano${EXT}"
 if have install && [ "$OS" != "windows" ]; then
   install -m 0755 "$TMP_FILE" "$INSTALL_PATH"
 else

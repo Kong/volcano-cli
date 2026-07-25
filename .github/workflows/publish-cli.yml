@@ -359,7 +359,9 @@ jobs:
           fi
 
           RELEASE_NOTES=""
-          if [ "$RELEASE_PRERELEASE" = "true" ]; then
+          if [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
+            RELEASE_NOTES="Automated staging build from ${GITHUB_SHA}."
+          elif [ "$RELEASE_PRERELEASE" = "true" ]; then
             RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
           fi
 
@@ -374,12 +376,13 @@ jobs:
             git push origin refs/tags/nightly --force
             publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
           elif [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
-            # Staging mirrors the nightly moving-alias mechanic: keep versioned
-            # copies for provenance and force-move a `staging` release. It is
-            # always prerelease/--latest=false, so it never becomes the latest
-            # release and never touches the production or npm-latest channels.
+            # Publish an immutable staging-vX.Y.Z release (npm @staging resolves
+            # to it via scripts/npm/download.js) AND force-move a `staging` alias
+            # release (the curl `staging` selector and Homebrew formula download
+            # from it). Both are prerelease/--latest=false, so staging never
+            # becomes the `latest` release or touches production/npm-latest.
             STAGING_ALIAS_NOTES="$(printf 'Latest staging build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
-            append_historical_assets "$RELEASE_TAG"
+            publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" --prerelease --latest=false
             git tag -f staging "$GITHUB_SHA"
             git push origin refs/tags/staging --force
             publish_release staging "$RELEASE_TITLE" "$STAGING_ALIAS_NOTES" --prerelease --latest=false
@@ -395,8 +398,6 @@ jobs:
           DOWNLOAD_RELEASE_TAG="$RELEASE_TAG"
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             DOWNLOAD_RELEASE_TAG="nightly"
-          elif [[ "$GITHUB_REF_NAME" == staging-v* ]]; then
-            DOWNLOAD_RELEASE_TAG="staging"
           fi
           gh release download "$DOWNLOAD_RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
@@ -476,3 +477,66 @@ jobs:
         env:
           VOLCANO_SKIP_DOWNLOAD: "1"
         run: npm publish --provenance --access public
+
+  publish-npm-staging:
+    name: Publish npm staging package
+    runs-on: ubuntu-latest # Trusted publishing requires GitHub-hosted runners
+    needs: [resolve-release, publish-github-release]
+    # Publish the staging build to npm under the `staging` dist-tag only (never
+    # `latest`). Uses the same OIDC trusted publisher as publish-npm (same
+    # workflow filename). Nightly (production prerelease) never reaches npm
+    # because it is neither prerelease==false nor environment==staging.
+    if: needs.resolve-release.outputs.environment == 'staging'
+    permissions:
+      contents: read
+      id-token: write # REQUIRED for npm trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
+      - name: Stamp staging npm version
+        id: npm_version
+        env:
+          CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
+        run: |
+          set -euo pipefail
+          # staging-vX.Y.Z -> X.Y.Z-staging (a valid semver prerelease). The
+          # published package's postinstall maps this back to the immutable
+          # staging-vX.Y.Z release (scripts/npm/download.js).
+          BASE="${CLI_VERSION#staging-v}"
+          if [ "$BASE" = "$CLI_VERSION" ]; then
+            echo "Expected a staging-vX.Y.Z tag, got ${CLI_VERSION}."
+            exit 1
+          fi
+          NPM_VERSION="${BASE}-staging"
+          npm version --no-git-tag-version --allow-same-version "$NPM_VERSION"
+          echo "version=${NPM_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify staging release assets exist
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+          for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
+            asset="volcano-${target}"
+            if [ "$target" = "windows-amd64" ]; then
+              asset="${asset}.exe"
+            fi
+            echo "Checking ${base}/${asset}"
+            curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/${asset}"
+          done
+          echo "Checking ${base}/SHA256SUMS"
+          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -r 0-0 -o /dev/null "${base}/SHA256SUMS"
+
+      - name: Publish staging to npm
+        env:
+          VOLCANO_SKIP_DOWNLOAD: "1"
+        run: npm publish --provenance --access public --tag staging

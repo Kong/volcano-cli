@@ -53,30 +53,49 @@ func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
 	assert.Equal(t, InstallPNPM, DetectInstallMethod(exePath))
 }
 
-func TestUpgradeStagingBuildRedirectsNonBrewStagingInstall(t *testing.T) {
+func TestUpgradeStagingNpmInstallUsesStagingTag(t *testing.T) {
 	old := compiledEnvironmentLabel
 	compiledEnvironmentLabel = func() string { return "staging" }
 	defer func() { compiledEnvironmentLabel = old }()
 
 	dir := t.TempDir()
-	exePath := filepath.Join(dir, "volcano-staging")
+	exePath := filepath.Join(dir, "volcano")
 	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
 
-	managerCalled := false
+	var gotArgs []string
 	var out bytes.Buffer
-	// A staging build misdetected/marked as a production npm install must NOT
-	// run `npm install -g @volcano.dev/cli@latest` (which reverts to production).
+	// A staging npm install must upgrade with @staging, never @latest (prod).
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallNPM,
 		ExecutablePath: exePath,
 		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
-		ManagerRunner: func(_ context.Context, _ io.Writer, _ string, _ ...string) error {
-			managerCalled = true
+		ManagerRunner: func(_ context.Context, _ io.Writer, _ string, args ...string) error {
+			gotArgs = args
 			return nil
 		},
 	})
 	require.NoError(t, err)
-	assert.False(t, managerCalled, "staging build must not invoke a production package-manager upgrade")
+	assert.Equal(t, []string{"install", "-g", "@volcano.dev/cli@staging"}, gotArgs)
+}
+
+func TestUpgradeStagingScriptInstallRedirects(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var out bytes.Buffer
+	// A staging script install must not self-replace with a production `latest`
+	// binary; it is redirected to the staging installer. No HTTPClient is set, so
+	// any attempt to reach GitHub would fail the test.
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallScript,
+		ExecutablePath: exePath,
+	})
+	require.NoError(t, err)
 	assert.Contains(t, out.String(), "staging installer")
 }
 
