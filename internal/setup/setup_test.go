@@ -100,6 +100,44 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 // the manual fallback) materializes the FULL skill set into its exact expected
 // directory, plus AGENTS.md where that harness expects one. Uses --harness to
 // target each in isolation.
+// Autodetect is best-effort: a detected harness that can't finish setup (here, a
+// skills endpoint that errors) is quietly dropped, never surfaced as [fail], so
+// `volcano setup` doesn't exit non-zero. The one harness that installs is shown.
+func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
+	home := t.TempDir()
+	mustMkdir(t, filepath.Join(home, ".cursor"))
+	mustMkdir(t, filepath.Join(home, ".pi", "agent"))
+	badSkills := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(badSkills.Close)
+
+	report, err := Run(context.Background(), Options{
+		HTTPDoer: badSkills.Client(),
+		WebURL:   badSkills.URL,
+		HomeDir:  home,
+		Getenv:   emptyEnv,
+		LookPath: noBins,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if report.Failed() {
+		t.Fatalf("autodetect must not fail the command: %+v", report.Results)
+	}
+	// A detected-but-uninstallable harness must not appear as installed or failed.
+	for _, h := range []string{"cursor", "pi"} {
+		if got := statusOf(report, h); got == StatusInstalled || got == StatusFailed {
+			t.Errorf("%s: status = %q, want dropped (not installed/failed)", h, got)
+		}
+	}
+	var b strings.Builder
+	RenderReport(&b, report)
+	if strings.Contains(b.String(), "[fail]") {
+		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
+	}
+}
+
 func TestRun_LandingPaths(t *testing.T) {
 	// Skills the test manifest advertises (skillsServer).
 	skills := []string{"volcano-platform", "install-volcano"}

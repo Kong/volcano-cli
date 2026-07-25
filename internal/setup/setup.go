@@ -100,7 +100,12 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		return Report{Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
 	}
 
-	// Autodetect: record every harness, install the detected ones.
+	// Autodetect is best-effort. Undetected harnesses are recorded as skipped and
+	// omitted from the rendered report. A detected harness we couldn't finish
+	// setting up — e.g. the skills endpoint isn't live yet — is quietly dropped
+	// rather than surfaced as a failure; only an explicit --harness target turns an
+	// install failure into a hard error. So the report lists exactly what was set
+	// up on the machine.
 	var report Report
 	detected := 0
 	for _, h := range all {
@@ -109,7 +114,9 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 			continue
 		}
 		detected++
-		report.Results = append(report.Results, install(ctx, h, env, res, opts.DryRun))
+		if r := install(ctx, h, env, res, opts.DryRun); r.Status != StatusFailed {
+			report.Results = append(report.Results, r)
+		}
 	}
 	if detected == 0 {
 		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -245,7 +252,10 @@ func RenderReport(w io.Writer, r Report) {
 		case StatusFailed:
 			failed++
 		case StatusSkipped:
+			// Undetected harnesses are counted but not listed: the report shows
+			// only what was set up on the machine.
 			skipped++
+			continue
 		case StatusPlanned:
 			planned++
 		}
@@ -270,13 +280,12 @@ func RenderReport(w io.Writer, r Report) {
 		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
+	case installed == 0 && failed == 0:
+		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
 		if failed > 0 {
 			fmt.Fprintf(w, "; %d failed", failed)
-		}
-		if skipped > 0 {
-			fmt.Fprintf(w, "; %d not detected", skipped)
 		}
 		fmt.Fprintln(w, ".")
 	}
