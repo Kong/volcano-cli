@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/Kong/volcano-cli/compare/v0.5.0...v0.6.0) (2026-07-25)
+
+
+### Features
+
+* **setup:** add volcano setup to install agent skills/plugins into detected harnesses ([#88](https://github.com/Kong/volcano-cli/issues/88)) ([7a46b68](https://github.com/Kong/volcano-cli/commit/7a46b6880bad967e9aee09d31bddc253d554a162))
+
+
+### Bug Fixes
+
+* default CLI release builds to staging for testing phase ([#68](https://github.com/Kong/volcano-cli/issues/68)) ([99daffe](https://github.com/Kong/volcano-cli/commit/99daffee2b109d0449b88ecd00a74151ccd0cb72))
+
 ## [0.5.0](https://github.com/Kong/volcano-cli/compare/v0.4.0...v0.5.0) (2026-07-23)
 
 
