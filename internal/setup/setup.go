@@ -21,6 +21,9 @@ type Status string
 const (
 	// StatusInstalled means the harness was set up successfully.
 	StatusInstalled Status = "installed"
+	// StatusDetected means the harness was found on the machine but its install
+	// didn't complete (autodetect best-effort, not a command failure).
+	StatusDetected Status = "detected"
 	// StatusSkipped means the harness was not detected on this machine.
 	StatusSkipped Status = "skipped"
 	// StatusFailed means the harness was targeted but its install failed.
@@ -85,9 +88,9 @@ const (
 
 // Run detects/targets harnesses and installs Volcano into each. It returns an
 // error only for setup-wide problems (e.g. an unknown --harness). Autodetect is
-// best-effort: a detected harness that can't be set up is dropped from the
-// report rather than failed. Only an explicit --harness target records a failure
-// — inspect Report.Failed.
+// best-effort: a detected harness whose install fails is reported as detected
+// (not installed) rather than failed. Only an explicit --harness target records
+// a failure — inspect Report.Failed.
 func Run(ctx context.Context, opts Options) (Report, error) {
 	res, env, err := opts.resolve()
 	if err != nil {
@@ -104,10 +107,9 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 
 	// Autodetect is best-effort. Undetected harnesses are recorded as skipped and
 	// omitted from the rendered report. A detected harness we couldn't finish
-	// setting up — e.g. the skills endpoint isn't live yet — is quietly dropped
-	// rather than surfaced as a failure; only an explicit --harness target turns an
-	// install failure into a hard error. So the report lists exactly what was set
-	// up on the machine.
+	// setting up — e.g. the skills endpoint isn't live yet — is reported as
+	// detected (install failed), not a hard failure; only an explicit --harness
+	// target turns an install failure into a command error.
 	var report Report
 	detected := 0
 	for _, h := range all {
@@ -116,9 +118,13 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 			continue
 		}
 		detected++
-		if r := install(ctx, h, env, res, opts.DryRun); r.Status != StatusFailed {
-			report.Results = append(report.Results, r)
+		r := install(ctx, h, env, res, opts.DryRun)
+		if r.Status == StatusFailed {
+			// Show it was detected but its install didn't complete, without failing
+			// the whole command.
+			r.Status = StatusDetected
 		}
+		report.Results = append(report.Results, r)
 	}
 	if detected == 0 {
 		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -246,21 +252,23 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	installed, failed, planned := 0, 0, 0
+	installed, detected, failed, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
 			installed++
+		case StatusDetected:
+			detected++
 		case StatusFailed:
 			failed++
 		case StatusSkipped:
-			// Undetected harnesses aren't listed: the report shows only what was set
-			// up on the machine, in both real and dry runs.
+			// Only negative detection is hidden: undetected harnesses aren't listed,
+			// in both real and dry runs. Everything detected is shown.
 			continue
 		case StatusPlanned:
 			planned++
 		}
-		line := fmt.Sprintf("  %-9s %-11s", statusMark(res.Status), res.Harness)
+		line := fmt.Sprintf("  %-10s %-11s", statusMark(res.Status), res.Harness)
 		if res.Detail != "" {
 			line += " " + res.Detail
 		}
@@ -277,10 +285,16 @@ func RenderReport(w io.Writer, r Report) {
 		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
-	case installed == 0 && failed == 0:
+	case installed == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
+	case installed == 0 && failed == 0:
+		// Harnesses detected, but none finished installing (detected > 0 here).
+		fmt.Fprintf(w, "Detected %d harness(es), but installation didn't complete.\n", detected)
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
+		if detected > 0 {
+			fmt.Fprintf(w, "; %d detected but not installed", detected)
+		}
 		if failed > 0 {
 			fmt.Fprintf(w, "; %d failed", failed)
 		}
@@ -292,6 +306,8 @@ func statusMark(s Status) string {
 	switch s {
 	case StatusInstalled:
 		return "[ok]"
+	case StatusDetected:
+		return "[detected]"
 	case StatusFailed:
 		return "[fail]"
 	case StatusPlanned:

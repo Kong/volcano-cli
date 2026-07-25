@@ -99,10 +99,11 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 	}
 }
 
-// Autodetect is best-effort: a detected harness that can't finish setup (here, a
-// skills endpoint that errors) is quietly dropped, never surfaced as [fail], so
-// `volcano setup` doesn't exit non-zero.
-func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
+// Autodetect is best-effort and hides only negative detection: a detected
+// harness whose install fails (here, a skills endpoint that errors) is shown as
+// [detected], not [fail], so `volcano setup` surfaces the detection without
+// exiting non-zero.
+func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	home := t.TempDir()
 	mustMkdir(t, filepath.Join(home, ".cursor"))
 	mustMkdir(t, filepath.Join(home, ".pi", "agent"))
@@ -124,11 +125,11 @@ func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
 	if report.Failed() {
 		t.Fatalf("autodetect must not fail the command: %+v", report.Results)
 	}
-	// A detected-but-uninstallable harness must be dropped entirely, not retained
-	// under some other status.
+	// A detected harness whose install failed is shown as detected, not installed
+	// or failed.
 	for _, h := range []string{"cursor", "pi"} {
-		if got := statusOf(report, h); got != absentStatus {
-			t.Errorf("%s: status = %q, want absent from report", h, got)
+		if got := statusOf(report, h); got != StatusDetected {
+			t.Errorf("%s: status = %q, want detected", h, got)
 		}
 	}
 	var b strings.Builder
@@ -136,9 +137,11 @@ func TestRun_AutodetectDropsUninstallableHarnesses(t *testing.T) {
 	if strings.Contains(b.String(), "[fail]") {
 		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
 	}
-	// With nothing installed, the footer must say so.
-	if !strings.Contains(b.String(), "No coding-agent harnesses were set up.") {
-		t.Errorf("want all-dropped footer, got:\n%s", b.String())
+	if !strings.Contains(b.String(), "[detected]") {
+		t.Errorf("want [detected] rows, got:\n%s", b.String())
+	}
+	if !strings.Contains(b.String(), "Detected 2 harness(es)") {
+		t.Errorf("footer should note detected harnesses:\n%s", b.String())
 	}
 }
 
@@ -430,6 +433,16 @@ func TestRenderReport_Footer(t *testing.T) {
 			name:   "dry-run manual fallback",
 			report: Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusPlanned}}},
 			want:   "would install Volcano skills to ~/.volcano/skills.",
+		},
+		{
+			name:   "autodetect with a detected install failure",
+			report: Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}, {Harness: "cursor", Status: StatusDetected}}},
+			want:   "Installed Volcano for 1 harness(es); 1 detected but not installed.",
+		},
+		{
+			name:   "only detected install failures",
+			report: Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}},
+			want:   "Detected 1 harness(es), but installation didn't complete.",
 		},
 		{
 			name:   "manual requested is not a fallback",
