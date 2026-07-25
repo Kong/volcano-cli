@@ -124,6 +124,12 @@ func assetDownloadHTTPClient(opts Options) HTTPClient {
 	return &http.Client{Transport: transport}
 }
 
+// compiledEnvironmentLabel reports the environment this build targets
+// ("production"/"staging"/"custom"). It is a package-level indirection over
+// config.CompiledEnvironmentLabel so tests can exercise the staging upgrade
+// guard without rebuilding with staging ldflags.
+var compiledEnvironmentLabel = config.CompiledEnvironmentLabel
+
 // Upgrade upgrades the CLI. It delegates to the package manager the CLI was
 // installed with (npm, brew, …); for script/manual installs it downloads the
 // latest release and replaces the running binary in place.
@@ -136,18 +142,21 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 	if method == InstallUnknown {
 		method = DetectInstallMethod(exePath)
 	}
-	if name, args, managed := UpgradeCommandFor(method); managed {
-		return upgradeViaManager(ctx, out, opts, method, name, args)
-	}
-	// Staging builds must never silently self-replace with a production `latest`
-	// binary. Homebrew-staging installs are handled above (managed); other
-	// staging installs (e.g. the curl installer's volcano-staging) are told how
-	// to update within the staging channel instead of reverting to production.
-	if config.CompiledEnvironmentLabel() == "staging" {
+	// A staging build must never upgrade itself onto a production release. Only
+	// the brew-staging formula has a correct in-channel upgrade command
+	// (`brew upgrade volcano-staging`); every other method would run a production
+	// command (npm/brew @latest) or self-replace from the production `latest`
+	// release, reverting the install to production. Guard this BEFORE the manager
+	// dispatch and redirect all non-brew-staging staging installs to the staging
+	// installer instead.
+	if compiledEnvironmentLabel() == "staging" && method != InstallBrewStaging {
 		fmt.Fprintln(out, "This is a staging build of the Volcano CLI; `volcano upgrade` does not self-update staging installs.")
 		fmt.Fprintln(out, "Re-run the staging installer to update:")
 		fmt.Fprintln(out, "  curl -fsSL https://raw.githubusercontent.com/Kong/volcano-cli/main/scripts/install-volcano.sh | VOLCANO_VERSION=staging sh")
 		return nil
+	}
+	if name, args, managed := UpgradeCommandFor(method); managed {
+		return upgradeViaManager(ctx, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")

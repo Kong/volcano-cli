@@ -53,6 +53,59 @@ func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
 	assert.Equal(t, InstallPNPM, DetectInstallMethod(exePath))
 }
 
+func TestUpgradeStagingBuildRedirectsNonBrewStagingInstall(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano-staging")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	managerCalled := false
+	var out bytes.Buffer
+	// A staging build misdetected/marked as a production npm install must NOT
+	// run `npm install -g @volcano.dev/cli@latest` (which reverts to production).
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallNPM,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, _ string, _ ...string) error {
+			managerCalled = true
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, managerCalled, "staging build must not invoke a production package-manager upgrade")
+	assert.Contains(t, out.String(), "staging installer")
+}
+
+func TestUpgradeStagingBrewStagingRunsStagingFormula(t *testing.T) {
+	old := compiledEnvironmentLabel
+	compiledEnvironmentLabel = func() string { return "staging" }
+	defer func() { compiledEnvironmentLabel = old }()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano-staging")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var gotName string
+	var gotArgs []string
+	var out bytes.Buffer
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallBrewStaging,
+		ExecutablePath: exePath,
+		LookPath:       func(string) (string, error) { return "/opt/homebrew/bin/brew", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
+			gotName, gotArgs = name, args
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "brew", gotName)
+	assert.Equal(t, []string{"upgrade", "volcano-staging"}, gotArgs)
+}
+
 func TestUpgradeCommandForBrewStaging(t *testing.T) {
 	t.Parallel()
 
