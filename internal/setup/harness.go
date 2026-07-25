@@ -123,14 +123,21 @@ func marketplaceInstall(bin string, cmds [][]string) func(context.Context, envir
 }
 
 // alreadyPresent reports whether a failed plugin/marketplace command failed only
-// because the target was already registered — a no-op on rerun, not a real
-// error. A genuine failure (network, auth, bad repo) won't carry these phrases,
-// and if the add truly failed the following install step fails for real.
+// because *our* plugin/marketplace was already registered — a no-op on rerun,
+// not a real error. It requires both a known "already …" phrase and a mention of
+// our own marketplace/plugin ("volcano"), so a genuine failure on the terminal
+// install command (which has no following step to catch it) isn't masked just
+// because its output happens to contain a generic phrase like a filesystem
+// "destination directory already exists".
 //
-// ponytail: substring match on known phrases; widen the phrase set if a harness
-// version words "already registered" differently.
+// ponytail: substring heuristic. An "already added from a different source"
+// conflict still names our marketplace and would be tolerated; if that surfaces,
+// match the exact per-harness rerun phrasing instead.
 func alreadyPresent(out []byte) bool {
 	s := strings.ToLower(string(out))
+	if !strings.Contains(s, "volcano") { // pluginRef/marketplaceRepo both contain it
+		return false
+	}
 	for _, phrase := range []string{"already added", "already installed", "already exists", "already present", "already registered"} {
 		if strings.Contains(s, phrase) {
 			return true

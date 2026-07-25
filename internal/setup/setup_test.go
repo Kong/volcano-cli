@@ -39,15 +39,25 @@ func noBins(string) (string, error) { return "", errors.New("not found") }
 
 func emptyEnv(string) string { return "" }
 
+type runResult struct {
+	out []byte
+	err error
+}
+
 type fakeRunner struct {
-	calls [][]string
-	out   []byte // combined output returned for every call
-	err   error
+	calls   [][]string
+	err     error       // fallback error for every call when results is unset/exhausted
+	results []runResult // scripted per-call results, consumed in order
 }
 
 func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, append([]string{name}, args...))
-	return f.out, f.err
+	if len(f.results) > 0 {
+		r := f.results[0]
+		f.results = f.results[1:]
+		return r.out, r.err
+	}
+	return nil, f.err
 }
 
 // absentStatus is what statusOf returns when a harness is not in the report.
@@ -283,25 +293,27 @@ func assertCalls(t *testing.T, got [][]string, want []string) {
 	}
 }
 
-// A rerun of `volcano setup` re-adds an already-registered marketplace/plugin.
-// The harness CLI exits non-zero but its output says "already added"; that must
-// be a no-op success, not a spurious failure.
-func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
-	runner := &fakeRunner{
-		out: []byte("error: marketplace 'volcano-agentic-plugins' already added from this source"),
-		err: errors.New("exit status 1"),
+func onlyCodex(bin string) (string, error) {
+	if bin == "codex" {
+		return "/usr/bin/codex", nil
 	}
+	return "", errors.New("not found")
+}
+
+// A rerun of `volcano setup`: the marketplace add reports our marketplace is
+// "already added" (non-zero exit), then the plugin add succeeds. Both commands
+// must run and the harness must end installed, not spuriously failed.
+func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
+	runner := &fakeRunner{results: []runResult{
+		{out: []byte("error: marketplace 'volcano-agentic-plugins' already added from this source"), err: errors.New("exit status 1")},
+		{}, // codex plugin add succeeds
+	}}
 	report, err := Run(context.Background(), Options{
 		CommandRunner: runner,
 		HomeDir:       t.TempDir(),
 		Getenv:        emptyEnv,
-		LookPath: func(bin string) (string, error) {
-			if bin == "codex" {
-				return "/usr/bin/codex", nil
-			}
-			return "", errors.New("not found")
-		},
-		Only: []string{"codex"},
+		LookPath:      onlyCodex,
+		Only:          []string{"codex"},
 	})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -311,6 +323,32 @@ func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 	}
 	if got := statusOf(report, "codex"); got != StatusInstalled {
 		t.Fatalf("codex status = %q, want installed on idempotent rerun", got)
+	}
+	if len(runner.calls) != 2 {
+		t.Fatalf("both codex commands must run, got %v", runner.calls)
+	}
+}
+
+// A genuine failure on the terminal command (no following step to catch it)
+// must stay fatal even when its output contains a generic "already …" phrase,
+// as long as it doesn't name our plugin — e.g. a filesystem error.
+func TestRun_MarketplaceTerminalFailureStaysFatal(t *testing.T) {
+	runner := &fakeRunner{results: []runResult{
+		{}, // marketplace add succeeds
+		{out: []byte("mkdir /opt/plugins: destination directory already exists"), err: errors.New("exit status 1")},
+	}}
+	report, err := Run(context.Background(), Options{
+		CommandRunner: runner,
+		HomeDir:       t.TempDir(),
+		Getenv:        emptyEnv,
+		LookPath:      onlyCodex,
+		Only:          []string{"codex"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !report.Failed() {
+		t.Fatalf("unrelated terminal failure must stay fatal: %+v", report.Results)
 	}
 }
 
