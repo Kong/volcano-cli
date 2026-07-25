@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/Kong/volcano-cli/compare/v0.6.2...v0.6.3) (2026-07-25)
+
+
+### Bug Fixes
+
+* **setup:** tolerate already-registered plugins on marketplace rerun ([#96](https://github.com/Kong/volcano-cli/issues/96)) ([7866a9e](https://github.com/Kong/volcano-cli/commit/7866a9e730085d3257311f2ba4026a4a45fd6804))
+
 ## [0.6.2](https://github.com/Kong/volcano-cli/compare/v0.6.1...v0.6.2) (2026-07-25)
 
 
