@@ -106,15 +106,44 @@ const manualHarness = "manual"
 // commands, running each argv (after bin) in sequence. Preferred over file-drop
 // wherever a harness provides such commands so the plugin registers in that
 // harness's own plugin registry.
+//
+// `volcano setup` is expected to be re-run, so a command that fails only because
+// the marketplace/plugin is already registered is treated as a no-op success:
+// claude and codex share no exit-code contract for "already added", so their
+// output text is the only cross-harness signal.
 func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
 	return func(ctx context.Context, _ environ, res resolved) (string, error) {
 		for _, args := range cmds {
-			if out, err := res.runner.Run(ctx, bin, args...); err != nil {
+			if out, err := res.runner.Run(ctx, bin, args...); err != nil && !alreadyPresent(out) {
 				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
 		return "marketplace: " + pluginRef, nil
 	}
+}
+
+// alreadyPresent reports whether a failed plugin/marketplace command failed only
+// because *our* plugin/marketplace was already registered — a no-op on rerun,
+// not a real error. It requires both a known "already …" phrase and a mention of
+// our own marketplace/plugin ("volcano"), so a genuine failure on the terminal
+// install command (which has no following step to catch it) isn't masked just
+// because its output happens to contain a generic phrase like a filesystem
+// "destination directory already exists".
+//
+// ponytail: substring heuristic. An "already added from a different source"
+// conflict still names our marketplace and would be tolerated; if that surfaces,
+// match the exact per-harness rerun phrasing instead.
+func alreadyPresent(out []byte) bool {
+	s := strings.ToLower(string(out))
+	if !strings.Contains(s, "volcano") { // pluginRef/marketplaceRepo both contain it
+		return false
+	}
+	for _, phrase := range []string{"already added", "already installed", "already exists", "already present", "already registered"} {
+		if strings.Contains(s, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // skillsInstall file-drops skills into a harness's skills directory (and,
