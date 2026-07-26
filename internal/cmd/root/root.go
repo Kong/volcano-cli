@@ -56,6 +56,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(docscmd.New(deps))
 	root.AddCommand(projectcmd.NewProjects(deps))
 	root.AddCommand(projectcmd.NewUse(deps))
+	root.AddCommand(localmodecmd.NewDoctor(deps))
 	root.AddCommand(localmodecmd.NewStart(deps))
 	root.AddCommand(localmodecmd.NewStatus(deps))
 	root.AddCommand(localmodecmd.NewStop(deps))
