@@ -1,4 +1,7 @@
-# CLI operations overview
+---
+title: "CLI operations overview"
+description: "This is a map of the Volcano building blocks (\"elements\") the CLI operates on, how they relate, and where the CLI can act on each."
+---
 
 This is a map of the Volcano building blocks ("elements") the CLI operates on,
 how they relate, and where the CLI can act on each. Each element has its own
@@ -10,7 +13,7 @@ page with concrete command examples. For exact, always-current flags, run
 A **project** is the container for everything else. You authenticate, select an
 active project, then operate on the resources inside it:
 
-```
+```text
 account (auth)
 └── project ................... volcano projects / use
     ├── functions ............. deployed backend logic        → functions.md

@@ -1,4 +1,7 @@
-# Variables
+---
+title: "Variables"
+description: "Environment variables (including secrets) made available to your project's functions and frontends at runtime."
+---
 
 ## What it is
 

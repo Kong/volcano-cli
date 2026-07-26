@@ -1,4 +1,7 @@
-# Databases
+---
+title: "Databases"
+description: "A managed PostgreSQL database provisioned for your project. Functions connect to it using its connection string."
+---
 
 ## What it is
 

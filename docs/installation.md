@@ -1,4 +1,7 @@
-# Installation
+---
+title: "Installation"
+description: "Install the Volcano CLI with npm, pnpm, Bun, Homebrew, or the install script."
+---
 
 Install with npm:
 

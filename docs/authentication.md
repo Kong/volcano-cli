@@ -1,4 +1,7 @@
-# Authentication
+---
+title: "Authentication"
+description: "Sign up, log in, and manage your Volcano credentials from the CLI."
+---
 
 New to Volcano? Create an account from the CLI:
 

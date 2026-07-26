@@ -2,6 +2,7 @@ package docs
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -87,7 +88,10 @@ func ParseDoc(docPath string, content []byte) []Section {
 	if n := len(lines); n > 0 && lines[n-1] == "" {
 		lines = lines[:n-1]
 	}
-	title := deriveTitle(docPath, lines)
+	// Strip a leading YAML frontmatter block so its keys never become searchable
+	// text; docTitle prefers the frontmatter title over the first H1.
+	fmLen, _ := splitFrontmatter(lines)
+	title := docTitle(docPath, lines)
 	topic := topicOf(docPath)
 
 	type openSection struct {
@@ -105,7 +109,7 @@ func ParseDoc(docPath string, content []byte) []Section {
 
 	// Preamble section (content before the first heading) is attributed to the
 	// document title with no anchor.
-	cur := openSection{heading: title, level: 0, anchor: "", path: []string{title}, startLine: 1, bodyStart: 0}
+	cur := openSection{heading: title, level: 0, anchor: "", path: []string{title}, startLine: fmLen + 1, bodyStart: fmLen}
 	inFence := false
 	var fenceChar byte
 	var fenceLen int
@@ -132,6 +136,9 @@ func ParseDoc(docPath string, content []byte) []Section {
 	}
 
 	for i, line := range lines {
+		if i < fmLen {
+			continue // inside the stripped frontmatter block
+		}
 		if ch, n := fenceDelim(line); ch != 0 {
 			if !inFence {
 				inFence, fenceChar, fenceLen = true, ch, n
@@ -189,6 +196,72 @@ func nonEmpty(in []string) []string {
 		}
 	}
 	return out
+}
+
+// splitFrontmatter detects a leading YAML frontmatter block delimited by lines
+// of exactly "---". It returns the number of lines the block occupies (0 when
+// there is none or the block is unterminated) and the value of its "title"
+// field if present. Callers strip those lines from section parsing so the YAML
+// never becomes searchable text.
+func splitFrontmatter(lines []string) (n int, title string) {
+	if len(lines) == 0 || strings.TrimRight(lines[0], " \t") != "---" {
+		return 0, ""
+	}
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimRight(lines[i], " \t") == "---" {
+			for _, l := range lines[1:i] {
+				key, val, ok := strings.Cut(l, ":")
+				if ok && strings.TrimSpace(key) == "title" {
+					title = unquoteScalar(strings.TrimSpace(val))
+				}
+			}
+			return i + 1, title
+		}
+	}
+	return 0, "" // no closing delimiter: treat as ordinary content
+}
+
+// unquoteScalar removes surrounding quotes from a YAML scalar. Double-quoted
+// values (as emitted by the migration tool) are unescaped via strconv.Unquote;
+// single-quoted values are stripped literally.
+func unquoteScalar(s string) string {
+	if len(s) >= 2 && s[0] == '"' {
+		if u, err := strconv.Unquote(s); err == nil {
+			return u
+		}
+	}
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		// YAML single-quoted scalars escape an apostrophe by doubling it.
+		return strings.ReplaceAll(s[1:len(s)-1], "''", "'")
+	}
+	return s
+}
+
+// docTitle is the single source of a document's title for every consumer
+// (ParseDoc, Service.List, Service.Get): the frontmatter title if present,
+// else the first H1, else a prettified file name. Control characters are
+// stripped so a title from a user-configured/untrusted corpus cannot inject
+// terminal escape sequences when rendered by `docs search`/`docs list`.
+func docTitle(docPath string, lines []string) string {
+	fmLen, title := splitFrontmatter(lines)
+	if title == "" {
+		title = deriveTitle(docPath, lines[fmLen:])
+	}
+	return stripControl(title)
+}
+
+// stripControl drops C0/C1 control characters (turning tabs into spaces) so
+// decoded frontmatter titles are safe to print to a terminal.
+func stripControl(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' {
+			return ' '
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 func deriveTitle(docPath string, lines []string) string {
