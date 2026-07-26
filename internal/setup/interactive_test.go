@@ -83,10 +83,10 @@ func TestDetect_InstalledFollowsSymlinkedSkill(t *testing.T) {
 }
 
 func TestDetectedLabel(t *testing.T) {
-	if got := (Detected{Name: "cursor", Installed: true}).Label(); !strings.Contains(got, "[ok]") || !strings.Contains(got, "cursor") {
-		t.Fatalf("installed label = %q, want [ok] + name", got)
+	if got := (Detected{Name: "cursor", Installed: true}).Label(); !strings.Contains(got, "[installed]") || !strings.Contains(got, "cursor") {
+		t.Fatalf("installed label = %q, want [installed] + name", got)
 	}
-	if got := (Detected{Name: "cursor", Installed: false}).Label(); !strings.Contains(got, "[detected]") {
-		t.Fatalf("detected label = %q, want [detected]", got)
+	if got := (Detected{Name: "cursor", Installed: false}).Label(); !strings.Contains(got, "[available]") {
+		t.Fatalf("available label = %q, want [available]", got)
 	}
 }

@@ -118,9 +118,9 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 
 	options := make([]huh.Option[string], len(detected))
 	for i, d := range detected {
-		// Label with the report's [ok]/[detected] marks; pre-select every detected
-		// harness so a straight Enter installs all, matching the non-interactive
-		// default (installing an already-installed harness is idempotent).
+		// Label each with [installed]/[available]; pre-select every detected harness
+		// so a straight Enter installs all, matching the non-interactive default
+		// (installing an already-installed harness is idempotent).
 		options[i] = huh.NewOption(d.Label(), d.Name).Selected(true)
 	}
 	form := huh.NewForm(

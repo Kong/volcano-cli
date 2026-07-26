@@ -10,15 +10,17 @@ type Detected struct {
 	Installed bool
 }
 
-// Label renders the picker line for a detected harness using the report's own
-// status marks: [ok] when Volcano is already installed, [detected] otherwise.
-// Reusing statusMark keeps the interactive and non-interactive messaging in sync.
+// Label renders the picker line for a detected harness. The picker describes
+// install *state* (pick what to set up), so it uses [installed]/[available]
+// rather than the report's outcome marks ([ok]/[detected]): clearer here, and it
+// avoids colliding with the report's [detected], which there means "install
+// failed", not "not yet installed".
 func (d Detected) Label() string {
-	mark := statusMark(StatusDetected)
+	mark := "[available]"
 	if d.Installed {
-		mark = statusMark(StatusInstalled)
+		mark = "[installed]"
 	}
-	return fmt.Sprintf("%-10s %s", mark, d.Name)
+	return fmt.Sprintf("%-11s %s", mark, d.Name)
 }
 
 // Detect returns the coding-agent harnesses present on this machine, in the
