@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Kong/volcano-cli/compare/v0.7.2...v0.8.0) (2026-07-26)
+
+
+### Features
+
+* **doctor:** add volcano doctor local-dev prerequisite checks ([#105](https://github.com/Kong/volcano-cli/issues/105)) ([fbd15a4](https://github.com/Kong/volcano-cli/commit/fbd15a4aad180e7f7b352b2eb82c2212572b2719))
+
 ## [0.7.2](https://github.com/Kong/volcano-cli/compare/v0.7.1...v0.7.2) (2026-07-26)
 
 
