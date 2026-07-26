@@ -10,9 +10,9 @@ type Detected struct {
 
 // StatusMark returns the picker's install-state mark for a detected harness. The
 // picker describes install *state* (pick what to set up), so it uses
-// [installed]/[available] rather than the report's outcome marks ([ok]/[detected]):
-// clearer here, and it avoids colliding with the report's [detected], which there
-// means "install failed", not "not yet installed". Both marks are 11 columns wide,
+// [installed]/[available], describing install state rather than the report's
+// outcome ([installed] there means "installed this run", and [detected] means
+// "install failed" — not "not yet installed"). Both marks are 11 columns wide,
 // so options align without padding. The caller colors the mark and leaves the
 // harness name in the terminal's default foreground.
 func (d Detected) StatusMark() string {

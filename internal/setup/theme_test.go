@@ -13,7 +13,7 @@ func TestColorGate(t *testing.T) {
 	if colorEnabled(&bytes.Buffer{}) {
 		t.Fatal("colorEnabled true for a non-file writer; pipes/agents would get ANSI")
 	}
-	if got := styleMark(StatusInstalled, "[ok]", false); got != "[ok]" {
+	if got := styleMark(StatusInstalled, "[installed]", false); got != "[installed]" {
 		t.Fatalf("styleMark off = %q, want plain passthrough", got)
 	}
 	if got := cta("hi", false); got != "hi" {
@@ -22,7 +22,7 @@ func TestColorGate(t *testing.T) {
 	if got := cta("hi", true); !strings.Contains(got, "\x1b[") {
 		t.Fatalf("cta on = %q, want ANSI-wrapped", got)
 	}
-	if got := styleMark(StatusFailed, "[fail]", true); !strings.Contains(got, "\x1b[") {
+	if got := styleMark(StatusFailed, "[failed]", true); !strings.Contains(got, "\x1b[") {
 		t.Fatalf("styleMark on = %q, want ANSI-wrapped", got)
 	}
 }
