@@ -571,6 +571,50 @@ func TestFirstLine(t *testing.T) {
 	}
 }
 
+func TestSplitDetail(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		// No "; " — version/skill details stay on one line.
+		{"0.2.14 \u2192 0.2.16 (restart your agent to apply)", []string{"0.2.14 \u2192 0.2.16 (restart your agent to apply)"}},
+		{"11 skills -> /a/b", []string{"11 skills -> /a/b"}},
+		// Multi-clause error wraps at "; ", keeping the ";" on the line it ends.
+		{"foo (stale?); remove it and re-run", []string{"foo (stale?);", "remove it and re-run"}},
+		{"a; b; c", []string{"a;", "b;", "c"}},
+	}
+	for _, tc := range cases {
+		got := splitDetail(tc.in)
+		if strings.Join(got, "|") != strings.Join(tc.want, "|") {
+			t.Errorf("splitDetail(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// A wrapped detail's continuation lines must indent to the detail column so they
+// stay aligned under the first clause, and the first line must keep its ";".
+func TestRenderReport_WrapsAndAlignsDetail(t *testing.T) {
+	r := Report{Results: []Result{{
+		Harness: "opencode",
+		Status:  StatusDetected,
+		Detail:  "install failed: /x/y exists but is not a directory (stale symlink?); remove it and re-run",
+	}}}
+	lines := strings.Split(strings.TrimRight(RenderReportString(r, false), "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected the detail to wrap onto a second line:\n%s", strings.Join(lines, "\n"))
+	}
+	if !strings.HasSuffix(lines[0], "(stale symlink?);") {
+		t.Errorf("first line should end at the clause boundary with ';':\n%q", lines[0])
+	}
+	if lines[1] != detailIndent+"remove it and re-run" {
+		t.Errorf("continuation not aligned to detail column:\n%q\nwant %q", lines[1], detailIndent+"remove it and re-run")
+	}
+	// The continuation must line up exactly under where the detail starts on row 0.
+	if got := strings.Index(lines[0], "install failed:"); got != len(detailIndent) {
+		t.Errorf("detail column = %d, but continuation indent = %d", got, len(detailIndent))
+	}
+}
+
 // TestOutcome locks the install/update/up-to-date classification: version-bearing
 // harnesses report the real delta; file-drop harnesses fall back to the
 // pre-install boolean; an unreadable version degrades to a fresh install.

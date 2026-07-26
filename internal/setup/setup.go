@@ -350,20 +350,19 @@ func writeReport(w io.Writer, r Report, on bool) {
 		}
 		mark := styleMark(res.Status, fmt.Sprintf("%-11s", statusMark(res.Status)), on)
 		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
-		if res.Detail != "" {
-			detail := res.Detail
-			switch res.Status {
-			case StatusFailed, StatusDetected:
-				// The detail is the error reason on a failed/detected-but-failed row.
-				detail = errText(detail, on)
-			case StatusInstalled, StatusUpdated, StatusUpToDate:
-				// Version / skill detail is supplementary metadata; render it gray so
-				// the status mark and harness name stay the focus.
-				detail = gray(detail, on)
-			}
-			line += " " + detail
+		if res.Detail == "" {
+			fmt.Fprintln(w, line)
+			continue
 		}
-		fmt.Fprintln(w, line)
+		style := detailStyler(res.Status, on)
+		// A long, multi-clause detail (mostly error reasons) wraps at "; " clause
+		// boundaries; continuation lines indent to the detail column so they stay
+		// aligned under the first clause instead of running off the row.
+		segs := splitDetail(res.Detail)
+		fmt.Fprintln(w, line+" "+style(segs[0]))
+		for _, seg := range segs[1:] {
+			fmt.Fprintln(w, detailIndent+style(seg))
+		}
 	}
 
 	// A harness is "ready" whether it was freshly installed, updated, or already
@@ -445,6 +444,33 @@ var ctaExamples = []string{
 	`"Build a feature-flag dashboard with per-user targeting using Volcano"`,
 	`"Build a QR code generator using Volcano Functions"`,
 	`"Build a live leaderboard using Volcano Realtime"`,
+}
+
+// detailIndent is the blank prefix that aligns a wrapped detail's continuation
+// lines under the detail column. It mirrors the row layout in writeReport:
+// "  " + 11-wide status mark + " " + 11-wide harness name + " ".
+var detailIndent = strings.Repeat(" ", len("  ")+11+len(" ")+11+len(" "))
+
+// splitDetail breaks a detail at "; " clause boundaries so a long multi-clause
+// message wraps at readable points, keeping each ";" on the line it ends. A
+// detail without "; " (every version/skill detail) returns a single element, so
+// only multi-clause errors actually wrap.
+func splitDetail(s string) []string {
+	return strings.Split(strings.ReplaceAll(s, "; ", ";\n"), "\n")
+}
+
+// detailStyler returns the per-status styling applied to each detail segment:
+// deep red for failure reasons, gray for supplementary version/skill metadata,
+// unchanged otherwise (e.g. dry-run "would install").
+func detailStyler(s Status, on bool) func(string) string {
+	switch s {
+	case StatusFailed, StatusDetected:
+		return func(seg string) string { return errText(seg, on) }
+	case StatusInstalled, StatusUpdated, StatusUpToDate:
+		return func(seg string) string { return gray(seg, on) }
+	default:
+		return func(seg string) string { return seg }
+	}
 }
 
 // firstLine reduces a possibly multi-line install error (e.g. a plugin
