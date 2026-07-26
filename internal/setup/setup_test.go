@@ -114,7 +114,7 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 
 // Autodetect is best-effort and hides only negative detection: a detected
 // harness whose install fails (here, a skills endpoint that errors) is shown as
-// [detected], not [fail], so `volcano setup` surfaces the detection without
+// [detected], not [failed], so `volcano setup` surfaces the detection without
 // exiting non-zero.
 func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	home := t.TempDir()
@@ -147,8 +147,8 @@ func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	}
 	var b strings.Builder
 	RenderReport(&b, report)
-	if strings.Contains(b.String(), "[fail]") {
-		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
+	if strings.Contains(b.String(), "[failed]") {
+		t.Errorf("autodetect report must not show [failed]:\n%s", b.String())
 	}
 	// Each detected-but-failed row must plainly say it failed to install AND keep
 	// the real reason (here the origin's 500) rather than a bare "install failed".

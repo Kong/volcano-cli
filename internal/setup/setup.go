@@ -299,7 +299,7 @@ func writeReport(w io.Writer, r Report, on bool) {
 		case StatusPlanned:
 			planned++
 		}
-		mark := styleMark(res.Status, fmt.Sprintf("%-10s", statusMark(res.Status)), on)
+		mark := styleMark(res.Status, fmt.Sprintf("%-11s", statusMark(res.Status)), on)
 		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
 		if res.Detail != "" {
 			detail := res.Detail
@@ -400,16 +400,20 @@ func firstLine(s string) string {
 }
 
 func statusMark(s Status) string {
+	// Full words, consistent with the picker's [installed]/[available] marks:
+	// [ok]/[fail]/[plan]/[skip] read as jargon next to those. [detected] already
+	// reads clearly ("found, but the install didn't complete") and its Detail
+	// column spells out the failure, so it stays.
 	switch s {
 	case StatusInstalled:
-		return "[ok]"
+		return "[installed]"
 	case StatusDetected:
 		return "[detected]"
 	case StatusFailed:
-		return "[fail]"
+		return "[failed]"
 	case StatusPlanned:
-		return "[plan]"
+		return "[planned]"
 	default:
-		return "[skip]"
+		return "[skipped]"
 	}
 }
