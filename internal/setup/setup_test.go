@@ -677,3 +677,42 @@ func TestRun_OnlyBestEffortDowngradesFailure(t *testing.T) {
 		t.Fatal("best-effort run must not report Failed()")
 	}
 }
+
+// TestStatusMark locks the user-visible report vocabulary so the rename to
+// full words can't silently regress.
+func TestStatusMark(t *testing.T) {
+	cases := map[Status]string{
+		StatusInstalled: "[installed]",
+		StatusDetected:  "[detected]",
+		StatusFailed:    "[failed]",
+		StatusPlanned:   "[planned]",
+		StatusSkipped:   "[skipped]",
+	}
+	for status, want := range cases {
+		if got := statusMark(status); got != want {
+			t.Errorf("statusMark(%q) = %q, want %q", status, got, want)
+		}
+	}
+}
+
+// TestRenderReportAligns guards column alignment: the widest mark ([installed],
+// 11 cols) must not push the harness column out relative to a shorter mark.
+func TestRenderReportAligns(t *testing.T) {
+	var b strings.Builder
+	RenderReport(&b, Report{Results: []Result{
+		{Harness: "claude-code", Status: StatusInstalled},
+		{Harness: "codex", Status: StatusFailed, Detail: "boom"},
+	}})
+	out := b.String()
+	installedAt := strings.Index(out, "claude-code")
+	failedAt := strings.Index(out, "codex")
+	if installedAt < 0 || failedAt < 0 {
+		t.Fatalf("missing harness rows:\n%s", out)
+	}
+	// Both harness names start at the same column offset within their line.
+	col := func(idx int) int { return idx - strings.LastIndex(out[:idx], "\n") }
+	if col(installedAt) != col(failedAt) {
+		t.Errorf("harness columns misaligned: [installed] row=%d, [failed] row=%d\n%s",
+			col(installedAt), col(failedAt), out)
+	}
+}

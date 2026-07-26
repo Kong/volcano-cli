@@ -47,8 +47,8 @@ func (e environ) configHome() string {
 
 // harness is one setup target: how to detect it, whether Volcano is already
 // installed into it, and how to install. installed is a best-effort probe of the
-// harness's own registry/skills dir so an interactive picker can show [ok] vs
-// [detected], matching the non-interactive report; it never blocks install.
+// harness's own registry/skills dir so an interactive picker can show
+// [installed] vs [available]; it never blocks install.
 type harness struct {
 	name      string
 	detect    func(e environ) bool
