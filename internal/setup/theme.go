@@ -24,6 +24,7 @@ var (
 	installedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(VolcanoHex)).Bold(true)
 	detectedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(detectedHex))
 	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
+	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)) // deep red, not bold: message text
 	ctaStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(LavaHex)).Bold(true)
 	faintStyle     = lipgloss.NewStyle().Faint(true)
 )
@@ -69,4 +70,12 @@ func cta(s string, on bool) string {
 		return s
 	}
 	return ctaStyle.Render(s)
+}
+
+// errText renders a failure/error message in deep red when on, else unchanged.
+func errText(s string, on bool) string {
+	if !on {
+		return s
+	}
+	return errorStyle.Render(s)
 }

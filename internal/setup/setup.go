@@ -290,7 +290,13 @@ func writeReport(w io.Writer, r Report, on bool) {
 		mark := styleMark(res.Status, fmt.Sprintf("%-10s", statusMark(res.Status)), on)
 		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
 		if res.Detail != "" {
-			line += " " + res.Detail
+			detail := res.Detail
+			// On a failed or detected-but-failed row the detail is the error reason,
+			// so show it in deep red.
+			if res.Status == StatusFailed || res.Status == StatusDetected {
+				detail = errText(detail, on)
+			}
+			line += " " + detail
 		}
 		fmt.Fprintln(w, line)
 	}
@@ -302,21 +308,21 @@ func writeReport(w io.Writer, r Report, on bool) {
 	case planned > 0:
 		fmt.Fprintf(w, "Would install Volcano for %d harness(es).\n", planned)
 	case r.ManualFallback && failed > 0:
-		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
+		fmt.Fprintln(w, errText("No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).", on))
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
 	case installed == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
 	case installed == 0 && failed == 0:
 		// Harnesses detected, but none installed (detected > 0 here).
-		fmt.Fprintf(w, "Detected %d harness(es), but installation failed.\n", detected)
+		fmt.Fprintln(w, errText(fmt.Sprintf("Detected %d harness(es), but installation failed.", detected), on))
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
 		if detected > 0 {
-			fmt.Fprintf(w, "; %d detected but failed to install", detected)
+			fmt.Fprint(w, errText(fmt.Sprintf("; %d detected but failed to install", detected), on))
 		}
 		if failed > 0 {
-			fmt.Fprintf(w, "; %d failed", failed)
+			fmt.Fprint(w, errText(fmt.Sprintf("; %d failed", failed), on))
 		}
 		fmt.Fprintln(w, ".")
 	}
