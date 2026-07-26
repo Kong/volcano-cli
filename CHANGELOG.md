@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Kong/volcano-cli/compare/v0.7.0...v0.7.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **upgrade:** skip package-manager reinstall when already on the latest release ([#99](https://github.com/Kong/volcano-cli/issues/99)) ([33ede5f](https://github.com/Kong/volcano-cli/commit/33ede5f98b1d7b259c76830f509257621674645e))
+
 ## [0.7.0](https://github.com/Kong/volcano-cli/compare/v0.6.3...v0.7.0) (2026-07-26)
 
 
