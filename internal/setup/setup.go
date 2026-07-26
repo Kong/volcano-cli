@@ -315,11 +315,20 @@ func RenderReport(w io.Writer, r Report) {
 		}
 	}
 
-	// Once something actually installed, nudge the user to try it — a copy-paste
-	// prompt they can hand straight to their agent, picked at random to show the
-	// range of apps Volcano backs. Skipped on dry runs and all-failed reports
-	// (installed counts real installs, including manual).
-	if installed > 0 {
+	// Once a directly-usable harness installed, nudge the user to try it — a
+	// copy-paste prompt they can hand straight to their agent, picked at random to
+	// show the range of apps Volcano backs. Skipped on dry runs and all-failed
+	// reports, and on a manual-only install: its skills sit inert in ~/.volcano
+	// until the user runs the import prompt printed above, so "You're set" would
+	// contradict it.
+	usable := false
+	for _, res := range r.Results {
+		if res.Status == StatusInstalled && res.Harness != manualHarness {
+			usable = true
+			break
+		}
+	}
+	if usable {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
 		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))]) //nolint:gosec // cosmetic CTA pick, not security-sensitive
