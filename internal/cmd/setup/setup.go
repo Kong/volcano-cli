@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"os"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -54,7 +58,10 @@ agents and scripts never block on a prompt.
 				DryRun:   dryRun,
 			}
 			if interactive(cmd, harnesses, manual, dryRun, yes) {
-				selected, cancelled, err := promptHarnesses(cmd, opts)
+				// On a TTY, honor NO_COLOR for the whole interactive path (picker theme
+				// and animated report); lipgloss/huh don't strip color on their own.
+				color := os.Getenv("NO_COLOR") == ""
+				selected, cancelled, err := promptHarnesses(cmd, opts, color)
 				if err != nil {
 					return err
 				}
@@ -63,12 +70,15 @@ agents and scripts never block on a prompt.
 					return nil
 				}
 				// selected is nil when nothing was detected; leave Only empty so
-				// Run autodetects and does its ~/.volcano manual fallback.
+				// Run autodetects and does its ~/.volcano manual fallback. For a picked
+				// set, keep autodetect's best-effort failure policy so accepting the
+				// default doesn't fail/exit-nonzero over a set that --yes would tolerate.
 				if len(selected) > 0 {
 					opts.Only = selected
+					opts.BestEffort = true
 				}
 				// Install behind a spinner, then animate the completion report.
-				return runInteractive(cmd, opts)
+				return runInteractive(cmd, opts, color)
 			}
 			report, err := setup.Run(cmd.Context(), opts)
 			if err != nil {
@@ -114,7 +124,7 @@ func interactive(cmd *cobra.Command, harnesses []string, manual, dryRun, yes boo
 // clears the selection or aborts (esc/ctrl+c). With no harness detected it
 // returns (nil, false, nil) so the caller falls through to Run's
 // autodetect/manual fallback.
-func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string, cancelled bool, err error) {
+func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (selected []string, cancelled bool, err error) {
 	detected, err := setup.Detect(opts)
 	if err != nil {
 		return nil, false, err
@@ -130,18 +140,33 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 	markStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.VolcanoHex))
 	options := make([]huh.Option[string], len(detected))
 	for i, d := range detected {
-		label := markStyle.Render(d.StatusMark()) + " " + d.Name
-		options[i] = huh.NewOption(label, d.Name).Selected(true)
+		mark := d.StatusMark()
+		if color {
+			mark = markStyle.Render(mark)
+		}
+		options[i] = huh.NewOption(mark+" "+d.Name, d.Name).Selected(true)
 	}
+
+	// huh's default quit binding is ctrl+c only; bind esc too so the advertised
+	// "esc cancels" hint actually aborts the picker.
+	km := huh.NewDefaultKeyMap()
+	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"), key.WithHelp("esc", "cancel"))
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Install Volcano for which coding agents?").
-				Description(keyHintDescription()).
+				Description(keyHintDescription(color)).
 				Options(options...).
 				Value(&selected),
 		),
-	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithTheme(volcanoTheme())
+	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithKeyMap(km)
+	if color {
+		form = form.WithTheme(volcanoTheme())
+	} else {
+		// Strip all color (including huh's default theme) under NO_COLOR.
+		form = form.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii))
+	}
 
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
@@ -156,10 +181,13 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 // (space/enter/esc) in the brand accent so they read as keys, not prose. Each
 // segment is styled in full — colored keys, dimmed connectors — so huh's own
 // description style can't leave the line half-rendered after an embedded reset.
-func keyHintDescription() string {
-	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.FlameHex))
+func keyHintDescription(color bool) string {
+	if !color {
+		return "space toggles, enter confirms, esc cancels"
+	}
+	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.FlameHex))
 	dim := lipgloss.NewStyle().Faint(true)
-	hint := func(k, rest string) string { return key.Render(k) + dim.Render(rest) }
+	hint := func(k, rest string) string { return keyStyle.Render(k) + dim.Render(rest) }
 	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
 }
 
@@ -183,14 +211,16 @@ func volcanoTheme() huh.Theme {
 	})
 }
 
-// isTerminal reports whether v is a real character device (a TTY), using the
-// stdlib os.ModeCharDevice check rather than adding a terminal dependency.
-// Buffers and pipes (tests, agents, CI) are not terminals, so they never prompt.
+// isTerminal reports whether v is a real TTY. It uses term.IsTerminal (an actual
+// terminal query) rather than an os.ModeCharDevice check, because character
+// devices like /dev/null also satisfy ModeCharDevice: `volcano setup < /dev/null`
+// from a shell would otherwise pass the check and launch a picker that blocks on
+// input the caller never sends. Buffers, pipes, and non-TTY char devices are not
+// terminals, so they never prompt.
 func isTerminal(v any) bool {
 	f, ok := v.(*os.File)
 	if !ok {
 		return false
 	}
-	info, statErr := f.Stat()
-	return statErr == nil && info.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(f.Fd())
 }

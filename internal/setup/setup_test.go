@@ -634,3 +634,46 @@ func TestRenderReport_Footer(t *testing.T) {
 		})
 	}
 }
+
+// TestRun_OnlyBestEffortDowngradesFailure locks the failure-policy split: an
+// explicit Only target that fails is a hard failure, but the same set run with
+// BestEffort (the interactive default selection) downgrades to detected and
+// exits 0 — matching the autodetect/--yes path over the identical harness set.
+func TestRun_OnlyBestEffortDowngradesFailure(t *testing.T) {
+	badSkills := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(badSkills.Close)
+	base := Options{
+		HTTPDoer:      badSkills.Client(),
+		SkillsBaseURL: badSkills.URL,
+		HomeDir:       t.TempDir(),
+		Getenv:        emptyEnv,
+		LookPath:      noBins,
+		Only:          []string{"cursor"},
+	}
+
+	strict, err := Run(context.Background(), base)
+	if err != nil {
+		t.Fatalf("Run strict: %v", err)
+	}
+	if got := statusOf(strict, "cursor"); got != StatusFailed {
+		t.Fatalf("strict cursor status = %q, want failed", got)
+	}
+	if !strict.Failed() {
+		t.Fatal("strict --harness run should report Failed()")
+	}
+
+	best := base
+	best.BestEffort = true
+	be, err := Run(context.Background(), best)
+	if err != nil {
+		t.Fatalf("Run best-effort: %v", err)
+	}
+	if got := statusOf(be, "cursor"); got != StatusDetected {
+		t.Fatalf("best-effort cursor status = %q, want detected", got)
+	}
+	if be.Failed() {
+		t.Fatal("best-effort run must not report Failed()")
+	}
+}

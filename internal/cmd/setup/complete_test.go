@@ -1,6 +1,7 @@
 package setupcmd
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -12,7 +13,9 @@ import (
 // ticks advance one line at a time, and the fully-revealed view carries the same
 // content the non-interactive report prints.
 func TestCompleteModelReveal(t *testing.T) {
-	m := newCompleteModel(t.Context(), setup.Options{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	m := newCompleteModel(ctx, cancel, setup.Options{}, false)
 	if !m.installing {
 		t.Fatal("model should start in the installing (spinner) phase")
 	}

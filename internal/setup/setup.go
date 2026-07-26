@@ -69,6 +69,7 @@ type Options struct {
 	Getenv        func(string) string          // default os.Getenv
 	LookPath      func(string) (string, error) // default exec.LookPath
 	Only          []string                     // explicit --harness targets (bypasses autodetect)
+	BestEffort    bool                         // downgrade Only-target install failures to detected (interactive default); --harness stays strict
 	Manual        bool                         // force the ~/.volcano fallback
 	DryRun        bool                         // report the plan without writing
 }
@@ -104,7 +105,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	all := harnesses()
 
 	if len(opts.Only) > 0 {
-		return runOnly(ctx, all, opts.Only, env, res, opts.DryRun)
+		return runOnly(ctx, all, opts.Only, env, res, opts.DryRun, opts.BestEffort)
 	}
 	if opts.Manual {
 		return Report{Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -123,17 +124,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 			continue
 		}
 		detected++
-		r := install(ctx, h, env, res, opts.DryRun)
-		if r.Status == StatusFailed {
-			// Detected, but its install didn't complete. Downgrade the status so a
-			// best-effort autodetect miss doesn't fail the whole command, but keep the
-			// real reason (collapsed to one line) — "install failed: mkdir …: file
-			// exists" or "… returned status 500" is what a user needs, not a bare
-			// "install failed" that forces a rerun with --harness to learn anything.
-			r.Status = StatusDetected
-			r.Detail = "install failed: " + firstLine(r.Detail)
-		}
-		report.Results = append(report.Results, r)
+		report.Results = append(report.Results, bestEffortResult(install(ctx, h, env, res, opts.DryRun)))
 	}
 	if detected == 0 {
 		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -141,7 +132,23 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	return report, nil
 }
 
-func runOnly(ctx context.Context, all []harness, only []string, env environ, res resolved, dryRun bool) (Report, error) {
+// bestEffortResult downgrades a hard install failure to a detected-but-failed
+// result, keeping the real reason on one line ("install failed: … returned
+// status 500" rather than a bare failure). Used by the autodetect default and
+// the interactive default selection so one harness failing — e.g. the skills
+// endpoint not being live yet during rollout — doesn't fail the whole command.
+// Explicit --harness targeting stays strict (BestEffort false) so a named
+// target that fails is a hard error.
+func bestEffortResult(r Result) Result {
+	if r.Status != StatusFailed {
+		return r
+	}
+	r.Status = StatusDetected
+	r.Detail = "install failed: " + firstLine(r.Detail)
+	return r
+}
+
+func runOnly(ctx context.Context, all []harness, only []string, env environ, res resolved, dryRun, bestEffort bool) (Report, error) {
 	byName := make(map[string]harness, len(all))
 	for _, h := range all {
 		byName[h.name] = h
@@ -169,11 +176,16 @@ func runOnly(ctx context.Context, all []harness, only []string, env environ, res
 
 	var report Report
 	for _, t := range targets {
+		var r Result
 		if t.manual {
-			report.Results = append(report.Results, installManual(ctx, env, res, dryRun))
-			continue
+			r = installManual(ctx, env, res, dryRun)
+		} else {
+			r = install(ctx, t.h, env, res, dryRun)
 		}
-		report.Results = append(report.Results, install(ctx, t.h, env, res, dryRun))
+		if bestEffort {
+			r = bestEffortResult(r)
+		}
+		report.Results = append(report.Results, r)
 	}
 	return report, nil
 }
