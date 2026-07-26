@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -127,7 +128,7 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Install Volcano for which coding agents?").
-				Description("space toggles, enter confirms, esc cancels").
+				Description(keyHintDescription()).
 				Options(options...).
 				Value(&selected),
 		),
@@ -140,6 +141,17 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 		return nil, false, err
 	}
 	return selected, len(selected) == 0, nil
+}
+
+// keyHintDescription renders the picker's key hint with the actual keystrokes
+// (space/enter/esc) in a distinct color so they read as keys, not prose. Each
+// segment is styled in full — colored keys, dimmed connectors — so huh's own
+// description style can't leave the line half-rendered after an embedded reset.
+func keyHintDescription() string {
+	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")) // cyan
+	dim := lipgloss.NewStyle().Faint(true)
+	hint := func(k, rest string) string { return key.Render(k) + dim.Render(rest) }
+	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
 }
 
 // isTerminal reports whether v is a real character device (a TTY), using the
