@@ -1,4 +1,7 @@
-# Documentation search (`volcano docs`)
+---
+title: "Documentation search (`volcano docs`)"
+description: "volcano docs fetches the official Volcano documentation into a local cache and lets you search and read it from your terminal — offline, and without leaving…"
+---
 
 `volcano docs` fetches the official Volcano documentation into a local cache and
 lets you search and read it from your terminal — offline, and without leaving

@@ -1,0 +1,12 @@
+name: Lint docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+
+jobs:
+  docs:
+    uses: Kong/volcano-docs/.github/workflows/lint-docs.yml@main
+    with:
+      path: docs

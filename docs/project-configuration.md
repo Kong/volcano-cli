@@ -1,4 +1,7 @@
-# Project configuration
+---
+title: "Project configuration"
+description: "volcano config deploy uploads a declarative manifest (volcano/volcano-config.yaml or ./volcano-config.yaml) to Volcano, which validates and applies the full…"
+---
 
 `volcano config deploy` uploads a declarative manifest
 (`volcano/volcano-config.yaml` or `./volcano-config.yaml`) to Volcano, which

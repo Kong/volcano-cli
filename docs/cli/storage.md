@@ -1,4 +1,7 @@
-# Storage
+---
+title: "Storage"
+description: "Object storage organized into buckets that hold objects (files). Policies govern access to a bucket, and each object has a public/private visibility."
+---
 
 ## What it is
 
