@@ -150,9 +150,13 @@ func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 	if strings.Contains(b.String(), "[fail]") {
 		t.Errorf("autodetect report must not show [fail]:\n%s", b.String())
 	}
-	// Each detected-but-failed row must plainly say it failed to install.
+	// Each detected-but-failed row must plainly say it failed to install AND keep
+	// the real reason (here the origin's 500) rather than a bare "install failed".
 	if !strings.Contains(b.String(), "[detected]") || !strings.Contains(b.String(), "install failed") {
 		t.Errorf("want [detected] rows saying install failed, got:\n%s", b.String())
+	}
+	if !strings.Contains(b.String(), "status 500") {
+		t.Errorf("detected-but-failed row should surface the real reason (status 500), got:\n%s", b.String())
 	}
 	if !strings.Contains(b.String(), "Detected 2 harness(es), but installation failed.") {
 		t.Errorf("footer should note detected harnesses failed to install:\n%s", b.String())
