@@ -69,6 +69,7 @@ type Options struct {
 	Getenv        func(string) string          // default os.Getenv
 	LookPath      func(string) (string, error) // default exec.LookPath
 	Only          []string                     // explicit --harness targets (bypasses autodetect)
+	BestEffort    bool                         // downgrade Only-target install failures to detected (interactive default); --harness stays strict
 	Manual        bool                         // force the ~/.volcano fallback
 	DryRun        bool                         // report the plan without writing
 }
@@ -104,7 +105,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	all := harnesses()
 
 	if len(opts.Only) > 0 {
-		return runOnly(ctx, all, opts.Only, env, res, opts.DryRun)
+		return runOnly(ctx, all, opts.Only, env, res, opts.DryRun, opts.BestEffort)
 	}
 	if opts.Manual {
 		return Report{Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -123,17 +124,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 			continue
 		}
 		detected++
-		r := install(ctx, h, env, res, opts.DryRun)
-		if r.Status == StatusFailed {
-			// Detected, but its install didn't complete. Downgrade the status so a
-			// best-effort autodetect miss doesn't fail the whole command, but keep the
-			// real reason (collapsed to one line) — "install failed: mkdir …: file
-			// exists" or "… returned status 500" is what a user needs, not a bare
-			// "install failed" that forces a rerun with --harness to learn anything.
-			r.Status = StatusDetected
-			r.Detail = "install failed: " + firstLine(r.Detail)
-		}
-		report.Results = append(report.Results, r)
+		report.Results = append(report.Results, bestEffortResult(install(ctx, h, env, res, opts.DryRun)))
 	}
 	if detected == 0 {
 		return Report{ManualFallback: true, Results: []Result{installManual(ctx, env, res, opts.DryRun)}}, nil
@@ -141,7 +132,23 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	return report, nil
 }
 
-func runOnly(ctx context.Context, all []harness, only []string, env environ, res resolved, dryRun bool) (Report, error) {
+// bestEffortResult downgrades a hard install failure to a detected-but-failed
+// result, keeping the real reason on one line ("install failed: … returned
+// status 500" rather than a bare failure). Used by the autodetect default and
+// the interactive default selection so one harness failing — e.g. the skills
+// endpoint not being live yet during rollout — doesn't fail the whole command.
+// Explicit --harness targeting stays strict (BestEffort false) so a named
+// target that fails is a hard error.
+func bestEffortResult(r Result) Result {
+	if r.Status != StatusFailed {
+		return r
+	}
+	r.Status = StatusDetected
+	r.Detail = "install failed: " + firstLine(r.Detail)
+	return r
+}
+
+func runOnly(ctx context.Context, all []harness, only []string, env environ, res resolved, dryRun, bestEffort bool) (Report, error) {
 	byName := make(map[string]harness, len(all))
 	for _, h := range all {
 		byName[h.name] = h
@@ -169,11 +176,16 @@ func runOnly(ctx context.Context, all []harness, only []string, env environ, res
 
 	var report Report
 	for _, t := range targets {
+		var r Result
 		if t.manual {
-			report.Results = append(report.Results, installManual(ctx, env, res, dryRun))
-			continue
+			r = installManual(ctx, env, res, dryRun)
+		} else {
+			r = install(ctx, t.h, env, res, dryRun)
 		}
-		report.Results = append(report.Results, install(ctx, t.h, env, res, dryRun))
+		if bestEffort {
+			r = bestEffortResult(r)
+		}
+		report.Results = append(report.Results, r)
 	}
 	return report, nil
 }
@@ -257,6 +269,20 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
+	writeReport(w, r, colorEnabled(w))
+}
+
+// RenderReportString returns the same report as a string, colored when on is
+// true regardless of the destination. RenderReport uses it for direct output;
+// the interactive completion animation uses it to reveal the identical content
+// line by line, so the animated finish mirrors the non-interactive report.
+func RenderReportString(r Report, on bool) string {
+	var b strings.Builder
+	writeReport(&b, r, on)
+	return b.String()
+}
+
+func writeReport(w io.Writer, r Report, on bool) {
 	installed, detected, failed, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
@@ -273,9 +299,16 @@ func RenderReport(w io.Writer, r Report) {
 		case StatusPlanned:
 			planned++
 		}
-		line := fmt.Sprintf("  %-10s %-11s", statusMark(res.Status), res.Harness)
+		mark := styleMark(res.Status, fmt.Sprintf("%-10s", statusMark(res.Status)), on)
+		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
 		if res.Detail != "" {
-			line += " " + res.Detail
+			detail := res.Detail
+			// On a failed or detected-but-failed row the detail is the error reason,
+			// so show it in deep red.
+			if res.Status == StatusFailed || res.Status == StatusDetected {
+				detail = errText(detail, on)
+			}
+			line += " " + detail
 		}
 		fmt.Fprintln(w, line)
 	}
@@ -287,21 +320,21 @@ func RenderReport(w io.Writer, r Report) {
 	case planned > 0:
 		fmt.Fprintf(w, "Would install Volcano for %d harness(es).\n", planned)
 	case r.ManualFallback && failed > 0:
-		fmt.Fprintln(w, "No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).")
+		fmt.Fprintln(w, errText("No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).", on))
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
 	case installed == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
 	case installed == 0 && failed == 0:
 		// Harnesses detected, but none installed (detected > 0 here).
-		fmt.Fprintf(w, "Detected %d harness(es), but installation failed.\n", detected)
+		fmt.Fprintln(w, errText(fmt.Sprintf("Detected %d harness(es), but installation failed.", detected), on))
 	default:
 		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
 		if detected > 0 {
-			fmt.Fprintf(w, "; %d detected but failed to install", detected)
+			fmt.Fprint(w, errText(fmt.Sprintf("; %d detected but failed to install", detected), on))
 		}
 		if failed > 0 {
-			fmt.Fprintf(w, "; %d failed", failed)
+			fmt.Fprint(w, errText(fmt.Sprintf("; %d failed", failed), on))
 		}
 		fmt.Fprintln(w, ".")
 	}
@@ -332,8 +365,8 @@ func RenderReport(w io.Writer, r Report) {
 	}
 	if usable {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
-		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))]) //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		fmt.Fprintln(w, cta("You're set. Try asking your agent to build something:", on))
+		fmt.Fprintln(w, "  "+cta(ctaExamples[rand.IntN(len(ctaExamples))], on)) //nolint:gosec // cosmetic CTA pick, not security-sensitive
 	}
 }
 
