@@ -7,10 +7,13 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// BrandHex is the Volcano brand accent (lava flame), taken from volcano-web's UI
-// theme. The interactive picker and the report both key off it so the CLI keeps
-// one color identity instead of dropping to plain text between the two.
-const BrandHex = "#f54019"
+// The Volcano CLI palette, taken from volcano-web. Shared by the interactive
+// picker and the report so the CLI keeps one color identity across both.
+const (
+	FlameHex   = "#f54019" // lava flame: key hints (space/enter/esc)
+	LavaHex    = "#f37a58" // lava-500 brand primary: titles, main lines, CTA
+	VolcanoHex = "#f97316" // volcano-500: options — selectors, checkboxes, marks
+)
 
 const (
 	detectedHex = "#eab308" // amber: detected but the install didn't complete
@@ -18,10 +21,11 @@ const (
 )
 
 var (
-	brandStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(BrandHex)).Bold(true)
-	detectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(detectedHex))
-	failedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
-	faintStyle    = lipgloss.NewStyle().Faint(true)
+	installedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(VolcanoHex)).Bold(true)
+	detectedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(detectedHex))
+	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
+	ctaStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(LavaHex)).Bold(true)
+	faintStyle     = lipgloss.NewStyle().Faint(true)
 )
 
 // colorEnabled reports whether ANSI styling should be written to w: only when w
@@ -49,7 +53,7 @@ func styleMark(s Status, padded string, on bool) string {
 	}
 	switch s {
 	case StatusInstalled, StatusPlanned:
-		return brandStyle.Render(padded)
+		return installedStyle.Render(padded)
 	case StatusDetected:
 		return detectedStyle.Render(padded)
 	case StatusFailed:
@@ -59,10 +63,10 @@ func styleMark(s Status, padded string, on bool) string {
 	}
 }
 
-// brand renders s in the brand accent when on, else returns it unchanged.
-func brand(s string, on bool) string {
+// cta renders s in the lava CTA accent when on, else returns it unchanged.
+func cta(s string, on bool) string {
 	if !on {
 		return s
 	}
-	return brandStyle.Render(s)
+	return ctaStyle.Render(s)
 }

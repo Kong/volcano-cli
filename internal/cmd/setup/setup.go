@@ -117,12 +117,15 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 		return nil, false, nil
 	}
 
+	// Color only the [installed]/[available] mark (volcano); the harness name
+	// stays in the terminal's default foreground so it reads white on dark and
+	// black on light backgrounds. Pre-select every detected harness so a straight
+	// Enter installs all, matching the non-interactive default.
+	markStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.VolcanoHex))
 	options := make([]huh.Option[string], len(detected))
 	for i, d := range detected {
-		// Label each with [installed]/[available]; pre-select every detected harness
-		// so a straight Enter installs all, matching the non-interactive default
-		// (installing an already-installed harness is idempotent).
-		options[i] = huh.NewOption(d.Label(), d.Name).Selected(true)
+		label := markStyle.Render(d.StatusMark()) + " " + d.Name
+		options[i] = huh.NewOption(label, d.Name).Selected(true)
 	}
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -148,24 +151,28 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 // segment is styled in full — colored keys, dimmed connectors — so huh's own
 // description style can't leave the line half-rendered after an embedded reset.
 func keyHintDescription() string {
-	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.BrandHex))
+	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.FlameHex))
 	dim := lipgloss.NewStyle().Faint(true)
 	hint := func(k, rest string) string { return key.Render(k) + dim.Render(rest) }
 	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
 }
 
-// volcanoTheme brands the picker with the Volcano accent: the title, cursor,
-// checkbox, and selected options render in brand orange instead of huh's default
-// scheme, so the picker matches the rest of the CLI's color identity.
+// volcanoTheme brands the picker: the title in lava, and the option selector and
+// checkboxes in volcano orange. Option text has its foreground unset so harness
+// names render in the terminal's default color (adaptive to light/dark), leaving
+// only the marks and checkboxes carrying brand color.
 func volcanoTheme() huh.Theme {
 	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
 		s := huh.ThemeBase(isDark)
-		brand := lipgloss.Color(setup.BrandHex)
-		s.Focused.Title = s.Focused.Title.Foreground(brand).Bold(true)
-		s.Focused.SelectSelector = s.Focused.SelectSelector.Foreground(brand)
-		s.Focused.MultiSelectSelector = s.Focused.MultiSelectSelector.Foreground(brand)
-		s.Focused.SelectedOption = s.Focused.SelectedOption.Foreground(brand)
-		s.Focused.SelectedPrefix = s.Focused.SelectedPrefix.Foreground(brand)
+		lava := lipgloss.Color(setup.LavaHex)
+		volcano := lipgloss.Color(setup.VolcanoHex)
+		s.Focused.Title = s.Focused.Title.Foreground(lava).Bold(true)
+		s.Focused.SelectSelector = s.Focused.SelectSelector.Foreground(volcano)
+		s.Focused.MultiSelectSelector = s.Focused.MultiSelectSelector.Foreground(volcano)
+		s.Focused.SelectedPrefix = s.Focused.SelectedPrefix.Foreground(volcano)
+		s.Focused.UnselectedPrefix = s.Focused.UnselectedPrefix.Foreground(volcano)
+		s.Focused.SelectedOption = s.Focused.SelectedOption.UnsetForeground()
+		s.Focused.Option = s.Focused.Option.UnsetForeground()
 		return s
 	})
 }

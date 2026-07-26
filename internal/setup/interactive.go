@@ -1,7 +1,5 @@
 package setup
 
-import "fmt"
-
 // Detected is one harness present on the machine, with whether Volcano is
 // already installed into it, so an interactive picker can label each option
 // with the same status vocabulary the non-interactive report uses.
@@ -10,17 +8,18 @@ type Detected struct {
 	Installed bool
 }
 
-// Label renders the picker line for a detected harness. The picker describes
-// install *state* (pick what to set up), so it uses [installed]/[available]
-// rather than the report's outcome marks ([ok]/[detected]): clearer here, and it
-// avoids colliding with the report's [detected], which there means "install
-// failed", not "not yet installed".
-func (d Detected) Label() string {
-	mark := "[available]"
+// StatusMark returns the picker's install-state mark for a detected harness. The
+// picker describes install *state* (pick what to set up), so it uses
+// [installed]/[available] rather than the report's outcome marks ([ok]/[detected]):
+// clearer here, and it avoids colliding with the report's [detected], which there
+// means "install failed", not "not yet installed". Both marks are 11 columns wide,
+// so options align without padding. The caller colors the mark and leaves the
+// harness name in the terminal's default foreground.
+func (d Detected) StatusMark() string {
 	if d.Installed {
-		mark = "[installed]"
+		return "[installed]"
 	}
-	return fmt.Sprintf("%-11s %s", mark, d.Name)
+	return "[available]"
 }
 
 // Detect returns the coding-agent harnesses present on this machine, in the
