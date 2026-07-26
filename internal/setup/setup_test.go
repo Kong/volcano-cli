@@ -494,7 +494,7 @@ func TestRenderReport_ManualPickupGuidance(t *testing.T) {
 // A successful install ends with a copy-paste CTA; a dry run or an all-failed
 // report must not print it (nothing is actually wired up to build against).
 func TestRenderReport_BuildCTA(t *testing.T) {
-	const cta = "Build a todo app using Volcano"
+	const cta = "Build a headless app using Volcano edge functions"
 
 	var b strings.Builder
 	RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})

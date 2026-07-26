@@ -320,7 +320,7 @@ func RenderReport(w io.Writer, r Report) {
 	if installed > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
-		fmt.Fprintln(w, `  "Build a todo app using Volcano"`)
+		fmt.Fprintln(w, `  "Build a headless app using Volcano edge functions"`)
 	}
 }
 
