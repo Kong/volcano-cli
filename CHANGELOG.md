@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/Kong/volcano-cli/compare/v0.10.0...v0.11.0) (2026-07-26)
+
+
+### Features
+
+* **setup:** replace install spinner with looping volcano eruption animation ([#111](https://github.com/Kong/volcano-cli/issues/111)) ([24d45f9](https://github.com/Kong/volcano-cli/commit/24d45f93b488b703df5362b719b9f4336b6fae8a))
+
 ## [0.10.0](https://github.com/Kong/volcano-cli/compare/v0.9.0...v0.10.0) (2026-07-26)
 
 
