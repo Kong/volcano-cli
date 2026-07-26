@@ -554,10 +554,10 @@ func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
 // combined output) to its first non-empty line so report rows stay aligned.
 func TestFirstLine(t *testing.T) {
 	cases := map[string]string{
-		"single":            "single",
-		"first\nsecond":     "first",
-		"  lead\ntrail  ":   "lead",
-		"\n\nafter blanks":  "after blanks",
+		"single":           "single",
+		"first\nsecond":    "first",
+		"  lead\ntrail  ":  "lead",
+		"\n\nafter blanks": "after blanks",
 	}
 	for in, want := range cases {
 		if got := firstLine(in); got != want {

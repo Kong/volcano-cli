@@ -360,8 +360,8 @@ var ctaExamples = []string{
 // rows stay aligned.
 func firstLine(s string) string {
 	s = strings.TrimSpace(s)
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return strings.TrimSpace(s[:i])
+	if before, _, found := strings.Cut(s, "\n"); found {
+		return strings.TrimSpace(before)
 	}
 	return s
 }
