@@ -125,11 +125,13 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 		detected++
 		r := install(ctx, h, env, res, opts.DryRun)
 		if r.Status == StatusFailed {
-			// Detected, but its install didn't complete: say so plainly instead of
-			// failing the whole command. The raw error is dropped — it's plumbing like
-			// "fetch skills index returned HTML" that means nothing to a user; rerun
-			// with --harness <name> to see it.
-			r.Status, r.Detail = StatusDetected, "install failed"
+			// Detected, but its install didn't complete. Downgrade the status so a
+			// best-effort autodetect miss doesn't fail the whole command, but keep the
+			// real reason (collapsed to one line) — "install failed: mkdir …: file
+			// exists" or "… returned status 500" is what a user needs, not a bare
+			// "install failed" that forces a rerun with --harness to learn anything.
+			r.Status = StatusDetected
+			r.Detail = "install failed: " + firstLine(r.Detail)
 		}
 		report.Results = append(report.Results, r)
 	}
@@ -351,6 +353,17 @@ var ctaExamples = []string{
 	`"Build a feature-flag dashboard with per-user targeting using Volcano"`,
 	`"Build a QR code generator using Volcano Functions"`,
 	`"Build a live leaderboard using Volcano Realtime"`,
+}
+
+// firstLine reduces a possibly multi-line install error (e.g. a plugin
+// command's combined output) to its first non-empty line so the one-line report
+// rows stay aligned.
+func firstLine(s string) string {
+	s = strings.TrimSpace(s)
+	if before, _, found := strings.Cut(s, "\n"); found {
+		return strings.TrimSpace(before)
+	}
+	return s
 }
 
 func statusMark(s Status) string {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,25 @@ func TestMaterialize(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Errorf("SKILL.md perm = %o, want 600", info.Mode().Perm())
+	}
+}
+
+// A dangling symlink at a skill's path must produce a clear "not a directory"
+// error, not the raw "file exists" that MkdirAll returns for it.
+func TestMaterialize_NonDirEntryIsClear(t *testing.T) {
+	srv := skillsServer(t)
+	skillsDir := filepath.Join(t.TempDir(), "skills")
+	if err := os.MkdirAll(skillsDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	// install-volcano is one of the skills the server advertises; sit a dangling
+	// symlink where its directory should go.
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(skillsDir, "install-volcano")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := materialize(context.Background(), srv.Client(), srv.URL, skillsDir, "")
+	if err == nil || !strings.Contains(err.Error(), "not a directory") {
+		t.Fatalf("want a clear 'not a directory' error, got: %v", err)
 	}
 }
 

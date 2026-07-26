@@ -66,6 +66,14 @@ func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsP
 		}
 		dir := filepath.Join(skillsDir, s.Name)
 		if err := os.MkdirAll(dir, 0o750); err != nil {
+			// MkdirAll surfaces a bare "file exists" when the path is a dangling
+			// symlink or a regular file — misleading, since it reads as an
+			// already-installed no-op rather than the hard stop it is. Say what's
+			// actually wrong. Non-destructive on purpose: report, don't clobber a
+			// path another tool may own.
+			if fi, lerr := os.Lstat(dir); lerr == nil && !fi.IsDir() {
+				return count, fmt.Errorf("%s exists but is not a directory (stale symlink?); remove it and re-run", dir)
+			}
 			return count, err
 		}
 		if err := writeFileAtomic(filepath.Join(dir, "SKILL.md"), body); err != nil {
