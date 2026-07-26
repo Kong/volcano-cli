@@ -6,9 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 
@@ -64,15 +62,15 @@ type installDoneMsg struct {
 
 type revealMsg struct{}
 
-// completeModel runs setup.Run behind a spinner, then reveals the report line by
-// line. It renders inline (no alt-screen) so the finished report stays in the
-// terminal scrollback after the program exits.
+// completeModel runs setup.Run behind the erupting-volcano animation, then
+// reveals the report line by line. It renders inline (no alt-screen) so the
+// finished report stays in the terminal scrollback after the program exits.
 type completeModel struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	opts       setup.Options
 	color      bool
-	spin       spinner.Model
+	tick       int // eruption animation step
 	installing bool
 	report     setup.Report
 	err        error
@@ -81,15 +79,11 @@ type completeModel struct {
 }
 
 func newCompleteModel(ctx context.Context, cancel context.CancelFunc, opts setup.Options, color bool) completeModel {
-	sp := spinner.New(
-		spinner.WithSpinner(spinner.Dot),
-		spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color(setup.VolcanoHex))),
-	)
-	return completeModel{ctx: ctx, cancel: cancel, opts: opts, color: color, spin: sp, installing: true}
+	return completeModel{ctx: ctx, cancel: cancel, opts: opts, color: color, installing: true}
 }
 
 func (m completeModel) Init() tea.Cmd {
-	return tea.Batch(m.spin.Tick, m.install)
+	return tea.Batch(eruptionTick(), m.install)
 }
 
 // install runs the real setup off the UI goroutine and reports the outcome.
@@ -136,11 +130,10 @@ func (m completeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, revealTick()
 		}
 		return m, tea.Tick(holdAfterReveal, func(time.Time) tea.Msg { return tea.Quit() })
-	case spinner.TickMsg:
+	case eruptTickMsg:
 		if m.installing {
-			var cmd tea.Cmd
-			m.spin, cmd = m.spin.Update(msg)
-			return m, cmd
+			m.tick++
+			return m, eruptionTick()
 		}
 	}
 	return m, nil
@@ -152,8 +145,7 @@ func revealTick() tea.Cmd {
 
 func (m completeModel) View() tea.View {
 	if m.installing {
-		title := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.LavaHex)).Bold(true).Render("Installing Volcano…")
-		return tea.NewView("\n  " + m.spin.View() + " " + title + "\n")
+		return tea.NewView(installView(m.tick))
 	}
 	if m.err != nil {
 		return tea.NewView("")
