@@ -26,3 +26,21 @@ func TestColorGate(t *testing.T) {
 		t.Fatalf("styleMark on = %q, want ANSI-wrapped", got)
 	}
 }
+
+// TestRenderReportString checks the colored/plain split the completion animation
+// relies on: plain is ANSI-free (what pipes get), colored carries ANSI, and both
+// contain the same underlying text.
+func TestRenderReportString(t *testing.T) {
+	r := Report{Results: []Result{{Harness: "cursor", Status: StatusInstalled, Detail: "12 skills"}}}
+	plain := RenderReportString(r, false)
+	if strings.Contains(plain, "\x1b[") {
+		t.Fatalf("plain report contains ANSI: %q", plain)
+	}
+	colored := RenderReportString(r, true)
+	if !strings.Contains(colored, "\x1b[") {
+		t.Fatal("colored report missing ANSI")
+	}
+	if !strings.Contains(plain, "cursor") || !strings.Contains(plain, "Installed Volcano") {
+		t.Fatalf("plain report missing expected content: %q", plain)
+	}
+}

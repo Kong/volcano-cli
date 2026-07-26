@@ -14,6 +14,10 @@ import (
 	"github.com/Kong/volcano-cli/internal/setup"
 )
 
+// errHarnessFailed is returned when any targeted harness failed to install, so
+// the command exits non-zero in both the plain and animated paths.
+var errHarnessFailed = errors.New("one or more harnesses failed to set up")
+
 // New returns the setup command.
 func New(deps cliruntime.Deps) *cobra.Command {
 	var harnesses []string
@@ -63,6 +67,8 @@ agents and scripts never block on a prompt.
 				if len(selected) > 0 {
 					opts.Only = selected
 				}
+				// Install behind a spinner, then animate the completion report.
+				return runInteractive(cmd, opts)
 			}
 			report, err := setup.Run(cmd.Context(), opts)
 			if err != nil {
@@ -70,7 +76,7 @@ agents and scripts never block on a prompt.
 			}
 			setup.RenderReport(cmd.OutOrStdout(), report)
 			if report.Failed() {
-				return errors.New("one or more harnesses failed to set up")
+				return errHarnessFailed
 			}
 			return nil
 		},

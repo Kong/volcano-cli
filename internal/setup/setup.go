@@ -257,7 +257,20 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	on := colorEnabled(w)
+	writeReport(w, r, colorEnabled(w))
+}
+
+// RenderReportString returns the same report as a string, colored when on is
+// true regardless of the destination. RenderReport uses it for direct output;
+// the interactive completion animation uses it to reveal the identical content
+// line by line, so the animated finish mirrors the non-interactive report.
+func RenderReportString(r Report, on bool) string {
+	var b strings.Builder
+	writeReport(&b, r, on)
+	return b.String()
+}
+
+func writeReport(w io.Writer, r Report, on bool) {
 	installed, detected, failed, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
