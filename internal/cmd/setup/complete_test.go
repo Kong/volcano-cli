@@ -15,9 +15,12 @@ import (
 func TestCompleteModelReveal(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	m := newCompleteModel(ctx, cancel, setup.Options{}, false)
+	m := newCompleteModel(ctx, cancel, setup.Options{}, true)
 	if !m.installing {
-		t.Fatal("model should start in the installing (spinner) phase")
+		t.Fatal("model should start in the installing (eruption) phase")
+	}
+	if v := m.View().Content; !strings.Contains(v, "Installing Volcano") {
+		t.Fatalf("installing view missing caption: %q", v)
 	}
 
 	report := setup.Report{Results: []setup.Result{
