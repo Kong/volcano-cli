@@ -327,28 +327,21 @@ func RenderReport(w io.Writer, r Report) {
 }
 
 // ctaExamples are copy-paste starter prompts, one shown at random after a
-// successful setup, spanning edge functions, cron, realtime, storage, auth, and
-// plain data APIs so users see the breadth of what Volcano can run.
+// successful setup. Keep these to capabilities available directly through
+// Volcano so every suggestion is a dependable first project.
 var ctaExamples = []string{
-	`"Build a URL shortener with click analytics using Volcano"`,
-	`"Build a headless CMS API for a blog using Volcano"`,
-	`"Build a real-time chat backend using Volcano realtime"`,
-	`"Build a file-upload service with image thumbnails using Volcano storage"`,
-	`"Build a user auth API with email/password signup and login using Volcano"`,
-	`"Build a URL uptime monitor that logs status checks on a schedule using Volcano"`,
-	`"Build a REST API for a todo app using Volcano"`,
+	`"Build a personal notes app with email sign-in and per-user data using Volcano"`,
+	`"Build a collaborative todo board with realtime updates using Volcano"`,
+	`"Build a realtime chat app with online presence using Volcano"`,
 	`"Build a live poll with realtime results using Volcano"`,
-	`"Build a QR code generator API using Volcano edge functions"`,
-	`"Build a link-in-bio backend with click tracking using Volcano"`,
-	`"Build a comment moderation API using Volcano"`,
-	`"Build a feature-flag service with per-user targeting using Volcano"`,
-	`"Build an image resize API backed by Volcano storage"`,
-	`"Build a job queue that processes tasks on a schedule using Volcano"`,
-	`"Build a headless booking and appointment API using Volcano"`,
-	`"Build a presence tracker showing who's online using Volcano realtime"`,
-	`"Build a PDF invoice generator API using Volcano"`,
-	`"Build a rate-limited public API with API keys using Volcano"`,
-	`"Build a leaderboard with live score updates using Volcano realtime"`,
+	`"Build a photo gallery with uploads and public sharing using Volcano Storage"`,
+	`"Build a resumable file-sharing app using Volcano Storage"`,
+	`"Build a URL shortener with click analytics using Volcano"`,
+	`"Build a headless blog CMS with drafts and published posts using Volcano"`,
+	`"Build a link-in-bio page with click tracking using Volcano"`,
+	`"Build a feature-flag dashboard with per-user targeting using Volcano"`,
+	`"Build a QR code generator using Volcano Functions"`,
+	`"Build a live leaderboard using Volcano Realtime"`,
 }
 
 func statusMark(s Status) string {
