@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/Kong/volcano-cli/compare/v0.7.1...v0.7.2) (2026-07-26)
+
+
+### Bug Fixes
+
+* **setup:** keep the real reason on detected-but-failed harnesses ([#102](https://github.com/Kong/volcano-cli/issues/102)) ([0e3944d](https://github.com/Kong/volcano-cli/commit/0e3944de9619a78cd24235f14bcae2b9f10643c6))
+
 ## [0.7.1](https://github.com/Kong/volcano-cli/compare/v0.7.0...v0.7.1) (2026-07-26)
 
 
