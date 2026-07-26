@@ -313,6 +313,15 @@ func RenderReport(w io.Writer, r Report) {
 			break
 		}
 	}
+
+	// Once something actually installed, nudge the user to try it — a copy-paste
+	// prompt they can hand straight to their agent. Skipped on dry runs and
+	// all-failed reports (installed counts real installs, including manual).
+	if installed > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
+		fmt.Fprintln(w, `  "Build a todo app using Volcano"`)
+	}
 }
 
 func statusMark(s Status) string {

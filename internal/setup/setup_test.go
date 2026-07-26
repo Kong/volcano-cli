@@ -491,6 +491,30 @@ func TestRenderReport_ManualPickupGuidance(t *testing.T) {
 	}
 }
 
+// A successful install ends with a copy-paste CTA; a dry run or an all-failed
+// report must not print it (nothing is actually wired up to build against).
+func TestRenderReport_BuildCTA(t *testing.T) {
+	const cta = "Build a todo app using Volcano"
+
+	var b strings.Builder
+	RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})
+	if !strings.Contains(b.String(), cta) {
+		t.Errorf("installed report should print the build CTA:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}}})
+	if strings.Contains(b.String(), cta) {
+		t.Errorf("dry-run must not print the build CTA:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}})
+	if strings.Contains(b.String(), cta) {
+		t.Errorf("all-failed report must not print the build CTA:\n%s", b.String())
+	}
+}
+
 type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
