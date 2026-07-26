@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/Kong/volcano-cli/compare/v0.6.3...v0.7.0) (2026-07-26)
+
+
+### Features
+
+* **setup:** print a build CTA after a successful install ([#98](https://github.com/Kong/volcano-cli/issues/98)) ([264f2f6](https://github.com/Kong/volcano-cli/commit/264f2f69a99fcc1d5f80ba0b20c128751423b383))
+
 ## [0.6.3](https://github.com/Kong/volcano-cli/compare/v0.6.2...v0.6.3) (2026-07-25)
 
 
