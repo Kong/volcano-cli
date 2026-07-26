@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/Kong/volcano-cli/compare/v0.9.0...v0.10.0) (2026-07-26)
+
+
+### Features
+
+* **setup:** full-word status marks in the report ([#108](https://github.com/Kong/volcano-cli/issues/108)) ([5fc0077](https://github.com/Kong/volcano-cli/commit/5fc0077a82500061d449541755986868b08caa9b))
+
 ## [0.9.0](https://github.com/Kong/volcano-cli/compare/v0.8.0...v0.9.0) (2026-07-26)
 
 
