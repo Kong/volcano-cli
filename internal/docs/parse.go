@@ -89,14 +89,9 @@ func ParseDoc(docPath string, content []byte) []Section {
 		lines = lines[:n-1]
 	}
 	// Strip a leading YAML frontmatter block so its keys never become searchable
-	// text, and prefer its title (docs following the Volcano docs format carry the
-	// title in frontmatter, not an H1). Falls back to the first H1, then the file
-	// name, for docs without frontmatter.
-	fmLen, fmTitle := splitFrontmatter(lines)
-	title := fmTitle
-	if title == "" {
-		title = deriveTitle(docPath, lines[fmLen:])
-	}
+	// text; docTitle prefers the frontmatter title over the first H1.
+	fmLen, _ := splitFrontmatter(lines)
+	title := docTitle(docPath, lines)
 	topic := topicOf(docPath)
 
 	type openSection struct {
@@ -236,9 +231,37 @@ func unquoteScalar(s string) string {
 		}
 	}
 	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
-		return s[1 : len(s)-1]
+		// YAML single-quoted scalars escape an apostrophe by doubling it.
+		return strings.ReplaceAll(s[1:len(s)-1], "''", "'")
 	}
 	return s
+}
+
+// docTitle is the single source of a document's title for every consumer
+// (ParseDoc, Service.List, Service.Get): the frontmatter title if present,
+// else the first H1, else a prettified file name. Control characters are
+// stripped so a title from a user-configured/untrusted corpus cannot inject
+// terminal escape sequences when rendered by `docs search`/`docs list`.
+func docTitle(docPath string, lines []string) string {
+	fmLen, title := splitFrontmatter(lines)
+	if title == "" {
+		title = deriveTitle(docPath, lines[fmLen:])
+	}
+	return stripControl(title)
+}
+
+// stripControl drops C0/C1 control characters (turning tabs into spaces) so
+// decoded frontmatter titles are safe to print to a terminal.
+func stripControl(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' {
+			return ' '
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 func deriveTitle(docPath string, lines []string) string {

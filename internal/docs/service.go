@@ -260,7 +260,7 @@ func (s *Service) List(ctx context.Context, topic string, offline bool) ([]ListI
 		}
 		title := f.Path
 		if data, err := snap.readFile(f.Path); err == nil {
-			title = deriveTitle(f.Path, strings.Split(string(data), "\n"))
+			title = docTitle(f.Path, strings.Split(string(data), "\n"))
 		}
 		out = append(out, ListItem{Path: f.Path, Topic: t, Title: title})
 	}
@@ -300,7 +300,7 @@ func (s *Service) Get(ctx context.Context, id string, offline bool) (*GetResult,
 	if err != nil {
 		return nil, err
 	}
-	title := deriveTitle(docPath, strings.Split(string(data), "\n"))
+	title := docTitle(docPath, strings.Split(string(data), "\n"))
 	if anchor == "" {
 		return &GetResult{
 			ID:      docPath,

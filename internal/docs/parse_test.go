@@ -197,3 +197,30 @@ func TestParseDocNoFrontmatterStillUsesH1(t *testing.T) {
 	require.NotEmpty(t, secs)
 	assert.Equal(t, "Legacy Title", secs[0].Title)
 }
+
+func TestUnquoteScalarSingleQuoteEscape(t *testing.T) {
+	// YAML single-quoted scalars escape an apostrophe by doubling it.
+	assert.Equal(t, "Developer's guide", unquoteScalar(`'Developer''s guide'`))
+	assert.Equal(t, "plain", unquoteScalar("plain"))
+	assert.Equal(t, `has "quotes"`, unquoteScalar(`"has \"quotes\""`))
+}
+
+func TestDocTitleStripsControlChars(t *testing.T) {
+	// A frontmatter title with an escaped OSC-52 sequence must not survive as
+	// live terminal control bytes.
+	md := strings.Join([]string{"---", `title: "safe\u001b]52;c;x\u0007end"`, "---", "", "body"}, "\n")
+	title := docTitle("x.md", strings.Split(md, "\n"))
+	assert.Equal(t, "safe]52;c;xend", title)
+	for _, r := range title {
+		assert.False(t, r < 0x20 || (r >= 0x7f && r <= 0x9f), "control char leaked: %q", r)
+	}
+}
+
+func TestDocTitleFrontmatterElseH1(t *testing.T) {
+	fm := strings.Split("---\ntitle: \"From FM\"\n---\n\n## body", "\n")
+	assert.Equal(t, "From FM", docTitle("a.md", fm))
+	h1 := strings.Split("# From H1\n\nbody", "\n")
+	assert.Equal(t, "From H1", docTitle("a.md", h1))
+	none := strings.Split("no heading here\n", "\n")
+	assert.Equal(t, "my doc", docTitle("my-doc.md", none))
+}
