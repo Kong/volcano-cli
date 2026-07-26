@@ -257,6 +257,7 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
+	on := colorEnabled(w)
 	installed, detected, failed, planned := 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
@@ -273,7 +274,8 @@ func RenderReport(w io.Writer, r Report) {
 		case StatusPlanned:
 			planned++
 		}
-		line := fmt.Sprintf("  %-10s %-11s", statusMark(res.Status), res.Harness)
+		mark := styleMark(res.Status, fmt.Sprintf("%-10s", statusMark(res.Status)), on)
+		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
 		if res.Detail != "" {
 			line += " " + res.Detail
 		}
@@ -332,8 +334,8 @@ func RenderReport(w io.Writer, r Report) {
 	}
 	if usable {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
-		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))]) //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		fmt.Fprintln(w, brand("You're set. Try asking your agent to build something:", on))
+		fmt.Fprintln(w, "  "+brand(ctaExamples[rand.IntN(len(ctaExamples))], on)) //nolint:gosec // cosmetic CTA pick, not security-sensitive
 	}
 }
 

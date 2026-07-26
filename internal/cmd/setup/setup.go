@@ -132,7 +132,7 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 				Options(options...).
 				Value(&selected),
 		),
-	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout())
+	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithTheme(volcanoTheme())
 
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
@@ -144,14 +144,30 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 }
 
 // keyHintDescription renders the picker's key hint with the actual keystrokes
-// (space/enter/esc) in a distinct color so they read as keys, not prose. Each
+// (space/enter/esc) in the brand accent so they read as keys, not prose. Each
 // segment is styled in full — colored keys, dimmed connectors — so huh's own
 // description style can't leave the line half-rendered after an embedded reset.
 func keyHintDescription() string {
-	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")) // cyan
+	key := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.BrandHex))
 	dim := lipgloss.NewStyle().Faint(true)
 	hint := func(k, rest string) string { return key.Render(k) + dim.Render(rest) }
 	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
+}
+
+// volcanoTheme brands the picker with the Volcano accent: the title, cursor,
+// checkbox, and selected options render in brand orange instead of huh's default
+// scheme, so the picker matches the rest of the CLI's color identity.
+func volcanoTheme() huh.Theme {
+	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
+		s := huh.ThemeBase(isDark)
+		brand := lipgloss.Color(setup.BrandHex)
+		s.Focused.Title = s.Focused.Title.Foreground(brand).Bold(true)
+		s.Focused.SelectSelector = s.Focused.SelectSelector.Foreground(brand)
+		s.Focused.MultiSelectSelector = s.Focused.MultiSelectSelector.Foreground(brand)
+		s.Focused.SelectedOption = s.Focused.SelectedOption.Foreground(brand)
+		s.Focused.SelectedPrefix = s.Focused.SelectedPrefix.Foreground(brand)
+		return s
+	})
 }
 
 // isTerminal reports whether v is a real character device (a TTY), using the
