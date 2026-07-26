@@ -356,9 +356,10 @@ func writeReport(w io.Writer, r Report, on bool) {
 			case StatusFailed, StatusDetected:
 				// The detail is the error reason on a failed/detected-but-failed row.
 				detail = errText(detail, on)
-			case StatusUpToDate:
-				// Nothing changed; dim the detail so it recedes next to real work.
-				detail = faint(detail, on)
+			case StatusInstalled, StatusUpdated, StatusUpToDate:
+				// Version / skill detail is supplementary metadata; render it gray so
+				// the status mark and harness name stay the focus.
+				detail = gray(detail, on)
 			}
 			line += " " + detail
 		}

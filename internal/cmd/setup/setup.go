@@ -139,19 +139,25 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 	// Enter installs all, matching the non-interactive default.
 	markStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.VolcanoHex))
 	outdatedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.OutdatedHex))
+	grayStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(setup.GrayHex))
 	options := make([]huh.Option[string], len(detected))
 	for i, d := range detected {
 		mark := d.StatusMark()
+		note := d.VersionNote()
 		if color {
 			// An outdated harness gets the amber accent so "can be updated" reads at a
-			// glance; installed/available keep the brand orange.
+			// glance; installed/available keep the brand orange. The version hint is
+			// gray so it recedes behind the harness name.
 			if d.Updatable() {
 				mark = outdatedStyle.Render(mark)
 			} else {
 				mark = markStyle.Render(mark)
 			}
+			if note != "" {
+				note = grayStyle.Render(note)
+			}
 		}
-		options[i] = huh.NewOption(mark+" "+d.Name+d.VersionNote(), d.Name).Selected(true)
+		options[i] = huh.NewOption(mark+" "+d.Name+note, d.Name).Selected(true)
 	}
 
 	// huh's default quit binding is ctrl+c only; bind esc too so the advertised

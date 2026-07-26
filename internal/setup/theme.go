@@ -14,6 +14,7 @@ const (
 	LavaHex     = "#f37a58" // lava-500 brand primary: titles, main lines, CTA
 	VolcanoHex  = "#f97316" // volcano-500: options — selectors, checkboxes, marks
 	OutdatedHex = "#eab308" // amber: installed but a newer version is available
+	GrayHex     = "#6b7280" // neutral gray: version/skill detail, supplementary text
 )
 
 const (
@@ -27,7 +28,7 @@ var (
 	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)) // deep red, not bold: message text
 	ctaStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(LavaHex)).Bold(true)
-	faintStyle     = lipgloss.NewStyle().Faint(true)
+	grayStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(GrayHex))
 )
 
 // colorEnabled reports whether ANSI styling should be written to w: only when w
@@ -57,14 +58,14 @@ func styleMark(s Status, padded string, on bool) string {
 	case StatusInstalled, StatusUpdated, StatusPlanned:
 		return installedStyle.Render(padded)
 	case StatusUpToDate:
-		// Success, but a no-op this run; dim so it recedes next to real changes.
-		return faintStyle.Render(padded)
+		// Success, but a no-op this run; gray so it recedes next to real changes.
+		return grayStyle.Render(padded)
 	case StatusDetected:
 		return detectedStyle.Render(padded)
 	case StatusFailed:
 		return failedStyle.Render(padded)
 	default: // StatusSkipped and any future status
-		return faintStyle.Render(padded)
+		return grayStyle.Render(padded)
 	}
 }
 
@@ -84,11 +85,12 @@ func errText(s string, on bool) string {
 	return errorStyle.Render(s)
 }
 
-// faint dims s when on, else returns it unchanged. Used for up-to-date rows,
-// whose no-op detail should recede next to harnesses that actually changed.
-func faint(s string, on bool) string {
+// gray renders s in neutral gray when on, else returns it unchanged. Used for
+// version/skill detail, supplementary metadata that should recede next to the
+// colored status mark and the harness name.
+func gray(s string, on bool) string {
 	if !on {
 		return s
 	}
-	return faintStyle.Render(s)
+	return grayStyle.Render(s)
 }
