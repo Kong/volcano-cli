@@ -550,6 +550,22 @@ type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
 
+// firstLine must reduce a multi-line install error (e.g. a plugin command's
+// combined output) to its first non-empty line so report rows stay aligned.
+func TestFirstLine(t *testing.T) {
+	cases := map[string]string{
+		"single":            "single",
+		"first\nsecond":     "first",
+		"  lead\ntrail  ":   "lead",
+		"\n\nafter blanks":  "after blanks",
+	}
+	for in, want := range cases {
+		if got := firstLine(in); got != want {
+			t.Errorf("firstLine(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func mustMkdir(t *testing.T, p string) {
 	t.Helper()
 	if err := os.MkdirAll(p, 0o755); err != nil {
