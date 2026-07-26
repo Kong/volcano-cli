@@ -256,7 +256,9 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	}
 	wantClaude := []string{
 		"claude plugin marketplace add " + marketplaceRepo,
+		"claude plugin marketplace update " + marketplaceName,
 		"claude plugin install " + pluginRef,
+		"claude plugin update " + pluginRef,
 	}
 	assertCalls(t, runner.calls, wantClaude)
 }
@@ -281,6 +283,7 @@ func TestRun_CodexUsesPluginAdd(t *testing.T) {
 	}
 	assertCalls(t, runner.calls, []string{
 		"codex plugin marketplace add " + marketplaceRepo + " --ref main",
+		"codex plugin marketplace upgrade " + marketplaceName,
 		"codex plugin add " + pluginRef,
 	})
 }
@@ -310,6 +313,7 @@ func onlyCodex(bin string) (string, error) {
 func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 	runner := &fakeRunner{results: []runResult{
 		{out: []byte("error: marketplace 'volcano-agentic-plugins' already added from this source"), err: errors.New("exit status 1")},
+		{}, // codex plugin marketplace upgrade succeeds
 		{}, // codex plugin add succeeds
 	}}
 	report, err := Run(context.Background(), Options{
@@ -328,8 +332,8 @@ func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 	if got := statusOf(report, "codex"); got != StatusInstalled {
 		t.Fatalf("codex status = %q, want installed on idempotent rerun", got)
 	}
-	if len(runner.calls) != 2 {
-		t.Fatalf("both codex commands must run, got %v", runner.calls)
+	if len(runner.calls) != 3 {
+		t.Fatalf("all codex commands must run, got %v", runner.calls)
 	}
 }
 
@@ -339,7 +343,8 @@ func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 func TestRun_MarketplaceTerminalFailureStaysFatal(t *testing.T) {
 	runner := &fakeRunner{results: []runResult{
 		{}, // marketplace add succeeds
-		{out: []byte("mkdir /opt/plugins: destination directory already exists"), err: errors.New("exit status 1")},
+		{}, // marketplace upgrade succeeds
+		{out: []byte("mkdir /opt/plugins: destination directory already exists"), err: errors.New("exit status 1")}, // terminal plugin add
 	}}
 	report, err := Run(context.Background(), Options{
 		CommandRunner: runner,

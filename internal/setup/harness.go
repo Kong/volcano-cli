@@ -21,7 +21,9 @@ type CommandRunner interface {
 const marketplaceRepo = "Kong/volcano-agentic-plugins"
 
 // marketplaceName is the marketplace's own identifier (the repo basename) as it
-// appears in a harness's plugin registry, used as the "already installed" probe.
+// appears in a harness's plugin registry. Used both as the "already installed"
+// probe and to scope the per-harness "refresh this marketplace" commands so a
+// rerun pulls the latest plugin version instead of the stale pinned snapshot.
 const marketplaceName = "volcano-agentic-plugins"
 
 // pluginRef is the marketplace plugin identifier to install.
@@ -72,9 +74,15 @@ func harnesses() []harness {
 			installed: func(e environ) bool {
 				return fileContains(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"), marketplaceName)
 			},
+			// The marketplace is a pinned snapshot, so a rerun installs the stale
+			// version unless we refresh it first. `marketplace update` re-fetches the
+			// source; `install` no-ops when already present; `update` then bumps the
+			// installed plugin to the refreshed latest (restart required to apply).
 			install: marketplaceInstall("claude", [][]string{
 				{"plugin", "marketplace", "add", marketplaceRepo},
+				{"plugin", "marketplace", "update", marketplaceName},
 				{"plugin", "install", pluginRef},
+				{"plugin", "update", pluginRef},
 			}),
 		},
 		{
@@ -84,9 +92,13 @@ func harnesses() []harness {
 				return dirExists(filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName))
 			},
 			// Codex uses `plugin add` (not `install`) and pins the marketplace to a
-			// ref when added from GitHub (per plugins/codex/README.md).
+			// ref when added from GitHub (per plugins/codex/README.md). Codex has no
+			// per-plugin update command, but `add` is idempotent and installs the
+			// latest snapshot version, so `marketplace upgrade` before it makes a
+			// rerun update the plugin.
 			install: marketplaceInstall("codex", [][]string{
 				{"plugin", "marketplace", "add", marketplaceRepo, "--ref", "main"},
+				{"plugin", "marketplace", "upgrade", marketplaceName},
 				{"plugin", "add", pluginRef},
 			}),
 		},
@@ -164,7 +176,10 @@ const manualHarness = "manual"
 // `volcano setup` is expected to be re-run, so a command that fails only because
 // the marketplace/plugin is already registered is treated as a no-op success:
 // claude and codex share no exit-code contract for "already added", so their
-// output text is the only cross-harness signal.
+// output text is the only cross-harness signal. Each sequence also refreshes its
+// pinned marketplace snapshot and updates the plugin, so a rerun lands on the
+// latest version; both harnesses need the agent restarted before the new version
+// loads, hence the note in the returned detail.
 func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
 	return func(ctx context.Context, _ environ, res resolved) (string, error) {
 		for _, args := range cmds {
@@ -172,7 +187,7 @@ func marketplaceInstall(bin string, cmds [][]string) func(context.Context, envir
 				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
-		return "marketplace: " + pluginRef, nil
+		return "marketplace: " + pluginRef + " (restart your agent to apply)", nil
 	}
 }
 
