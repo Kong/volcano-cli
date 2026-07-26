@@ -571,6 +571,104 @@ func TestFirstLine(t *testing.T) {
 	}
 }
 
+// TestOutcome locks the install/update/up-to-date classification: version-bearing
+// harnesses report the real delta; file-drop harnesses fall back to the
+// pre-install boolean; an unreadable version degrades to a fresh install.
+func TestOutcome(t *testing.T) {
+	marketplace := func(post string) harness {
+		return harness{name: "claude-code", version: func(environ) (string, string) { return post, "" }}
+	}
+	skills := harness{name: "cursor"} // version nil
+
+	cases := []struct {
+		name         string
+		h            harness
+		preVer       string
+		wasInstalled bool
+		detail       string
+		wantStatus   Status
+		wantDetail   string
+	}{
+		{"marketplace fresh", marketplace("0.2.16"), "", false, "marketplace: x", StatusInstalled, "0.2.16 (restart your agent to apply)"},
+		{"marketplace updated", marketplace("0.2.16"), "0.2.14", true, "marketplace: x", StatusUpdated, "0.2.14 \u2192 0.2.16 (restart your agent to apply)"},
+		{"marketplace current", marketplace("0.2.16"), "0.2.16", true, "marketplace: x", StatusUpToDate, "already at 0.2.16"},
+		{"marketplace version unreadable", marketplace(""), "", false, "marketplace: x", StatusInstalled, "marketplace: x (restart your agent to apply)"},
+		{"skills fresh", skills, "", false, "2 skills -> dir", StatusInstalled, "2 skills -> dir"},
+		{"skills updated", skills, "", true, "2 skills -> dir", StatusUpdated, "2 skills -> dir"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := outcome(tc.h, environ{}, tc.preVer, tc.wasInstalled, tc.detail)
+			if got.Status != tc.wantStatus {
+				t.Errorf("status = %q, want %q", got.Status, tc.wantStatus)
+			}
+			if got.Detail != tc.wantDetail {
+				t.Errorf("detail = %q, want %q", got.Detail, tc.wantDetail)
+			}
+		})
+	}
+}
+
+func TestVersionReaders(t *testing.T) {
+	home := t.TempDir()
+	seedClaudeVersions(t, home, "0.2.14", "0.2.16")
+	seedCodexVersions(t, home, "0.2.15", "0.2.16")
+	e := environ{home: home, getenv: emptyEnv, lookPath: noBins}
+
+	if inst, avail := claudeVersions(e); inst != "0.2.14" || avail != "0.2.16" {
+		t.Errorf("claudeVersions = %q/%q, want 0.2.14/0.2.16", inst, avail)
+	}
+	if inst, avail := codexVersions(e); inst != "0.2.15" || avail != "0.2.16" {
+		t.Errorf("codexVersions = %q/%q, want 0.2.15/0.2.16", inst, avail)
+	}
+	// Missing files read as empty, never an error/panic.
+	if inst, avail := claudeVersions(environ{home: t.TempDir()}); inst != "" || avail != "" {
+		t.Errorf("missing files = %q/%q, want empty", inst, avail)
+	}
+}
+
+// codexInstalledVersion picks the highest valid-semver dir and ignores stray
+// non-version directories a stale cache may leave behind.
+func TestCodexInstalledVersionPicksHighest(t *testing.T) {
+	home := t.TempDir()
+	base := filepath.Join(home, ".codex", "plugins", "cache", marketplaceName, "volcano")
+	for _, d := range []string{"0.2.9", "0.2.16", "0.2.10", "tmp-garbage"} {
+		mustMkdir(t, filepath.Join(base, d))
+	}
+	if got := codexInstalledVersion(environ{home: home}); got != "0.2.16" {
+		t.Fatalf("codexInstalledVersion = %q, want 0.2.16", got)
+	}
+}
+
+// seedClaudeVersions writes claude-code's installed registry and cached
+// marketplace manifest so the version readers see installed/available.
+func seedClaudeVersions(t *testing.T, home, installed, available string) {
+	t.Helper()
+	reg := filepath.Join(home, ".claude", "plugins")
+	mustMkdir(t, reg)
+	regJSON := `{"version":2,"plugins":{"` + pluginRef + `":[{"version":"` + installed + `"}]}}`
+	if err := os.WriteFile(filepath.Join(reg, "installed_plugins.json"), []byte(regJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mpDir := filepath.Join(reg, "marketplaces", marketplaceName)
+	mustMkdir(t, mpDir)
+	if err := os.WriteFile(filepath.Join(mpDir, ".release-please-manifest.json"), []byte(`{".":"`+available+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedCodexVersions writes codex's version cache dir and cached marketplace
+// manifest so the version readers see installed/available.
+func seedCodexVersions(t *testing.T, home, installed, available string) {
+	t.Helper()
+	mustMkdir(t, filepath.Join(home, ".codex", "plugins", "cache", marketplaceName, "volcano", installed))
+	mpDir := filepath.Join(home, ".codex", ".tmp", "marketplaces", marketplaceName)
+	mustMkdir(t, mpDir)
+	if err := os.WriteFile(filepath.Join(mpDir, ".release-please-manifest.json"), []byte(`{".":"`+available+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func mustMkdir(t *testing.T, p string) {
 	t.Helper()
 	if err := os.MkdirAll(p, 0o755); err != nil {

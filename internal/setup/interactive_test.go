@@ -83,10 +83,75 @@ func TestDetect_InstalledFollowsSymlinkedSkill(t *testing.T) {
 }
 
 func TestDetectedStatusMark(t *testing.T) {
-	if got := (Detected{Name: "cursor", Installed: true}).StatusMark(); got != "[installed]" {
-		t.Fatalf("installed mark = %q, want [installed]", got)
+	cases := []struct {
+		name string
+		d    Detected
+		want string
+	}{
+		{"installed current", Detected{Installed: true}, "[installed]"},
+		{"available", Detected{Installed: false}, "[available]"},
+		{"installed at latest", Detected{Installed: true, InstalledVersion: "0.2.16", LatestVersion: "0.2.16"}, "[installed]"},
+		{"installed but behind", Detected{Installed: true, InstalledVersion: "0.2.14", LatestVersion: "0.2.16"}, "[outdated]"},
+		// Installed ahead of a stale cache must not read as outdated.
+		{"installed ahead of cache", Detected{Installed: true, InstalledVersion: "0.3.0", LatestVersion: "0.2.16"}, "[installed]"},
+		// Not installed can never be outdated, even with version noise.
+		{"available with versions", Detected{Installed: false, InstalledVersion: "0.2.14", LatestVersion: "0.2.16"}, "[available]"},
 	}
-	if got := (Detected{Name: "cursor", Installed: false}).StatusMark(); got != "[available]" {
-		t.Fatalf("available mark = %q, want [available]", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := strings.TrimRight(tc.d.StatusMark(), " "); got != tc.want {
+				t.Errorf("StatusMark = %q, want %q", got, tc.want)
+			}
+			// Every mark pads to the same width so picker rows align.
+			if got := len(tc.d.StatusMark()); got != 11 {
+				t.Errorf("mark width = %d, want 11 (%q)", got, tc.d.StatusMark())
+			}
+		})
+	}
+}
+
+func TestDetectedVersionNote(t *testing.T) {
+	if got := (Detected{Installed: true, InstalledVersion: "0.2.14", LatestVersion: "0.2.16"}).VersionNote(); got != " (0.2.14 \u2192 0.2.16 available)" {
+		t.Errorf("outdated note = %q", got)
+	}
+	if got := (Detected{Installed: true, InstalledVersion: "0.2.16", LatestVersion: "0.2.16"}).VersionNote(); got != "" {
+		t.Errorf("up-to-date note = %q, want empty", got)
+	}
+	if got := (Detected{Installed: false}).VersionNote(); got != "" {
+		t.Errorf("available note = %q, want empty", got)
+	}
+}
+
+// Detect must surface the installed/cached versions for a marketplace harness so
+// the picker can flag it outdated. Seeds claude's registry + marketplace cache
+// with a behind-latest version and puts claude on PATH.
+func TestDetect_MarketplaceVersionsFlagOutdated(t *testing.T) {
+	home := t.TempDir()
+	seedClaudeVersions(t, home, "0.2.14", "0.2.16")
+	lookClaude := func(bin string) (string, error) {
+		if bin == "claude" {
+			return "/usr/bin/claude", nil
+		}
+		return "", os.ErrNotExist
+	}
+
+	got, err := Detect(Options{HomeDir: home, Getenv: emptyEnv, LookPath: lookClaude})
+	if err != nil {
+		t.Fatalf("Detect: %v", err)
+	}
+	var claude *Detected
+	for i := range got {
+		if got[i].Name == "claude-code" {
+			claude = &got[i]
+		}
+	}
+	if claude == nil {
+		t.Fatalf("claude-code not detected: %+v", got)
+	}
+	if claude.InstalledVersion != "0.2.14" || claude.LatestVersion != "0.2.16" {
+		t.Fatalf("versions = %q/%q, want 0.2.14/0.2.16", claude.InstalledVersion, claude.LatestVersion)
+	}
+	if !claude.Updatable() {
+		t.Fatalf("claude with 0.2.14 installed and 0.2.16 available should be updatable")
 	}
 }

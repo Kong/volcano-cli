@@ -10,14 +10,15 @@ import (
 // The Volcano CLI palette, taken from volcano-web. Shared by the interactive
 // picker and the report so the CLI keeps one color identity across both.
 const (
-	FlameHex   = "#f54019" // lava flame: key hints (space/enter/esc)
-	LavaHex    = "#f37a58" // lava-500 brand primary: titles, main lines, CTA
-	VolcanoHex = "#f97316" // volcano-500: options — selectors, checkboxes, marks
+	FlameHex    = "#f54019" // lava flame: key hints (space/enter/esc)
+	LavaHex     = "#f37a58" // lava-500 brand primary: titles, main lines, CTA
+	VolcanoHex  = "#f97316" // volcano-500: options — selectors, checkboxes, marks
+	OutdatedHex = "#eab308" // amber: installed but a newer version is available
 )
 
 const (
-	detectedHex = "#eab308" // amber: detected but the install didn't complete
-	failedHex   = "#dc2626" // lava red: a hard failure
+	detectedHex = OutdatedHex // amber: detected but the install didn't complete
+	failedHex   = "#dc2626"   // lava red: a hard failure
 )
 
 var (
@@ -53,8 +54,11 @@ func styleMark(s Status, padded string, on bool) string {
 		return padded
 	}
 	switch s {
-	case StatusInstalled, StatusPlanned:
+	case StatusInstalled, StatusUpdated, StatusPlanned:
 		return installedStyle.Render(padded)
+	case StatusUpToDate:
+		// Success, but a no-op this run; dim so it recedes next to real changes.
+		return faintStyle.Render(padded)
 	case StatusDetected:
 		return detectedStyle.Render(padded)
 	case StatusFailed:
@@ -78,4 +82,13 @@ func errText(s string, on bool) string {
 		return s
 	}
 	return errorStyle.Render(s)
+}
+
+// faint dims s when on, else returns it unchanged. Used for up-to-date rows,
+// whose no-op detail should recede next to harnesses that actually changed.
+func faint(s string, on bool) string {
+	if !on {
+		return s
+	}
+	return faintStyle.Render(s)
 }

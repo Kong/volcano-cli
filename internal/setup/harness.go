@@ -2,10 +2,13 @@ package setup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // CommandRunner runs an external command (used for marketplace-based installs).
@@ -50,11 +53,16 @@ func (e environ) configHome() string {
 // harness is one setup target: how to detect it, whether Volcano is already
 // installed into it, and how to install. installed is a best-effort probe of the
 // harness's own registry/skills dir so an interactive picker can show
-// [installed] vs [available]; it never blocks install.
+// [installed] vs [available]; it never blocks install. version, set only for
+// version-bearing (marketplace) harnesses, reports the installed and
+// locally-known-latest Volcano version from local files (no network) so setup
+// can distinguish install / update / up-to-date; nil for versionless (file-drop)
+// harnesses.
 type harness struct {
 	name      string
 	detect    func(e environ) bool
 	installed func(e environ) bool
+	version   func(e environ) (installed, available string)
 	install   func(ctx context.Context, e environ, res resolved) (detail string, err error)
 }
 
@@ -74,6 +82,7 @@ func harnesses() []harness {
 			installed: func(e environ) bool {
 				return fileContains(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"), marketplaceName)
 			},
+			version: claudeVersions,
 			// The marketplace is a pinned snapshot, so a rerun installs the stale
 			// version unless we refresh it first. `marketplace update` re-fetches the
 			// source; `install` no-ops when already present; `update` then bumps the
@@ -91,6 +100,7 @@ func harnesses() []harness {
 			installed: func(e environ) bool {
 				return dirExists(filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName))
 			},
+			version: codexVersions,
 			// Codex uses `plugin add` (not `install`) and pins the marketplace to a
 			// ref when added from GitHub (per plugins/codex/README.md). Codex has no
 			// per-plugin update command, but `add` is idempotent and installs the
@@ -155,6 +165,94 @@ func dirHasVolcanoSkill(dir string) bool {
 	return false
 }
 
+// claudeVersions reads claude-code's installed and locally-cached-latest Volcano
+// plugin versions, both from local files (no network). Either may be "" when the
+// file is absent or unparseable.
+func claudeVersions(e environ) (installed, available string) {
+	installed = claudeInstalledVersion(e)
+	available = manifestVersion(filepath.Join(e.home, ".claude", "plugins", "marketplaces", marketplaceName, ".release-please-manifest.json"))
+	return installed, available
+}
+
+// claudeInstalledVersion extracts the Volcano plugin's version from claude-code's
+// authoritative registry (installed_plugins.json), which carries an explicit
+// version field per installed plugin.
+func claudeInstalledVersion(e environ) string {
+	b, err := os.ReadFile(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"))
+	if err != nil {
+		return ""
+	}
+	var doc struct {
+		Plugins map[string][]struct {
+			Version string `json:"version"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return ""
+	}
+	if entries := doc.Plugins[pluginRef]; len(entries) > 0 {
+		return entries[0].Version
+	}
+	return ""
+}
+
+// codexVersions reads codex's installed and locally-cached-latest Volcano plugin
+// versions from local files (no network).
+func codexVersions(e environ) (installed, available string) {
+	installed = codexInstalledVersion(e)
+	available = manifestVersion(filepath.Join(e.home, ".codex", ".tmp", "marketplaces", marketplaceName, ".release-please-manifest.json"))
+	return installed, available
+}
+
+// codexInstalledVersion returns the greatest version subdirectory under codex's
+// plugin cache. Codex names each install dir by version and normally keeps only
+// the active one, but a stale dir can linger, so pick the highest valid semver.
+func codexInstalledVersion(e environ) string {
+	dir := filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName, "volcano")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	best := ""
+	for _, ent := range entries {
+		if !ent.IsDir() {
+			continue
+		}
+		if _, err := semver.NewVersion(ent.Name()); err != nil {
+			continue // skip non-version dirs
+		}
+		if best == "" || semverLess(best, ent.Name()) {
+			best = ent.Name()
+		}
+	}
+	return best
+}
+
+// manifestVersion reads {".": "x.y.z"} from a release-please manifest — the
+// version of the marketplace's root package, which is the Volcano plugin.
+func manifestVersion(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var m map[string]string
+	if json.Unmarshal(b, &m) != nil {
+		return ""
+	}
+	return m["."]
+}
+
+// semverLess reports whether version a is strictly older than b. Unparseable
+// versions compare as not-less, so a bad read never yields a false "outdated".
+func semverLess(a, b string) bool {
+	av, err1 := semver.NewVersion(a)
+	bv, err2 := semver.NewVersion(b)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return av.LessThan(bv)
+}
+
 // fileContains reports whether the file at path exists and contains substr
 // (case-insensitive). Used to read a marketplace harness's own plugin registry
 // as the "already installed" signal.
@@ -178,8 +276,8 @@ const manualHarness = "manual"
 // claude and codex share no exit-code contract for "already added", so their
 // output text is the only cross-harness signal. Each sequence also refreshes its
 // pinned marketplace snapshot and updates the plugin, so a rerun lands on the
-// latest version; both harnesses need the agent restarted before the new version
-// loads, hence the note in the returned detail.
+// latest version; the caller (install) reads the resulting version and appends
+// restartNote, since both harnesses load the new version only after a restart.
 func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
 	return func(ctx context.Context, _ environ, res resolved) (string, error) {
 		for _, args := range cmds {
@@ -187,9 +285,14 @@ func marketplaceInstall(bin string, cmds [][]string) func(context.Context, envir
 				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
-		return "marketplace: " + pluginRef + " (restart your agent to apply)", nil
+		return "marketplace: " + pluginRef, nil
 	}
 }
+
+// restartNote is appended to a marketplace harness's detail when the plugin was
+// installed or updated: both claude and codex load the new version only after
+// the agent restarts.
+const restartNote = " (restart your agent to apply)"
 
 // alreadyPresent reports whether a failed plugin/marketplace command failed only
 // because *our* plugin/marketplace was already registered — a no-op on rerun,

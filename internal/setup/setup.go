@@ -20,8 +20,14 @@ import (
 type Status string
 
 const (
-	// StatusInstalled means the harness was set up successfully.
+	// StatusInstalled means the harness was set up successfully (fresh install).
 	StatusInstalled Status = "installed"
+	// StatusUpdated means the harness already had Volcano and was bumped to a
+	// newer version.
+	StatusUpdated Status = "updated"
+	// StatusUpToDate means the harness already had the latest Volcano; the run
+	// changed nothing.
+	StatusUpToDate Status = "up to date"
 	// StatusDetected means the harness was found on the machine but its install
 	// didn't complete (autodetect best-effort, not a command failure).
 	StatusDetected Status = "detected"
@@ -199,12 +205,51 @@ func supportedNames(all []harness) []string {
 }
 
 func install(ctx context.Context, h harness, env environ, res resolved, dryRun bool) Result {
+	// Capture pre-install state so the outcome can distinguish a fresh install from
+	// an update: the installed-version read (marketplace harnesses) or the boolean
+	// probe (file-drop harnesses), both taken before install mutates anything.
+	var preVer string
+	if h.version != nil {
+		preVer, _ = h.version(env)
+	}
+	wasInstalled := preVer != "" || (h.installed != nil && h.installed(env))
+
 	if dryRun {
-		return Result{Harness: h.name, Status: StatusPlanned, Detail: "would install"}
+		detail := "would install"
+		if wasInstalled {
+			detail = "would update"
+		}
+		return Result{Harness: h.name, Status: StatusPlanned, Detail: detail}
 	}
 	detail, err := h.install(ctx, env, res)
 	if err != nil {
 		return Result{Harness: h.name, Status: StatusFailed, Detail: err.Error()}
+	}
+	return outcome(h, env, preVer, wasInstalled, detail)
+}
+
+// outcome classifies a successful install into installed / updated / up-to-date,
+// preferring the real version delta for version-bearing (marketplace) harnesses
+// and falling back to the pre-install boolean for file-drop harnesses (which
+// have no version but always overwrite, so a pre-existing install is an update).
+func outcome(h harness, env environ, preVer string, wasInstalled bool, detail string) Result {
+	if h.version != nil {
+		if postVer, _ := h.version(env); postVer != "" {
+			switch {
+			case preVer == "":
+				return Result{Harness: h.name, Status: StatusInstalled, Detail: postVer + restartNote}
+			case preVer != postVer:
+				return Result{Harness: h.name, Status: StatusUpdated, Detail: preVer + " \u2192 " + postVer + restartNote}
+			default:
+				return Result{Harness: h.name, Status: StatusUpToDate, Detail: "already at " + postVer}
+			}
+		}
+		// Version unreadable (e.g. a sandbox with no plugin registry): fall back to
+		// the generic marketplace detail, still noting the restart.
+		return Result{Harness: h.name, Status: StatusInstalled, Detail: detail + restartNote}
+	}
+	if wasInstalled {
+		return Result{Harness: h.name, Status: StatusUpdated, Detail: detail}
 	}
 	return Result{Harness: h.name, Status: StatusInstalled, Detail: detail}
 }
@@ -283,11 +328,15 @@ func RenderReportString(r Report, on bool) string {
 }
 
 func writeReport(w io.Writer, r Report, on bool) {
-	installed, detected, failed, planned := 0, 0, 0, 0
+	installed, updated, current, detected, failed, planned := 0, 0, 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
 			installed++
+		case StatusUpdated:
+			updated++
+		case StatusUpToDate:
+			current++
 		case StatusDetected:
 			detected++
 		case StatusFailed:
@@ -303,16 +352,22 @@ func writeReport(w io.Writer, r Report, on bool) {
 		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
 		if res.Detail != "" {
 			detail := res.Detail
-			// On a failed or detected-but-failed row the detail is the error reason,
-			// so show it in deep red.
-			if res.Status == StatusFailed || res.Status == StatusDetected {
+			switch res.Status {
+			case StatusFailed, StatusDetected:
+				// The detail is the error reason on a failed/detected-but-failed row.
 				detail = errText(detail, on)
+			case StatusUpToDate:
+				// Nothing changed; dim the detail so it recedes next to real work.
+				detail = faint(detail, on)
 			}
 			line += " " + detail
 		}
 		fmt.Fprintln(w, line)
 	}
 
+	// A harness is "ready" whether it was freshly installed, updated, or already
+	// current — all three mean Volcano is set up there.
+	ready := installed + updated + current
 	fmt.Fprintln(w)
 	switch {
 	case planned > 0 && r.ManualFallback:
@@ -323,13 +378,16 @@ func writeReport(w io.Writer, r Report, on bool) {
 		fmt.Fprintln(w, errText("No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).", on))
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
-	case installed == 0 && detected == 0 && failed == 0:
+	case ready == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
-	case installed == 0 && failed == 0:
+	case ready == 0 && failed == 0:
 		// Harnesses detected, but none installed (detected > 0 here).
 		fmt.Fprintln(w, errText(fmt.Sprintf("Detected %d harness(es), but installation failed.", detected), on))
 	default:
-		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
+		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", ready)
+		if updated > 0 {
+			fmt.Fprintf(w, " (%d updated)", updated)
+		}
 		if detected > 0 {
 			fmt.Fprint(w, errText(fmt.Sprintf("; %d detected but failed to install", detected), on))
 		}
@@ -358,7 +416,7 @@ func writeReport(w io.Writer, r Report, on bool) {
 	// contradict it.
 	usable := false
 	for _, res := range r.Results {
-		if res.Status == StatusInstalled && res.Harness != manualHarness {
+		if isReady(res.Status) && res.Harness != manualHarness {
 			usable = true
 			break
 		}
@@ -399,6 +457,12 @@ func firstLine(s string) string {
 	return s
 }
 
+// isReady reports whether a status means Volcano is set up on that harness:
+// freshly installed, updated, or already current.
+func isReady(s Status) bool {
+	return s == StatusInstalled || s == StatusUpdated || s == StatusUpToDate
+}
+
 func statusMark(s Status) string {
 	// Full words, consistent with the picker's [installed]/[available] marks:
 	// [ok]/[fail]/[plan]/[skip] read as jargon next to those. [detected] already
@@ -407,6 +471,10 @@ func statusMark(s Status) string {
 	switch s {
 	case StatusInstalled:
 		return "[installed]"
+	case StatusUpdated:
+		return "[updated]"
+	case StatusUpToDate:
+		return "[current]"
 	case StatusDetected:
 		return "[detected]"
 	case StatusFailed:
