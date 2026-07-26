@@ -36,8 +36,9 @@ func LocalModeNotRunning(w io.Writer) {
 func LocalModeDockerUnavailable(w io.Writer) {
 	fmt.Fprintln(w, "Docker is not available")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Volcano requires Docker to run the local development environment.")
-	fmt.Fprintln(w, "Please install Docker Desktop: https://www.docker.com/products/docker-desktop")
+	fmt.Fprintln(w, "Volcano needs a Docker-compatible engine to run the local development environment")
+	fmt.Fprintln(w, "(Docker Desktop, OrbStack, Colima, Docker Engine, or Podman).")
+	fmt.Fprintln(w, "Run 'volcano doctor' to diagnose, or see https://docs.docker.com/engine/install/")
 }
 
 // LocalModeStatus renders local-mode service status and metadata.

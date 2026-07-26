@@ -58,7 +58,7 @@ the cloud project.
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Frontends | deploy, inspect, custom domains | `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](../project-configuration.md) |
-| Local environment | start/stop/status/reset | `start`, `stop`, `restart`, `status`, `reset` | above |
+| Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Documentation | search/read the docs | `docs …` | [docs-search.md](../docs-search.md) |
 
 ## Projects

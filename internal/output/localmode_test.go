@@ -21,8 +21,9 @@ func TestLocalModeDockerUnavailable(t *testing.T) {
 	LocalModeDockerUnavailable(&out)
 
 	assert.Contains(t, out.String(), "Docker is not available")
-	assert.Contains(t, out.String(), "Volcano requires Docker")
-	assert.Contains(t, out.String(), "https://www.docker.com/products/docker-desktop")
+	assert.Contains(t, out.String(), "Docker-compatible engine")
+	assert.Contains(t, out.String(), "volcano doctor")
+	assert.Contains(t, out.String(), "https://docs.docker.com/engine/install/")
 }
 
 func TestLocalModeStatus(t *testing.T) {
