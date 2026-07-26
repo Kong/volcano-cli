@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Kong/volcano-cli/compare/v0.8.0...v0.9.0) (2026-07-26)
+
+
+### Features
+
+* **setup:** interactive, agent-safe harness selection ([#107](https://github.com/Kong/volcano-cli/issues/107)) ([458767c](https://github.com/Kong/volcano-cli/commit/458767c039c858045fd8e3a708c665565a5a7850))
+
 ## [0.8.0](https://github.com/Kong/volcano-cli/compare/v0.7.2...v0.8.0) (2026-07-26)
 
 
