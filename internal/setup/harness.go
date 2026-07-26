@@ -20,6 +20,10 @@ type CommandRunner interface {
 // installs from.
 const marketplaceRepo = "Kong/volcano-agentic-plugins"
 
+// marketplaceName is the marketplace's own identifier (the repo basename) as it
+// appears in a harness's plugin registry, used as the "already installed" probe.
+const marketplaceName = "volcano-agentic-plugins"
+
 // pluginRef is the marketplace plugin identifier to install.
 const pluginRef = "volcano@volcano-agentic-plugins"
 
@@ -41,20 +45,33 @@ func (e environ) configHome() string {
 	return filepath.Join(e.home, ".config")
 }
 
-// harness is one setup target: how to detect it and how to install into it.
+// harness is one setup target: how to detect it, whether Volcano is already
+// installed into it, and how to install. installed is a best-effort probe of the
+// harness's own registry/skills dir so an interactive picker can show [ok] vs
+// [detected], matching the non-interactive report; it never blocks install.
 type harness struct {
-	name    string
-	detect  func(e environ) bool
-	install func(ctx context.Context, e environ, res resolved) (detail string, err error)
+	name      string
+	detect    func(e environ) bool
+	installed func(e environ) bool
+	install   func(ctx context.Context, e environ, res resolved) (detail string, err error)
 }
 
 // order matters: marketplace harnesses first, then skills-drop harnesses. This
 // is the display order in the report and the phased rollout order.
 func harnesses() []harness {
+	// Skills-drop directories, shared between the install and installed probes so
+	// the two never disagree about where a harness's skills live.
+	cursorSkills := func(e environ) string { return filepath.Join(e.home, ".cursor", "skills") }
+	opencodeSkills := func(e environ) string { return filepath.Join(e.configHome(), "opencode", "skills") }
+	piSkills := func(e environ) string { return filepath.Join(e.home, ".pi", "agent", "skills") }
+
 	return []harness{
 		{
 			name:   "claude-code",
 			detect: func(e environ) bool { return onPath(e, "claude") },
+			installed: func(e environ) bool {
+				return fileContains(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"), marketplaceName)
+			},
 			install: marketplaceInstall("claude", [][]string{
 				{"plugin", "marketplace", "add", marketplaceRepo},
 				{"plugin", "install", pluginRef},
@@ -63,6 +80,9 @@ func harnesses() []harness {
 		{
 			name:   "codex",
 			detect: func(e environ) bool { return onPath(e, "codex") },
+			installed: func(e environ) bool {
+				return dirExists(filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName))
+			},
 			// Codex uses `plugin add` (not `install`) and pins the marketplace to a
 			// ref when added from GitHub (per plugins/codex/README.md).
 			install: marketplaceInstall("codex", [][]string{
@@ -71,12 +91,10 @@ func harnesses() []harness {
 			}),
 		},
 		{
-			name:   "cursor",
-			detect: func(e environ) bool { return dirExists(filepath.Join(e.home, ".cursor")) },
-			install: skillsInstall(
-				func(e environ) string { return filepath.Join(e.home, ".cursor", "skills") },
-				nil,
-			),
+			name:      "cursor",
+			detect:    func(e environ) bool { return dirExists(filepath.Join(e.home, ".cursor")) },
+			installed: skillsInstalled(cursorSkills),
+			install:   skillsInstall(cursorSkills, nil),
 		},
 		{
 			name:   "opencode",
@@ -84,20 +102,56 @@ func harnesses() []harness {
 			// Skills only: ~/.config/opencode/AGENTS.md is user-owned, so we must not
 			// overwrite it. opencode auto-discovers the dropped skills. A native
 			// opencode plugin that wires AGENTS.md safely is tracked in VOL-511.
-			install: skillsInstall(
-				func(e environ) string { return filepath.Join(e.configHome(), "opencode", "skills") },
-				nil,
-			),
+			installed: skillsInstalled(opencodeSkills),
+			install:   skillsInstall(opencodeSkills, nil),
 		},
 		{
-			name:   "pi",
-			detect: func(e environ) bool { return dirExists(filepath.Join(e.home, ".pi", "agent")) },
-			install: skillsInstall(
-				func(e environ) string { return filepath.Join(e.home, ".pi", "agent", "skills") },
-				nil,
-			),
+			name:      "pi",
+			detect:    func(e environ) bool { return dirExists(filepath.Join(e.home, ".pi", "agent")) },
+			installed: skillsInstalled(piSkills),
+			install:   skillsInstall(piSkills, nil),
 		},
 	}
+}
+
+// skillsInstalled reports whether a Volcano skill folder already lives in the
+// harness's skills directory — the "already installed" signal for file-drop
+// harnesses.
+func skillsInstalled(skillsDir func(environ) string) func(environ) bool {
+	return func(e environ) bool { return dirHasVolcanoSkill(skillsDir(e)) }
+}
+
+// dirHasVolcanoSkill reports whether dir contains a subdirectory whose name
+// mentions "volcano" (every Volcano skill folder does, e.g. volcano-platform,
+// install-volcano), so user-owned unrelated skills don't false-positive.
+func dirHasVolcanoSkill(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, ent := range entries {
+		if !strings.Contains(strings.ToLower(ent.Name()), "volcano") {
+			continue
+		}
+		// A skill entry may be a real directory or a symlink to one (some agents
+		// link a shared skills repo). os.Stat follows the link, so symlinked
+		// skills aren't missed the way DirEntry.IsDir() would miss them.
+		if info, statErr := os.Stat(filepath.Join(dir, ent.Name())); statErr == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
+// fileContains reports whether the file at path exists and contains substr
+// (case-insensitive). Used to read a marketplace harness's own plugin registry
+// as the "already installed" signal.
+func fileContains(path, substr string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(b)), strings.ToLower(substr))
 }
 
 const manualHarness = "manual"
