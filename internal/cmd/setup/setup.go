@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -101,10 +102,11 @@ func interactive(cmd *cobra.Command, harnesses []string, manual, dryRun, yes boo
 	return isTerminal(cmd.InOrStdin()) && isTerminal(cmd.OutOrStdout())
 }
 
-// promptHarnesses detects installed harnesses and asks which to set up. It
-// returns the chosen names, or cancelled=true when the user declines. With no
-// harness detected it returns (nil, false, nil) so the caller falls through to
-// Run's autodetect/manual fallback.
+// promptHarnesses detects installed harnesses and shows a checkbox TUI to pick
+// which to set up. It returns the chosen names, or cancelled=true when the user
+// clears the selection or aborts (esc/ctrl+c). With no harness detected it
+// returns (nil, false, nil) so the caller falls through to Run's
+// autodetect/manual fallback.
 func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string, cancelled bool, err error) {
 	detected, err := setup.Detect(opts)
 	if err != nil {
@@ -113,8 +115,27 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options) (selected []string,
 	if len(detected) == 0 {
 		return nil, false, nil
 	}
-	selected, err = setup.SelectHarnesses(cmd.InOrStdin(), cmd.OutOrStdout(), detected)
-	if err != nil {
+
+	options := make([]huh.Option[string], len(detected))
+	for i, name := range detected {
+		// Pre-select every detected harness so a straight Enter installs all,
+		// matching the non-interactive default.
+		options[i] = huh.NewOption(name, name).Selected(true)
+	}
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Install Volcano for which coding agents?").
+				Description("space toggles, enter confirms, esc cancels").
+				Options(options...).
+				Value(&selected),
+		),
+	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout())
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return nil, true, nil
+		}
 		return nil, false, err
 	}
 	return selected, len(selected) == 0, nil
