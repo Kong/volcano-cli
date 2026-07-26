@@ -159,3 +159,41 @@ func TestParseDocAnchorsUniqueOnSuffixCollision(t *testing.T) {
 	}
 	assert.Equal(t, []string{"t", "foo", "foo-1", "foo-1-1"}, anchors)
 }
+
+func TestParseDocFrontmatter(t *testing.T) {
+	md := strings.Join([]string{
+		"---",
+		`title: "Functions"`,
+		`description: "Serverless code that runs on demand."`,
+		"---",
+		"",
+		"Functions are serverless code.",
+		"",
+		"## Creating functions",
+		"body",
+	}, "\n")
+
+	secs := ParseDoc("cli/functions.md", []byte(md))
+	require.NotEmpty(t, secs)
+
+	// Title comes from frontmatter, not an H1 (there is none).
+	assert.Equal(t, "Functions", secs[0].Title)
+
+	// Frontmatter keys must never leak into any searchable section body.
+	for _, s := range secs {
+		assert.NotContains(t, s.Body, "description:")
+		assert.NotContains(t, s.Body, "---")
+	}
+
+	// The preamble body starts after the frontmatter block, and line numbers
+	// stay true to the source file (frontmatter occupies lines 1-4).
+	assert.Contains(t, secs[0].Body, "Functions are serverless code.")
+	assert.Equal(t, 5, secs[0].LineStart)
+}
+
+func TestParseDocNoFrontmatterStillUsesH1(t *testing.T) {
+	md := "# Legacy Title\n\nBody without frontmatter.\n"
+	secs := ParseDoc("legacy.md", []byte(md))
+	require.NotEmpty(t, secs)
+	assert.Equal(t, "Legacy Title", secs[0].Title)
+}
