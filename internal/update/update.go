@@ -135,7 +135,7 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 		method = DetectInstallMethod(exePath)
 	}
 	if name, args, managed := UpgradeCommandFor(method); managed {
-		return upgradeViaManager(ctx, out, opts, method, name, args)
+		return upgradeViaManager(ctx, current, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
 		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")
@@ -162,7 +162,18 @@ func resolveExecutablePath(opts Options) (string, error) {
 // upgradeViaManager upgrades a package-manager install by running its upgrade
 // command. If the manager is not on PATH it prints the command instead so the
 // user can run it themselves.
-func upgradeViaManager(ctx context.Context, out io.Writer, opts Options, method InstallMethod, name string, args []string) error {
+//
+// It first checks whether the CLI is already on the latest release and skips the
+// reinstall if so, mirroring the self-download path — without this the package
+// manager is invoked on every `volcano upgrade` even when nothing is newer. The
+// check is best effort: on a network error or a dev/unparseable current version
+// it returns false and the upgrade proceeds, so offline runs and repair
+// reinstalls still work.
+func upgradeViaManager(ctx context.Context, current string, out io.Writer, opts Options, method InstallMethod, name string, args []string) error {
+	if upToDate(ctx, current, opts) {
+		fmt.Fprintf(out, "Volcano CLI is already up to date (%s).\n", current)
+		return nil
+	}
 	lookPath := opts.LookPath
 	if lookPath == nil {
 		lookPath = exec.LookPath
@@ -182,6 +193,24 @@ func upgradeViaManager(ctx context.Context, out io.Writer, opts Options, method 
 		return fmt.Errorf("failed to upgrade with %s: %w", method, err)
 	}
 	return nil
+}
+
+// upToDate reports whether current is the latest released version. It returns
+// false on any uncertainty (unparseable current version, network error) so the
+// caller upgrades rather than skipping.
+func upToDate(ctx context.Context, current string, opts Options) bool {
+	if _, err := parseStableVersion(current); err != nil {
+		return false
+	}
+	release, err := LatestRelease(ctx, opts)
+	if err != nil {
+		return false
+	}
+	newer, err := NewerThan(release.TagName, current)
+	if err != nil {
+		return false
+	}
+	return !newer
 }
 
 func defaultManagerRunner(ctx context.Context, out io.Writer, name string, args ...string) error {

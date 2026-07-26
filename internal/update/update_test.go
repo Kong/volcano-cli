@@ -55,6 +55,10 @@ func TestDetectInstallMethodMarkerOverridesPath(t *testing.T) {
 func TestUpgradeDelegatesToPackageManager(t *testing.T) {
 	t.Parallel()
 
+	// Latest release is newer than current, so delegation must happen.
+	server := newLatestReleaseServer(t, "v1.3.0")
+	defer server.Close()
+
 	dir := t.TempDir()
 	exePath := filepath.Join(dir, "volcano")
 	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
@@ -65,12 +69,13 @@ func TestUpgradeDelegatesToPackageManager(t *testing.T) {
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallNPM,
 		ExecutablePath: exePath,
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
 		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
 			gotName, gotArgs = name, args
 			return nil
 		},
-		// No HTTPClient/GitHubAPIURL: delegating must not touch GitHub.
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "npm", gotName)
@@ -81,8 +86,12 @@ func TestUpgradeDelegatesToPackageManager(t *testing.T) {
 	assert.Equal(t, "binary", string(installed))
 }
 
-func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
+func TestUpgradeManagerSkipsWhenUpToDate(t *testing.T) {
 	t.Parallel()
+
+	// Latest release equals current: the package manager must not be invoked.
+	server := newLatestReleaseServer(t, "v1.2.3")
+	defer server.Close()
 
 	dir := t.TempDir()
 	exePath := filepath.Join(dir, "volcano")
@@ -91,8 +100,40 @@ func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	ran := false
 	var out bytes.Buffer
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
+		InstallMethod:  InstallNPM,
+		ExecutablePath: exePath,
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
+		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
+		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
+			ran = true
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, ran)
+	assert.Contains(t, out.String(), "already up to date (v1.2.3)")
+}
+
+func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	// Newer release available so the up-to-date check falls through to the
+	// lookPath miss, which prints the command instead of running it.
+	server := newLatestReleaseServer(t, "v1.3.0")
+	defer server.Close()
+
+	ran := false
+	var out bytes.Buffer
+	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallBrew,
 		ExecutablePath: exePath,
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "", exec.ErrNotFound },
 		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
 			ran = true
@@ -102,6 +143,19 @@ func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, ran)
 	assert.Contains(t, out.String(), "brew upgrade volcano")
+}
+
+// newLatestReleaseServer serves a minimal GitHub releases/latest response with
+// the given tag, for exercising the manager path's up-to-date check.
+func newLatestReleaseServer(t *testing.T, tag string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/releases/latest" {
+			writeUpdateJSON(t, w, Release{TagName: tag})
+			return
+		}
+		http.NotFound(w, r)
+	}))
 }
 
 func TestNewerThan(t *testing.T) {
