@@ -322,7 +322,7 @@ func RenderReport(w io.Writer, r Report) {
 	if installed > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
-		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))])
+		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))]) //nolint:gosec // cosmetic CTA pick, not security-sensitive
 	}
 }
 

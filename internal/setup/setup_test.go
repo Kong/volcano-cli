@@ -505,7 +505,7 @@ func TestRenderReport_BuildCTA(t *testing.T) {
 
 	// The random pick must always land on one of the known examples. Run enough
 	// times to exercise the randomness, not just one draw.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		var b strings.Builder
 		RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})
 		if !containsExample(b.String()) {
