@@ -115,6 +115,68 @@ func TestUpgradeManagerSkipsWhenUpToDate(t *testing.T) {
 	assert.Contains(t, out.String(), "already up to date (v1.2.3)")
 }
 
+func TestUpgradeBrewRunsAtSameVersion(t *testing.T) {
+	t.Parallel()
+
+	// Homebrew can ship revision rebuilds at the same upstream tag, so the brew
+	// path must delegate even when the GitHub release equals the current version.
+	server := newLatestReleaseServer(t, "v1.2.3")
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	var gotName string
+	var gotArgs []string
+	err := Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
+		InstallMethod:  InstallBrew,
+		ExecutablePath: exePath,
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
+		LookPath:       func(string) (string, error) { return "/opt/homebrew/bin/brew", nil },
+		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
+			gotName, gotArgs = name, args
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "brew", gotName)
+	assert.Equal(t, []string{"upgrade", "volcano"}, gotArgs)
+}
+
+func TestUpgradeManagerProceedsWhenVersionUnparseable(t *testing.T) {
+	t.Parallel()
+
+	// A dev/unparseable current version makes upToDate best-effort false, so the
+	// upgrade proceeds. GitHub must not be queried (parse fails first): a server
+	// that fails the test if hit locks that in.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected release fetch for unparseable version: %s", r.URL.Path)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, "volcano")
+	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
+
+	ran := false
+	err := Upgrade(context.Background(), "dev", io.Discard, Options{
+		InstallMethod:  InstallNPM,
+		ExecutablePath: exePath,
+		GitHubAPIURL:   server.URL,
+		HTTPClient:     server.Client(),
+		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
+		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
+			ran = true
+			return nil
+		},
+	})
+	require.NoError(t, err)
+	assert.True(t, ran)
+}
+
 func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	t.Parallel()
 
@@ -122,9 +184,13 @@ func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	exePath := filepath.Join(dir, "volcano")
 	require.NoError(t, os.WriteFile(exePath, []byte("binary"), 0o755))
 
-	// Newer release available so the up-to-date check falls through to the
-	// lookPath miss, which prints the command instead of running it.
-	server := newLatestReleaseServer(t, "v1.3.0")
+	// The manager-availability check runs before the release lookup, so a missing
+	// manager must print its command without any network round-trip. A server that
+	// fails the test if hit locks in that ordering.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected release fetch when manager is missing: %s", r.URL.Path)
+		http.NotFound(w, r)
+	}))
 	defer server.Close()
 
 	ran := false

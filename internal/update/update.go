@@ -163,17 +163,16 @@ func resolveExecutablePath(opts Options) (string, error) {
 // command. If the manager is not on PATH it prints the command instead so the
 // user can run it themselves.
 //
-// It first checks whether the CLI is already on the latest release and skips the
-// reinstall if so, mirroring the self-download path — without this the package
-// manager is invoked on every `volcano upgrade` even when nothing is newer. The
-// check is best effort: on a network error or a dev/unparseable current version
-// it returns false and the upgrade proceeds, so offline runs and repair
-// reinstalls still work.
+// For managers whose @latest package is identified exactly by the release
+// version (npm/pnpm/yarn/bun), it skips the reinstall when already on the latest
+// release, mirroring the self-download path — otherwise the manager is invoked
+// on every `volcano upgrade` even when nothing is newer. brew is excluded (see
+// releaseVersionIsPackageVersion) so its same-version revision rebuilds still
+// apply. The manager-availability check runs before the release lookup so a
+// missing manager returns immediately instead of blocking on a network
+// round-trip. The up-to-date check is best effort: on a network error or a
+// dev/unparseable current version it returns false and the upgrade proceeds.
 func upgradeViaManager(ctx context.Context, current string, out io.Writer, opts Options, method InstallMethod, name string, args []string) error {
-	if upToDate(ctx, current, opts) {
-		fmt.Fprintf(out, "Volcano CLI is already up to date (%s).\n", current)
-		return nil
-	}
 	lookPath := opts.LookPath
 	if lookPath == nil {
 		lookPath = exec.LookPath
@@ -184,6 +183,10 @@ func upgradeViaManager(ctx context.Context, current string, out io.Writer, opts 
 		fmt.Fprintf(out, "Volcano CLI was installed with %s. Upgrade it with:\n  %s\n", method, full)
 		return nil //nolint:nilerr // lookPath miss is expected; we guide the user instead of failing
 	}
+	if releaseVersionIsPackageVersion(method) && upToDate(ctx, current, opts) {
+		fmt.Fprintf(out, "Volcano CLI is already up to date (%s).\n", current)
+		return nil
+	}
 	fmt.Fprintf(out, "Volcano CLI was installed with %s; upgrading with `%s`...\n", method, full)
 	run := opts.ManagerRunner
 	if run == nil {
@@ -193,6 +196,20 @@ func upgradeViaManager(ctx context.Context, current string, out io.Writer, opts 
 		return fmt.Errorf("failed to upgrade with %s: %w", method, err)
 	}
 	return nil
+}
+
+// releaseVersionIsPackageVersion reports whether the manager's @latest package
+// is identified exactly by the GitHub release version, making a GitHub-semver
+// up-to-date check authoritative. Homebrew is excluded: it can ship formula
+// revision/bottle rebuilds (1.2.3 -> 1.2.3_1) at the same upstream tag, and
+// `brew upgrade` picks those up cheaply, so the brew path always runs.
+func releaseVersionIsPackageVersion(m InstallMethod) bool {
+	switch m {
+	case InstallNPM, InstallPNPM, InstallYarn, InstallBun:
+		return true
+	default:
+		return false
+	}
 }
 
 // upToDate reports whether current is the latest released version. It returns
