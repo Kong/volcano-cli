@@ -59,9 +59,28 @@ func (s Service) Doctor(ctx context.Context, w io.Writer) error {
 
 // dockerClientVersion probes the Docker CLI without contacting the engine, so it
 // succeeds even when the daemon is down. A failure means the CLI is absent.
+// The `version` subcommand always dials the daemon (and exits non-zero when it
+// is down) regardless of the --format template, so use the top-level
+// `docker --version` flag, which is daemon-free.
 func (s Service) dockerClientVersion(ctx context.Context) (string, error) {
-	out, err := s.runDocker(ctx, "version", "--format", "{{.Client.Version}}")
-	return strings.TrimSpace(string(out)), err
+	out, err := s.runDocker(ctx, "--version")
+	if err != nil {
+		return "", err
+	}
+	return parseDockerVersionLine(string(out)), nil
+}
+
+// parseDockerVersionLine extracts the version from `docker --version` output
+// like "Docker version 28.4.0, build d8eb465f86", falling back to the trimmed
+// line if the shape is unexpected.
+func parseDockerVersionLine(line string) string {
+	fields := strings.Fields(strings.TrimSpace(line))
+	for i, f := range fields {
+		if strings.EqualFold(f, "version") && i+1 < len(fields) {
+			return strings.TrimSuffix(fields[i+1], ",")
+		}
+	}
+	return strings.TrimSpace(line)
 }
 
 // dockerServerVersion probes the engine/daemon. It fails when the CLI is present
@@ -101,8 +120,18 @@ func dockerInstallGuidance() string {
 }
 
 func dockerEngineGuidance() string {
-	return "The Docker CLI is installed but the engine isn't reachable.\n" +
-		"Start your Docker engine (open Docker Desktop/OrbStack, or run 'colima start' / 'sudo systemctl start docker')."
+	var start string
+	switch runtime.GOOS {
+	case "darwin":
+		start = "Start your engine: open Docker Desktop or OrbStack, or run 'colima start'."
+	case "linux":
+		start = "Start your engine: 'sudo systemctl start docker', or 'systemctl --user start podman.socket' for rootless Podman."
+	case "windows":
+		start = "Start your engine: launch Docker Desktop."
+	default:
+		start = "Start your Docker-compatible engine."
+	}
+	return "The Docker CLI is installed but the engine isn't reachable.\n" + start
 }
 
 func composeGuidance() string {
