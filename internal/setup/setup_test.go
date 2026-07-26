@@ -491,27 +491,38 @@ func TestRenderReport_ManualPickupGuidance(t *testing.T) {
 	}
 }
 
-// A successful install ends with a copy-paste CTA; a dry run or an all-failed
-// report must not print it (nothing is actually wired up to build against).
+// A successful install ends with a randomly chosen copy-paste CTA; a dry run or
+// an all-failed report must not print one (nothing is wired up to build against).
 func TestRenderReport_BuildCTA(t *testing.T) {
-	const cta = "Build a headless app using Volcano edge functions"
-
-	var b strings.Builder
-	RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})
-	if !strings.Contains(b.String(), cta) {
-		t.Errorf("installed report should print the build CTA:\n%s", b.String())
+	containsExample := func(s string) bool {
+		for _, ex := range ctaExamples {
+			if strings.Contains(s, ex) {
+				return true
+			}
+		}
+		return false
 	}
 
-	b.Reset()
+	// The random pick must always land on one of the known examples. Run enough
+	// times to exercise the randomness, not just one draw.
+	for i := 0; i < 50; i++ {
+		var b strings.Builder
+		RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})
+		if !containsExample(b.String()) {
+			t.Fatalf("installed report should print one of the CTA examples:\n%s", b.String())
+		}
+	}
+
+	var b strings.Builder
 	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}}})
-	if strings.Contains(b.String(), cta) {
-		t.Errorf("dry-run must not print the build CTA:\n%s", b.String())
+	if containsExample(b.String()) {
+		t.Errorf("dry-run must not print a build CTA:\n%s", b.String())
 	}
 
 	b.Reset()
 	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}})
-	if strings.Contains(b.String(), cta) {
-		t.Errorf("all-failed report must not print the build CTA:\n%s", b.String())
+	if containsExample(b.String()) {
+		t.Errorf("all-failed report must not print a build CTA:\n%s", b.String())
 	}
 }
 

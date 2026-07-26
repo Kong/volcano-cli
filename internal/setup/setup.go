@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"os/exec"
@@ -315,13 +316,50 @@ func RenderReport(w io.Writer, r Report) {
 	}
 
 	// Once something actually installed, nudge the user to try it — a copy-paste
-	// prompt they can hand straight to their agent. Skipped on dry runs and
-	// all-failed reports (installed counts real installs, including manual).
+	// prompt they can hand straight to their agent, picked at random to show the
+	// range of apps Volcano backs. Skipped on dry runs and all-failed reports
+	// (installed counts real installs, including manual).
 	if installed > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "You're set. Try asking your agent to build something:")
-		fmt.Fprintln(w, `  "Build a headless app using Volcano edge functions"`)
+		fmt.Fprintln(w, "  "+ctaExamples[rand.IntN(len(ctaExamples))])
 	}
+}
+
+// ctaExamples are copy-paste starter prompts, one shown at random after a
+// successful setup, spanning edge functions, cron, realtime, storage, auth, and
+// plain data APIs so users see the breadth of what Volcano can run.
+var ctaExamples = []string{
+	`"Build a URL shortener with click analytics using Volcano"`,
+	`"Build a Slack bot that posts daily standup reminders using Volcano edge functions"`,
+	`"Build a Stripe webhook handler that emails receipts using Volcano"`,
+	`"Build a headless CMS API for a blog using Volcano"`,
+	`"Build a GitHub webhook that auto-labels new issues using Volcano"`,
+	`"Build a weather API proxy with response caching using Volcano"`,
+	`"Build a scheduled RSS-to-email digest using Volcano cron functions"`,
+	`"Build a real-time chat backend using Volcano realtime"`,
+	`"Build a file-upload service with image thumbnails using Volcano storage"`,
+	`"Build an auth API with email magic links using Volcano"`,
+	`"Build a URL uptime monitor that alerts on downtime using Volcano"`,
+	`"Build a REST API for a todo app using Volcano"`,
+	`"Build a webhook relay that forwards events to Discord using Volcano"`,
+	`"Build a headless e-commerce cart and checkout API using Volcano"`,
+	`"Build a live poll with realtime results using Volcano"`,
+	`"Build a QR code generator API using Volcano edge functions"`,
+	`"Build a currency conversion API with daily rate refresh using Volcano"`,
+	`"Build a link-in-bio backend with click tracking using Volcano"`,
+	`"Build a comment moderation API using Volcano"`,
+	`"Build a newsletter signup with double opt-in using Volcano"`,
+	`"Build a feature-flag service with per-user targeting using Volcano"`,
+	`"Build an image resize and CDN API using Volcano storage"`,
+	`"Build a Telegram bot backend using Volcano edge functions"`,
+	`"Build a job queue that processes tasks on a schedule using Volcano"`,
+	`"Build a headless booking and appointment API using Volcano"`,
+	`"Build a presence tracker showing who's online using Volcano realtime"`,
+	`"Build a PDF invoice generator API using Volcano"`,
+	`"Build a rate-limited public API with API keys using Volcano"`,
+	`"Build a leaderboard with live score updates using Volcano realtime"`,
+	`"Build a webhook-driven CI status dashboard backend using Volcano"`,
 }
 
 func statusMark(s Status) string {
