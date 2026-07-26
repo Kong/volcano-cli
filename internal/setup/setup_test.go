@@ -491,6 +491,57 @@ func TestRenderReport_ManualPickupGuidance(t *testing.T) {
 	}
 }
 
+// A successful install ends with a randomly chosen copy-paste CTA; a dry run or
+// an all-failed report must not print one (nothing is wired up to build against).
+func TestRenderReport_BuildCTA(t *testing.T) {
+	containsExample := func(s string) bool {
+		for _, ex := range ctaExamples {
+			if strings.Contains(s, ex) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Whichever index the pick lands on, the rendered output must contain a known
+	// example. Looped so a regression that indexed out of range or off the list
+	// would surface across draws, not just one.
+	for range 50 {
+		var b strings.Builder
+		RenderReport(&b, Report{Results: []Result{{Harness: "claude-code", Status: StatusInstalled}}})
+		if !containsExample(b.String()) {
+			t.Fatalf("installed report should print one of the CTA examples:\n%s", b.String())
+		}
+	}
+
+	var b strings.Builder
+	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusPlanned}}})
+	if containsExample(b.String()) {
+		t.Errorf("dry-run must not print a build CTA:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "cursor", Status: StatusDetected}}})
+	if containsExample(b.String()) {
+		t.Errorf("detected-only report must not print a build CTA:\n%s", b.String())
+	}
+
+	b.Reset()
+	RenderReport(&b, Report{Results: []Result{{Harness: "codex", Status: StatusFailed}}})
+	if containsExample(b.String()) {
+		t.Errorf("all-failed report must not print a build CTA:\n%s", b.String())
+	}
+
+	// A manual-only install leaves skills inert in ~/.volcano until the user runs
+	// the "To finish" import prompt, so the CTA must stay quiet even though manual
+	// counts as installed.
+	b.Reset()
+	RenderReport(&b, Report{ManualFallback: true, Results: []Result{{Harness: "manual", Status: StatusInstalled}}})
+	if containsExample(b.String()) {
+		t.Errorf("manual-only install must not print a build CTA:\n%s", b.String())
+	}
+}
+
 type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(r *http.Request) (*http.Response, error) { return f(r) }
