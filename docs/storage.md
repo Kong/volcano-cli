@@ -14,7 +14,7 @@ Object storage organized into **buckets** that hold **objects** (files).
 - Belongs to a **project**.
 - **Functions** read and write objects at runtime.
 - **Policies** control access; they can be managed with the CLI or declared in
-  the [declarative config](../project-configuration.md) (an omitted `policies`
+  the [declarative config](project-configuration.md) (an omitted `policies`
   key leaves a bucket's policies untouched).
 
 ## CLI operations

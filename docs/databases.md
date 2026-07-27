@@ -15,7 +15,7 @@ it using its connection string.
 - Its schema is evolved by **migrations** — SQL files in `volcano/migrations`
   applied to a named database.
 - Database *requirements* can also be declared in the
-  [declarative config](../project-configuration.md) (the manifest updates
+  [declarative config](project-configuration.md) (the manifest updates
   settings but never creates or deletes databases).
 
 ## CLI operations

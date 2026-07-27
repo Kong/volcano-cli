@@ -13,7 +13,7 @@ functions and frontends at runtime.
 - Belongs to a **project**.
 - Consumed by **functions** and **frontends** at runtime.
 - Sourced from an env file (`volcano/volcano.env` or `./volcano.env`) or the
-  [declarative config](../project-configuration.md). When declared, variables
+  [declarative config](project-configuration.md). When declared, variables
   are **fully synced** on deploy: entries absent from the source are deleted.
 
 ## CLI operations

@@ -31,9 +31,9 @@ account (auth)
 
 Cross-cutting concerns:
 
-- **Authentication** gates all cloud access — see [authentication.md](../authentication.md).
+- **Authentication** gates all cloud access — see [authentication.md](authentication.md).
 - **Declarative configuration** applies settings across every element from one
-  manifest — see [project-configuration.md](../project-configuration.md).
+  manifest — see [project-configuration.md](project-configuration.md).
 
 ## Local vs. cloud target
 
@@ -68,17 +68,17 @@ NO_COLOR=1 volcano databases list
 
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
-| Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](../authentication.md) |
+| Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Project | create, list, get, delete, select | `projects …`, `use` | below |
 | Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Frontends | deploy, inspect, custom domains | `cloud frontends …` | [frontends.md](frontends.md) |
-| Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](../project-configuration.md) |
+| Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
-| Documentation | search/read the docs | `docs …` | [docs-search.md](../docs-search.md) |
+| Documentation | search/read the docs | `docs …` | [docs-search.md](docs-search.md) |
 
 ## Projects
 
