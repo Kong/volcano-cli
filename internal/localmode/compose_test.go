@@ -95,16 +95,13 @@ func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
 	assert.Equal(t, defaultVolcanoImage, actual)
 }
 
-// TestDefaultVolcanoImageIsProdSafe guards the release-correctness fix: the
-// in-source (and un-overridden Makefile) default local-mode image must never be a
-// nightly/dev tag, so a plain `go build` or `make build` used for prod never
-// ships the nightly image. `make local` opts into kong/volcano:local-nightly via
-// -X; the source default stays stable.
-func TestDefaultVolcanoImageIsProdSafe(t *testing.T) {
-	assert.NotContainsf(t, defaultVolcanoImage, "nightly",
-		"make build must not bake a nightly local-mode image (got %q); keep the source default a stable tag", defaultVolcanoImage)
-	assert.Truef(t, strings.HasPrefix(defaultVolcanoImage, "kong/volcano:"),
-		"default local-mode image should be a kong/volcano tag (got %q)", defaultVolcanoImage)
+// TestDefaultVolcanoImageIsPublishedLocalTag guards that the built-in default
+// points at the local-mode image family (kong/volcano:local-*) that
+// volcano-hosting publishes and that `volcano start` must run — never the empty
+// string, a non-local tag, or the private cloud image.
+func TestDefaultVolcanoImageIsPublishedLocalTag(t *testing.T) {
+	assert.Truef(t, strings.HasPrefix(defaultVolcanoImage, "kong/volcano:local-"),
+		"default local-mode image must be a kong/volcano:local-* tag (got %q)", defaultVolcanoImage)
 }
 
 func TestDropIncompleteFirstPartyBootstrap(t *testing.T) {

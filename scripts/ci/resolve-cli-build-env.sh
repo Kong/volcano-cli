@@ -22,9 +22,11 @@ CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
 CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
 CLI_FIRST_PARTY_DEVICE_CLIENT_ID=""
 # Local-mode server image baked into the release binary's `volcano start` default.
-# This is independent of the API-URL testing phase above: main and nightly builds
-# ship the nightly local-mode image; stable SemVer tags override it to the stable
-# server image in the refs/tags/* case below (a prod CLI must not ship nightly).
+# All channels currently ship kong/volcano:local-nightly — the only local-mode
+# image volcano-hosting publishes (no stable release cut, so local-latest does
+# not exist yet).
+# ponytail: flip stable SemVer tags to kong/volcano:local-latest once a stable
+# volcano-hosting release publishes it (see the refs/tags/* case below).
 CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local-nightly"
 
 case "$REF" in
@@ -49,12 +51,9 @@ case "$REF" in
     CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
-    # A stable release must ship the stable local-mode image, not the nightly
-    # build; nightly tags keep the top-level local-nightly default. Requires
-    # volcano-hosting to have published kong/volcano:local-latest (stable release).
-    if [[ "$REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
-      CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local-latest"
-    fi
+    # ponytail: stable SemVer tags should flip to kong/volcano:local-latest here
+    # once volcano-hosting publishes it; until then every channel uses the
+    # top-level kong/volcano:local-nightly (the only published local-mode image).
     CLI_VERSION="$REF_NAME"
     ;;
   refs/heads/main)

@@ -10,9 +10,10 @@ COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DEFAULT_API_URL ?= https://api.volcano.dev
 DEFAULT_WEB_URL ?= https://volcano.dev
-# Stable local-mode server image baked into `make build` (prod). `make local`
-# overrides this to kong/volcano:local-nightly for local development.
-DEFAULT_LOCAL_IMAGE ?= kong/volcano:local-latest
+# Local-mode server image baked into `make build`. Defaults to the only image
+# volcano-hosting currently publishes; override with DEFAULT_LOCAL_IMAGE. Flip to
+# kong/volcano:local-latest once a stable volcano-hosting release publishes it.
+DEFAULT_LOCAL_IMAGE ?= kong/volcano:local-nightly
 FIRST_PARTY_DEVICE_CLIENT_ID ?=
 
 LDFLAGS := -s -w \
