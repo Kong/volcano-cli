@@ -144,7 +144,7 @@ func NewTicker(deps Deps, duration time.Duration) Ticker {
 // testable without shelling out to open/xdg-open/rundll32.
 func validateOpenURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return fmt.Errorf("refusing to open non-http(s) url: %q", rawURL)
 	}
 	return nil

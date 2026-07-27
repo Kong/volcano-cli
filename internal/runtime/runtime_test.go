@@ -13,6 +13,8 @@ func TestValidateOpenURL(t *testing.T) {
 		"-flag",
 		"",
 		"://nohost",
+		"http:foo",      // opaque, no host
+		"https:///path", // hostless
 	}
 	for _, rawURL := range reject {
 		if err := validateOpenURL(rawURL); err == nil {
