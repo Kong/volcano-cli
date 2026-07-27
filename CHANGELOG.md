@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/Kong/volcano-cli/compare/v0.14.0...v0.14.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* better deployments ([#79](https://github.com/Kong/volcano-cli/issues/79)) ([e665f4b](https://github.com/Kong/volcano-cli/commit/e665f4b5cd79ca06036952042eb2d66cba2dbf0d))
+
 ## [0.14.0](https://github.com/Kong/volcano-cli/compare/v0.13.1...v0.14.0) (2026-07-27)
 
 
