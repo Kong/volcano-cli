@@ -22,9 +22,9 @@ CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
 CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
 CLI_FIRST_PARTY_DEVICE_CLIENT_ID=""
 # Local-mode server image baked into the release binary's `volcano start` default.
-# ponytail: nightly for the testing phase (staging backend pairs with the nightly
-# local-mode image); restore the stable tag for stable releases before GA.
-# CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local"
+# This is independent of the API-URL testing phase above: main and nightly builds
+# ship the nightly local-mode image; stable SemVer tags override it to the stable
+# server image in the refs/tags/* case below (a prod CLI must not ship nightly).
 CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local-nightly"
 
 case "$REF" in
@@ -49,10 +49,12 @@ case "$REF" in
     CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
-    # ponytail: stable tags ship the nightly local image during the testing phase;
-    # restore the stable tag (below) so released CLIs pull a stable server image before GA.
-    # CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local"
-    CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local-nightly"
+    # A stable release must ship the stable server image, not the nightly local
+    # build; nightly tags keep the top-level local-nightly default.
+    # ponytail: confirm the canonical stable/cloud server tag before GA (placeholder).
+    if [[ "$REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
+      CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local"
+    fi
     CLI_VERSION="$REF_NAME"
     ;;
   refs/heads/main)
