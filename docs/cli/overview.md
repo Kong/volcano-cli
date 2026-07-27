@@ -88,3 +88,12 @@ volcano init javascript            # scaffold a local project (js/nextjs/python/
 volcano start                      # start the local dev environment
 volcano status                     # check it
 ```
+
+`volcano start` runs the local stack from a bundled default server image.
+Override it with `--image` or `VOLCANO_IMAGE`; an explicitly selected image must
+already exist locally, since the CLI never pulls an unpublished local-mode image.
+
+```bash
+volcano start --image kong/volcano:local-nightly
+VOLCANO_IMAGE=kong/volcano:local-nightly volcano start
+```

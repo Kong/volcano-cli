@@ -15,17 +15,26 @@ import (
 )
 
 const (
-	composeProjectName  = "volcano"
-	redisContainerName  = "volcano-redis"
-	defaultVolcanoImage = "kong/volcano:local-nightly"
-	defaultLocalAPIURL  = "http://localhost:8000"
-	postgresAddress     = "localhost:8002"
+	composeProjectName = "volcano"
+	redisContainerName = "volcano-redis"
+	defaultLocalAPIURL = "http://localhost:8000"
+	postgresAddress    = "localhost:8002"
 
 	defaultWaitTimeout = 60 * time.Second
 	defaultPoll        = time.Second
 	defaultInfoTimeout = 10 * time.Second
 	healthTimeout      = 2 * time.Second
 )
+
+// defaultVolcanoImage is the local-mode server image used when the user sets no
+// --image / VOLCANO_IMAGE / .env.local override. It is a var, not a const, so it
+// can be overridden at build time via -X (Makefile DEFAULT_LOCAL_IMAGE). It
+// defaults to kong/volcano:local-nightly — currently the only local-mode image
+// volcano-hosting publishes (no stable release has been cut, so
+// kong/volcano:local-latest does not exist yet).
+// ponytail: flip this (and the Makefile/release defaults) to
+// kong/volcano:local-latest once volcano-hosting publishes a stable release.
+var defaultVolcanoImage = "kong/volcano:local-nightly"
 
 // Service performs local-mode environment workflows.
 type Service struct {

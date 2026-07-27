@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -82,7 +81,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 				started = true
 				image, ok := lastEnvValue(command.Env, "VOLCANO_IMAGE")
 				require.True(t, ok)
-				assert.Equal(t, "kong/volcano:local-nightly", image)
+				assert.Equal(t, defaultVolcanoImage, image)
 				assert.Contains(t, command.Env, "VOLCANO_LOG_LEVEL=debug")
 				assert.Contains(t, command.Env, "QUOTED=value")
 				assert.Contains(t, command.Env, "INLINE=kept")
@@ -106,7 +105,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 		WithDialTCP(func(context.Context, string) error { return nil }),
 		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(key string) string {
 			if key == "VOLCANO_IMAGE" {
-				return "kong/volcano:local-nightly"
+				return defaultVolcanoImage
 			}
 			return ""
 		}),
@@ -312,16 +311,6 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(statePath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
-}
-
-func lastEnvValue(env []string, key string) (string, bool) {
-	prefix := key + "="
-	for _, entry := range slices.Backward(env) {
-		if value, ok := strings.CutPrefix(entry, prefix); ok {
-			return value, true
-		}
-	}
-	return "", false
 }
 
 func TestRefreshDefaultServerImage(t *testing.T) {
