@@ -15,6 +15,7 @@ import (
 const (
 	FlameHex      = theme.FlameHex
 	LavaHex       = theme.LavaHex
+	Volcano400Hex = theme.Volcano400Hex
 	VolcanoHex    = theme.VolcanoHex
 	Volcano600Hex = theme.Volcano600Hex
 	OutdatedHex   = theme.OutdatedHex
