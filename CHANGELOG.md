@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/Kong/volcano-cli/compare/v0.13.1...v0.14.0) (2026-07-27)
+
+
+### Features
+
+* **setup:** render setup CTA example prompt in volcano-600 ([#121](https://github.com/Kong/volcano-cli/issues/121)) ([6b2eeee](https://github.com/Kong/volcano-cli/commit/6b2eeee21e8c93b619b2f85b4a66e002c937ba03))
+
 ## [0.13.1](https://github.com/Kong/volcano-cli/compare/v0.13.0...v0.13.1) (2026-07-27)
 
 
