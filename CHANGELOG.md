@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/Kong/volcano-cli/compare/v0.12.1...v0.13.0) (2026-07-27)
+
+
+### Features
+
+* **cli:** apply setup color theme across all command output ([#115](https://github.com/Kong/volcano-cli/issues/115)) ([f909d16](https://github.com/Kong/volcano-cli/commit/f909d16ed7d043dce2060c07cf1cfcad08d9d46a))
+
 ## [0.12.1](https://github.com/Kong/volcano-cli/compare/v0.12.0...v0.12.1) (2026-07-27)
 
 
