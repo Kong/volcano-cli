@@ -26,7 +26,11 @@ gitignored `.env.local` file, so you can point the CLI at a non-production
 backend without exporting variables each time. Supported keys: `VOLCANO_API_URL`,
 `VOLCANO_WEB_URL` (signup page only — `volcano login`'s browser flow opens the
 backend's device-authorization verification URL directly and never uses this),
-and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`. `VOLCANO_WEB_URL` is optional at
+and `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID`. `make local` also honors
+`VOLCANO_IMAGE` from `.env.local` (mapped to `DEFAULT_LOCAL_IMAGE`, defaulting to
+`kong/volcano:local-nightly`) so local dev builds bake the nightly local-mode
+server image; `make build` bakes the stable default and never ships nightly.
+`VOLCANO_WEB_URL` is optional at
 runtime too: when it isn't set, the CLI derives it from `VOLCANO_API_URL`
 (`config.WebURL`) — a loopback API host maps to the conventional local Web port
 3000, and an `api.` API host maps to the same host with that prefix stripped
