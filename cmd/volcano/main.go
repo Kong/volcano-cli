@@ -13,6 +13,7 @@ import (
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 func main() {
@@ -63,7 +64,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 // printDeprecationError renders a require_version_upgrade 426 error together with
 // the concrete upgrade target, when the API provided one.
 func printDeprecationError(w io.Writer, err error, deps cliruntime.Deps) {
-	fmt.Fprintln(w, "Error:", err)
+	fmt.Fprintln(w, theme.Error("Error:", theme.On(w)), err)
 	if latest := api.LastInstructions().LatestVersion; latest != "" {
 		fmt.Fprintf(w, "Upgrade to %s: %s\n", latest, cliruntime.CommandPath(deps, "upgrade"))
 	}
@@ -72,7 +73,7 @@ func printDeprecationError(w io.Writer, err error, deps cliruntime.Deps) {
 // printError renders a generic command error, appending a reauth hint when
 // the API signaled the platform token needs re-authentication (VOL-180).
 func printError(w io.Writer, err error, deps cliruntime.Deps) {
-	fmt.Fprintln(w, "Error:", err)
+	fmt.Fprintln(w, theme.Error("Error:", theme.On(w)), err)
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
