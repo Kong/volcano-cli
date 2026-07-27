@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -312,16 +311,6 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(statePath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
-}
-
-func lastEnvValue(env []string, key string) (string, bool) {
-	prefix := key + "="
-	for _, entry := range slices.Backward(env) {
-		if value, ok := strings.CutPrefix(entry, prefix); ok {
-			return value, true
-		}
-	}
-	return "", false
 }
 
 func TestRefreshDefaultServerImage(t *testing.T) {
