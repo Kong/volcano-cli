@@ -418,6 +418,7 @@ func (e FrontendFramework) Valid() bool {
 // Defines values for FrontendStatus.
 const (
 	FrontendStatusActive       FrontendStatus = "active"
+	FrontendStatusDegraded     FrontendStatus = "degraded"
 	FrontendStatusDeleting     FrontendStatus = "deleting"
 	FrontendStatusFailed       FrontendStatus = "failed"
 	FrontendStatusProvisioning FrontendStatus = "provisioning"
@@ -427,6 +428,8 @@ const (
 func (e FrontendStatus) Valid() bool {
 	switch e {
 	case FrontendStatusActive:
+		return true
+	case FrontendStatusDegraded:
 		return true
 	case FrontendStatusDeleting:
 		return true
@@ -544,16 +547,21 @@ func (e FrontendDeploymentOperation) Valid() bool {
 // Defines values for FrontendDeploymentStatus.
 const (
 	FrontendDeploymentStatusActive       FrontendDeploymentStatus = "active"
+	FrontendDeploymentStatusDegraded     FrontendDeploymentStatus = "degraded"
 	FrontendDeploymentStatusDeleted      FrontendDeploymentStatus = "deleted"
 	FrontendDeploymentStatusDeleting     FrontendDeploymentStatus = "deleting"
 	FrontendDeploymentStatusFailed       FrontendDeploymentStatus = "failed"
 	FrontendDeploymentStatusProvisioning FrontendDeploymentStatus = "provisioning"
+	FrontendDeploymentStatusQueued       FrontendDeploymentStatus = "queued"
+	FrontendDeploymentStatusSuperseded   FrontendDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the FrontendDeploymentStatus enum.
 func (e FrontendDeploymentStatus) Valid() bool {
 	switch e {
 	case FrontendDeploymentStatusActive:
+		return true
+	case FrontendDeploymentStatusDegraded:
 		return true
 	case FrontendDeploymentStatusDeleted:
 		return true
@@ -562,6 +570,10 @@ func (e FrontendDeploymentStatus) Valid() bool {
 	case FrontendDeploymentStatusFailed:
 		return true
 	case FrontendDeploymentStatusProvisioning:
+		return true
+	case FrontendDeploymentStatusQueued:
+		return true
+	case FrontendDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -635,6 +647,8 @@ const (
 	FunctionDeploymentStatusDeleting     FunctionDeploymentStatus = "deleting"
 	FunctionDeploymentStatusFailed       FunctionDeploymentStatus = "failed"
 	FunctionDeploymentStatusProvisioning FunctionDeploymentStatus = "provisioning"
+	FunctionDeploymentStatusQueued       FunctionDeploymentStatus = "queued"
+	FunctionDeploymentStatusSuperseded   FunctionDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the FunctionDeploymentStatus enum.
@@ -649,6 +663,10 @@ func (e FunctionDeploymentStatus) Valid() bool {
 	case FunctionDeploymentStatusFailed:
 		return true
 	case FunctionDeploymentStatusProvisioning:
+		return true
+	case FunctionDeploymentStatusQueued:
+		return true
+	case FunctionDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -1120,16 +1138,21 @@ func (e ProjectDeploymentOperation) Valid() bool {
 // Defines values for ProjectDeploymentStatus.
 const (
 	ProjectDeploymentStatusActive       ProjectDeploymentStatus = "active"
+	ProjectDeploymentStatusDegraded     ProjectDeploymentStatus = "degraded"
 	ProjectDeploymentStatusDeleted      ProjectDeploymentStatus = "deleted"
 	ProjectDeploymentStatusDeleting     ProjectDeploymentStatus = "deleting"
 	ProjectDeploymentStatusFailed       ProjectDeploymentStatus = "failed"
 	ProjectDeploymentStatusProvisioning ProjectDeploymentStatus = "provisioning"
+	ProjectDeploymentStatusQueued       ProjectDeploymentStatus = "queued"
+	ProjectDeploymentStatusSuperseded   ProjectDeploymentStatus = "superseded"
 )
 
 // Valid indicates whether the value is a known member of the ProjectDeploymentStatus enum.
 func (e ProjectDeploymentStatus) Valid() bool {
 	switch e {
 	case ProjectDeploymentStatusActive:
+		return true
+	case ProjectDeploymentStatusDegraded:
 		return true
 	case ProjectDeploymentStatusDeleted:
 		return true
@@ -1138,6 +1161,10 @@ func (e ProjectDeploymentStatus) Valid() bool {
 	case ProjectDeploymentStatusFailed:
 		return true
 	case ProjectDeploymentStatusProvisioning:
+		return true
+	case ProjectDeploymentStatusQueued:
+		return true
+	case ProjectDeploymentStatusSuperseded:
 		return true
 	default:
 		return false
@@ -2966,7 +2993,10 @@ type Frontend struct {
 	Id                 openapi_types.UUID          `json:"id"`
 	LastInvokedAt      *time.Time                  `json:"last_invoked_at,omitempty"`
 	Name               string                      `json:"name"`
-	ProjectId          openapi_types.UUID          `json:"project_id"`
+
+	// PendingDeploymentId Newest queued deployment that will run after the current operation
+	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
+	ProjectId           openapi_types.UUID  `json:"project_id"`
 
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
 	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
@@ -3134,9 +3164,12 @@ type Function struct {
 	IsPublic bool `json:"is_public"`
 
 	// LastInvokedAt Most recent successful invocation timestamp
-	LastInvokedAt *time.Time         `json:"last_invoked_at,omitempty"`
-	Name          string             `json:"name"`
-	ProjectId     openapi_types.UUID `json:"project_id"`
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+	Name          string     `json:"name"`
+
+	// PendingDeploymentId Newest queued deployment that will run after the current operation
+	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
+	ProjectId           openapi_types.UUID  `json:"project_id"`
 
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
 	ProvisioningStartedAt *time.Time     `json:"provisioning_started_at,omitempty"`
@@ -21986,6 +22019,7 @@ type CreateFunctionClientResponse struct {
 	JSON201      *Function
 	JSON400      *Error
 	JSON403      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -29856,6 +29890,13 @@ func ParseCreateFunctionClientResponse(rsp *http.Response) (*CreateFunctionClien
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error

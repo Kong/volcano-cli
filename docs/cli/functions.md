@@ -39,6 +39,10 @@ runtime from source file extensions, and uploads a packaged archive.
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to force the cloud
 target instead of the active context.
 
+Cloud deploys use latest-wins queueing. If the function is already deploying,
+the new source replaces any older queued deploy and runs next. Delete supersedes
+queued deploys; later deploys are rejected until deletion finishes.
+
 ## Examples
 
 ```bash

@@ -18,8 +18,13 @@ func TestAPIE2ECloudFunctions(t *testing.T) {
 
 	env.loginAndUse(t)
 	env.runCloudCLI(t, "functions", "deploy", "--all").requireSuccess(t, "functions deployment started")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
+	writeAPIE2EFunctionVersion(t, env.projectDir, "v2")
 	env.runCloudCLI(t, "functions", "deploy", "-f", "hello").requireSuccess(t, "1/1 functions deployment started")
+	writeAPIE2EFunctionVersion(t, env.projectDir, "v3")
 	env.runCloudCLI(t, "functions", "deploy", "-f", filepath.Join("volcano", "functions", "hello.js")).requireSuccess(t, "1/1 functions deployment started")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
+	env.runCloudCLI(t, "functions", "invoke", "hello", "--json").requireSuccess(t, `"version":"v3"`)
 	env.runCloudCLI(t, "functions", "list").requireSuccess(t, "hello")
 	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Name: hello", "Visibility: private")
 	env.runCloudCLI(t, "functions", "update", "hello", "--public").requireSuccess(t, "visibility set to public")
@@ -27,4 +32,14 @@ func TestAPIE2ECloudFunctions(t *testing.T) {
 	env.runCloudCLI(t, "functions", "update", "hello", "--private").requireSuccess(t, "visibility set to private")
 
 	env.runCloudCLI(t, "functions", "delete", "hello", "--yes").requireSuccess(t, "deletion started")
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No functions deployed", "functions", "list")
+}
+
+func writeAPIE2EFunctionVersion(t *testing.T, projectDir, version string) {
+	t.Helper()
+	writeAPIE2EFile(t, filepath.Join(projectDir, "volcano", "functions", "hello.js"), `
+exports.handler = async () => {
+  return { statusCode: 200, body: JSON.stringify({ version: "`+version+`" }) };
+};
+`)
 }

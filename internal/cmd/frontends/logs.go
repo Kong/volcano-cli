@@ -163,9 +163,10 @@ func frontendDeploymentTerminal(deployment *apiclient.FrontendDeployment) bool {
 	}
 	switch deployment.Status {
 	case apiclient.FrontendDeploymentStatusActive,
+		apiclient.FrontendDeploymentStatusDegraded,
 		apiclient.FrontendDeploymentStatusDeleted,
-		apiclient.FrontendDeploymentStatusDeleting,
-		apiclient.FrontendDeploymentStatusFailed:
+		apiclient.FrontendDeploymentStatusFailed,
+		apiclient.FrontendDeploymentStatusSuperseded:
 		return true
 	default:
 		return false

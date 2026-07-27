@@ -74,6 +74,9 @@ func Function(w io.Writer, fn *apiclient.Function) {
 	if invokeURL := stringPtrValue(fn.InvokeUrl); invokeURL != "" {
 		kv(w, on, "Invoke URL", "%s", invokeURL)
 	}
+	if fn.PendingDeploymentId != nil {
+		kv(w, on, "Pending Deployment", "%s", fn.PendingDeploymentId.String())
+	}
 	kv(w, on, "Created", "%s", FormatTimestamp(fn.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(fn.UpdatedAt))
 }

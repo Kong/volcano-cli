@@ -13,8 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
+
+func TestFunctionDeploymentSupersededIsTerminal(t *testing.T) {
+	t.Parallel()
+	require.True(t, functionDeploymentTerminal(&apiclient.FunctionDeployment{
+		Status: apiclient.FunctionDeploymentStatusSuperseded,
+	}))
+}
+
+func TestFunctionDeploymentDeletingIsNotTerminal(t *testing.T) {
+	t.Parallel()
+	require.False(t, functionDeploymentTerminal(&apiclient.FunctionDeployment{
+		Status: apiclient.FunctionDeploymentStatusDeleting,
+	}))
+}
 
 const (
 	functionDeploymentID = "55555555-5555-4555-8555-555555555555"

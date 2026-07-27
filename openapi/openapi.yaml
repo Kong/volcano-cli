@@ -832,9 +832,10 @@ paths:
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
         Uploaded source archives cannot contain symlink entries. Safe symlinks created during
         the cloud build are materialized before publish.
-        Volcano builds and deploys the function asynchronously after upload. New functions and existing
-        function code updates return a Function resource with `status: provisioning` while the Step
-        Functions workflow is running, then transition to `active` or `failed`.
+        Volcano builds and deploys the function asynchronously after upload. A deployment that starts
+        immediately returns a Function resource with `status: provisioning`, then transitions to
+        `active` or `failed`. If another deployment is running, the response preserves the resource's
+        current status and exposes the queued deployment through `pending_deployment_id`.
         If a function with the same name already exists in the project, this operation updates that
         function's runtime, handler, and source bundle and returns `200 OK`.
         Each project can contain up to 5,000 functions. Creating a new function over this cap returns 403.
@@ -895,7 +896,7 @@ paths:
                   example: handler
       responses:
         '200':
-          description: Existing function updated and update workflow started
+          description: Existing function updated; its deployment was started or queued
           content:
             application/json:
               schema:
@@ -914,6 +915,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Function limit exceeded for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Function deletion is queued or running
           content:
             application/json:
               schema:
@@ -997,8 +1004,10 @@ paths:
         - Functions
       summary: Delete a function
       description: |
-        Starts asynchronous function deletion. The function remains visible with `status: deleting`
-        until cleanup finishes, then it returns 404 and no longer appears in function lists.
+        Schedules asynchronous function deletion. If another deployment is running, the function
+        preserves its current status and exposes the queued deletion through `pending_deployment_id`.
+        Its status changes to `deleting` when cleanup starts. After cleanup, it returns 404 and no
+        longer appears in function lists.
       operationId: deleteFunction
       security:
         - UserToken: []
@@ -1007,7 +1016,7 @@ paths:
         - $ref: '#/components/parameters/FunctionId'
       responses:
         '202':
-          description: Function deletion started
+          description: Function deletion started or queued
         '404':
           description: Function not found
           content:
@@ -1691,9 +1700,10 @@ paths:
       description: |
         Creates and deploys a frontend for the project.
         If a frontend with the same name already exists in the project, this operation updates that
-        frontend using the uploaded archive and starts a new deployment. Create, update, and redeploy
-        responses return `status: provisioning` while the frontend workflow is running, then transition
-        to `active` or `failed`.
+        frontend using the uploaded archive and starts a new deployment. A deployment that starts
+        immediately returns `status: provisioning`, then transitions to `active`, `degraded`, or
+        `failed`. If another deployment is running, the response preserves the frontend's current status
+        and exposes the queued deployment through `pending_deployment_id`.
         For monorepos, provide `app_root` as a relative path from the uploaded archive root
         to the Next.js app that should be built. Omit it for single-app archives.
         Supported frontend environments are Next.js 15.x and 16.x with Node.js
@@ -1743,7 +1753,7 @@ paths:
                   description: ZIP or tar.gz archive of the frontend project directory or monorepo workspace root. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz archive.
       responses:
         '200':
-          description: Existing frontend updated and redeployment workflow started
+          description: Existing frontend updated; its deployment was started or queued
           content:
             application/json:
               schema:
@@ -1779,7 +1789,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - frontend deployment already in progress
+          description: Conflict - frontend deletion is queued or running
           content:
             application/json:
               schema:
@@ -1849,8 +1859,10 @@ paths:
         - Frontends
       summary: Delete a frontend
       description: |
-        Starts asynchronous frontend deletion. The frontend remains visible with `status: deleting`
-        until cleanup finishes, then it returns 404 and no longer appears in frontend lists.
+        Schedules asynchronous frontend deletion. If another deployment is running, the frontend
+        preserves its current status and exposes the queued deletion through `pending_deployment_id`.
+        Its status changes to `deleting` when cleanup starts. After cleanup, it returns 404 and no
+        longer appears in frontend lists.
       operationId: deleteFrontend
       security:
         - UserToken: []
@@ -1859,7 +1871,7 @@ paths:
         - $ref: '#/components/parameters/FrontendId'
       responses:
         '202':
-          description: Frontend deletion started
+          description: Frontend deletion started or queued
         '400':
           description: Bad request - invalid identifier
           content:
@@ -1902,8 +1914,11 @@ paths:
         - Frontends
       summary: Redeploy frontend using latest uploaded artifact
       description: |
-        Starts a new frontend workflow using the latest stored artifact. The frontend remains visible
-        with `status: provisioning` while the workflow runs, then transitions to `active` or `failed`.
+        Starts a new frontend workflow using the latest stored artifact. A deployment that starts
+        immediately returns `status: provisioning`, then transitions to `active`, `degraded`, or
+        `failed`. An overlapping deployment preserves the frontend's current status, is exposed through
+        `pending_deployment_id`, and supersedes any older queued deployment. The previous runtime remains
+        available during provisioning.
       operationId: redeployFrontend
       security:
         - UserToken: []
@@ -1912,7 +1927,7 @@ paths:
         - $ref: '#/components/parameters/FrontendId'
       responses:
         '200':
-          description: Frontend redeploy started
+          description: Frontend redeploy started or queued
           content:
             application/json:
               schema:
@@ -1942,7 +1957,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - frontend deployment already in progress
+          description: Conflict - frontend deletion is queued or running
           content:
             application/json:
               schema:
@@ -8200,6 +8215,7 @@ components:
           enum:
             - provisioning
             - active
+            - degraded
             - failed
             - deleting
         provisioning_started_at:
@@ -8214,6 +8230,10 @@ components:
           type: string
           format: uuid
           description: Identifier of the latest frontend deployment operation
+        pending_deployment_id:
+          type: string
+          format: uuid
+          description: Newest queued deployment that will run after the current operation
         site_url:
           type: string
         custom_domain:
@@ -8338,9 +8358,12 @@ components:
         status:
           type: string
           enum:
+            - queued
             - provisioning
             - active
+            - degraded
             - failed
+            - superseded
             - deleting
             - deleted
         artifact_bucket:
@@ -8533,6 +8556,10 @@ components:
           type: string
           format: uuid
           description: Identifier of the latest function deployment operation
+        pending_deployment_id:
+          type: string
+          format: uuid
+          description: Newest queued deployment that will run after the current operation
         last_invoked_at:
           type: string
           format: date-time
@@ -8576,9 +8603,11 @@ components:
         status:
           type: string
           enum:
+            - queued
             - provisioning
             - active
             - failed
+            - superseded
             - deleting
             - deleted
         artifact_bucket:
@@ -10533,9 +10562,12 @@ components:
         status:
           type: string
           enum:
+            - queued
             - provisioning
             - active
+            - degraded
             - failed
+            - superseded
             - deleting
             - deleted
         artifact_version:
