@@ -29,11 +29,8 @@ const (
 // defaultVolcanoImage is the local-mode server image used when the user sets no
 // --image / VOLCANO_IMAGE / .env.local override. It is a var, not a const, so it
 // can be overridden at build time via -X (Makefile DEFAULT_LOCAL_IMAGE). It
-// defaults to kong/volcano:local-nightly — currently the only local-mode image
-// volcano-hosting publishes (no stable release has been cut, so
-// kong/volcano:local-latest does not exist yet).
-// TODO: flip this (and the Makefile/release defaults) to
-// kong/volcano:local-latest once volcano-hosting publishes a stable release.
+// defaults to kong/volcano:local-nightly, the local-mode image volcano-hosting
+// publishes.
 var defaultVolcanoImage = "kong/volcano:local-nightly"
 
 // Service performs local-mode environment workflows.
