@@ -14,14 +14,22 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Status is the outcome for one harness.
 type Status string
 
 const (
-	// StatusInstalled means the harness was set up successfully.
+	// StatusInstalled means the harness was set up successfully (fresh install).
 	StatusInstalled Status = "installed"
+	// StatusUpdated means the harness already had Volcano and was bumped to a
+	// newer version.
+	StatusUpdated Status = "updated"
+	// StatusUpToDate means the harness already had the latest Volcano; the run
+	// changed nothing.
+	StatusUpToDate Status = "up to date"
 	// StatusDetected means the harness was found on the machine but its install
 	// didn't complete (autodetect best-effort, not a command failure).
 	StatusDetected Status = "detected"
@@ -199,14 +207,77 @@ func supportedNames(all []harness) []string {
 }
 
 func install(ctx context.Context, h harness, env environ, res resolved, dryRun bool) Result {
-	if dryRun {
-		return Result{Harness: h.name, Status: StatusPlanned, Detail: "would install"}
+	// Capture pre-install state so the outcome can distinguish a fresh install from
+	// an update: the installed vs locally-known-latest version (marketplace
+	// harnesses) or the boolean probe (file-drop harnesses), both read before
+	// install mutates anything.
+	var preVer, availVer string
+	if h.version != nil {
+		preVer, availVer = h.version(env)
 	}
-	detail, err := h.install(ctx, env, res)
+	wasInstalled := preVer != "" || (h.installed != nil && h.installed(env))
+
+	if dryRun {
+		return Result{Harness: h.name, Status: StatusPlanned, Detail: plannedDetail(h, preVer, availVer, wasInstalled)}
+	}
+	ir, err := h.install(ctx, env, res)
 	if err != nil {
 		return Result{Harness: h.name, Status: StatusFailed, Detail: err.Error()}
 	}
-	return Result{Harness: h.name, Status: StatusInstalled, Detail: detail}
+	return outcome(h, env, preVer, wasInstalled, ir)
+}
+
+// plannedDetail is the dry-run description for a harness, mirroring what a real
+// run would do without changing anything. A marketplace harness compares the
+// installed version against the locally-known latest so an already-current one
+// reads "up to date" instead of a misleading "would update"; when that latest
+// can't be read it stays "would update" (a rerun refreshes and may bump).
+// Versionless (file-drop) harnesses fall back to the pre-install presence check.
+func plannedDetail(h harness, preVer, availVer string, wasInstalled bool) string {
+	if h.version != nil {
+		switch {
+		case preVer == "":
+			return "would install"
+		case availVer != "" && !semverLess(preVer, availVer):
+			return "up to date"
+		default:
+			return "would update"
+		}
+	}
+	if wasInstalled {
+		return "would update"
+	}
+	return "would install"
+}
+
+// outcome classifies a successful install into installed / updated / up-to-date.
+// Marketplace harnesses use the real version delta; file-drop harnesses have no
+// version, so they classify by whether any skill file actually changed on disk
+// this run — a fresh install, a genuine update, or an unchanged rerun.
+func outcome(h harness, env environ, preVer string, wasInstalled bool, ir installResult) Result {
+	if h.version != nil {
+		if postVer, _ := h.version(env); postVer != "" {
+			switch {
+			case preVer == "":
+				return Result{Harness: h.name, Status: StatusInstalled, Detail: postVer + restartNote}
+			case preVer != postVer:
+				return Result{Harness: h.name, Status: StatusUpdated, Detail: preVer + " \u2192 " + postVer + restartNote}
+			default:
+				return Result{Harness: h.name, Status: StatusUpToDate, Detail: "already at " + postVer}
+			}
+		}
+		// Version unreadable (e.g. a sandbox with no plugin registry): fall back to
+		// the generic marketplace detail, still noting the restart.
+		return Result{Harness: h.name, Status: StatusInstalled, Detail: ir.detail + restartNote}
+	}
+	switch {
+	case !wasInstalled:
+		return Result{Harness: h.name, Status: StatusInstalled, Detail: ir.detail}
+	case ir.changed == 0:
+		return Result{Harness: h.name, Status: StatusUpToDate, Detail: fmt.Sprintf("%d skills, already up to date", ir.n)}
+	default:
+		return Result{Harness: h.name, Status: StatusUpdated, Detail: fmt.Sprintf("%s (%d changed)", ir.detail, ir.changed)}
+	}
 }
 
 func installManual(ctx context.Context, env environ, res resolved, dryRun bool) Result {
@@ -269,25 +340,32 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	writeReport(w, r, colorEnabled(w))
+	writeReport(w, r, colorEnabled(w), terminalWidth(w))
 }
 
 // RenderReportString returns the same report as a string, colored when on is
 // true regardless of the destination. RenderReport uses it for direct output;
 // the interactive completion animation uses it to reveal the identical content
 // line by line, so the animated finish mirrors the non-interactive report.
-func RenderReportString(r Report, on bool) string {
+// width is the terminal width to wrap detail lines to; 0 disables width wrapping
+// (the writer is a strings.Builder, so the caller — the interactive animation —
+// supplies the width it tracks from the terminal).
+func RenderReportString(r Report, on bool, width int) string {
 	var b strings.Builder
-	writeReport(&b, r, on)
+	writeReport(&b, r, on, width)
 	return b.String()
 }
 
-func writeReport(w io.Writer, r Report, on bool) {
-	installed, detected, failed, planned := 0, 0, 0, 0
+func writeReport(w io.Writer, r Report, on bool, width int) {
+	installed, updated, current, detected, failed, planned := 0, 0, 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
 		case StatusInstalled:
 			installed++
+		case StatusUpdated:
+			updated++
+		case StatusUpToDate:
+			current++
 		case StatusDetected:
 			detected++
 		case StatusFailed:
@@ -301,18 +379,23 @@ func writeReport(w io.Writer, r Report, on bool) {
 		}
 		mark := styleMark(res.Status, fmt.Sprintf("%-11s", statusMark(res.Status)), on)
 		line := fmt.Sprintf("  %s %-11s", mark, res.Harness)
-		if res.Detail != "" {
-			detail := res.Detail
-			// On a failed or detected-but-failed row the detail is the error reason,
-			// so show it in deep red.
-			if res.Status == StatusFailed || res.Status == StatusDetected {
-				detail = errText(detail, on)
-			}
-			line += " " + detail
+		if res.Detail == "" {
+			fmt.Fprintln(w, line)
+			continue
 		}
-		fmt.Fprintln(w, line)
+		// A long detail wraps at "; " clause boundaries and, when the terminal width
+		// is known, to the width itself so it never overflows; continuation lines
+		// indent to the detail column so they stay aligned under the first clause.
+		lines := styleDetail(wrapDetail(res.Detail, width), res.Status, on)
+		fmt.Fprintln(w, line+" "+lines[0])
+		for _, seg := range lines[1:] {
+			fmt.Fprintln(w, detailIndent+seg)
+		}
 	}
 
+	// A harness is "ready" whether it was freshly installed, updated, or already
+	// current — all three mean Volcano is set up there.
+	ready := installed + updated + current
 	fmt.Fprintln(w)
 	switch {
 	case planned > 0 && r.ManualFallback:
@@ -323,13 +406,16 @@ func writeReport(w io.Writer, r Report, on bool) {
 		fmt.Fprintln(w, errText("No coding-agent harness detected, and the manual install to ~/.volcano failed (see above).", on))
 	case r.ManualFallback:
 		fmt.Fprintln(w, "No coding-agent harness detected — installed Volcano skills to ~/.volcano/skills.")
-	case installed == 0 && detected == 0 && failed == 0:
+	case ready == 0 && detected == 0 && failed == 0:
 		fmt.Fprintln(w, "No coding-agent harnesses were set up.")
-	case installed == 0 && failed == 0:
+	case ready == 0 && failed == 0:
 		// Harnesses detected, but none installed (detected > 0 here).
 		fmt.Fprintln(w, errText(fmt.Sprintf("Detected %d harness(es), but installation failed.", detected), on))
 	default:
-		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", installed)
+		fmt.Fprintf(w, "Installed Volcano for %d harness(es)", ready)
+		if updated > 0 {
+			fmt.Fprintf(w, " (%d updated)", updated)
+		}
 		if detected > 0 {
 			fmt.Fprint(w, errText(fmt.Sprintf("; %d detected but failed to install", detected), on))
 		}
@@ -358,15 +444,15 @@ func writeReport(w io.Writer, r Report, on bool) {
 	// contradict it.
 	usable := false
 	for _, res := range r.Results {
-		if res.Status == StatusInstalled && res.Harness != manualHarness {
+		if isReady(res.Status) && res.Harness != manualHarness {
 			usable = true
 			break
 		}
 	}
 	if usable {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, cta("You're set. Try asking your agent to build something:", on))
-		fmt.Fprintln(w, "  "+cta(ctaExamples[rand.IntN(len(ctaExamples))], on)) //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		example := ctaExamples[rand.IntN(len(ctaExamples))] //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		fmt.Fprintln(w, ctaBox("You're set. Try asking your agent to build something:", example, on, width))
 	}
 }
 
@@ -388,6 +474,72 @@ var ctaExamples = []string{
 	`"Build a live leaderboard using Volcano Realtime"`,
 }
 
+// detailIndent is the blank prefix that aligns a wrapped detail's continuation
+// lines under the detail column. It mirrors the row layout in writeReport:
+// "  " + 11-wide status mark + " " + 11-wide harness name + " ".
+var detailIndent = strings.Repeat(" ", len("  ")+11+len(" ")+11+len(" "))
+
+// splitDetail breaks a detail at "; " clause boundaries so a long multi-clause
+// message wraps at readable points, keeping each ";" on the line it ends. A
+// detail without "; " (every version/skill detail) returns a single element, so
+// only multi-clause errors actually wrap.
+func splitDetail(s string) []string {
+	return strings.Split(strings.ReplaceAll(s, "; ", ";\n"), "\n")
+}
+
+// wrapDetail returns the physical lines to print for a detail: it breaks at "; "
+// clause boundaries, then — when width > 0 — wraps each clause to fit beside the
+// detail indent (width - len(detailIndent)) so no line runs past the terminal
+// edge. ansi.Wrap word-wraps and hard-breaks over-long tokens (e.g. long paths)
+// while preserving any ANSI codes and wide-character widths. width <= 0 (non-TTY
+// output, or an unknown width) keeps only the clause breaks.
+func wrapDetail(detail string, width int) []string {
+	clauses := splitDetail(detail)
+	if width <= 0 {
+		return clauses
+	}
+	// avail floored at 1 keeps ansi.Wrap valid; prefix + wrapped clause then never
+	// exceeds width for any terminal wider than the indent itself.
+	// ponytail: terminals narrower than the ~26-col detail indent are pathological
+	// and can still overflow — not worth reflowing the whole layout for.
+	avail := max(width-len(detailIndent), 1)
+	var lines []string
+	for _, c := range clauses {
+		lines = append(lines, strings.Split(ansi.Wrap(c, avail, ""), "\n")...)
+	}
+	return lines
+}
+
+// installFailedLabel is the fixed prefix Run puts on an autodetected harness's
+// failure detail ("install failed: <reason>"). It is colored distinctly from the
+// reason that follows it.
+const installFailedLabel = "install failed:"
+
+// styleDetail colors each wrapped detail line by status. On a failure row the
+// leading "install failed:" label is red while the reason itself is gray, so the
+// label and the actual error read as two different things; version/skill details
+// are gray; dry-run and other rows are left unstyled.
+func styleDetail(segs []string, status Status, on bool) []string {
+	out := make([]string, len(segs))
+	switch status {
+	case StatusFailed, StatusDetected:
+		for i, seg := range segs {
+			if i == 0 && strings.HasPrefix(seg, installFailedLabel) {
+				out[i] = errText(installFailedLabel, on) + gray(seg[len(installFailedLabel):], on)
+				continue
+			}
+			out[i] = gray(seg, on)
+		}
+	case StatusInstalled, StatusUpdated, StatusUpToDate:
+		for i, seg := range segs {
+			out[i] = gray(seg, on)
+		}
+	default:
+		copy(out, segs)
+	}
+	return out
+}
+
 // firstLine reduces a possibly multi-line install error (e.g. a plugin
 // command's combined output) to its first non-empty line so the one-line report
 // rows stay aligned.
@@ -399,6 +551,12 @@ func firstLine(s string) string {
 	return s
 }
 
+// isReady reports whether a status means Volcano is set up on that harness:
+// freshly installed, updated, or already current.
+func isReady(s Status) bool {
+	return s == StatusInstalled || s == StatusUpdated || s == StatusUpToDate
+}
+
 func statusMark(s Status) string {
 	// Full words, consistent with the picker's [installed]/[available] marks:
 	// [ok]/[fail]/[plan]/[skip] read as jargon next to those. [detected] already
@@ -407,6 +565,10 @@ func statusMark(s Status) string {
 	switch s {
 	case StatusInstalled:
 		return "[installed]"
+	case StatusUpdated:
+		return "[updated]"
+	case StatusUpToDate:
+		return "[current]"
 	case StatusDetected:
 		return "[detected]"
 	case StatusFailed:

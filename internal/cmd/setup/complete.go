@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/setup"
@@ -70,6 +71,7 @@ type completeModel struct {
 	cancel     context.CancelFunc
 	opts       setup.Options
 	color      bool
+	width      int // terminal width, tracked from WindowSizeMsg, for detail wrapping
 	tick       int // eruption animation step
 	installing bool
 	report     setup.Report
@@ -94,6 +96,8 @@ func (m completeModel) install() tea.Msg {
 
 func (m completeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -120,7 +124,7 @@ func (m completeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.err != nil {
 			return m, tea.Quit
 		}
-		m.lines = reportLines(m.report, m.color)
+		m.lines = reportLines(m.report, m.color, m.width)
 		return m, revealTick()
 	case revealMsg:
 		if m.shown < len(m.lines) {
@@ -160,7 +164,26 @@ func (m completeModel) View() tea.View {
 }
 
 // reportLines is the report split into lines for the reveal animation, colored
-// only when color is on (NO_COLOR unset).
-func reportLines(r setup.Report, color bool) []string {
-	return strings.Split(strings.TrimRight(setup.RenderReportString(r, color), "\n"), "\n")
+// only when color is on (NO_COLOR unset) and wrapped to the terminal width so a
+// long line can't overflow and corrupt the inline render. Falls back to 80
+// columns if a WindowSizeMsg hasn't arrived yet (this path is always a TTY).
+//
+// The report already wraps detail lines (aligned to the detail column); this
+// adds a safety net for the remaining lines — footers and CTAs can exceed the
+// width — by wrapping only those that actually overrun, leaving already-fitting
+// (and indented) lines untouched.
+func reportLines(r setup.Report, color bool, width int) []string {
+	if width <= 0 {
+		width = 80
+	}
+	raw := strings.Split(strings.TrimRight(setup.RenderReportString(r, color, width), "\n"), "\n")
+	out := make([]string, 0, len(raw))
+	for _, ln := range raw {
+		if ansi.StringWidth(ln) <= width {
+			out = append(out, ln)
+			continue
+		}
+		out = append(out, strings.Split(ansi.Wrap(ln, width, ""), "\n")...)
+	}
+	return out
 }

@@ -256,7 +256,9 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	}
 	wantClaude := []string{
 		"claude plugin marketplace add " + marketplaceRepo,
+		"claude plugin marketplace update " + marketplaceName,
 		"claude plugin install " + pluginRef,
+		"claude plugin update " + pluginRef,
 	}
 	assertCalls(t, runner.calls, wantClaude)
 }
@@ -281,6 +283,7 @@ func TestRun_CodexUsesPluginAdd(t *testing.T) {
 	}
 	assertCalls(t, runner.calls, []string{
 		"codex plugin marketplace add " + marketplaceRepo + " --ref main",
+		"codex plugin marketplace upgrade " + marketplaceName,
 		"codex plugin add " + pluginRef,
 	})
 }
@@ -310,6 +313,7 @@ func onlyCodex(bin string) (string, error) {
 func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 	runner := &fakeRunner{results: []runResult{
 		{out: []byte("error: marketplace 'volcano-agentic-plugins' already added from this source"), err: errors.New("exit status 1")},
+		{}, // codex plugin marketplace upgrade succeeds
 		{}, // codex plugin add succeeds
 	}}
 	report, err := Run(context.Background(), Options{
@@ -328,8 +332,8 @@ func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 	if got := statusOf(report, "codex"); got != StatusInstalled {
 		t.Fatalf("codex status = %q, want installed on idempotent rerun", got)
 	}
-	if len(runner.calls) != 2 {
-		t.Fatalf("both codex commands must run, got %v", runner.calls)
+	if len(runner.calls) != 3 {
+		t.Fatalf("all codex commands must run, got %v", runner.calls)
 	}
 }
 
@@ -339,7 +343,8 @@ func TestRun_MarketplaceRerunToleratesAlreadyPresent(t *testing.T) {
 func TestRun_MarketplaceTerminalFailureStaysFatal(t *testing.T) {
 	runner := &fakeRunner{results: []runResult{
 		{}, // marketplace add succeeds
-		{out: []byte("mkdir /opt/plugins: destination directory already exists"), err: errors.New("exit status 1")},
+		{}, // marketplace upgrade succeeds
+		{out: []byte("mkdir /opt/plugins: destination directory already exists"), err: errors.New("exit status 1")}, // terminal plugin add
 	}}
 	report, err := Run(context.Background(), Options{
 		CommandRunner: runner,
@@ -563,6 +568,230 @@ func TestFirstLine(t *testing.T) {
 		if got := firstLine(in); got != want {
 			t.Errorf("firstLine(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestSplitDetail(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		// No "; " — version/skill details stay on one line.
+		{"0.2.14 \u2192 0.2.16 (restart your agent to apply)", []string{"0.2.14 \u2192 0.2.16 (restart your agent to apply)"}},
+		{"11 skills -> /a/b", []string{"11 skills -> /a/b"}},
+		// Multi-clause error wraps at "; ", keeping the ";" on the line it ends.
+		{"foo (stale?); remove it and re-run", []string{"foo (stale?);", "remove it and re-run"}},
+		{"a; b; c", []string{"a;", "b;", "c"}},
+	}
+	for _, tc := range cases {
+		got := splitDetail(tc.in)
+		if strings.Join(got, "|") != strings.Join(tc.want, "|") {
+			t.Errorf("splitDetail(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// styleDetail colors a failure row's "install failed:" label distinctly (red)
+// from the reason (gray), and grays continuation lines entirely; plain mode
+// leaves the text untouched.
+func TestStyleDetail_FailureLabelVsReason(t *testing.T) {
+	segs := []string{"install failed: something broke", "and more detail"}
+	got := styleDetail(segs, StatusDetected, true)
+
+	want0 := errText(installFailedLabel, true) + gray(" something broke", true)
+	if got[0] != want0 {
+		t.Errorf("first line:\n got %q\nwant %q", got[0], want0)
+	}
+	if got[1] != gray("and more detail", true) {
+		t.Errorf("continuation should be all gray: %q", got[1])
+	}
+
+	// A failure without the label (targeted --harness error) is gray, not red.
+	if got := styleDetail([]string{"boom"}, StatusFailed, true); got[0] != gray("boom", true) {
+		t.Errorf("unlabeled failure reason should be gray: %q", got[0])
+	}
+	// Plain mode is a no-op.
+	if got := styleDetail(segs, StatusDetected, false); got[0] != segs[0] || got[1] != segs[1] {
+		t.Errorf("plain styleDetail changed text: %q", got)
+	}
+}
+
+// wrapDetail must keep every segment within the width left beside the detail
+// indent, hard-breaking a long unbroken token (e.g. a path) so prefix+segment
+// never overflows the terminal. width <= 0 disables width wrapping.
+func TestWrapDetail_FitsWidth(t *testing.T) {
+	const width = 50
+	avail := width - len(detailIndent)
+	detail := "install failed: /a/long/path/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa exists; then more text follows here to wrap"
+	segs := wrapDetail(detail, width)
+	for _, seg := range segs {
+		// Plain (no ANSI) segments, so len is the visible width.
+		if len(seg) > avail {
+			t.Errorf("segment %q width %d exceeds available %d (would overflow width %d)", seg, len(seg), avail, width)
+		}
+	}
+	if len(segs) < 3 {
+		t.Errorf("expected the long detail to wrap into several lines, got %d: %q", len(segs), segs)
+	}
+	if got := wrapDetail("a; b", 0); len(got) != 2 {
+		t.Errorf("width<=0 should keep only clause breaks, got %q", got)
+	}
+}
+
+// A wrapped detail's continuation lines must indent to the detail column so they
+// stay aligned under the first clause, and the first line must keep its ";".
+func TestRenderReport_WrapsAndAlignsDetail(t *testing.T) {
+	r := Report{Results: []Result{{
+		Harness: "opencode",
+		Status:  StatusDetected,
+		Detail:  "install failed: /x/y exists but is not a directory (stale symlink?); remove it and re-run",
+	}}}
+	lines := strings.Split(strings.TrimRight(RenderReportString(r, false, 0), "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected the detail to wrap onto a second line:\n%s", strings.Join(lines, "\n"))
+	}
+	if !strings.HasSuffix(lines[0], "(stale symlink?);") {
+		t.Errorf("first line should end at the clause boundary with ';':\n%q", lines[0])
+	}
+	if lines[1] != detailIndent+"remove it and re-run" {
+		t.Errorf("continuation not aligned to detail column:\n%q\nwant %q", lines[1], detailIndent+"remove it and re-run")
+	}
+	// The continuation must line up exactly under where the detail starts on row 0.
+	if got := strings.Index(lines[0], "install failed:"); got != len(detailIndent) {
+		t.Errorf("detail column = %d, but continuation indent = %d", got, len(detailIndent))
+	}
+}
+
+// TestOutcome locks the install/update/up-to-date classification: version-bearing
+// harnesses report the real version delta; file-drop harnesses have no version,
+// so they classify by how many skill files actually changed on disk.
+func TestOutcome(t *testing.T) {
+	marketplace := func(post string) harness {
+		return harness{name: "claude-code", version: func(environ) (string, string) { return post, "" }}
+	}
+	skills := harness{name: "cursor"} // version nil
+
+	cases := []struct {
+		name         string
+		h            harness
+		preVer       string
+		wasInstalled bool
+		ir           installResult
+		wantStatus   Status
+		wantDetail   string
+	}{
+		{"marketplace fresh", marketplace("0.2.16"), "", false, installResult{detail: "marketplace: x"}, StatusInstalled, "0.2.16 (restart your agent to apply)"},
+		{"marketplace updated", marketplace("0.2.16"), "0.2.14", true, installResult{detail: "marketplace: x"}, StatusUpdated, "0.2.14 \u2192 0.2.16 (restart your agent to apply)"},
+		{"marketplace current", marketplace("0.2.16"), "0.2.16", true, installResult{detail: "marketplace: x"}, StatusUpToDate, "already at 0.2.16"},
+		{"marketplace version unreadable", marketplace(""), "", false, installResult{detail: "marketplace: x"}, StatusInstalled, "marketplace: x (restart your agent to apply)"},
+		{"skills fresh", skills, "", false, installResult{detail: "2 skills -> dir", n: 2, changed: 2}, StatusInstalled, "2 skills -> dir"},
+		{"skills updated", skills, "", true, installResult{detail: "2 skills -> dir", n: 2, changed: 1}, StatusUpdated, "2 skills -> dir (1 changed)"},
+		{"skills unchanged", skills, "", true, installResult{detail: "2 skills -> dir", n: 2, changed: 0}, StatusUpToDate, "2 skills, already up to date"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := outcome(tc.h, environ{}, tc.preVer, tc.wasInstalled, tc.ir)
+			if got.Status != tc.wantStatus {
+				t.Errorf("status = %q, want %q", got.Status, tc.wantStatus)
+			}
+			if got.Detail != tc.wantDetail {
+				t.Errorf("detail = %q, want %q", got.Detail, tc.wantDetail)
+			}
+		})
+	}
+}
+
+// plannedDetail (dry-run) must not claim "would update" for a marketplace
+// harness already at the locally-known latest, while still saying so when it's
+// behind, unknown, or a versionless harness is present.
+func TestPlannedDetail(t *testing.T) {
+	mk := func(installed, available string) harness {
+		return harness{version: func(environ) (string, string) { return installed, available }}
+	}
+	skills := harness{} // version nil
+
+	cases := []struct {
+		name         string
+		h            harness
+		preVer       string
+		availVer     string
+		wasInstalled bool
+		want         string
+	}{
+		{"marketplace fresh", mk("", ""), "", "", false, "would install"},
+		{"marketplace current", mk("0.2.16", "0.2.16"), "0.2.16", "0.2.16", true, "up to date"},
+		{"marketplace behind", mk("0.2.14", "0.2.16"), "0.2.14", "0.2.16", true, "would update"},
+		{"marketplace ahead of stale cache", mk("0.3.0", "0.2.16"), "0.3.0", "0.2.16", true, "up to date"},
+		{"marketplace latest unknown", mk("0.2.16", ""), "0.2.16", "", true, "would update"},
+		{"skills fresh", skills, "", "", false, "would install"},
+		{"skills installed", skills, "", "", true, "would update"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := plannedDetail(tc.h, tc.preVer, tc.availVer, tc.wasInstalled); got != tc.want {
+				t.Errorf("plannedDetail = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVersionReaders(t *testing.T) {
+	home := t.TempDir()
+	seedClaudeVersions(t, home, "0.2.14", "0.2.16")
+	seedCodexVersions(t, home, "0.2.15", "0.2.16")
+	e := environ{home: home, getenv: emptyEnv, lookPath: noBins}
+
+	if inst, avail := claudeVersions(e); inst != "0.2.14" || avail != "0.2.16" {
+		t.Errorf("claudeVersions = %q/%q, want 0.2.14/0.2.16", inst, avail)
+	}
+	if inst, avail := codexVersions(e); inst != "0.2.15" || avail != "0.2.16" {
+		t.Errorf("codexVersions = %q/%q, want 0.2.15/0.2.16", inst, avail)
+	}
+	// Missing files read as empty, never an error/panic.
+	if inst, avail := claudeVersions(environ{home: t.TempDir()}); inst != "" || avail != "" {
+		t.Errorf("missing files = %q/%q, want empty", inst, avail)
+	}
+}
+
+// codexInstalledVersion picks the highest valid-semver dir and ignores stray
+// non-version directories a stale cache may leave behind.
+func TestCodexInstalledVersionPicksHighest(t *testing.T) {
+	home := t.TempDir()
+	base := filepath.Join(home, ".codex", "plugins", "cache", marketplaceName, "volcano")
+	for _, d := range []string{"0.2.9", "0.2.16", "0.2.10", "tmp-garbage"} {
+		mustMkdir(t, filepath.Join(base, d))
+	}
+	if got := codexInstalledVersion(environ{home: home}); got != "0.2.16" {
+		t.Fatalf("codexInstalledVersion = %q, want 0.2.16", got)
+	}
+}
+
+// seedClaudeVersions writes claude-code's installed registry and cached
+// marketplace manifest so the version readers see installed/available.
+func seedClaudeVersions(t *testing.T, home, installed, available string) {
+	t.Helper()
+	reg := filepath.Join(home, ".claude", "plugins")
+	mustMkdir(t, reg)
+	regJSON := `{"version":2,"plugins":{"` + pluginRef + `":[{"version":"` + installed + `"}]}}`
+	if err := os.WriteFile(filepath.Join(reg, "installed_plugins.json"), []byte(regJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mpDir := filepath.Join(reg, "marketplaces", marketplaceName)
+	mustMkdir(t, mpDir)
+	if err := os.WriteFile(filepath.Join(mpDir, ".release-please-manifest.json"), []byte(`{".":"`+available+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// seedCodexVersions writes codex's version cache dir and cached marketplace
+// manifest so the version readers see installed/available.
+func seedCodexVersions(t *testing.T, home, installed, available string) {
+	t.Helper()
+	mustMkdir(t, filepath.Join(home, ".codex", "plugins", "cache", marketplaceName, "volcano", installed))
+	mpDir := filepath.Join(home, ".codex", ".tmp", "marketplaces", marketplaceName)
+	mustMkdir(t, mpDir)
+	if err := os.WriteFile(filepath.Join(mpDir, ".release-please-manifest.json"), []byte(`{".":"`+available+`"}`), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

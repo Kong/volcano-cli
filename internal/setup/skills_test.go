@@ -16,16 +16,26 @@ func TestMaterialize(t *testing.T) {
 	dir := t.TempDir()
 	agents := filepath.Join(dir, "AGENTS.md")
 
-	n, err := materialize(context.Background(), srv.Client(), srv.URL, filepath.Join(dir, "skills"), agents)
+	n, changed, err := materialize(context.Background(), srv.Client(), srv.URL, filepath.Join(dir, "skills"), agents)
 	if err != nil {
 		t.Fatalf("materialize: %v", err)
 	}
 	if n != 2 {
 		t.Fatalf("wrote %d skills, want 2", n)
 	}
+	// Fresh install: both skills and AGENTS.md are new, so all three changed.
+	if changed != 3 {
+		t.Fatalf("changed %d on fresh install, want 3 (2 skills + AGENTS.md)", changed)
+	}
 	assertFile(t, filepath.Join(dir, "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
 	assertFile(t, filepath.Join(dir, "skills", "install-volcano", "SKILL.md"), "Volcano skill content")
 	assertFile(t, agents, "Volcano AGENTS.md")
+
+	// A rerun over identical content rewrites nothing, so changed is 0 — this is
+	// what lets a versionless harness report "already up to date".
+	if _, changed, err := materialize(context.Background(), srv.Client(), srv.URL, filepath.Join(dir, "skills"), agents); err != nil || changed != 0 {
+		t.Fatalf("rerun: changed=%d err=%v, want changed=0", changed, err)
+	}
 
 	// SKILL.md is written owner read/write only (0600), matching repo convention.
 	info, err := os.Stat(filepath.Join(dir, "skills", "volcano-platform", "SKILL.md"))
@@ -50,7 +60,7 @@ func TestMaterialize_NonDirEntryIsClear(t *testing.T) {
 	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(skillsDir, "install-volcano")); err != nil {
 		t.Fatal(err)
 	}
-	_, err := materialize(context.Background(), srv.Client(), srv.URL, skillsDir, "")
+	_, _, err := materialize(context.Background(), srv.Client(), srv.URL, skillsDir, "")
 	if err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Fatalf("want a clear 'not a directory' error, got: %v", err)
 	}
@@ -84,7 +94,7 @@ func TestMaterialize_RejectsBadSkillName(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	if _, err := materialize(context.Background(), srv.Client(), srv.URL, t.TempDir(), ""); err == nil {
+	if _, _, err := materialize(context.Background(), srv.Client(), srv.URL, t.TempDir(), ""); err == nil {
 		t.Fatal("expected error for invalid skill name")
 	}
 }

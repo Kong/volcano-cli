@@ -62,6 +62,7 @@ the cloud project.
 | Frontends | deploy, inspect, custom domains | `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](../project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
+| Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
 | Documentation | search/read the docs | `docs …` | [docs-search.md](../docs-search.md) |
 
 ## Projects

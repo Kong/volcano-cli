@@ -2,10 +2,13 @@ package setup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // CommandRunner runs an external command (used for marketplace-based installs).
@@ -21,7 +24,9 @@ type CommandRunner interface {
 const marketplaceRepo = "Kong/volcano-agentic-plugins"
 
 // marketplaceName is the marketplace's own identifier (the repo basename) as it
-// appears in a harness's plugin registry, used as the "already installed" probe.
+// appears in a harness's plugin registry. Used both as the "already installed"
+// probe and to scope the per-harness "refresh this marketplace" commands so a
+// rerun pulls the latest plugin version instead of the stale pinned snapshot.
 const marketplaceName = "volcano-agentic-plugins"
 
 // pluginRef is the marketplace plugin identifier to install.
@@ -48,12 +53,29 @@ func (e environ) configHome() string {
 // harness is one setup target: how to detect it, whether Volcano is already
 // installed into it, and how to install. installed is a best-effort probe of the
 // harness's own registry/skills dir so an interactive picker can show
-// [installed] vs [available]; it never blocks install.
+// [installed] vs [available]; it never blocks install. version, set only for
+// version-bearing (marketplace) harnesses, reports the installed and
+// locally-known-latest Volcano version from local files (no network) so setup
+// can distinguish install / update / up-to-date; nil for versionless (file-drop)
+// harnesses.
 type harness struct {
 	name      string
 	detect    func(e environ) bool
 	installed func(e environ) bool
-	install   func(ctx context.Context, e environ, res resolved) (detail string, err error)
+	version   func(e environ) (installed, available string)
+	install   func(ctx context.Context, e environ, res resolved) (installResult, error)
+}
+
+// installResult is what a harness's install reports. detail is the human summary
+// (a marketplace ref, or "N skills -> dir"). For versionless (file-drop)
+// harnesses, n and changed let outcome classify the run as installed / updated /
+// up-to-date by how many skill files actually changed on disk — the reliable
+// stand-in for a version those harnesses don't have. Both are 0 for marketplace
+// harnesses, which classify by plugin version instead.
+type installResult struct {
+	detail  string
+	n       int
+	changed int
 }
 
 // order matters: marketplace harnesses first, then skills-drop harnesses. This
@@ -72,9 +94,16 @@ func harnesses() []harness {
 			installed: func(e environ) bool {
 				return fileContains(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"), marketplaceName)
 			},
+			version: claudeVersions,
+			// The marketplace is a pinned snapshot, so a rerun installs the stale
+			// version unless we refresh it first. `marketplace update` re-fetches the
+			// source; `install` no-ops when already present; `update` then bumps the
+			// installed plugin to the refreshed latest (restart required to apply).
 			install: marketplaceInstall("claude", [][]string{
 				{"plugin", "marketplace", "add", marketplaceRepo},
+				{"plugin", "marketplace", "update", marketplaceName},
 				{"plugin", "install", pluginRef},
+				{"plugin", "update", pluginRef},
 			}),
 		},
 		{
@@ -83,10 +112,15 @@ func harnesses() []harness {
 			installed: func(e environ) bool {
 				return dirExists(filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName))
 			},
+			version: codexVersions,
 			// Codex uses `plugin add` (not `install`) and pins the marketplace to a
-			// ref when added from GitHub (per plugins/codex/README.md).
+			// ref when added from GitHub (per plugins/codex/README.md). Codex has no
+			// per-plugin update command, but `add` is idempotent and installs the
+			// latest snapshot version, so `marketplace upgrade` before it makes a
+			// rerun update the plugin.
 			install: marketplaceInstall("codex", [][]string{
 				{"plugin", "marketplace", "add", marketplaceRepo, "--ref", "main"},
+				{"plugin", "marketplace", "upgrade", marketplaceName},
 				{"plugin", "add", pluginRef},
 			}),
 		},
@@ -143,6 +177,94 @@ func dirHasVolcanoSkill(dir string) bool {
 	return false
 }
 
+// claudeVersions reads claude-code's installed and locally-cached-latest Volcano
+// plugin versions, both from local files (no network). Either may be "" when the
+// file is absent or unparseable.
+func claudeVersions(e environ) (installed, available string) {
+	installed = claudeInstalledVersion(e)
+	available = manifestVersion(filepath.Join(e.home, ".claude", "plugins", "marketplaces", marketplaceName, ".release-please-manifest.json"))
+	return installed, available
+}
+
+// claudeInstalledVersion extracts the Volcano plugin's version from claude-code's
+// authoritative registry (installed_plugins.json), which carries an explicit
+// version field per installed plugin.
+func claudeInstalledVersion(e environ) string {
+	b, err := os.ReadFile(filepath.Join(e.home, ".claude", "plugins", "installed_plugins.json"))
+	if err != nil {
+		return ""
+	}
+	var doc struct {
+		Plugins map[string][]struct {
+			Version string `json:"version"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return ""
+	}
+	if entries := doc.Plugins[pluginRef]; len(entries) > 0 {
+		return entries[0].Version
+	}
+	return ""
+}
+
+// codexVersions reads codex's installed and locally-cached-latest Volcano plugin
+// versions from local files (no network).
+func codexVersions(e environ) (installed, available string) {
+	installed = codexInstalledVersion(e)
+	available = manifestVersion(filepath.Join(e.home, ".codex", ".tmp", "marketplaces", marketplaceName, ".release-please-manifest.json"))
+	return installed, available
+}
+
+// codexInstalledVersion returns the greatest version subdirectory under codex's
+// plugin cache. Codex names each install dir by version and normally keeps only
+// the active one, but a stale dir can linger, so pick the highest valid semver.
+func codexInstalledVersion(e environ) string {
+	dir := filepath.Join(e.home, ".codex", "plugins", "cache", marketplaceName, "volcano")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	best := ""
+	for _, ent := range entries {
+		if !ent.IsDir() {
+			continue
+		}
+		if _, err := semver.NewVersion(ent.Name()); err != nil {
+			continue // skip non-version dirs
+		}
+		if best == "" || semverLess(best, ent.Name()) {
+			best = ent.Name()
+		}
+	}
+	return best
+}
+
+// manifestVersion reads {".": "x.y.z"} from a release-please manifest — the
+// version of the marketplace's root package, which is the Volcano plugin.
+func manifestVersion(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var m map[string]string
+	if json.Unmarshal(b, &m) != nil {
+		return ""
+	}
+	return m["."]
+}
+
+// semverLess reports whether version a is strictly older than b. Unparseable
+// versions compare as not-less, so a bad read never yields a false "outdated".
+func semverLess(a, b string) bool {
+	av, err1 := semver.NewVersion(a)
+	bv, err2 := semver.NewVersion(b)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return av.LessThan(bv)
+}
+
 // fileContains reports whether the file at path exists and contains substr
 // (case-insensitive). Used to read a marketplace harness's own plugin registry
 // as the "already installed" signal.
@@ -164,17 +286,25 @@ const manualHarness = "manual"
 // `volcano setup` is expected to be re-run, so a command that fails only because
 // the marketplace/plugin is already registered is treated as a no-op success:
 // claude and codex share no exit-code contract for "already added", so their
-// output text is the only cross-harness signal.
-func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
-	return func(ctx context.Context, _ environ, res resolved) (string, error) {
+// output text is the only cross-harness signal. Each sequence also refreshes its
+// pinned marketplace snapshot and updates the plugin, so a rerun lands on the
+// latest version; the caller (install) reads the resulting version and appends
+// restartNote, since both harnesses load the new version only after a restart.
+func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (installResult, error) {
+	return func(ctx context.Context, _ environ, res resolved) (installResult, error) {
 		for _, args := range cmds {
 			if out, err := res.runner.Run(ctx, bin, args...); err != nil && !alreadyPresent(out) {
-				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+				return installResult{}, fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
-		return "marketplace: " + pluginRef, nil
+		return installResult{detail: "marketplace: " + pluginRef}, nil
 	}
 }
+
+// restartNote is appended to a marketplace harness's detail when the plugin was
+// installed or updated: both claude and codex load the new version only after
+// the agent restarts.
+const restartNote = " (restart your agent to apply)"
 
 // alreadyPresent reports whether a failed plugin/marketplace command failed only
 // because *our* plugin/marketplace was already registered — a no-op on rerun,
@@ -203,18 +333,18 @@ func alreadyPresent(out []byte) bool {
 // skillsInstall file-drops skills into a harness's skills directory (and,
 // optionally, AGENTS.md), used for harnesses without a non-interactive plugin
 // command. skillsDir and agentsPath are computed from the environ at call time.
-func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Context, environ, resolved) (string, error) {
-	return func(ctx context.Context, e environ, res resolved) (string, error) {
+func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Context, environ, resolved) (installResult, error) {
+	return func(ctx context.Context, e environ, res resolved) (installResult, error) {
 		dir := skillsDir(e)
 		var ap string
 		if agentsPath != nil {
 			ap = agentsPath(e)
 		}
-		n, err := materialize(ctx, res.doer, res.skillsBase, dir, ap)
+		n, changed, err := materialize(ctx, res.doer, res.skillsBase, dir, ap)
 		if err != nil {
-			return "", err
+			return installResult{}, err
 		}
-		return fmt.Sprintf("%d skills -> %s", n, dir), nil
+		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed}, nil
 	}
 }
 
@@ -223,7 +353,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 func manualInstall(ctx context.Context, e environ, res resolved) (string, error) {
 	base := filepath.Join(e.home, ".volcano")
 	skillsDir := filepath.Join(base, "skills")
-	n, err := materialize(ctx, res.doer, res.skillsBase, skillsDir, filepath.Join(base, "AGENTS.md"))
+	n, _, err := materialize(ctx, res.doer, res.skillsBase, skillsDir, filepath.Join(base, "AGENTS.md"))
 	if err != nil {
 		return "", err
 	}
