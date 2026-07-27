@@ -49,6 +49,21 @@ Top-level resource commands (`volcano functions …`, `volcano databases …`, e
 act on your **active context**: the local environment when running, otherwise
 the cloud project.
 
+## Output styling
+
+Command output is colorized to share one identity with `volcano setup`: success
+marks and active states in orange, warnings in amber, errors in red, table
+headers and titles in lava, and suggested commands in flame. Color is written
+only to an interactive terminal. It is disabled automatically when output is
+piped or redirected, in CI, or when `NO_COLOR` is set, so machine-read output
+(including `--json`) stays plain.
+
+```bash
+volcano databases list          # colorized on a terminal
+volcano databases list | cat    # plain (piped)
+NO_COLOR=1 volcano databases list
+```
+
 ## Element → CLI ability at a glance
 
 | Element | CLI can… | Commands | Details |
