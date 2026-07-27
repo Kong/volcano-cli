@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/Kong/volcano-cli/compare/v0.14.1...v0.15.0) (2026-07-27)
+
+
+### Features
+
+* **setup:** give space/enter/esc key hints distinct colors ([#126](https://github.com/Kong/volcano-cli/issues/126)) ([7110614](https://github.com/Kong/volcano-cli/commit/71106143ccac71a6fda68c8d0eed446193d5acdc))
+
 ## [0.14.1](https://github.com/Kong/volcano-cli/compare/v0.14.0...v0.14.1) (2026-07-27)
 
 
