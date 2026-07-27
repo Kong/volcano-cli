@@ -201,14 +201,15 @@ func keyHintDescription(color bool) string {
 	}
 	// Distinct accents so the three keys read apart at a glance: space in
 	// volcano-400, enter in volcano-600, and esc in the terminal's default
-	// foreground (white on dark, black on light) so it pops against the two oranges.
+	// foreground (typically white on dark, black on light) so it pops against the
+	// two oranges without pinning a hex the user's theme may have remapped.
 	dim := lipgloss.NewStyle().Faint(true)
 	keyStyle := func(hex string) lipgloss.Style {
 		return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(hex))
 	}
 	spaceStyle := keyStyle(setup.Volcano400Hex)
 	enterStyle := keyStyle(setup.Volcano600Hex)
-	escStyle := lipgloss.NewStyle().Bold(true) // default fg: white on dark, black on light
+	escStyle := lipgloss.NewStyle().Bold(true) // no explicit fg: inherits the terminal's default foreground
 	hint := func(st lipgloss.Style, k, rest string) string { return st.Render(k) + dim.Render(rest) }
 	return hint(spaceStyle, "space", " toggles, ") + hint(enterStyle, "enter", " confirms, ") + hint(escStyle, "esc", " cancels")
 }
