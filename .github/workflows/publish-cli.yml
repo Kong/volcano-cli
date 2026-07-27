@@ -173,6 +173,7 @@ jobs:
               BINARY="${OUT_DIR}/${BINARY_NAME}" \
               DEFAULT_API_URL="${CLI_DEFAULT_API_URL}" \
               DEFAULT_WEB_URL="${CLI_DEFAULT_WEB_URL}" \
+              DEFAULT_LOCAL_IMAGE="${CLI_DEFAULT_LOCAL_IMAGE}" \
               FIRST_PARTY_DEVICE_CLIENT_ID="${CLI_FIRST_PARTY_DEVICE_CLIENT_ID}" \
               VERSION="${CLI_VERSION}" \
               DATE="${BUILD_DATE}"
