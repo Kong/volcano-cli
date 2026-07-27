@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/term"
 )
 
 // The Volcano CLI palette, taken from volcano-web. Shared by the interactive
@@ -45,6 +46,21 @@ func colorEnabled(w io.Writer) bool {
 	}
 	info, err := f.Stat()
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// terminalWidth returns w's column count when it is a real terminal, else 0.
+// writeReport uses it to wrap long detail lines to the width; 0 means "unknown"
+// (piped/file output), which leaves detail unwrapped beyond clause breaks.
+func terminalWidth(w io.Writer) int {
+	f, ok := w.(*os.File)
+	if !ok {
+		return 0
+	}
+	width, _, err := term.GetSize(f.Fd())
+	if err != nil {
+		return 0
+	}
+	return width
 }
 
 // styleMark colors a status mark when color is on, else returns it unchanged.

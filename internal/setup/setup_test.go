@@ -591,6 +591,28 @@ func TestSplitDetail(t *testing.T) {
 	}
 }
 
+// wrapDetail must keep every segment within the width left beside the detail
+// indent, hard-breaking a long unbroken token (e.g. a path) so prefix+segment
+// never overflows the terminal. width <= 0 disables width wrapping.
+func TestWrapDetail_FitsWidth(t *testing.T) {
+	const width = 50
+	avail := width - len(detailIndent)
+	detail := "install failed: /a/long/path/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa exists; then more text follows here to wrap"
+	segs := wrapDetail(detail, width)
+	for _, seg := range segs {
+		// Plain (no ANSI) segments, so len is the visible width.
+		if len(seg) > avail {
+			t.Errorf("segment %q width %d exceeds available %d (would overflow width %d)", seg, len(seg), avail, width)
+		}
+	}
+	if len(segs) < 3 {
+		t.Errorf("expected the long detail to wrap into several lines, got %d: %q", len(segs), segs)
+	}
+	if got := wrapDetail("a; b", 0); len(got) != 2 {
+		t.Errorf("width<=0 should keep only clause breaks, got %q", got)
+	}
+}
+
 // A wrapped detail's continuation lines must indent to the detail column so they
 // stay aligned under the first clause, and the first line must keep its ";".
 func TestRenderReport_WrapsAndAlignsDetail(t *testing.T) {
@@ -599,7 +621,7 @@ func TestRenderReport_WrapsAndAlignsDetail(t *testing.T) {
 		Status:  StatusDetected,
 		Detail:  "install failed: /x/y exists but is not a directory (stale symlink?); remove it and re-run",
 	}}}
-	lines := strings.Split(strings.TrimRight(RenderReportString(r, false), "\n"), "\n")
+	lines := strings.Split(strings.TrimRight(RenderReportString(r, false, 0), "\n"), "\n")
 	if len(lines) < 2 {
 		t.Fatalf("expected the detail to wrap onto a second line:\n%s", strings.Join(lines, "\n"))
 	}

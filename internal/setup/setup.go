@@ -14,6 +14,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Status is the outcome for one harness.
@@ -314,20 +316,23 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // derived from the actual result statuses, so a dry run says "would install"
 // and only a genuine no-detection fallback claims none was detected.
 func RenderReport(w io.Writer, r Report) {
-	writeReport(w, r, colorEnabled(w))
+	writeReport(w, r, colorEnabled(w), terminalWidth(w))
 }
 
 // RenderReportString returns the same report as a string, colored when on is
 // true regardless of the destination. RenderReport uses it for direct output;
 // the interactive completion animation uses it to reveal the identical content
 // line by line, so the animated finish mirrors the non-interactive report.
-func RenderReportString(r Report, on bool) string {
+// width is the terminal width to wrap detail lines to; 0 disables width wrapping
+// (the writer is a strings.Builder, so the caller — the interactive animation —
+// supplies the width it tracks from the terminal).
+func RenderReportString(r Report, on bool, width int) string {
 	var b strings.Builder
-	writeReport(&b, r, on)
+	writeReport(&b, r, on, width)
 	return b.String()
 }
 
-func writeReport(w io.Writer, r Report, on bool) {
+func writeReport(w io.Writer, r Report, on bool, width int) {
 	installed, updated, current, detected, failed, planned := 0, 0, 0, 0, 0, 0
 	for _, res := range r.Results {
 		switch res.Status {
@@ -355,10 +360,10 @@ func writeReport(w io.Writer, r Report, on bool) {
 			continue
 		}
 		style := detailStyler(res.Status, on)
-		// A long, multi-clause detail (mostly error reasons) wraps at "; " clause
-		// boundaries; continuation lines indent to the detail column so they stay
-		// aligned under the first clause instead of running off the row.
-		segs := splitDetail(res.Detail)
+		// A long detail wraps at "; " clause boundaries and, when the terminal width
+		// is known, to the width itself so it never overflows; continuation lines
+		// indent to the detail column so they stay aligned under the first clause.
+		segs := wrapDetail(res.Detail, width)
 		fmt.Fprintln(w, line+" "+style(segs[0]))
 		for _, seg := range segs[1:] {
 			fmt.Fprintln(w, detailIndent+style(seg))
@@ -457,6 +462,29 @@ var detailIndent = strings.Repeat(" ", len("  ")+11+len(" ")+11+len(" "))
 // only multi-clause errors actually wrap.
 func splitDetail(s string) []string {
 	return strings.Split(strings.ReplaceAll(s, "; ", ";\n"), "\n")
+}
+
+// wrapDetail returns the physical lines to print for a detail: it breaks at "; "
+// clause boundaries, then — when width > 0 — wraps each clause to fit beside the
+// detail indent (width - len(detailIndent)) so no line runs past the terminal
+// edge. ansi.Wrap word-wraps and hard-breaks over-long tokens (e.g. long paths)
+// while preserving any ANSI codes and wide-character widths. width <= 0 (non-TTY
+// output, or an unknown width) keeps only the clause breaks.
+func wrapDetail(detail string, width int) []string {
+	clauses := splitDetail(detail)
+	if width <= 0 {
+		return clauses
+	}
+	// avail floored at 1 keeps ansi.Wrap valid; prefix + wrapped clause then never
+	// exceeds width for any terminal wider than the indent itself.
+	// ponytail: terminals narrower than the ~26-col detail indent are pathological
+	// and can still overflow — not worth reflowing the whole layout for.
+	avail := max(width-len(detailIndent), 1)
+	var lines []string
+	for _, c := range clauses {
+		lines = append(lines, strings.Split(ansi.Wrap(c, avail, ""), "\n")...)
+	}
+	return lines
 }
 
 // detailStyler returns the per-status styling applied to each detail segment:

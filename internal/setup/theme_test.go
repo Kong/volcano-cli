@@ -32,11 +32,11 @@ func TestColorGate(t *testing.T) {
 // contain the same underlying text.
 func TestRenderReportString(t *testing.T) {
 	r := Report{Results: []Result{{Harness: "cursor", Status: StatusInstalled, Detail: "12 skills"}}}
-	plain := RenderReportString(r, false)
+	plain := RenderReportString(r, false, 0)
 	if strings.Contains(plain, "\x1b[") {
 		t.Fatalf("plain report contains ANSI: %q", plain)
 	}
-	colored := RenderReportString(r, true)
+	colored := RenderReportString(r, true, 0)
 	if !strings.Contains(colored, "\x1b[") {
 		t.Fatal("colored report missing ANSI")
 	}
