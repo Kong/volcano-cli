@@ -14,7 +14,7 @@ optionally reachable at your own custom domain.
 - Consumes **variables** at build/runtime.
 - Can have one or more **custom domains** (BYOC) attached.
 - Frontend custom domains can also be declared in the
-  [declarative config](../project-configuration.md).
+  [declarative config](project-configuration.md).
 
 Frontend commands live under the `cloud` group.
 
