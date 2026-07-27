@@ -701,6 +701,40 @@ func TestOutcome(t *testing.T) {
 	}
 }
 
+// plannedDetail (dry-run) must not claim "would update" for a marketplace
+// harness already at the locally-known latest, while still saying so when it's
+// behind, unknown, or a versionless harness is present.
+func TestPlannedDetail(t *testing.T) {
+	mk := func(installed, available string) harness {
+		return harness{version: func(environ) (string, string) { return installed, available }}
+	}
+	skills := harness{} // version nil
+
+	cases := []struct {
+		name         string
+		h            harness
+		preVer       string
+		availVer     string
+		wasInstalled bool
+		want         string
+	}{
+		{"marketplace fresh", mk("", ""), "", "", false, "would install"},
+		{"marketplace current", mk("0.2.16", "0.2.16"), "0.2.16", "0.2.16", true, "up to date"},
+		{"marketplace behind", mk("0.2.14", "0.2.16"), "0.2.14", "0.2.16", true, "would update"},
+		{"marketplace ahead of stale cache", mk("0.3.0", "0.2.16"), "0.3.0", "0.2.16", true, "up to date"},
+		{"marketplace latest unknown", mk("0.2.16", ""), "0.2.16", "", true, "would update"},
+		{"skills fresh", skills, "", "", false, "would install"},
+		{"skills installed", skills, "", "", true, "would update"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := plannedDetail(tc.h, tc.preVer, tc.availVer, tc.wasInstalled); got != tc.want {
+				t.Errorf("plannedDetail = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestVersionReaders(t *testing.T) {
 	home := t.TempDir()
 	seedClaudeVersions(t, home, "0.2.14", "0.2.16")

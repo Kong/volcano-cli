@@ -208,26 +208,46 @@ func supportedNames(all []harness) []string {
 
 func install(ctx context.Context, h harness, env environ, res resolved, dryRun bool) Result {
 	// Capture pre-install state so the outcome can distinguish a fresh install from
-	// an update: the installed-version read (marketplace harnesses) or the boolean
-	// probe (file-drop harnesses), both taken before install mutates anything.
-	var preVer string
+	// an update: the installed vs locally-known-latest version (marketplace
+	// harnesses) or the boolean probe (file-drop harnesses), both read before
+	// install mutates anything.
+	var preVer, availVer string
 	if h.version != nil {
-		preVer, _ = h.version(env)
+		preVer, availVer = h.version(env)
 	}
 	wasInstalled := preVer != "" || (h.installed != nil && h.installed(env))
 
 	if dryRun {
-		detail := "would install"
-		if wasInstalled {
-			detail = "would update"
-		}
-		return Result{Harness: h.name, Status: StatusPlanned, Detail: detail}
+		return Result{Harness: h.name, Status: StatusPlanned, Detail: plannedDetail(h, preVer, availVer, wasInstalled)}
 	}
 	ir, err := h.install(ctx, env, res)
 	if err != nil {
 		return Result{Harness: h.name, Status: StatusFailed, Detail: err.Error()}
 	}
 	return outcome(h, env, preVer, wasInstalled, ir)
+}
+
+// plannedDetail is the dry-run description for a harness, mirroring what a real
+// run would do without changing anything. A marketplace harness compares the
+// installed version against the locally-known latest so an already-current one
+// reads "up to date" instead of a misleading "would update"; when that latest
+// can't be read it stays "would update" (a rerun refreshes and may bump).
+// Versionless (file-drop) harnesses fall back to the pre-install presence check.
+func plannedDetail(h harness, preVer, availVer string, wasInstalled bool) string {
+	if h.version != nil {
+		switch {
+		case preVer == "":
+			return "would install"
+		case availVer != "" && !semverLess(preVer, availVer):
+			return "up to date"
+		default:
+			return "would update"
+		}
+	}
+	if wasInstalled {
+		return "would update"
+	}
+	return "would install"
 }
 
 // outcome classifies a successful install into installed / updated / up-to-date.
