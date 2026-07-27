@@ -283,59 +283,6 @@ jobs:
             fi
           }
 
-          append_historical_assets() {
-            local version="$1"
-            local asset
-            local versioned_asset
-            local base
-            local assets=()
-
-            while IFS= read -r asset; do
-              assets+=("${asset##*/}")
-            done < <(find dist/release-assets -maxdepth 1 -type f | sort)
-
-            for asset in "${assets[@]}"; do
-              case "$asset" in
-                SHA256SUMS)
-                  continue
-                  ;;
-                *.exe.sigstore.json)
-                  base="${asset%.exe.sigstore.json}"
-                  versioned_asset="${base}-${version}.exe.sigstore.json"
-                  ;;
-                *.sh.sigstore.json)
-                  base="${asset%.sh.sigstore.json}"
-                  versioned_asset="${base}-${version}.sh.sigstore.json"
-                  ;;
-                *.sigstore.json)
-                  base="${asset%.sigstore.json}"
-                  versioned_asset="${base}-${version}.sigstore.json"
-                  ;;
-                *.exe)
-                  base="${asset%.exe}"
-                  versioned_asset="${base}-${version}.exe"
-                  ;;
-                *.sh)
-                  base="${asset%.sh}"
-                  versioned_asset="${base}-${version}.sh"
-                  ;;
-                *)
-                  versioned_asset="${asset}-${version}"
-                  ;;
-              esac
-              cp "dist/release-assets/${asset}" "dist/release-assets/${versioned_asset}"
-            done
-
-            (
-              cd dist/release-assets
-              local versioned_assets=()
-              while IFS= read -r asset; do
-                versioned_assets+=("${asset#./}")
-              done < <(find . -maxdepth 1 -type f -name "*${version}*" ! -name "SHA256SUMS-${version}" | sort)
-              shasum -a 256 "${versioned_assets[@]}" > "SHA256SUMS-${version}"
-            )
-          }
-
           RELEASE_FLAGS=()
           if [ "$RELEASE_PRERELEASE" = "true" ]; then
             RELEASE_FLAGS+=(--prerelease)
@@ -351,13 +298,24 @@ jobs:
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
+            # Keep the versioned nightly git tag (resolve-release derives the next
+            # nightly number from it); it needs no release of its own.
             if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
               git tag "$RELEASE_TAG" "$GITHUB_SHA"
               git push origin "refs/tags/${RELEASE_TAG}"
             fi
-            append_historical_assets "$RELEASE_TAG"
             git tag -f nightly "$GITHUB_SHA"
             git push origin refs/tags/nightly --force
+            # The `nightly` release is a rolling alias for the latest nightly only.
+            # Recreate it from scratch each run so it holds just the current build's
+            # assets: appending every build's assets grows it unbounded and hits
+            # GitHub's hard cap of 1000 assets per release (HTTP 422 file_count
+            # limited to 1000). Deleting first also self-heals an already-full release.
+            # Only delete when it exists, and let a real delete failure stop the job
+            # (don't blanket-swallow, or the backlog would silently persist).
+            if gh release view nightly >/dev/null 2>&1; then
+              gh release delete nightly --yes
+            fi
             publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
           else
             publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
