@@ -63,7 +63,19 @@ type harness struct {
 	detect    func(e environ) bool
 	installed func(e environ) bool
 	version   func(e environ) (installed, available string)
-	install   func(ctx context.Context, e environ, res resolved) (detail string, err error)
+	install   func(ctx context.Context, e environ, res resolved) (installResult, error)
+}
+
+// installResult is what a harness's install reports. detail is the human summary
+// (a marketplace ref, or "N skills -> dir"). For versionless (file-drop)
+// harnesses, n and changed let outcome classify the run as installed / updated /
+// up-to-date by how many skill files actually changed on disk — the reliable
+// stand-in for a version those harnesses don't have. Both are 0 for marketplace
+// harnesses, which classify by plugin version instead.
+type installResult struct {
+	detail  string
+	n       int
+	changed int
 }
 
 // order matters: marketplace harnesses first, then skills-drop harnesses. This
@@ -278,14 +290,14 @@ const manualHarness = "manual"
 // pinned marketplace snapshot and updates the plugin, so a rerun lands on the
 // latest version; the caller (install) reads the resulting version and appends
 // restartNote, since both harnesses load the new version only after a restart.
-func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (string, error) {
-	return func(ctx context.Context, _ environ, res resolved) (string, error) {
+func marketplaceInstall(bin string, cmds [][]string) func(context.Context, environ, resolved) (installResult, error) {
+	return func(ctx context.Context, _ environ, res resolved) (installResult, error) {
 		for _, args := range cmds {
 			if out, err := res.runner.Run(ctx, bin, args...); err != nil && !alreadyPresent(out) {
-				return "", fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+				return installResult{}, fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
-		return "marketplace: " + pluginRef, nil
+		return installResult{detail: "marketplace: " + pluginRef}, nil
 	}
 }
 
@@ -321,18 +333,18 @@ func alreadyPresent(out []byte) bool {
 // skillsInstall file-drops skills into a harness's skills directory (and,
 // optionally, AGENTS.md), used for harnesses without a non-interactive plugin
 // command. skillsDir and agentsPath are computed from the environ at call time.
-func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Context, environ, resolved) (string, error) {
-	return func(ctx context.Context, e environ, res resolved) (string, error) {
+func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Context, environ, resolved) (installResult, error) {
+	return func(ctx context.Context, e environ, res resolved) (installResult, error) {
 		dir := skillsDir(e)
 		var ap string
 		if agentsPath != nil {
 			ap = agentsPath(e)
 		}
-		n, err := materialize(ctx, res.doer, res.skillsBase, dir, ap)
+		n, changed, err := materialize(ctx, res.doer, res.skillsBase, dir, ap)
 		if err != nil {
-			return "", err
+			return installResult{}, err
 		}
-		return fmt.Sprintf("%d skills -> %s", n, dir), nil
+		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed}, nil
 	}
 }
 
@@ -341,7 +353,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 func manualInstall(ctx context.Context, e environ, res resolved) (string, error) {
 	base := filepath.Join(e.home, ".volcano")
 	skillsDir := filepath.Join(base, "skills")
-	n, err := materialize(ctx, res.doer, res.skillsBase, skillsDir, filepath.Join(base, "AGENTS.md"))
+	n, _, err := materialize(ctx, res.doer, res.skillsBase, skillsDir, filepath.Join(base, "AGENTS.md"))
 	if err != nil {
 		return "", err
 	}

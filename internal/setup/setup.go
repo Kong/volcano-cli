@@ -223,18 +223,18 @@ func install(ctx context.Context, h harness, env environ, res resolved, dryRun b
 		}
 		return Result{Harness: h.name, Status: StatusPlanned, Detail: detail}
 	}
-	detail, err := h.install(ctx, env, res)
+	ir, err := h.install(ctx, env, res)
 	if err != nil {
 		return Result{Harness: h.name, Status: StatusFailed, Detail: err.Error()}
 	}
-	return outcome(h, env, preVer, wasInstalled, detail)
+	return outcome(h, env, preVer, wasInstalled, ir)
 }
 
-// outcome classifies a successful install into installed / updated / up-to-date,
-// preferring the real version delta for version-bearing (marketplace) harnesses
-// and falling back to the pre-install boolean for file-drop harnesses (which
-// have no version but always overwrite, so a pre-existing install is an update).
-func outcome(h harness, env environ, preVer string, wasInstalled bool, detail string) Result {
+// outcome classifies a successful install into installed / updated / up-to-date.
+// Marketplace harnesses use the real version delta; file-drop harnesses have no
+// version, so they classify by whether any skill file actually changed on disk
+// this run — a fresh install, a genuine update, or an unchanged rerun.
+func outcome(h harness, env environ, preVer string, wasInstalled bool, ir installResult) Result {
 	if h.version != nil {
 		if postVer, _ := h.version(env); postVer != "" {
 			switch {
@@ -248,12 +248,16 @@ func outcome(h harness, env environ, preVer string, wasInstalled bool, detail st
 		}
 		// Version unreadable (e.g. a sandbox with no plugin registry): fall back to
 		// the generic marketplace detail, still noting the restart.
-		return Result{Harness: h.name, Status: StatusInstalled, Detail: detail + restartNote}
+		return Result{Harness: h.name, Status: StatusInstalled, Detail: ir.detail + restartNote}
 	}
-	if wasInstalled {
-		return Result{Harness: h.name, Status: StatusUpdated, Detail: detail}
+	switch {
+	case !wasInstalled:
+		return Result{Harness: h.name, Status: StatusInstalled, Detail: ir.detail}
+	case ir.changed == 0:
+		return Result{Harness: h.name, Status: StatusUpToDate, Detail: fmt.Sprintf("%d skills, already up to date", ir.n)}
+	default:
+		return Result{Harness: h.name, Status: StatusUpdated, Detail: fmt.Sprintf("%s (%d changed)", ir.detail, ir.changed)}
 	}
-	return Result{Harness: h.name, Status: StatusInstalled, Detail: detail}
 }
 
 func installManual(ctx context.Context, env environ, res resolved, dryRun bool) Result {

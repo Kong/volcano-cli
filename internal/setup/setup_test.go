@@ -663,8 +663,8 @@ func TestRenderReport_WrapsAndAlignsDetail(t *testing.T) {
 }
 
 // TestOutcome locks the install/update/up-to-date classification: version-bearing
-// harnesses report the real delta; file-drop harnesses fall back to the
-// pre-install boolean; an unreadable version degrades to a fresh install.
+// harnesses report the real version delta; file-drop harnesses have no version,
+// so they classify by how many skill files actually changed on disk.
 func TestOutcome(t *testing.T) {
 	marketplace := func(post string) harness {
 		return harness{name: "claude-code", version: func(environ) (string, string) { return post, "" }}
@@ -676,20 +676,21 @@ func TestOutcome(t *testing.T) {
 		h            harness
 		preVer       string
 		wasInstalled bool
-		detail       string
+		ir           installResult
 		wantStatus   Status
 		wantDetail   string
 	}{
-		{"marketplace fresh", marketplace("0.2.16"), "", false, "marketplace: x", StatusInstalled, "0.2.16 (restart your agent to apply)"},
-		{"marketplace updated", marketplace("0.2.16"), "0.2.14", true, "marketplace: x", StatusUpdated, "0.2.14 \u2192 0.2.16 (restart your agent to apply)"},
-		{"marketplace current", marketplace("0.2.16"), "0.2.16", true, "marketplace: x", StatusUpToDate, "already at 0.2.16"},
-		{"marketplace version unreadable", marketplace(""), "", false, "marketplace: x", StatusInstalled, "marketplace: x (restart your agent to apply)"},
-		{"skills fresh", skills, "", false, "2 skills -> dir", StatusInstalled, "2 skills -> dir"},
-		{"skills updated", skills, "", true, "2 skills -> dir", StatusUpdated, "2 skills -> dir"},
+		{"marketplace fresh", marketplace("0.2.16"), "", false, installResult{detail: "marketplace: x"}, StatusInstalled, "0.2.16 (restart your agent to apply)"},
+		{"marketplace updated", marketplace("0.2.16"), "0.2.14", true, installResult{detail: "marketplace: x"}, StatusUpdated, "0.2.14 \u2192 0.2.16 (restart your agent to apply)"},
+		{"marketplace current", marketplace("0.2.16"), "0.2.16", true, installResult{detail: "marketplace: x"}, StatusUpToDate, "already at 0.2.16"},
+		{"marketplace version unreadable", marketplace(""), "", false, installResult{detail: "marketplace: x"}, StatusInstalled, "marketplace: x (restart your agent to apply)"},
+		{"skills fresh", skills, "", false, installResult{detail: "2 skills -> dir", n: 2, changed: 2}, StatusInstalled, "2 skills -> dir"},
+		{"skills updated", skills, "", true, installResult{detail: "2 skills -> dir", n: 2, changed: 1}, StatusUpdated, "2 skills -> dir (1 changed)"},
+		{"skills unchanged", skills, "", true, installResult{detail: "2 skills -> dir", n: 2, changed: 0}, StatusUpToDate, "2 skills, already up to date"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := outcome(tc.h, environ{}, tc.preVer, tc.wasInstalled, tc.detail)
+			got := outcome(tc.h, environ{}, tc.preVer, tc.wasInstalled, tc.ir)
 			if got.Status != tc.wantStatus {
 				t.Errorf("status = %q, want %q", got.Status, tc.wantStatus)
 			}

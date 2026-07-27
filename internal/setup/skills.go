@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,32 +30,33 @@ type skillIndex struct {
 
 // materialize downloads the skills manifest from baseURL and writes each
 // <name>/SKILL.md under skillsDir. When agentsPath is non-empty, AGENTS.md is
-// written there too. Returns the number of skills written. baseURL points at the
+// written there too. Returns the number of skills written and how many files
+// (skills + AGENTS.md) actually changed on disk this run — the change count lets
+// a versionless harness report up-to-date vs updated. baseURL points at the
 // Kong/volcano-skills GitHub repo (raw), the single source of truth, so the CLI
 // carries no copy of the skills to drift.
-func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsPath string) (int, error) {
+func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsPath string) (count, changed int, err error) {
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	idxBody, err := fetchGET(ctx, doer, baseURL+"/index.json")
 	if err != nil {
-		return 0, fmt.Errorf("fetch skills index: %w", err)
+		return 0, 0, fmt.Errorf("fetch skills index: %w", err)
 	}
 	var idx skillIndex
 	if err := json.Unmarshal(idxBody, &idx); err != nil {
-		return 0, fmt.Errorf("parse skills index: %w", err)
+		return 0, 0, fmt.Errorf("parse skills index: %w", err)
 	}
 	if len(idx.Skills) == 0 {
-		return 0, fmt.Errorf("skills index %s/index.json listed no skills", baseURL)
+		return 0, 0, fmt.Errorf("skills index %s/index.json listed no skills", baseURL)
 	}
 
 	if err := os.MkdirAll(skillsDir, 0o750); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	count := 0
 	for _, s := range idx.Skills {
 		if !validSkillName(s.Name) {
-			return count, fmt.Errorf("skills index contained an invalid skill name: %q", s.Name)
+			return count, changed, fmt.Errorf("skills index contained an invalid skill name: %q", s.Name)
 		}
 		// Derive the URL from the validated name; the manifest's sibling `path`
 		// field is deliberately ignored so a manifest cannot repoint the fetch at
@@ -62,7 +64,7 @@ func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsP
 		// userinfo).
 		body, err := fetchGET(ctx, doer, baseURL+"/"+s.Name+"/SKILL.md")
 		if err != nil {
-			return count, fmt.Errorf("fetch skill %s: %w", s.Name, err)
+			return count, changed, fmt.Errorf("fetch skill %s: %w", s.Name, err)
 		}
 		dir := filepath.Join(skillsDir, s.Name)
 		if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -72,12 +74,16 @@ func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsP
 			// actually wrong. Non-destructive on purpose: report, don't clobber a
 			// path another tool may own.
 			if fi, lerr := os.Lstat(dir); lerr == nil && !fi.IsDir() {
-				return count, fmt.Errorf("%s exists but is not a directory (stale symlink?); remove it and re-run", dir)
+				return count, changed, fmt.Errorf("%s exists but is not a directory (stale symlink?); remove it and re-run", dir)
 			}
-			return count, err
+			return count, changed, err
 		}
-		if err := writeFileAtomic(filepath.Join(dir, "SKILL.md"), body); err != nil {
-			return count, err
+		ch, err := writeFileIfChanged(filepath.Join(dir, "SKILL.md"), body)
+		if err != nil {
+			return count, changed, err
+		}
+		if ch {
+			changed++
 		}
 		count++
 	}
@@ -85,17 +91,21 @@ func materialize(ctx context.Context, doer HTTPDoer, baseURL, skillsDir, agentsP
 	if agentsPath != "" {
 		body, err := fetchGET(ctx, doer, baseURL+"/AGENTS.md")
 		if err != nil {
-			return count, fmt.Errorf("fetch AGENTS.md: %w", err)
+			return count, changed, fmt.Errorf("fetch AGENTS.md: %w", err)
 		}
 		if err := os.MkdirAll(filepath.Dir(agentsPath), 0o750); err != nil {
-			return count, err
+			return count, changed, err
 		}
-		if err := writeFileAtomic(agentsPath, body); err != nil {
-			return count, err
+		ch, err := writeFileIfChanged(agentsPath, body)
+		if err != nil {
+			return count, changed, err
+		}
+		if ch {
+			changed++
 		}
 	}
 
-	return count, nil
+	return count, changed, nil
 }
 
 // fetchGET performs a GET and returns the body, rejecting non-200, empty, and
@@ -156,6 +166,17 @@ func validSkillName(name string) bool {
 		}
 	}
 	return name != "." && name != ".."
+}
+
+// writeFileIfChanged writes data to path only when the current contents differ
+// (or the file is missing/unreadable), reporting whether it wrote. Skipping an
+// identical rewrite is what lets a versionless harness distinguish an up-to-date
+// rerun from a real update, and avoids touching files that didn't change.
+func writeFileIfChanged(path string, data []byte) (bool, error) {
+	if existing, err := os.ReadFile(path); err == nil && bytes.Equal(existing, data) {
+		return false, nil
+	}
+	return true, writeFileAtomic(path, data)
 }
 
 // writeFileAtomic writes data to path via a temp file + rename so a partial
