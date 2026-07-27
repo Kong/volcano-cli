@@ -98,20 +98,24 @@ func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 
 // LogEvents renders function log events.
 func LogEvents(w io.Writer, events []apiclient.LogEvent) {
+	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
 	}
 }
 
 // LogSearchEvents renders function log search events.
 func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
+	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
 	}
 }
 
-func printLogEvent(w io.Writer, timestamp time.Time, region *string, message string) {
-	on := theme.On(w)
+// printLogEvent renders one event. on is computed once by the batch/stream
+// renderer and passed in, so a high-volume log stream doesn't do a getenv+stat
+// per line.
+func printLogEvent(w io.Writer, on bool, timestamp time.Time, region *string, message string) {
 	message = strings.TrimSpace(message)
 	formattedTimestamp := theme.Dim(FormatTimestamp(timestamp), on)
 	if region := stringPtrValue(region); region != "" {
