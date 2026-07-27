@@ -54,12 +54,50 @@ func (s Service) composeEnvironment() ([]string, string, error) {
 		return nil, "", err
 	}
 	env = append(env, overrides...)
+	env = dropIncompleteFirstPartyBootstrap(env)
 
 	image, _ := s.resolveImage()
 	env = withoutEnvKey(env, "VOLCANO_IMAGE")
 	env = append(env, "VOLCANO_IMAGE="+image)
 
 	return env, image, nil
+}
+
+// firstPartyBootstrapKeys is the complete set the local server needs to run
+// first-party bootstrap. The server treats it as all-or-nothing: if any subset
+// is present it attempts bootstrap and hard-fails (never becoming ready) unless
+// every var is set.
+var firstPartyBootstrapKeys = []string{
+	"VOLCANO_FIRST_PARTY_USER_ID",
+	"VOLCANO_FIRST_PARTY_USER_DISPLAY_NAME",
+	"VOLCANO_FIRST_PARTY_USER_TOKEN",
+	"VOLCANO_FIRST_PARTY_PROJECT_ID",
+	"VOLCANO_FIRST_PARTY_PROJECT_NAME",
+	"VOLCANO_FIRST_PARTY_ANON_KEY",
+	"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID",
+}
+
+// dropIncompleteFirstPartyBootstrap removes the first-party bootstrap vars (and
+// the paired ANON_KEY_SECRET) from env unless the whole set is present and
+// non-empty. `volcano start` forwards the process env and .env.local to the
+// local server; a partial set is the common case — a developer keeps
+// VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID / _ANON_KEY in .env.local for `volcano
+// login`/`signup`, which `volcano start` also forwards — and it makes the
+// server's bootstrap fail so the stack never becomes ready. Local development
+// doesn't need first-party bootstrap: the server auto-provisions its pre-baked
+// local user when these are absent. So we strip a partial set and keep it only
+// when a caller deliberately provides every var. The CLI's own auth flows are
+// unaffected — they read these from the CLI process env, not the server's.
+func dropIncompleteFirstPartyBootstrap(env []string) []string {
+	for _, key := range firstPartyBootstrapKeys {
+		if value, ok := lastEnvValue(env, key); !ok || strings.TrimSpace(value) == "" {
+			for _, k := range firstPartyBootstrapKeys {
+				env = withoutEnvKey(env, k)
+			}
+			return withoutEnvKey(env, "ANON_KEY_SECRET")
+		}
+	}
+	return env
 }
 
 // resolveImage returns the local-mode server image to run and whether it is a
@@ -245,6 +283,21 @@ func envValue(env []string, key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// lastEnvValue returns the value of the last entry for key, matching how a child
+// process resolves duplicate env entries (later wins). composeEnvironment
+// appends .env.local after the process env, so the last occurrence is the value
+// the server would actually see.
+func lastEnvValue(env []string, key string) (string, bool) {
+	prefix := key + "="
+	value, ok := "", false
+	for _, entry := range env {
+		if v, found := strings.CutPrefix(entry, prefix); found {
+			value, ok = v, true
+		}
+	}
+	return value, ok
 }
 
 func withoutEnvKey(env []string, key string) []string {

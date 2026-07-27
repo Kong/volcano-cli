@@ -3,6 +3,7 @@ package localmode
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -92,6 +93,52 @@ func TestComposeEnvironmentDefaultsVolcanoImage(t *testing.T) {
 	actual, ok := lastEnvValue(env, "VOLCANO_IMAGE")
 	require.True(t, ok)
 	assert.Equal(t, defaultVolcanoImage, actual)
+}
+
+// TestDefaultVolcanoImageIsPublishedLocalTag guards that the built-in default
+// points at the local-mode image family (kong/volcano:local-*) that
+// volcano-hosting publishes and that `volcano start` must run — never the empty
+// string, a non-local tag, or the private cloud image.
+func TestDefaultVolcanoImageIsPublishedLocalTag(t *testing.T) {
+	assert.Truef(t, strings.HasPrefix(defaultVolcanoImage, "kong/volcano:local-"),
+		"default local-mode image must be a kong/volcano:local-* tag (got %q)", defaultVolcanoImage)
+}
+
+func TestDropIncompleteFirstPartyBootstrap(t *testing.T) {
+	// A partial set (the common case: a dev keeps the anon key / device client id
+	// in .env.local for signup/login) is stripped so the local server skips
+	// bootstrap and auto-provisions instead of hanging on startup.
+	partial := []string{
+		"PATH=/bin",
+		"VOLCANO_FIRST_PARTY_ANON_KEY=ak-123",
+		"ANON_KEY_SECRET=shh",
+		"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID=volcano-cli",
+	}
+	got := dropIncompleteFirstPartyBootstrap(append([]string{}, partial...))
+	for _, k := range append(slices.Clone(firstPartyBootstrapKeys), "ANON_KEY_SECRET") {
+		_, ok := lastEnvValue(got, k)
+		assert.Falsef(t, ok, "%s should be stripped from a partial first-party set", k)
+	}
+	assert.Contains(t, got, "PATH=/bin", "unrelated env must be preserved")
+
+	// The complete set is preserved so deliberate first-party bootstrap still works.
+	complete := []string{"PATH=/bin"}
+	for _, k := range firstPartyBootstrapKeys {
+		complete = append(complete, k+"=x")
+	}
+	kept := dropIncompleteFirstPartyBootstrap(append([]string{}, complete...))
+	for _, k := range firstPartyBootstrapKeys {
+		v, ok := lastEnvValue(kept, k)
+		assert.Truef(t, ok && v == "x", "%s should be kept when the full set is present", k)
+	}
+
+	// An empty value counts as absent, so a set with one blank var is still partial.
+	blank := slices.Clone(complete)
+	blank = withoutEnvKey(blank, "VOLCANO_FIRST_PARTY_USER_TOKEN")
+	blank = append(blank, "VOLCANO_FIRST_PARTY_USER_TOKEN=")
+	stripped := dropIncompleteFirstPartyBootstrap(append([]string{}, blank...))
+	_, ok := lastEnvValue(stripped, "VOLCANO_FIRST_PARTY_ANON_KEY")
+	assert.False(t, ok, "a set with one empty var is partial and must be stripped")
 }
 
 func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
