@@ -19,12 +19,13 @@ func TestColorGate(t *testing.T) {
 	if got := ctaBox("hi", "there", false, 0); got != "hi\n  there" {
 		t.Fatalf("ctaBox off = %q, want plain two-line passthrough", got)
 	}
-	if got := ctaBox("hi", "there", true, 40); !strings.Contains(got, "\x1b[") || !strings.Contains(got, "\u256d") {
+	got := ctaBox("hi", "there", true, 40)
+	if !strings.Contains(got, "\x1b[") || !strings.Contains(got, "\u256d") {
 		t.Fatalf("ctaBox on = %q, want ANSI + rounded border", got)
 	}
 	// The example line renders in volcano-600 (#ea580c => 234;88;12 truecolor),
 	// distinct from the lava heading/border, so it reads as the actionable prompt.
-	if got := ctaBox("hi", "there", true, 40); !strings.Contains(got, "234;88;12") {
+	if !strings.Contains(got, "234;88;12") {
 		t.Fatalf("ctaBox on = %q, want example in volcano-600", got)
 	}
 	if got := styleMark(StatusFailed, "[failed]", true); !strings.Contains(got, "\x1b[") {
