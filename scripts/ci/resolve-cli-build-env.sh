@@ -49,11 +49,11 @@ case "$REF" in
     CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
     CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
     REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
-    # A stable release must ship the stable server image, not the nightly local
-    # build; nightly tags keep the top-level local-nightly default.
-    # ponytail: confirm the canonical stable/cloud server tag before GA (placeholder).
+    # A stable release must ship the stable local-mode image, not the nightly
+    # build; nightly tags keep the top-level local-nightly default. Requires
+    # volcano-hosting to have published kong/volcano:local-latest (stable release).
     if [[ "$REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
-      CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local"
+      CLI_DEFAULT_LOCAL_IMAGE="kong/volcano:local-latest"
     fi
     CLI_VERSION="$REF_NAME"
     ;;

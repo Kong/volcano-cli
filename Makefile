@@ -12,7 +12,7 @@ DEFAULT_API_URL ?= https://api.volcano.dev
 DEFAULT_WEB_URL ?= https://volcano.dev
 # Stable local-mode server image baked into `make build` (prod). `make local`
 # overrides this to kong/volcano:local-nightly for local development.
-DEFAULT_LOCAL_IMAGE ?= kong/volcano:local
+DEFAULT_LOCAL_IMAGE ?= kong/volcano:local-latest
 FIRST_PARTY_DEVICE_CLIENT_ID ?=
 
 LDFLAGS := -s -w \

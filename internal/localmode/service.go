@@ -33,7 +33,7 @@ const (
 // kong/volcano:local-nightly for local development. The in-source default is
 // prod-safe (a stable tag, never a nightly), so a plain `go build` or an
 // un-overridden `make build` never ships the nightly dev image.
-var defaultVolcanoImage = "kong/volcano:local"
+var defaultVolcanoImage = "kong/volcano:local-latest"
 
 // Service performs local-mode environment workflows.
 type Service struct {
