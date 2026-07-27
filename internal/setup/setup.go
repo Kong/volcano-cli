@@ -359,14 +359,13 @@ func writeReport(w io.Writer, r Report, on bool, width int) {
 			fmt.Fprintln(w, line)
 			continue
 		}
-		style := detailStyler(res.Status, on)
 		// A long detail wraps at "; " clause boundaries and, when the terminal width
 		// is known, to the width itself so it never overflows; continuation lines
 		// indent to the detail column so they stay aligned under the first clause.
-		segs := wrapDetail(res.Detail, width)
-		fmt.Fprintln(w, line+" "+style(segs[0]))
-		for _, seg := range segs[1:] {
-			fmt.Fprintln(w, detailIndent+style(seg))
+		lines := styleDetail(wrapDetail(res.Detail, width), res.Status, on)
+		fmt.Fprintln(w, line+" "+lines[0])
+		for _, seg := range lines[1:] {
+			fmt.Fprintln(w, detailIndent+seg)
 		}
 	}
 
@@ -487,18 +486,34 @@ func wrapDetail(detail string, width int) []string {
 	return lines
 }
 
-// detailStyler returns the per-status styling applied to each detail segment:
-// deep red for failure reasons, gray for supplementary version/skill metadata,
-// unchanged otherwise (e.g. dry-run "would install").
-func detailStyler(s Status, on bool) func(string) string {
-	switch s {
+// installFailedLabel is the fixed prefix Run puts on an autodetected harness's
+// failure detail ("install failed: <reason>"). It is colored distinctly from the
+// reason that follows it.
+const installFailedLabel = "install failed:"
+
+// styleDetail colors each wrapped detail line by status. On a failure row the
+// leading "install failed:" label is red while the reason itself is gray, so the
+// label and the actual error read as two different things; version/skill details
+// are gray; dry-run and other rows are left unstyled.
+func styleDetail(segs []string, status Status, on bool) []string {
+	out := make([]string, len(segs))
+	switch status {
 	case StatusFailed, StatusDetected:
-		return func(seg string) string { return errText(seg, on) }
+		for i, seg := range segs {
+			if i == 0 && strings.HasPrefix(seg, installFailedLabel) {
+				out[i] = errText(installFailedLabel, on) + gray(seg[len(installFailedLabel):], on)
+				continue
+			}
+			out[i] = gray(seg, on)
+		}
 	case StatusInstalled, StatusUpdated, StatusUpToDate:
-		return func(seg string) string { return gray(seg, on) }
+		for i, seg := range segs {
+			out[i] = gray(seg, on)
+		}
 	default:
-		return func(seg string) string { return seg }
+		copy(out, segs)
 	}
+	return out
 }
 
 // firstLine reduces a possibly multi-line install error (e.g. a plugin

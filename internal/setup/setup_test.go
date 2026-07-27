@@ -591,6 +591,31 @@ func TestSplitDetail(t *testing.T) {
 	}
 }
 
+// styleDetail colors a failure row's "install failed:" label distinctly (red)
+// from the reason (gray), and grays continuation lines entirely; plain mode
+// leaves the text untouched.
+func TestStyleDetail_FailureLabelVsReason(t *testing.T) {
+	segs := []string{"install failed: something broke", "and more detail"}
+	got := styleDetail(segs, StatusDetected, true)
+
+	want0 := errText(installFailedLabel, true) + gray(" something broke", true)
+	if got[0] != want0 {
+		t.Errorf("first line:\n got %q\nwant %q", got[0], want0)
+	}
+	if got[1] != gray("and more detail", true) {
+		t.Errorf("continuation should be all gray: %q", got[1])
+	}
+
+	// A failure without the label (targeted --harness error) is gray, not red.
+	if got := styleDetail([]string{"boom"}, StatusFailed, true); got[0] != gray("boom", true) {
+		t.Errorf("unlabeled failure reason should be gray: %q", got[0])
+	}
+	// Plain mode is a no-op.
+	if got := styleDetail(segs, StatusDetected, false); got[0] != segs[0] || got[1] != segs[1] {
+		t.Errorf("plain styleDetail changed text: %q", got)
+	}
+}
+
 // wrapDetail must keep every segment within the width left beside the detail
 // indent, hard-breaking a long unbroken token (e.g. a path) so prefix+segment
 // never overflows the terminal. width <= 0 disables width wrapping.
