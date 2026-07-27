@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/Kong/volcano-cli/compare/v0.13.0...v0.13.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **ci:** nightly publish hits GitHub 1000-asset-per-release cap ([#120](https://github.com/Kong/volcano-cli/issues/120)) ([fc4aa62](https://github.com/Kong/volcano-cli/commit/fc4aa6273197c76c9a93782422f3b7aa26f42184))
+
 ## [0.13.0](https://github.com/Kong/volcano-cli/compare/v0.12.1...v0.13.0) (2026-07-27)
 
 
