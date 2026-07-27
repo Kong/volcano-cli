@@ -18,7 +18,7 @@ import (
 // buffers to an in-memory writer, so the destination writer isn't visible at
 // render time. os.Stdout is where help actually lands; under `go test` it isn't
 // a TTY, so captured help stays plain and Contains-based tests are unaffected.
-// ponytail: usage funcs read a process-wide gate; fine for a synchronous CLI,
+// NOTE: usage funcs read a process-wide gate; fine for a synchronous CLI,
 // revisit only if help is ever rendered concurrently to mixed destinations.
 func applyHelpTheme(root *cobra.Command) {
 	on := func() bool { return theme.On(os.Stdout) }

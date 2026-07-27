@@ -41,14 +41,12 @@ func TestHelpersOffArePlain(t *testing.T) {
 		"Fail":    Fail("x", false),
 		"Dim":     Dim("x", false),
 		"Command": Command("x", false),
-		"Status":  Status("active", false),
+		"Status":  Status("x", false),
 	} {
-		if strings.Contains(got, "\x1b[") {
-			t.Fatalf("%s off contains ANSI: %q", name, got)
+		// Byte-identical passthrough (exact equality also proves no ANSI leaked).
+		if got != "x" {
+			t.Fatalf("%s off = %q, want byte-identical passthrough %q", name, got, "x")
 		}
-	}
-	if Status("active", false) != "active" {
-		t.Fatal("Status off must pass through unchanged")
 	}
 }
 
