@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 const (
@@ -36,7 +37,7 @@ func ProjectConfigApplyReport(w io.Writer, result *apiclient.ProjectConfigApplyR
 			if entry.Error != nil {
 				detail = *entry.Error
 			}
-			fmt.Fprintf(w, "Error: %s: %s\n", projectConfigEntryRef(entry), detail)
+			Errorf(w, "%s: %s", projectConfigEntryRef(entry), detail)
 		}
 	}
 	for _, entry := range result.Results {
@@ -119,12 +120,13 @@ func ProjectConfigValidationErrors(w io.Writer, errs []apiclient.ProjectConfigVa
 	if len(errs) == 0 {
 		return
 	}
+	on := theme.On(w)
 	fmt.Fprintf(w, "The server rejected the configuration with %d validation error(s); nothing was applied:\n", len(errs))
 	for _, entry := range errs {
 		ref := entry.Section
 		if entry.Name != nil && *entry.Name != "" {
 			ref = fmt.Sprintf("%s %q", entry.Section, *entry.Name)
 		}
-		fmt.Fprintf(w, "  - %s: %s\n", ref, entry.Message)
+		fmt.Fprintf(w, "  - %s: %s\n", ref, theme.Fail(entry.Message, on))
 	}
 }

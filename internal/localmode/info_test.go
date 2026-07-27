@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 func TestFetchInfoRunsDockerExecLocalInfo(t *testing.T) {
@@ -71,6 +73,22 @@ func TestFetchInfoSurfacesCommandError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to run local info command")
 	assert.Contains(t, err.Error(), "is the volcano-server container running?")
 	assert.Contains(t, err.Error(), "docker failed")
+}
+
+func TestFetchInfoReportsNotRunning(t *testing.T) {
+	// docker prints "No such container" when the server was never started.
+	_, absent := FetchInfo(context.Background(), CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("Error response from daemon: No such container: volcano-server: exit status 1")
+	}))
+	require.ErrorIs(t, absent, cliruntime.ErrLocalNotRunning)
+	assert.Contains(t, absent.Error(), "volcano start")
+	assert.NotContains(t, absent.Error(), "No such container")
+
+	// docker prints "is not running" when the container exists but is stopped.
+	_, stopped := FetchInfo(context.Background(), CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("Error response from daemon: Container abc123 is not running: exit status 1")
+	}))
+	require.ErrorIs(t, stopped, cliruntime.ErrLocalNotRunning)
 }
 
 func TestFetchInfoRejectsEmptyOutput(t *testing.T) {

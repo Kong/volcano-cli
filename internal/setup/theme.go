@@ -2,26 +2,27 @@ package setup
 
 import (
 	"io"
-	"os"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/charmbracelet/x/term"
+
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
-// The Volcano CLI palette, taken from volcano-web. Shared by the interactive
-// picker and the report so the CLI keeps one color identity across both.
+// The Volcano CLI palette lives in internal/theme (the CLI-wide source of
+// truth). These aliases keep the picker/report and eruption animation on the
+// same names they already use.
 const (
-	FlameHex    = "#f54019" // lava flame: key hints (space/enter/esc)
-	LavaHex     = "#f37a58" // lava-500 brand primary: titles, main lines, CTA
-	VolcanoHex  = "#f97316" // volcano-500: options — selectors, checkboxes, marks
-	OutdatedHex = "#eab308" // amber: installed but a newer version is available
-	GrayHex     = "#6b7280" // neutral gray: version/skill detail, supplementary text
+	FlameHex    = theme.FlameHex
+	LavaHex     = theme.LavaHex
+	VolcanoHex  = theme.VolcanoHex
+	OutdatedHex = theme.OutdatedHex
+	GrayHex     = theme.GrayHex
 )
 
 const (
-	detectedHex = OutdatedHex // amber: detected but the install didn't complete
-	failedHex   = "#dc2626"   // lava red: a hard failure
+	detectedHex = OutdatedHex     // amber: detected but the install didn't complete
+	failedHex   = theme.FailedHex // lava red: a hard failure
 )
 
 var (
@@ -32,36 +33,10 @@ var (
 	grayStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(GrayHex))
 )
 
-// colorEnabled reports whether ANSI styling should be written to w: only when w
-// is a real terminal and NO_COLOR is unset. Piped output, files, and test
-// buffers (agents/CI) stay plain, so a machine-read report is never polluted
-// with escape codes.
-func colorEnabled(w io.Writer) bool {
-	if os.Getenv("NO_COLOR") != "" {
-		return false
-	}
-	f, ok := w.(*os.File)
-	if !ok {
-		return false
-	}
-	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
-}
-
-// terminalWidth returns w's column count when it is a real terminal, else 0.
-// writeReport uses it to wrap long detail lines to the width; 0 means "unknown"
-// (piped/file output), which leaves detail unwrapped beyond clause breaks.
-func terminalWidth(w io.Writer) int {
-	f, ok := w.(*os.File)
-	if !ok {
-		return 0
-	}
-	width, _, err := term.GetSize(f.Fd())
-	if err != nil {
-		return 0
-	}
-	return width
-}
+// colorEnabled and terminalWidth delegate to internal/theme so the color gate
+// and width probe live in one place; writeReport still takes them explicitly.
+func colorEnabled(w io.Writer) bool { return theme.On(w) }
+func terminalWidth(w io.Writer) int { return theme.Width(w) }
 
 // styleMark colors a status mark when color is on, else returns it unchanged.
 // The caller pads the mark to its column width first so the ANSI codes never

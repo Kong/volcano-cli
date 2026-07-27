@@ -1,7 +1,6 @@
 package output
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -64,6 +63,6 @@ func PrintLogStreamEvent(w io.Writer, event *api.ProjectLogStreamEvent) {
 	case event.Log != nil:
 		LogSearchEvents(w, []apiclient.LogSearchEvent{*event.Log})
 	case event.Warning != "":
-		fmt.Fprintf(w, "Warning: %s\n", event.Warning)
+		Warning(w, "%s", event.Warning)
 	}
 }

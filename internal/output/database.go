@@ -7,17 +7,19 @@ import (
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // DatabaseCreated renders a newly created database.
 func DatabaseCreated(w io.Writer, database *apiclient.Database, showConnectionString bool) {
+	on := theme.On(w)
 	Success(w, "Database '%s' created", database.Name)
-	fmt.Fprintf(w, "Status: %s\n", databaseStatus(*database))
+	kv(w, on, "Status", "%s", theme.Status(databaseStatus(*database), on))
 	if showConnectionString {
-		printConnectionString(w, database.ConnectionString)
+		printConnectionString(w, on, database.ConnectionString)
 	}
-	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(database.CreatedAt))
-	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(database.UpdatedAt))
+	kv(w, on, "Created", "%s", FormatTimestamp(database.CreatedAt))
+	kv(w, on, "Updated", "%s", FormatTimestamp(database.UpdatedAt))
 }
 
 // Databases renders one database list page.
@@ -26,6 +28,7 @@ func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionSt
 		page = &apiclient.PaginatedDatabases{}
 	}
 
+	on := theme.On(w)
 	databases := page.Data
 	if len(databases) == 0 {
 		if page.Total == 0 {
@@ -33,59 +36,59 @@ func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionSt
 		} else {
 			fmt.Fprintf(w, "No databases found on page %d\n", page.Page)
 		}
-		printDatabasePageSummary(w, page)
+		printDatabasePageSummary(w, on, page)
 		return
 	}
 
-	fmt.Fprintf(w, "%-20s  %-12s  %-15s  %-8s  %-15s  %-15s\n", "Name", "Status", "Region", "PG", "Created", "Updated")
-	fmt.Fprintln(w, strings.Repeat("-", 96))
+	tableHead(w, on, false, 96, "%-20s  %-12s  %-15s  %-8s  %-15s  %-15s", "Name", "Status", "Region", "PG", "Created", "Updated")
 	for _, database := range databases {
-		fmt.Fprintf(w, "%-20s  %-12s  %-15s  %-8s  %-15s  %-15s\n",
+		fmt.Fprintf(w, "%-20s  %s  %-15s  %-8s  %-15s  %-15s\n",
 			Truncate(database.Name, 20),
-			databaseStatus(database),
+			statusCell(databaseStatus(database), 12, on),
 			Truncate(blankString(stringPtrValue(database.Region)), 15),
 			blankString(stringPtrValue(database.PgVersion)),
 			FormatTimeAgo(database.CreatedAt),
 			FormatTimeAgo(database.UpdatedAt),
 		)
 		if showConnectionString {
-			printConnectionString(w, database.ConnectionString)
+			printConnectionString(w, on, database.ConnectionString)
 		}
 	}
-	printDatabasePageSummary(w, page)
+	printDatabasePageSummary(w, on, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: %s databases list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
+		nextPage(w, on, fmt.Sprintf("%s databases list --page %d --limit %d", commandPathPrefix(commandPrefix), page.Page+1, page.Limit))
 	}
 }
 
-func printDatabasePageSummary(w io.Writer, page *apiclient.PaginatedDatabases) {
-	fmt.Fprintf(w, "\nShowing %d of %d database(s) (page %d, limit %d)\n", len(page.Data), page.Total, page.Page, page.Limit)
+func printDatabasePageSummary(w io.Writer, on bool, page *apiclient.PaginatedDatabases) {
+	summary(w, on, "Showing %d of %d database(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 }
 
 // Database renders one database.
 func Database(w io.Writer, database *apiclient.Database, showConnectionString bool) {
-	fmt.Fprintf(w, "ID: %s\n", database.Id.String())
-	fmt.Fprintf(w, "Name: %s\n", database.Name)
-	fmt.Fprintf(w, "Status: %s\n", databaseStatus(*database))
+	on := theme.On(w)
+	kv(w, on, "ID", "%s", database.Id.String())
+	kv(w, on, "Name", "%s", database.Name)
+	kv(w, on, "Status", "%s", theme.Status(databaseStatus(*database), on))
 	if region := stringPtrValue(database.Region); region != "" {
-		fmt.Fprintf(w, "Region: %s\n", region)
+		kv(w, on, "Region", "%s", region)
 	}
 	if pgVersion := stringPtrValue(database.PgVersion); pgVersion != "" {
-		fmt.Fprintf(w, "PostgreSQL version: %s\n", pgVersion)
+		kv(w, on, "PostgreSQL version", "%s", pgVersion)
 	}
 	if database.DatabaseType != nil {
-		fmt.Fprintf(w, "Type: %s\n", string(*database.DatabaseType))
+		kv(w, on, "Type", "%s", string(*database.DatabaseType))
 	}
 	if showConnectionString {
-		printConnectionString(w, database.ConnectionString)
+		printConnectionString(w, on, database.ConnectionString)
 	}
-	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(database.CreatedAt))
-	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(database.UpdatedAt))
+	kv(w, on, "Created", "%s", FormatTimestamp(database.CreatedAt))
+	kv(w, on, "Updated", "%s", FormatTimestamp(database.UpdatedAt))
 }
 
-func printConnectionString(w io.Writer, value *string) {
+func printConnectionString(w io.Writer, on bool, value *string) {
 	if connectionString := stringPtrValue(value); connectionString != "" {
-		fmt.Fprintf(w, "Connection string: %s\n", connectionString)
+		kv(w, on, "Connection string", "%s", connectionString)
 	}
 }
 

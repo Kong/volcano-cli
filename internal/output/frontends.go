@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // Frontends renders one frontend list page.
@@ -14,6 +15,7 @@ func Frontends(w io.Writer, page *apiclient.PaginatedFrontends, commandPrefix ..
 		page = &apiclient.PaginatedFrontends{}
 	}
 
+	on := theme.On(w)
 	frontends := page.Data
 	if len(frontends) == 0 {
 		if page.Total == 0 {
@@ -21,31 +23,30 @@ func Frontends(w io.Writer, page *apiclient.PaginatedFrontends, commandPrefix ..
 			return
 		}
 		fmt.Fprintf(w, "No frontends found on page %d\n", page.Page)
-		printFrontendPageSummary(w, page)
+		printFrontendPageSummary(w, on, page)
 		return
 	}
 
-	fmt.Fprintf(w, "\n%-20s  %-12s  %-15s  %-15s\n", "Name", "Status", "Created", "Updated")
-	fmt.Fprintln(w, strings.Repeat("-", 70))
+	tableHead(w, on, true, 70, "%-20s  %-12s  %-15s  %-15s", "Name", "Status", "Created", "Updated")
 	for _, fe := range frontends {
-		fmt.Fprintf(w, "%-20s  %-12s  %-15s  %-15s\n",
+		fmt.Fprintf(w, "%-20s  %s  %-15s  %-15s\n",
 			Truncate(fe.Name, 20),
-			frontendStatus(fe),
+			statusCell(frontendStatus(fe), 12, on),
 			FormatTimeAgo(fe.CreatedAt),
 			FormatTimeAgo(fe.UpdatedAt),
 		)
 		if siteURL := stringPtrValue(fe.SiteUrl); siteURL != "" {
-			fmt.Fprintf(w, "  site: %s\n", siteURL)
+			fmt.Fprintf(w, "  %s %s\n", theme.Dim("site:", on), siteURL)
 		}
 	}
-	printFrontendPageSummary(w, page)
+	printFrontendPageSummary(w, on, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: %s frontends list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
+		nextPage(w, on, fmt.Sprintf("%s frontends list --page %d --limit %d", commandPathPrefix(commandPrefix), page.Page+1, page.Limit))
 	}
 }
 
-func printFrontendPageSummary(w io.Writer, page *apiclient.PaginatedFrontends) {
-	fmt.Fprintf(w, "\nShowing %d of %d frontend(s) (page %d, limit %d)\n", len(page.Data), page.Total, page.Page, page.Limit)
+func printFrontendPageSummary(w io.Writer, on bool, page *apiclient.PaginatedFrontends) {
+	summary(w, on, "Showing %d of %d frontend(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 }
 
 // Frontend renders one frontend detail view.
@@ -53,27 +54,28 @@ func Frontend(w io.Writer, fe *apiclient.Frontend) {
 	if fe == nil {
 		return
 	}
-	fmt.Fprintf(w, "ID: %s\n", fe.Id.String())
-	fmt.Fprintf(w, "Name: %s\n", fe.Name)
-	fmt.Fprintf(w, "Framework: %s\n", strings.TrimSpace(string(fe.Framework)))
-	fmt.Fprintf(w, "Status: %s\n", frontendStatus(*fe))
+	on := theme.On(w)
+	kv(w, on, "ID", "%s", fe.Id.String())
+	kv(w, on, "Name", "%s", fe.Name)
+	kv(w, on, "Framework", "%s", strings.TrimSpace(string(fe.Framework)))
+	kv(w, on, "Status", "%s", theme.Status(frontendStatus(*fe), on))
 	if appRoot := stringPtrValue(fe.AppRoot); appRoot != "" {
-		fmt.Fprintf(w, "App Root: %s\n", appRoot)
+		kv(w, on, "App Root", "%s", appRoot)
 	}
 	if len(fe.DeployedRegions) > 0 {
-		fmt.Fprintf(w, "Regions: %s\n", strings.Join(fe.DeployedRegions, ", "))
+		kv(w, on, "Regions", "%s", strings.Join(fe.DeployedRegions, ", "))
 	}
 	if siteURL := stringPtrValue(fe.SiteUrl); siteURL != "" {
-		fmt.Fprintf(w, "Site URL: %s\n", siteURL)
+		kv(w, on, "Site URL", "%s", siteURL)
 	}
 	if customDomain := stringPtrValue(fe.CustomDomain); customDomain != "" {
-		fmt.Fprintf(w, "Custom Domain: %s\n", customDomain)
+		kv(w, on, "Custom Domain", "%s", customDomain)
 	}
 	if fe.CurrentDeploymentId != nil {
-		fmt.Fprintf(w, "Current Deployment: %s\n", fe.CurrentDeploymentId.String())
+		kv(w, on, "Current Deployment", "%s", fe.CurrentDeploymentId.String())
 	}
-	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(fe.CreatedAt))
-	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(fe.UpdatedAt))
+	kv(w, on, "Created", "%s", FormatTimestamp(fe.CreatedAt))
+	kv(w, on, "Updated", "%s", FormatTimestamp(fe.UpdatedAt))
 }
 
 // FrontendCustomDomainEntry contains one frontend custom domain row.
@@ -88,13 +90,14 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 	if domain == nil {
 		return
 	}
-	fmt.Fprintf(w, "Domain: %s\n", domain.Domain)
-	fmt.Fprintf(w, "TLS mode: %s\n", strings.TrimSpace(string(domain.TlsMode)))
-	fmt.Fprintf(w, "Domain status: %s\n", strings.TrimSpace(string(domain.DomainStatus)))
-	fmt.Fprintf(w, "Verification status: %s\n", strings.TrimSpace(string(domain.VerificationStatus)))
+	on := theme.On(w)
+	kv(w, on, "Domain", "%s", domain.Domain)
+	kv(w, on, "TLS mode", "%s", strings.TrimSpace(string(domain.TlsMode)))
+	kv(w, on, "Domain status", "%s", theme.Status(strings.TrimSpace(string(domain.DomainStatus)), on))
+	kv(w, on, "Verification status", "%s", theme.Status(strings.TrimSpace(string(domain.VerificationStatus)), on))
 
 	if domain.RequiredRoutingRecord != nil {
-		fmt.Fprintln(w, "Required routing record:")
+		fmt.Fprintln(w, theme.Dim("Required routing record:", on))
 		fmt.Fprintf(w, "  %s %s -> %s\n",
 			domain.RequiredRoutingRecord.RecordType,
 			domain.RequiredRoutingRecord.Name,
@@ -102,19 +105,19 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 		)
 	}
 	if domain.VerificationRecords != nil && len(*domain.VerificationRecords) > 0 {
-		fmt.Fprintln(w, "Verification records:")
+		fmt.Fprintln(w, theme.Dim("Verification records:", on))
 		for _, record := range *domain.VerificationRecords {
 			fmt.Fprintf(w, "  %s %s -> %s\n", record.Type, record.Name, record.Value)
 		}
 	}
 	if len(domain.EffectiveUrls) > 0 {
-		fmt.Fprintln(w, "Effective URLs:")
+		fmt.Fprintln(w, theme.Dim("Effective URLs:", on))
 		for _, siteURL := range domain.EffectiveUrls {
 			fmt.Fprintf(w, "  - %s\n", siteURL)
 		}
 	}
-	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(domain.CreatedAt))
-	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(domain.UpdatedAt))
+	kv(w, on, "Created", "%s", FormatTimestamp(domain.CreatedAt))
+	kv(w, on, "Updated", "%s", FormatTimestamp(domain.UpdatedAt))
 }
 
 // FrontendCustomDomains renders custom domains configured for frontends.
@@ -124,19 +127,19 @@ func FrontendCustomDomains(w io.Writer, entries []FrontendCustomDomainEntry) {
 		return
 	}
 
-	fmt.Fprintf(w, "\n%-32s  %-38s  %-32s  %-22s  %-15s  %-15s\n", "Frontend", "Frontend ID", "Domain", "Status", "Created", "Updated")
-	fmt.Fprintln(w, strings.Repeat("-", 164))
+	on := theme.On(w)
+	tableHead(w, on, true, 164, "%-32s  %-38s  %-32s  %-22s  %-15s  %-15s", "Frontend", "Frontend ID", "Domain", "Status", "Created", "Updated")
 	for _, entry := range entries {
-		fmt.Fprintf(w, "%-32s  %-38s  %-32s  %-22s  %-15s  %-15s\n",
+		fmt.Fprintf(w, "%-32s  %-38s  %-32s  %s  %-15s  %-15s\n",
 			Truncate(entry.FrontendName, 32),
 			entry.FrontendID,
 			Truncate(entry.Domain.Domain, 32),
-			strings.TrimSpace(string(entry.Domain.DomainStatus)),
+			statusCell(strings.TrimSpace(string(entry.Domain.DomainStatus)), 22, on),
 			FormatTimeAgo(entry.Domain.CreatedAt),
 			FormatTimeAgo(entry.Domain.UpdatedAt),
 		)
 	}
-	fmt.Fprintf(w, "\nTotal: %d custom domain(s)\n", len(entries))
+	summary(w, on, "Total: %d custom domain(s)", len(entries))
 }
 
 func frontendStatus(fe apiclient.Frontend) string {

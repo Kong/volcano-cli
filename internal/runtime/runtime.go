@@ -3,6 +3,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	goruntime "runtime"
 	"time"
@@ -10,6 +11,12 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
 )
+
+// ErrLocalNotRunning signals that a command needs the local Volcano stack but it
+// isn't up (the server container is absent or stopped). It is already
+// user-actionable, so callers surface it verbatim instead of burying it under a
+// generic wrapper like "failed to load config".
+var ErrLocalNotRunning = errors.New("local development is not running; run 'volcano start' to launch it, or use 'volcano cloud <command>' to target your cloud project")
 
 // Deps captures runtime dependencies that command and service tests replace.
 type Deps struct {

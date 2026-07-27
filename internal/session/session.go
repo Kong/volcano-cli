@@ -67,6 +67,12 @@ func (f Factory) Config() (*config.Config, error) {
 
 	cfg, err := loadConfig()
 	if err != nil {
+		// The local config loader surfaces ErrLocalNotRunning when the stack is
+		// down; it's already actionable, so pass it through rather than burying it
+		// under "failed to load config".
+		if errors.Is(err, cliruntime.ErrLocalNotRunning) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	return cfg, nil
