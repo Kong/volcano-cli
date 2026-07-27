@@ -22,8 +22,9 @@ import (
 const (
 	FlameHex      = "#f54019" // lava flame: key hints, suggested commands
 	LavaHex       = "#f37a58" // lava-500 brand primary: titles, table headers, CTA
+	Volcano400Hex = "#fb923c" // volcano-400: key-hint accent (space)
 	VolcanoHex    = "#f97316" // volcano-500: success, active, installed
-	Volcano600Hex = "#ea580c" // volcano-600: CTA example prompt
+	Volcano600Hex = "#ea580c" // volcano-600: CTA example prompt, key-hint accent (enter)
 	OutdatedHex   = "#eab308" // amber: warnings, pending/in-progress states
 	GrayHex       = "#6b7280" // neutral gray: summaries, separators, dim detail
 	FailedHex     = "#dc2626" // lava red: errors, failed states

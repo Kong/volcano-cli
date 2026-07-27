@@ -191,17 +191,27 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 }
 
 // keyHintDescription renders the picker's key hint with the actual keystrokes
-// (space/enter/esc) in the brand accent so they read as keys, not prose. Each
-// segment is styled in full — colored keys, dimmed connectors — so huh's own
-// description style can't leave the line half-rendered after an embedded reset.
+// (space/enter/esc) each in a distinct accent so they read as keys, not prose,
+// and stand apart from each other. Each segment is styled in full — colored
+// keys, dimmed connectors — so huh's own description style can't leave the line
+// half-rendered after an embedded reset.
 func keyHintDescription(color bool) string {
 	if !color {
 		return "space toggles, enter confirms, esc cancels"
 	}
-	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.FlameHex))
+	// Distinct accents so the three keys read apart at a glance: space in
+	// volcano-400, enter in volcano-600, and esc in the terminal's default
+	// foreground (typically white on dark, black on light) so it pops against the
+	// two oranges without pinning a hex the user's theme may have remapped.
 	dim := lipgloss.NewStyle().Faint(true)
-	hint := func(k, rest string) string { return keyStyle.Render(k) + dim.Render(rest) }
-	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
+	keyStyle := func(hex string) lipgloss.Style {
+		return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(hex))
+	}
+	spaceStyle := keyStyle(setup.Volcano400Hex)
+	enterStyle := keyStyle(setup.Volcano600Hex)
+	escStyle := lipgloss.NewStyle().Bold(true) // no explicit fg: inherits the terminal's default foreground
+	hint := func(st lipgloss.Style, k, rest string) string { return st.Render(k) + dim.Render(rest) }
+	return hint(spaceStyle, "space", " toggles, ") + hint(enterStyle, "enter", " confirms, ") + hint(escStyle, "esc", " cancels")
 }
 
 // volcanoTheme brands the picker: the title in lava, and the option selector and
