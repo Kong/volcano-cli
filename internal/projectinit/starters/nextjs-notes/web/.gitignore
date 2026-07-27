@@ -1,2 +1,5 @@
 .next
 node_modules
+
+# local env files (may hold real keys)
+.env*.local
