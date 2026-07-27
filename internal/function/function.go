@@ -277,9 +277,9 @@ func (s Service) invokeToken(ctx context.Context, project *clisession.ProjectSes
 	if project == nil || project.Config == nil {
 		return "", errors.New("project session is required")
 	}
-	if strings.TrimSpace(project.Config.ServiceKey) != "" || strings.TrimSpace(project.Config.AnonKey) != "" {
-		return project.Config.FunctionInvokeToken(), nil
-	}
+	// Cloud supplies the reserved data-plane service key via the provider; local
+	// mode has no provider and the session layer drops the credential entirely
+	// (see session.Factory.APIClient), so the returned token is unused there.
 	if s.invokeTokenProvider != nil {
 		return s.invokeTokenProvider(ctx, project)
 	}

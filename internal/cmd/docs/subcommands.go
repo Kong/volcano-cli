@@ -175,7 +175,9 @@ func renderList(cmd *cobra.Command, items []docs.ListItem) {
 	}
 	st := newStyler(out)
 	for _, it := range items {
-		fmt.Fprintf(out, "%-48s %s\n", st.cyan(it.Path), st.faint(it.Title))
+		// Pad the plain path to width first, then color: fmt counts ANSI bytes as
+		// visible width, so coloring before padding would break column alignment.
+		fmt.Fprintf(out, "%s %s\n", st.cyan(fmt.Sprintf("%-48s", it.Path)), st.faint(it.Title))
 	}
 	fmt.Fprintf(out, "\n%s\n", st.faint(fmt.Sprintf("%d document(s)", len(items))))
 }

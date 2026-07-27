@@ -3,6 +3,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	goruntime "runtime"
 	"time"
@@ -11,16 +12,26 @@ import (
 	"github.com/Kong/volcano-cli/internal/config"
 )
 
+// ErrLocalNotRunning signals that a command needs the local Volcano stack but it
+// isn't up (the server container is absent or stopped). It is already
+// user-actionable, so callers surface it verbatim instead of burying it under a
+// generic wrapper like "failed to load config".
+var ErrLocalNotRunning = errors.New("local development is not running; run 'volcano start' to launch it, or use 'volcano cloud <command>' to target your cloud project")
+
 // Deps captures runtime dependencies that command and service tests replace.
 type Deps struct {
 	HTTPClient apiclient.HttpRequestDoer
 	// APIBaseURL overrides the compiled cloud API URL for tests. Synthetic
 	// local configs supply their API URL through ConfigLoader instead.
-	APIBaseURL          string
-	OpenBrowser         func(string) error
-	NewTimer            func(time.Duration) Timer
-	NewTicker           func(time.Duration) Ticker
-	ConfigLoader        func() (*config.Config, error)
+	APIBaseURL   string
+	OpenBrowser  func(string) error
+	NewTimer     func(time.Duration) Timer
+	NewTicker    func(time.Duration) Ticker
+	ConfigLoader func() (*config.Config, error)
+	// LocalMode makes session-built API clients send no credential. Local mode
+	// is a single-tenant sandbox; the local server defaults an absent credential
+	// to the pre-provisioned local user. Set by the local command wiring.
+	LocalMode           bool
 	LocalCommandRunner  CommandRunner
 	UpdateCommandRunner CommandRunner
 	GitCommandRunner    CommandRunner

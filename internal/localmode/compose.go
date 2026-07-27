@@ -54,6 +54,7 @@ func (s Service) composeEnvironment() ([]string, string, error) {
 		return nil, "", err
 	}
 	env = append(env, overrides...)
+	env = dropIncompleteFirstPartyBootstrap(env)
 
 	image, _ := s.resolveImage()
 	env = withoutEnvKey(env, "VOLCANO_IMAGE")
@@ -62,13 +63,50 @@ func (s Service) composeEnvironment() ([]string, string, error) {
 	return env, image, nil
 }
 
+// firstPartyBootstrapKeys is the complete set the local server needs to run
+// first-party bootstrap. The server treats it as all-or-nothing: if any subset
+// is present it attempts bootstrap and hard-fails (never becoming ready) unless
+// every var is set.
+var firstPartyBootstrapKeys = []string{
+	"VOLCANO_FIRST_PARTY_USER_ID",
+	"VOLCANO_FIRST_PARTY_USER_DISPLAY_NAME",
+	"VOLCANO_FIRST_PARTY_USER_TOKEN",
+	"VOLCANO_FIRST_PARTY_PROJECT_ID",
+	"VOLCANO_FIRST_PARTY_PROJECT_NAME",
+	"VOLCANO_FIRST_PARTY_ANON_KEY",
+	"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID",
+}
+
+// dropIncompleteFirstPartyBootstrap removes the first-party bootstrap vars (and
+// the paired ANON_KEY_SECRET) from env unless the whole set is present and
+// non-empty. `volcano start` forwards the process env and .env.local to the
+// local server; a partial set is the common case — a developer keeps
+// VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID / _ANON_KEY in .env.local for `volcano
+// login`/`signup`, which `volcano start` also forwards — and it makes the
+// server's bootstrap fail so the stack never becomes ready. Local development
+// doesn't need first-party bootstrap: the server auto-provisions its pre-baked
+// local user when these are absent. So we strip a partial set and keep it only
+// when a caller deliberately provides every var. The CLI's own auth flows are
+// unaffected — they read these from the CLI process env, not the server's.
+func dropIncompleteFirstPartyBootstrap(env []string) []string {
+	for _, key := range firstPartyBootstrapKeys {
+		if value, ok := lastEnvValue(env, key); !ok || strings.TrimSpace(value) == "" {
+			for _, k := range firstPartyBootstrapKeys {
+				env = withoutEnvKey(env, k)
+			}
+			return withoutEnvKey(env, "ANON_KEY_SECRET")
+		}
+	}
+	return env
+}
+
 // resolveImage returns the local-mode server image to run and whether it is a
 // custom image (i.e. differs from the bundled default). Precedence (highest
 // first): explicit image (WithImage/--image) > VOLCANO_IMAGE process env >
 // project .env.local > defaultVolcanoImage. A custom image is treated as
 // local-only: it is never pulled and must already exist locally. The bundled
-// default is left to Docker Compose's normal pull-if-missing behavior even when
-// it is selected explicitly.
+// default is refreshed on start by a best-effort pull (see
+// refreshDefaultServerImage), even when it is selected explicitly.
 func (s Service) resolveImage() (string, bool) {
 	image := defaultVolcanoImage
 	switch {
@@ -96,8 +134,9 @@ func (s Service) imageExistsLocally(ctx context.Context, ref string) bool {
 // ensureCustomImageAvailable fails fast when an explicitly selected (custom)
 // local-mode image is not present locally. The CLI never pulls unpublished
 // local-mode images, so this surfaces an actionable build message instead of a
-// confusing registry-pull error. The bundled default is left to Compose's
-// normal pull-if-missing behavior even when selected explicitly.
+// confusing registry-pull error. The bundled default is refreshed on start by a
+// best-effort pull (see refreshDefaultServerImage) even when selected
+// explicitly.
 func (s Service) ensureCustomImageAvailable(ctx context.Context) error {
 	image, customImage := s.resolveImage()
 	if customImage && !s.imageExistsLocally(ctx, image) {
@@ -106,12 +145,14 @@ func (s Service) ensureCustomImageAvailable(ctx context.Context) error {
 	return nil
 }
 
-func (s Service) startDockerServices(ctx context.Context, env []string) error {
+func (s Service) startDockerServices(ctx context.Context, w io.Writer, env []string) error {
 	composePaths, cleanup, err := s.writeComposeFiles()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
+
+	s.refreshDefaultServerImage(ctx, w, composePaths, env)
 
 	args := composeFileArgs(composePaths)
 	args = append(args, "-p", composeProjectName, "up", "-d", "--force-recreate")
@@ -121,6 +162,28 @@ func (s Service) startDockerServices(ctx context.Context, env []string) error {
 		Env:  env,
 	})
 	return err
+}
+
+// refreshDefaultServerImage pulls the rolling default local-mode image so
+// `volcano start` picks up the latest published build instead of a stale
+// cached copy (the default tag is a moving target, and Compose only pulls it
+// when absent). It is skipped for an explicitly selected custom image, which
+// the CLI never pulls and which must already exist locally. Best-effort: a
+// pull failure (e.g. offline) is a warning and `up` falls back to the cached
+// image.
+func (s Service) refreshDefaultServerImage(ctx context.Context, w io.Writer, composePaths, env []string) {
+	image, customImage := s.resolveImage()
+	if customImage {
+		return
+	}
+	fmt.Fprintf(w, "Pulling latest local-mode image: %s\n", image)
+	args := composeFileArgs(composePaths)
+	args = append(args, "-p", composeProjectName, "pull", serverComposeService)
+	if _, err := s.runner.Run(ctx, Command{Name: dockerCommand, Args: args, Env: env}); err != nil {
+		// Best-effort: `up` still runs and uses a cached image if one exists;
+		// a first start with no cached image will fail there with a clearer error.
+		output.Warning(w, "could not pull latest local-mode image; using a cached copy if present: %v", err)
+	}
 }
 
 func (s Service) writeComposeFiles() ([]string, func(), error) {
@@ -220,6 +283,21 @@ func envValue(env []string, key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// lastEnvValue returns the value of the last entry for key, matching how a child
+// process resolves duplicate env entries (later wins). composeEnvironment
+// appends .env.local after the process env, so the last occurrence is the value
+// the server would actually see.
+func lastEnvValue(env []string, key string) (string, bool) {
+	prefix := key + "="
+	value, ok := "", false
+	for _, entry := range env {
+		if v, found := strings.CutPrefix(entry, prefix); found {
+			value, ok = v, true
+		}
+	}
+	return value, ok
 }
 
 func withoutEnvKey(env []string, key string) []string {

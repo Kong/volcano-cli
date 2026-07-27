@@ -4,9 +4,11 @@ package root
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	cloudcmd "github.com/Kong/volcano-cli/internal/cmd/cloud"
 	docscmd "github.com/Kong/volcano-cli/internal/cmd/docs"
@@ -14,6 +16,7 @@ import (
 	localcmd "github.com/Kong/volcano-cli/internal/cmd/local"
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
+	setupcmd "github.com/Kong/volcano-cli/internal/cmd/setup"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/version"
@@ -37,15 +40,23 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		},
 	}
 	root.Flags().BoolVarP(&showVersion, "version", "v", false, "Print CLI version")
+	// --debug traces API requests/responses to stderr (Authorization redacted to
+	// its scheme; bodies omitted). Bound as a pflag Value so it takes effect at
+	// parse time regardless of any subcommand's PersistentPreRun. VOLCANO_DEBUG=1
+	// does the same without the flag.
+	debugFlag := root.PersistentFlags().VarPF(debugToggle{}, "debug", "", "Trace API requests/responses to stderr (or set VOLCANO_DEBUG=1)")
+	debugFlag.NoOptDefVal = "true"
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewSignup(deps))
 	root.AddCommand(authcmd.NewLogout())
 	root.AddCommand(initcmd.New())
+	root.AddCommand(setupcmd.New(deps))
 	root.AddCommand(docscmd.New(deps))
 	root.AddCommand(projectcmd.NewProjects(deps))
 	root.AddCommand(projectcmd.NewUse(deps))
+	root.AddCommand(localmodecmd.NewDoctor(deps))
 	root.AddCommand(localmodecmd.NewStart(deps))
 	root.AddCommand(localmodecmd.NewStatus(deps))
 	root.AddCommand(localmodecmd.NewStop(deps))
@@ -54,6 +65,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(cloudcmd.New(deps))
 	root.AddCommand(cloudcmd.NewDeprecatedFrontendAlias(deps))
 	root.AddCommand(localcmd.New(deps))
+	applyHelpTheme(root)
 	return root
 }
 
@@ -70,4 +82,19 @@ func newVersionCmd() *cobra.Command {
 
 func printVersion(w io.Writer) {
 	fmt.Fprintf(w, "volcano %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+}
+
+// debugToggle is a boolean pflag Value that flips API tracing on/off as soon as
+// the flag is parsed, so --debug works uniformly across every subcommand.
+type debugToggle struct{}
+
+func (debugToggle) String() string { return strconv.FormatBool(api.DebugEnabled()) }
+func (debugToggle) Type() string   { return "bool" }
+func (debugToggle) Set(v string) error {
+	on, err := strconv.ParseBool(v)
+	if err != nil {
+		return err
+	}
+	api.SetDebug(on)
+	return nil
 }

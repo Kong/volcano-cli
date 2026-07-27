@@ -32,6 +32,24 @@ unpublished local-mode image and fails fast if it is missing.`,
 	return cmd
 }
 
+// NewDoctor returns the doctor command.
+func NewDoctor(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor",
+		Short: "Check local development prerequisites (Docker engine + Compose)",
+		Long: `Diagnose whether this machine can run 'volcano start'.
+
+Verifies a Docker-compatible engine and Docker Compose v2 are installed and
+reachable, and prints actionable fixes. Any Docker-compatible engine works
+(Docker Desktop, OrbStack, Colima, Docker Engine, Podman); the CLI never
+installs one for you. Exits non-zero if a prerequisite is missing.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return localmodecore.NewService(deps).Doctor(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
 // NewStatus returns the status command.
 func NewStatus(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{

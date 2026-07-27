@@ -216,3 +216,51 @@ func TestTruncate(t *testing.T) {
 	assert.Equal(t, "seventeen-char...", Truncate("seventeen-character-name", 17))
 	assert.Equal(t, "ab", Truncate("abcd", 2))
 }
+
+// A queued deployment runs after the one in flight, so the detail views name it
+// rather than leaving the resource looking idle. It only exists while something
+// is waiting, which is why it is not a permanent row.
+func TestFunctionShowsQueuedDeploymentOnlyWhenOneIsWaiting(t *testing.T) {
+	functionID, err := uuid.Parse("44444444-4444-4444-8444-444444444444")
+	require.NoError(t, err)
+	pendingID, err := uuid.Parse("55555555-5555-4555-8555-555555555555")
+	require.NoError(t, err)
+	fn := apiclient.Function{
+		Id:                  functionID,
+		Name:                "worker",
+		Status:              apiclient.FunctionStatusActive,
+		PendingDeploymentId: &pendingID,
+	}
+
+	var queued bytes.Buffer
+	Function(&queued, &fn)
+	assert.Contains(t, queued.String(), "Pending Deployment: "+pendingID.String())
+
+	fn.PendingDeploymentId = nil
+	var idle bytes.Buffer
+	Function(&idle, &fn)
+	assert.NotContains(t, idle.String(), "Pending Deployment")
+}
+
+func TestFrontendShowsQueuedDeploymentOnlyWhenOneIsWaiting(t *testing.T) {
+	frontendID, err := uuid.Parse("66666666-6666-4666-8666-666666666666")
+	require.NoError(t, err)
+	pendingID, err := uuid.Parse("77777777-7777-4777-8777-777777777777")
+	require.NoError(t, err)
+	fe := apiclient.Frontend{
+		Id:                  frontendID,
+		Name:                "site",
+		Framework:           apiclient.FrontendFramework("nextjs"),
+		Status:              apiclient.FrontendStatusActive,
+		PendingDeploymentId: &pendingID,
+	}
+
+	var queued bytes.Buffer
+	Frontend(&queued, &fe)
+	assert.Contains(t, queued.String(), "Pending Deployment: "+pendingID.String())
+
+	fe.PendingDeploymentId = nil
+	var idle bytes.Buffer
+	Frontend(&idle, &fe)
+	assert.NotContains(t, idle.String(), "Pending Deployment")
+}

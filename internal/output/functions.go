@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // Functions renders one function list page.
@@ -15,6 +16,7 @@ func Functions(w io.Writer, page *apiclient.PaginatedFunctions, commandPrefix ..
 		page = &apiclient.PaginatedFunctions{}
 	}
 
+	on := theme.On(w)
 	functions := page.Data
 	if len(functions) == 0 {
 		if page.Total == 0 {
@@ -22,61 +24,61 @@ func Functions(w io.Writer, page *apiclient.PaginatedFunctions, commandPrefix ..
 		} else {
 			fmt.Fprintf(w, "No functions found on page %d\n", page.Page)
 		}
-		printFunctionPageSummary(w, page)
+		printFunctionPageSummary(w, on, page)
 		return
 	}
 
-	fmt.Fprintf(w, "\n%-20s  %-15s  %-12s  %-15s  %-15s\n", "Name", "Runtime", "Status", "Created", "Updated")
-	fmt.Fprintln(w, strings.Repeat("-", 88))
+	tableHead(w, on, true, 88, "%-20s  %-15s  %-12s  %-15s  %-15s", "Name", "Runtime", "Status", "Created", "Updated")
 	for _, fn := range functions {
-		fmt.Fprintf(w, "%-20s  %-15s  %-12s  %-15s  %-15s\n",
+		fmt.Fprintf(w, "%-20s  %-15s  %s  %-15s  %-15s\n",
 			Truncate(fn.Name, 20),
 			blankString(stringPtrValue(fn.Runtime)),
-			functionStatus(fn),
+			statusCell(functionStatus(fn), 12, on),
 			FormatTimeAgo(fn.CreatedAt),
 			FormatTimeAgo(fn.UpdatedAt),
 		)
 		if invokeURL := stringPtrValue(fn.InvokeUrl); invokeURL != "" {
-			fmt.Fprintf(w, "  invoke: %s\n", invokeURL)
+			fmt.Fprintf(w, "  %s %s\n", theme.Dim("invoke:", on), invokeURL)
 		}
 	}
-	printFunctionPageSummary(w, page)
+	printFunctionPageSummary(w, on, page)
 	if page.HasMore {
-		fmt.Fprintf(w, "\nNext page: %s functions list --page %d --limit %d\n", commandPathPrefix(commandPrefix), page.Page+1, page.Limit)
+		nextPage(w, on, fmt.Sprintf("%s functions list --page %d --limit %d", commandPathPrefix(commandPrefix), page.Page+1, page.Limit))
 	}
 }
 
-func printFunctionPageSummary(w io.Writer, page *apiclient.PaginatedFunctions) {
-	fmt.Fprintf(w, "\nShowing %d of %d function(s) (page %d, limit %d)\n", len(page.Data), page.Total, page.Page, page.Limit)
+func printFunctionPageSummary(w io.Writer, on bool, page *apiclient.PaginatedFunctions) {
+	summary(w, on, "Showing %d of %d function(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 }
 
 // Function renders one function.
 func Function(w io.Writer, fn *apiclient.Function) {
-	fmt.Fprintf(w, "ID: %s\n", fn.Id.String())
-	fmt.Fprintf(w, "Name: %s\n", fn.Name)
+	on := theme.On(w)
+	kv(w, on, "ID", "%s", fn.Id.String())
+	kv(w, on, "Name", "%s", fn.Name)
 	if runtime := stringPtrValue(fn.Runtime); runtime != "" {
-		fmt.Fprintf(w, "Runtime: %s\n", runtime)
+		kv(w, on, "Runtime", "%s", runtime)
 	}
 	if handler := stringPtrValue(fn.Handler); handler != "" {
-		fmt.Fprintf(w, "Handler: %s\n", handler)
+		kv(w, on, "Handler", "%s", handler)
 	}
-	fmt.Fprintf(w, "Status: %s\n", functionStatus(*fn))
+	kv(w, on, "Status", "%s", theme.Status(functionStatus(*fn), on))
 	if len(fn.DeployedRegions) > 0 {
-		fmt.Fprintf(w, "Regions: %s\n", strings.Join(fn.DeployedRegions, ", "))
+		kv(w, on, "Regions", "%s", strings.Join(fn.DeployedRegions, ", "))
 	}
 	visibility := "private"
 	if fn.IsPublic {
 		visibility = "public"
 	}
-	fmt.Fprintf(w, "Visibility: %s\n", visibility)
+	kv(w, on, "Visibility", "%s", theme.Status(visibility, on))
 	if invokeURL := stringPtrValue(fn.InvokeUrl); invokeURL != "" {
-		fmt.Fprintf(w, "Invoke URL: %s\n", invokeURL)
+		kv(w, on, "Invoke URL", "%s", invokeURL)
 	}
 	if fn.PendingDeploymentId != nil {
-		fmt.Fprintf(w, "Pending Deployment: %s\n", fn.PendingDeploymentId.String())
+		kv(w, on, "Pending Deployment", "%s", fn.PendingDeploymentId.String())
 	}
-	fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(fn.CreatedAt))
-	fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(fn.UpdatedAt))
+	kv(w, on, "Created", "%s", FormatTimestamp(fn.CreatedAt))
+	kv(w, on, "Updated", "%s", FormatTimestamp(fn.UpdatedAt))
 }
 
 // FunctionRuntimes renders function runtime options.
@@ -86,36 +88,41 @@ func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 		return
 	}
 
-	fmt.Fprintf(w, "%-15s  %-10s  %-7s\n", "Runtime", "Language", "Default")
-	fmt.Fprintln(w, strings.Repeat("-", 36))
+	on := theme.On(w)
+	tableHead(w, on, false, 36, "%-15s  %-10s  %-7s", "Runtime", "Language", "Default")
 	for _, runtime := range runtimes {
 		defaultText := "no"
 		if runtime.Default {
 			defaultText = "yes"
 		}
-		fmt.Fprintf(w, "%-15s  %-10s  %-7s\n", runtime.Name, runtime.Language, defaultText)
+		fmt.Fprintf(w, "%-15s  %-10s  %s\n", runtime.Name, runtime.Language, statusCell(defaultText, 7, on))
 	}
 }
 
 // LogEvents renders function log events.
 func LogEvents(w io.Writer, events []apiclient.LogEvent) {
+	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
 	}
 }
 
 // LogSearchEvents renders function log search events.
 func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
+	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
 	}
 }
 
-func printLogEvent(w io.Writer, timestamp time.Time, region *string, message string) {
+// printLogEvent renders one event. on is computed once by the batch/stream
+// renderer and passed in, so a high-volume log stream doesn't do a getenv+stat
+// per line.
+func printLogEvent(w io.Writer, on bool, timestamp time.Time, region *string, message string) {
 	message = strings.TrimSpace(message)
-	formattedTimestamp := FormatTimestamp(timestamp)
+	formattedTimestamp := theme.Dim(FormatTimestamp(timestamp), on)
 	if region := stringPtrValue(region); region != "" {
-		fmt.Fprintf(w, "%s  [%s] %s\n", formattedTimestamp, region, message)
+		fmt.Fprintf(w, "%s  %s %s\n", formattedTimestamp, theme.Dim("["+region+"]", on), message)
 		return
 	}
 	fmt.Fprintf(w, "%s  %s\n", formattedTimestamp, message)
@@ -134,6 +141,7 @@ func Schedulers(w io.Writer, fn *apiclient.Function, resp *apiclient.FunctionSch
 	if resp == nil {
 		resp = &apiclient.FunctionSchedulerListResponse{}
 	}
+	on := theme.On(w)
 	if len(resp.Data) == 0 {
 		if fn != nil {
 			fmt.Fprintf(w, "No schedulers configured for function %q\n", fn.Name)
@@ -143,19 +151,18 @@ func Schedulers(w io.Writer, fn *apiclient.Function, resp *apiclient.FunctionSch
 		return
 	}
 
-	fmt.Fprintf(w, "\n%-36s  %-24s  %-9s  %-15s  %-20s  %-15s\n", "ID", "Name", "State", "Cron", "Next Run", "Last Run")
-	fmt.Fprintln(w, strings.Repeat("-", 130))
+	tableHead(w, on, true, 130, "%-36s  %-24s  %-9s  %-15s  %-20s  %-15s", "ID", "Name", "State", "Cron", "Next Run", "Last Run")
 	for _, scheduler := range resp.Data {
-		fmt.Fprintf(w, "%-36s  %-24s  %-9s  %-15s  %-20s  %-15s\n",
+		fmt.Fprintf(w, "%-36s  %-24s  %s  %-15s  %-20s  %-15s\n",
 			schedulerID(scheduler),
 			Truncate(blankString(stringPtrValue(scheduler.Name)), 24),
-			schedulerState(scheduler),
+			statusCell(schedulerState(scheduler), 9, on),
 			Truncate(blankString(stringPtrValue(scheduler.CronExpression)), 15),
 			blankString(timePtrFormat(scheduler.NextRunAt)),
 			blankString(timePtrAgo(scheduler.LastStartedAt)),
 		)
 		if regions := schedulerRegions(scheduler); regions != "" {
-			fmt.Fprintf(w, "  regions: %s\n", regions)
+			fmt.Fprintf(w, "  %s %s\n", theme.Dim("regions:", on), regions)
 		}
 	}
 }
@@ -165,31 +172,32 @@ func Scheduler(w io.Writer, scheduler *apiclient.FunctionScheduler) {
 	if scheduler == nil {
 		return
 	}
-	fmt.Fprintf(w, "ID: %s\n", schedulerID(*scheduler))
+	on := theme.On(w)
+	kv(w, on, "ID", "%s", schedulerID(*scheduler))
 	if name := stringPtrValue(scheduler.Name); name != "" {
-		fmt.Fprintf(w, "Name: %s\n", name)
+		kv(w, on, "Name", "%s", name)
 	}
-	fmt.Fprintf(w, "State: %s\n", schedulerState(*scheduler))
+	kv(w, on, "State", "%s", theme.Status(schedulerState(*scheduler), on))
 	if cron := stringPtrValue(scheduler.CronExpression); cron != "" {
-		fmt.Fprintf(w, "Cron: %s\n", cron)
+		kv(w, on, "Cron", "%s", cron)
 	}
 	if regions := schedulerRegions(*scheduler); regions != "" {
-		fmt.Fprintf(w, "Regions: %s\n", regions)
+		kv(w, on, "Regions", "%s", regions)
 	}
 	if next := timePtrFormat(scheduler.NextRunAt); next != "" {
-		fmt.Fprintf(w, "Next Run: %s\n", next)
+		kv(w, on, "Next Run", "%s", next)
 	}
 	if last := timePtrFormat(scheduler.LastStartedAt); last != "" {
-		fmt.Fprintf(w, "Last Run: %s\n", last)
+		kv(w, on, "Last Run", "%s", last)
 	}
 	if lastErr := stringPtrValue(scheduler.LastError); lastErr != "" {
-		fmt.Fprintf(w, "Last Error: %s\n", lastErr)
+		kv(w, on, "Last Error", "%s", lastErr)
 	}
 	if scheduler.CreatedAt != nil {
-		fmt.Fprintf(w, "Created: %s\n", FormatTimestamp(*scheduler.CreatedAt))
+		kv(w, on, "Created", "%s", FormatTimestamp(*scheduler.CreatedAt))
 	}
 	if scheduler.UpdatedAt != nil {
-		fmt.Fprintf(w, "Updated: %s\n", FormatTimestamp(*scheduler.UpdatedAt))
+		kv(w, on, "Updated", "%s", FormatTimestamp(*scheduler.UpdatedAt))
 	}
 }
 

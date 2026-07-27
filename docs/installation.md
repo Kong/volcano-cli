@@ -1,4 +1,7 @@
-# Installation
+---
+title: "Installation"
+description: "Install the Volcano CLI with npm, pnpm, Bun, Homebrew, or the install script."
+---
 
 Install with npm:
 
@@ -34,6 +37,15 @@ Or install manually:
 curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
 volcano --help
 ```
+
+## Upgrading
+
+`volcano upgrade` upgrades the CLI the same way it was installed: it delegates
+to the package manager it came from (`npm`/`pnpm`/`yarn`/`bun install -g`, or
+`brew upgrade`) and only replaces the binary in place for the manual
+install.sh method. If the package manager isn't on your `PATH`, it prints the
+command to run instead. The install method is recorded at install time (with a
+fallback to the binary's path), so no configuration is needed.
 
 The npm package is a thin wrapper: its `postinstall` step downloads the
 platform-specific binary from the matching GitHub Release and verifies it

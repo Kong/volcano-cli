@@ -84,6 +84,53 @@ func TestProjectSessionAPIWithTokenUsesSessionRuntimeDeps(t *testing.T) {
 	assert.Equal(t, "page=2&limit=3", sawQuery)
 }
 
+// Local mode is a single-tenant sandbox: the session sends no credential on any
+// client (default or explicit token), so every local command behaves the same
+// way and the local server defaults to the pre-provisioned local user.
+func TestFactoryLocalModeSendsNoCredential(t *testing.T) {
+	setSessionTestHome(t)
+
+	var sawAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	factory := NewFactory(cliruntime.Deps{
+		APIBaseURL: server.URL,
+		HTTPClient: server.Client(),
+		LocalMode:  true,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{
+				UserToken:  "local-token",
+				ServiceKey: "local-service-key",
+				CurrentProject: &config.ProjectConfig{
+					ID:   sessionProjectID,
+					Name: "local-dev",
+				},
+				IgnoreEnv: true,
+			}, nil
+		},
+	})
+
+	authenticated, err := factory.CurrentProject()
+	require.NoError(t, err)
+
+	_, err = authenticated.API.ListProjects(context.Background(), 1, 100)
+	require.NoError(t, err)
+	assert.Empty(t, sawAuth, "default local client must send no credential")
+
+	// Even an explicit token is dropped in local mode.
+	client, err := authenticated.APIWithToken("local-service-key")
+	require.NoError(t, err)
+	_, err = client.ListProjects(context.Background(), 1, 100)
+	require.NoError(t, err)
+	assert.Empty(t, sawAuth, "explicit APIWithToken must also send no credential in local mode")
+}
+
 func TestFactoryCurrentProjectUsesEnvProject(t *testing.T) {
 	setSessionTestHome(t)
 	t.Setenv("VOLCANO_PROJECT_ID", sessionProjectID)

@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 const (
-	dockerCommand       = "docker"
-	serverContainerName = "volcano-server"
-	serverBinaryPath    = "/app/volcano-hosting"
-	redactedValue       = "<redacted>"
+	dockerCommand        = "docker"
+	serverContainerName  = "volcano-server"
+	serverComposeService = "server"
+	serverBinaryPath     = "/app/volcano-hosting"
+	redactedValue        = "<redacted>"
 )
 
 // Info is the local-mode metadata returned by the Volcano server container.
@@ -91,6 +94,11 @@ func FetchInfo(ctx context.Context, runner CommandRunner) (Info, error) {
 
 	output, err := runner.Run(ctx, dockerCommand, InfoCommandArgs()...)
 	if err != nil {
+		if serverNotRunning(err) {
+			// The container is absent/stopped: give the actionable "run volcano
+			// start" message instead of the raw docker daemon error.
+			return Info{}, cliruntime.ErrLocalNotRunning
+		}
 		return Info{}, fmt.Errorf("failed to run local info command (is the volcano-server container running?): %w", err)
 	}
 	if strings.TrimSpace(string(output)) == "" {
@@ -102,6 +110,14 @@ func FetchInfo(ctx context.Context, runner CommandRunner) (Info, error) {
 		return Info{}, fmt.Errorf("failed to parse local info output: %w", err)
 	}
 	return info, nil
+}
+
+// serverNotRunning reports whether a `docker exec` failure means the local
+// server container isn't up: docker prints "No such container" when it is absent
+// and "is not running" when it exists but is stopped.
+func serverNotRunning(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "No such container") || strings.Contains(s, "is not running")
 }
 
 // InfoCommandArgs returns the docker arguments used to fetch local-mode metadata.

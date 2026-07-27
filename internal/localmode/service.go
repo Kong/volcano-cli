@@ -15,17 +15,23 @@ import (
 )
 
 const (
-	composeProjectName  = "volcano"
-	redisContainerName  = "volcano-redis"
-	defaultVolcanoImage = "kong/volcano:local-nightly"
-	defaultLocalAPIURL  = "http://localhost:8000"
-	postgresAddress     = "localhost:8002"
+	composeProjectName = "volcano"
+	redisContainerName = "volcano-redis"
+	defaultLocalAPIURL = "http://localhost:8000"
+	postgresAddress    = "localhost:8002"
 
 	defaultWaitTimeout = 60 * time.Second
 	defaultPoll        = time.Second
 	defaultInfoTimeout = 10 * time.Second
 	healthTimeout      = 2 * time.Second
 )
+
+// defaultVolcanoImage is the local-mode server image used when the user sets no
+// --image / VOLCANO_IMAGE / .env.local override. It is a var, not a const, so it
+// can be overridden at build time via -X (Makefile DEFAULT_LOCAL_IMAGE). It
+// defaults to kong/volcano:local-nightly, the local-mode image volcano-hosting
+// publishes.
+var defaultVolcanoImage = "kong/volcano:local-nightly"
 
 // Service performs local-mode environment workflows.
 type Service struct {
@@ -187,7 +193,7 @@ func (s Service) Start(ctx context.Context, w io.Writer) error {
 		output.Success(w, "Using local image %q (not pulled)", image)
 	}
 
-	if err := s.startDockerServices(ctx, composeEnv); err != nil {
+	if err := s.startDockerServices(ctx, w, composeEnv); err != nil {
 		return fmt.Errorf("failed to start Docker services: %w", err)
 	}
 	output.Success(w, "Docker services started")

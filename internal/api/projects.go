@@ -32,6 +32,23 @@ func (c *Client) CreateProject(ctx context.Context, name string) (*apiclient.Pro
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201, resp.JSON400, resp.JSON403)
 }
 
+// ListAnonKeys lists a project's anon keys — the publishable JWTs that go in
+// the frontend/SDK Authorization header (the value an app build needs).
+func (c *Client) ListAnonKeys(ctx context.Context, projectID uuid.UUID) ([]apiclient.AnonKey, error) {
+	resp, err := c.client.ListAnonKeysWithResponse(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+	if err != nil {
+		return nil, err
+	}
+	if result.Data == nil {
+		return nil, nil
+	}
+	return *result.Data, nil
+}
+
 // GetProject returns one project by ID.
 func (c *Client) GetProject(ctx context.Context, projectID uuid.UUID) (*apiclient.Project, error) {
 	resp, err := c.client.GetProjectWithResponse(ctx, projectID)

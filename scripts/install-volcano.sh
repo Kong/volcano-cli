@@ -67,7 +67,6 @@ verify_signature() {
   local bundle="$2"
   local version="$3"
   local semver_re
-  local nightly_re
   local identity
 
   if [ "${VOLCANO_SKIP_SIGNATURE_VERIFICATION:-}" = "1" ]; then
@@ -76,7 +75,6 @@ verify_signature() {
   fi
 
   semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-  nightly_re='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
   case "$version" in
     latest)
       cosign verify-blob "$file" \
@@ -97,13 +95,8 @@ verify_signature() {
           --bundle "$bundle" \
           --certificate-identity "$identity" \
           --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
-      elif [[ "$version" =~ $nightly_re ]]; then
-        cosign verify-blob "$file" \
-          --bundle "$bundle" \
-          --certificate-identity "$VOLCANO_NIGHTLY_SIGNATURE_IDENTITY" \
-          --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
       else
-        fail "cannot verify signature for unsupported Volcano CLI version selector: ${version}; use latest, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
+        fail "cannot verify signature for unsupported Volcano CLI version selector: ${version}; use latest, nightly, or vMAJOR.MINOR.PATCH"
       fi
       ;;
   esac
@@ -115,11 +108,8 @@ release_asset_url() {
   local version="$1"
   local asset="$2"
   local semver_re
-  local nightly_re
-  local versioned_asset
 
   semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-  nightly_re='^v0\.0\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$'
   case "$version" in
     latest)
       echo "${VOLCANO_GITHUB_RELEASES_URL%/}/latest/download/${asset}"
@@ -130,14 +120,8 @@ release_asset_url() {
     *)
       if [[ "$version" =~ $semver_re ]]; then
         echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/${version}/${asset}"
-      elif [[ "$version" =~ $nightly_re ]]; then
-        versioned_asset="${asset}-${version}"
-        if [[ "$asset" == *.exe ]]; then
-          versioned_asset="${asset%.exe}-${version}.exe"
-        fi
-        echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/nightly/${versioned_asset}"
       else
-        fail "unsupported Volcano CLI version selector: ${version}; use latest, nightly, vMAJOR.MINOR.PATCH, or v0.0.N-nightly.YYYYMMDD.NUMBER"
+        fail "unsupported Volcano CLI version selector: ${version}; use latest, nightly, or vMAJOR.MINOR.PATCH"
       fi
       ;;
   esac
@@ -216,6 +200,10 @@ else
   cp "$TMP_FILE" "$INSTALL_PATH"
   chmod 0755 "$INSTALL_PATH" || true
 fi
+
+# Record the install method so `volcano upgrade` re-runs this installer path
+# (self-replace) rather than mistaking it for a package-manager install.
+printf 'script\n' > "${INSTALL_DIR}/.volcano-install-method" 2>/dev/null || true
 
 echo "Installed Volcano CLI to ${INSTALL_PATH}"
 PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"

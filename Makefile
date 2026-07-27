@@ -4,11 +4,14 @@ BINARY      := volcano
 PKG         := github.com/Kong/volcano-cli
 VERSION_PKG := $(PKG)/internal/version
 CONFIG_PKG  := $(PKG)/internal/config
+LOCALMODE_PKG := $(PKG)/internal/localmode
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DEFAULT_API_URL ?= https://api.volcano.dev
 DEFAULT_WEB_URL ?= https://volcano.dev
+# Local-mode server image baked into `make build`; override with DEFAULT_LOCAL_IMAGE.
+DEFAULT_LOCAL_IMAGE ?= kong/volcano:local-nightly
 FIRST_PARTY_DEVICE_CLIENT_ID ?=
 
 LDFLAGS := -s -w \
@@ -17,7 +20,8 @@ LDFLAGS := -s -w \
 	-X $(VERSION_PKG).Date=$(DATE) \
 	-X $(CONFIG_PKG).compiledDefaultAPIURL=$(DEFAULT_API_URL) \
 	-X $(CONFIG_PKG).compiledDefaultWebURL=$(DEFAULT_WEB_URL) \
-	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID)
+	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID) \
+	-X $(LOCALMODE_PKG).defaultVolcanoImage=$(DEFAULT_LOCAL_IMAGE)
 
 .PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check
 
@@ -40,6 +44,9 @@ local: ## Build volcano using variables loaded from .env.local
 	fi; \
 	if [ -z "$${DEFAULT_WEB_URL:-}" ] && [ -n "$${VOLCANO_WEB_URL:-}" ]; then \
 		export DEFAULT_WEB_URL="$${VOLCANO_WEB_URL}"; \
+	fi; \
+	if [ -z "$${DEFAULT_LOCAL_IMAGE:-}" ]; then \
+		export DEFAULT_LOCAL_IMAGE="$${VOLCANO_IMAGE:-kong/volcano:local-nightly}"; \
 	fi; \
 	$(MAKE) build
 

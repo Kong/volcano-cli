@@ -67,6 +67,12 @@ func (f Factory) Config() (*config.Config, error) {
 
 	cfg, err := loadConfig()
 	if err != nil {
+		// The local config loader surfaces ErrLocalNotRunning when the stack is
+		// down; it's already actionable, so pass it through rather than burying it
+		// under "failed to load config".
+		if errors.Is(err, cliruntime.ErrLocalNotRunning) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	return cfg, nil
@@ -80,8 +86,14 @@ func (f Factory) APIURL(cfg *config.Config) string {
 	return cfg.APIURL()
 }
 
-// APIClient constructs an API client with runtime overrides.
+// APIClient constructs an API client with runtime overrides. In local mode it
+// sends no credential: local is a single-tenant sandbox with no attacker model,
+// and the local server defaults an absent credential to the pre-provisioned
+// local user, so every local command behaves the same way. Cloud is unaffected.
 func (f Factory) APIClient(apiURL, token string) (*api.Client, error) {
+	if f.deps.LocalMode {
+		token = ""
+	}
 	opts := make([]api.Option, 0, 1)
 	if f.deps.HTTPClient != nil {
 		opts = append(opts, api.WithHTTPClient(f.deps.HTTPClient))

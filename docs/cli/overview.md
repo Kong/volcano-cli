@@ -1,4 +1,7 @@
-# CLI operations overview
+---
+title: "CLI operations overview"
+description: "This is a map of the Volcano building blocks (\"elements\") the CLI operates on, how they relate, and where the CLI can act on each."
+---
 
 This is a map of the Volcano building blocks ("elements") the CLI operates on,
 how they relate, and where the CLI can act on each. Each element has its own
@@ -10,7 +13,7 @@ page with concrete command examples. For exact, always-current flags, run
 A **project** is the container for everything else. You authenticate, select an
 active project, then operate on the resources inside it:
 
-```
+```text
 account (auth)
 └── project ................... volcano projects / use
     ├── functions ............. deployed backend logic        → functions.md
@@ -46,6 +49,21 @@ Top-level resource commands (`volcano functions …`, `volcano databases …`, e
 act on your **active context**: the local environment when running, otherwise
 the cloud project.
 
+## Output styling
+
+Command output is colorized to share one identity with `volcano setup`: success
+marks and active states in orange, warnings in amber, errors in red, table
+headers and titles in lava, and suggested commands in flame. Color is written
+only to an interactive terminal. It is disabled automatically when output is
+piped or redirected, in CI, or when `NO_COLOR` is set, so machine-read output
+(including `--json`) stays plain.
+
+```bash
+volcano databases list          # colorized on a terminal
+volcano databases list | cat    # plain (piped)
+NO_COLOR=1 volcano databases list
+```
+
 ## Element → CLI ability at a glance
 
 | Element | CLI can… | Commands | Details |
@@ -58,7 +76,8 @@ the cloud project.
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Frontends | deploy, inspect, custom domains | `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](../project-configuration.md) |
-| Local environment | start/stop/status/reset | `start`, `stop`, `restart`, `status`, `reset` | above |
+| Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
+| Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
 | Documentation | search/read the docs | `docs …` | [docs-search.md](../docs-search.md) |
 
 ## Projects
@@ -83,4 +102,13 @@ volcano projects delete my-app     # delete
 volcano init javascript            # scaffold a local project (js/nextjs/python/ruby)
 volcano start                      # start the local dev environment
 volcano status                     # check it
+```
+
+`volcano start` runs the local stack from a bundled default server image.
+Override it with `--image` or `VOLCANO_IMAGE`; an explicitly selected image must
+already exist locally, since the CLI never pulls an unpublished local-mode image.
+
+```bash
+volcano start --image kong/volcano:local-nightly
+VOLCANO_IMAGE=kong/volcano:local-nightly volcano start
 ```

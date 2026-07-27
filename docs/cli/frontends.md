@@ -1,4 +1,7 @@
-# Frontends
+---
+title: "Frontends"
+description: "A deployed frontend (static or server-rendered site) served by Volcano, optionally reachable at your own custom domain."
+---
 
 ## What it is
 

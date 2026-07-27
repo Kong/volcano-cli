@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -54,7 +53,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 		case r.Method == http.MethodGet && r.URL.Path == "/health":
 			w.WriteHeader(http.StatusOK)
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+localModeProjectID+"/databases":
-			assert.Equal(t, "Bearer local-token", r.Header.Get("Authorization"))
+			assert.Empty(t, r.Header.Get("Authorization"))
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			createBodies = append(createBodies, body)
@@ -76,11 +75,13 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				started = true
 				image, ok := lastEnvValue(command.Env, "VOLCANO_IMAGE")
 				require.True(t, ok)
-				assert.Equal(t, "kong/volcano:local-nightly", image)
+				assert.Equal(t, defaultVolcanoImage, image)
 				assert.Contains(t, command.Env, "VOLCANO_LOG_LEVEL=debug")
 				assert.Contains(t, command.Env, "QUOTED=value")
 				assert.Contains(t, command.Env, "INLINE=kept")
@@ -104,7 +105,7 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 		WithDialTCP(func(context.Context, string) error { return nil }),
 		WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(key string) string {
 			if key == "VOLCANO_IMAGE" {
-				return "kong/volcano:local-nightly"
+				return defaultVolcanoImage
 			}
 			return ""
 		}),
@@ -121,6 +122,9 @@ func TestStartCreatesStackPersistsMetadataAndDefaultDatabase(t *testing.T) {
 	}, createBodies[0])
 	assert.Contains(t, out.String(), "Volcano is ready for local development.")
 	assert.True(t, runner.calledWithArg("docker", "compose"))
+	// The rolling default image is pulled so start picks up the latest build
+	// instead of a stale cached copy.
+	assert.True(t, runner.calledWithArg("docker", "pull"))
 
 	statePath, err := DevStatePath()
 	require.NoError(t, err)
@@ -275,6 +279,8 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIs(command, "docker", "version"):
 				return []byte("Docker version 1\n"), nil
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				started = true
 				return nil, nil
@@ -307,14 +313,44 @@ func TestStartFailsWhenDefaultDatabaseCreationFails(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func lastEnvValue(env []string, key string) (string, bool) {
-	prefix := key + "="
-	for _, entry := range slices.Backward(env) {
-		if value, ok := strings.CutPrefix(entry, prefix); ok {
-			return value, true
+func TestRefreshDefaultServerImage(t *testing.T) {
+	withTempWorkingDir(t)
+	_ = os.Remove(".env.local")
+	paths := []string{"/tmp/a.yml", "/tmp/b.yml"}
+	newSvc := func(image string, runner *fakeCommandRunner) Service {
+		opts := []Option{
+			WithDockerRunner(runner),
+			WithEnvironment(func() []string { return []string{"PATH=/bin"} }, func(string) string { return "" }),
 		}
+		if image != "" {
+			opts = append(opts, WithImage(image))
+		}
+		return NewService(cliruntime.Deps{}, opts...)
 	}
-	return "", false
+
+	t.Run("default image is pulled", func(t *testing.T) {
+		runner := &fakeCommandRunner{}
+		var out bytes.Buffer
+		newSvc("", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.True(t, runner.called("docker", "compose", "-f", "/tmp/a.yml", "-f", "/tmp/b.yml", "-p", composeProjectName, "pull", serverComposeService))
+		assert.NotContains(t, out.String(), "could not pull")
+	})
+
+	t.Run("custom image is not pulled", func(t *testing.T) {
+		runner := &fakeCommandRunner{}
+		var out bytes.Buffer
+		newSvc("kong/volcano:local-dev", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.False(t, runner.calledWithArg("docker", "pull"))
+	})
+
+	t.Run("pull failure is best-effort", func(t *testing.T) {
+		runner := &fakeCommandRunner{run: func(context.Context, Command) ([]byte, error) {
+			return nil, errors.New("offline")
+		}}
+		var out bytes.Buffer
+		newSvc("", runner).refreshDefaultServerImage(context.Background(), &out, paths, nil)
+		assert.Contains(t, out.String(), "could not pull latest local-mode image")
+	})
 }
 
 func TestResolveImagePrecedence(t *testing.T) {
@@ -386,6 +422,8 @@ func TestStartFailsWhenCustomImageMissing(t *testing.T) {
 				return []byte("Docker version 1\n"), nil
 			case commandIs(command, "docker", "image", "inspect", "kong/volcano:local-dev"):
 				return nil, errors.New("Error: No such image: kong/volcano:local-dev")
+			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
+				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
 				t.Fatalf("compose up must not run when the custom image is missing")
 				return nil, nil
@@ -408,4 +446,6 @@ func TestStartFailsWhenCustomImageMissing(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found locally")
 	assert.False(t, runner.calledWithArg("docker", "up"))
+	// A custom image is never pulled by the CLI.
+	assert.False(t, runner.calledWithArg("docker", "pull"))
 }

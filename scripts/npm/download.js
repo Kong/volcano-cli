@@ -57,6 +57,32 @@ function binaryPath() {
   return path.join(__dirname, '..', '..', 'bin', assetName());
 }
 
+// Which JS package manager is driving this install. During a lifecycle script
+// npm/pnpm/yarn/bun all set npm_config_user_agent (e.g. "pnpm/8.6.0 ...").
+function detectManager(ua = process.env.npm_config_user_agent || '') {
+  const name = String(ua).split('/')[0].trim().toLowerCase();
+  return ['npm', 'pnpm', 'yarn', 'bun'].includes(name) ? name : 'npm';
+}
+
+// Record how the CLI was installed next to the binary so `volcano upgrade`
+// delegates to the right package manager. Best effort: a missing marker just
+// falls back to path-based detection in the Go binary.
+function writeInstallMarker() {
+  const ua = process.env.npm_config_user_agent;
+  // Only a package-manager lifecycle script sets a user agent. At shim runtime
+  // (self-heal after --ignore-scripts / VOLCANO_SKIP_DOWNLOAD) there is none, so
+  // skip the marker rather than guess `npm` and mislabel a pnpm/yarn/bun install
+  // — the Go binary's path-based detection is accurate in that case.
+  if (!ua) return;
+  const marker = path.join(path.dirname(binaryPath()), '.volcano-install-method');
+  try {
+    fs.mkdirSync(path.dirname(marker), { recursive: true });
+    fs.writeFileSync(marker, `${detectManager(ua)}\n`);
+  } catch {
+    // best effort
+  }
+}
+
 function releaseTag() {
   // The npm package version maps 1:1 to the GitHub release tag `v<version>`.
   return `v${pkg.version}`;
@@ -153,6 +179,7 @@ async function downloadToFile(url, dest) {
 // against the release's SHA256SUMS manifest. Idempotent: no-op if present.
 async function ensureBinary({ force = false } = {}) {
   const dest = binaryPath();
+  writeInstallMarker();
   if (!force && fs.existsSync(dest)) {
     return dest;
   }
