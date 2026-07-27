@@ -16,11 +16,11 @@ func TestColorGate(t *testing.T) {
 	if got := styleMark(StatusInstalled, "[installed]", false); got != "[installed]" {
 		t.Fatalf("styleMark off = %q, want plain passthrough", got)
 	}
-	if got := cta("hi", false); got != "hi" {
-		t.Fatalf("cta off = %q, want plain passthrough", got)
+	if got := ctaBox("hi", "there", false, 0); got != "hi\n  there" {
+		t.Fatalf("ctaBox off = %q, want plain two-line passthrough", got)
 	}
-	if got := cta("hi", true); !strings.Contains(got, "\x1b[") {
-		t.Fatalf("cta on = %q, want ANSI-wrapped", got)
+	if got := ctaBox("hi", "there", true, 40); !strings.Contains(got, "\x1b[") || !strings.Contains(got, "\u256d") {
+		t.Fatalf("ctaBox on = %q, want ANSI + rounded border", got)
 	}
 	if got := styleMark(StatusFailed, "[failed]", true); !strings.Contains(got, "\x1b[") {
 		t.Fatalf("styleMark on = %q, want ANSI-wrapped", got)

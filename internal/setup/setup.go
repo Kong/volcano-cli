@@ -431,8 +431,8 @@ func writeReport(w io.Writer, r Report, on bool, width int) {
 	}
 	if usable {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, cta("You're set. Try asking your agent to build something:", on))
-		fmt.Fprintln(w, "  "+cta(ctaExamples[rand.IntN(len(ctaExamples))], on)) //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		example := ctaExamples[rand.IntN(len(ctaExamples))] //nolint:gosec // cosmetic CTA pick, not security-sensitive
+		fmt.Fprintln(w, ctaBox("You're set. Try asking your agent to build something:", example, on, width))
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 )
 
@@ -28,7 +29,6 @@ var (
 	detectedStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(detectedHex))
 	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)) // deep red, not bold: message text
-	ctaStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(LavaHex)).Bold(true)
 	grayStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(GrayHex))
 )
 
@@ -85,12 +85,28 @@ func styleMark(s Status, padded string, on bool) string {
 	}
 }
 
-// cta renders s in the lava CTA accent when on, else returns it unchanged.
-func cta(s string, on bool) string {
+// ctaBox renders the post-setup call to action inside a rounded, lava-colored
+// border so it stands out from the report rows. It sizes to its content but caps
+// at the terminal width, so the box never overflows (which would break the
+// border and the interactive width clamp). With color off (pipes, CI, NO_COLOR)
+// it falls back to the plain two-line form so machine-read output stays
+// border-free.
+func ctaBox(heading, example string, on bool, width int) string {
 	if !on {
-		return s
+		return heading + "\n  " + example
 	}
-	return ctaStyle.Render(s)
+	boxWidth := max(ansi.StringWidth(heading), ansi.StringWidth(example)) + 4 // 2 border + 2 padding
+	if width > 0 && width < boxWidth {
+		boxWidth = width
+	}
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(LavaHex)).
+		Foreground(lipgloss.Color(LavaHex)).
+		Bold(true).
+		Padding(0, 1).
+		Width(boxWidth).
+		Render(heading + "\n" + example)
 }
 
 // errText renders a failure/error message in deep red when on, else unchanged.
