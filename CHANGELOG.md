@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/Kong/volcano-cli/compare/v0.12.0...v0.12.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **localmode:** correct prod image default and first-party env forwarding for volcano start ([#116](https://github.com/Kong/volcano-cli/issues/116)) ([8eaf3c5](https://github.com/Kong/volcano-cli/commit/8eaf3c564c28eeb53317c7df032848420aee55fe))
+
 ## [0.12.0](https://github.com/Kong/volcano-cli/compare/v0.11.0...v0.12.0) (2026-07-27)
 
 
