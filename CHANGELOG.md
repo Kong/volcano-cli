@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/Kong/volcano-cli/compare/v0.11.0...v0.12.0) (2026-07-27)
+
+
+### Features
+
+* **setup:** update marketplace plugins on rerun instead of no-op ([#113](https://github.com/Kong/volcano-cli/issues/113)) ([b6ce3d3](https://github.com/Kong/volcano-cli/commit/b6ce3d30e7f2aad8613b662d2ba18eef2bcd3b6b))
+
 ## [0.11.0](https://github.com/Kong/volcano-cli/compare/v0.10.0...v0.11.0) (2026-07-26)
 
 
