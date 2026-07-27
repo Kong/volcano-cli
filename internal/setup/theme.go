@@ -13,11 +13,12 @@ import (
 // truth). These aliases keep the picker/report and eruption animation on the
 // same names they already use.
 const (
-	FlameHex    = theme.FlameHex
-	LavaHex     = theme.LavaHex
-	VolcanoHex  = theme.VolcanoHex
-	OutdatedHex = theme.OutdatedHex
-	GrayHex     = theme.GrayHex
+	FlameHex      = theme.FlameHex
+	LavaHex       = theme.LavaHex
+	VolcanoHex    = theme.VolcanoHex
+	Volcano600Hex = theme.Volcano600Hex
+	OutdatedHex   = theme.OutdatedHex
+	GrayHex       = theme.GrayHex
 )
 
 const (
@@ -31,6 +32,10 @@ var (
 	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)) // deep red, not bold: message text
 	grayStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(GrayHex))
+	// exampleStyle colors the CTA example prompt volcano-600 so it reads as the
+	// actionable line, distinct from the lava heading and border. Bold matches
+	// the surrounding box weight.
+	exampleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(Volcano600Hex)).Bold(true)
 )
 
 // colorEnabled and terminalWidth delegate to internal/theme so the color gate
@@ -81,7 +86,7 @@ func ctaBox(heading, example string, on bool, width int) string {
 		Bold(true).
 		Padding(0, 1).
 		Width(boxWidth).
-		Render(heading + "\n" + example)
+		Render(heading + "\n" + exampleStyle.Render(example))
 }
 
 // errText renders a failure/error message in deep red when on, else unchanged.
