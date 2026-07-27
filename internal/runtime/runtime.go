@@ -4,6 +4,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"os/exec"
 	goruntime "runtime"
 	"time"
@@ -137,8 +139,14 @@ func NewTicker(deps Deps, duration time.Duration) Ticker {
 	return realTicker{ticker: time.NewTicker(duration)}
 }
 
-// OpenURL opens rawURL in the platform default browser.
+// OpenURL opens rawURL in the platform default browser. It refuses any
+// non-http(s) URL so a malicious or misconfigured backend can't make the CLI
+// hand file://, custom-scheme, or flag-like values to open/xdg-open/rundll32.
 func OpenURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("refusing to open non-http(s) url: %q", rawURL)
+	}
 	// gosec G204: the command name is a constant per platform; only the URL arg varies.
 	ctx := context.Background()
 	switch goruntime.GOOS {
