@@ -32,7 +32,7 @@ const (
 // defaults to kong/volcano:local-nightly — currently the only local-mode image
 // volcano-hosting publishes (no stable release has been cut, so
 // kong/volcano:local-latest does not exist yet).
-// ponytail: flip this (and the Makefile/release defaults) to
+// TODO: flip this (and the Makefile/release defaults) to
 // kong/volcano:local-latest once volcano-hosting publishes a stable release.
 var defaultVolcanoImage = "kong/volcano:local-nightly"
 
