@@ -2,19 +2,31 @@ package theme
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
 
 // TestOnGate locks the agent-safety contract: non-terminal writers (pipes, CI,
-// agents, test buffers) never get ANSI, and NO_COLOR forces plain everywhere.
+// agents, test buffers) never get ANSI, and NO_COLOR forces plain even on a
+// terminal. The terminal check is stubbed so the NO_COLOR branch is actually
+// exercised (a bytes.Buffer is false before NO_COLOR is ever consulted).
 func TestOnGate(t *testing.T) {
 	if On(&bytes.Buffer{}) {
 		t.Fatal("On true for a non-file writer; pipes/agents would get ANSI")
 	}
+
+	orig := isTerminal
+	isTerminal = func(*os.File) bool { return true }
+	defer func() { isTerminal = orig }()
+
+	t.Setenv("NO_COLOR", "")
+	if !On(os.Stdout) {
+		t.Fatal("On should be true for a terminal with NO_COLOR unset")
+	}
 	t.Setenv("NO_COLOR", "1")
-	if On(&bytes.Buffer{}) {
-		t.Fatal("On true with NO_COLOR set")
+	if On(os.Stdout) {
+		t.Fatal("On must be false when NO_COLOR is set, even on a terminal")
 	}
 }
 
@@ -47,6 +59,22 @@ func TestHelpersOnEmitANSI(t *testing.T) {
 	}
 	if !strings.Contains(Status("failed", true), "\x1b[") {
 		t.Fatal("Status on should emit ANSI")
+	}
+}
+
+// TestStatusInProgressStatesAreAmber ensures transitional API states
+// (deleting/detaching/pending_verification) map to the in-progress amber style
+// rather than falling through to gray. Guards against new transitional enum
+// values landing in the default bucket.
+func TestStatusInProgressStatesAreAmber(t *testing.T) {
+	amberPrefix, _, _ := strings.Cut(Status("provisioning", true), "provisioning")
+	if amberPrefix == "" {
+		t.Fatal("expected an ANSI prefix for an amber state")
+	}
+	for _, s := range []string{"deleting", "detaching", "pending_verification"} {
+		if !strings.HasPrefix(Status(s, true), amberPrefix) {
+			t.Fatalf("%q should use the amber in-progress style", s)
+		}
 	}
 }
 

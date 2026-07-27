@@ -40,8 +40,9 @@ var (
 )
 
 // On reports whether ANSI styling should be written to w: only when w is a real
-// terminal and NO_COLOR is unset. Piped output, files, and test buffers stay
-// plain so machine-read output is never polluted with escape codes.
+// interactive terminal and NO_COLOR is unset. Piped output, files, other
+// character devices (e.g. /dev/null), and test buffers stay plain so machine-read
+// output is never polluted with escape codes.
 func On(w io.Writer) bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
@@ -50,9 +51,14 @@ func On(w io.Writer) bool {
 	if !ok {
 		return false
 	}
-	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return isTerminal(f)
 }
+
+// isTerminal reports whether f is an interactive terminal. ModeCharDevice is not
+// enough (it's also true for /dev/null), so use the terminal probe. It is a
+// package var so tests can exercise the NO_COLOR / terminal gate without a real
+// TTY.
+var isTerminal = func(f *os.File) bool { return term.IsTerminal(f.Fd()) }
 
 // Width returns w's column count when it is a real terminal, else 0 (unknown,
 // e.g. piped/file output).
@@ -100,7 +106,8 @@ func Status(s string, on bool) string {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "active", "ready", "running", "enabled", "healthy", "deployed", "verified", "yes", "public":
 		return activeStyle.Render(s)
-	case "pending", "provisioning", "creating", "deploying", "building", "updating":
+	case "pending", "provisioning", "creating", "deploying", "building", "updating",
+		"deleting", "detaching", "pending_verification":
 		return warnStyle.Render(s)
 	case "failed", "error", "errored", "unhealthy":
 		return failStyle.Render(s)
