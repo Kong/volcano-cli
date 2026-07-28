@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/Kong/volcano-cli/compare/v0.15.1...v0.15.2) (2026-07-28)
+
+
+### Bug Fixes
+
+* **api:** clearer error when the Volcano API is unreachable ([#130](https://github.com/Kong/volcano-cli/issues/130)) ([91a6282](https://github.com/Kong/volcano-cli/commit/91a6282f830b9fd994df643475cd1f3d98d6be8d))
+
 ## [0.15.1](https://github.com/Kong/volcano-cli/compare/v0.15.0...v0.15.1) (2026-07-28)
 
 
