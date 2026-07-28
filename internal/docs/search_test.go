@@ -77,6 +77,18 @@ func TestSnippetIsValidUTF8(t *testing.T) {
 	assert.True(t, utf8.ValidString(withMatch))
 }
 
+func TestSearchWeightsCLISectionHigher(t *testing.T) {
+	// Two docs with identical content differing only in topic: the CLI section
+	// (topic "cli") must outrank the equivalent product doc.
+	body := "# Deploy\n\n## Deploying\nDeploy your project with the deploy command."
+	secs := []Section{}
+	secs = append(secs, ParseDoc("cli/deploy.md", []byte(body))...)
+	secs = append(secs, ParseDoc("platform/deploy.md", []byte(body))...)
+	results := NewIndex(secs).Search("deploy project", "", 10)
+	require.NotEmpty(t, results)
+	assert.Equal(t, "cli", results[0].Topic, "CLI docs section should outrank an equivalent product section")
+}
+
 func TestSearchPhraseBonusAcrossNewline(t *testing.T) {
 	// The exact-phrase bonus must fire even when the phrase spans a newline in
 	// the source. Both docs contain both terms; only one has them adjacent.

@@ -18,7 +18,7 @@ import (
 // fakeDocsServer serves the minimal GitHub API surface docs sync needs.
 func fakeDocsServer(t *testing.T, files map[string]string) *httptest.Server {
 	t.Helper()
-	const repo = "Kong/volcano-cli"
+	const repo = "Kong/volcano-docs"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		base := "/repos/" + repo
 		switch {
@@ -36,11 +36,11 @@ func fakeDocsServer(t *testing.T, files map[string]string) *httptest.Server {
 				Truncated bool    `json:"truncated"`
 			}{}
 			for p, c := range files {
-				out.Tree = append(out.Tree, entry{Path: "docs/" + p, Type: "blob", SHA: p, Size: int64(len(c))})
+				out.Tree = append(out.Tree, entry{Path: "content/" + p, Type: "blob", SHA: p, Size: int64(len(c))})
 			}
 			_ = json.NewEncoder(w).Encode(out)
 		case strings.HasPrefix(r.URL.Path, base+"/contents/"):
-			full := strings.TrimPrefix(r.URL.Path, base+"/contents/docs/")
+			full := strings.TrimPrefix(r.URL.Path, base+"/contents/content/")
 			content, ok := files[full]
 			if !ok {
 				http.Error(w, "nf", http.StatusNotFound)
@@ -93,7 +93,7 @@ func TestDocsSearchJSONEnvelope(t *testing.T) {
 	assert.Equal(t, 1, env.SchemaVersion)
 	assert.Equal(t, "search", env.Command)
 	assert.Equal(t, "github", env.Source.Provider)
-	assert.Equal(t, "Kong/volcano-cli", env.Source.Repository)
+	assert.Equal(t, "Kong/volcano-docs", env.Source.Repository)
 	assert.Equal(t, "deadbeefcafebabe", env.Source.ResolvedCommit)
 	require.NotNil(t, env.Cache)
 	assert.False(t, env.Cache.Stale)

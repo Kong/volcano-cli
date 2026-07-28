@@ -21,6 +21,12 @@ const (
 	phraseBonus    = 2.0 // multiplicative when the exact query phrase appears
 	technicalBonus = 1.5 // added per matched technical token (flag/identifier)
 
+	// cliTopicBoost weights the CLI docs section (content/cli, topic "cli")
+	// above the broader product/platform docs, since `volcano docs` users are
+	// most often looking for CLI behavior. Tunable calibration knob.
+	cliTopic      = "cli"
+	cliTopicBoost = 1.5
+
 	maxChunkChars = 2000 // split exceptionally large sections for indexing
 	snippetChars  = 260
 )
@@ -130,6 +136,10 @@ func (idx *Index) Search(query, topic string, limit int) []Result {
 		// Exact phrase bonus.
 		if phrase != "" && len(qTerms) > 1 && strings.Contains(c.lowerText, phrase) {
 			score *= phraseBonus
+		}
+		// Weight the CLI docs section above the broader product docs.
+		if strings.EqualFold(c.section.Topic, cliTopic) {
+			score *= cliTopicBoost
 		}
 		id := c.section.ID()
 		if existing, ok := best[id]; ok && existing.score >= score {
