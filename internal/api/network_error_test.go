@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"syscall"
 	"testing"
 
@@ -44,19 +45,48 @@ func TestNetworkErrorDoerPassesThroughHTTPResponses(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
-func TestNetworkErrorDoerLeavesNonNetworkErrorsUntouched(t *testing.T) {
-	sentinel := errors.New("some application error")
+func TestNetworkErrorDoerLeavesNonDialErrorsUntouched(t *testing.T) {
+	// A post-connect read failure: the server WAS reached, so it must not be
+	// rewritten as "cannot reach".
+	readReset := &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}
 	d := networkErrorDoer{apiURL: "http://x", next: doerFunc(func(*http.Request) (*http.Response, error) {
-		return nil, sentinel
+		return nil, readReset
 	})}
 	_, err := d.Do(mustReq(t))
-	require.ErrorIs(t, err, sentinel)
+	require.ErrorIs(t, err, readReset)
 	require.NotContains(t, err.Error(), "cannot reach")
 }
 
-func TestUnreachableHintClassifiesTransportErrors(t *testing.T) {
-	require.Equal(t, "connection refused", unreachableHint(&net.OpError{Err: syscall.ECONNREFUSED}))
-	require.Equal(t, "host not found", unreachableHint(&net.DNSError{Name: "nope.invalid"}))
-	require.Equal(t, "connection failed", unreachableHint(&net.OpError{Op: "dial"}))
-	require.Empty(t, unreachableHint(errors.New("plain error")))
+func TestNetworkErrorDoerRedactsEmbeddedPassword(t *testing.T) {
+	refused := &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}
+	d := networkErrorDoer{apiURL: "https://user:s3cret@api.example.com", next: doerFunc(func(*http.Request) (*http.Response, error) {
+		return nil, refused
+	})}
+	_, err := d.Do(mustReq(t))
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "s3cret")
+	require.Contains(t, err.Error(), "user:xxxxx@api.example.com")
+}
+
+func TestUnreachableHintOnlyMatchesDialPhase(t *testing.T) {
+	timeoutDial := &net.OpError{Op: "dial", Err: os.ErrDeadlineExceeded}
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"connection refused", &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}, "connection refused"},
+		{"host not found", &net.DNSError{Name: "nope.invalid", IsNotFound: true}, "host not found"},
+		{"dial failure", &net.OpError{Op: "dial", Net: "tcp"}, "could not connect"},
+		{"dial timeout", timeoutDial, "connection timed out"},
+		// Pass-through: server was reached / ambiguous.
+		{"post-connect read", &net.OpError{Op: "read", Err: syscall.ECONNRESET}, ""},
+		{"dns non-notfound", &net.DNSError{Name: "x", IsTimeout: true}, ""},
+		{"plain error", errors.New("boom"), ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, unreachableHint(tc.err))
+		})
+	}
 }
