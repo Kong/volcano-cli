@@ -33,9 +33,12 @@ var (
 	failedStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)).Bold(true)
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color(failedHex)) // deep red, not bold: message text
 	grayStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(GrayHex))
+	// headingStyle colors the CTA heading volcano-400, distinct from the lava
+	// border and the volcano-600 example line below it.
+	headingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(Volcano400Hex)).Bold(true)
 	// exampleStyle colors the CTA example prompt volcano-600 so it reads as the
-	// actionable line, distinct from the lava heading and border. Bold matches
-	// the surrounding box weight.
+	// actionable line, distinct from the volcano-400 heading and lava border.
+	// Bold matches the surrounding box weight.
 	exampleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(Volcano600Hex)).Bold(true)
 )
 
@@ -83,11 +86,9 @@ func ctaBox(heading, example string, on bool, width int) string {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(LavaHex)).
-		Foreground(lipgloss.Color(LavaHex)).
-		Bold(true).
 		Padding(0, 1).
 		Width(boxWidth).
-		Render(heading + "\n" + exampleStyle.Render(example))
+		Render(headingStyle.Render(heading) + "\n" + exampleStyle.Render(example))
 }
 
 // errText renders a failure/error message in deep red when on, else unchanged.
