@@ -38,7 +38,7 @@ many commands. Key rules that make the mock faithful:
    alignment.
 5. **Palette as CSS classes.** Map each semantic color to a hex from the
    project's real palette (grep the theme source — e.g. for volcano-cli it's
-   `internal/setup/theme.go`). Add a legend at the top explaining each color.
+   `internal/theme/theme.go`). Add a legend at the top explaining each color.
 6. **Escape content** (`html.escape`) before wrapping in spans — sample data
    may contain `<`, `>`, `&`, `"`.
 7. **Note the gating.** If color is TTY-gated (`NO_COLOR`/pipes/`--json` stay
