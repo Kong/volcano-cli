@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/Kong/volcano-cli/compare/v0.15.0...v0.15.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **setup:** color CTA heading volcano-400 ([#129](https://github.com/Kong/volcano-cli/issues/129)) ([46eb79a](https://github.com/Kong/volcano-cli/commit/46eb79abe3d7a893a9ca1217bca94e4ef959be88))
+
 ## [0.15.0](https://github.com/Kong/volcano-cli/compare/v0.14.1...v0.15.0) (2026-07-27)
 
 
