@@ -23,8 +23,12 @@ func TestColorGate(t *testing.T) {
 	if !strings.Contains(got, "\x1b[") || !strings.Contains(got, "\u256d") {
 		t.Fatalf("ctaBox on = %q, want ANSI + rounded border", got)
 	}
-	// The example line renders in volcano-600 (#ea580c => 234;88;12 truecolor),
-	// distinct from the lava heading/border, so it reads as the actionable prompt.
+	// The heading renders in volcano-400 (#fb923c => 251;146;60 truecolor) and
+	// the example line in volcano-600 (#ea580c => 234;88;12 truecolor), both
+	// distinct from the lava border, so the example reads as the actionable prompt.
+	if !strings.Contains(got, "251;146;60") {
+		t.Fatalf("ctaBox on = %q, want heading in volcano-400", got)
+	}
 	if !strings.Contains(got, "234;88;12") {
 		t.Fatalf("ctaBox on = %q, want example in volcano-600", got)
 	}
