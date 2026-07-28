@@ -21,7 +21,6 @@ func mustReq(t *testing.T) *http.Request {
 }
 
 func TestNetworkErrorDoerWrapsConnectionRefused(t *testing.T) {
-	t.Setenv("VOLCANO_API_URL", "http://localhost:8000")
 	refused := &url.Error{Op: "Get", URL: "http://localhost:8000/projects", Err: &net.OpError{
 		Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED,
 	}}
@@ -33,7 +32,6 @@ func TestNetworkErrorDoerWrapsConnectionRefused(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot reach the Volcano API at http://localhost:8000")
 	require.Contains(t, err.Error(), "connection refused")
-	require.Contains(t, err.Error(), "from VOLCANO_API_URL")
 	require.ErrorIs(t, err, syscall.ECONNREFUSED) // original preserved
 }
 

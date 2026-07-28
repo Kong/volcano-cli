@@ -6,21 +6,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"strings"
 	"syscall"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
-// envAPIURL is the environment variable that overrides the API URL. Duplicated
-// as a literal here (the canonical definition is config.envAPIURL, unexported)
-// only to attribute the URL's source in the unreachable-API message below.
-const envAPIURL = "VOLCANO_API_URL"
-
 // networkErrorDoer turns opaque transport failures (connection refused, DNS
 // failure, timeout) into an actionable message that names the API URL being
-// targeted — so a down server or a mis-set VOLCANO_API_URL surfaces as guidance
+// targeted — so a down server or a mis-set API URL surfaces as guidance
 // instead of a raw Go dial error like
 // `dial tcp 127.0.0.1:8000: connect: connection refused`. It rewrites only
 // genuine "never reached the server" errors; successful requests, HTTP error
@@ -39,13 +32,9 @@ func (d networkErrorDoer) Do(req *http.Request) (*http.Response, error) {
 	if hint == "" {
 		return resp, err
 	}
-	source := ""
-	if env := strings.TrimRight(strings.TrimSpace(os.Getenv(envAPIURL)), "/"); env != "" && env == d.apiURL {
-		source = " (from VOLCANO_API_URL)"
-	}
 	return resp, fmt.Errorf(
-		"cannot reach the Volcano API at %s%s (%s). Is the server running and is the API URL correct?: %w",
-		d.apiURL, source, hint, err,
+		"cannot reach the Volcano API at %s (%s). Is the server running and is the API URL correct?: %w",
+		d.apiURL, hint, err,
 	)
 }
 
