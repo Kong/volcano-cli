@@ -415,6 +415,12 @@ jobs:
     needs: [resolve-release, publish-github-release]
     # Stable releases only; nightly/main builds never touch the tap.
     if: needs.resolve-release.outputs.prerelease == 'false'
+    # Serialize across ALL release tags (the workflow-level concurrency key is
+    # per-ref, so two tags can otherwise reach this job at once and race their
+    # direct pushes to the tap). One tap update at a time, never cancelled.
+    concurrency:
+      group: update-homebrew-tap
+      cancel-in-progress: false
     steps:
       # Mint a short-lived token scoped to Kong/homebrew-volcano. Reuses the
       # same App as release-please.yml (VOLCANO_APP_ID/VOLCANO_APP_KEY); the App
@@ -442,6 +448,20 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
+
+          # Never downgrade the tap. A re-run of an older release (or an
+          # out-of-order run) would otherwise silently regress Homebrew to an
+          # old version — the exact staleness this job exists to prevent. Skip
+          # when the target is older than the tap's current version; allow an
+          # equal version through so a re-run can repair checksums.
+          CURRENT="$(awk -F'"' '/^  version /{print $2; exit}' tap/Formula/volcano.rb || true)"
+          if [ -n "$CURRENT" ] && [ "$CURRENT" != "$VERSION" ]; then
+            NEWEST="$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -1)"
+            if [ "$NEWEST" != "$VERSION" ]; then
+              echo "Tap is at ${CURRENT}; release ${VERSION} is older. Skipping to avoid a downgrade."
+              exit 0
+            fi
+          fi
 
           # SHA256SUMS is an asset on the release publish-github-release just cut,
           # so the four platform checksums are already computed; no re-download
