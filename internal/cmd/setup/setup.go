@@ -46,7 +46,7 @@ agents and scripts never block on a prompt.
 
   volcano setup                       Autodetect; prompt on a terminal, install all otherwise
   volcano setup --yes                 Install all detected, no prompt (use this in agents/CI)
-  volcano setup --harness claude-code Install only for the named harness(es)
+  volcano setup --agent claude-code   Install only for the named agent(s)
   volcano setup --manual              Force the ~/.volcano manual install
   volcano setup --dry-run             Show what would be installed, change nothing`,
 		Args: cobra.NoArgs,
@@ -92,15 +92,15 @@ agents and scripts never block on a prompt.
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&harnesses, "harness", nil, "Install only for the named harness(es): claude-code, codex, cursor, opencode, pi, manual")
+	cmd.Flags().StringSliceVar(&harnesses, "agent", nil, "Install only for the named agent(s): claude-code, codex, cursor, opencode, pi, manual")
 	cmd.Flags().BoolVar(&manual, "manual", false, "Force a manual install of skills under ~/.volcano")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be installed without making changes")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip the prompt and install for all detected harnesses (agent/CI-safe)")
-	// --manual and --harness contradict (Run gives --harness precedence), so
+	// --manual and --agent contradict (Run gives --agent precedence), so
 	// reject the combination up front rather than silently ignoring --manual.
-	cmd.MarkFlagsMutuallyExclusive("harness", "manual")
+	cmd.MarkFlagsMutuallyExclusive("agent", "manual")
 	// --yes means "all detected", which contradicts targeting a specific set.
-	cmd.MarkFlagsMutuallyExclusive("harness", "yes")
+	cmd.MarkFlagsMutuallyExclusive("agent", "yes")
 	cmd.MarkFlagsMutuallyExclusive("manual", "yes")
 	return cmd
 }
