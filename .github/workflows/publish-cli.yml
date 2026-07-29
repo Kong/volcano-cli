@@ -549,9 +549,6 @@ jobs:
           # our change only touches Formula/volcano.rb, so a doc/unrelated
           # commit rebases cleanly. Final push outside the loop lets a
           # persistent failure surface non-zero.
-          # ponytail: rebase replays our templated formula, so a concurrent
-          # *version* bump by another writer would be clobbered; acceptable
-          # because the only automated writer is this job (serialized above).
           for attempt in 1 2 3; do
             if git push; then exit 0; fi
             echo "push rejected (attempt ${attempt}); rebasing on latest tap HEAD"
