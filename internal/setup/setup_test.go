@@ -165,7 +165,7 @@ func TestRun_AutodetectShowsDetectedInstallFailures(t *testing.T) {
 
 // TestRun_LandingPaths is the definitive check that each file-drop harness (and
 // the manual fallback) materializes the FULL skill set into its exact expected
-// directory, plus AGENTS.md where that harness expects one. Uses --harness to
+// directory, plus AGENTS.md where that harness expects one. Uses --agent to
 // target each in isolation.
 func TestRun_LandingPaths(t *testing.T) {
 	// Skills the test manifest advertises (skillsServer).
@@ -606,7 +606,7 @@ func TestStyleDetail_FailureLabelVsReason(t *testing.T) {
 		t.Errorf("continuation should be all gray: %q", got[1])
 	}
 
-	// A failure without the label (targeted --harness error) is gray, not red.
+	// A failure without the label (targeted --agent error) is gray, not red.
 	if got := styleDetail([]string{"boom"}, StatusFailed, true); got[0] != gray("boom", true) {
 		t.Errorf("unlabeled failure reason should be gray: %q", got[0])
 	}
@@ -890,7 +890,7 @@ func TestRun_OnlyBestEffortDowngradesFailure(t *testing.T) {
 		t.Fatalf("strict cursor status = %q, want failed", got)
 	}
 	if !strict.Failed() {
-		t.Fatal("strict --harness run should report Failed()")
+		t.Fatal("strict --agent run should report Failed()")
 	}
 
 	best := base
