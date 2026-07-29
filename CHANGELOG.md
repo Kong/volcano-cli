@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.0](https://github.com/Kong/volcano-cli/compare/v0.16.0...v0.17.0) (2026-07-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **setup:** rename --harness flag to --agent ([#139](https://github.com/Kong/volcano-cli/issues/139))
+
+### Features
+
+* **setup:** rename --harness flag to --agent ([#139](https://github.com/Kong/volcano-cli/issues/139)) ([8a29003](https://github.com/Kong/volcano-cli/commit/8a2900314e9d6d7f5756ed8f16098313fec77cf0))
+
 ## [0.16.0](https://github.com/Kong/volcano-cli/compare/v0.15.2...v0.16.0) (2026-07-29)
 
 
