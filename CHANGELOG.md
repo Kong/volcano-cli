@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/Kong/volcano-cli/compare/v0.15.2...v0.16.0) (2026-07-29)
+
+
+### Features
+
+* **ci:** auto-bump Homebrew tap on stable release ([#135](https://github.com/Kong/volcano-cli/issues/135)) ([492a8e4](https://github.com/Kong/volcano-cli/commit/492a8e4b07be97841a7ce3c0d9db11d46990ad53))
+
 ## [0.15.2](https://github.com/Kong/volcano-cli/compare/v0.15.1...v0.15.2) (2026-07-28)
 
 
