@@ -2,11 +2,8 @@ name: Publish CLI
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*.*.*"
-      - "!v*.*.*-nightly.*"
 
 permissions:
   contents: read
@@ -27,10 +24,6 @@ jobs:
       - name: Validate release ref
         run: |
           set -euo pipefail
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            exit 0
-          fi
-
           STABLE_SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           if [[ ! "$GITHUB_REF_NAME" =~ $STABLE_SEMVER_RE ]]; then
             echo "Unsupported release tag: ${GITHUB_REF_NAME}"
@@ -54,8 +47,6 @@ jobs:
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_title: ${{ steps.release.outputs.release_title }}
       cli_version: ${{ steps.release.outputs.cli_version }}
-      prerelease: ${{ steps.release.outputs.prerelease }}
-      latest: ${{ steps.release.outputs.latest }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -69,62 +60,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            DATE_PART="$(date -u +%Y%m%d)"
-            # Base the nightly on the current stable version (package.json, kept
-            # in sync by release-please) and bump the patch, so the nightly
-            # sorts above the latest stable but below the next release, e.g.
-            # stable 0.16.0 -> v0.16.1-nightly.<date>.<seq>. Deriving from
-            # package.json instead of a `v0.0.*` tag glob is what keeps this
-            # tracking the real release line (the old glob froze nightlies at
-            # v0.0.6 once stable moved past the 0.0.x series).
-            BASE_VERSION="$(node -p "require('./package.json').version")"
-            BASE_VERSION="${BASE_VERSION%%-*}"
-            # Validate the whole version string before splitting, so a malformed
-            # value (wrong component count, leading zeroes, non-numeric) fails
-            # closed instead of being silently reshaped into a bad tag. Mirrors
-            # validate-release-ref's STABLE_SEMVER_RE numeric components (line
-            # 34), which also keeps the patch bump off a bad octal literal (08).
-            if ! printf '%s' "$BASE_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
-              echo "package.json version '${BASE_VERSION}' is not X.Y.Z; cannot derive nightly version."
-              exit 1
-            fi
-            BASE_MAJOR="${BASE_VERSION%%.*}"
-            BASE_MINOR_PATCH="${BASE_VERSION#*.}"
-            BASE_MINOR="${BASE_MINOR_PATCH%%.*}"
-            BASE_PATCH="${BASE_MINOR_PATCH#*.}"
-            NEXT_PATCH=$(( BASE_PATCH + 1 ))
-            NIGHTLY_PREFIX="v${BASE_MAJOR}.${BASE_MINOR}.${NEXT_PATCH}-nightly.${DATE_PART}."
-            LATEST_NIGHTLY_NUMBER=0
-            while IFS= read -r tag; do
-              suffix="${tag#${NIGHTLY_PREFIX}}"
-              if [[ "$suffix" =~ ^[0-9]+$ ]] && (( 10#$suffix > LATEST_NIGHTLY_NUMBER )); then
-                LATEST_NIGHTLY_NUMBER=$((10#$suffix))
-              fi
-            done < <(git tag --list "${NIGHTLY_PREFIX}*")
-            RELEASE_TAG="${NIGHTLY_PREFIX}$((LATEST_NIGHTLY_NUMBER + 1))"
-            PRERELEASE="true"
-            LATEST="false"
-          else
-            RELEASE_TAG="$GITHUB_REF_NAME"
-            NPM_VERSION="$(node -p "require('./package.json').version")"
-
-            if [ "v${NPM_VERSION}" != "$RELEASE_TAG" ]; then
-              echo "Release tag ${RELEASE_TAG} does not match package.json version ${NPM_VERSION}."
-              echo "Stable releases must be created from the Release Please release PR commit."
-              exit 1
-            fi
-
-            PRERELEASE="false"
-            LATEST="auto"
+          RELEASE_TAG="$GITHUB_REF_NAME"
+          NPM_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${NPM_VERSION}" != "$RELEASE_TAG" ]; then
+            echo "Release tag ${RELEASE_TAG} does not match package.json version ${NPM_VERSION}."
+            echo "Stable releases must be created from the Release Please release PR commit."
+            exit 1
           fi
 
           {
             echo "release_tag=${RELEASE_TAG}"
             echo "release_title=${RELEASE_TAG}"
             echo "cli_version=${RELEASE_TAG}"
-            echo "prerelease=${PRERELEASE}"
-            echo "latest=${LATEST}"
           } >> "$GITHUB_OUTPUT"
 
   check:
@@ -230,8 +177,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
       RELEASE_TITLE: ${{ needs.resolve-release.outputs.release_title }}
-      RELEASE_PRERELEASE: ${{ needs.resolve-release.outputs.prerelease }}
-      RELEASE_LATEST: ${{ needs.resolve-release.outputs.latest }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -302,54 +247,16 @@ jobs:
             fi
           }
 
-          RELEASE_FLAGS=()
-          if [ "$RELEASE_PRERELEASE" = "true" ]; then
-            RELEASE_FLAGS+=(--prerelease)
-          fi
-          if [ "$RELEASE_LATEST" = "false" ]; then
-            RELEASE_FLAGS+=(--latest=false)
-          fi
-
-          RELEASE_NOTES=""
-          if [ "$RELEASE_PRERELEASE" = "true" ]; then
-            RELEASE_NOTES="Automated nightly build from ${GITHUB_SHA}."
-          fi
-
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            NIGHTLY_ALIAS_NOTES="$(printf 'Latest nightly build: %s\n\nCommit: %s' "$RELEASE_TITLE" "$GITHUB_SHA")"
-            # Keep the versioned nightly git tag (resolve-release derives the next
-            # nightly number from it); it needs no release of its own.
-            if ! git ls-remote --exit-code --tags origin "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
-              git tag "$RELEASE_TAG" "$GITHUB_SHA"
-              git push origin "refs/tags/${RELEASE_TAG}"
-            fi
-            git tag -f nightly "$GITHUB_SHA"
-            git push origin refs/tags/nightly --force
-            # The `nightly` release is a rolling alias for the latest nightly only.
-            # Recreate it from scratch each run so it holds just the current build's
-            # assets: appending every build's assets grows it unbounded and hits
-            # GitHub's hard cap of 1000 assets per release (HTTP 422 file_count
-            # limited to 1000). Deleting first also self-heals an already-full release.
-            # Only delete when it exists, and let a real delete failure stop the job
-            # (don't blanket-swallow, or the backlog would silently persist).
-            if gh release view nightly >/dev/null 2>&1; then
-              gh release delete nightly --yes
-            fi
-            publish_release nightly "$RELEASE_TITLE" "$NIGHTLY_ALIAS_NOTES" --prerelease --latest=false
-          else
-            publish_release "$RELEASE_TAG" "$RELEASE_TITLE" "$RELEASE_NOTES" "${RELEASE_FLAGS[@]}"
-          fi
+          # Stable release: auto-generate notes and let GitHub pick the latest
+          # flag by semver.
+          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" ""
 
       - name: Verify uploaded Linux binary
         run: |
           set -euo pipefail
           TMP_DIR="$(mktemp -d)"
           trap 'rm -rf "$TMP_DIR"' EXIT
-          DOWNLOAD_RELEASE_TAG="$RELEASE_TAG"
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            DOWNLOAD_RELEASE_TAG="nightly"
-          fi
-          gh release download "$DOWNLOAD_RELEASE_TAG" \
+          gh release download "$RELEASE_TAG" \
             --pattern "volcano-linux-amd64*" \
             --dir "$TMP_DIR"
           cosign verify-blob "$TMP_DIR/volcano-linux-amd64" \
@@ -364,11 +271,9 @@ jobs:
     name: Publish npm package
     runs-on: ubuntu-latest # Trusted publishing requires GitHub-hosted runners
     needs: [resolve-release, publish-github-release]
-    # Publish to npm only for stable releases (skip main/nightly prereleases).
     # This job runs npm publish directly in the release-triggered run, so npm's
     # OIDC trusted publisher must be configured with this workflow's filename
     # (publish-cli.yml). Dispatched/reusable workflows are not supported.
-    if: needs.resolve-release.outputs.prerelease == 'false'
     permissions:
       contents: read
       id-token: write # REQUIRED for npm trusted publishing (OIDC)
@@ -432,8 +337,6 @@ jobs:
     name: Update Homebrew tap
     runs-on: ubuntu-latest
     needs: [resolve-release, publish-github-release]
-    # Stable releases only; nightly/main builds never touch the tap.
-    if: needs.resolve-release.outputs.prerelease == 'false'
     # Serialize across ALL release tags (the workflow-level concurrency key is
     # per-ref, so two tags can otherwise reach this job at once and race their
     # direct pushes to the tap). One tap update at a time, never cancelled.
