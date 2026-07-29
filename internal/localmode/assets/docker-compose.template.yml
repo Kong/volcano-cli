@@ -76,6 +76,7 @@ services:
     environment:
       # Core settings
       LOCAL_MODE: "true"
+      LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
       DYNAMODB_ENDPOINT: http://dynamodb:8000
@@ -120,6 +121,8 @@ services:
       VOLCANO_FIRST_PARTY_PROJECT_NAME: ${VOLCANO_FIRST_PARTY_PROJECT_NAME:-}
       VOLCANO_FIRST_PARTY_ANON_KEY: ${VOLCANO_FIRST_PARTY_ANON_KEY:-}
       VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID: ${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}
+      VOLCANO_FIRST_PARTY_AUTH_EMAIL: ${VOLCANO_FIRST_PARTY_AUTH_EMAIL:-}
+      VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH: ${VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH:-}
     volumes:
       - volcano-storage:/app/local-storage
     ports:
