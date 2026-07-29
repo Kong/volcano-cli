@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/Kong/volcano-cli/compare/v0.17.0...v0.18.0) (2026-07-29)
+
+
+### Features
+
+* **docs:** source docs from volcano-docs and weight CLI section higher ([#134](https://github.com/Kong/volcano-cli/issues/134)) ([936aabd](https://github.com/Kong/volcano-cli/commit/936aabd87d35f665e7e7d3abdddfb3ecc940cded))
+
 ## [0.17.0](https://github.com/Kong/volcano-cli/compare/v0.16.0...v0.17.0) (2026-07-29)
 
 
