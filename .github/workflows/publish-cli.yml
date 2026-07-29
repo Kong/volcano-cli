@@ -71,11 +71,30 @@ jobs:
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             DATE_PART="$(date -u +%Y%m%d)"
-            LATEST_STABLE_PATCH="$({
-              git tag --list 'v0.0.*' || true
-            } | awk '/^v0\.0\.[0-9]+$/ { sub(/^v0\.0\./, "", $0); print $0 }' | sort -n | tail -1)"
-            NEXT_PATCH=$(( ${LATEST_STABLE_PATCH:-0} + 1 ))
-            NIGHTLY_PREFIX="v0.0.${NEXT_PATCH}-nightly.${DATE_PART}."
+            # Base the nightly on the current stable version (package.json, kept
+            # in sync by release-please) and bump the patch, so the nightly
+            # sorts above the latest stable but below the next release, e.g.
+            # stable 0.16.0 -> v0.16.1-nightly.<date>.<seq>. Deriving from
+            # package.json instead of a `v0.0.*` tag glob is what keeps this
+            # tracking the real release line (the old glob froze nightlies at
+            # v0.0.6 once stable moved past the 0.0.x series).
+            BASE_VERSION="$(node -p "require('./package.json').version")"
+            BASE_VERSION="${BASE_VERSION%%-*}"
+            # Validate the whole version string before splitting, so a malformed
+            # value (wrong component count, leading zeroes, non-numeric) fails
+            # closed instead of being silently reshaped into a bad tag. Mirrors
+            # validate-release-ref's STABLE_SEMVER_RE numeric components (line
+            # 34), which also keeps the patch bump off a bad octal literal (08).
+            if ! printf '%s' "$BASE_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+              echo "package.json version '${BASE_VERSION}' is not X.Y.Z; cannot derive nightly version."
+              exit 1
+            fi
+            BASE_MAJOR="${BASE_VERSION%%.*}"
+            BASE_MINOR_PATCH="${BASE_VERSION#*.}"
+            BASE_MINOR="${BASE_MINOR_PATCH%%.*}"
+            BASE_PATCH="${BASE_MINOR_PATCH#*.}"
+            NEXT_PATCH=$(( BASE_PATCH + 1 ))
+            NIGHTLY_PREFIX="v${BASE_MAJOR}.${BASE_MINOR}.${NEXT_PATCH}-nightly.${DATE_PART}."
             LATEST_NIGHTLY_NUMBER=0
             while IFS= read -r tag; do
               suffix="${tag#${NIGHTLY_PREFIX}}"
