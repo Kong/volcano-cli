@@ -543,6 +543,20 @@ jobs:
           git config user.name  "kong-volcano-app[bot]"
           git config user.email "kong-volcano-app[bot]@users.noreply.github.com"
           git commit -am "chore: bump volcano to ${RELEASE_TAG}"
+          # The push can lose a non-fast-forward race to an unrelated commit
+          # landing on the tap between checkout and here (the concurrency group
+          # only serializes this job, not external writers). Rebase and retry;
+          # our change only touches Formula/volcano.rb, so a doc/unrelated
+          # commit rebases cleanly. Final push outside the loop lets a
+          # persistent failure surface non-zero.
+          # ponytail: rebase replays our templated formula, so a concurrent
+          # *version* bump by another writer would be clobbered; acceptable
+          # because the only automated writer is this job (serialized above).
+          for attempt in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "push rejected (attempt ${attempt}); rebasing on latest tap HEAD"
+            git pull --rebase origin main
+          done
           git push
         env:
           RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
