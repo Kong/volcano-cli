@@ -78,12 +78,15 @@ func TestSnippetIsValidUTF8(t *testing.T) {
 }
 
 func TestSearchWeightsCLISectionHigher(t *testing.T) {
-	// Two docs with identical content differing only in topic: the CLI section
-	// (topic "cli") must outrank the equivalent product doc.
+	// Two docs with identical content differing only in topic. The comparison
+	// topic ("api") sorts alphabetically before "cli", so the equal-score ID
+	// tie-break in Search would rank it first — only cliTopicBoost flips "cli"
+	// to the top. This makes the assertion genuinely depend on the boost rather
+	// than on the tie-break order.
 	body := "# Deploy\n\n## Deploying\nDeploy your project with the deploy command."
 	secs := []Section{}
 	secs = append(secs, ParseDoc("cli/deploy.md", []byte(body))...)
-	secs = append(secs, ParseDoc("platform/deploy.md", []byte(body))...)
+	secs = append(secs, ParseDoc("api/deploy.md", []byte(body))...)
 	results := NewIndex(secs).Search("deploy project", "", 10)
 	require.NotEmpty(t, results)
 	assert.Equal(t, "cli", results[0].Topic, "CLI docs section should outrank an equivalent product section")

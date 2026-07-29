@@ -65,9 +65,10 @@ The corpus is parsed into heading-delimited sections. Each search builds a small
 in-memory BM25 index over those sections with boosts for titles, headings,
 paths, exact phrases, and technical tokens (identifiers, flags, CLI commands),
 then returns the best-matching sections with a snippet and source line range. The
-CLI docs section (the `cli` topic) is weighted higher than the broader
-product/platform docs, so CLI-specific matches rank first. No index is persisted
-and no external services are used.
+CLI docs section (the `cli` topic) gets a ranking boost, so an otherwise
+comparable CLI match sorts above the broader product/platform docs; a
+substantially stronger product match can still rank higher. No index is
+persisted and no external services are used.
 
 ## JSON output for agents
 
