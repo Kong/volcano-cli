@@ -113,11 +113,10 @@ read that section. Errors use the same envelope with an `error` object
 
 ## Configuring the source
 
-The documentation source defaults to the `content/` directory of the
+The documentation source defaults to the `content/` directory of the public
 `Kong/volcano-docs` repository on `main` — the full Volcano documentation
-corpus, including the CLI docs under `content/cli`. Because `volcano-docs` is a
-private repository, syncing the default source requires a `GITHUB_TOKEN` with
-access to it. Override the source per invocation or via the environment;
+corpus, including the CLI docs under `content/cli` — and needs no
+authentication. Override the source per invocation or via the environment;
 precedence is flags → environment → config → defaults:
 
 | Field      | Flag     | Environment          |
@@ -134,6 +133,6 @@ volcano docs search "docs search" --topic cli
 
 Each source is cached separately. Note that `volcano <command> --help` is the
 authoritative, always-current reference for command syntax and flags; the
-`docs` corpus complements it with conceptual guides and product context. Set
-`GITHUB_TOKEN` for private source repositories (including the default); it is
-sent only to `api.github.com` and never to any other host.
+`docs` corpus complements it with conceptual guides and product context. For
+private source repositories, set `GITHUB_TOKEN`; it is sent only to
+`api.github.com` and never to any other host.
