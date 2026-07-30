@@ -289,11 +289,11 @@ func deploymentCommandPayload(id string) map[string]any {
 	}
 }
 
-func logCommandResponse(message string, hasMore bool, next string) map[string]any {
+func logCommandResponse(body string, hasMore bool, next string) map[string]any {
 	response := map[string]any{
 		"data": []any{
 			map[string]any{
-				"message":   message,
+				"body":      body,
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20Z",
 			},
@@ -314,13 +314,13 @@ func catchUpLogResponse() map[string]any {
 		"data": []any{
 			map[string]any{
 				"id":        "stream-log",
-				"message":   "build follow",
+				"body":      "build follow",
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20Z",
 			},
 			map[string]any{
 				"id":        "catch-up-log",
-				"message":   "catch up log",
+				"body":      "catch up log",
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20.001Z",
 			},
@@ -332,13 +332,13 @@ func catchUpLogResponse() map[string]any {
 	}
 }
 
-func writeFunctionLogStream(t *testing.T, w http.ResponseWriter, message string) {
+func writeFunctionLogStream(t *testing.T, w http.ResponseWriter, body string) {
 	t.Helper()
 	w.Header().Set("Content-Type", "text/event-stream")
 	_, _ = w.Write([]byte(": connected\n\n"))
 	_, _ = w.Write([]byte("id: stream-cursor\n"))
 	_, _ = w.Write([]byte("event: log\n"))
-	_, _ = w.Write([]byte(`data: {"id":"stream-log","message":"` + message + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"` + functionID + `"}}` + "\n\n"))
+	_, _ = w.Write([]byte(`data: {"id":"stream-log","body":"` + body + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"` + functionID + `"}}` + "\n\n"))
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}

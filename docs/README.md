@@ -69,7 +69,7 @@ NO_COLOR=1 volcano databases list
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
-| Project | create, list, get, delete, select | `projects …`, `use` | below |
+| Project | create, list, get, delete, select, get anon keys | `projects …`, `use` | below |
 | Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
@@ -90,6 +90,7 @@ volcano projects create my-app     # create a project
 volcano projects list              # list your projects
 volcano use my-app                 # set the active project
 volcano projects get               # details for the active project
+volcano projects keys              # anon (publishable) API keys for the browser/SDK
 volcano projects delete my-app     # delete
 ```
 
