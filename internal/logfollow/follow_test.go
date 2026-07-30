@@ -207,10 +207,10 @@ func TestRuntimeSurfacesOpenError(t *testing.T) {
 	require.ErrorIs(t, err, wantErr)
 }
 
-func writeStreamLog(w http.ResponseWriter, cursor, logID, message string) {
+func writeStreamLog(w http.ResponseWriter, cursor, logID, body string) {
 	_, _ = w.Write([]byte("id: " + cursor + "\n"))
 	_, _ = w.Write([]byte("event: log\n"))
-	_, _ = w.Write([]byte(`data: {"id":"` + logID + `","body":"` + message + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"22222222-2222-4222-8222-222222222222"}}` + "\n\n"))
+	_, _ = w.Write([]byte(`data: {"id":"` + logID + `","body":"` + body + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"22222222-2222-4222-8222-222222222222"}}` + "\n\n"))
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
