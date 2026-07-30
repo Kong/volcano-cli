@@ -217,6 +217,46 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Retry a command on transient failures (e.g. a GitHub API 5xx such
+          # as the HTTP 502 that has failed release publishes). Up to 4
+          # attempts with linear backoff. The `until` condition is exempt from
+          # set -e, and a persistent failure still returns non-zero so the job
+          # fails loudly rather than shipping a half-published release.
+          retry() {
+            local n=0 max=4
+            until "$@"; do
+              n=$((n + 1))
+              if [ "$n" -ge "$max" ]; then
+                echo "giving up after ${max} attempts: $*" >&2
+                return 1
+              fi
+              echo "attempt ${n} failed: $*; retrying in $((n * 5))s" >&2
+              sleep $((n * 5))
+            done
+          }
+
+          # Ensure the release exists, idempotently: view first, so a create
+          # whose success response was lost to a 5xx is seen as done on the
+          # next loop (never double-created), then create if still missing,
+          # retrying transient create failures with backoff.
+          ensure_release() {
+            local tag="$1"
+            shift
+            local n=0 max=4
+            while ! gh release view "$tag" >/dev/null 2>&1; do
+              if gh release create "$tag" "$@"; then
+                return 0
+              fi
+              n=$((n + 1))
+              if [ "$n" -ge "$max" ]; then
+                echo "giving up creating release ${tag} after ${max} attempts" >&2
+                return 1
+              fi
+              echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * 5))s" >&2
+              sleep $((n * 5))
+            done
+          }
+
           publish_release() {
             local tag="$1"
             local title="$2"
@@ -231,20 +271,24 @@ jobs:
               notes_args=(--generate-notes)
             fi
 
-            if gh release view "$tag" >/dev/null 2>&1; then
-              local edit_args=(--title "$title" --target "$GITHUB_SHA")
-              if [ -n "$notes" ]; then
-                edit_args+=(--notes "$notes")
-              fi
-              gh release upload "$tag" dist/release-assets/* --clobber
-              gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
-            else
-              gh release create "$tag" dist/release-assets/* \
-                --target "$GITHUB_SHA" \
-                --title "$title" \
-                "${notes_args[@]}" \
-                "${flags[@]}"
+            # Create the asset-less release if needed, then upload assets with
+            # --clobber. Splitting create from upload keeps each step
+            # idempotent under retry: --clobber re-uploads cleanly if a prior
+            # attempt was cut off mid-upload by a 5xx, which the old single
+            # create-with-assets call could not recover from.
+            ensure_release "$tag" \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              "${notes_args[@]}" \
+              "${flags[@]}"
+
+            retry gh release upload "$tag" dist/release-assets/* --clobber
+
+            local edit_args=(--title "$title" --target "$GITHUB_SHA")
+            if [ -n "$notes" ]; then
+              edit_args+=(--notes "$notes")
             fi
+            retry gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
           }
 
           # Stable release: auto-generate notes and let GitHub pick the latest
