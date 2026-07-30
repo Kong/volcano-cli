@@ -98,10 +98,12 @@ agents and scripts never block on a prompt.
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip the prompt and install for all detected harnesses (agent/CI-safe)")
 	// --manual and --agent contradict (Run gives --agent precedence), so
 	// reject the combination up front rather than silently ignoring --manual.
+	// --yes is not in this group: both --agent and --manual are already
+	// non-interactive on their own (see interactive below), so --yes is a
+	// harmless no-op alongside either — and scripts that defensively pass it
+	// next to a targeting flag (as the --help examples imply they can) should
+	// not be rejected for it.
 	cmd.MarkFlagsMutuallyExclusive("agent", "manual")
-	// --yes means "all detected", which contradicts targeting a specific set.
-	cmd.MarkFlagsMutuallyExclusive("agent", "yes")
-	cmd.MarkFlagsMutuallyExclusive("manual", "yes")
 	return cmd
 }
 

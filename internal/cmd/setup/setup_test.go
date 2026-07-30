@@ -9,9 +9,11 @@ import (
 )
 
 // TestSetupFlagContract locks the public CLI contract of the rename: setup
-// registers --agent, no longer accepts the old --harness, and --agent still
-// can't be combined with --manual or --yes. These checks execute at cobra's
-// parse/validate stage (before RunE), so they never touch the network.
+// registers --agent, no longer accepts the old --harness, --agent still can't
+// be combined with --manual, and --yes composes with either targeting flag
+// (VOL-640: --yes is a no-op alongside --agent/--manual, not a conflict, since
+// both are already non-interactive on their own). These checks execute at
+// cobra's parse/validate stage (before RunE), so they never touch the network.
 func TestSetupFlagContract(t *testing.T) {
 	cmd := New(cliruntime.Deps{})
 	if cmd.Flags().Lookup("agent") == nil {
@@ -27,11 +29,20 @@ func TestSetupFlagContract(t *testing.T) {
 		t.Errorf("--harness should be rejected as unknown, got %v", err)
 	}
 
-	// --agent keeps the mutual-exclusion guards under its new name.
-	for _, other := range []string{"--manual", "--yes"} {
-		err := execSetup(t, "--agent", "claude-code", other)
-		if err == nil || !strings.Contains(err.Error(), "none of the others can be") {
-			t.Errorf("--agent + %s should be mutually exclusive, got %v", other, err)
+	// --agent and --manual still contradict (Run gives --agent precedence).
+	if err := execSetup(t, "--agent", "claude-code", "--manual"); err == nil ||
+		!strings.Contains(err.Error(), "none of the others can be") {
+		t.Errorf("--agent + --manual should be mutually exclusive, got %v", err)
+	}
+
+	// --yes composes with --agent and --manual: parsing succeeds (the
+	// dry-run guard keeps this test network-free once past validation).
+	for _, args := range [][]string{
+		{"--agent", "claude-code", "--yes", "--dry-run"},
+		{"--manual", "--yes", "--dry-run"},
+	} {
+		if err := execSetup(t, args...); err != nil {
+			t.Errorf("%v should be accepted, got %v", args, err)
 		}
 	}
 }
