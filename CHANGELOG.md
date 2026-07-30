@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.19.0](https://github.com/Kong/volcano-cli/compare/v0.18.0...v0.19.0) (2026-07-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci:** remove nightly release channel ([#142](https://github.com/Kong/volcano-cli/issues/142))
+
+### Miscellaneous Chores
+
+* **ci:** remove nightly release channel ([#142](https://github.com/Kong/volcano-cli/issues/142)) ([e0bb106](https://github.com/Kong/volcano-cli/commit/e0bb10619f8d1a01311f1e3c64f6b07770974c70))
+
 ## [0.18.0](https://github.com/Kong/volcano-cli/compare/v0.17.0...v0.18.0) (2026-07-29)
 
 
