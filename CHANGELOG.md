@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/Kong/volcano-cli/compare/v0.19.0...v0.19.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* **setup:** allow --yes alongside --agent and --manual ([#146](https://github.com/Kong/volcano-cli/issues/146)) ([133d2d7](https://github.com/Kong/volcano-cli/commit/133d2d7ff459d0cab5172824071d97600f117b73))
+
 ## [0.19.0](https://github.com/Kong/volcano-cli/compare/v0.18.0...v0.19.0) (2026-07-30)
 
 
