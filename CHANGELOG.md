@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.3](https://github.com/Kong/volcano-cli/compare/v0.19.2...v0.19.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* **logs:** match server LogEvent body field, docs fixes (VOL-648 sub-tickets) ([#149](https://github.com/Kong/volcano-cli/issues/149)) ([057dbac](https://github.com/Kong/volcano-cli/commit/057dbacc011611245a1c956b1eb47a18ee2b6a40))
+
 ## [0.19.2](https://github.com/Kong/volcano-cli/compare/v0.19.1...v0.19.2) (2026-07-30)
 
 
