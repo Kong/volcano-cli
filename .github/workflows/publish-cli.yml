@@ -217,6 +217,24 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Retry a command on transient failures (e.g. a GitHub API 5xx such
+          # as the HTTP 502 that has failed release publishes). Up to 4
+          # attempts with linear backoff. The `until` condition is exempt from
+          # set -e, and a persistent failure still returns non-zero so the job
+          # fails loudly rather than shipping a half-published release.
+          retry() {
+            local n=0 max=4
+            until "$@"; do
+              n=$((n + 1))
+              if [ "$n" -ge "$max" ]; then
+                echo "giving up after ${max} attempts: $*" >&2
+                return 1
+              fi
+              echo "attempt ${n} failed: $*; retrying in $((n * 5))s" >&2
+              sleep $((n * 5))
+            done
+          }
+
           publish_release() {
             local tag="$1"
             local title="$2"
@@ -232,19 +250,42 @@ jobs:
             fi
 
             if gh release view "$tag" >/dev/null 2>&1; then
+              # Already published (a workflow re-run): refresh assets and
+              # metadata idempotently. --clobber re-uploads cleanly; edit is a
+              # no-op when nothing changed.
               local edit_args=(--title "$title" --target "$GITHUB_SHA")
               if [ -n "$notes" ]; then
                 edit_args+=(--notes "$notes")
               fi
-              gh release upload "$tag" dist/release-assets/* --clobber
-              gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
-            else
-              gh release create "$tag" dist/release-assets/* \
-                --target "$GITHUB_SHA" \
-                --title "$title" \
-                "${notes_args[@]}" \
-                "${flags[@]}"
+              retry gh release upload "$tag" dist/release-assets/* --clobber
+              retry gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
+              return 0
             fi
+
+            # New release: keep the bundled `gh release create <assets>`, which
+            # drafts the release, uploads the assets, then publishes it, so it
+            # is never visible without its assets. That bundled call is atomic
+            # but not idempotent, so retry it by hand: if a failed attempt
+            # actually published (its success response was lost to a 5xx) we
+            # are done; otherwise delete the partial draft and recreate cleanly.
+            local n=0 max=4
+            until gh release create "$tag" dist/release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              "${notes_args[@]}" \
+              "${flags[@]}"; do
+              if gh release view "$tag" >/dev/null 2>&1; then
+                return 0
+              fi
+              n=$((n + 1))
+              if [ "$n" -ge "$max" ]; then
+                echo "giving up creating release ${tag} after ${max} attempts" >&2
+                return 1
+              fi
+              gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
+              echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * 5))s" >&2
+              sleep $((n * 5))
+            done
           }
 
           # Stable release: auto-generate notes and let GitHub pick the latest
