@@ -9045,9 +9045,18 @@ components:
           description: Event timestamp.
         level:
           $ref: '#/components/schemas/LiveLogLevel'
-        message:
-          type: string
-          description: Display log message.
+        body:
+          description: Application log value. JSON arguments retain their JSON type. Strings containing a serialized JSON object or array are normalized to that object or array; all other strings remain strings.
+          nullable: true
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+            - type: array
+              items: {}
+            - type: number
+              format: double
+            - type: boolean
         region:
           type: string
           description: Region where this log event originated.
@@ -9058,17 +9067,9 @@ components:
         invocation_id:
           type: string
           description: Function invocation ID associated with this log event, when available.
-        raw_message:
-          type: string
-          description: Original log line/message after platform sanitization.
-        metadata:
-          type: object
-          nullable: true
-          additionalProperties: true
-          description: Parsed JSON fields and other indexed metadata, when available.
       required:
         - timestamp
-        - message
+        - body
     LiveLogLevel:
       type: string
       enum:

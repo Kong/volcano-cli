@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -103,7 +104,7 @@ func FunctionRuntimes(w io.Writer, runtimes []apiclient.FunctionRuntimeOption) {
 func LogEvents(w io.Writer, events []apiclient.LogEvent) {
 	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, logEventBodyText(event.Body))
 	}
 }
 
@@ -111,8 +112,38 @@ func LogEvents(w io.Writer, events []apiclient.LogEvent) {
 func LogSearchEvents(w io.Writer, events []apiclient.LogSearchEvent) {
 	on := theme.On(w)
 	for _, event := range events {
-		printLogEvent(w, on, event.Timestamp, event.Region, event.Message)
+		printLogEvent(w, on, event.Timestamp, event.Region, logSearchEventBodyText(event.Body))
 	}
+}
+
+// logEventBodyText renders a LogEvent's body for display. The API normalizes
+// string bodies as plain strings and everything else (objects, arrays,
+// numbers, booleans) as their JSON encoding, per the body field's contract.
+func logEventBodyText(body *apiclient.LogEvent_Body) string {
+	if body == nil {
+		return ""
+	}
+	return bodyText(body)
+}
+
+// logSearchEventBodyText is the LogSearchEvent_Body equivalent of logEventBodyText.
+func logSearchEventBodyText(body *apiclient.LogSearchEvent_Body) string {
+	if body == nil {
+		return ""
+	}
+	return bodyText(body)
+}
+
+func bodyText(body json.Marshaler) string {
+	raw, err := body.MarshalJSON()
+	if err != nil || len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	return string(raw)
 }
 
 // printLogEvent renders one event. on is computed once by the batch/stream

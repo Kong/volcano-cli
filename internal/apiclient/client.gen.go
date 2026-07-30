@@ -3430,6 +3430,9 @@ type LogDeploymentRequestSelector struct {
 
 // LogEvent Normalized historical log event returned by paginated log APIs.
 type LogEvent struct {
+	// Body Application log value. JSON arguments retain their JSON type. Strings containing a serialized JSON object or array are normalized to that object or array; all other strings remain strings.
+	Body *LogEvent_Body `json:"body"`
+
 	// Deployment Deployment context associated with a historical deployment log event.
 	Deployment *LogDeployment `json:"deployment,omitempty"`
 
@@ -3442,15 +3445,6 @@ type LogEvent struct {
 	// Level Canonical lowercase function runtime log level.
 	Level *LiveLogLevel `json:"level,omitempty"`
 
-	// Message Display log message.
-	Message string `json:"message"`
-
-	// Metadata Parsed JSON fields and other indexed metadata, when available.
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// RawMessage Original log line/message after platform sanitization.
-	RawMessage *string `json:"raw_message,omitempty"`
-
 	// Region Region where this log event originated.
 	Region *string `json:"region,omitempty"`
 
@@ -3459,6 +3453,26 @@ type LogEvent struct {
 
 	// Timestamp Event timestamp.
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// LogEventBody0 defines model for .
+type LogEventBody0 = string
+
+// LogEventBody1 defines model for .
+type LogEventBody1 map[string]interface{}
+
+// LogEventBody2 defines model for .
+type LogEventBody2 = []interface{}
+
+// LogEventBody3 defines model for .
+type LogEventBody3 = float64
+
+// LogEventBody4 defines model for .
+type LogEventBody4 = bool
+
+// LogEvent_Body Application log value. JSON arguments retain their JSON type. Strings containing a serialized JSON object or array are normalized to that object or array; all other strings remain strings.
+type LogEvent_Body struct {
+	union json.RawMessage
 }
 
 // LogFrontendRequestResource Frontend log resource selector.
@@ -3513,6 +3527,9 @@ type LogResourceType string
 
 // LogSearchEvent defines model for LogSearchEvent.
 type LogSearchEvent struct {
+	// Body Application log value. JSON arguments retain their JSON type. Strings containing a serialized JSON object or array are normalized to that object or array; all other strings remain strings.
+	Body *LogSearchEvent_Body `json:"body"`
+
 	// Deployment Deployment context associated with a historical deployment log event.
 	Deployment *LogDeployment `json:"deployment,omitempty"`
 
@@ -3525,15 +3542,6 @@ type LogSearchEvent struct {
 	// Level Canonical lowercase function runtime log level.
 	Level *LiveLogLevel `json:"level,omitempty"`
 
-	// Message Display log message.
-	Message string `json:"message"`
-
-	// Metadata Parsed JSON fields and other indexed metadata, when available.
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
-	// RawMessage Original log line/message after platform sanitization.
-	RawMessage *string `json:"raw_message,omitempty"`
-
 	// Region Region where this log event originated.
 	Region *string `json:"region,omitempty"`
 
@@ -3542,6 +3550,26 @@ type LogSearchEvent struct {
 
 	// Timestamp Event timestamp.
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// LogSearchEventBody0 defines model for .
+type LogSearchEventBody0 = string
+
+// LogSearchEventBody1 defines model for .
+type LogSearchEventBody1 map[string]interface{}
+
+// LogSearchEventBody2 defines model for .
+type LogSearchEventBody2 = []interface{}
+
+// LogSearchEventBody3 defines model for .
+type LogSearchEventBody3 = float64
+
+// LogSearchEventBody4 defines model for .
+type LogSearchEventBody4 = bool
+
+// LogSearchEvent_Body Application log value. JSON arguments retain their JSON type. Strings containing a serialized JSON object or array are normalized to that object or array; all other strings remain strings.
+type LogSearchEvent_Body struct {
+	union json.RawMessage
 }
 
 // LogSearchRequest Search request for project logs.
@@ -6108,6 +6136,146 @@ type UploadStorageObjectMultipartRequestBody UploadStorageObjectMultipartBody
 // UpdateStorageObjectVisibilityJSONRequestBody defines body for UpdateStorageObjectVisibility for application/json ContentType.
 type UpdateStorageObjectVisibilityJSONRequestBody = StorageVisibilityRequest
 
+// AsLogEventBody0 returns the union data inside the LogEvent_Body as a LogEventBody0
+func (t LogEvent_Body) AsLogEventBody0() (LogEventBody0, error) {
+	var body LogEventBody0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogEventBody0 overwrites any union data inside the LogEvent_Body as the provided LogEventBody0
+func (t *LogEvent_Body) FromLogEventBody0(v LogEventBody0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogEventBody0 performs a merge with any union data inside the LogEvent_Body, using the provided LogEventBody0
+func (t *LogEvent_Body) MergeLogEventBody0(v LogEventBody0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogEventBody1 returns the union data inside the LogEvent_Body as a LogEventBody1
+func (t LogEvent_Body) AsLogEventBody1() (LogEventBody1, error) {
+	var body LogEventBody1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogEventBody1 overwrites any union data inside the LogEvent_Body as the provided LogEventBody1
+func (t *LogEvent_Body) FromLogEventBody1(v LogEventBody1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogEventBody1 performs a merge with any union data inside the LogEvent_Body, using the provided LogEventBody1
+func (t *LogEvent_Body) MergeLogEventBody1(v LogEventBody1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogEventBody2 returns the union data inside the LogEvent_Body as a LogEventBody2
+func (t LogEvent_Body) AsLogEventBody2() (LogEventBody2, error) {
+	var body LogEventBody2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogEventBody2 overwrites any union data inside the LogEvent_Body as the provided LogEventBody2
+func (t *LogEvent_Body) FromLogEventBody2(v LogEventBody2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogEventBody2 performs a merge with any union data inside the LogEvent_Body, using the provided LogEventBody2
+func (t *LogEvent_Body) MergeLogEventBody2(v LogEventBody2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogEventBody3 returns the union data inside the LogEvent_Body as a LogEventBody3
+func (t LogEvent_Body) AsLogEventBody3() (LogEventBody3, error) {
+	var body LogEventBody3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogEventBody3 overwrites any union data inside the LogEvent_Body as the provided LogEventBody3
+func (t *LogEvent_Body) FromLogEventBody3(v LogEventBody3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogEventBody3 performs a merge with any union data inside the LogEvent_Body, using the provided LogEventBody3
+func (t *LogEvent_Body) MergeLogEventBody3(v LogEventBody3) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogEventBody4 returns the union data inside the LogEvent_Body as a LogEventBody4
+func (t LogEvent_Body) AsLogEventBody4() (LogEventBody4, error) {
+	var body LogEventBody4
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogEventBody4 overwrites any union data inside the LogEvent_Body as the provided LogEventBody4
+func (t *LogEvent_Body) FromLogEventBody4(v LogEventBody4) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogEventBody4 performs a merge with any union data inside the LogEvent_Body, using the provided LogEventBody4
+func (t *LogEvent_Body) MergeLogEventBody4(v LogEventBody4) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogEvent_Body) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogEvent_Body) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsLogFunctionRequestResource returns the union data inside the LogRequestResource as a LogFunctionRequestResource
 func (t LogRequestResource) AsLogFunctionRequestResource() (LogFunctionRequestResource, error) {
 	var body LogFunctionRequestResource
@@ -6223,6 +6391,146 @@ func (t LogRequestResource) MarshalJSON() ([]byte, error) {
 }
 
 func (t *LogRequestResource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsLogSearchEventBody0 returns the union data inside the LogSearchEvent_Body as a LogSearchEventBody0
+func (t LogSearchEvent_Body) AsLogSearchEventBody0() (LogSearchEventBody0, error) {
+	var body LogSearchEventBody0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogSearchEventBody0 overwrites any union data inside the LogSearchEvent_Body as the provided LogSearchEventBody0
+func (t *LogSearchEvent_Body) FromLogSearchEventBody0(v LogSearchEventBody0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogSearchEventBody0 performs a merge with any union data inside the LogSearchEvent_Body, using the provided LogSearchEventBody0
+func (t *LogSearchEvent_Body) MergeLogSearchEventBody0(v LogSearchEventBody0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogSearchEventBody1 returns the union data inside the LogSearchEvent_Body as a LogSearchEventBody1
+func (t LogSearchEvent_Body) AsLogSearchEventBody1() (LogSearchEventBody1, error) {
+	var body LogSearchEventBody1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogSearchEventBody1 overwrites any union data inside the LogSearchEvent_Body as the provided LogSearchEventBody1
+func (t *LogSearchEvent_Body) FromLogSearchEventBody1(v LogSearchEventBody1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogSearchEventBody1 performs a merge with any union data inside the LogSearchEvent_Body, using the provided LogSearchEventBody1
+func (t *LogSearchEvent_Body) MergeLogSearchEventBody1(v LogSearchEventBody1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogSearchEventBody2 returns the union data inside the LogSearchEvent_Body as a LogSearchEventBody2
+func (t LogSearchEvent_Body) AsLogSearchEventBody2() (LogSearchEventBody2, error) {
+	var body LogSearchEventBody2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogSearchEventBody2 overwrites any union data inside the LogSearchEvent_Body as the provided LogSearchEventBody2
+func (t *LogSearchEvent_Body) FromLogSearchEventBody2(v LogSearchEventBody2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogSearchEventBody2 performs a merge with any union data inside the LogSearchEvent_Body, using the provided LogSearchEventBody2
+func (t *LogSearchEvent_Body) MergeLogSearchEventBody2(v LogSearchEventBody2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogSearchEventBody3 returns the union data inside the LogSearchEvent_Body as a LogSearchEventBody3
+func (t LogSearchEvent_Body) AsLogSearchEventBody3() (LogSearchEventBody3, error) {
+	var body LogSearchEventBody3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogSearchEventBody3 overwrites any union data inside the LogSearchEvent_Body as the provided LogSearchEventBody3
+func (t *LogSearchEvent_Body) FromLogSearchEventBody3(v LogSearchEventBody3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogSearchEventBody3 performs a merge with any union data inside the LogSearchEvent_Body, using the provided LogSearchEventBody3
+func (t *LogSearchEvent_Body) MergeLogSearchEventBody3(v LogSearchEventBody3) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLogSearchEventBody4 returns the union data inside the LogSearchEvent_Body as a LogSearchEventBody4
+func (t LogSearchEvent_Body) AsLogSearchEventBody4() (LogSearchEventBody4, error) {
+	var body LogSearchEventBody4
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLogSearchEventBody4 overwrites any union data inside the LogSearchEvent_Body as the provided LogSearchEventBody4
+func (t *LogSearchEvent_Body) FromLogSearchEventBody4(v LogSearchEventBody4) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLogSearchEventBody4 performs a merge with any union data inside the LogSearchEvent_Body, using the provided LogSearchEventBody4
+func (t *LogSearchEvent_Body) MergeLogSearchEventBody4(v LogSearchEventBody4) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogSearchEvent_Body) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogSearchEvent_Body) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
