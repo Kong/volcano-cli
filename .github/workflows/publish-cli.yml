@@ -235,28 +235,6 @@ jobs:
             done
           }
 
-          # Ensure the release exists, idempotently: view first, so a create
-          # whose success response was lost to a 5xx is seen as done on the
-          # next loop (never double-created), then create if still missing,
-          # retrying transient create failures with backoff.
-          ensure_release() {
-            local tag="$1"
-            shift
-            local n=0 max=4
-            while ! gh release view "$tag" >/dev/null 2>&1; do
-              if gh release create "$tag" "$@"; then
-                return 0
-              fi
-              n=$((n + 1))
-              if [ "$n" -ge "$max" ]; then
-                echo "giving up creating release ${tag} after ${max} attempts" >&2
-                return 1
-              fi
-              echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * 5))s" >&2
-              sleep $((n * 5))
-            done
-          }
-
           publish_release() {
             local tag="$1"
             local title="$2"
@@ -271,24 +249,43 @@ jobs:
               notes_args=(--generate-notes)
             fi
 
-            # Create the asset-less release if needed, then upload assets with
-            # --clobber. Splitting create from upload keeps each step
-            # idempotent under retry: --clobber re-uploads cleanly if a prior
-            # attempt was cut off mid-upload by a 5xx, which the old single
-            # create-with-assets call could not recover from.
-            ensure_release "$tag" \
+            if gh release view "$tag" >/dev/null 2>&1; then
+              # Already published (a workflow re-run): refresh assets and
+              # metadata idempotently. --clobber re-uploads cleanly; edit is a
+              # no-op when nothing changed.
+              local edit_args=(--title "$title" --target "$GITHUB_SHA")
+              if [ -n "$notes" ]; then
+                edit_args+=(--notes "$notes")
+              fi
+              retry gh release upload "$tag" dist/release-assets/* --clobber
+              retry gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
+              return 0
+            fi
+
+            # New release: keep the bundled `gh release create <assets>`, which
+            # drafts the release, uploads the assets, then publishes it, so it
+            # is never visible without its assets. That bundled call is atomic
+            # but not idempotent, so retry it by hand: if a failed attempt
+            # actually published (its success response was lost to a 5xx) we
+            # are done; otherwise delete the partial draft and recreate cleanly.
+            local n=0 max=4
+            until gh release create "$tag" dist/release-assets/* \
               --target "$GITHUB_SHA" \
               --title "$title" \
               "${notes_args[@]}" \
-              "${flags[@]}"
-
-            retry gh release upload "$tag" dist/release-assets/* --clobber
-
-            local edit_args=(--title "$title" --target "$GITHUB_SHA")
-            if [ -n "$notes" ]; then
-              edit_args+=(--notes "$notes")
-            fi
-            retry gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
+              "${flags[@]}"; do
+              if gh release view "$tag" >/dev/null 2>&1; then
+                return 0
+              fi
+              n=$((n + 1))
+              if [ "$n" -ge "$max" ]; then
+                echo "giving up creating release ${tag} after ${max} attempts" >&2
+                return 1
+              fi
+              gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
+              echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * 5))s" >&2
+              sleep $((n * 5))
+            done
           }
 
           # Stable release: auto-generate notes and let GitHub pick the latest
