@@ -80,7 +80,7 @@ func newCreateWithOptions(deps cliruntime.Deps, commandOpts createCommandOptions
 			})
 		},
 	}
-	cmd.Flags().StringVar(&region, "region", "", "Database region")
+	cmd.Flags().StringVar(&region, "region", "", "Database region (aws-<aws-region>, e.g. aws-us-east-1)")
 	cmd.Flags().StringVar(&pgVersion, "pg-version", "", "PostgreSQL version")
 	cmd.Flags().StringVar(&databaseType, "type", "", "Database type (default: volcano-db-xs)")
 	cmd.Flags().BoolVar(&showConnectionString, "show-connection-string", false, "Show database connection string")

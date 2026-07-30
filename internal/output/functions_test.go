@@ -49,3 +49,30 @@ func TestLogEventBodyTextHandlesNil(t *testing.T) {
 	assert.Empty(t, logEventBodyText(nil))
 	assert.Empty(t, logSearchEventBodyText(nil))
 }
+
+func TestLogEventsRendersEveryBodyVariant(t *testing.T) {
+	cases := []struct {
+		name     string
+		bodyJSON string
+		want     string
+	}{
+		{name: "array", bodyJSON: `["a","b"]`, want: `["a","b"]`},
+		{name: "number", bodyJSON: `42`, want: "42"},
+		{name: "boolean", bodyJSON: `true`, want: "true"},
+		{name: "null", bodyJSON: `null`, want: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var events []apiclient.LogEvent
+			raw := `[{"timestamp":"2026-07-30T10:11:20-04:00","body":` + tc.bodyJSON + `}]`
+			require.NoError(t, json.Unmarshal([]byte(raw), &events))
+
+			var out bytes.Buffer
+			LogEvents(&out, events)
+			if tc.want == "" {
+				return
+			}
+			assert.Contains(t, out.String(), tc.want)
+		})
+	}
+}
