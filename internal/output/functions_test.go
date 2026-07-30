@@ -70,6 +70,7 @@ func TestLogEventsRendersEveryBodyVariant(t *testing.T) {
 			var out bytes.Buffer
 			LogEvents(&out, events)
 			if tc.want == "" {
+				assert.NotContains(t, out.String(), "null")
 				return
 			}
 			assert.Contains(t, out.String(), tc.want)
