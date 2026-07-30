@@ -293,7 +293,7 @@ func logCommandResponse(message string, hasMore bool, next string) map[string]an
 	response := map[string]any{
 		"data": []any{
 			map[string]any{
-				"message":   message,
+				"body":      message,
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20Z",
 			},
@@ -314,13 +314,13 @@ func catchUpLogResponse() map[string]any {
 		"data": []any{
 			map[string]any{
 				"id":        "stream-log",
-				"message":   "build follow",
+				"body":      "build follow",
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20Z",
 			},
 			map[string]any{
 				"id":        "catch-up-log",
-				"message":   "catch up log",
+				"body":      "catch up log",
 				"region":    "aws-us-east-1",
 				"timestamp": "2025-10-09T08:53:20.001Z",
 			},
@@ -338,7 +338,7 @@ func writeFunctionLogStream(t *testing.T, w http.ResponseWriter, message string)
 	_, _ = w.Write([]byte(": connected\n\n"))
 	_, _ = w.Write([]byte("id: stream-cursor\n"))
 	_, _ = w.Write([]byte("event: log\n"))
-	_, _ = w.Write([]byte(`data: {"id":"stream-log","message":"` + message + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"` + functionID + `"}}` + "\n\n"))
+	_, _ = w.Write([]byte(`data: {"id":"stream-log","body":"` + message + `","timestamp":"2025-10-09T08:53:20Z","resource":{"type":"function","id":"` + functionID + `"}}` + "\n\n"))
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
