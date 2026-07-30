@@ -46,6 +46,6 @@ func TestLogSearchEventsRendersStringBody(t *testing.T) {
 }
 
 func TestLogEventBodyTextHandlesNil(t *testing.T) {
-	assert.Equal(t, "", logEventBodyText(nil))
-	assert.Equal(t, "", logSearchEventBodyText(nil))
+	assert.Empty(t, logEventBodyText(nil))
+	assert.Empty(t, logSearchEventBodyText(nil))
 }

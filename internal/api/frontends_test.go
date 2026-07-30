@@ -124,7 +124,7 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 
 	runtimeLogs, err := client.GetFrontendLogs(context.Background(), projectID, frontendID, 50, "fe-next")
 	require.NoError(t, err)
-	assert.Equal(t, "frontend runtime", runtimeLogs.Data[0].Message)
+	assert.Equal(t, "frontend runtime", logSearchEventBody(t, runtimeLogs.Data[0]))
 	require.Len(t, logSearchBodies, 1)
 	runtimeResource, ok := logSearchBodies[0]["resource"].(map[string]any)
 	require.True(t, ok)
@@ -135,7 +135,7 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 
 	deploymentLogs, err := client.GetFrontendDeploymentLogs(context.Background(), projectID, frontendID, deploymentID, 75, "dep-next")
 	require.NoError(t, err)
-	assert.Equal(t, "frontend build", deploymentLogs.Data[0].Message)
+	assert.Equal(t, "frontend build", logSearchEventBody(t, deploymentLogs.Data[0]))
 	require.Len(t, logSearchBodies, 2)
 	buildResource, ok := logSearchBodies[1]["resource"].(map[string]any)
 	require.True(t, ok)
