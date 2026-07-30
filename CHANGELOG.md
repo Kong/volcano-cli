@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/Kong/volcano-cli/compare/v0.19.1...v0.19.2) (2026-07-30)
+
+
+### Bug Fixes
+
+* **ci:** retry gh release API calls in publish-cli on transient 5xx ([#145](https://github.com/Kong/volcano-cli/issues/145)) ([8ee30c5](https://github.com/Kong/volcano-cli/commit/8ee30c5bfb2dc90138461a78992079009d19b026))
+
 ## [0.19.1](https://github.com/Kong/volcano-cli/compare/v0.19.0...v0.19.1) (2026-07-30)
 
 
