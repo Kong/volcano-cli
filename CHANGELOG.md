@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.4](https://github.com/Kong/volcano-cli/compare/v0.19.3...v0.19.4) (2026-08-03)
+
+
+### Bug Fixes
+
+* **localmode:** sync compose template with volcano-hosting ([#151](https://github.com/Kong/volcano-cli/issues/151)) ([b2626fd](https://github.com/Kong/volcano-cli/commit/b2626fddbd3e5ba0af379d794029c0be94e3e685))
+
 ## [0.19.3](https://github.com/Kong/volcano-cli/compare/v0.19.2...v0.19.3) (2026-07-30)
 
 
