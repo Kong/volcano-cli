@@ -76,6 +76,23 @@ func TestStatusInProgressStatesAreAmber(t *testing.T) {
 	}
 }
 
+// TestStatusQueuedAndDegradedNeedAttention covers the latest-wins deployment
+// statuses. A queued deployment runs once the current one finishes and a
+// degraded frontend serves with unsynchronized edges, so both are waiting on
+// something; only superseded is finished and inert.
+func TestStatusQueuedAndDegradedNeedAttention(t *testing.T) {
+	amberPrefix, _, _ := strings.Cut(Status("provisioning", true), "provisioning")
+	for _, s := range []string{"queued", "degraded"} {
+		if !strings.HasPrefix(Status(s, true), amberPrefix) {
+			t.Fatalf("%q should use the amber style, not read as inert", s)
+		}
+	}
+	inertPrefix, _, _ := strings.Cut(Status("deleted", true), "deleted")
+	if !strings.HasPrefix(Status("superseded", true), inertPrefix) {
+		t.Fatal("a superseded deployment is finished and should read as inert")
+	}
+}
+
 // TestStatusClassificationPreservesText: the padded text (including trailing
 // spaces the caller added for column alignment) survives coloring intact, and
 // each class maps to a distinct color so cells read by meaning.

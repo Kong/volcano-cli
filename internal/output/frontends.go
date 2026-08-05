@@ -74,6 +74,9 @@ func Frontend(w io.Writer, fe *apiclient.Frontend) {
 	if fe.CurrentDeploymentId != nil {
 		kv(w, on, "Current Deployment", "%s", fe.CurrentDeploymentId.String())
 	}
+	if fe.PendingDeploymentId != nil {
+		kv(w, on, "Pending Deployment", "%s", fe.PendingDeploymentId.String())
+	}
 	kv(w, on, "Created", "%s", FormatTimestamp(fe.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(fe.UpdatedAt))
 }

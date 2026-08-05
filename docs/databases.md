@@ -15,14 +15,14 @@ it using its connection string.
 - Its schema is evolved by **migrations** — SQL files in `volcano/migrations`
   applied to a named database.
 - Database *requirements* can also be declared in the
-  [declarative config](../project-configuration.md) (the manifest updates
+  [declarative config](project-configuration.md) (the manifest updates
   settings but never creates or deletes databases).
 
 ## CLI operations
 
 | Operation | Command |
 |---|---|
-| Create | `volcano databases create <name> [--type …] [--region …] [--pg-version …]` |
+| Create | `volcano databases create <name> [--type …] [--region aws-<aws-region>] [--pg-version …]` |
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
@@ -36,7 +36,7 @@ Prefix with `cloud` to force the cloud target.
 ```bash
 # Create a database (defaults to type volcano-db-xs)
 volcano databases create app
-volcano databases create app --type volcano-db-s --region us-east-1
+volcano databases create app --type volcano-db-s --region aws-us-east-1
 
 # Show the connection string
 volcano databases get app --show-connection-string

@@ -46,7 +46,7 @@ agents and scripts never block on a prompt.
 
   volcano setup                       Autodetect; prompt on a terminal, install all otherwise
   volcano setup --yes                 Install all detected, no prompt (use this in agents/CI)
-  volcano setup --harness claude-code Install only for the named harness(es)
+  volcano setup --agent claude-code   Install only for the named agent(s)
   volcano setup --manual              Force the ~/.volcano manual install
   volcano setup --dry-run             Show what would be installed, change nothing`,
 		Args: cobra.NoArgs,
@@ -92,16 +92,18 @@ agents and scripts never block on a prompt.
 		},
 	}
 
-	cmd.Flags().StringSliceVar(&harnesses, "harness", nil, "Install only for the named harness(es): claude-code, codex, cursor, opencode, pi, manual")
+	cmd.Flags().StringSliceVar(&harnesses, "agent", nil, "Install only for the named agent(s): claude-code, codex, cursor, opencode, pi, manual")
 	cmd.Flags().BoolVar(&manual, "manual", false, "Force a manual install of skills under ~/.volcano")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be installed without making changes")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip the prompt and install for all detected harnesses (agent/CI-safe)")
-	// --manual and --harness contradict (Run gives --harness precedence), so
+	// --manual and --agent contradict (Run gives --agent precedence), so
 	// reject the combination up front rather than silently ignoring --manual.
-	cmd.MarkFlagsMutuallyExclusive("harness", "manual")
-	// --yes means "all detected", which contradicts targeting a specific set.
-	cmd.MarkFlagsMutuallyExclusive("harness", "yes")
-	cmd.MarkFlagsMutuallyExclusive("manual", "yes")
+	// --yes is not in this group: both --agent and --manual are already
+	// non-interactive on their own (see interactive below), so --yes is a
+	// harmless no-op alongside either — and scripts that defensively pass it
+	// next to a targeting flag (as the --help examples imply they can) should
+	// not be rejected for it.
+	cmd.MarkFlagsMutuallyExclusive("agent", "manual")
 	return cmd
 }
 
@@ -191,17 +193,27 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 }
 
 // keyHintDescription renders the picker's key hint with the actual keystrokes
-// (space/enter/esc) in the brand accent so they read as keys, not prose. Each
-// segment is styled in full — colored keys, dimmed connectors — so huh's own
-// description style can't leave the line half-rendered after an embedded reset.
+// (space/enter/esc) each in a distinct accent so they read as keys, not prose,
+// and stand apart from each other. Each segment is styled in full — colored
+// keys, dimmed connectors — so huh's own description style can't leave the line
+// half-rendered after an embedded reset.
 func keyHintDescription(color bool) string {
 	if !color {
 		return "space toggles, enter confirms, esc cancels"
 	}
-	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(setup.FlameHex))
+	// Distinct accents so the three keys read apart at a glance: space in
+	// volcano-400, enter in volcano-600, and esc in the terminal's default
+	// foreground (typically white on dark, black on light) so it pops against the
+	// two oranges without pinning a hex the user's theme may have remapped.
 	dim := lipgloss.NewStyle().Faint(true)
-	hint := func(k, rest string) string { return keyStyle.Render(k) + dim.Render(rest) }
-	return hint("space", " toggles, ") + hint("enter", " confirms, ") + hint("esc", " cancels")
+	keyStyle := func(hex string) lipgloss.Style {
+		return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(hex))
+	}
+	spaceStyle := keyStyle(setup.Volcano400Hex)
+	enterStyle := keyStyle(setup.Volcano600Hex)
+	escStyle := lipgloss.NewStyle().Bold(true) // no explicit fg: inherits the terminal's default foreground
+	hint := func(st lipgloss.Style, k, rest string) string { return st.Render(k) + dim.Render(rest) }
+	return hint(spaceStyle, "space", " toggles, ") + hint(enterStyle, "enter", " confirms, ") + hint(escStyle, "esc", " cancels")
 }
 
 // volcanoTheme brands the picker: the title in lava, and the option selector and

@@ -22,8 +22,9 @@ import (
 const (
 	FlameHex      = "#f54019" // lava flame: key hints, suggested commands
 	LavaHex       = "#f37a58" // lava-500 brand primary: titles, table headers, CTA
+	Volcano400Hex = "#fb923c" // volcano-400: key-hint accent (space)
 	VolcanoHex    = "#f97316" // volcano-500: success, active, installed
-	Volcano600Hex = "#ea580c" // volcano-600: CTA example prompt
+	Volcano600Hex = "#ea580c" // volcano-600: CTA example prompt, key-hint accent (enter)
 	OutdatedHex   = "#eab308" // amber: warnings, pending/in-progress states
 	GrayHex       = "#6b7280" // neutral gray: summaries, separators, dim detail
 	FailedHex     = "#dc2626" // lava red: errors, failed states
@@ -107,12 +108,12 @@ func Status(s string, on bool) string {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "active", "ready", "running", "enabled", "healthy", "deployed", "verified", "yes", "public":
 		return activeStyle.Render(s)
-	case "pending", "provisioning", "creating", "deploying", "building", "updating",
-		"deleting", "detaching", "pending_verification":
+	case "pending", "queued", "provisioning", "creating", "deploying", "building", "updating",
+		"deleting", "detaching", "pending_verification", "degraded":
 		return warnStyle.Render(s)
 	case "failed", "error", "errored", "unhealthy":
 		return failStyle.Render(s)
-	default: // deleted, disabled, inactive, unknown, "-", no, private, ...
+	default: // deleted, superseded, disabled, inactive, unknown, "-", no, private, ...
 		return dimStyle.Render(s)
 	}
 }

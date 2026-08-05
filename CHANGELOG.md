@@ -1,5 +1,97 @@
 # Changelog
 
+## [0.19.4](https://github.com/Kong/volcano-cli/compare/v0.19.3...v0.19.4) (2026-08-03)
+
+
+### Bug Fixes
+
+* **localmode:** sync compose template with volcano-hosting ([#151](https://github.com/Kong/volcano-cli/issues/151)) ([b2626fd](https://github.com/Kong/volcano-cli/commit/b2626fddbd3e5ba0af379d794029c0be94e3e685))
+
+## [0.19.3](https://github.com/Kong/volcano-cli/compare/v0.19.2...v0.19.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* **logs:** match server LogEvent body field, docs fixes (VOL-648 sub-tickets) ([#149](https://github.com/Kong/volcano-cli/issues/149)) ([057dbac](https://github.com/Kong/volcano-cli/commit/057dbacc011611245a1c956b1eb47a18ee2b6a40))
+
+## [0.19.2](https://github.com/Kong/volcano-cli/compare/v0.19.1...v0.19.2) (2026-07-30)
+
+
+### Bug Fixes
+
+* **ci:** retry gh release API calls in publish-cli on transient 5xx ([#145](https://github.com/Kong/volcano-cli/issues/145)) ([8ee30c5](https://github.com/Kong/volcano-cli/commit/8ee30c5bfb2dc90138461a78992079009d19b026))
+
+## [0.19.1](https://github.com/Kong/volcano-cli/compare/v0.19.0...v0.19.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* **setup:** allow --yes alongside --agent and --manual ([#146](https://github.com/Kong/volcano-cli/issues/146)) ([133d2d7](https://github.com/Kong/volcano-cli/commit/133d2d7ff459d0cab5172824071d97600f117b73))
+
+## [0.19.0](https://github.com/Kong/volcano-cli/compare/v0.18.0...v0.19.0) (2026-07-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ci:** remove nightly release channel ([#142](https://github.com/Kong/volcano-cli/issues/142))
+
+### Miscellaneous Chores
+
+* **ci:** remove nightly release channel ([#142](https://github.com/Kong/volcano-cli/issues/142)) ([e0bb106](https://github.com/Kong/volcano-cli/commit/e0bb10619f8d1a01311f1e3c64f6b07770974c70))
+
+## [0.18.0](https://github.com/Kong/volcano-cli/compare/v0.17.0...v0.18.0) (2026-07-29)
+
+
+### Features
+
+* **docs:** source docs from volcano-docs and weight CLI section higher ([#134](https://github.com/Kong/volcano-cli/issues/134)) ([936aabd](https://github.com/Kong/volcano-cli/commit/936aabd87d35f665e7e7d3abdddfb3ecc940cded))
+
+## [0.17.0](https://github.com/Kong/volcano-cli/compare/v0.16.0...v0.17.0) (2026-07-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* **setup:** rename --harness flag to --agent ([#139](https://github.com/Kong/volcano-cli/issues/139))
+
+### Features
+
+* **setup:** rename --harness flag to --agent ([#139](https://github.com/Kong/volcano-cli/issues/139)) ([8a29003](https://github.com/Kong/volcano-cli/commit/8a2900314e9d6d7f5756ed8f16098313fec77cf0))
+
+## [0.16.0](https://github.com/Kong/volcano-cli/compare/v0.15.2...v0.16.0) (2026-07-29)
+
+
+### Features
+
+* **ci:** auto-bump Homebrew tap on stable release ([#135](https://github.com/Kong/volcano-cli/issues/135)) ([492a8e4](https://github.com/Kong/volcano-cli/commit/492a8e4b07be97841a7ce3c0d9db11d46990ad53))
+
+## [0.15.2](https://github.com/Kong/volcano-cli/compare/v0.15.1...v0.15.2) (2026-07-28)
+
+
+### Bug Fixes
+
+* **api:** clearer error when the Volcano API is unreachable ([#130](https://github.com/Kong/volcano-cli/issues/130)) ([91a6282](https://github.com/Kong/volcano-cli/commit/91a6282f830b9fd994df643475cd1f3d98d6be8d))
+
+## [0.15.1](https://github.com/Kong/volcano-cli/compare/v0.15.0...v0.15.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **setup:** color CTA heading volcano-400 ([#129](https://github.com/Kong/volcano-cli/issues/129)) ([46eb79a](https://github.com/Kong/volcano-cli/commit/46eb79abe3d7a893a9ca1217bca94e4ef959be88))
+
+## [0.15.0](https://github.com/Kong/volcano-cli/compare/v0.14.1...v0.15.0) (2026-07-27)
+
+
+### Features
+
+* **setup:** give space/enter/esc key hints distinct colors ([#126](https://github.com/Kong/volcano-cli/issues/126)) ([7110614](https://github.com/Kong/volcano-cli/commit/71106143ccac71a6fda68c8d0eed446193d5acdc))
+
+## [0.14.1](https://github.com/Kong/volcano-cli/compare/v0.14.0...v0.14.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* better deployments ([#79](https://github.com/Kong/volcano-cli/issues/79)) ([e665f4b](https://github.com/Kong/volcano-cli/commit/e665f4b5cd79ca06036952042eb2d66cba2dbf0d))
+
 ## [0.14.0](https://github.com/Kong/volcano-cli/compare/v0.13.1...v0.14.0) (2026-07-27)
 
 

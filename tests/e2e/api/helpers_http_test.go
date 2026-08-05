@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -11,6 +13,8 @@ import (
 	"testing"
 	"time"
 )
+
+var errAPIE2ECleanup = errors.New("API E2E cleanup failed")
 
 func createAPIE2EUser(t *testing.T, mgmtURL, userID string) {
 	t.Helper()
@@ -48,28 +52,51 @@ func createAPIE2EServiceKey(t *testing.T, apiURL, token, projectID, name string)
 	return key
 }
 
-func deleteAPIE2EProject(apiURL, token, projectID string) {
-	deleteAPIE2EResource(apiURL+"/projects/"+projectID, token)
+func deleteAPIE2EProject(apiURL, token, projectID string) error {
+	return deleteAPIE2EResource(apiURL+"/projects/"+projectID, token)
 }
 
-func deleteAPIE2EUser(mgmtURL, userID string) {
-	deleteAPIE2EResource(mgmtURL+"/users/"+userID, "")
+func deleteAPIE2EUser(mgmtURL, userID string) error {
+	return deleteAPIE2EResource(mgmtURL+"/users/"+userID, "")
 }
 
-func deleteAPIE2EResource(url, token string) {
-	req, err := http.NewRequest(http.MethodDelete, url, http.NoBody)
+func deleteAPIE2EResource(url, token string) error {
+	deadline := time.Now().Add(apiE2EResourceDeleteTimeout)
+	for {
+		status, body, err := deleteAPIE2EResourceOnce(url, token)
+		if err != nil {
+			return err
+		}
+		if status >= http.StatusOK && status < http.StatusMultipleChoices || status == http.StatusNotFound {
+			return nil
+		}
+		if status != http.StatusConflict {
+			return fmt.Errorf("%w: DELETE %s returned %d: %s", errAPIE2ECleanup, url, status, body)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%w: DELETE %s remained blocked by 409", errAPIE2ECleanup, url)
+		}
+		time.Sleep(apiE2EPollInterval)
+	}
+}
+
+func deleteAPIE2EResourceOnce(url, token string) (int, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, http.NoBody)
 	if err != nil {
-		return
+		return 0, "", fmt.Errorf("%w: build DELETE %s: %w", errAPIE2ECleanup, url, err)
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err == nil && resp != nil {
-		_ = resp.Body.Close()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, "", fmt.Errorf("%w: DELETE %s: %w", errAPIE2ECleanup, url, err)
 	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, strings.TrimSpace(string(body)), nil
 }
 
 func apiE2EJSONRequest(t *testing.T, method, url, token string, body any, expectedStatuses ...int) map[string]any {

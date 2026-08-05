@@ -15,7 +15,7 @@ is invoked over HTTP, by name/alias, or on a schedule.
 - Reads configuration and secrets from **variables**.
 - Connects to **databases** and **storage** in the same project.
 - Its **visibility** (public/private) and **schedulers** can be declared in the
-  [declarative config](../project-configuration.md) or managed with the CLI.
+  [declarative config](project-configuration.md) or managed with the CLI.
 - Can be given an **alias** so you can invoke it by a friendly name.
 
 The CLI discovers functions in the `volcano/functions` directory, detects the
@@ -38,6 +38,10 @@ runtime from source file extensions, and uploads a packaged archive.
 
 Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to force the cloud
 target instead of the active context.
+
+Cloud deploys use latest-wins queueing. If the function is already deploying,
+the new source replaces any older queued deploy and runs next. Delete supersedes
+queued deploys; later deploys are rejected until deletion finishes.
 
 ## Examples
 

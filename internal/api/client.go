@@ -81,6 +81,12 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 	cfg.httpClient = versionProtocolDoer{next: debugDoer{next: cfg.httpClient}}
 	cfg.streamHTTPClient = versionProtocolDoer{next: debugDoer{next: cfg.streamHTTPClient}}
 
+	// Outermost wrapper: rewrite opaque transport failures (connection refused,
+	// DNS, timeout) into an actionable message naming the API URL. Wraps the
+	// whole chain so it sees the final transport error from any request.
+	cfg.httpClient = networkErrorDoer{apiURL: apiURL, next: cfg.httpClient}
+	cfg.streamHTTPClient = networkErrorDoer{apiURL: apiURL, next: cfg.streamHTTPClient}
+
 	baseURL := generatedClientBaseURL(parsed)
 	clientOpts := []apiclient.ClientOption{
 		apiclient.WithHTTPClient(cfg.httpClient),

@@ -129,10 +129,6 @@ workflow rejects a stable tag whose `package.json` does not match the tag, or
 that is not reachable from `origin/main`. Merging to `main` and creating
 in-repo branches are restricted to the maintainer teams and the release app.
 
-Prerelease and build metadata tags are not stable release tags. Nightly builds
-remain automated from `main` and publish to the mutable `nightly` GitHub Release;
-they are not npm releases and are separate from the stable Release Please flow.
-
 Required repository secrets and variables for stable release publishing:
 
 - `VOLCANO_APP_ID` (variable) and `VOLCANO_APP_KEY` (secret): the GitHub App

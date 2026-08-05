@@ -52,7 +52,7 @@ type Result struct {
 type Report struct {
 	Results []Result
 	// ManualFallback is true only when no harness was detected and setup fell
-	// back to ~/.volcano. An explicit --manual (or --harness manual) produces a
+	// back to ~/.volcano. An explicit --manual (or --agent manual) produces a
 	// "manual" result but leaves this false: it was requested, not a fallback.
 	ManualFallback bool
 }
@@ -76,8 +76,8 @@ type Options struct {
 	HomeDir       string                       // default os.UserHomeDir()
 	Getenv        func(string) string          // default os.Getenv
 	LookPath      func(string) (string, error) // default exec.LookPath
-	Only          []string                     // explicit --harness targets (bypasses autodetect)
-	BestEffort    bool                         // downgrade Only-target install failures to detected (interactive default); --harness stays strict
+	Only          []string                     // explicit --agent targets (bypasses autodetect)
+	BestEffort    bool                         // downgrade Only-target install failures to detected (interactive default); --agent stays strict
 	Manual        bool                         // force the ~/.volcano fallback
 	DryRun        bool                         // report the plan without writing
 }
@@ -101,9 +101,9 @@ const (
 )
 
 // Run detects/targets harnesses and installs Volcano into each. It returns an
-// error only for setup-wide problems (e.g. an unknown --harness). Autodetect is
+// error only for setup-wide problems (e.g. an unknown --agent). Autodetect is
 // best-effort: a detected harness whose install fails is reported as detected
-// (not installed) rather than failed. Only an explicit --harness target records
+// (not installed) rather than failed. Only an explicit --agent target records
 // a failure — inspect Report.Failed.
 func Run(ctx context.Context, opts Options) (Report, error) {
 	res, env, err := opts.resolve()
@@ -122,7 +122,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 	// Autodetect is best-effort. Undetected harnesses are recorded as skipped and
 	// omitted from the rendered report. A detected harness we couldn't finish
 	// setting up — e.g. the skills endpoint isn't live yet — is reported as
-	// detected (install failed), not a hard failure; only an explicit --harness
+	// detected (install failed), not a hard failure; only an explicit --agent
 	// target turns an install failure into a command error.
 	var report Report
 	detected := 0
@@ -145,7 +145,7 @@ func Run(ctx context.Context, opts Options) (Report, error) {
 // status 500" rather than a bare failure). Used by the autodetect default and
 // the interactive default selection so one harness failing — e.g. the skills
 // endpoint not being live yet during rollout — doesn't fail the whole command.
-// Explicit --harness targeting stays strict (BestEffort false) so a named
+// Explicit --agent targeting stays strict (BestEffort false) so a named
 // target that fails is a hard error.
 func bestEffortResult(r Result) Result {
 	if r.Status != StatusFailed {

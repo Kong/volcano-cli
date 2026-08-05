@@ -64,8 +64,11 @@ a new snapshot while the server is running.
 The corpus is parsed into heading-delimited sections. Each search builds a small
 in-memory BM25 index over those sections with boosts for titles, headings,
 paths, exact phrases, and technical tokens (identifiers, flags, CLI commands),
-then returns the best-matching sections with a snippet and source line range. No
-index is persisted and no external services are used.
+then returns the best-matching sections with a snippet and source line range. The
+CLI docs section (the `cli` topic) gets a ranking boost, so an otherwise
+comparable CLI match sorts above the broader product/platform docs; a
+substantially stronger product match can still rank higher. No index is
+persisted and no external services are used.
 
 ## JSON output for agents
 
@@ -78,9 +81,9 @@ Every command supports `--json`, emitting a single versioned envelope on stdout
   "command": "search",
   "source": {
     "provider": "github",
-    "repository": "Kong/volcano-cli",
+    "repository": "Kong/volcano-docs",
     "ref": "main",
-    "path": "docs",
+    "path": "content",
     "resolved_commit": "…"
   },
   "cache": { "key": "…", "synced_at": "…", "checked_at": "…", "stale": false, "offline": false },
@@ -111,11 +114,11 @@ read that section. Errors use the same envelope with an `error` object
 
 ## Configuring the source
 
-The documentation source defaults to the `docs/` directory of the public
-`Kong/volcano-cli` repository on `main` — the CLI's own documentation, which
-stays versioned with the CLI and needs no authentication. Override it per
-invocation or via the environment; precedence is flags → environment → config →
-defaults:
+The documentation source defaults to the `content/` directory of the public
+`Kong/volcano-docs` repository on `main` — the full Volcano documentation
+corpus, including the CLI docs under `content/cli` — and needs no
+authentication. Override the source per invocation or via the environment;
+precedence is flags → environment → config → defaults:
 
 | Field      | Flag     | Environment          |
 |------------|----------|----------------------|
@@ -123,11 +126,10 @@ defaults:
 | git ref    | `--ref`  | `VOLCANO_DOCS_REF`   |
 | subdir     | `--path` | `VOLCANO_DOCS_PATH`  |
 
-To search the broader product/API documentation instead, point it at the
-hosting repo:
+To restrict a search to just the CLI docs, use `--topic cli`:
 
 ```bash
-volcano docs --repo Kong/volcano-hosting --path docs search "row level security"
+volcano docs search "docs search" --topic cli
 ```
 
 Each source is cached separately. Note that `volcano <command> --help` is the

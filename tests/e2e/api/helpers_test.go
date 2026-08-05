@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -14,6 +15,11 @@ const (
 	apiE2EDefaultRegion     = "aws-us-east-1"
 	apiE2EDefaultPGVersion  = "16"
 	apiE2ECompiledAPIURLVar = "github.com/Kong/volcano-cli/internal/config.compiledDefaultAPIURL"
+
+	apiE2EFunctionDeploymentTimeout = 20 * time.Minute
+	apiE2EFrontendDeploymentTimeout = 30 * time.Minute
+	apiE2EResourceDeleteTimeout     = 10 * time.Minute
+	apiE2EPollInterval              = 5 * time.Second
 )
 
 type apiE2E struct {
@@ -39,12 +45,16 @@ func setupAPIE2E(t *testing.T, prefix string) *apiE2E {
 	projectName := fmt.Sprintf("cli-e2e-%s-%s", prefix, suffix)
 	createAPIE2EUser(t, mgmtURL, userID)
 	t.Cleanup(func() {
-		deleteAPIE2EUser(mgmtURL, userID)
+		if err := deleteAPIE2EUser(mgmtURL, userID); err != nil {
+			t.Errorf("delete API E2E user: %v", err)
+		}
 	})
 	token := createAPIE2EUserToken(t, mgmtURL, userID)
 	projectID := createAPIE2EProject(t, apiURL, token, projectName)
 	t.Cleanup(func() {
-		deleteAPIE2EProject(apiURL, token, projectID)
+		if err := deleteAPIE2EProject(apiURL, token, projectID); err != nil {
+			t.Errorf("delete API E2E project: %v", err)
+		}
 	})
 
 	env := &apiE2E{

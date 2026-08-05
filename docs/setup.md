@@ -21,7 +21,7 @@ what is installed, sets each one up, and reports what changed.
 
 ```bash
 volcano setup                        # detect and set up all detected harnesses
-volcano setup --harness claude-code  # only the named harness(es)
+volcano setup --agent claude-code    # only the named agent(s)
 volcano setup --manual               # force the ~/.volcano manual install
 volcano setup --dry-run              # show what would change, write nothing
 volcano setup --yes                  # skip the prompt (use in agents/CI)

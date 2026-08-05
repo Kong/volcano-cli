@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -528,7 +529,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 
 	runtimeLogs, err := client.GetFunctionLogs(context.Background(), projectID, functionID, 50, "fn-next")
 	require.NoError(t, err)
-	assert.Equal(t, "function runtime", runtimeLogs.Data[0].Message)
+	assert.Equal(t, "function runtime", logSearchEventBody(t, runtimeLogs.Data[0]))
 	require.Len(t, logSearchBodies, 1)
 	runtimeResource, ok := logSearchBodies[0]["resource"].(map[string]any)
 	require.True(t, ok)
@@ -539,7 +540,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 
 	deploymentLogs, err := client.GetFunctionDeploymentLogs(context.Background(), projectID, functionID, deploymentID, 75, "dep-next")
 	require.NoError(t, err)
-	assert.Equal(t, "deployment build", deploymentLogs.Data[0].Message)
+	assert.Equal(t, "deployment build", logSearchEventBody(t, deploymentLogs.Data[0]))
 	require.Len(t, logSearchBodies, 2)
 	buildResource, ok := logSearchBodies[1]["resource"].(map[string]any)
 	require.True(t, ok)
@@ -738,11 +739,11 @@ func logSearchIsBuild(body map[string]any) bool {
 	return hasDeployments
 }
 
-func logsResponse(message string) map[string]any {
+func logsResponse(body string) map[string]any {
 	return map[string]any{
 		"data": []any{
 			map[string]any{
-				"message":   message,
+				"body":      body,
 				"timestamp": "2025-10-09T08:53:20Z",
 			},
 		},
@@ -751,6 +752,14 @@ func logsResponse(message string) map[string]any {
 		"page":     1,
 		"total":    1,
 	}
+}
+
+func logSearchEventBody(t *testing.T, event apiclient.LogSearchEvent) string {
+	t.Helper()
+	require.NotNil(t, event.Body)
+	body, err := event.Body.AsLogSearchEventBody0()
+	require.NoError(t, err)
+	return body
 }
 
 func writeAPIJSON(t *testing.T, w http.ResponseWriter, status int, value any) {

@@ -19,6 +19,7 @@ func TestAPIE2ECloudConfig(t *testing.T) {
 
 	env.loginAndUse(t)
 	env.runCloudCLI(t, "functions", "deploy", "-f", "hello").requireSuccess(t, "1/1 functions deployment started")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	t.Cleanup(func() {
 		_ = env.runCloudCLI(t, "functions", "delete", "hello", "--yes")
 	})
@@ -32,6 +33,7 @@ func TestAPIE2ECloudConfig(t *testing.T) {
 	// SMOKE_MESSAGE exists server-side but is absent from the manifest below:
 	// the deploy must delete it (variables are fully synced).
 	env.runCloudCLI(t, "variables", "deploy").requireSuccess(t, "SMOKE_MESSAGE", "variable(s) saved")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 
 	manifestPath := filepath.Join(env.projectDir, "volcano", "volcano-config.yaml")
 	interpolatedValue := "interpolated-" + apiE2ESuffix(t)
@@ -83,6 +85,7 @@ functions:
 		"Summary:",
 	)
 	deploy.requireNotContains(t, "Warning:", "Error:")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 
 	env.runCloudCLI(t, "storage", "bucket", "get", configBucket).requireSuccess(t, configBucket, "8.0 KiB", "text/plain")
 	env.runCloudCLI(t, "storage", "policy", "get", configBucket, "config-read").requireSuccess(t, "config-read", "SELECT", "true")
@@ -126,6 +129,7 @@ variables:
 
 	// Item 20b: the real deploy syncs variables exactly (deletes the extra).
 	env.runCloudCLIWithEnv(t, secretEnv, "config", "deploy").requireSuccess(t, "Configuration deployed", "1 deleted")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	afterSync := env.runCloudCLI(t, "variables", "list")
 	afterSync.requireSuccess(t, "CONFIG_SECRET")
 	afterSync.requireNotContains(t, "CONFIG_PLAIN")
@@ -167,4 +171,7 @@ variables:
     value: ${CLI_E2E_UNSET_VARIABLE}
 `)
 	env.runCloudCLI(t, "config", "deploy").requireFailure(t, `environment variable "CLI_E2E_UNSET_VARIABLE" is not set`)
+
+	env.runCloudCLI(t, "functions", "delete", "hello", "--yes").requireSuccess(t, "deletion started")
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No functions deployed", "functions", "list")
 }
