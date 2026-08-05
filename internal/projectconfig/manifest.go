@@ -127,6 +127,11 @@ type AuthSessionsManifest struct {
 type AuthSignupManifest struct {
 	EnableSignup           *bool `yaml:"enable_signup,omitempty" json:"enable_signup,omitempty"`
 	EnableAnonymousSignins *bool `yaml:"enable_anonymous_signins,omitempty" json:"enable_anonymous_signins,omitempty"`
+	// AllowedEmailDomains replaces the stored allowlist; an empty list removes
+	// the restriction. AllowedEmailDomainsMode is disabled, signup, or
+	// signup_and_signin.
+	AllowedEmailDomains     *[]string `yaml:"allowed_email_domains,omitempty" json:"allowed_email_domains,omitempty"`
+	AllowedEmailDomainsMode *string   `yaml:"allowed_email_domains_mode,omitempty" json:"allowed_email_domains_mode,omitempty"`
 }
 
 // AuthRateLimitsManifest declares per-hour auth rate limits.
