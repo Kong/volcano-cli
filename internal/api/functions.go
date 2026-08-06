@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 
 	"github.com/google/uuid"
@@ -112,6 +113,15 @@ func (c *Client) UpdateFunctionVisibility(ctx context.Context, projectID, functi
 }
 
 // InvokeFunction invokes one function by ID.
+//
+// The invoke endpoint passes through whatever the target function handler
+// returns, so unlike other endpoints its response body isn't guaranteed to
+// be a JSON object matching the generated schema (it may be plain text,
+// HTML, empty, or non-object JSON). The generated WithResponse client only
+// populates JSON200/JSONDefault when the body is a JSON object, so this
+// calls the raw client method and classifies success/failure on the HTTP
+// status code directly, decoding the body leniently rather than erroring
+// out on a genuine 2xx.
 func (c *Client) InvokeFunction(ctx context.Context, functionID uuid.UUID, input FunctionInvokeInput) (*apiclient.FunctionInvocationResponse, error) {
 	body := apiclient.InvokeFunctionJSONRequestBody{}
 	if input.Payload != nil {
@@ -119,14 +129,38 @@ func (c *Client) InvokeFunction(ctx context.Context, functionID uuid.UUID, input
 		body.Payload = &payload
 	}
 
-	resp, err := c.client.InvokeFunctionWithResponse(ctx, functionID, body)
+	httpResp, err := c.client.InvokeFunction(ctx, functionID, body)
 	if err != nil {
 		return nil, err
 	}
-	if resp.JSONDefault != nil && resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
-		return resp.JSONDefault, nil
+	defer func() { _ = httpResp.Body.Close() }()
+	respBody, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429, resp.JSON503)
+
+	if httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
+		return decodeInvocationResponseBody(respBody), nil
+	}
+	return nil, apiError(httpResp.StatusCode, respBody)
+}
+
+// decodeInvocationResponseBody interprets a successful invocation's raw body
+// leniently: a JSON object is used as-is, any other JSON value or plain-text
+// body is wrapped under a "body" key, and an empty body yields an empty map.
+func decodeInvocationResponseBody(body []byte) *apiclient.FunctionInvocationResponse {
+	if len(body) == 0 {
+		return &apiclient.FunctionInvocationResponse{}
+	}
+	var asMap apiclient.FunctionInvocationResponse
+	if json.Unmarshal(body, &asMap) == nil {
+		return &asMap
+	}
+	var asValue any
+	if json.Unmarshal(body, &asValue) == nil {
+		return &apiclient.FunctionInvocationResponse{"body": asValue}
+	}
+	return &apiclient.FunctionInvocationResponse{"body": string(body)}
 }
 
 // ListFunctionRuntimes returns the function runtime catalog.
