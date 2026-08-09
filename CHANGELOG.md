@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/Kong/volcano-cli/compare/v0.19.4...v0.20.0) (2026-08-09)
+
+
+### Features
+
+* email domain lock ([#153](https://github.com/Kong/volcano-cli/issues/153)) ([f1ae924](https://github.com/Kong/volcano-cli/commit/f1ae92473a6c83fad44891a70dca33994a07b2fc))
+
 ## [0.19.4](https://github.com/Kong/volcano-cli/compare/v0.19.3...v0.19.4) (2026-08-03)
 
 
