@@ -73,6 +73,12 @@ services:
         condition: service_healthy
       dynamodb:
         condition: service_started
+    # Mount docker socket to allow agent worker launch (local mode only).
+    # WARNING: This grants the server container permission to run any container
+    # with the server's privileges. Only safe in local development on your machine.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - volcano-storage:/app/local-storage
     environment:
       # Core settings
       LOCAL_MODE: "true"
@@ -124,8 +130,6 @@ services:
       VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID: ${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}
       VOLCANO_FIRST_PARTY_AUTH_EMAIL: ${VOLCANO_FIRST_PARTY_AUTH_EMAIL:-}
       VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH: ${VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH:-}
-    volumes:
-      - volcano-storage:/app/local-storage
     ports:
       - "8000:8000"
       - "8002:8002"
