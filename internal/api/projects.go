@@ -35,7 +35,7 @@ func (c *Client) CreateProject(ctx context.Context, name string) (*apiclient.Pro
 // ListAnonKeys lists a project's anon keys — the publishable JWTs that go in
 // the frontend/SDK Authorization header (the value an app build needs).
 func (c *Client) ListAnonKeys(ctx context.Context, projectID uuid.UUID) ([]apiclient.AnonKey, error) {
-	resp, err := c.client.ListAnonKeysWithResponse(ctx, projectID)
+	resp, err := c.client.ListAnonKeysWithResponse(ctx, projectID, nil)
 	if err != nil {
 		return nil, err
 	}

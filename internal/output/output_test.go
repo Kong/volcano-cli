@@ -166,7 +166,7 @@ func TestVariablesOutputDoesNotPrintValues(t *testing.T) {
 	require.NoError(t, err)
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
-	status := apiclient.Active
+	status := apiclient.VariableStatusActive
 	var out bytes.Buffer
 
 	Variables(&out, &apiclient.PaginatedVariables{

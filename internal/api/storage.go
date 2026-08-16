@@ -43,7 +43,7 @@ type StorageObjectListOptions struct {
 
 // ListStorageBuckets returns every bucket in the project.
 func (c *Client) ListStorageBuckets(ctx context.Context, projectID uuid.UUID) ([]apiclient.StorageBucket, error) {
-	resp, err := c.client.ListStorageBucketsWithResponse(ctx, projectID)
+	resp, err := c.client.ListStorageBucketsWithResponse(ctx, projectID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,16 @@ func (c *Client) ListStorageBuckets(ctx context.Context, projectID uuid.UUID) ([
 	if page == nil {
 		return nil, nil
 	}
-	return *page, nil
+	// The endpoint answers a request without pagination params with a bare
+	// array, and a paginated envelope otherwise.
+	if buckets, err := page.AsListStorageBuckets200JSONResponseBody0(); err == nil {
+		return buckets, nil
+	}
+	paginated, err := page.AsPaginatedStorageBuckets()
+	if err != nil {
+		return nil, err
+	}
+	return paginated.Data, nil
 }
 
 // CreateStorageBucket creates one bucket in the project.
