@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	branchcmd "github.com/Kong/volcano-cli/internal/cmd/databases/branch"
 	migrationcmd "github.com/Kong/volcano-cli/internal/cmd/databases/migration"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -34,6 +35,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
+	cmd.AddCommand(branchcmd.New(deps))
 	cmd.AddCommand(migrationcmd.New(deps))
 	return cmd
 }
