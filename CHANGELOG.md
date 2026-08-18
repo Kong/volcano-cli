@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/Kong/volcano-cli/compare/v0.20.0...v0.21.0) (2026-08-18)
+
+
+### Features
+
+* **databases:** manage database branches from the CLI ([#157](https://github.com/Kong/volcano-cli/issues/157)) ([5a6e7c8](https://github.com/Kong/volcano-cli/commit/5a6e7c858ce018ceb047e88c58d50b6edb01b2ca))
+
 ## [0.20.0](https://github.com/Kong/volcano-cli/compare/v0.19.4...v0.20.0) (2026-08-09)
 
 
