@@ -18,6 +18,14 @@ func Delete(r io.Reader, w io.Writer, resource string, names ...string) (bool, e
 	return readConfirmation(r, w, "Delete cancelled.")
 }
 
+// Action prompts for confirmation of a destructive change other than a delete.
+// warning describes what the caller is about to do, and question asks it.
+func Action(r io.Reader, w io.Writer, warning, question string) (bool, error) {
+	fmt.Fprintln(w, warning)
+	fmt.Fprintf(w, "%s Type 'y' or 'yes' to confirm: ", question)
+	return readConfirmation(r, w, "Cancelled.")
+}
+
 func deletePrompt(resource string, names ...string) string {
 	if len(names) == 1 {
 		return fmt.Sprintf("Delete %s '%s'? Type 'y' or 'yes' to confirm: ", resource, names[0])
