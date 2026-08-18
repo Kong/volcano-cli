@@ -12,6 +12,7 @@ import (
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	cloudcmd "github.com/Kong/volcano-cli/internal/cmd/cloud"
 	docscmd "github.com/Kong/volcano-cli/internal/cmd/docs"
+	gitcmd "github.com/Kong/volcano-cli/internal/cmd/git"
 	initcmd "github.com/Kong/volcano-cli/internal/cmd/init"
 	localcmd "github.com/Kong/volcano-cli/internal/cmd/local"
 	localmodecmd "github.com/Kong/volcano-cli/internal/cmd/localmode"
@@ -56,6 +57,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(docscmd.New(deps))
 	root.AddCommand(projectcmd.NewProjects(deps))
 	root.AddCommand(projectcmd.NewUse(deps))
+	root.AddCommand(gitcmd.New(deps))
 	root.AddCommand(localmodecmd.NewDoctor(deps))
 	root.AddCommand(localmodecmd.NewStart(deps))
 	root.AddCommand(localmodecmd.NewStatus(deps))

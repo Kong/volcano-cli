@@ -1,0 +1,173 @@
+package localgit
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+)
+
+func TestParseGitHubRepositoryAcceptsEveryFormGitHubHandsOut(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"scp-like ssh":       "git@github.com:octo/storefront.git",
+		"scp-like no suffix": "git@github.com:octo/storefront",
+		"ssh url":            "ssh://git@github.com/octo/storefront.git",
+		"https":              "https://github.com/octo/storefront.git",
+		"https no suffix":    "https://github.com/octo/storefront",
+		"https trailing":     "https://github.com/octo/storefront/",
+		"https with user":    "https://octo@github.com/octo/storefront.git",
+		"http":               "http://github.com/octo/storefront.git",
+		"www host":           "https://www.github.com/octo/storefront.git",
+		"uppercase host":     "git@GitHub.com:octo/storefront.git",
+		"ssh with port":      "ssh://git@github.com:22/octo/storefront.git",
+		"surrounding space":  "  git@github.com:octo/storefront.git  ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			repository, err := ParseGitHubRepository(rawURL)
+			require.NoError(t, err)
+			assert.Equal(t, "octo", repository.Owner)
+			assert.Equal(t, "storefront", repository.Name)
+			assert.Equal(t, "octo/storefront", repository.FullName())
+		})
+	}
+}
+
+// A repository name may itself end in ".git"; only the URL suffix is stripped.
+func TestParseGitHubRepositoryKeepsADotGitInTheName(t *testing.T) {
+	t.Parallel()
+	repository, err := ParseGitHubRepository("git@github.com:octo/dot.git.git")
+	require.NoError(t, err)
+	assert.Equal(t, "dot.git", repository.Name)
+}
+
+func TestParseGitHubRepositoryRejectsOtherHosts(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"gitlab":            "git@gitlab.com:octo/storefront.git",
+		"bitbucket https":   "https://bitbucket.org/octo/storefront.git",
+		"github enterprise": "git@github.example.com:octo/storefront.git",
+		// A lookalike host: the check is the whole hostname, not a suffix.
+		"lookalike suffix": "https://notgithub.com/octo/storefront.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseGitHubRepository(rawURL)
+			require.ErrorIs(t, err, ErrNotGitHub)
+		})
+	}
+}
+
+func TestParseGitHubRepositoryRejectsUnusableURLs(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"empty":          "",
+		"blank":          "   ",
+		"no separator":   "github.com",
+		"no repo":        "git@github.com:octo",
+		"empty owner":    "https://github.com//storefront.git",
+		"empty repo":     "https://github.com/octo/",
+		"extra segment":  "https://github.com/octo/storefront/tree/main",
+		"unknown scheme": "ftp://github.com/octo/storefront.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseGitHubRepository(rawURL)
+			require.Error(t, err)
+			assert.True(t,
+				errors.Is(err, ErrUnparsableRemote) || errors.Is(err, ErrNotGitHub),
+				"want an unparsable or not-GitHub error, got %v", err)
+		})
+	}
+}
+
+func TestRemotesKeepsFetchEntriesOnlyAndDeduplicates(t *testing.T) {
+	t.Parallel()
+	client := clientReturning(t, "git remote -v", ""+
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n"+
+		"origin\tgit@github.com:octo/mirror.git (push)\n"+
+		"upstream\thttps://github.com/acme/storefront.git (fetch)\n"+
+		"upstream\thttps://github.com/acme/storefront.git (push)\n")
+
+	remotes, err := client.Remotes(t.Context())
+	require.NoError(t, err)
+	require.Len(t, remotes, 2)
+	assert.Equal(t, Remote{Name: "origin", URL: "git@github.com:octo/storefront.git"}, remotes[0])
+	assert.Equal(t, Remote{Name: "upstream", URL: "https://github.com/acme/storefront.git"}, remotes[1])
+}
+
+func TestRemotesReportsAnEmptyRemoteList(t *testing.T) {
+	t.Parallel()
+	_, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
+	require.ErrorIs(t, err, ErrNoRemotes)
+}
+
+func TestRemotesReportsANonRepository(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(context.Context, string, ...string) ([]byte, error) {
+			return nil, errors.New("exit status 128")
+		})}
+
+	_, err := client.Remotes(t.Context())
+	require.ErrorIs(t, err, ErrNotARepository)
+}
+
+func TestSelectRemote(t *testing.T) {
+	t.Parallel()
+	origin := Remote{Name: "origin", URL: "git@github.com:octo/storefront.git"}
+	upstream := Remote{Name: "upstream", URL: "git@github.com:acme/storefront.git"}
+	fork := Remote{Name: "fork", URL: "git@github.com:me/storefront.git"}
+
+	t.Run("a lone remote is taken whatever it is called", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{upstream}, "")
+		require.NoError(t, err)
+		assert.Equal(t, upstream, selected)
+	})
+
+	t.Run("origin wins among several", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{upstream, origin}, "")
+		require.NoError(t, err)
+		assert.Equal(t, origin, selected)
+	})
+
+	t.Run("several remotes without origin are ambiguous", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{upstream, fork}, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--remote")
+	})
+
+	t.Run("a named remote is used even when origin exists", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream")
+		require.NoError(t, err)
+		assert.Equal(t, upstream, selected)
+	})
+
+	t.Run("a missing named remote is an error", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{origin}, "nope")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `no remote named "nope"`)
+	})
+}
+
+// clientReturning builds a Client whose runner asserts the command line it is
+// given and answers with stdout.
+func clientReturning(t *testing.T, wantCommand, stdout string) Client {
+	t.Helper()
+	return Client{runner: cliruntime.CommandRunnerFunc(
+		func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, wantCommand, strings.TrimSpace(name+" "+strings.Join(args, " ")))
+			return []byte(stdout), nil
+		})}
+}
