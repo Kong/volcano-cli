@@ -53,7 +53,7 @@ func DatabaseBranch(w io.Writer, branch *apiclient.DatabaseBranch, showConnectio
 	kv(w, on, "Name", "%s", branch.Name)
 	kv(w, on, "Status", "%s", theme.Status(branchStatus(*branch), on))
 	kv(w, on, "Storage", "%s", formatBranchStorage(branch.StorageBytes))
-	kv(w, on, "Expires", "%s (in %s)", FormatTimestamp(branch.ExpiresAt), formatBranchRemaining(branch.ExpiresAt))
+	kv(w, on, "Expires", "%s (%s)", FormatTimestamp(branch.ExpiresAt), formatBranchExpiry(branch.ExpiresAt))
 	kv(w, on, "Lifetime", "%s", formatBranchTTL(branch.TtlSeconds))
 	if branch.LastInvokedAt != nil {
 		kv(w, on, "Last used", "%s", FormatTimeAgo(*branch.LastInvokedAt))
@@ -91,12 +91,26 @@ func formatBranchTTL(ttlSeconds int64) string {
 	return formatBranchDuration(time.Duration(ttlSeconds) * time.Second)
 }
 
+const branchExpiredLabel = "expired"
+
+// formatBranchRemaining renders what is left of a lifetime, bare, for the list
+// view's "Expires in" column.
 func formatBranchRemaining(expiresAt time.Time) string {
 	remaining := time.Until(expiresAt)
 	if remaining <= 0 {
-		return "expired"
+		return branchExpiredLabel
 	}
 	return formatBranchDuration(remaining)
+}
+
+// formatBranchExpiry renders the same figure for the detail view, where it sits
+// beside an absolute timestamp and needs a preposition. "in" belongs only on a
+// lifetime still running down, so it lives here rather than in the column value.
+func formatBranchExpiry(expiresAt time.Time) string {
+	if time.Until(expiresAt) <= 0 {
+		return branchExpiredLabel
+	}
+	return "in " + formatBranchRemaining(expiresAt)
 }
 
 func formatBranchDuration(d time.Duration) string {
