@@ -3,6 +3,8 @@ package localgit
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -87,11 +89,11 @@ func TestParseGitHubRepositoryRejectsUnusableURLs(t *testing.T) {
 	}
 }
 
-func TestRemotesKeepsFetchEntriesOnlyAndDeduplicates(t *testing.T) {
+func TestRemotesReadsEveryRemoteInOrder(t *testing.T) {
 	t.Parallel()
 	client := clientReturning(t, "git remote -v", ""+
 		"origin\tgit@github.com:octo/storefront.git (fetch)\n"+
-		"origin\tgit@github.com:octo/mirror.git (push)\n"+
+		"origin\tgit@github.com:octo/storefront.git (push)\n"+
 		"upstream\thttps://github.com/acme/storefront.git (fetch)\n"+
 		"upstream\thttps://github.com/acme/storefront.git (push)\n")
 
@@ -100,6 +102,35 @@ func TestRemotesKeepsFetchEntriesOnlyAndDeduplicates(t *testing.T) {
 	require.Len(t, remotes, 2)
 	assert.Equal(t, Remote{Name: "origin", URL: "git@github.com:octo/storefront.git"}, remotes[0])
 	assert.Equal(t, Remote{Name: "upstream", URL: "https://github.com/acme/storefront.git"}, remotes[1])
+}
+
+// A remote with a separate push URL reports two different URLs under one name.
+// The fetch URL is the one that identifies the repository, so the push entry
+// has to be discarded rather than merely deduplicated away — a push-first
+// ordering would otherwise pick the wrong URL.
+func TestRemotesTakesTheFetchURLNotThePushURL(t *testing.T) {
+	t.Parallel()
+	client := clientReturning(t, "git remote -v", ""+
+		"origin\tgit@github.com:octo/mirror.git (push)\n"+
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n")
+
+	remotes, err := client.Remotes(t.Context())
+	require.NoError(t, err)
+	require.Len(t, remotes, 1)
+	assert.Equal(t, "git@github.com:octo/storefront.git", remotes[0].URL)
+}
+
+// Deduplication is by name, so a remote listed more than once as fetch — which
+// a hand-edited or included config can produce — appears once.
+func TestRemotesDeduplicatesRepeatedFetchEntries(t *testing.T) {
+	t.Parallel()
+	client := clientReturning(t, "git remote -v", ""+
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n"+
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n")
+
+	remotes, err := client.Remotes(t.Context())
+	require.NoError(t, err)
+	require.Len(t, remotes, 1)
 }
 
 func TestRemotesReportsAnEmptyRemoteList(t *testing.T) {
@@ -116,7 +147,66 @@ func TestRemotesReportsANonRepository(t *testing.T) {
 		})}
 
 	_, err := client.Remotes(t.Context())
-	require.ErrorIs(t, err, ErrNotARepository)
+	require.ErrorIs(t, err, ErrGitUnavailable)
+}
+
+// git's own message is the only thing that separates "you are in the wrong
+// directory" from "add this path to safe.directory", which is routine in a
+// container whose checkout is owned by another user.
+func TestRemotesKeepsGitsOwnDiagnosis(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(context.Context, string, ...string) ([]byte, error) {
+			return nil, &exec.ExitError{
+				ProcessState: &os.ProcessState{},
+				Stderr:       []byte("fatal: detected dubious ownership in repository at '/workspace'\n"),
+			}
+		})}
+
+	_, err := client.Remotes(t.Context())
+	require.ErrorIs(t, err, ErrGitUnavailable)
+	assert.Contains(t, err.Error(), "dubious ownership")
+}
+
+// A remote rewritten by CI carries a job token. Any message naming the remote
+// has to drop it, or it lands in the build log.
+func TestParseGitHubRepositoryRedactsCredentialsInErrors(t *testing.T) {
+	t.Parallel()
+	_, err := ParseGitHubRepository("https://gitlab-ci-token:glcbt-SUPERSECRET@gitlab.com/octo/storefront.git")
+
+	require.ErrorIs(t, err, ErrNotGitHub)
+	assert.NotContains(t, err.Error(), "SUPERSECRET")
+	assert.Contains(t, err.Error(), "gitlab-ci-token:***@gitlab.com")
+}
+
+func TestRedact(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ in, want string }{
+		"password dropped, user kept": {
+			"https://gitlab-ci-token:glcbt-SECRET@gitlab.com/octo/repo.git",
+			"https://gitlab-ci-token:***@gitlab.com/octo/repo.git",
+		},
+		"token as the whole userinfo is kept": {
+			// No colon means no password field to drop; GitHub PATs are not
+			// carried this way, and dropping a bare user name loses which
+			// remote this is.
+			"https://octo@github.com/octo/repo.git", "https://octo@github.com/octo/repo.git",
+		},
+		"no userinfo is untouched": {
+			"https://github.com/octo/repo.git", "https://github.com/octo/repo.git",
+		},
+		"scp-like is untouched": {
+			"git@github.com:octo/repo.git", "git@github.com:octo/repo.git",
+		},
+		"authority only": {
+			"https://user:pw@github.com", "https://user:***@github.com",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Redact(tc.in))
+		})
+	}
 }
 
 func TestSelectRemote(t *testing.T) {

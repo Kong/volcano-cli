@@ -132,10 +132,18 @@ func (s Service) resolveThroughConnection(
 		return nil, classifyProvider(err, "failed to list your GitHub App installations")
 	}
 
+	// One installation that cannot be listed must not hide a repository another
+	// one holds, for the same reason the connection loop keeps going: the
+	// owner's installation is tried first and is exactly the one most likely to
+	// be scoped away from the repository.
+	var failure error
 	for _, installation := range orderByOwner(installations, repository.Owner) {
 		repositories, err := client.ListGitInstallationRepositories(ctx, connectionID, installation.Id)
 		if err != nil {
-			return nil, classifyProvider(err, "failed to list repositories for "+installation.AccountLogin)
+			if failure == nil {
+				failure = classifyProvider(err, "failed to list repositories for "+installation.AccountLogin)
+			}
+			continue
 		}
 
 		for _, candidate := range repositories {
@@ -148,7 +156,7 @@ func (s Service) resolveThroughConnection(
 			}
 		}
 	}
-	return nil, nil //nolint:nilnil // a nil target with no error means "not here"; see the doc comment
+	return nil, failure
 }
 
 // Connect binds the current project to a resolved repository.

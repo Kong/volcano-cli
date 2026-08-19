@@ -24,6 +24,7 @@ const (
 	gitInstallation = int64(4242)
 	otherInstall    = int64(4343)
 	gitRepositoryID = int64(90210)
+	otherRepoID     = int64(90211)
 	connectionPath  = "/projects/" + gitProjectID + "/git-connection"
 	deploySettings  = "/projects/" + gitProjectID + "/git-deploy-settings"
 	connectionsPath = "/user/git/connections"
@@ -97,6 +98,10 @@ type gitAPI struct {
 	connected string
 	// connectedRoot is that binding's root directory.
 	connectedRoot string
+	// connectedRepoID overrides the bound repository's id. Left zero it is
+	// derived from the name, so a binding to another repository really is
+	// another repository — the id is what decides a replacement, not the name.
+	connectedRepoID int64
 
 	connections               []map[string]any
 	installationsByConnection map[string][]map[string]any
@@ -104,6 +109,8 @@ type gitAPI struct {
 	// installationsStatus overrides the installations response per connection,
 	// so a test can make one connection fail while another still answers.
 	installationsStatus map[string]int
+	// repositoriesStatus overrides the repositories response per installation.
+	repositoriesStatus map[int64]int
 
 	autoDeploy      bool
 	deployFunctions bool
@@ -133,6 +140,7 @@ func newGitAPI(t *testing.T) *gitAPI {
 			gitInstallation: {repository("octo/storefront")},
 		},
 		installationsStatus: map[string]int{},
+		repositoriesStatus:  map[int64]int{},
 		autoDeploy:          true,
 		deployFunctions:     true,
 	}
@@ -198,7 +206,7 @@ func installationOf(t *testing.T, path string) int64 {
 func (a *gitAPI) serveInstallations(w http.ResponseWriter, r *http.Request) {
 	connection := connectionOf(r.URL.Path)
 	if status := a.installationsStatus[connection]; status != 0 {
-		writeGitJSON(a.t, w, status, map[string]any{"error": "github rejected the stored token"})
+		writeGitJSON(a.t, w, status, map[string]any{"error": "github rejected the token for " + connection})
 		return
 	}
 	writeGitJSON(a.t, w, http.StatusOK, map[string]any{
@@ -207,8 +215,13 @@ func (a *gitAPI) serveInstallations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *gitAPI) serveRepositories(w http.ResponseWriter, r *http.Request) {
+	id := installationOf(a.t, r.URL.Path)
+	if status := a.repositoriesStatus[id]; status != 0 {
+		writeGitJSON(a.t, w, status, map[string]any{"error": "github rejected the request"})
+		return
+	}
 	writeGitJSON(a.t, w, http.StatusOK, map[string]any{
-		"repositories": a.reposByInstallation[installationOf(a.t, r.URL.Path)],
+		"repositories": a.reposByInstallation[id],
 	})
 }
 
@@ -219,7 +232,21 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
 	}
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot))
+	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot, a.currentRepoID()))
+}
+
+// currentRepoID derives the bound repository's id from its name unless a test
+// pinned one: a different name means a different repository, except where a
+// test is deliberately modelling a rename.
+func (a *gitAPI) currentRepoID() int64 {
+	switch {
+	case a.connectedRepoID != 0:
+		return a.connectedRepoID
+	case strings.EqualFold(a.connected, "octo/storefront"):
+		return gitRepositoryID
+	default:
+		return otherRepoID
+	}
 }
 
 func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
@@ -230,8 +257,9 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	// The preferred selector is the numeric id, so resolve it the way the
 	// platform would rather than echoing whatever was sent.
 	a.connected = "octo/storefront"
+	a.connectedRepoID = gitRepositoryID
 	a.connectedRoot, _ = a.connectBody["root_directory"].(string)
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot))
+	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot, gitRepositoryID))
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
@@ -269,10 +297,10 @@ func (a *gitAPI) disconnectCalled() bool {
 	return a.deleted
 }
 
-func connectionPayload(fullName, rootDirectory string) map[string]any {
+func connectionPayload(fullName, rootDirectory string, repoID int64) map[string]any {
 	return map[string]any{
 		"repo_installation_id": gitInstallation,
-		"repo_id":              gitRepositoryID,
+		"repo_id":              repoID,
 		"repo_full_name":       fullName,
 		"root_directory":       rootDirectory,
 		"production_branch":    "main",

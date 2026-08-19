@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/gitconnect"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -57,13 +56,11 @@ func runDisconnect(ctx context.Context, opts disconnectOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	if !opts.yes {
-		confirmed, err := confirm.Action(opts.in, opts.out,
-			fmt.Sprintf("Pushes to %s will stop deploying. The repository itself is not changed.", existing.RepoFullName),
-			fmt.Sprintf("Disconnect %s?", existing.RepoFullName))
-		if err != nil || !confirmed {
-			return err
-		}
+	confirmed, err := ask(opts.in, opts.out, opts.yes,
+		fmt.Sprintf("Pushes to %s will stop deploying. The repository itself is not changed.", existing.RepoFullName),
+		fmt.Sprintf("Disconnect %s?", existing.RepoFullName))
+	if err != nil || !confirmed {
+		return err
 	}
 
 	if err := service.Disconnect(ctx); err != nil {

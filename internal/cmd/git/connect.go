@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/gitconnect"
 	"github.com/Kong/volcano-cli/internal/localgit"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -53,7 +52,12 @@ the repository's default branch yourself.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gitURL := ""
 			if len(args) == 1 {
-				gitURL = strings.TrimSpace(args[0])
+				if gitURL = strings.TrimSpace(args[0]); gitURL == "" {
+					// Falling back to remote discovery here would quietly
+					// ignore an unset variable in a script, and would slip
+					// past the --remote check below.
+					return errors.New("the repository URL is empty")
+				}
 			}
 			// Both say where the repository comes from and the URL wins, so
 			// taking the pair would silently ignore what the user asked for.
@@ -104,28 +108,32 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return nil
 	}
 
-	// Only a different repository is a replacement. Editing the root directory
-	// of the repository already bound is not, and must not be described as one.
-	replacing := existing != nil && !sameRepository(existing, repository)
+	// Resolve before asking anything. Only the repository id says whether this
+	// is really a replacement — repo_full_name is cached at connect time, so a
+	// repository renamed on GitHub would otherwise be reported as a different
+	// one — and it also means the user is never asked to confirm a binding the
+	// CLI has not yet established it can make.
+	target, err := service.Resolve(ctx, repository)
+	if err != nil {
+		return resolveError(opts.deps, webURL, existing, repository, err)
+	}
+
+	// Editing the root directory of the repository already bound is not a
+	// replacement, and neither is picking up a rename. Neither may be described
+	// as one.
+	replacing := existing != nil && existing.RepoId != target.Repository.Id
 	if replacing {
-		replace, err := confirmReplace(opts, existing.RepoFullName, repository.FullName())
+		replace, err := confirmReplace(opts, existing, target.Repository.FullName)
 		if err != nil || !replace {
 			return err
 		}
 	}
 
-	target, err := service.Resolve(ctx, repository)
-	if err != nil {
-		return resolveError(opts.deps, webURL, repository, err)
-	}
-
 	// Confirm an explicitly named repository: the user may be pointing somewhere
 	// other than the checkout they are standing in. A replacement was already
 	// confirmed above, so it is not asked twice.
-	if explicit && !opts.yes && existing == nil {
-		confirmed, err := confirm.Action(opts.in, opts.out,
-			fmt.Sprintf("This will connect the current project to %s.", target.Repository.FullName),
-			"Connect it?")
+	if explicit && existing == nil {
+		confirmed, err := confirmConnect(opts, target.Repository.FullName)
 		if err != nil || !confirmed {
 			return err
 		}
@@ -138,11 +146,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		output.Note(opts.out, "Replacing the existing connection to %s.", existing.RepoFullName)
 	}
 
-	// The flag value is what the bind carries, and it is always the right one
-	// here: reaching this point means either the repository changed (so the old
-	// root directory means nothing) or --root-directory was given, since
-	// unchanged() has already returned for every other case.
-	connection, err := service.Connect(ctx, *target, opts.rootDirectory)
+	connection, err := service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts))
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}
@@ -193,9 +197,12 @@ func currentConnection(ctx context.Context, service gitconnect.Service) (*apicli
 }
 
 // unchanged reports whether the project is already bound exactly as asked, so
-// there is nothing to send. A root directory the user named explicitly counts:
-// keying only on the repository would drop --root-directory in silence, and
-// this bind is the only way to edit it.
+// there is nothing to send and none of the lookups behind Resolve are worth
+// making. It compares names because that is all that is known this early; a
+// rename therefore falls through to the bind, which refreshes the cached name.
+// A root directory the user named explicitly counts: keying only on the
+// repository would drop --root-directory in silence, and this bind is the only
+// way to edit it.
 func unchanged(existing *apiclient.ProjectGitConnection, repository localgit.Repository, opts connectOptions) bool {
 	if existing == nil || !sameRepository(existing, repository) {
 		return false
@@ -212,24 +219,60 @@ func sameRepository(existing *apiclient.ProjectGitConnection, repository localgi
 	return strings.EqualFold(existing.RepoFullName, repository.FullName())
 }
 
-func confirmReplace(opts connectOptions, connected, wanted string) (bool, error) {
-	if opts.yes {
-		return true, nil
+// rootDirectoryFor decides what the full-replace bind carries. An omitted flag
+// keeps what the same repository already had — the rename case reaches here —
+// rather than resetting it the way a bare replace would. A different repository
+// starts from the root: the old subdirectory means nothing there.
+func rootDirectoryFor(existing *apiclient.ProjectGitConnection, target *gitconnect.Target, opts connectOptions) string {
+	switch {
+	case opts.rootDirectorySet:
+		return opts.rootDirectory
+	case existing != nil && existing.RepoId == target.Repository.Id:
+		return existing.RootDirectory
+	default:
+		return ""
 	}
-	return confirm.Action(opts.in, opts.out,
-		fmt.Sprintf("This project is already connected to %s. Pushes to it will stop deploying.", connected),
-		fmt.Sprintf("Replace it with %s?", wanted))
+}
+
+func confirmReplace(opts connectOptions, existing *apiclient.ProjectGitConnection, wanted string) (bool, error) {
+	warning := fmt.Sprintf(
+		"This project is already connected to %s. Pushes to it will stop deploying.", existing.RepoFullName)
+	// The bind is a full replace and the new repository has no equivalent of
+	// the old subdirectory, so it resets. Say so while the user can still
+	// decline: it decides what gets built.
+	if root := strings.TrimSpace(existing.RootDirectory); root != "" && !opts.rootDirectorySet {
+		warning += fmt.Sprintf("\nThe root directory %q will reset to the repository root.", root)
+	}
+	return ask(opts.in, opts.out, opts.yes, warning, fmt.Sprintf("Replace it with %s?", wanted))
+}
+
+func confirmConnect(opts connectOptions, wanted string) (bool, error) {
+	return ask(opts.in, opts.out, opts.yes,
+		fmt.Sprintf("This will connect the current project to %s.", wanted), "Connect it?")
 }
 
 // resolveError explains the one resolve failure a user can act on — the App
 // cannot see the repository — and hands everything else to guide.
-func resolveError(deps cliruntime.Deps, webURL string, repository localgit.Repository, err error) error {
+func resolveError(
+	deps cliruntime.Deps, webURL string,
+	existing *apiclient.ProjectGitConnection, repository localgit.Repository, err error,
+) error {
 	if !errors.Is(err, gitconnect.ErrRepositoryNotAccessible) {
 		return guide(deps, webURL, err)
 	}
-	return fmt.Errorf(
-		"%w\n\nEither the Volcano GitHub App is not installed on %s, or it is installed for "+
-			"selected repositories that do not include this one.\n\n%s",
-		err, repository.Owner,
+
+	cause := fmt.Sprintf(
+		"Either the Volcano GitHub App is not installed on %s, or it is installed for "+
+			"selected repositories that do not include this one.", repository.Owner)
+	// A project that is already bound has a second, likelier explanation: the
+	// repository was renamed and the local remote still names the old one. git
+	// keeps working through GitHub's redirect, so a stale remote is easy to
+	// carry for a long time without noticing.
+	if existing != nil {
+		cause += fmt.Sprintf(
+			"\nThis project is connected to %s, so the local remote may also simply be out of date.",
+			existing.RepoFullName)
+	}
+	return fmt.Errorf("%w\n\n%s\n\n%s", err, cause,
 		dashboardStep(webURL, "Grant it access, then run this command again:"))
 }

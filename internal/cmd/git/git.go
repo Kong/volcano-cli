@@ -4,9 +4,13 @@ package git
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/gitconnect"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -26,6 +30,34 @@ your machine.`,
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
+}
+
+// ask puts a confirmation to the user, unless there is nobody to ask.
+//
+// A prompt read from a closed or piped stdin comes back as a decline, which
+// would exit 0 having done nothing — the worst outcome for the agents and CI
+// jobs these commands are meant to serve, and indistinguishable from success.
+// Refusing outright names the fix instead. A human who answers "no" still
+// cancels quietly, exit 0, as everywhere else in the CLI.
+func ask(in io.Reader, out io.Writer, yes bool, warning, question string) (bool, error) {
+	if yes {
+		return true, nil
+	}
+	if !canPrompt(in) {
+		return false, fmt.Errorf("%s\n\nThis needs confirmation and stdin is not a terminal. Pass --yes to proceed", warning)
+	}
+	return confirm.Action(in, out, warning, question)
+}
+
+// canPrompt reports whether there is a human on the other end of in. A reader
+// that is not the process's stdin at all — an injected one, as in tests — is
+// treated as promptable, since something is deliberately feeding it answers.
+func canPrompt(in io.Reader) bool {
+	f, ok := in.(*os.File)
+	if !ok {
+		return true
+	}
+	return term.IsTerminal(f.Fd())
 }
 
 // guide rewrites the failures a user can act on into errors that say what to do

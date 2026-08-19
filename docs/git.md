@@ -53,11 +53,16 @@ volcano git connect --root-directory apps/api
 ```
 
 Connecting is idempotent: running it again on a project already bound to the
-same repository reports the binding and changes nothing. Re-running it with a
+same repository reports the binding and changes nothing. A repository renamed on
+GitHub is still the same repository — the binding follows its id, not its name —
+so re-running connect simply refreshes the name. Re-running it with a
 different `--root-directory` edits that, which is the only way to change it
 after the first connect. Pointing it at a *different* repository asks for
 confirmation first, because pushes to the current one stop deploying. `--yes`
 skips the prompts.
+
+In a script or a CI job there is nobody to prompt, so a command that would ask
+fails and says to pass `--yes` rather than cancelling silently.
 
 After connecting, start deploying by pushing yourself. The branch is the
 repository's GitHub default branch, which the CLI prints when it connects:

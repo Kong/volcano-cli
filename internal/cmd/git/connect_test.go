@@ -1,11 +1,15 @@
 package git
 
 import (
+	"bytes"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 func TestConnectBindsTheRepositoryFromTheLocalRemote(t *testing.T) {
@@ -74,7 +78,10 @@ func TestConnectTreatsRepositoryNamesCaseInsensitively(t *testing.T) {
 
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.NoError(t, err)
-	assert.Contains(t, out, "already connected")
+	// The full sentence, not just "already connected": the replacement prompt
+	// contains that phrase too, so a substring match passes against a build
+	// that fails to recognise the binding at all.
+	assert.Contains(t, out, "Octo/Storefront is already connected to this project.")
 	assert.Nil(t, api.sentConnectBody())
 }
 
@@ -414,4 +421,139 @@ func TestConnectWarnsWhenAutoDeployHasNothingToDeploy(t *testing.T) {
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.NoError(t, err)
 	assert.Contains(t, out, "neither functions nor a frontend is selected")
+}
+
+// repo_full_name is cached at connect time and repo_id is the authoritative
+// binding, so a repository renamed on GitHub is the same repository. Calling it
+// a replacement would ask the user to confirm a destructive-sounding action
+// that is not one.
+func TestConnectTreatsARenamedRepositoryAsTheSameOne(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/old-name"
+	api.connectedRepoID = gitRepositoryID
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.NotContains(t, out, "Replace it")
+	assert.NotContains(t, out, "Replacing the existing connection")
+	assert.Contains(t, out, "Connected octo/storefront", "the rebind refreshes the cached name")
+	assert.NotNil(t, api.sentConnectBody())
+}
+
+// The same repository keeps its root directory across that rebind: nothing
+// about it changed.
+func TestConnectKeepsTheRootDirectoryAcrossARename(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/old-name"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedRoot = "apps/api"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+}
+
+// The new repository has no equivalent of the old subdirectory, so it resets.
+// That decides what gets built, so it is said while the user can still decline.
+func TestConnectWarnsThatReplacingResetsTheRootDirectory(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.connectedRoot = "apps/api"
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "n\n", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, `The root directory "apps/api" will reset to the repository root.`)
+}
+
+// A prompt read from a closed stdin comes back as a decline, which would exit 0
+// having done nothing — indistinguishable from success for the agents and CI
+// jobs these commands serve.
+func TestConnectRefusesToGuessWhenStdinCannotAnswer(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	cmd := New(cliruntime.Deps{
+		HTTPClient: api.serve().Client(), APIBaseURL: api.serve().URL,
+		GitCommandRunner: &gitRunner{stdout: originRemoteOutput},
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetIn(closed)
+	cmd.SetArgs([]string{"connect"})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stdin is not a terminal")
+	assert.Contains(t, err.Error(), "--yes")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// A stale local remote after a rename is likelier than a permission problem,
+// and git keeps working through GitHub's redirect, so it goes unnoticed.
+func TestConnectSuggestsAStaleRemoteWhenTheProjectIsAlreadyBound(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/current-name"
+	api.reposByInstallation[gitInstallation] = []map[string]any{repository("octo/current-name")}
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "the local remote may also simply be out of date")
+	assert.Contains(t, err.Error(), "octo/current-name")
+}
+
+// One installation that cannot be listed must not hide a repository another
+// one holds — the owner's is tried first and is the likeliest to be scoped away.
+func TestConnectKeepsLookingPastAFailingInstallation(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(gitInstallation, "octo", "User", "selected"),
+		installation(otherInstall, "acme", "Organization", "all"),
+	}
+	api.repositoriesStatus[gitInstallation] = http.StatusInternalServerError
+	api.reposByInstallation[otherInstall] = []map[string]any{repository("octo/storefront")}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+func TestConnectRejectsAnEmptyRepositoryArgument(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect", "   ", "--remote", "upstream")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "repository URL is empty")
+	assert.Empty(t, runner.ran(), "an empty argument must not fall back to remote discovery")
+}
+
+// With more than one connection failing, the first failure is the one to
+// report: it is the one the user is most likely to have been using.
+func TestConnectReportsTheFirstFailureNotTheLast(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connections = []map[string]any{
+		githubConnection(gitConnectionID, "first"),
+		githubConnection(otherConnection, "second"),
+	}
+	api.installationsStatus[gitConnectionID] = http.StatusInternalServerError
+	api.installationsStatus[otherConnection] = http.StatusInternalServerError
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), gitConnectionID)
+	assert.NotContains(t, err.Error(), otherConnection)
 }

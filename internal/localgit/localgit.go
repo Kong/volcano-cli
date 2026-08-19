@@ -16,10 +16,13 @@ import (
 )
 
 var (
-	// ErrNotARepository indicates the working directory is not inside a Git
-	// repository, or git itself is unavailable. The caller's next step is the
-	// same either way, so the two are not distinguished.
-	ErrNotARepository = errors.New("not a git repository")
+	// ErrGitUnavailable indicates git could not report this directory's
+	// remotes. The directory may not be a repository, git may be missing, or
+	// git may have refused to read it — dubious ownership in a container,
+	// an unreadable config. git's own message is appended whenever there is
+	// one, because the fix differs sharply per cause and "not a git
+	// repository" points nowhere near most of them.
+	ErrGitUnavailable = errors.New("could not read this directory's Git repository")
 	// ErrNoRemotes indicates a repository that has no remote configured.
 	ErrNoRemotes = errors.New("no remote URLs found in your Git config")
 	// ErrNotGitHub indicates a remote URL that does not point at github.com.
@@ -69,7 +72,7 @@ func New(deps cliruntime.Deps) Client {
 func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	out, err := c.runner.Run(ctx, "git", "remote", "-v")
 	if err != nil {
-		return nil, ErrNotARepository
+		return nil, gitFailure(err)
 	}
 
 	remotes := make([]Remote, 0, 2)
@@ -90,6 +93,19 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 		return nil, ErrNoRemotes
 	}
 	return remotes, nil
+}
+
+// gitFailure surfaces git's own diagnosis when it gave one. exec.Output leaves
+// it in ExitError.Stderr, and it is the only thing that distinguishes "run this
+// somewhere else" from "run git config --global --add safe.directory".
+func gitFailure(err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		if message := strings.TrimSpace(string(exitErr.Stderr)); message != "" {
+			return fmt.Errorf("%w: %s", ErrGitUnavailable, message)
+		}
+	}
+	return ErrGitUnavailable
 }
 
 // parseRemoteLine reads one "<name>\t<url> (fetch|push)" line from `git remote
@@ -143,17 +159,45 @@ func ParseGitHubRepository(rawURL string) (Repository, error) {
 
 	host, path, err := splitRemoteURL(rawURL)
 	if err != nil {
-		return Repository{}, err
+		return Repository{}, fmt.Errorf("%w: %s", ErrUnparsableRemote, Redact(rawURL))
 	}
 	if !isGitHubHost(host) {
-		return Repository{}, fmt.Errorf("%w: %s", ErrNotGitHub, rawURL)
+		return Repository{}, fmt.Errorf("%w: %s", ErrNotGitHub, Redact(rawURL))
 	}
 
 	owner, name, ok := splitOwnerRepo(path)
 	if !ok {
-		return Repository{}, fmt.Errorf("%w: %s", ErrUnparsableRemote, rawURL)
+		return Repository{}, fmt.Errorf("%w: %s", ErrUnparsableRemote, Redact(rawURL))
 	}
 	return Repository{Owner: owner, Name: name}, nil
+}
+
+// Redact removes any credential embedded in a remote URL, so a URL can be
+// echoed back to the user. CI systems rewrite remotes to carry a job token —
+// GitLab's is "https://gitlab-ci-token:<token>@…" — and an error message
+// naming the remote would otherwise put that token in the build log.
+func Redact(rawURL string) string {
+	scheme, rest, found := strings.Cut(rawURL, "://")
+	if !found {
+		// scp-like: [user@]host:path carries no password field.
+		return rawURL
+	}
+	authority, remainder, hasPath := strings.Cut(rest, "/")
+	userInfo, hostPort, hasUserInfo := strings.Cut(authority, "@")
+	if !hasUserInfo {
+		return rawURL
+	}
+
+	// Keep the user name: it is not the secret, and it tells the user which
+	// remote this is. Only a password field is dropped.
+	if name, _, hasPassword := strings.Cut(userInfo, ":"); hasPassword {
+		authority = name + ":***@" + hostPort
+	}
+	redacted := scheme + "://" + authority
+	if hasPath {
+		redacted += "/" + remainder
+	}
+	return redacted
 }
 
 // splitRemoteURL separates a remote URL's host from its path without going
@@ -163,7 +207,7 @@ func splitRemoteURL(rawURL string) (host, path string, err error) {
 		switch strings.ToLower(scheme) {
 		case "ssh", "git", "http", "https":
 		default:
-			return "", "", fmt.Errorf("%w: %s", ErrUnparsableRemote, rawURL)
+			return "", "", ErrUnparsableRemote
 		}
 		authority, remainder, _ := strings.Cut(rest, "/")
 		return stripUserInfo(authority), remainder, nil
@@ -173,7 +217,7 @@ func splitRemoteURL(rawURL string) (host, path string, err error) {
 	// path is relative, so a port cannot appear here.
 	authority, remainder, found := strings.Cut(rawURL, ":")
 	if !found {
-		return "", "", fmt.Errorf("%w: %s", ErrUnparsableRemote, rawURL)
+		return "", "", ErrUnparsableRemote
 	}
 	return stripUserInfo(authority), remainder, nil
 }
