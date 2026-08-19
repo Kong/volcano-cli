@@ -102,6 +102,9 @@ type gitAPI struct {
 	// derived from the name, so a binding to another repository really is
 	// another repository — the id is what decides a replacement, not the name.
 	connectedRepoID int64
+	// connectedInstallation overrides the binding's installation id, which a
+	// reinstall of the App changes.
+	connectedInstallation int64
 
 	connections               []map[string]any
 	installationsByConnection map[string][]map[string]any
@@ -225,6 +228,13 @@ func (a *gitAPI) serveRepositories(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *gitAPI) currentInstallation() int64 {
+	if a.connectedInstallation != 0 {
+		return a.connectedInstallation
+	}
+	return gitInstallation
+}
+
 func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -232,7 +242,8 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
 	}
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot, a.currentRepoID()))
+	writeGitJSON(a.t, w, http.StatusOK,
+		connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation()))
 }
 
 // currentRepoID derives the bound repository's id from its name unless a test
@@ -259,7 +270,11 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	a.connected = "octo/storefront"
 	a.connectedRepoID = gitRepositoryID
 	a.connectedRoot, _ = a.connectBody["root_directory"].(string)
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot, gitRepositoryID))
+	if id, ok := a.connectBody["installation_id"].(float64); ok {
+		a.connectedInstallation = int64(id)
+	}
+	writeGitJSON(a.t, w, http.StatusOK,
+		connectionPayload(a.connected, a.connectedRoot, gitRepositoryID, a.currentInstallation()))
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
@@ -297,9 +312,9 @@ func (a *gitAPI) disconnectCalled() bool {
 	return a.deleted
 }
 
-func connectionPayload(fullName, rootDirectory string, repoID int64) map[string]any {
+func connectionPayload(fullName, rootDirectory string, repoID, installationID int64) map[string]any {
 	return map[string]any{
-		"repo_installation_id": gitInstallation,
+		"repo_installation_id": installationID,
 		"repo_id":              repoID,
 		"repo_full_name":       fullName,
 		"root_directory":       rootDirectory,

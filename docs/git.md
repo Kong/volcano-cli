@@ -64,11 +64,13 @@ skips the prompts.
 In a script or a CI job there is nobody to prompt, so a command that would ask
 fails and says to pass `--yes` rather than cancelling silently.
 
-After connecting, start deploying by pushing yourself. The branch is the
-repository's GitHub default branch, which the CLI prints when it connects:
+After connecting, start deploying by pushing yourself. Only a push to the
+repository's GitHub default branch deploys — `volcano git connect` prints which
+branch that is, as `Production branch`. Pushing any other branch is safe and
+deploys nothing.
 
 ```bash
-git push -u origin "$(git symbolic-ref --short HEAD)"
+git push origin main   # or whatever the CLI reported as the production branch
 ```
 
 ## Disconnecting

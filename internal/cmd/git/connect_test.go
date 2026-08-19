@@ -557,3 +557,39 @@ func TestConnectReportsTheFirstFailureNotTheLast(t *testing.T) {
 	assert.Contains(t, err.Error(), gitConnectionID)
 	assert.NotContains(t, err.Error(), otherConnection)
 }
+
+// GitHub frees a renamed repository's name for reuse, so a cached name can match
+// a repository that is not the one bound. Only the id decides, and here it says
+// this is a replacement — reporting "already connected" would name a binding
+// that does not exist and leave pushes deploying nothing.
+func TestConnectTreatsAReusedNameAsADifferentRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = 555555
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "y\n", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Replace it with octo/storefront?")
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotNil(t, api.sentConnectBody(), "the stale binding must be replaced")
+}
+
+// Uninstalling and reinstalling the App issues a new installation id, leaving
+// the stored one pointing at nothing and no push deploying. Connect repairs it
+// rather than reporting the binding as already correct.
+func TestConnectRepairsABindingWithAStaleInstallation(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedInstallation = 999999
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.NotContains(t, out, "already connected")
+	require.NotNil(t, api.sentConnectBody())
+	assert.InDelta(t, float64(gitInstallation), api.sentConnectBody()["installation_id"], 0)
+}

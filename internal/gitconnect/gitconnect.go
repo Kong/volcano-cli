@@ -223,7 +223,10 @@ func (s Service) WebURL() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSuffix(cfg.WebURL(), "/") + "/dashboard/project-settings/git", nil
+	// Resolve the web URL from the API URL the session will actually use, so a
+	// runtime override does not produce a link to a different environment.
+	webURL := cfg.WebURLForAPIURL(s.sessions.APIURL(cfg))
+	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
 }
 
 // usableConnections keeps the GitHub connections that are not flagged as
@@ -266,7 +269,7 @@ func orderByOwner(installations []apiclient.GitInstallation, owner string) []api
 // API and saying "no GitHub App configured" would be a guess.
 func classifyProvider(err error, action string) error {
 	if api.Status(err) == http.StatusServiceUnavailable {
-		return fmt.Errorf("%w", ErrProviderNotConfigured)
+		return ErrProviderNotConfigured
 	}
 	return classify(err, action)
 }

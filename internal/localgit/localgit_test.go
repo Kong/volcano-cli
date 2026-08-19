@@ -120,17 +120,27 @@ func TestRemotesTakesTheFetchURLNotThePushURL(t *testing.T) {
 	assert.Equal(t, "git@github.com:octo/storefront.git", remotes[0].URL)
 }
 
-// Deduplication is by name, so a remote listed more than once as fetch — which
-// a hand-edited or included config can produce — appears once.
-func TestRemotesDeduplicatesRepeatedFetchEntries(t *testing.T) {
+// git stores and prints a remote URL verbatim, so one containing a space has to
+// survive parsing. Dropping the line does not fail — it silently changes which
+// remote gets selected, and hides the ambiguity guard that should have fired.
+func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 	t.Parallel()
 	client := clientReturning(t, "git remote -v", ""+
-		"origin\tgit@github.com:octo/storefront.git (fetch)\n"+
-		"origin\tgit@github.com:octo/storefront.git (fetch)\n")
+		"origin\thttps://github.com/octo/store front.git (fetch)\n"+
+		"origin\thttps://github.com/octo/store front.git (push)\n"+
+		"upstream\thttps://github.com/acme/other.git (fetch)\n"+
+		"upstream\thttps://github.com/acme/other.git (push)\n")
 
 	remotes, err := client.Remotes(t.Context())
 	require.NoError(t, err)
-	require.Len(t, remotes, 1)
+	require.Len(t, remotes, 2)
+	assert.Equal(t, "https://github.com/octo/store front.git", remotes[0].URL)
+
+	// Two remotes and one named origin: origin wins, rather than the list
+	// collapsing to one entry and the lone-remote branch picking upstream.
+	selected, err := SelectRemote(remotes, "")
+	require.NoError(t, err)
+	assert.Equal(t, "origin", selected.Name)
 }
 
 func TestRemotesReportsAnEmptyRemoteList(t *testing.T) {
@@ -176,21 +186,54 @@ func TestParseGitHubRepositoryRedactsCredentialsInErrors(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrNotGitHub)
 	assert.NotContains(t, err.Error(), "SUPERSECRET")
-	assert.Contains(t, err.Error(), "gitlab-ci-token:***@gitlab.com")
+	assert.Contains(t, err.Error(), "***@gitlab.com")
+}
+
+// The same leak in the shape GitHub itself documents: the token is the whole
+// userinfo, with no password field to spot.
+func TestParseGitHubRepositoryRedactsATokenCarriedAsTheWholeUserInfo(t *testing.T) {
+	t.Parallel()
+	_, err := ParseGitHubRepository("https://ghp_16C7e42F292c6912E7710c838347Ae178B4a@gitlab.com/octo/storefront.git")
+
+	require.ErrorIs(t, err, ErrNotGitHub)
+	assert.NotContains(t, err.Error(), "ghp_16C7e42F292c6912E7710c838347Ae178B4a")
+	assert.Contains(t, err.Error(), "***@gitlab.com")
+}
+
+// Unicode folding cannot normalize a host: strings.ToLower maps U+0130 to ASCII
+// "i", so this would otherwise fold to github.com and bind the project to a
+// repository on the real github.com without saying so.
+func TestParseGitHubRepositoryRejectsAUnicodeLookalikeHost(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"dotted capital I": "https://g\u0130thub.com/octo/storefront.git",
+		"cyrillic o":       "https://github.c\u043fm/octo/storefront.git",
+		"fullwidth":        "https://ｇithub.com/octo/storefront.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseGitHubRepository(rawURL)
+			require.ErrorIs(t, err, ErrNotGitHub)
+		})
+	}
 }
 
 func TestRedact(t *testing.T) {
 	t.Parallel()
 	for name, tc := range map[string]struct{ in, want string }{
-		"password dropped, user kept": {
+		"password form dropped": {
 			"https://gitlab-ci-token:glcbt-SECRET@gitlab.com/octo/repo.git",
-			"https://gitlab-ci-token:***@gitlab.com/octo/repo.git",
+			"https://***@gitlab.com/octo/repo.git",
 		},
-		"token as the whole userinfo is kept": {
-			// No colon means no password field to drop; GitHub PATs are not
-			// carried this way, and dropping a bare user name loses which
-			// remote this is.
-			"https://octo@github.com/octo/repo.git", "https://octo@github.com/octo/repo.git",
+		// A token is as often the entire userinfo as it is a password field:
+		// "https://<pat>@github.com/owner/repo.git" is GitHub's own documented
+		// form. Nothing distinguishes that from a user name, so all of it goes.
+		"whole userinfo dropped": {
+			"https://ghp_16C7e42F292c6912E7710c838347Ae178B4a@github.com/octo/repo.git",
+			"https://***@github.com/octo/repo.git",
+		},
+		"bare user name dropped too": {
+			"https://octo@github.com/octo/repo.git", "https://***@github.com/octo/repo.git",
 		},
 		"no userinfo is untouched": {
 			"https://github.com/octo/repo.git", "https://github.com/octo/repo.git",
@@ -199,7 +242,7 @@ func TestRedact(t *testing.T) {
 			"git@github.com:octo/repo.git", "git@github.com:octo/repo.git",
 		},
 		"authority only": {
-			"https://user:pw@github.com", "https://user:***@github.com",
+			"https://user:pw@github.com", "https://***@github.com",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

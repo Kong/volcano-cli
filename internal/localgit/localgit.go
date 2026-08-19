@@ -67,8 +67,8 @@ func New(deps cliruntime.Deps) Client {
 	return Client{runner: runner}
 }
 
-// Remotes returns the fetch remotes configured in the working directory,
-// deduplicated by name and kept in git's own output order.
+// Remotes returns the fetch remotes configured in the working directory, in
+// git's own output order.
 func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	out, err := c.runner.Run(ctx, "git", "remote", "-v")
 	if err != nil {
@@ -76,16 +76,11 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	}
 
 	remotes := make([]Remote, 0, 2)
-	seen := make(map[string]struct{}, 2)
 	for line := range strings.SplitSeq(string(out), "\n") {
 		name, url, ok := parseRemoteLine(line)
 		if !ok {
 			continue
 		}
-		if _, duplicate := seen[name]; duplicate {
-			continue
-		}
-		seen[name] = struct{}{}
 		remotes = append(remotes, Remote{Name: name, URL: url})
 	}
 
@@ -109,15 +104,24 @@ func gitFailure(err error) error {
 }
 
 // parseRemoteLine reads one "<name>\t<url> (fetch|push)" line from `git remote
-// -v`. Only fetch entries are kept: a remote configured with a separate push
-// URL would otherwise be reported twice with different URLs, and the fetch URL
-// is the one that identifies the repository.
+// -v`. Only the fetch entry is kept: a remote configured with a separate push
+// URL is reported twice with different URLs, and the fetch URL is the one that
+// identifies the repository.
+//
+// The URL is taken as everything between the tab and the trailing marker, not
+// as a whitespace-delimited field: git stores and prints a remote URL verbatim,
+// so one containing a space would otherwise be skipped entirely — and a skipped
+// remote does not fail, it quietly changes which remote gets selected.
 func parseRemoteLine(line string) (name, url string, ok bool) {
-	fields := strings.Fields(strings.TrimSpace(line))
-	if len(fields) < 3 || fields[2] != "(fetch)" {
+	name, rest, found := strings.Cut(strings.TrimRight(line, "\r\n"), "\t")
+	if !found || name == "" {
 		return "", "", false
 	}
-	return fields[0], fields[1], true
+	url, found = strings.CutSuffix(rest, " (fetch)")
+	if !found || url == "" {
+		return "", "", false
+	}
+	return name, url, true
 }
 
 // SelectRemote picks the remote to connect. A named remote must exist. With no
@@ -157,8 +161,8 @@ func ParseGitHubRepository(rawURL string) (Repository, error) {
 		return Repository{}, ErrUnparsableRemote
 	}
 
-	host, path, err := splitRemoteURL(rawURL)
-	if err != nil {
+	host, path, ok := splitRemoteURL(rawURL)
+	if !ok {
 		return Repository{}, fmt.Errorf("%w: %s", ErrUnparsableRemote, Redact(rawURL))
 	}
 	if !isGitHubHost(host) {
@@ -176,23 +180,24 @@ func ParseGitHubRepository(rawURL string) (Repository, error) {
 // echoed back to the user. CI systems rewrite remotes to carry a job token —
 // GitLab's is "https://gitlab-ci-token:<token>@…" — and an error message
 // naming the remote would otherwise put that token in the build log.
+//
+// The whole userinfo goes, not just a password field. A token is just as often
+// carried as the entire userinfo ("https://<pat>@github.com/owner/repo.git" is
+// GitHub's own documented form, and Azure DevOps PATs look the same), and
+// nothing distinguishes that from a user name. Keeping the name is not worth
+// the one case where it is the secret.
 func Redact(rawURL string) string {
 	scheme, rest, found := strings.Cut(rawURL, "://")
 	if !found {
-		// scp-like: [user@]host:path carries no password field.
+		// scp-like: [user@]host:path. The user is a fixed literal there
+		// ("git@github.com:…"), never a credential.
 		return rawURL
 	}
 	authority, remainder, hasPath := strings.Cut(rest, "/")
-	userInfo, hostPort, hasUserInfo := strings.Cut(authority, "@")
-	if !hasUserInfo {
-		return rawURL
+	if _, hostPort, hasUserInfo := strings.Cut(authority, "@"); hasUserInfo {
+		authority = "***@" + hostPort
 	}
 
-	// Keep the user name: it is not the secret, and it tells the user which
-	// remote this is. Only a password field is dropped.
-	if name, _, hasPassword := strings.Cut(userInfo, ":"); hasPassword {
-		authority = name + ":***@" + hostPort
-	}
 	redacted := scheme + "://" + authority
 	if hasPath {
 		redacted += "/" + remainder
@@ -202,24 +207,24 @@ func Redact(rawURL string) string {
 
 // splitRemoteURL separates a remote URL's host from its path without going
 // through net/url, which does not understand the scp-like SSH form.
-func splitRemoteURL(rawURL string) (host, path string, err error) {
+func splitRemoteURL(rawURL string) (host, path string, ok bool) {
 	if scheme, rest, found := strings.Cut(rawURL, "://"); found {
-		switch strings.ToLower(scheme) {
+		switch asciiLower(scheme) {
 		case "ssh", "git", "http", "https":
 		default:
-			return "", "", ErrUnparsableRemote
+			return "", "", false
 		}
 		authority, remainder, _ := strings.Cut(rest, "/")
-		return stripUserInfo(authority), remainder, nil
+		return stripUserInfo(authority), remainder, true
 	}
 
 	// scp-like: [user@]host:path — the colon separates host from path, and the
 	// path is relative, so a port cannot appear here.
 	authority, remainder, found := strings.Cut(rawURL, ":")
 	if !found {
-		return "", "", ErrUnparsableRemote
+		return "", "", false
 	}
-	return stripUserInfo(authority), remainder, nil
+	return stripUserInfo(authority), remainder, true
 }
 
 // stripUserInfo drops a leading "user@" and any ":port" suffix, leaving a bare
@@ -231,7 +236,20 @@ func stripUserInfo(authority string) string {
 	if before, _, found := strings.Cut(authority, ":"); found {
 		authority = before
 	}
-	return strings.ToLower(authority)
+	return asciiLower(authority)
+}
+
+// asciiLower folds only ASCII, leaving every other byte alone. Unicode folding
+// cannot be used to normalize a host for comparison: strings.ToLower maps
+// U+0130 (İ) to ASCII "i", so "gİthub.com" would fold to "github.com" and pass
+// a check it must fail. isGitHubHost rejects the unfolded byte on its own.
+func asciiLower(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, s)
 }
 
 func isGitHubHost(host string) bool {

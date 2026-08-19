@@ -21,7 +21,7 @@ func GitConnected(w io.Writer, connection *apiclient.ProjectGitConnection, setti
 // GitConnection renders an existing binding without claiming anything changed.
 func GitConnection(w io.Writer, connection *apiclient.ProjectGitConnection, settings *apiclient.ProjectGitDeploySettings) {
 	on := theme.On(w)
-	fmt.Fprintf(w, "%s is already connected to this project.\n", theme.Command(connection.RepoFullName, on))
+	fmt.Fprintf(w, "%s is already connected to this project.\n", connection.RepoFullName)
 	gitConnectionDetail(w, on, connection)
 	gitDeploySettings(w, connection, settings)
 }

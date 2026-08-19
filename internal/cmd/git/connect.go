@@ -69,7 +69,7 @@ the repository's default branch yourself.`,
 				deps:             deps,
 				gitURL:           gitURL,
 				remote:           remote,
-				rootDirectory:    rootDirectory,
+				rootDirectory:    strings.TrimSpace(rootDirectory),
 				rootDirectorySet: cmd.Flags().Changed("root-directory"),
 				yes:              yes,
 				in:               cmd.InOrStdin(),
@@ -89,33 +89,37 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// below still reports what went wrong, so it is not worth failing over.
 	webURL, _ := service.WebURL()
 
-	repository, explicit, err := resolveRepository(ctx, opts)
+	repository, err := resolveRepository(ctx, opts)
 	if err != nil {
 		return err
 	}
 
 	existing, err := currentConnection(ctx, service)
 	if err != nil {
-		return guide(opts.deps, webURL, err)
+		return err
+	}
+
+	// Resolve before deciding anything. repo_full_name is cached at connect
+	// time, so names cannot answer either question that follows: whether the
+	// project is already bound to this repository, or whether binding it
+	// replaces another. Only the repository id can, and it takes these lookups
+	// to get one. That costs an idempotent re-run three reads, which is worth
+	// paying — a name match against a different id would otherwise report a
+	// binding that does not exist, and GitHub frees a renamed repository's name
+	// for reuse. Resolving first also means the user is never asked to confirm a
+	// binding the CLI has not established it can make.
+	target, err := service.Resolve(ctx, repository)
+	if err != nil {
+		return resolveError(opts.deps, webURL, existing, repository, err)
 	}
 
 	// Nothing to change: report the binding and stop. Connecting is idempotent
 	// on purpose — an agent or a CI job re-running it should not have to
 	// special-case "already done".
-	if unchanged(existing, repository, opts) {
+	if unchanged(existing, target, opts) {
 		settings, _ := service.DeploySettings(ctx)
 		output.GitConnection(opts.out, existing, settings)
 		return nil
-	}
-
-	// Resolve before asking anything. Only the repository id says whether this
-	// is really a replacement — repo_full_name is cached at connect time, so a
-	// repository renamed on GitHub would otherwise be reported as a different
-	// one — and it also means the user is never asked to confirm a binding the
-	// CLI has not yet established it can make.
-	target, err := service.Resolve(ctx, repository)
-	if err != nil {
-		return resolveError(opts.deps, webURL, existing, repository, err)
 	}
 
 	// Editing the root directory of the repository already bound is not a
@@ -132,7 +136,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// Confirm an explicitly named repository: the user may be pointing somewhere
 	// other than the checkout they are standing in. A replacement was already
 	// confirmed above, so it is not asked twice.
-	if explicit && existing == nil {
+	if opts.gitURL != "" && existing == nil {
 		confirmed, err := confirmConnect(opts, target.Repository.FullName)
 		if err != nil || !confirmed {
 			return err
@@ -158,29 +162,28 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	return nil
 }
 
-// resolveRepository determines which repository to connect, and reports whether
-// the user named it explicitly rather than it being discovered locally.
-func resolveRepository(ctx context.Context, opts connectOptions) (repository localgit.Repository, explicit bool, err error) {
+// resolveRepository determines which repository to connect: the one the user
+// named, or the one this directory's remotes point at.
+func resolveRepository(ctx context.Context, opts connectOptions) (localgit.Repository, error) {
 	if opts.gitURL != "" {
-		repository, err = localgit.ParseGitHubRepository(opts.gitURL)
-		return repository, true, err
+		return localgit.ParseGitHubRepository(opts.gitURL)
 	}
 
 	remotes, err := localgit.New(opts.deps).Remotes(ctx)
 	if err != nil {
-		return localgit.Repository{}, false, err
+		return localgit.Repository{}, err
 	}
 
 	remote, err := localgit.SelectRemote(remotes, opts.remote)
 	if err != nil {
-		return localgit.Repository{}, false, err
+		return localgit.Repository{}, err
 	}
 
-	repository, err = localgit.ParseGitHubRepository(remote.URL)
+	repository, err := localgit.ParseGitHubRepository(remote.URL)
 	if err != nil {
-		return localgit.Repository{}, false, fmt.Errorf("remote %q: %w", remote.Name, err)
+		return localgit.Repository{}, fmt.Errorf("remote %q: %w", remote.Name, err)
 	}
-	return repository, false, nil
+	return repository, nil
 }
 
 // currentConnection reads the project's binding, mapping "no binding" to a nil
@@ -197,26 +200,30 @@ func currentConnection(ctx context.Context, service gitconnect.Service) (*apicli
 }
 
 // unchanged reports whether the project is already bound exactly as asked, so
-// there is nothing to send and none of the lookups behind Resolve are worth
-// making. It compares names because that is all that is known this early; a
-// rename therefore falls through to the bind, which refreshes the cached name.
-// A root directory the user named explicitly counts: keying only on the
-// repository would drop --root-directory in silence, and this bind is the only
-// way to edit it.
-func unchanged(existing *apiclient.ProjectGitConnection, repository localgit.Repository, opts connectOptions) bool {
-	if existing == nil || !sameRepository(existing, repository) {
+// there is nothing to send. The name has to match as well as the id: an id match
+// under a stale cached name means the repository was renamed, and rebinding is
+// what refreshes that name. A root directory the user named explicitly counts
+// too — keying only on the repository would drop --root-directory in silence,
+// and this bind is the only way to edit it.
+func unchanged(existing *apiclient.ProjectGitConnection, target *gitconnect.Target, opts connectOptions) bool {
+	if existing == nil || existing.RepoId != target.Repository.Id {
+		return false
+	}
+	// The installation is part of the binding: uninstalling and reinstalling the
+	// App issues a new id, which leaves the stored one pointing at nothing and
+	// no push deploying. Rebinding repairs that, so it is not "unchanged".
+	if existing.RepoInstallationId != target.InstallationID {
+		return false
+	}
+	// GitHub preserves the case an owner typed but does not treat it as
+	// significant, so a differently-cased name is the same name.
+	if !strings.EqualFold(existing.RepoFullName, target.Repository.FullName) {
 		return false
 	}
 	if !opts.rootDirectorySet {
 		return true
 	}
-	return strings.TrimSpace(opts.rootDirectory) == strings.TrimSpace(existing.RootDirectory)
-}
-
-// sameRepository compares full names case-insensitively: GitHub preserves the
-// case an owner typed but does not treat it as significant.
-func sameRepository(existing *apiclient.ProjectGitConnection, repository localgit.Repository) bool {
-	return strings.EqualFold(existing.RepoFullName, repository.FullName())
+	return opts.rootDirectory == strings.TrimSpace(existing.RootDirectory)
 }
 
 // rootDirectoryFor decides what the full-replace bind carries. An omitted flag
