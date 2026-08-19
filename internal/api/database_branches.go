@@ -58,13 +58,14 @@ func (c *Client) UpdateDatabaseBranch(ctx context.Context, projectID uuid.UUID, 
 }
 
 // ResetDatabaseBranch discards a branch's changes and re-forks it from the
-// parent's current state.
+// parent's current state. The rewind runs in the background, so the branch comes
+// back provisioning; poll GetDatabaseBranch until it reports active.
 func (c *Client) ResetDatabaseBranch(ctx context.Context, projectID uuid.UUID, databaseName, branchName string) (*apiclient.DatabaseBranch, error) {
 	resp, err := c.client.ResetDatabaseBranchWithResponse(ctx, projectID, strings.TrimSpace(databaseName), strings.TrimSpace(branchName))
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON409, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
 // ResetDatabaseBranchPassword rotates the branch role's password and returns

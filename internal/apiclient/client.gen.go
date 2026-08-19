@@ -28618,7 +28618,7 @@ func (r UpdateDatabaseBranchClientResponse) ContentType() string {
 type ResetDatabaseBranchClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *DatabaseBranch
+	JSON202      *DatabaseBranch
 	JSON404      *Error
 	JSON409      *Error
 	JSON503      *Error
@@ -38614,12 +38614,12 @@ func ParseResetDatabaseBranchClientResponse(rsp *http.Response) (*ResetDatabaseB
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest DatabaseBranch
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error

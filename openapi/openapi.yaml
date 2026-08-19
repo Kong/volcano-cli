@@ -4068,10 +4068,14 @@ paths:
         Discards everything written on the branch and re-forks it from the
         parent as it is now.
 
+        Returns immediately with the branch in `provisioning`. The rewind runs in
+        the background; poll the branch until it reports `active` before
+        connecting again.
+
         The branch keeps its name and its connection string, so anything holding
-        that string keeps working, and its lifetime is re-armed to the duration
-        it was created with. The branch stops serving connections for the
-        duration of the reset.
+        that string keeps working once it is active again, and its lifetime is
+        re-armed to the duration it was created with. The branch does not serve
+        connections for the duration of the reset.
       operationId: resetDatabaseBranch
       security:
         - UserToken: []
@@ -4080,8 +4084,8 @@ paths:
         - $ref: '#/components/parameters/DatabaseName'
         - $ref: '#/components/parameters/BranchName'
       responses:
-        '200':
-          description: Branch reset
+        '202':
+          description: Branch reset accepted; the branch is provisioning
           content:
             application/json:
               schema:
