@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/Kong/volcano-cli/compare/v0.21.0...v0.21.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* **databases:** use an underscore branch name in the cloud E2E test ([#160](https://github.com/Kong/volcano-cli/issues/160)) ([823feb1](https://github.com/Kong/volcano-cli/commit/823feb193b1e618356155b7228c98dccefb4f386))
+
 ## [0.21.0](https://github.com/Kong/volcano-cli/compare/v0.20.0...v0.21.0) (2026-08-18)
 
 
