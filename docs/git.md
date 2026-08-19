@@ -38,7 +38,8 @@ only remote, or `origin` when there are several:
 volcano git connect
 ```
 
-Name a repository explicitly, or pick a different remote:
+Name a repository explicitly, or pick a different remote — the two cannot be
+combined, since both say where the repository comes from:
 
 ```bash
 volcano git connect https://github.com/octo/storefront.git
@@ -52,14 +53,17 @@ volcano git connect --root-directory apps/api
 ```
 
 Connecting is idempotent: running it again on a project already bound to the
-same repository reports the binding and changes nothing. Pointing it at a
-*different* repository asks for confirmation first, because pushes to the
-current one stop deploying. `--yes` skips the prompts.
+same repository reports the binding and changes nothing. Re-running it with a
+different `--root-directory` edits that, which is the only way to change it
+after the first connect. Pointing it at a *different* repository asks for
+confirmation first, because pushes to the current one stop deploying. `--yes`
+skips the prompts.
 
-After connecting, start deploying by pushing yourself:
+After connecting, start deploying by pushing yourself. The branch is the
+repository's GitHub default branch, which the CLI prints when it connects:
 
 ```bash
-git push -u origin main
+git push -u origin "$(git symbolic-ref --short HEAD)"
 ```
 
 ## Disconnecting

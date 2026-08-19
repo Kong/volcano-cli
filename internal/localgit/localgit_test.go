@@ -171,3 +171,50 @@ func clientReturning(t *testing.T, wantCommand, stdout string) Client {
 			return []byte(stdout), nil
 		})}
 }
+
+// A repository address copied out of a browser carries a query string or a
+// fragment. Carrying either into the name yields a plausible-looking wrong
+// answer rather than an error, which is worse than rejecting it.
+func TestParseGitHubRepositoryDropsQueryAndFragment(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"query":              "https://github.com/octo/storefront?tab=readme-ov-file",
+		"fragment":           "https://github.com/octo/storefront#readme",
+		"query then suffix":  "https://github.com/octo/storefront.git?foo=bar",
+		"fragment and query": "https://github.com/octo/storefront?a=b#c",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			repository, err := ParseGitHubRepository(rawURL)
+			require.NoError(t, err)
+			assert.Equal(t, "octo/storefront", repository.FullName())
+		})
+	}
+}
+
+func TestParseGitHubRepositoryTrimsTheGitSuffixWhateverItsCase(t *testing.T) {
+	t.Parallel()
+	repository, err := ParseGitHubRepository("git@github.com:octo/storefront.GIT")
+	require.NoError(t, err)
+	assert.Equal(t, "storefront", repository.Name)
+}
+
+// The owner and name are validated against what GitHub accepts, so a URL this
+// package splits wrongly errors instead of producing a wrong answer. A port in
+// a scp-like URL is the case that lands in the owner.
+func TestParseGitHubRepositoryRejectsNamesGitHubWouldNotAccept(t *testing.T) {
+	t.Parallel()
+	for name, rawURL := range map[string]string{
+		"scp-like with port":  "git@github.com:22:octo/storefront.git",
+		"space in name":       "https://github.com/octo/store front",
+		"colon in owner":      "https://github.com/oc:to/storefront",
+		"tilde in name":       "https://github.com/octo/store~front",
+		"path after the repo": "https://github.com/octo/storefront/issues/1",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseGitHubRepository(rawURL)
+			require.ErrorIs(t, err, ErrUnparsableRemote)
+		})
+	}
+}

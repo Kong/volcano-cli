@@ -88,7 +88,7 @@ func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*
 
 	connections, err := authenticated.API.ListGitConnections(ctx)
 	if err != nil {
-		return nil, classify(err, "failed to list your GitHub connections")
+		return nil, classifyProvider(err, "failed to list your GitHub connections")
 	}
 
 	usable := usableConnections(connections)
@@ -96,14 +96,22 @@ func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*
 		return nil, ErrNoGitHubConnection
 	}
 
+	// One unhealthy connection must not hide a repository another can see.
+	// Connection status is provider-defined free text, so a dead connection is
+	// not reliably filtered out beforehand — it shows up as a failing lookup
+	// here. Keep the first failure and report it only if nothing resolves.
+	var failure error
 	for _, connection := range usable {
 		target, err := s.resolveThroughConnection(ctx, authenticated.API, connection.Id, repository)
-		if err != nil {
-			return nil, err
-		}
-		if target != nil {
+		switch {
+		case target != nil:
 			return target, nil
+		case err != nil && failure == nil:
+			failure = err
 		}
+	}
+	if failure != nil {
+		return nil, failure
 	}
 	return nil, fmt.Errorf("%w: %s", ErrRepositoryNotAccessible, repository.FullName())
 }
@@ -121,13 +129,13 @@ func (s Service) resolveThroughConnection(
 ) (*Target, error) {
 	installations, err := client.ListGitInstallations(ctx, connectionID)
 	if err != nil {
-		return nil, classify(err, "failed to list your GitHub App installations")
+		return nil, classifyProvider(err, "failed to list your GitHub App installations")
 	}
 
 	for _, installation := range orderByOwner(installations, repository.Owner) {
 		repositories, err := client.ListGitInstallationRepositories(ctx, connectionID, installation.Id)
 		if err != nil {
-			return nil, classify(err, "failed to list repositories for "+installation.AccountLogin)
+			return nil, classifyProvider(err, "failed to list repositories for "+installation.AccountLogin)
 		}
 
 		for _, candidate := range repositories {
@@ -162,7 +170,7 @@ func (s Service) Connect(ctx context.Context, target Target, rootDirectory strin
 
 	connection, err := authenticated.API.ConnectProjectGit(ctx, authenticated.ProjectID, body)
 	if err != nil {
-		return nil, classify(err, "failed to connect "+target.Repository.FullName)
+		return nil, classifyProvider(err, "failed to connect "+target.Repository.FullName)
 	}
 	return connection, nil
 }
@@ -244,13 +252,18 @@ func orderByOwner(installations []apiclient.GitInstallation, owner string) []api
 	return ordered
 }
 
-// classify turns a 503 into ErrProviderNotConfigured so the command layer can
-// explain it once, and otherwise annotates the error with what was being done.
-// Local mode is the common 503: the GitHub App settings are first-party only
-// and are not part of the shipped local-mode stack.
-func classify(err error, action string) error {
+// classifyProvider turns a 503 into ErrProviderNotConfigured so the command
+// layer can explain it once. Only the routes whose contract defines a 503 use
+// this: on a route that does not, a 503 came from something in front of the
+// API and saying "no GitHub App configured" would be a guess.
+func classifyProvider(err error, action string) error {
 	if api.Status(err) == http.StatusServiceUnavailable {
-		return ErrProviderNotConfigured
+		return fmt.Errorf("%w", ErrProviderNotConfigured)
 	}
+	return classify(err, action)
+}
+
+// classify annotates an error with what was being done when it happened.
+func classify(err error, action string) error {
 	return fmt.Errorf("%s: %w", action, err)
 }

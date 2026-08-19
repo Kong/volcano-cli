@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -17,15 +18,15 @@ import (
 )
 
 const (
-	gitProjectID     = "33333333-3333-4333-8333-333333333333"
-	gitConnectionID  = "77777777-7777-4777-8777-777777777777"
-	gitInstallation  = int64(4242)
-	gitRepositoryID  = int64(90210)
-	connectionPath   = "/projects/" + gitProjectID + "/git-connection"
-	deploySettings   = "/projects/" + gitProjectID + "/git-deploy-settings"
-	connectionsPath  = "/user/git/connections"
-	installationsURL = connectionsPath + "/" + gitConnectionID + "/installations"
-	repositoriesURL  = installationsURL + "/4242/repositories"
+	gitProjectID    = "33333333-3333-4333-8333-333333333333"
+	gitConnectionID = "77777777-7777-4777-8777-777777777777"
+	otherConnection = "88888888-8888-4888-8888-888888888888"
+	gitInstallation = int64(4242)
+	otherInstall    = int64(4343)
+	gitRepositoryID = int64(90210)
+	connectionPath  = "/projects/" + gitProjectID + "/git-connection"
+	deploySettings  = "/projects/" + gitProjectID + "/git-deploy-settings"
+	connectionsPath = "/user/git/connections"
 
 	originRemoteOutput = "origin\tgit@github.com:octo/storefront.git (fetch)\n" +
 		"origin\tgit@github.com:octo/storefront.git (push)\n"
@@ -87,20 +88,33 @@ func executeGitCommand(t *testing.T, server *httptest.Server, runner *gitRunner,
 	return out.String(), err
 }
 
-// gitAPI is a fake platform: a project binding that starts as connected or not,
-// one GitHub connection, one installation, and one visible repository.
+// gitAPI is a fake platform. Installations are keyed by connection and repos by
+// installation, so a test can lay out a resolve walk that actually has to keep
+// looking rather than finding the answer on its first try.
 type gitAPI struct {
 	t *testing.T
 	// connected is the repo the project is bound to, empty for none.
 	connected string
-	// connections, installations and repositories answer the resolve walk.
-	connections   []map[string]any
-	installations []map[string]any
-	repositories  []map[string]any
-	// autoDeploy reports what a push deploys once connected.
-	autoDeploy bool
-	// status overrides the response for every git route when non-zero.
-	status int
+	// connectedRoot is that binding's root directory.
+	connectedRoot string
+
+	connections               []map[string]any
+	installationsByConnection map[string][]map[string]any
+	reposByInstallation       map[int64][]map[string]any
+	// installationsStatus overrides the installations response per connection,
+	// so a test can make one connection fail while another still answers.
+	installationsStatus map[string]int
+
+	autoDeploy      bool
+	deployFunctions bool
+	frontend        string
+	frontendRoot    string
+	// providerStatus overrides the response on the routes that reach the git
+	// provider. The project's own binding routes are excluded on purpose: they
+	// only read the database, so the real server cannot answer 503 there.
+	providerStatus int
+	// projectStatus overrides the response on the project binding routes.
+	projectStatus int
 
 	mu          sync.Mutex
 	connectBody map[string]any
@@ -111,12 +125,16 @@ func newGitAPI(t *testing.T) *gitAPI {
 	t.Helper()
 	return &gitAPI{
 		t:           t,
-		connections: []map[string]any{githubConnection()},
-		installations: []map[string]any{
-			installation("octo", "User", "all"),
+		connections: []map[string]any{githubConnection(gitConnectionID, "octo")},
+		installationsByConnection: map[string][]map[string]any{
+			gitConnectionID: {installation(gitInstallation, "octo", "User", "all")},
 		},
-		repositories: []map[string]any{repository("octo/storefront")},
-		autoDeploy:   true,
+		reposByInstallation: map[int64][]map[string]any{
+			gitInstallation: {repository("octo/storefront")},
+		},
+		installationsStatus: map[string]int{},
+		autoDeploy:          true,
+		deployFunctions:     true,
 	}
 }
 
@@ -127,18 +145,22 @@ func (a *gitAPI) serve() *httptest.Server {
 }
 
 func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
-	if a.status != 0 {
-		writeGitJSON(a.t, w, a.status, map[string]any{"error": "git provider integration is not configured"})
+	if a.providerStatus != 0 && strings.HasPrefix(r.URL.Path, "/user/git/") {
+		writeGitJSON(a.t, w, a.providerStatus, map[string]any{"error": "git provider integration is not configured"})
+		return
+	}
+	if a.projectStatus != 0 && strings.HasPrefix(r.URL.Path, "/projects/") {
+		writeGitJSON(a.t, w, a.projectStatus, map[string]any{"error": "upstream unavailable"})
 		return
 	}
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == connectionsPath:
 		writeGitJSON(a.t, w, http.StatusOK, map[string]any{"connections": a.connections})
-	case r.Method == http.MethodGet && r.URL.Path == installationsURL:
-		writeGitJSON(a.t, w, http.StatusOK, map[string]any{"installations": a.installations})
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/installations"):
+		a.serveInstallations(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories"):
-		writeGitJSON(a.t, w, http.StatusOK, map[string]any{"repositories": a.repositories})
+		a.serveRepositories(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == connectionPath:
 		a.serveConnection(w)
 	case r.Method == http.MethodPut && r.URL.Path == connectionPath:
@@ -146,14 +168,48 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodDelete && r.URL.Path == connectionPath:
 		a.serveDisconnect(w)
 	case r.Method == http.MethodGet && r.URL.Path == deploySettings:
-		writeGitJSON(a.t, w, http.StatusOK, map[string]any{
-			"auto_deploy_enabled": a.autoDeploy,
-			"deploy_functions":    a.autoDeploy,
-			"updated_at":          "2026-08-18T00:00:00Z",
-		})
+		a.serveDeploySettings(w)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// connectionOf reads the connection id out of
+// /user/git/connections/{id}/installations[/{installationId}/repositories].
+func connectionOf(path string) string {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	if len(segments) < 4 {
+		return ""
+	}
+	return segments[3]
+}
+
+// installationOf reads the installation id out of
+// /user/git/connections/{id}/installations/{installationId}/repositories.
+func installationOf(t *testing.T, path string) int64 {
+	t.Helper()
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	require.Len(t, segments, 7, "unexpected repositories path %q", path)
+	id, err := strconv.ParseInt(segments[5], 10, 64)
+	require.NoError(t, err)
+	return id
+}
+
+func (a *gitAPI) serveInstallations(w http.ResponseWriter, r *http.Request) {
+	connection := connectionOf(r.URL.Path)
+	if status := a.installationsStatus[connection]; status != 0 {
+		writeGitJSON(a.t, w, status, map[string]any{"error": "github rejected the stored token"})
+		return
+	}
+	writeGitJSON(a.t, w, http.StatusOK, map[string]any{
+		"installations": a.installationsByConnection[connection],
+	})
+}
+
+func (a *gitAPI) serveRepositories(w http.ResponseWriter, r *http.Request) {
+	writeGitJSON(a.t, w, http.StatusOK, map[string]any{
+		"repositories": a.reposByInstallation[installationOf(a.t, r.URL.Path)],
+	})
 }
 
 func (a *gitAPI) serveConnection(w http.ResponseWriter) {
@@ -163,7 +219,7 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
 	}
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected))
+	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot))
 }
 
 func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
@@ -171,14 +227,11 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	defer a.mu.Unlock()
 	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.connectBody))
 
-	name, _ := a.connectBody["repo_full_name"].(string)
-	if name == "" {
-		// The preferred selector is the numeric id, so resolve it the way the
-		// platform would rather than echoing whatever was sent.
-		name = "octo/storefront"
-	}
-	a.connected = name
-	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(name))
+	// The preferred selector is the numeric id, so resolve it the way the
+	// platform would rather than echoing whatever was sent.
+	a.connected = "octo/storefront"
+	a.connectedRoot, _ = a.connectBody["root_directory"].(string)
+	writeGitJSON(a.t, w, http.StatusOK, connectionPayload(a.connected, a.connectedRoot))
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
@@ -187,6 +240,21 @@ func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
 	a.deleted = true
 	a.connected = ""
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
+	settings := map[string]any{
+		"auto_deploy_enabled": a.autoDeploy,
+		"deploy_functions":    a.deployFunctions,
+		"updated_at":          "2026-08-18T00:00:00Z",
+	}
+	if a.frontend != "" {
+		settings["frontend_name"] = a.frontend
+	}
+	if a.frontendRoot != "" {
+		settings["frontend_app_root"] = a.frontendRoot
+	}
+	writeGitJSON(a.t, w, http.StatusOK, settings)
 }
 
 func (a *gitAPI) sentConnectBody() map[string]any {
@@ -201,23 +269,23 @@ func (a *gitAPI) disconnectCalled() bool {
 	return a.deleted
 }
 
-func connectionPayload(fullName string) map[string]any {
+func connectionPayload(fullName, rootDirectory string) map[string]any {
 	return map[string]any{
 		"repo_installation_id": gitInstallation,
 		"repo_id":              gitRepositoryID,
 		"repo_full_name":       fullName,
-		"root_directory":       "",
+		"root_directory":       rootDirectory,
 		"production_branch":    "main",
 		"updated_at":           "2026-08-18T00:00:00Z",
 	}
 }
 
-func githubConnection() map[string]any {
+func githubConnection(id, login string) map[string]any {
 	return map[string]any{
-		"id":                    gitConnectionID,
+		"id":                    id,
 		"provider":              "github",
 		"provider_user_id":      "1",
-		"provider_login":        "octo",
+		"provider_login":        login,
 		"status":                "active",
 		"last_authenticated_at": "2026-08-18T00:00:00Z",
 		"created_at":            "2026-08-18T00:00:00Z",
@@ -225,9 +293,9 @@ func githubConnection() map[string]any {
 	}
 }
 
-func installation(login, accountType, selection string) map[string]any {
+func installation(id int64, login, accountType, selection string) map[string]any {
 	return map[string]any{
-		"id":                   gitInstallation,
+		"id":                   id,
 		"account_login":        login,
 		"account_type":         accountType,
 		"repository_selection": selection,

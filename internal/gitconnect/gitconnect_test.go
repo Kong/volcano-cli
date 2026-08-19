@@ -52,12 +52,26 @@ func TestOrderByOwnerKeepsEveryInstallationWhenNoneMatches(t *testing.T) {
 	assert.Equal(t, installations, ordered)
 }
 
-// A 503 means the API has no GitHub App configured at all, which is a different
-// conversation from whatever call happened to hit it.
-func TestClassifyMapsUnavailableToProviderNotConfigured(t *testing.T) {
+// On a route whose contract defines a 503, that status means the API has no
+// GitHub App configured at all — a different conversation from whatever call
+// happened to hit it.
+func TestClassifyProviderMapsUnavailableToProviderNotConfigured(t *testing.T) {
 	t.Parallel()
-	err := classify(&api.Error{StatusCode: http.StatusServiceUnavailable, Message: "not configured"}, "failed to do a thing")
+	err := classifyProvider(&api.Error{StatusCode: http.StatusServiceUnavailable, Message: "not configured"}, "failed to do a thing")
 	require.ErrorIs(t, err, ErrProviderNotConfigured)
+}
+
+// On a route whose contract defines no 503 — the project's own binding routes
+// only read the database — a 503 came from something in front of the API.
+// Claiming the GitHub App is unconfigured there would be a guess, and would
+// send the user off to fix something with nothing wrong with it.
+func TestClassifyLeavesUnavailableAloneOnRoutesWithoutA503(t *testing.T) {
+	t.Parallel()
+	cause := &api.Error{StatusCode: http.StatusServiceUnavailable, Message: "upstream unavailable"}
+	err := classify(cause, "failed to do a thing")
+
+	require.NotErrorIs(t, err, ErrProviderNotConfigured)
+	require.ErrorIs(t, err, cause)
 }
 
 func TestClassifyAnnotatesEverythingElse(t *testing.T) {

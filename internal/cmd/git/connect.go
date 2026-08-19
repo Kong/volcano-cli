@@ -18,13 +18,17 @@ import (
 )
 
 type connectOptions struct {
-	deps          cliruntime.Deps
-	gitURL        string
-	remote        string
-	rootDirectory string
-	yes           bool
-	in            io.Reader
-	out           io.Writer
+	deps   cliruntime.Deps
+	gitURL string
+	remote string
+	// rootDirectory and rootDirectorySet are separate because the bind is a
+	// full replace: an omitted flag has to leave an existing root directory
+	// alone, while an explicitly empty one resets it to the repository root.
+	rootDirectory    string
+	rootDirectorySet bool
+	yes              bool
+	in               io.Reader
+	out              io.Writer
 }
 
 func newConnect(deps cliruntime.Deps) *cobra.Command {
@@ -51,14 +55,21 @@ the repository's default branch yourself.`,
 			if len(args) == 1 {
 				gitURL = strings.TrimSpace(args[0])
 			}
+			// Both say where the repository comes from and the URL wins, so
+			// taking the pair would silently ignore what the user asked for.
+			if gitURL != "" && cmd.Flags().Changed("remote") {
+				return errors.New(
+					"--remote cannot be combined with a repository URL: both say where the repository comes from")
+			}
 			return runConnect(cmd.Context(), connectOptions{
-				deps:          deps,
-				gitURL:        gitURL,
-				remote:        remote,
-				rootDirectory: rootDirectory,
-				yes:           yes,
-				in:            cmd.InOrStdin(),
-				out:           cmd.OutOrStdout(),
+				deps:             deps,
+				gitURL:           gitURL,
+				remote:           remote,
+				rootDirectory:    rootDirectory,
+				rootDirectorySet: cmd.Flags().Changed("root-directory"),
+				yes:              yes,
+				in:               cmd.InOrStdin(),
+				out:              cmd.OutOrStdout(),
 			})
 		},
 	}
@@ -84,16 +95,19 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	// Already bound to this repository: report it and stop. Connecting is
-	// idempotent on purpose — an agent or a CI job re-running it should not
-	// have to special-case "already done".
-	if existing != nil && strings.EqualFold(existing.RepoFullName, repository.FullName()) {
+	// Nothing to change: report the binding and stop. Connecting is idempotent
+	// on purpose — an agent or a CI job re-running it should not have to
+	// special-case "already done".
+	if unchanged(existing, repository, opts) {
 		settings, _ := service.DeploySettings(ctx)
 		output.GitConnection(opts.out, existing, settings)
 		return nil
 	}
 
-	if existing != nil {
+	// Only a different repository is a replacement. Editing the root directory
+	// of the repository already bound is not, and must not be described as one.
+	replacing := existing != nil && !sameRepository(existing, repository)
+	if replacing {
 		replace, err := confirmReplace(opts, existing.RepoFullName, repository.FullName())
 		if err != nil || !replace {
 			return err
@@ -106,8 +120,8 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	}
 
 	// Confirm an explicitly named repository: the user may be pointing somewhere
-	// other than the checkout they are standing in. Replacing an existing
-	// binding was already confirmed above, so it is not asked twice.
+	// other than the checkout they are standing in. A replacement was already
+	// confirmed above, so it is not asked twice.
 	if explicit && !opts.yes && existing == nil {
 		confirmed, err := confirm.Action(opts.in, opts.out,
 			fmt.Sprintf("This will connect the current project to %s.", target.Repository.FullName),
@@ -117,13 +131,17 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		}
 	}
 
-	if existing != nil {
+	if replacing {
 		// The bind is a full replace, so the old binding does not need removing
 		// first. Say what happened anyway: the previous repository stops
 		// deploying, and that is worth stating rather than leaving to inference.
 		output.Note(opts.out, "Replacing the existing connection to %s.", existing.RepoFullName)
 	}
 
+	// The flag value is what the bind carries, and it is always the right one
+	// here: reaching this point means either the repository changed (so the old
+	// root directory means nothing) or --root-directory was given, since
+	// unchanged() has already returned for every other case.
 	connection, err := service.Connect(ctx, *target, opts.rootDirectory)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
@@ -172,6 +190,26 @@ func currentConnection(ctx context.Context, service gitconnect.Service) (*apicli
 		return nil, err
 	}
 	return existing, nil
+}
+
+// unchanged reports whether the project is already bound exactly as asked, so
+// there is nothing to send. A root directory the user named explicitly counts:
+// keying only on the repository would drop --root-directory in silence, and
+// this bind is the only way to edit it.
+func unchanged(existing *apiclient.ProjectGitConnection, repository localgit.Repository, opts connectOptions) bool {
+	if existing == nil || !sameRepository(existing, repository) {
+		return false
+	}
+	if !opts.rootDirectorySet {
+		return true
+	}
+	return strings.TrimSpace(opts.rootDirectory) == strings.TrimSpace(existing.RootDirectory)
+}
+
+// sameRepository compares full names case-insensitively: GitHub preserves the
+// case an owner typed but does not treat it as significant.
+func sameRepository(existing *apiclient.ProjectGitConnection, repository localgit.Repository) bool {
+	return strings.EqualFold(existing.RepoFullName, repository.FullName())
 }
 
 func confirmReplace(opts connectOptions, connected, wanted string) (bool, error) {

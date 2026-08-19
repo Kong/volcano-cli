@@ -156,7 +156,7 @@ func TestConnectReportsNoGitHubConnection(t *testing.T) {
 func TestConnectReportsARepositoryTheAppCannotSee(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
-	api.repositories = []map[string]any{repository("octo/something-else")}
+	api.reposByInstallation[gitInstallation] = []map[string]any{repository("octo/something-else")}
 
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
@@ -168,27 +168,83 @@ func TestConnectReportsARepositoryTheAppCannotSee(t *testing.T) {
 }
 
 // An installation scoped to selected repositories can carry a repo its account
-// does not own, so a miss on the owner's installation keeps looking.
+// does not own, so a miss on the owner's installation must keep looking. The
+// owner's installation is present here and does not hold the repo, so a lookup
+// that stopped after the first installation would fail this.
 func TestConnectFindsARepositoryThroughAnotherInstallation(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
-	api.installations = []map[string]any{installation("acme", "Organization", "selected")}
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(gitInstallation, "octo", "User", "selected"),
+		installation(otherInstall, "acme", "Organization", "selected"),
+	}
+	api.reposByInstallation[gitInstallation] = []map[string]any{repository("octo/something-else")}
+	api.reposByInstallation[otherInstall] = []map[string]any{repository("octo/storefront")}
 
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Connected octo/storefront")
+	assert.InDelta(t, float64(otherInstall), api.sentConnectBody()["installation_id"], 0,
+		"the binding must record the installation the repo was actually found through")
+}
+
+// A second connection must still be tried when the first cannot answer.
+// Connection status is provider-defined free text, so an unusable connection
+// is not reliably filtered out in advance — it shows up as a failing lookup.
+func TestConnectKeepsLookingPastAFailingConnection(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connections = []map[string]any{
+		githubConnection(gitConnectionID, "stale"),
+		githubConnection(otherConnection, "octo"),
+	}
+	api.installationsStatus[gitConnectionID] = http.StatusInternalServerError
+	api.installationsByConnection[otherConnection] = []map[string]any{
+		installation(otherInstall, "octo", "User", "all"),
+	}
+	api.reposByInstallation[otherInstall] = []map[string]any{repository("octo/storefront")}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.Equal(t, otherConnection, api.sentConnectBody()["connection_id"])
+}
+
+// Nothing resolved and something failed: the failure is what the user needs to
+// see, not a generic "the App cannot see it".
+func TestConnectReportsTheLookupFailureWhenNothingResolves(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.installationsStatus[gitConnectionID] = http.StatusInternalServerError
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to list your GitHub App installations")
+	assert.NotContains(t, err.Error(), "not accessible through your GitHub connection")
+}
+
+// GitHub preserves the case an owner typed but does not treat it as
+// significant, so a differently-cased repository still resolves.
+func TestConnectMatchesTheRepositoryCaseInsensitively(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.reposByInstallation[gitInstallation] = []map[string]any{repository("Octo/StoreFront")}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected")
 }
 
 func TestConnectExplains503AsAMissingGitHubApp(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
-	api.status = http.StatusServiceUnavailable
+	api.providerStatus = http.StatusServiceUnavailable
 
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 
 	assert.Contains(t, err.Error(), "git provider integration is not configured")
-	assert.Contains(t, err.Error(), "Local mode does not ship the GitHub App settings")
+	assert.Contains(t, err.Error(), "the local stack ships without GitHub App settings")
 }
 
 func TestConnectReportsAnEmptyRemoteList(t *testing.T) {
@@ -239,4 +295,123 @@ func TestConnectAsksOnceWhenReplacingAnExplicitRepository(t *testing.T) {
 	assert.Contains(t, out, "Replace it with octo/storefront?")
 	assert.NotContains(t, out, "Connect it?")
 	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// --root-directory is the only way to set or change the subdirectory a project
+// builds from, so an already-connected repository must not short-circuit it.
+func TestConnectUpdatesTheRootDirectoryOnAConnectedRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/api")
+	require.NoError(t, err)
+
+	require.NotNil(t, api.sentConnectBody(), "a root-directory change must be sent")
+	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+	assert.Contains(t, out, "Root directory: apps/api")
+	// Nothing was replaced: it is the same repository.
+	assert.NotContains(t, out, "Replacing the existing connection")
+}
+
+func TestConnectClearsTheRootDirectoryWhenExplicitlyEmptied(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRoot = "apps/api"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "")
+	require.NoError(t, err)
+	require.NotNil(t, api.sentConnectBody())
+	assert.NotContains(t, api.sentConnectBody(), "root_directory")
+}
+
+func TestConnectLeavesAnUnmentionedRootDirectoryAlone(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRoot = "apps/api"
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "already connected")
+	assert.Contains(t, out, "Root directory: apps/api")
+	assert.Nil(t, api.sentConnectBody(), "an unchanged binding must not be rewritten")
+}
+
+func TestConnectMatchingTheRootDirectoryIsStillIdempotent(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRoot = "apps/api"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/api")
+	require.NoError(t, err)
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// Moving to a different repository starts from the root: the old
+// subdirectory means nothing in the new one.
+func TestConnectDoesNotCarryTheRootDirectoryToAnotherRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.connectedRoot = "apps/api"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect", "--yes")
+	require.NoError(t, err)
+	require.NotNil(t, api.sentConnectBody())
+	assert.NotContains(t, api.sentConnectBody(), "root_directory")
+}
+
+// A URL and --remote both say where the repository comes from, so the pair is
+// refused rather than one of them winning silently.
+func TestConnectRefusesARepositoryURLTogetherWithRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "",
+		"connect", "https://github.com/octo/storefront.git", "--remote", "upstream", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--remote cannot be combined with a repository URL")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// A repository address copied out of a browser carries a query string. Keeping
+// it would send the user off to fix a permission problem that does not exist.
+func TestConnectAcceptsARepositoryURLCopiedFromABrowser(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+
+	out, err := executeGitCommand(t, api.serve(), nil, "",
+		"connect", "https://github.com/octo/storefront?tab=readme-ov-file", "--yes")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+func TestConnectReportsAFrontendAmongTheDeployTargets(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.frontend = "web"
+	api.frontendRoot = "apps/web"
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions, frontend web (apps/web)")
+}
+
+// Auto-deploy on with nothing selected is as silent as auto-deploy off.
+func TestConnectWarnsWhenAutoDeployHasNothingToDeploy(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.deployFunctions = false
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "neither functions nor a frontend is selected")
 }

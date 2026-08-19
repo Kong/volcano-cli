@@ -60,14 +60,21 @@ func TestDisconnectReportsAnUnconnectedProject(t *testing.T) {
 	assert.False(t, api.disconnectCalled())
 }
 
-func TestDisconnectExplains503AsAMissingGitHubApp(t *testing.T) {
+// Disconnect never reaches the git provider — it only reads and deletes the
+// project's own binding — so a 503 there came from something in front of the
+// API. Reporting it as a missing GitHub App would send the user somewhere with
+// nothing to fix.
+func TestDisconnectDoesNotBlameTheGitHubAppForAnUpstream503(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
-	api.status = http.StatusServiceUnavailable
+	api.projectStatus = http.StatusServiceUnavailable
 
 	_, err := executeGitCommand(t, api.serve(), nil, "", "disconnect", "--yes")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Local mode does not ship the GitHub App settings")
+	assert.Contains(t, err.Error(), "failed to get the project's repository connection")
+	assert.Contains(t, err.Error(), "503")
+	assert.NotContains(t, err.Error(), "local mode")
+	assert.False(t, api.disconnectCalled())
 }
 
 func TestDisconnectTakesNoArguments(t *testing.T) {

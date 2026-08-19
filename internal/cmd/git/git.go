@@ -36,13 +36,16 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	switch {
 	case errors.Is(err, gitconnect.ErrProviderNotConfigured):
 		return fmt.Errorf(
-			"%w\n\nLocal mode does not ship the GitHub App settings, so Git connections are only "+
-				"available against the cloud API", err)
+			"%w\n\nIf this is local mode, that is expected: the local stack ships without GitHub "+
+				"App settings. Run against the cloud API", err)
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))
 	case errors.Is(err, gitconnect.ErrNotConnected):
-		return fmt.Errorf("%w\n\nConnect one with %s", err, cliruntime.CommandPath(deps, "git connect"))
+		// The API answers 404 for both "no binding" and "no such project", so
+		// name the second possibility rather than asserting the first.
+		return fmt.Errorf("%w\n\nConnect one with %s, or check the active project with %s",
+			err, cliruntime.CommandPath(deps, "git connect"), cliruntime.CommandPath(deps, "projects get"))
 	default:
 		return err
 	}

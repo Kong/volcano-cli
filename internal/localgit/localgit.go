@@ -196,13 +196,61 @@ func isGitHubHost(host string) bool {
 
 // splitOwnerRepo reads the owner and repository name out of a remote URL's
 // path, tolerating a leading slash, a trailing slash, and the .git suffix.
+//
+// A query string or fragment is dropped first: copying a repository's address
+// out of a browser yields ".../storefront?tab=readme-ov-file", and carrying
+// that into the name would send the user off to fix a repository-access
+// problem that does not exist.
 func splitOwnerRepo(path string) (owner, name string, ok bool) {
+	path, _, _ = strings.Cut(path, "?")
+	path, _, _ = strings.Cut(path, "#")
 	path = strings.Trim(path, "/")
-	path = strings.TrimSuffix(path, ".git")
+	path = trimGitSuffix(path)
 
 	owner, name, found := strings.Cut(path, "/")
-	if !found || owner == "" || name == "" || strings.Contains(name, "/") {
+	if !found || !validOwner(owner) || !validRepositoryName(name) {
 		return "", "", false
 	}
 	return owner, name, true
+}
+
+// trimGitSuffix removes a trailing ".git" whatever its case, leaving a
+// repository that is itself named "something.git" intact.
+func trimGitSuffix(path string) string {
+	if len(path) >= 4 && strings.EqualFold(path[len(path)-4:], ".git") {
+		return path[:len(path)-4]
+	}
+	return path
+}
+
+// validOwner and validRepositoryName hold the parse to what GitHub actually
+// accepts. They are the backstop that turns a URL this package mis-split into
+// an error rather than a plausible-looking wrong answer — a port in a
+// scp-like URL ("host:22:owner/repo") lands in the owner, for instance.
+func validOwner(owner string) bool {
+	if owner == "" {
+		return false
+	}
+	for _, r := range owner {
+		if !isASCIIAlphanumeric(r) && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func validRepositoryName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if !isASCIIAlphanumeric(r) && r != '-' && r != '_' && r != '.' {
+			return false
+		}
+	}
+	return true
+}
+
+func isASCIIAlphanumeric(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
 }
