@@ -225,19 +225,25 @@ func Redact(rawURL string) string {
 	return redacted
 }
 
-// redactScpLike echoes the "[user@]host:path" form as-is: the user there is a
-// login ("git@github.com:…"), and the form has no password field at all.
-// Anything that does not have that shape is not echoed.
+// redactScpLike handles the "[user@]host:path" form. The userinfo goes here for
+// the same reason it goes from a URL: "TOKEN@gitlab.com:octo/repo.git" is a
+// remote a script can produce, and nothing tells that apart from the "git@…" a
+// user typed. Anything without this shape is not echoed at all.
 func redactScpLike(rawURL string) string {
 	authority, path, found := strings.Cut(rawURL, ":")
 	if !found || strings.Contains(path, "@") {
 		return Placeholder
 	}
-	if _, host, hasUser := strings.Cut(authority, "@"); hasUser {
-		authority = host
+
+	_, host, hasUserInfo := strings.Cut(authority, "@")
+	if !hasUserInfo {
+		host = authority
 	}
-	if !looksLikeHost(authority) {
+	if !looksLikeHost(host) {
 		return Placeholder
+	}
+	if hasUserInfo {
+		return "***@" + host + ":" + path
 	}
 	return rawURL
 }

@@ -26,6 +26,12 @@ type GitBinding struct {
 	// reported only when it differs from the repository's owner, which is the
 	// case worth pointing out.
 	InstallationAccount string
+	// SettingsErr is why Settings could not be read, when they could not. The
+	// binding is unaffected by that failure, so it is reported as a warning
+	// rather than swallowed: "nothing to say about what a push deploys" and
+	// "could not find out" are different states, and only one of them is safe
+	// to read as "no deploy configured".
+	SettingsErr error
 }
 
 // GitConnected renders a repository binding that was just made, followed by
@@ -34,14 +40,14 @@ type GitBinding struct {
 func GitConnected(w io.Writer, binding GitBinding) {
 	Success(w, "Connected %s", binding.Connection.RepoFullName)
 	gitBindingDetail(w, theme.On(w), binding)
-	gitDeploySettings(w, binding.Connection, binding.Settings)
+	gitDeploySettings(w, binding)
 }
 
 // GitConnection renders an existing binding without claiming anything changed.
 func GitConnection(w io.Writer, binding GitBinding) {
 	fmt.Fprintf(w, "%s is already connected to this project.\n", binding.Connection.RepoFullName)
 	gitBindingDetail(w, theme.On(w), binding)
-	gitDeploySettings(w, binding.Connection, binding.Settings)
+	gitDeploySettings(w, binding)
 }
 
 // GitDisconnected renders a removed binding. The repository is untouched, which
@@ -81,8 +87,14 @@ func repositoryOwner(fullName string) string {
 // gitDeploySettings says what a push does. Auto-deploy off is the silent
 // failure worth surfacing here: the binding looks complete, and nothing
 // happens on push.
-func gitDeploySettings(w io.Writer, connection *apiclient.ProjectGitConnection, settings *apiclient.ProjectGitDeploySettings) {
+func gitDeploySettings(w io.Writer, binding GitBinding) {
+	connection, settings := binding.Connection, binding.Settings
 	if settings == nil {
+		if binding.SettingsErr != nil {
+			fmt.Fprintln(w)
+			Warning(w, "The connection is in place, but its deploy settings could not be read, "+
+				"so what a push to %s deploys is unknown: %v", connection.ProductionBranch, binding.SettingsErr)
+		}
 		return
 	}
 

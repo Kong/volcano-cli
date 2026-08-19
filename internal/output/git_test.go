@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
@@ -107,6 +108,45 @@ func TestGitConnectedToleratesUnreadableSettings(t *testing.T) {
 	assert.Contains(t, out.String(), "Connected octo/storefront")
 	assert.NotContains(t, out.String(), "A push to")
 	assert.NotContains(t, out.String(), "Auto-deploy")
+}
+
+// "Nothing to say about what a push deploys" and "could not find out" are
+// different states, and only one of them is safe to read as "no deploy
+// configured". A failed read says so instead of looking like the former.
+func TestGitConnectedWarnsWhenTheSettingsCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitConnected(&out, GitBinding{
+		Connection:  gitConnectionFixture(""),
+		SettingsErr: errors.New("HTTP 500: internal error"),
+	})
+
+	assert.Contains(t, out.String(), "Connected octo/storefront")
+	assert.Contains(t, out.String(), "deploy settings could not be read")
+	assert.Contains(t, out.String(), "what a push to main deploys is unknown")
+	assert.Contains(t, out.String(), "HTTP 500: internal error")
+}
+
+// A binding that was only read back carries no settings and no failure; there
+// is nothing to warn about.
+func TestGitConnectedStaysQuietWhenThereWasNoSettingsRead(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture("")})
+
+	assert.NotContains(t, out.String(), "could not be read")
+}
+
+func TestGitConnectionWarnsWhenTheSettingsCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitConnection(&out, GitBinding{
+		Connection:  gitConnectionFixture(""),
+		SettingsErr: errors.New("HTTP 503: unavailable"),
+	})
+
+	assert.Contains(t, out.String(), "already connected")
+	assert.Contains(t, out.String(), "deploy settings could not be read")
 }
 
 func TestGitConnectedOmitsAnEmptyRootDirectory(t *testing.T) {

@@ -238,8 +238,11 @@ func TestRedact(t *testing.T) {
 		"no userinfo is untouched": {
 			"https://github.com/octo/repo.git", "https://github.com/octo/repo.git",
 		},
-		"scp-like is untouched": {
-			"git@github.com:octo/repo.git", "git@github.com:octo/repo.git",
+		"scp-like userinfo dropped": {
+			"git@github.com:octo/repo.git", "***@github.com:octo/repo.git",
+		},
+		"scp-like without userinfo kept": {
+			"github.com:octo/repo.git", "github.com:octo/repo.git",
 		},
 		"authority only": {
 			"https://user:pw@github.com", "https://***@github.com",
@@ -418,8 +421,9 @@ func TestParseGitHubRepositoryDoesNotMisreadTheHostPastACredential(t *testing.T)
 func TestRedactStillEchoesRecognizedForms(t *testing.T) {
 	t.Parallel()
 	for name, tc := range map[string]struct{ in, want string }{
-		"scp-like": {"git@github.com:octo/repo.git", "git@github.com:octo/repo.git"},
-		"https":    {"https://gitlab.com/octo/repo.git", "https://gitlab.com/octo/repo.git"},
+		"scp-like no userinfo":   {"github.com:octo/repo.git", "github.com:octo/repo.git"},
+		"scp-like with userinfo": {"git@github.com:octo/repo.git", "***@github.com:octo/repo.git"},
+		"https":                  {"https://gitlab.com/octo/repo.git", "https://gitlab.com/octo/repo.git"},
 		"https userinfo": {
 			"https://gitlab-ci-token:SECRET@gitlab.com/octo/repo.git",
 			"https://***@gitlab.com/octo/repo.git",
@@ -433,4 +437,22 @@ func TestRedactStillEchoesRecognizedForms(t *testing.T) {
 			assert.Equal(t, tc.want, Redact(tc.in))
 		})
 	}
+}
+
+// A token in the scp-like form has no password field to spot, exactly as in the
+// URL form, so the same rule applies: the userinfo goes.
+func TestRedactDropsAScpLikeUserInfoCarryingAToken(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t,
+		"***@gitlab.com:octo/repo.git",
+		Redact("ghp_16C7e42F292c6912E7710c838347Ae178B4a@gitlab.com:octo/repo.git"))
+}
+
+func TestParseGitHubRepositoryRedactsAScpLikeTokenInErrors(t *testing.T) {
+	t.Parallel()
+	_, err := ParseGitHubRepository("ghp_16C7e42F292c6912E7710c838347Ae178B4a@gitlab.com:octo/storefront.git")
+
+	require.ErrorIs(t, err, ErrNotGitHub)
+	assert.NotContains(t, err.Error(), "ghp_16C7e42F292c6912E7710c838347Ae178B4a")
+	assert.Contains(t, err.Error(), "***@gitlab.com:octo/storefront.git")
 }

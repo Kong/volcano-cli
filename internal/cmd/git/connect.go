@@ -127,10 +127,11 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// on purpose — an agent or a CI job re-running it should not have to
 	// special-case "already done".
 	if unchanged(existing, target, opts) {
-		settings, _ := service.DeploySettings(ctx)
+		settings, settingsErr := service.DeploySettings(ctx)
 		output.GitConnection(opts.out, output.GitBinding{
 			Connection:          existing,
 			Settings:            settings,
+			SettingsErr:         settingsErr,
 			Project:             project.Label(),
 			GitHubAccount:       target.ConnectionLogin,
 			InstallationAccount: target.InstallationAccount,
@@ -172,11 +173,13 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	}
 
 	// The binding is made at this point, so failing to read back what a push
-	// deploys must not turn a successful connect into an error.
-	settings, _ := service.DeploySettings(ctx)
+	// deploys must not turn a successful connect into an error — but it is said
+	// out loud rather than left to look like "nothing is configured".
+	settings, settingsErr := service.DeploySettings(ctx)
 	output.GitConnected(opts.out, output.GitBinding{
 		Connection:          connection,
 		Settings:            settings,
+		SettingsErr:         settingsErr,
 		Project:             project.Label(),
 		GitHubAccount:       target.ConnectionLogin,
 		InstallationAccount: target.InstallationAccount,

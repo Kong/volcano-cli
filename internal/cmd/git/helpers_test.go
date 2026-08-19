@@ -125,6 +125,9 @@ type gitAPI struct {
 	providerStatus int
 	// projectStatus overrides the response on the project binding routes.
 	projectStatus int
+	// deploySettingsStatus fails only the deploy-settings read, which the
+	// commands tolerate without failing the connect.
+	deploySettingsStatus int
 
 	mu          sync.Mutex
 	connectBody map[string]any
@@ -286,6 +289,10 @@ func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
 }
 
 func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
+	if a.deploySettingsStatus != 0 {
+		writeGitJSON(a.t, w, a.deploySettingsStatus, map[string]any{"error": "settings unavailable"})
+		return
+	}
 	settings := map[string]any{
 		"auto_deploy_enabled": a.autoDeploy,
 		"deploy_functions":    a.deployFunctions,

@@ -667,3 +667,32 @@ func TestConnectDoesNotNameTheProjectItCannotIdentify(t *testing.T) {
 	assert.Contains(t, out, "Project: "+otherProject)
 	assert.NotContains(t, out, "Storefront", "the stored name belongs to a different project")
 }
+
+// A failed settings read must not fail the connect — the binding is already
+// made — but it must not look like "no deploy is configured" either.
+func TestConnectWarnsButSucceedsWhenTheSettingsCannotBeRead(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.deploySettingsStatus = http.StatusInternalServerError
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err, "the binding landed, so the command succeeds")
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.Contains(t, out, "deploy settings could not be read")
+	assert.NotContains(t, out, "Auto-deploy is off", "unknown must not be reported as off")
+	assert.NotNil(t, api.sentConnectBody())
+}
+
+func TestConnectWarnsOnAnUnchangedBindingWhenTheSettingsCannotBeRead(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.deploySettingsStatus = http.StatusServiceUnavailable
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "already connected")
+	assert.Contains(t, out, "deploy settings could not be read")
+}
