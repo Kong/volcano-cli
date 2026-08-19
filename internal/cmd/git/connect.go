@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -89,7 +90,16 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// below still reports what went wrong, so it is not worth failing over.
 	webURL, _ := service.WebURL()
 
+	if err := validateRootDirectory(opts); err != nil {
+		return err
+	}
+
 	repository, err := resolveRepository(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	project, err := service.Project()
 	if err != nil {
 		return err
 	}
@@ -118,7 +128,13 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// special-case "already done".
 	if unchanged(existing, target, opts) {
 		settings, _ := service.DeploySettings(ctx)
-		output.GitConnection(opts.out, existing, settings)
+		output.GitConnection(opts.out, output.GitBinding{
+			Connection:          existing,
+			Settings:            settings,
+			Project:             project.Label(),
+			GitHubAccount:       target.ConnectionLogin,
+			InstallationAccount: target.InstallationAccount,
+		})
 		return nil
 	}
 
@@ -127,7 +143,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// as one.
 	replacing := existing != nil && existing.RepoId != target.Repository.Id
 	if replacing {
-		replace, err := confirmReplace(opts, existing, target.Repository.FullName)
+		replace, err := confirmReplace(opts, project, existing, target.Repository.FullName)
 		if err != nil || !replace {
 			return err
 		}
@@ -137,7 +153,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// other than the checkout they are standing in. A replacement was already
 	// confirmed above, so it is not asked twice.
 	if opts.gitURL != "" && existing == nil {
-		confirmed, err := confirmConnect(opts, target.Repository.FullName)
+		confirmed, err := confirmConnect(opts, project, target.Repository.FullName)
 		if err != nil || !confirmed {
 			return err
 		}
@@ -158,7 +174,34 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// The binding is made at this point, so failing to read back what a push
 	// deploys must not turn a successful connect into an error.
 	settings, _ := service.DeploySettings(ctx)
-	output.GitConnected(opts.out, connection, settings)
+	output.GitConnected(opts.out, output.GitBinding{
+		Connection:          connection,
+		Settings:            settings,
+		Project:             project.Label(),
+		GitHubAccount:       target.ConnectionLogin,
+		InstallationAccount: target.InstallationAccount,
+	})
+	return nil
+}
+
+// validateRootDirectory refuses what the flag cannot mean. The platform builds
+// from this path inside the repository, so an absolute path or one climbing out
+// of it deploys nothing — and the CLI is what reports success, so it should not
+// report it for a value that cannot work.
+func validateRootDirectory(opts connectOptions) error {
+	if !opts.rootDirectorySet || opts.rootDirectory == "" {
+		return nil
+	}
+
+	root := filepath.ToSlash(opts.rootDirectory)
+	if strings.HasPrefix(root, "/") || filepath.IsAbs(opts.rootDirectory) {
+		return fmt.Errorf("--root-directory must be a path inside the repository, not an absolute path: %s", root)
+	}
+	for segment := range strings.SplitSeq(root, "/") {
+		if segment == ".." {
+			return fmt.Errorf("--root-directory must stay inside the repository, so it cannot contain %q: %s", "..", root)
+		}
+	}
 	return nil
 }
 
@@ -241,9 +284,13 @@ func rootDirectoryFor(existing *apiclient.ProjectGitConnection, target *gitconne
 	}
 }
 
-func confirmReplace(opts connectOptions, existing *apiclient.ProjectGitConnection, wanted string) (bool, error) {
+func confirmReplace(
+	opts connectOptions, project gitconnect.ProjectRef,
+	existing *apiclient.ProjectGitConnection, wanted string,
+) (bool, error) {
 	warning := fmt.Sprintf(
-		"This project is already connected to %s. Pushes to it will stop deploying.", existing.RepoFullName)
+		"Project %s is already connected to %s. Pushes to it will stop deploying.",
+		project.Label(), existing.RepoFullName)
 	// The bind is a full replace and the new repository has no equivalent of
 	// the old subdirectory, so it resets. Say so while the user can still
 	// decline: it decides what gets built.
@@ -253,9 +300,9 @@ func confirmReplace(opts connectOptions, existing *apiclient.ProjectGitConnectio
 	return ask(opts.in, opts.out, opts.yes, warning, fmt.Sprintf("Replace it with %s?", wanted))
 }
 
-func confirmConnect(opts connectOptions, wanted string) (bool, error) {
+func confirmConnect(opts connectOptions, project gitconnect.ProjectRef, wanted string) (bool, error) {
 	return ask(opts.in, opts.out, opts.yes,
-		fmt.Sprintf("This will connect the current project to %s.", wanted), "Connect it?")
+		fmt.Sprintf("This will connect project %s to %s.", project.Label(), wanted), "Connect it?")
 }
 
 // resolveError explains the one resolve failure a user can act on — the App

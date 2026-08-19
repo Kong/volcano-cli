@@ -351,3 +351,86 @@ func TestParseGitHubRepositoryRejectsNamesGitHubWouldNotAccept(t *testing.T) {
 		})
 	}
 }
+
+// git accepts remotes whose "URL" is not a URL at all. None of these can be
+// echoed: the transport-helper form is a command line that can carry a
+// password, a local path names directories, and a mistyped argument is often a
+// bare token. The value is replaced rather than trusted.
+func TestRedactRefusesToEchoUnrecognizedForms(t *testing.T) {
+	t.Parallel()
+	for name, raw := range map[string]string{
+		"transport helper": "ext::ssh -o Password=CANARY git@github.com %S octo/repo.git",
+		"bare token":       "ghp_16C7e42F292c6912E7710c838347Ae178B4a",
+		"local path":       "/Users/someone/private-clients/acme/repo.git",
+		"relative path":    "../sibling/repo.git",
+		"file url":         "file:///Users/someone/private/repo.git",
+		// A colon with nothing credential-shaped after it: the first segment is
+		// not a host, which is all that separates these from a scp-like remote.
+		"transport helper without userinfo": "ext::ssh -i /home/me/.ssh/CANARY_KEY %S repo.git",
+		"windows path":                      `C:\\Users\\someone\\private-clients\\CANARY\\repo.git`,
+		// The userinfo here does contain a dot, so only the "@" past the
+		// authority marks the split as untrustworthy.
+		"dotted user and slash in credential": "https://user.name:aa/CANARY@github.com/octo/repo.git",
+		// Redacted userinfo, but what is left is not a host either.
+		"userinfo on a non-host": "https://user:pw@CANARY-not-a-host/octo/repo.git",
+		// A "/" inside the credential pushes the rest of it past the authority,
+		// so the userinfo cannot be located and nothing is echoed.
+		"slash in credential": "https://user:aa/CANARY@github.com/octo/repo.git",
+		"at sign in path":     "git@github.com:octo/CANARY@repo.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, Placeholder, Redact(raw))
+		})
+	}
+}
+
+// The same URLs must not reach an error message either, whichever way they fail
+// to parse.
+func TestParseGitHubRepositoryNeverEchoesAnUnrecognizedRemote(t *testing.T) {
+	t.Parallel()
+	for name, raw := range map[string]string{
+		"transport helper":    "ext::ssh -o Password=CANARY git@github.com %S octo/repo.git",
+		"bare token":          "ghp_CANARYTOKEN",
+		"local path":          "/Users/someone/private-clients/CANARY/repo.git",
+		"slash in credential": "https://user:aa/CANARY@github.com/octo/repo.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseGitHubRepository(raw)
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), "CANARY")
+			assert.Contains(t, err.Error(), Placeholder)
+		})
+	}
+}
+
+// A credential containing "/" also makes the host unreadable, so the URL is
+// reported as unparsable rather than misdiagnosed as hosted somewhere else.
+func TestParseGitHubRepositoryDoesNotMisreadTheHostPastACredential(t *testing.T) {
+	t.Parallel()
+	_, err := ParseGitHubRepository("https://user:aa/secret@github.com/octo/storefront.git")
+	require.ErrorIs(t, err, ErrUnparsableRemote)
+}
+
+// Recognized URLs still say what they are: refusing to echo everything would
+// cost the user the one detail that identifies the remote.
+func TestRedactStillEchoesRecognizedForms(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ in, want string }{
+		"scp-like": {"git@github.com:octo/repo.git", "git@github.com:octo/repo.git"},
+		"https":    {"https://gitlab.com/octo/repo.git", "https://gitlab.com/octo/repo.git"},
+		"https userinfo": {
+			"https://gitlab-ci-token:SECRET@gitlab.com/octo/repo.git",
+			"https://***@gitlab.com/octo/repo.git",
+		},
+		// The userinfo goes even when it is plainly a login: an https URL carries
+		// tokens there, and one rule for both is safer than guessing per scheme.
+		"ssh url": {"ssh://git@github.com:22/octo/repo.git", "ssh://***@github.com:22/octo/repo.git"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Redact(tc.in))
+		})
+	}
+}

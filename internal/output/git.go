@@ -9,21 +9,39 @@ import (
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
+// GitBinding is everything worth reporting about a binding: what was bound,
+// which project it was bound to, and which GitHub identity it was bound
+// through. The project and the GitHub identity are chosen by the CLI rather
+// than named by the user, which is why they are reported rather than assumed.
+type GitBinding struct {
+	Connection *apiclient.ProjectGitConnection
+	Settings   *apiclient.ProjectGitDeploySettings
+	// Project labels the project that was bound.
+	Project string
+	// GitHubAccount is the connected GitHub account whose stored token the
+	// platform reads the repository with. Empty when it is not known, as it is
+	// not for a binding that was only read back.
+	GitHubAccount string
+	// InstallationAccount is the account the App installation belongs to. It is
+	// reported only when it differs from the repository's owner, which is the
+	// case worth pointing out.
+	InstallationAccount string
+}
+
 // GitConnected renders a repository binding that was just made, followed by
 // what a push to the production branch will actually deploy. Settings are
 // optional: a connect still succeeded if reading them afterwards did not.
-func GitConnected(w io.Writer, connection *apiclient.ProjectGitConnection, settings *apiclient.ProjectGitDeploySettings) {
-	Success(w, "Connected %s", connection.RepoFullName)
-	gitConnectionDetail(w, theme.On(w), connection)
-	gitDeploySettings(w, connection, settings)
+func GitConnected(w io.Writer, binding GitBinding) {
+	Success(w, "Connected %s", binding.Connection.RepoFullName)
+	gitBindingDetail(w, theme.On(w), binding)
+	gitDeploySettings(w, binding.Connection, binding.Settings)
 }
 
 // GitConnection renders an existing binding without claiming anything changed.
-func GitConnection(w io.Writer, connection *apiclient.ProjectGitConnection, settings *apiclient.ProjectGitDeploySettings) {
-	on := theme.On(w)
-	fmt.Fprintf(w, "%s is already connected to this project.\n", connection.RepoFullName)
-	gitConnectionDetail(w, on, connection)
-	gitDeploySettings(w, connection, settings)
+func GitConnection(w io.Writer, binding GitBinding) {
+	fmt.Fprintf(w, "%s is already connected to this project.\n", binding.Connection.RepoFullName)
+	gitBindingDetail(w, theme.On(w), binding)
+	gitDeploySettings(w, binding.Connection, binding.Settings)
 }
 
 // GitDisconnected renders a removed binding. The repository is untouched, which
@@ -33,12 +51,31 @@ func GitDisconnected(w io.Writer, repoFullName string) {
 	Note(w, "The repository itself was not changed. Pushes to it no longer deploy.")
 }
 
-func gitConnectionDetail(w io.Writer, on bool, connection *apiclient.ProjectGitConnection) {
+func gitBindingDetail(w io.Writer, on bool, binding GitBinding) {
+	connection := binding.Connection
+	if binding.Project != "" {
+		kv(w, on, "Project", "%s", binding.Project)
+	}
 	kv(w, on, "Repository", "%s", connection.RepoFullName)
 	kv(w, on, "Production branch", "%s", connection.ProductionBranch)
 	if root := strings.TrimSpace(connection.RootDirectory); root != "" {
 		kv(w, on, "Root directory", "%s", root)
 	}
+	if binding.GitHubAccount != "" {
+		kv(w, on, "GitHub account", "%s", binding.GitHubAccount)
+	}
+	// The installation is usually the repository's own owner; saying so every
+	// time is noise, and saying nothing when it is not hides that the binding
+	// depends on an installation somewhere else.
+	if account := binding.InstallationAccount; account != "" &&
+		!strings.EqualFold(account, repositoryOwner(connection.RepoFullName)) {
+		kv(w, on, "App installed on", "%s", account)
+	}
+}
+
+func repositoryOwner(fullName string) string {
+	owner, _, _ := strings.Cut(fullName, "/")
+	return owner
 }
 
 // gitDeploySettings says what a push does. Auto-deploy off is the silent

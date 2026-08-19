@@ -176,26 +176,46 @@ func ParseGitHubRepository(rawURL string) (Repository, error) {
 	return Repository{Owner: owner, Name: name}, nil
 }
 
-// Redact removes any credential embedded in a remote URL, so a URL can be
-// echoed back to the user. CI systems rewrite remotes to carry a job token —
-// GitLab's is "https://gitlab-ci-token:<token>@…" — and an error message
-// naming the remote would otherwise put that token in the build log.
+// Placeholder stands in for a remote URL whose parts could not be identified,
+// so that none of its contents are echoed.
+const Placeholder = "[redacted: unrecognized remote URL]"
+
+// Redact renders a remote URL safe to print. CI systems rewrite remotes to
+// carry a job token — GitLab's is "https://gitlab-ci-token:<token>@…", and the
+// url.<base>.insteadOf idiom injects one into any URL — so a message naming the
+// remote would otherwise put that token in the build log.
 //
-// The whole userinfo goes, not just a password field. A token is just as often
-// carried as the entire userinfo ("https://<pat>@github.com/owner/repo.git" is
-// GitHub's own documented form, and Azure DevOps PATs look the same), and
-// nothing distinguishes that from a user name. Keeping the name is not worth
-// the one case where it is the secret.
+// A recognized URL comes back with its whole userinfo removed, not just a
+// password field: a token is as often the entire userinfo
+// ("https://<pat>@github.com/owner/repo.git" is GitHub's own documented form),
+// and nothing distinguishes that from a user name.
+//
+// Anything whose parts cannot be identified comes back as Placeholder rather
+// than verbatim. git accepts remotes whose "URL" is a command line
+// ("ext::ssh -o Password=… %S repo.git"), a local path, or — when an argument
+// was mistyped — a bare token, and none of those can be safely echoed.
 func Redact(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
 	scheme, rest, found := strings.Cut(rawURL, "://")
 	if !found {
-		// scp-like: [user@]host:path. The user is a fixed literal there
-		// ("git@github.com:…"), never a credential.
-		return rawURL
+		return redactScpLike(rawURL)
 	}
+
 	authority, remainder, hasPath := strings.Cut(rest, "/")
-	if _, hostPort, hasUserInfo := strings.Cut(authority, "@"); hasUserInfo {
+	// An "@" past the authority means the split above cannot be trusted to have
+	// captured the whole userinfo: a password containing "/" pushes the rest of
+	// it into the path. Nothing about such a URL is echoed.
+	if strings.Contains(remainder, "@") {
+		return Placeholder
+	}
+	userInfo, hostPort, hasUserInfo := strings.Cut(authority, "@")
+	if hasUserInfo {
+		if !looksLikeHost(hostPort) {
+			return Placeholder
+		}
 		authority = "***@" + hostPort
+	} else if !looksLikeHost(userInfo) {
+		return Placeholder
 	}
 
 	redacted := scheme + "://" + authority
@@ -203,6 +223,40 @@ func Redact(rawURL string) string {
 		redacted += "/" + remainder
 	}
 	return redacted
+}
+
+// redactScpLike echoes the "[user@]host:path" form as-is: the user there is a
+// login ("git@github.com:…"), and the form has no password field at all.
+// Anything that does not have that shape is not echoed.
+func redactScpLike(rawURL string) string {
+	authority, path, found := strings.Cut(rawURL, ":")
+	if !found || strings.Contains(path, "@") {
+		return Placeholder
+	}
+	if _, host, hasUser := strings.Cut(authority, "@"); hasUser {
+		authority = host
+	}
+	if !looksLikeHost(authority) {
+		return Placeholder
+	}
+	return rawURL
+}
+
+// looksLikeHost reports whether s could be a host[:port]. It is deliberately
+// narrow — a dot is required — because its job is to tell a hostname apart from
+// the first word of a command line or the head of a filesystem path.
+func looksLikeHost(s string) bool {
+	if s == "" || !strings.Contains(s, ".") {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case isASCIIAlphanumeric(r), r == '.', r == '-', r == ':', r == '[', r == ']':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // splitRemoteURL separates a remote URL's host from its path without going
@@ -215,6 +269,13 @@ func splitRemoteURL(rawURL string) (host, path string, ok bool) {
 			return "", "", false
 		}
 		authority, remainder, _ := strings.Cut(rest, "/")
+		// An "@" in the path means the authority split cannot be trusted: a
+		// credential containing "/" spills into it, and the host read out of
+		// what is left would be wrong. Neither a GitHub owner nor a repository
+		// name may contain "@", so nothing legitimate is refused here.
+		if strings.Contains(remainder, "@") {
+			return "", "", false
+		}
 		return stripUserInfo(authority), remainder, true
 	}
 

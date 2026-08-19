@@ -43,7 +43,7 @@ func ptr(s string) *string { return &s }
 func TestGitConnectedRendersAFrontendWithNoAppRoot(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, gitConnectionFixture(""), gitSettingsFixture(true, false, ptr("web"), nil))
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, false, ptr("web"), nil)})
 
 	assert.Contains(t, out.String(), "A push to main deploys: frontend web")
 	assert.NotContains(t, out.String(), "()")
@@ -67,7 +67,7 @@ func TestGitConnectedRendersEveryDeployTargetCombination(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var out bytes.Buffer
-			GitConnected(&out, gitConnectionFixture(""), tc.settings)
+			GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: tc.settings, Project: "Storefront (3333)"})
 			// The whole line, terminator included: a substring match would pass
 			// against a trailing empty frontend or a bare "()".
 			assert.Contains(t, out.String(), "A push to main deploys: "+tc.want+"\n")
@@ -81,7 +81,7 @@ func TestGitConnectedRendersEveryDeployTargetCombination(t *testing.T) {
 func TestGitConnectedWarnsAutoDeployOffAndNamesNoTargets(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, gitConnectionFixture(""), gitSettingsFixture(false, true, ptr("web"), nil))
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(false, true, ptr("web"), nil)})
 
 	assert.Contains(t, out.String(), "Auto-deploy is off, so a push to main will not deploy anything.")
 	assert.NotContains(t, out.String(), "A push to main deploys:")
@@ -90,7 +90,7 @@ func TestGitConnectedWarnsAutoDeployOffAndNamesNoTargets(t *testing.T) {
 func TestGitConnectedWarnsWhenAutoDeployHasNothingSelected(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, gitConnectionFixture(""), gitSettingsFixture(true, false, nil, nil))
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, false, nil, nil), Project: "Storefront (3333)"})
 
 	assert.Contains(t, out.String(), "neither functions nor a frontend is selected")
 	assert.NotContains(t, out.String(), "A push to main deploys:")
@@ -102,7 +102,7 @@ func TestGitConnectedWarnsWhenAutoDeployHasNothingSelected(t *testing.T) {
 func TestGitConnectedToleratesUnreadableSettings(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, gitConnectionFixture(""), nil)
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: nil, Project: "Storefront (3333)"})
 
 	assert.Contains(t, out.String(), "Connected octo/storefront")
 	assert.NotContains(t, out.String(), "A push to")
@@ -112,18 +112,18 @@ func TestGitConnectedToleratesUnreadableSettings(t *testing.T) {
 func TestGitConnectedOmitsAnEmptyRootDirectory(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, gitConnectionFixture(""), nil)
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: nil, Project: "Storefront (3333)"})
 	assert.NotContains(t, out.String(), "Root directory")
 
 	var withRoot bytes.Buffer
-	GitConnected(&withRoot, gitConnectionFixture("apps/api"), nil)
+	GitConnected(&withRoot, GitBinding{Connection: gitConnectionFixture("apps/api"), Settings: nil, Project: "Storefront (3333)"})
 	assert.Contains(t, withRoot.String(), "Root directory: apps/api")
 }
 
 func TestGitConnectionReportsWithoutClaimingAChange(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnection(&out, gitConnectionFixture(""), nil)
+	GitConnection(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: nil, Project: "Storefront (3333)"})
 
 	assert.Contains(t, out.String(), "octo/storefront is already connected to this project.")
 	assert.NotContains(t, out.String(), "Connected octo/storefront")
@@ -137,4 +137,47 @@ func TestGitDisconnectedSaysTheRepositoryIsUntouched(t *testing.T) {
 
 	assert.Contains(t, out.String(), "Disconnected octo/storefront")
 	assert.Contains(t, out.String(), "The repository itself was not changed.")
+}
+
+// The repository comes from the working directory and the project comes from the
+// CLI's configuration, so the project is chosen without the user naming it here.
+// Not saying which one was bound is how a stale selection goes unnoticed.
+func TestGitConnectedNamesTheProject(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitConnected(&out, GitBinding{
+		Connection: gitConnectionFixture(""),
+		Project:    "Storefront (33333333-3333-4333-8333-333333333333)",
+	})
+	assert.Contains(t, out.String(), "Project: Storefront (33333333-3333-4333-8333-333333333333)")
+}
+
+// The connection decides whose stored GitHub token the platform reads the
+// repository with on every future deploy, and more than one connection can reach
+// the same repository.
+func TestGitConnectedNamesTheGitHubAccount(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	GitConnected(&out, GitBinding{
+		Connection:    gitConnectionFixture(""),
+		GitHubAccount: "shared-bot",
+	})
+	assert.Contains(t, out.String(), "GitHub account: shared-bot")
+}
+
+func TestGitConnectedReportsAnInstallationElsewhere(t *testing.T) {
+	t.Parallel()
+	// The repository's own owner is the ordinary case and stays unmentioned.
+	var owned bytes.Buffer
+	GitConnected(&owned, GitBinding{
+		Connection: gitConnectionFixture(""), InstallationAccount: "OCTO",
+	})
+	assert.NotContains(t, owned.String(), "App installed on")
+
+	// An installation on another account is what the binding quietly depends on.
+	var elsewhere bytes.Buffer
+	GitConnected(&elsewhere, GitBinding{
+		Connection: gitConnectionFixture(""), InstallationAccount: "acme",
+	})
+	assert.Contains(t, elsewhere.String(), "App installed on: acme")
 }

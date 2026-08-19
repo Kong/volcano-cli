@@ -16,6 +16,7 @@ func TestDisconnectRemovesTheBindingWhenConfirmed(t *testing.T) {
 	out, err := executeGitCommand(t, api.serve(), nil, "y\n", "disconnect")
 	require.NoError(t, err)
 
+	assert.Contains(t, out, "will stop deploying project Storefront ("+gitProjectID+")")
 	assert.Contains(t, out, "Disconnect octo/storefront?")
 	assert.Contains(t, out, "Disconnected octo/storefront")
 	assert.Contains(t, out, "The repository itself was not changed.")

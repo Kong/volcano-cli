@@ -93,7 +93,7 @@ func TestConnectReplacesAnotherRepositoryOnlyOnConfirmation(t *testing.T) {
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "n\n", "connect")
 	require.NoError(t, err)
 
-	assert.Contains(t, out, "already connected to acme/old-store")
+	assert.Contains(t, out, "is already connected to acme/old-store")
 	assert.Contains(t, out, "Replace it with octo/storefront?")
 	assert.Contains(t, out, "Cancelled.")
 	assert.Nil(t, api.sentConnectBody(), "a declined replacement must not rebind")
@@ -133,7 +133,7 @@ func TestConnectConfirmsAnExplicitRepositoryURL(t *testing.T) {
 		"connect", "https://github.com/octo/storefront.git")
 	require.NoError(t, err)
 
-	assert.Contains(t, out, "This will connect the current project to octo/storefront.")
+	assert.Contains(t, out, "This will connect project Storefront (33333333-3333-4333-8333-333333333333) to octo/storefront.")
 	assert.Contains(t, out, "Cancelled.")
 	assert.Nil(t, api.sentConnectBody())
 }
@@ -592,4 +592,78 @@ func TestConnectRepairsABindingWithAStaleInstallation(t *testing.T) {
 	assert.NotContains(t, out, "already connected")
 	require.NotNil(t, api.sentConnectBody())
 	assert.InDelta(t, float64(gitInstallation), api.sentConnectBody()["installation_id"], 0)
+}
+
+// The platform builds from this path inside the repository, so a path that
+// climbs out of it or starts at the filesystem root deploys nothing. Reporting
+// success for a value that cannot work is worse than refusing it.
+func TestConnectRejectsARootDirectoryOutsideTheRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	for name, root := range map[string]string{
+		"absolute":  "/etc/passwd",
+		"traversal": "../../escape",
+		"climbing":  "apps/../../out",
+	} {
+		t.Run(name, func(t *testing.T) {
+			api := newGitAPI(t)
+			_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+				"", "connect", "--root-directory", root)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "--root-directory")
+			assert.Nil(t, api.sentConnectBody(), "nothing may be sent for a path that cannot build")
+		})
+	}
+}
+
+func TestConnectNamesTheProjectAndTheGitHubAccount(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Project: Storefront ("+gitProjectID+")")
+	assert.Contains(t, out, "GitHub account: octo")
+}
+
+// More than one connection can reach the same repository, and the first usable
+// one is taken. Which identity the binding depends on has to be reported.
+func TestConnectNamesWhichGitHubAccountItBoundThrough(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connections = []map[string]any{
+		githubConnection(gitConnectionID, "shared-bot"),
+		githubConnection(otherConnection, "octo"),
+	}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "GitHub account: shared-bot")
+}
+
+// The project is what gets mutated, so the prompts name it too.
+func TestConnectPromptsNameTheProject(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "n\n", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Project Storefront ("+gitProjectID+") is already connected to acme/old-store")
+}
+
+// VOLCANO_PROJECT_ID overrides the selection without changing the project name
+// stored beside it, so the stored name may belong to a different project.
+// Printing it would name the wrong project with full confidence.
+func TestConnectDoesNotNameTheProjectItCannotIdentify(t *testing.T) {
+	setGitCommandTestHome(t)
+	const otherProject = "44444444-4444-4444-8444-444444444444"
+	t.Setenv("VOLCANO_PROJECT_ID", otherProject)
+	api := newGitAPI(t)
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Project: "+otherProject)
+	assert.NotContains(t, out, "Storefront", "the stored name belongs to a different project")
 }

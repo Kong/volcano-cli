@@ -52,10 +52,54 @@ func NewService(deps cliruntime.Deps) Service {
 
 // Target is a resolved repository, and the connection and installation it was
 // reached through. It is everything the bind call needs.
+//
+// ConnectionLogin and InstallationAccount are carried for reporting only. The
+// connection decides whose stored GitHub token the platform reads the
+// repository with on every future deploy, and more than one connection can
+// reach the same repository, so which one was picked is not something to leave
+// unsaid.
 type Target struct {
-	ConnectionID   uuid.UUID
-	InstallationID int64
-	Repository     apiclient.GitRepository
+	ConnectionID        uuid.UUID
+	ConnectionLogin     string
+	InstallationID      int64
+	InstallationAccount string
+	Repository          apiclient.GitRepository
+}
+
+// ProjectRef identifies the project a command acts on. The repository comes
+// from the working directory and the project comes from the CLI's own
+// configuration, so the two are chosen independently and both have to be
+// reported.
+type ProjectRef struct {
+	ID uuid.UUID
+	// Name is empty when the configuration cannot name the selected project,
+	// which is what VOLCANO_PROJECT_ID pointing somewhere else looks like.
+	Name string
+}
+
+// Label renders the project for output: its name where one is known, and always
+// enough to identify it.
+func (p ProjectRef) Label() string {
+	if p.Name == "" {
+		return p.ID.String()
+	}
+	return fmt.Sprintf("%s (%s)", p.Name, p.ID)
+}
+
+// Project returns the project these commands act on.
+func (s Service) Project() (ProjectRef, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return ProjectRef{}, err
+	}
+
+	ref := ProjectRef{ID: authenticated.ProjectID}
+	// Only trust the stored name when it belongs to the selected project: an
+	// environment override changes the id without changing the name beside it.
+	if current := authenticated.Config.CurrentProject; current != nil && current.ID == ref.ID.String() {
+		ref.Name = current.Name
+	}
+	return ref, nil
 }
 
 // Status returns the project's current connection, or ErrNotConnected when it
@@ -102,7 +146,7 @@ func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*
 	// here. Keep the first failure and report it only if nothing resolves.
 	var failure error
 	for _, connection := range usable {
-		target, err := s.resolveThroughConnection(ctx, authenticated.API, connection.Id, repository)
+		target, err := s.resolveThroughConnection(ctx, authenticated.API, connection, repository)
 		switch {
 		case target != nil:
 			return target, nil
@@ -124,10 +168,10 @@ func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*
 func (s Service) resolveThroughConnection(
 	ctx context.Context,
 	client *api.Client,
-	connectionID uuid.UUID,
+	connection apiclient.GitConnection,
 	repository localgit.Repository,
 ) (*Target, error) {
-	installations, err := client.ListGitInstallations(ctx, connectionID)
+	installations, err := client.ListGitInstallations(ctx, connection.Id)
 	if err != nil {
 		return nil, classifyProvider(err, "failed to list your GitHub App installations")
 	}
@@ -138,7 +182,7 @@ func (s Service) resolveThroughConnection(
 	// be scoped away from the repository.
 	var failure error
 	for _, installation := range orderByOwner(installations, repository.Owner) {
-		repositories, err := client.ListGitInstallationRepositories(ctx, connectionID, installation.Id)
+		repositories, err := client.ListGitInstallationRepositories(ctx, connection.Id, installation.Id)
 		if err != nil {
 			if failure == nil {
 				failure = classifyProvider(err, "failed to list repositories for "+installation.AccountLogin)
@@ -149,9 +193,11 @@ func (s Service) resolveThroughConnection(
 		for _, candidate := range repositories {
 			if strings.EqualFold(candidate.FullName, repository.FullName()) {
 				return &Target{
-					ConnectionID:   connectionID,
-					InstallationID: installation.Id,
-					Repository:     candidate,
+					ConnectionID:        connection.Id,
+					ConnectionLogin:     connection.ProviderLogin,
+					InstallationID:      installation.Id,
+					InstallationAccount: installation.AccountLogin,
+					Repository:          candidate,
 				}, nil
 			}
 		}

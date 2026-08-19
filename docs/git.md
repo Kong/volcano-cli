@@ -46,7 +46,9 @@ volcano git connect https://github.com/octo/storefront.git
 volcano git connect --remote upstream
 ```
 
-For a monorepo, say which subdirectory the project builds from:
+For a monorepo, say which subdirectory the project builds from. It has to be a
+path inside the repository — an absolute path, or one climbing out with `..`, is
+refused rather than accepted and silently built from nothing:
 
 ```bash
 volcano git connect --root-directory apps/api
@@ -96,5 +98,8 @@ cannot connect.
 ## Local mode
 
 Git connections are a cloud-only feature: the local stack ships without GitHub
-App settings, so these commands report that the integration is not configured.
-Run them against the cloud API.
+App settings, so `volcano git connect` reports that the integration is not
+configured. Run these commands against the cloud API.
+
+`volcano git disconnect` reads only the project's own binding, which does not
+touch GitHub, so it reports that the project has nothing connected instead.

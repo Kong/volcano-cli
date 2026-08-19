@@ -56,8 +56,14 @@ func runDisconnect(ctx context.Context, opts disconnectOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
+	project, err := service.Project()
+	if err != nil {
+		return err
+	}
+
 	confirmed, err := ask(opts.in, opts.out, opts.yes,
-		fmt.Sprintf("Pushes to %s will stop deploying. The repository itself is not changed.", existing.RepoFullName),
+		fmt.Sprintf("Pushes to %s will stop deploying project %s. The repository itself is not changed.",
+			existing.RepoFullName, project.Label()),
 		fmt.Sprintf("Disconnect %s?", existing.RepoFullName))
 	if err != nil || !confirmed {
 		return err

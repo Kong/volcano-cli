@@ -172,13 +172,13 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveInstallations(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories"):
 		a.serveRepositories(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == connectionPath:
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveConnection(w)
-	case r.Method == http.MethodPut && r.URL.Path == connectionPath:
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveConnect(w, r)
-	case r.Method == http.MethodDelete && r.URL.Path == connectionPath:
+	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveDisconnect(w)
-	case r.Method == http.MethodGet && r.URL.Path == deploySettings:
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
 		a.serveDeploySettings(w)
 	default:
 		http.NotFound(w, r)
