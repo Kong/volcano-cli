@@ -27,6 +27,7 @@ binds the project to a repository you can already reach through your GitHub
 connection. Pushing stays your own "git push", with the credentials already on
 your machine.`,
 	}
+	cmd.AddCommand(newStatus(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd

@@ -26,8 +26,21 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 
 | Operation | Command |
 |---|---|
+| Show the connection | `volcano git status` |
 | Connect | `volcano git connect [git-url]` |
 | Disconnect | `volcano git disconnect` |
+
+## Seeing what is connected
+
+```bash
+volcano git status
+```
+
+This reports the project's own binding — the repository, the branch a push has
+to land on, the subdirectory it builds from, and what a push deploys. It does
+not contact GitHub, so it tells you what the platform recorded rather than
+whether that recording still works. A project with nothing connected is not an
+error: it says so and exits 0.
 
 ## Connecting
 

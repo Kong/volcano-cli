@@ -50,6 +50,24 @@ func GitConnection(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitStatus renders a binding as a plain report. It deliberately does not read
+// as an outcome — nothing was just done — and it names no GitHub account,
+// because answering that would mean contacting the provider, which the command
+// behind it does not do.
+func GitStatus(w io.Writer, binding GitBinding) {
+	gitBindingDetail(w, theme.On(w), binding)
+	gitDeploySettings(w, binding)
+}
+
+// GitNotConnected renders a project with no repository bound. This is a state,
+// not a failure, so it reads as an answer and says what would change it.
+func GitNotConnected(w io.Writer, project, connectCommand string) {
+	on := theme.On(w)
+	kv(w, on, "Project", "%s", project)
+	fmt.Fprintf(w, "%s\n", theme.Dim("No repository is connected, so pushes do not deploy.", on))
+	fmt.Fprintf(w, "\n%s%s\n", theme.Dim("Connect one with ", on), theme.Command(connectCommand, on))
+}
+
 // GitDisconnected renders a removed binding. The repository is untouched, which
 // is worth saying: "disconnect" reads as destructive and is not.
 func GitDisconnected(w io.Writer, repoFullName string) {
