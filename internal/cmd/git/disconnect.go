@@ -69,7 +69,7 @@ func runDisconnect(ctx context.Context, opts disconnectOptions) error {
 		return err
 	}
 
-	if err := service.Disconnect(ctx); err != nil {
+	if err := service.Disconnect(ctx, existing); err != nil {
 		return guide(opts.deps, webURL, err)
 	}
 

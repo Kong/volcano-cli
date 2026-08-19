@@ -38,8 +38,20 @@ const DefaultRemoteName = "origin"
 // Remote is one configured Git remote.
 type Remote struct {
 	Name string
-	URL  string
+	// URL is the remote's push URL. That is deliberately the one reported: a
+	// push is what triggers a deployment, so binding anything else would leave
+	// `git push` sending commits to a repository the project is not connected
+	// to. git prints the fetch URL as the push URL unless a pushurl is set.
+	URL string
+	// FetchURL is where the remote fetches from. It differs from URL only when
+	// the remote has a separate pushurl configured, which is worth reporting
+	// because the two then name different repositories.
+	FetchURL string
 }
+
+// Diverges reports whether this remote fetches from and pushes to different
+// places.
+func (r Remote) Diverges() bool { return r.FetchURL != "" && r.FetchURL != r.URL }
 
 // Repository is a GitHub repository identified by a remote URL.
 type Repository struct {
@@ -67,8 +79,8 @@ func New(deps cliruntime.Deps) Client {
 	return Client{runner: runner}
 }
 
-// Remotes returns the fetch remotes configured in the working directory, in
-// git's own output order.
+// Remotes returns the remotes configured in the working directory, in git's own
+// output order, each carrying both of its URLs.
 func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	out, err := c.runner.Run(ctx, "git", "remote", "-v")
 	if err != nil {
@@ -76,19 +88,46 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	}
 
 	remotes := make([]Remote, 0, 2)
+	index := make(map[string]int, 2)
 	for line := range strings.SplitSeq(string(out), "\n") {
-		name, url, ok := parseRemoteLine(line)
+		name, url, kind, ok := parseRemoteLine(line)
 		if !ok {
 			continue
 		}
-		remotes = append(remotes, Remote{Name: name, URL: url})
+
+		position, seen := index[name]
+		if !seen {
+			index[name] = len(remotes)
+			remotes = append(remotes, Remote{Name: name})
+			position = index[name]
+		}
+		if kind == remotePush {
+			remotes[position].URL = url
+		} else {
+			remotes[position].FetchURL = url
+		}
 	}
 
-	if len(remotes) == 0 {
+	// A remote git reported without a push line has nothing to push to, so it
+	// cannot be the target of a deployment.
+	usable := make([]Remote, 0, len(remotes))
+	for _, remote := range remotes {
+		if remote.URL != "" {
+			usable = append(usable, remote)
+		}
+	}
+	if len(usable) == 0 {
 		return nil, ErrNoRemotes
 	}
-	return remotes, nil
+	return usable, nil
 }
+
+type remoteKind int
+
+const (
+	remoteFetch remoteKind = iota
+	remotePush
+)
 
 // gitFailure surfaces git's own diagnosis when it gave one. exec.Output leaves
 // it in ExitError.Stderr, and it is the only thing that distinguishes "run this
@@ -104,24 +143,26 @@ func gitFailure(err error) error {
 }
 
 // parseRemoteLine reads one "<name>\t<url> (fetch|push)" line from `git remote
-// -v`. Only the fetch entry is kept: a remote configured with a separate push
-// URL is reported twice with different URLs, and the fetch URL is the one that
-// identifies the repository.
+// -v`, reporting which of the two it is. Both are kept: a remote with a
+// separate pushurl names two different repositories, and which one matters
+// depends on the question being asked.
 //
 // The URL is taken as everything between the tab and the trailing marker, not
 // as a whitespace-delimited field: git stores and prints a remote URL verbatim,
 // so one containing a space would otherwise be skipped entirely — and a skipped
 // remote does not fail, it quietly changes which remote gets selected.
-func parseRemoteLine(line string) (name, url string, ok bool) {
+func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 	name, rest, found := strings.Cut(strings.TrimRight(line, "\r\n"), "\t")
 	if !found || name == "" {
-		return "", "", false
+		return "", "", 0, false
 	}
-	url, found = strings.CutSuffix(rest, " (fetch)")
-	if !found || url == "" {
-		return "", "", false
+	if url, found = strings.CutSuffix(rest, " (push)"); found {
+		return name, url, remotePush, url != ""
 	}
-	return name, url, true
+	if url, found = strings.CutSuffix(rest, " (fetch)"); found {
+		return name, url, remoteFetch, url != ""
+	}
+	return "", "", 0, false
 }
 
 // SelectRemote picks the remote to connect. A named remote must exist. With no
@@ -208,6 +249,9 @@ func Redact(rawURL string) string {
 	if strings.Contains(remainder, "@") {
 		return Placeholder
 	}
+	// A query or fragment carries credentials of its own — GitLab accepts
+	// "?private_token=…" — and neither is part of what identifies the remote.
+	remainder = trimQueryAndFragment(remainder)
 	userInfo, hostPort, hasUserInfo := strings.Cut(authority, "@")
 	if hasUserInfo {
 		if !looksLikeHost(hostPort) {
@@ -242,10 +286,19 @@ func redactScpLike(rawURL string) string {
 	if !looksLikeHost(host) {
 		return Placeholder
 	}
+	path = trimQueryAndFragment(path)
 	if hasUserInfo {
 		return "***@" + host + ":" + path
 	}
-	return rawURL
+	return host + ":" + path
+}
+
+// trimQueryAndFragment drops everything from the first "?" or "#", whichever
+// comes first.
+func trimQueryAndFragment(path string) string {
+	path, _, _ = strings.Cut(path, "?")
+	path, _, _ = strings.Cut(path, "#")
+	return path
 }
 
 // looksLikeHost reports whether s could be a host[:port]. It is deliberately

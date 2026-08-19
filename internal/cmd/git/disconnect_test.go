@@ -86,3 +86,21 @@ func TestDisconnectTakesNoArguments(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown command")
 }
+
+// The delete names no repository, so it removes whatever is bound when it
+// arrives. If the binding moved while the prompt was open, the user would be
+// deleting something they were never shown.
+func TestDisconnectRefusesWhenTheBindingMovedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedAfterRead = "acme/something-else"
+
+	_, err := executeGitCommand(t, api.serve(), nil, "y\n", "disconnect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Contains(t, err.Error(), "acme/something-else")
+	assert.False(t, api.disconnectCalled(), "nothing the user did not see may be removed")
+}

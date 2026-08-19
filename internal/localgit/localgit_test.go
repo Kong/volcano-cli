@@ -100,24 +100,90 @@ func TestRemotesReadsEveryRemoteInOrder(t *testing.T) {
 	remotes, err := client.Remotes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, remotes, 2)
-	assert.Equal(t, Remote{Name: "origin", URL: "git@github.com:octo/storefront.git"}, remotes[0])
-	assert.Equal(t, Remote{Name: "upstream", URL: "https://github.com/acme/storefront.git"}, remotes[1])
+	assert.Equal(t, Remote{
+		Name:     "origin",
+		URL:      "git@github.com:octo/storefront.git",
+		FetchURL: "git@github.com:octo/storefront.git",
+	}, remotes[0])
+	assert.Equal(t, Remote{
+		Name:     "upstream",
+		URL:      "https://github.com/acme/storefront.git",
+		FetchURL: "https://github.com/acme/storefront.git",
+	}, remotes[1])
 }
 
-// A remote with a separate push URL reports two different URLs under one name.
-// The fetch URL is the one that identifies the repository, so the push entry
-// has to be discarded rather than merely deduplicated away — a push-first
-// ordering would otherwise pick the wrong URL.
-func TestRemotesTakesTheFetchURLNotThePushURL(t *testing.T) {
+// A remote with a separate pushurl reports two different URLs under one name.
+// A push is what triggers a deployment, so the push URL is the one that decides
+// which repository to bind — whichever order git prints them in.
+func TestRemotesTakesThePushURLAndKeepsTheFetchURL(t *testing.T) {
 	t.Parallel()
-	client := clientReturning(t, "git remote -v", ""+
-		"origin\tgit@github.com:octo/mirror.git (push)\n"+
-		"origin\tgit@github.com:octo/storefront.git (fetch)\n")
+	for name, output := range map[string]string{
+		"push first": "origin\tgit@github.com:octo/mirror.git (push)\n" +
+			"origin\tgit@github.com:octo/storefront.git (fetch)\n",
+		"fetch first": "origin\tgit@github.com:octo/storefront.git (fetch)\n" +
+			"origin\tgit@github.com:octo/mirror.git (push)\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			remotes, err := clientReturning(t, "git remote -v", output).Remotes(t.Context())
+			require.NoError(t, err)
+			require.Len(t, remotes, 1)
+			assert.Equal(t, "git@github.com:octo/mirror.git", remotes[0].URL)
+			assert.Equal(t, "git@github.com:octo/storefront.git", remotes[0].FetchURL)
+			assert.True(t, remotes[0].Diverges())
+		})
+	}
+}
 
-	remotes, err := client.Remotes(t.Context())
+// The ordinary remote pushes where it fetches, and does not diverge.
+func TestRemotesReportsNoDivergenceForAnOrdinaryRemote(t *testing.T) {
+	t.Parallel()
+	remotes, err := clientReturning(t, "git remote -v", ""+
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n"+
+		"origin\tgit@github.com:octo/storefront.git (push)\n").Remotes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, remotes, 1)
-	assert.Equal(t, "git@github.com:octo/storefront.git", remotes[0].URL)
+	assert.False(t, remotes[0].Diverges())
+}
+
+// A remote with nothing to push to cannot be the target of a deployment.
+func TestRemotesSkipsARemoteWithNoPushURL(t *testing.T) {
+	t.Parallel()
+	_, err := clientReturning(t, "git remote -v",
+		"origin\tgit@github.com:octo/storefront.git (fetch)\n").Remotes(t.Context())
+	require.ErrorIs(t, err, ErrNoRemotes)
+}
+
+// A query string can carry a credential of its own, and it is no part of what
+// identifies the remote.
+func TestRedactDropsAQueryAndFragment(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ in, want string }{
+		"query": {
+			"https://gitlab.com/org/repo.git?private_token=SECRET",
+			"https://gitlab.com/org/repo.git",
+		},
+		"fragment": {"https://gitlab.com/org/repo.git#SECRET", "https://gitlab.com/org/repo.git"},
+		"both with userinfo": {
+			"https://u:p@gitlab.com/org/repo.git?token=SECRET#frag",
+			"https://***@gitlab.com/org/repo.git",
+		},
+		"scp-like query": {"git@gitlab.com:org/repo.git?token=SECRET", "***@gitlab.com:org/repo.git"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, Redact(tc.in))
+		})
+	}
+}
+
+func TestParseGitHubRepositoryRedactsAQuerySecretInErrors(t *testing.T) {
+	t.Parallel()
+	_, err := ParseGitHubRepository("https://gitlab.com/org/repo.git?private_token=CANARYSECRET")
+
+	require.ErrorIs(t, err, ErrNotGitHub)
+	assert.NotContains(t, err.Error(), "CANARYSECRET")
+	assert.NotContains(t, err.Error(), "private_token")
 }
 
 // git stores and prints a remote URL verbatim, so one containing a space has to

@@ -94,9 +94,15 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return err
 	}
 
-	repository, err := resolveRepository(ctx, opts)
+	repository, diverging, err := resolveRepository(ctx, opts)
 	if err != nil {
 		return err
+	}
+	if diverging != nil {
+		// The push URL is the one bound, because a push is what deploys. Say so:
+		// the remote the user thinks of as "origin" fetches from somewhere else.
+		output.Note(opts.out, "Remote %q pushes to %s and fetches from %s; the push target is what deploys.",
+			diverging.Name, localgit.Redact(diverging.URL), localgit.Redact(diverging.FetchURL))
 	}
 
 	project, err := service.Project()
@@ -123,21 +129,15 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return resolveError(opts.deps, webURL, existing, repository, err)
 	}
 
-	// Nothing to change: report the binding and stop. Connecting is idempotent
-	// on purpose — an agent or a CI job re-running it should not have to
-	// special-case "already done".
-	if unchanged(existing, target, opts) {
-		settings, settingsErr := service.DeploySettings(ctx)
-		output.GitConnection(opts.out, output.GitBinding{
-			Connection:          existing,
-			Settings:            settings,
-			SettingsErr:         settingsErr,
-			Project:             project.Label(),
-			GitHubAccount:       target.ConnectionLogin,
-			InstallationAccount: target.InstallationAccount,
-		})
-		return nil
-	}
+	// A binding that already names this repository is still rewritten. The
+	// binding also records which GitHub connection the platform reads the
+	// repository with, and the read contract does not expose that id — so with a
+	// stored connection revoked and another able to reach the same repository,
+	// skipping the write would leave deploys tied to the revoked one while this
+	// command reported the working one. Rebinding is the only way to make the
+	// two agree, and it is cheap: the bind is a full replace, and the platform
+	// only defaults deploy settings on a project that has no binding yet.
+	settled := unchanged(existing, target, opts)
 
 	// Editing the root directory of the repository already bound is not a
 	// replacement, and neither is picking up a rename. Neither may be described
@@ -176,14 +176,22 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// deploys must not turn a successful connect into an error — but it is said
 	// out loud rather than left to look like "nothing is configured".
 	settings, settingsErr := service.DeploySettings(ctx)
-	output.GitConnected(opts.out, output.GitBinding{
+	binding := output.GitBinding{
 		Connection:          connection,
 		Settings:            settings,
 		SettingsErr:         settingsErr,
 		Project:             project.Label(),
 		GitHubAccount:       target.ConnectionLogin,
 		InstallationAccount: target.InstallationAccount,
-	})
+	}
+	// Nothing the user can see changed, so do not announce a change. Connecting
+	// stays idempotent from the caller's side — an agent or a CI job re-running
+	// it needs no special case for "already done".
+	if settled {
+		output.GitConnection(opts.out, binding)
+		return nil
+	}
+	output.GitConnected(opts.out, binding)
 	return nil
 }
 
@@ -209,27 +217,34 @@ func validateRootDirectory(opts connectOptions) error {
 }
 
 // resolveRepository determines which repository to connect: the one the user
-// named, or the one this directory's remotes point at.
-func resolveRepository(ctx context.Context, opts connectOptions) (localgit.Repository, error) {
+// named, or the one this directory's remotes push to. It also reports the remote
+// back when its two URLs disagree, so the caller can say which one was used.
+func resolveRepository(
+	ctx context.Context, opts connectOptions,
+) (repository localgit.Repository, diverging *localgit.Remote, err error) {
 	if opts.gitURL != "" {
-		return localgit.ParseGitHubRepository(opts.gitURL)
+		repository, err = localgit.ParseGitHubRepository(opts.gitURL)
+		return repository, nil, err
 	}
 
 	remotes, err := localgit.New(opts.deps).Remotes(ctx)
 	if err != nil {
-		return localgit.Repository{}, err
+		return localgit.Repository{}, nil, err
 	}
 
 	remote, err := localgit.SelectRemote(remotes, opts.remote)
 	if err != nil {
-		return localgit.Repository{}, err
+		return localgit.Repository{}, nil, err
 	}
 
-	repository, err := localgit.ParseGitHubRepository(remote.URL)
+	repository, err = localgit.ParseGitHubRepository(remote.URL)
 	if err != nil {
-		return localgit.Repository{}, fmt.Errorf("remote %q: %w", remote.Name, err)
+		return localgit.Repository{}, nil, fmt.Errorf("remote %q: %w", remote.Name, err)
 	}
-	return repository, nil
+	if remote.Diverges() {
+		return repository, &remote, nil
+	}
+	return repository, nil, nil
 }
 
 // currentConnection reads the project's binding, mapping "no binding" to a nil

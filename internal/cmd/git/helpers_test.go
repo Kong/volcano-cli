@@ -105,6 +105,9 @@ type gitAPI struct {
 	// connectedInstallation overrides the binding's installation id, which a
 	// reinstall of the App changes.
 	connectedInstallation int64
+	// connectedAfterRead makes the binding change on the next read, modelling
+	// something else repointing the project while a prompt is open.
+	connectedAfterRead string
 
 	connections               []map[string]any
 	installationsByConnection map[string][]map[string]any
@@ -129,9 +132,10 @@ type gitAPI struct {
 	// commands tolerate without failing the connect.
 	deploySettingsStatus int
 
-	mu          sync.Mutex
-	connectBody map[string]any
-	deleted     bool
+	mu              sync.Mutex
+	connectBody     map[string]any
+	deleted         bool
+	connectionReads int
 }
 
 func newGitAPI(t *testing.T) *gitAPI {
@@ -241,6 +245,14 @@ func (a *gitAPI) currentInstallation() int64 {
 func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	// The first read is what the prompt shows; changing the binding only from
+	// the second read on models something else repointing the project while
+	// that prompt was open.
+	a.connectionReads++
+	if a.connectedAfterRead != "" && a.connectionReads > 1 {
+		a.connected, a.connectedAfterRead = a.connectedAfterRead, ""
+		a.connectedRepoID = otherRepoID
+	}
 	if a.connected == "" {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
@@ -341,6 +353,12 @@ func githubConnection(id, login string) map[string]any {
 		"created_at":            "2026-08-18T00:00:00Z",
 		"updated_at":            "2026-08-18T00:00:00Z",
 	}
+}
+
+func revokedGitHubConnection(id, login string) map[string]any {
+	connection := githubConnection(id, login)
+	connection["status"] = "revoked"
+	return connection
 }
 
 func installation(id int64, login, accountType, selection string) map[string]any {

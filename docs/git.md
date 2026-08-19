@@ -32,7 +32,9 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 ## Connecting
 
 With no argument the repository is read from this directory's Git remotes — the
-only remote, or `origin` when there are several:
+only remote, or `origin` when there are several. A remote with a separate
+`pushurl` names two repositories, and the push target is the one bound, since a
+push is what deploys; the CLI says so when the two differ:
 
 ```bash
 volcano git connect
@@ -54,8 +56,10 @@ refused rather than accepted and silently built from nothing:
 volcano git connect --root-directory apps/api
 ```
 
-Connecting is idempotent: running it again on a project already bound to the
-same repository reports the binding and changes nothing. A repository renamed on
+Connecting is idempotent from your side: running it again on a project already
+bound to the same repository reports that nothing changed. It does rewrite the
+binding, which is how a project whose connected GitHub account was revoked
+starts using a working one again. A repository renamed on
 GitHub is still the same repository — the binding follows its id, not its name —
 so re-running connect simply refreshes the name. Re-running it with a
 different `--root-directory` edits that, which is the only way to change it

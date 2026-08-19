@@ -57,7 +57,11 @@ func TestConnectSendsTheRootDirectoryWhenGiven(t *testing.T) {
 	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
 }
 
-func TestConnectIsIdempotentOnTheSameRepository(t *testing.T) {
+// Re-running connect reports no change, and still rewrites the binding. The
+// read contract does not expose which GitHub connection the binding uses, so
+// skipping the write is the only way to leave deploys pinned to a connection
+// that no longer works while reporting one that does.
+func TestConnectReportsNoChangeButStillRebinds(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connected = "octo/storefront"
@@ -66,7 +70,31 @@ func TestConnectIsIdempotentOnTheSameRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "octo/storefront is already connected to this project.")
-	assert.Nil(t, api.sentConnectBody(), "an unchanged binding must not be rewritten")
+	assert.NotContains(t, out, "✓ Connected", "nothing the user can see changed")
+	require.NotNil(t, api.sentConnectBody(), "the binding is refreshed so its connection cannot go stale")
+	assert.Equal(t, gitConnectionID, api.sentConnectBody()["connection_id"])
+}
+
+// A revoked connection with another able to reach the same repository is the
+// case the rebind exists for: the resolved connection reaches the binding.
+func TestConnectRebindsThroughTheConnectionThatWorks(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connections = []map[string]any{
+		revokedGitHubConnection(gitConnectionID, "stale"),
+		githubConnection(otherConnection, "octo"),
+	}
+	api.installationsByConnection[otherConnection] = []map[string]any{
+		installation(gitInstallation, "octo", "User", "all"),
+	}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Equal(t, otherConnection, api.sentConnectBody()["connection_id"],
+		"the binding must move to the connection that can reach the repository")
+	assert.Contains(t, out, "GitHub account: octo")
 }
 
 // GitHub preserves the case an owner typed but does not treat it as
@@ -81,8 +109,9 @@ func TestConnectTreatsRepositoryNamesCaseInsensitively(t *testing.T) {
 	// The full sentence, not just "already connected": the replacement prompt
 	// contains that phrase too, so a substring match passes against a build
 	// that fails to recognise the binding at all.
-	assert.Contains(t, out, "Octo/Storefront is already connected to this project.")
-	assert.Nil(t, api.sentConnectBody())
+	assert.Contains(t, out, "is already connected to this project.")
+	assert.NotContains(t, out, "Replace it with", "a differently-cased name is the same binding")
+	assert.NotContains(t, out, "✓ Connected")
 }
 
 func TestConnectReplacesAnotherRepositoryOnlyOnConfirmation(t *testing.T) {
@@ -266,7 +295,8 @@ func TestConnectReportsAnEmptyRemoteList(t *testing.T) {
 func TestConnectRejectsANonGitHubRemote(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
-	runner := &gitRunner{stdout: "origin\tgit@gitlab.com:octo/storefront.git (fetch)\n"}
+	runner := &gitRunner{stdout: "origin\tgit@gitlab.com:octo/storefront.git (fetch)\n" +
+		"origin\tgit@gitlab.com:octo/storefront.git (push)\n"}
 
 	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
 	require.Error(t, err)
@@ -346,7 +376,9 @@ func TestConnectLeavesAnUnmentionedRootDirectoryAlone(t *testing.T) {
 
 	assert.Contains(t, out, "already connected")
 	assert.Contains(t, out, "Root directory: apps/api")
-	assert.Nil(t, api.sentConnectBody(), "an unchanged binding must not be rewritten")
+	// The rebind carries it forward rather than resetting it: an omitted flag
+	// is not a request to clear anything.
+	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
 }
 
 func TestConnectMatchingTheRootDirectoryIsStillIdempotent(t *testing.T) {
@@ -355,10 +387,12 @@ func TestConnectMatchingTheRootDirectoryIsStillIdempotent(t *testing.T) {
 	api.connected = "octo/storefront"
 	api.connectedRoot = "apps/api"
 
-	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
 		"", "connect", "--root-directory", "apps/api")
 	require.NoError(t, err)
-	assert.Nil(t, api.sentConnectBody())
+
+	assert.Contains(t, out, "already connected", "asking for what is already set changes nothing")
+	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
 }
 
 // Moving to a different repository starts from the root: the old
@@ -695,4 +729,37 @@ func TestConnectWarnsOnAnUnchangedBindingWhenTheSettingsCannotBeRead(t *testing.
 
 	assert.Contains(t, out, "already connected")
 	assert.Contains(t, out, "deploy settings could not be read")
+}
+
+// A remote with a separate pushurl names two repositories. A push is what
+// deploys, so the push target is bound — and said out loud, because the remote
+// the user thinks of as "origin" fetches from somewhere else.
+func TestConnectBindsThePushTargetAndSaysSo(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\thttps://github.com/acme/upstream.git (fetch)\n" +
+		"origin\tgit@github.com:octo/storefront.git (push)\n"}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.Contains(t, out, "the push target is what deploys")
+	assert.Contains(t, out, "acme/upstream.git")
+}
+
+// A query string can carry a credential of its own, and it is not part of what
+// identifies the remote.
+func TestConnectRedactsAQuerySecretFromTheError(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\thttps://gitlab.com/octo/repo.git?private_token=CANARY (fetch)\n" +
+		"origin\thttps://gitlab.com/octo/repo.git?private_token=CANARY (push)\n"}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "CANARY")
+	assert.NotContains(t, err.Error(), "private_token")
 }

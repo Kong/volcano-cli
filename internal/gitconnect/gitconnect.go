@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -36,6 +37,9 @@ var (
 	ErrProviderNotConfigured = errors.New("git provider integration is not configured on this API")
 	// ErrNotConnected indicates the project has no repository bound.
 	ErrNotConnected = errors.New("this project is not connected to a repository")
+	// ErrBindingChanged indicates the project's binding was not what the command
+	// read before it asked the user about it.
+	ErrBindingChanged = errors.New("the project's repository connection changed while this command was running")
 )
 
 const githubProvider = "github"
@@ -43,11 +47,30 @@ const githubProvider = "github"
 // Service performs project git-connection work for the current project.
 type Service struct {
 	sessions clisession.Factory
+	pinned   *pinnedProject
+}
+
+// pinnedProject resolves the project once per service. Every call would
+// otherwise re-read the configuration, so a command that reads a binding, asks
+// the user about it, and then writes could act on three different projects if
+// the configuration changed underneath it.
+type pinnedProject struct {
+	once    sync.Once
+	session *clisession.ProjectSession
+	err     error
 }
 
 // NewService returns a git connection service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+// current returns the project session this service is pinned to.
+func (s Service) current() (*clisession.ProjectSession, error) {
+	s.pinned.once.Do(func() {
+		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+	})
+	return s.pinned.session, s.pinned.err
 }
 
 // Target is a resolved repository, and the connection and installation it was
@@ -88,7 +111,7 @@ func (p ProjectRef) Label() string {
 
 // Project returns the project these commands act on.
 func (s Service) Project() (ProjectRef, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return ProjectRef{}, err
 	}
@@ -106,7 +129,7 @@ func (s Service) Project() (ProjectRef, error) {
 // has none. A project without a binding answers 404, which is an outcome here
 // rather than a failure.
 func (s Service) Status(ctx context.Context) (*apiclient.ProjectGitConnection, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +148,7 @@ func (s Service) Status(ctx context.Context) (*apiclient.ProjectGitConnection, e
 // caller's GitHub connection can reach, so the caller can confirm the binding
 // before it is made.
 func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*Target, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +230,7 @@ func (s Service) resolveThroughConnection(
 
 // Connect binds the current project to a resolved repository.
 func (s Service) Connect(ctx context.Context, target Target, rootDirectory string) (*apiclient.ProjectGitConnection, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -229,12 +252,26 @@ func (s Service) Connect(ctx context.Context, target Target, rootDirectory strin
 	return connection, nil
 }
 
-// Disconnect removes the project's repository binding. The repository itself is
-// untouched.
-func (s Service) Disconnect(ctx context.Context) error {
-	authenticated, err := s.sessions.CurrentProject()
+// Disconnect removes the project's repository binding, provided it is still the
+// one in expected. The repository itself is untouched.
+//
+// The delete names no repository, so it removes whatever is bound when it
+// arrives. Re-reading first keeps the command from deleting a binding the user
+// was never shown — the window between reading a binding and confirming it is
+// as long as the user takes to answer. It narrows that window rather than
+// closing it; the API has no conditional delete to close it with.
+func (s Service) Disconnect(ctx context.Context, expected *apiclient.ProjectGitConnection) error {
+	authenticated, err := s.current()
 	if err != nil {
 		return err
+	}
+
+	current, err := s.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if current.RepoId != expected.RepoId || !strings.EqualFold(current.RepoFullName, expected.RepoFullName) {
+		return fmt.Errorf("%w: it now points at %s", ErrBindingChanged, current.RepoFullName)
 	}
 
 	if err := authenticated.API.DisconnectProjectGit(ctx, authenticated.ProjectID); err != nil {
@@ -250,7 +287,7 @@ func (s Service) Disconnect(ctx context.Context) error {
 // reported alongside a successful connect so the user learns straight away
 // whether a push does anything.
 func (s Service) DeploySettings(ctx context.Context) (*apiclient.ProjectGitDeploySettings, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
