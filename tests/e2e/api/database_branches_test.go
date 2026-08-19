@@ -17,7 +17,9 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 	})
 	env.waitForDatabaseActive(t, database, 30*time.Minute)
 
-	branch := "cli-e2e-branch"
+	// A branch name is a Postgres-safe identifier: lowercase alphanumeric and
+	// underscores only, so no hyphens.
+	branch := "cli_e2e_branch"
 	env.runCloudCLI(t, "databases", "branches", "create", database, branch, "--ttl", "2h").
 		requireSuccess(t, "Branch '"+branch+"' of database '"+database+"' created", "provisioning")
 	t.Cleanup(func() {
