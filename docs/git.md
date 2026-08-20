@@ -54,7 +54,9 @@ one git would push to wins — `git push` follows `branch.<name>.pushRemote`, th
 deploys, so in a fork or triangular checkout the repository bound is the one you
 push to rather than the one you fetch from. Failing all of that: the only
 remote, or `origin` when there are several. The CLI says which remote it used
-whenever the configuration, not the convention, decided it. A remote with a separate
+whenever the configuration, not the convention, decided it — and if that
+configuration names a remote the repository does not have, it says so rather
+than falling back, because `git push` would fail there too. A remote with a separate
 `pushurl` names two repositories, and the push target is the one bound, since a
 push is what deploys; the CLI says so when the two differ. A remote configured
 with *several* push URLs has no single repository to connect — a push reaches

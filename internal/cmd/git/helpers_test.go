@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -60,8 +60,11 @@ type gitRunner struct {
 	// outputs answers any other command by its full command line. A command with
 	// no entry fails, which is what git does for an unset config key — the
 	// commands behind PushRemote read that as "the configuration does not say".
-	outputs  map[string]string
-	commands []string
+	outputs map[string]string
+	// failConfig makes a config read fail the way a malformed config does,
+	// which is not the same as a key being unset.
+	failConfig bool
+	commands   []string
 }
 
 func (r *gitRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -70,13 +73,29 @@ func (r *gitRunner) Run(_ context.Context, name string, args ...string) ([]byte,
 
 	command := strings.TrimSpace(name + " " + strings.Join(args, " "))
 	r.commands = append(r.commands, command)
-	if command == "git remote -v" {
+	switch command {
+	case "git remote -v":
 		return []byte(r.stdout), nil
+	case "git branch --show-current":
+		// Detached HEAD, unless a test says otherwise: prints nothing, exits 0.
+		return []byte(r.outputs[command]), nil
+	default:
+		if out, ok := r.outputs[command]; ok {
+			return []byte(out), nil
+		}
+		if r.failConfig {
+			return nil, exitStatus(128)
+		}
+		// An unset config key, which git signals with exit status 1 and nothing
+		// else — the code tells that apart from a real failure.
+		return nil, exitStatus(1)
 	}
-	if out, ok := r.outputs[command]; ok {
-		return []byte(out), nil
-	}
-	return nil, errors.New("exit status 1")
+}
+
+// exitStatus builds a real *exec.ExitError carrying code, by running a command
+// that exits with it. ProcessState cannot be constructed by hand.
+func exitStatus(code int) error {
+	return exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run()
 }
 
 func (r *gitRunner) ran() []string {

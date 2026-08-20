@@ -160,41 +160,81 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	return remotes, nil
 }
 
-// PushRemote reports the remote a `git push` with no arguments would send to,
-// or "" when the configuration does not say. git decides this in a precedence
-// git help config spells out — branch.<name>.pushRemote, then
-// remote.pushDefault, then branch.<name>.remote — and only falls back to origin
-// when none is set. Picking origin regardless would bind the repository a
-// triangular or fork checkout never pushes to.
-func (c Client) PushRemote(ctx context.Context) string {
-	branch := c.configValue(ctx, "branch")
-	if branch != "" {
-		if remote := c.configValue(ctx, "branch."+branch+".pushRemote"); remote != "" {
-			return remote
-		}
-	}
-	if remote := c.configValue(ctx, "remote.pushDefault"); remote != "" {
-		return remote
-	}
-	if branch != "" {
-		return c.configValue(ctx, "branch."+branch+".remote")
-	}
-	return ""
+// PushRemote names the remote a `git push` with no arguments would send to, and
+// the config key that decided it. Both are empty when the configuration does not
+// say, which is the common case.
+//
+// git resolves this in a precedence git help config spells out —
+// branch.<name>.pushRemote, then remote.pushDefault, then branch.<name>.remote —
+// and only falls back to origin when none is set. Picking origin regardless
+// would bind the repository a triangular or fork checkout never pushes to.
+type PushRemote struct {
+	Name string
+	// Source is the config key that set Name, so a configuration pointing
+	// somewhere unusable can be reported by the key the user has to fix.
+	Source string
 }
 
-// configValue reads one git config key, or the current branch name for the
-// sentinel "branch". An unset key exits non-zero, which is not a failure worth
-// reporting: it means the configuration does not say, which is the answer.
-func (c Client) configValue(ctx context.Context, key string) string {
-	args := []string{"config", "--get", key}
-	if key == "branch" {
-		args = []string{"branch", "--show-current"}
-	}
-	out, err := c.runner.Run(ctx, "git", args...)
+// PushRemote reads the push routing out of the repository's configuration.
+func (c Client) PushRemote(ctx context.Context) (PushRemote, error) {
+	branch, err := c.currentBranch(ctx)
 	if err != nil {
-		return ""
+		return PushRemote{}, err
 	}
-	return strings.TrimSpace(string(out))
+
+	keys := make([]string, 0, 3)
+	if branch != "" {
+		keys = append(keys, "branch."+branch+".pushRemote")
+	}
+	keys = append(keys, "remote.pushDefault")
+	if branch != "" {
+		keys = append(keys, "branch."+branch+".remote")
+	}
+
+	for _, key := range keys {
+		value, err := c.configValue(ctx, key)
+		if err != nil {
+			return PushRemote{}, err
+		}
+		if value != "" {
+			return PushRemote{Name: value, Source: key}, nil
+		}
+	}
+	return PushRemote{}, nil
+}
+
+func (c Client) currentBranch(ctx context.Context) (string, error) {
+	// Detached HEAD prints nothing and succeeds, so an empty answer here is
+	// "no branch", not a failure.
+	out, err := c.runner.Run(ctx, "git", "branch", "--show-current")
+	if err != nil {
+		return "", gitFailure(err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// configValue reads one git config key. An unset key is not a failure — it means
+// the configuration does not say, which is an answer — and git says so with exit
+// status 1 specifically. Anything else is a real failure (a malformed config
+// exits 128), and reporting it as "not set" would let this command quietly
+// disagree with the git the user runs.
+func (c Client) configValue(ctx context.Context, key string) (string, error) {
+	out, err := c.runner.Run(ctx, "git", "config", "--get", key)
+	switch {
+	case err == nil:
+		return strings.TrimSpace(string(out)), nil
+	case isUnsetConfigKey(err):
+		return "", nil
+	default:
+		return "", gitFailure(err)
+	}
+}
+
+// isUnsetConfigKey reports whether err is `git config --get` saying the key is
+// not set, which it signals with exit status 1 and nothing else.
+func isUnsetConfigKey(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == 1
 }
 
 type remoteKind int
@@ -251,22 +291,27 @@ func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 // name, the remote git would push to wins, then a lone remote, then "origin";
 // anything else is ambiguous and the caller has to choose.
 //
-// pushRemote comes from Client.PushRemote and is what makes this agree with
-// git rather than with a convention: in a fork checkout the repository that
-// receives pushes — and so the one a deployment comes from — is routinely not
-// origin.
-func SelectRemote(remotes []Remote, name, pushRemote string) (Remote, error) {
+// push comes from Client.PushRemote and is what makes this agree with git rather
+// than with a convention: in a fork checkout the repository that receives pushes
+// — and so the one a deployment comes from — is routinely not origin.
+func SelectRemote(remotes []Remote, name string, push PushRemote) (Remote, error) {
 	if name = strings.TrimSpace(name); name != "" {
 		return namedRemote(remotes, name)
 	}
 
-	if pushRemote != "" {
-		if remote, err := namedRemote(remotes, pushRemote); err == nil {
+	if push.Name != "" {
+		remote, err := namedRemote(remotes, push.Name)
+		if err == nil {
 			return remote, nil
 		}
-		// A pushDefault naming a remote that does not exist is a broken
-		// configuration git would fail on too; fall through rather than making
-		// this command the one that reports it.
+		// Falling back to origin here would bind a repository this checkout
+		// never pushes to, which is the whole failure this routing exists to
+		// avoid. git refuses the same configuration outright — a push reports
+		// "does not appear to be a git repository" — so this does too.
+		return Remote{}, fmt.Errorf(
+			"%s names %q, which is not a remote in this repository, so a push would fail; "+
+				"fix that setting, name a remote with --remote, or pass the repository URL",
+			push.Source, push.Name)
 	}
 
 	if len(remotes) == 1 {

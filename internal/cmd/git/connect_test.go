@@ -1019,3 +1019,66 @@ func TestConnectGuidesAReconnectOnAnExpiredConnection(t *testing.T) {
 	assert.Contains(t, err.Error(), "needs reconnecting")
 	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
 }
+
+// A push remote naming nothing is a configuration git itself refuses — a push
+// reports "does not appear to be a git repository" — so falling back to origin
+// would bind a repository this checkout cannot push to at all.
+func TestConnectRefusesAPushRemoteThatDoesNotExist(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "missing"},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
+	assert.Contains(t, err.Error(), "a push would fail")
+	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+}
+
+// The key that set it is named, so the user knows what to fix.
+func TestConnectNamesTheKeyBehindABrokenPushRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git branch --show-current":               "main",
+			"git config --get branch.main.pushRemote": "gone",
+		},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `branch.main.pushRemote names "gone"`)
+}
+
+// --remote is the user speaking and outranks a broken configuration, so it is
+// still a way through.
+func TestConnectHonoursRemoteDespiteABrokenPushRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "missing"},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// A real git failure reading the configuration is not "nothing is configured".
+func TestConnectReportsAGitFailureReadingTheConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput, failConfig: true}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not read this directory's Git repository")
+	assert.Nil(t, api.sentConnectBody())
+}

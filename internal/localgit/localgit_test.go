@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -219,7 +220,7 @@ func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 
 	// Two remotes and one named origin: origin wins, rather than the list
 	// collapsing to one entry and the lone-remote branch picking upstream.
-	selected, err := SelectRemote(remotes, "", "")
+	selected, err := SelectRemote(remotes, "", PushRemote{})
 	require.NoError(t, err)
 	assert.Equal(t, "origin", selected.Name)
 }
@@ -344,35 +345,35 @@ func TestSelectRemote(t *testing.T) {
 
 	t.Run("a lone remote is taken whatever it is called", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream}, "", "")
+		selected, err := SelectRemote([]Remote{upstream}, "", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("origin wins among several", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream, origin}, "", "")
+		selected, err := SelectRemote([]Remote{upstream, origin}, "", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, origin, selected)
 	})
 
 	t.Run("several remotes without origin are ambiguous", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{upstream, fork}, "", "")
+		_, err := SelectRemote([]Remote{upstream, fork}, "", PushRemote{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--remote")
 	})
 
 	t.Run("a named remote is used even when origin exists", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream", "")
+		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("a missing named remote is an error", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{origin}, "nope", "")
+		_, err := SelectRemote([]Remote{origin}, "nope", PushRemote{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `no remote named "nope"`)
 	})
@@ -600,31 +601,40 @@ func TestPushRemoteFollowsGitsPrecedence(t *testing.T) {
 	for name, tc := range map[string]struct {
 		config map[string]string
 		want   string
+		source string
 	}{
-		"nothing configured": {map[string]string{"git branch --show-current": "main"}, ""},
+		"nothing configured": {map[string]string{"git branch --show-current": "main"}, "", ""},
 		"branch pushRemote wins over everything": {map[string]string{
 			"git branch --show-current":               "main",
 			"git config --get branch.main.pushRemote": "fork",
 			"git config --get remote.pushDefault":     "upstream",
 			"git config --get branch.main.remote":     "origin",
-		}, "fork"},
+		}, "fork", "branch.main.pushRemote"},
 		"pushDefault beats branch remote": {map[string]string{
 			"git branch --show-current":           "main",
 			"git config --get remote.pushDefault": "upstream",
 			"git config --get branch.main.remote": "origin",
-		}, "upstream"},
+		}, "upstream", ""},
 		"branch remote is the last word": {map[string]string{
 			"git branch --show-current":           "main",
 			"git config --get branch.main.remote": "upstream",
-		}, "upstream"},
+		}, "upstream", ""},
+		// Detached HEAD prints nothing and succeeds, so the branch-scoped keys
+		// are simply not asked for.
 		"detached HEAD skips the branch keys": {map[string]string{
+			"git branch --show-current":           "",
 			"git config --get remote.pushDefault": "upstream",
-		}, "upstream"},
+		}, "upstream", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			client := Client{runner: configRunner(tc.config)}
-			assert.Equal(t, tc.want, client.PushRemote(t.Context()))
+			push, err := client.PushRemote(t.Context())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, push.Name)
+			if tc.source != "" {
+				assert.Equal(t, tc.source, push.Source)
+			}
 		})
 	}
 }
@@ -636,28 +646,34 @@ func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
 
 	t.Run("the push remote wins over the origin convention", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, fork}, "", "fork")
+		selected, err := SelectRemote([]Remote{origin, fork}, "", PushRemote{Name: "fork", Source: "remote.pushDefault"})
 		require.NoError(t, err)
 		assert.Equal(t, "fork", selected.Name)
 	})
 
 	t.Run("--remote still wins over the push remote", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, fork}, "origin", "fork")
+		selected, err := SelectRemote([]Remote{origin, fork}, "origin", PushRemote{Name: "fork", Source: "remote.pushDefault"})
 		require.NoError(t, err)
 		assert.Equal(t, "origin", selected.Name)
 	})
 
-	t.Run("a push remote naming nothing falls back", func(t *testing.T) {
+	// Falling back to origin would bind a repository this checkout never pushes
+	// to, which is the failure the routing exists to avoid. git refuses the same
+	// configuration outright.
+	t.Run("a push remote naming nothing is refused", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, fork}, "", "does-not-exist")
-		require.NoError(t, err)
-		assert.Equal(t, "origin", selected.Name)
+		_, err := SelectRemote([]Remote{origin, fork}, "",
+			PushRemote{Name: "missing", Source: "remote.pushDefault"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
+		assert.Contains(t, err.Error(), "a push would fail")
+		assert.Contains(t, err.Error(), "--remote")
 	})
 
 	t.Run("the ambiguity error names the remotes", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{fork, {Name: "other"}}, "", "")
+		_, err := SelectRemote([]Remote{fork, {Name: "other"}}, "", PushRemote{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "fork, other")
 	})
@@ -699,14 +715,66 @@ func TestDivergesComparesRepositoriesNotURLs(t *testing.T) {
 	}
 }
 
-// configRunner answers the config reads behind PushRemote, failing an unset key
-// the way git does.
+// configRunner answers the config reads behind PushRemote. An entry that is
+// missing fails with a real exit status 1, which is how git reports an unset key
+// and what tells that apart from a genuine failure.
 func configRunner(outputs map[string]string) cliruntime.CommandRunner {
 	return cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
 		command := strings.TrimSpace(name + " " + strings.Join(args, " "))
 		if out, ok := outputs[command]; ok {
 			return []byte(out), nil
 		}
-		return nil, errors.New("exit status 1")
+		return nil, exitStatus(1)
 	})
+}
+
+// exitStatus builds a real *exec.ExitError carrying code, by running a command
+// that exits with it. ProcessState cannot be constructed by hand.
+func exitStatus(code int) error {
+	err := exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run()
+	return err
+}
+
+// A malformed config, or any other real git failure, exits with something other
+// than 1. Reading that as "not set" would let this command quietly disagree with
+// the git the user runs.
+func TestPushRemoteReportsARealGitFailure(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			if args[0] == "branch" {
+				return []byte("main\n"), nil
+			}
+			return nil, exitStatus(128)
+		})}
+
+	_, err := client.PushRemote(t.Context())
+	require.ErrorIs(t, err, ErrGitUnavailable)
+}
+
+// The branch read can fail for the same reasons — dubious ownership, an
+// unreadable config — and swallowing it would make a broken repository look
+// like one with no push routing configured.
+func TestPushRemoteReportsAFailingBranchRead(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			if args[0] == "branch" {
+				return nil, exitStatus(128)
+			}
+			return []byte("upstream\n"), nil
+		})}
+
+	_, err := client.PushRemote(t.Context())
+	require.ErrorIs(t, err, ErrGitUnavailable)
+}
+
+// An unset key is an answer, not a failure, and git says so with exit 1 alone.
+func TestPushRemoteTreatsAnUnsetKeyAsNoAnswer(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: configRunner(map[string]string{"git branch --show-current": "main"})}
+
+	push, err := client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, push.Name)
 }
