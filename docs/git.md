@@ -59,21 +59,25 @@ the configuration, not the convention, decided it.
 Those three keys hold either a remote name or a repository URL — `git push`
 accepts both — so a URL is followed to the repository it names, even though no
 remote in the checkout describes it, and even in a checkout with no remotes at
-all. A value that is neither, such as a typo for
-a remote name, is refused rather than quietly falling back to `origin`: falling
-back would bind a repository this checkout never pushes to. A value that is set
-but empty, or padded with whitespace, is refused rather than skipped: git uses
-these verbatim and fails on them instead of falling through to the next key, so
-skipping one would bind whatever the convention picked for a checkout that
-cannot push at all. Credentials are never echoed back, since a CI rewrite
-routinely leaves a job token in one of these values.
+all. A value that is neither, such as a typo for a remote name, is refused rather
+than quietly falling back to `origin`: falling back would bind a repository this
+checkout never pushes to. A value that is set but empty, or padded with
+whitespace, is refused rather than skipped: git uses these verbatim and fails on
+them instead of falling through to the next key, so skipping one would bind
+whatever the convention picked for a checkout that cannot push at all.
+Credentials are never echoed back, since a CI rewrite routinely leaves a job
+token in one of these values.
+
+`--remote` and a repository URL both outrank the routing, and neither reads it at
+all — so either one connects a checkout whose routing is broken, without having
+to edit the Git config first.
 
 `url.<base>.pushInsteadOf` and `url.<base>.insteadOf` are applied to such a URL
 before it is resolved, the same way `git push` applies them — push rules first,
-then fetch rules, longest matching prefix winning — so the repository bound is
-the one a push reaches rather than the one the setting spells. A remote named in
-the usual way needs none of this: `git remote -v` already reports the rewritten
-push URL.
+then fetch rules, the longest matching prefix winning and the first of two rules
+sharing a prefix. So the repository bound is the one a push reaches rather than
+the one the setting spells. A remote named in the usual way needs none of this:
+`git remote -v` already reports the rewritten push URL.
 
 A remote with a separate `pushurl` names two repositories, and the push target is
 the one bound, since a push is what deploys; the CLI says so when the two differ.

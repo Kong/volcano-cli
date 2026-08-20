@@ -379,6 +379,69 @@ func TestRealGitPushURLRewritingAgreesWithWhereGitPushes(t *testing.T) {
 	})
 }
 
+// Two rules sharing a prefix, as `git config --add` produces: git follows the
+// first. Keying the rules by prefix and assigning over the earlier one resolved
+// the second while the push went to the first.
+func TestRealGitFollowsTheFirstOfTwoRulesSharingAPrefix(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	first, second := c.bare(t, "first.git"), c.bare(t, "second.git")
+	const configured = "https://gh.test/octo/app.git"
+	git(t, c.dir, "config", "remote.pushDefault", configured)
+	git(t, c.dir, "config", "--add", "url."+first+".pushInsteadOf", configured)
+	git(t, c.dir, "config", "--add", "url."+second+".pushInsteadOf", configured)
+
+	c.assertPushGoesTo(t, first)
+	assert.Empty(t, c.headOf(t, second), "the later rule must not win")
+}
+
+// The fetch-side rules are read the same way and need the same first-wins
+// handling — measured separately rather than assumed symmetric.
+func TestRealGitFollowsTheFirstOfTwoFetchRulesSharingAPrefix(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	first, second := c.bare(t, "first.git"), c.bare(t, "second.git")
+	const configured = "https://gh.test/octo/app.git"
+	git(t, c.dir, "config", "remote.pushDefault", configured)
+	git(t, c.dir, "config", "--add", "url."+first+".insteadOf", configured)
+	git(t, c.dir, "config", "--add", "url."+second+".insteadOf", configured)
+
+	c.assertPushGoesTo(t, first)
+	assert.Empty(t, c.headOf(t, second), "the later rule must not win")
+}
+
+// git's config syntax admits a value ending in a newline, and `git config --get`
+// then emits that newline plus its own terminator. Removing both read the value
+// as the valid remote "origin" and bound that repository, while git refuses the
+// value outright.
+func TestRealGitRefusesAValueEndingInANewline(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	appendGitConfig(t, c.dir, "[remote]\n\tpushdefault = \"origin\\n\"\n")
+
+	value, set, err := c.client.configValue(t.Context(), "remote.pushDefault")
+	require.NoError(t, err)
+	require.True(t, set)
+	assert.Equal(t, "origin\n", value, "only git's own terminator comes off")
+
+	_, err = c.client.PushRemote(t.Context())
+	require.Error(t, err, "the value keeps its newline, so it is refused as padded")
+
+	// git agrees: it does not read this as the origin remote.
+	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "newline route")
+	require.Error(t, gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run())
+	assert.Empty(t, c.headOf(t, c.origin), "git did not fall back to the origin remote")
+}
+
+func appendGitConfig(t *testing.T, dir, content string) {
+	t.Helper()
+	file, err := os.OpenFile(filepath.Join(dir, ".git", "config"), os.O_APPEND|os.O_WRONLY, 0o600)
+	require.NoError(t, err)
+	_, err = file.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+}
+
 // A matching pushInsteadOf wins even when it rewrites the URL to itself: git
 // does not fall through to insteadOf. Treating an identity rewrite as "no
 // rewrite" reached the fetch rule and resolved a different repository — a guard

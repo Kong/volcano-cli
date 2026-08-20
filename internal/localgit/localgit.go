@@ -281,12 +281,20 @@ func (c Client) rewritePushURL(ctx context.Context, value string) (string, error
 		if !ok {
 			continue
 		}
+		// First wins, so a repeated prefix keeps the earliest rule. git reads
+		// config in file order and `git config --add` appends, and a push then
+		// follows the first of two rules sharing a prefix — measured. Assigning
+		// over the earlier one resolved the second while git used the first.
 		if trimmed, ok := strings.CutSuffix(base, ".pushinsteadof"); ok {
-			push[prefix] = trimmed
+			if _, seen := push[prefix]; !seen {
+				push[prefix] = trimmed
+			}
 			continue
 		}
 		if trimmed, ok := strings.CutSuffix(base, ".insteadof"); ok {
-			fetch[prefix] = trimmed
+			if _, seen := fetch[prefix]; !seen {
+				fetch[prefix] = trimmed
+			}
 		}
 	}
 
@@ -330,20 +338,39 @@ func (c Client) currentBranch(ctx context.Context) (string, error) {
 // real failure (a malformed config exits 128), and reporting it as "not set"
 // would let this command quietly disagree with the git the user runs.
 //
-// Only the newline git appends is removed. The value is not trimmed, because git
-// does not trim it either: " origin " is not the origin remote but a path git
-// reports as not a repository, and a set-but-empty value is not the same as an
-// unset one. Trimming erased both distinctions and turned them into a fallback.
+// Only the record terminator git appends is removed. The value is not trimmed,
+// because git does not trim it either: " origin " is not the origin remote but a
+// path git reports as not a repository, and a set-but-empty value is not the same
+// as an unset one. Trimming erased both distinctions and turned them into a
+// fallback.
 func (c Client) configValue(ctx context.Context, key string) (value string, set bool, err error) {
 	out, err := c.runner.Run(ctx, "git", "config", "--get", key)
 	switch {
 	case err == nil:
-		return strings.TrimRight(string(out), "\r\n"), true, nil
+		return trimRecordTerminator(string(out)), true, nil
 	case isUnsetConfigKey(err):
 		return "", false, nil
 	default:
 		return "", false, gitFailure(err)
 	}
+}
+
+// trimRecordTerminator removes the one line ending git puts after a value, and
+// nothing else.
+//
+// A cutset is wrong here: git's config syntax admits a value ending in a newline
+// (`pushdefault = "origin\n"`), for which `git config --get` emits "origin\n\n".
+// Stripping both turned it into the valid remote "origin" and bound that
+// repository, while `git push` refuses the value outright — "fatal: 'origin
+// ' does not appear to be a git repository". One terminator off means the value
+// keeps its own newline and is refused as the padded value it is.
+//
+// The "\r" goes with it because Windows is a release target and a terminator
+// there may be "\r\n"; leaving the "\r" behind would refuse a perfectly good
+// value as padded. A value genuinely ending in "\r" is indistinguishable from
+// that and is accepted, which git would refuse — the rarer of the two mistakes.
+func trimRecordTerminator(out string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(out, "\n"), "\r")
 }
 
 // isUnsetConfigKey reports whether err is `git config --get` saying the key is

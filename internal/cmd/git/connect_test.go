@@ -1104,6 +1104,43 @@ func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
 	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
 }
 
+// The refusal for an unusable push route offers --remote as the way out, so it
+// has to be a way out. Reading the routing before honouring --remote made the
+// command refuse its own advice, and there was then no way to connect at all
+// short of editing the Git config.
+func TestConnectHonoursRemoteDespiteAnUnusablePushRoute(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		// Set, and unusable: git fails on this rather than falling through.
+		outputs: map[string]string{"git config --get remote.pushDefault": "   "},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	// Not merely tolerated — not read at all, since --remote outranks it.
+	assert.NotContains(t, runner.ran(), "git config --get remote.pushDefault")
+}
+
+// And the route is still refused when nothing overrides it, so the guard above
+// did not simply switch the check off.
+func TestConnectStillRefusesAnUnusablePushRouteWithoutRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "   "},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remote.pushDefault")
+	assert.Nil(t, api.sentConnectBody())
+}
+
 // git rewrites a push destination before using it, so the repository bound has
 // to come from the rewritten URL. Both URLs here are valid GitHub URLs, so
 // binding the configured one would bind a repository the push never reaches

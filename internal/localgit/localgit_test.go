@@ -240,6 +240,27 @@ func TestSelectRemoteReportsAnEmptyRemoteListWhenNothingElseDecides(t *testing.T
 	require.ErrorIs(t, err, ErrNoRemotes)
 }
 
+// One line ending comes off, not every trailing one. A cutset read a value that
+// ends in a newline as the valid remote name underneath it, and Windows is a
+// release target so the terminator there may be "\r\n".
+func TestTrimRecordTerminatorRemovesOneLineEnding(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ in, want string }{
+		"lf terminator":         {"origin\n", "origin"},
+		"crlf terminator":       {"origin\r\n", "origin"},
+		"value ending in lf":    {"origin\n\n", "origin\n"},
+		"value ending in crlf":  {"origin\r\n\r\n", "origin\r\n"},
+		"no terminator at all":  {"origin", "origin"},
+		"padding is not a line": {" origin \n", " origin "},
+		"empty":                 {"\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, trimRecordTerminator(tc.in))
+		})
+	}
+}
+
 // Resolving the rewrite is only half the job: the binding has to be made from
 // it. git pushes to the rewritten URL, so binding the configured one binds a
 // repository the push never reaches — silently, since both are valid GitHub

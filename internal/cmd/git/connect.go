@@ -268,9 +268,15 @@ func resolveRepository(
 	// Ask git where a push goes rather than assuming origin: a fork or
 	// triangular checkout routinely pushes somewhere else, and the repository
 	// that receives pushes is the one a deployment comes from.
-	push, err := client.PushRemote(ctx)
-	if err != nil {
-		return localgit.Repository{}, nil, err
+	//
+	// Not asked at all when --remote named one. It outranks the routing anyway,
+	// and reading it regardless made an unusable route refuse the very command
+	// its own error message offers as the way out of it.
+	var push localgit.PushRemote
+	if opts.remote == "" {
+		if push, err = client.PushRemote(ctx); err != nil {
+			return localgit.Repository{}, nil, err
+		}
 	}
 
 	remote, err := localgit.SelectRemote(remotes, opts.remote, push)
