@@ -887,6 +887,10 @@ func TestConnectReportsAMissingProject(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the selected project does not exist")
+	// And the guidance, which is the whole of what the user can act on. This
+	// read used to return its error raw, so connect alone reported the sentinel
+	// with no way forward while status and disconnect explained it.
+	assert.Contains(t, err.Error(), "Select one with volcano use <project>")
 	assert.Nil(t, api.sentConnectBody())
 }
 
@@ -961,6 +965,8 @@ func TestConnectBindsWhereGitPushesNotOrigin(t *testing.T) {
 
 	assert.Contains(t, out, "Connected octo/storefront")
 	assert.Contains(t, out, `Using remote "fork": remote.pushDefault sends this branch's pushes there.`)
+	// The id, not the echoed name: origin's acme/upstream is a different id.
+	assert.InDelta(t, float64(repoIDFor("octo/storefront")), api.sentConnectBody()["repository_id"], 0)
 }
 
 // Saying so matters only when it changed the answer.
@@ -1105,6 +1111,60 @@ func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
 	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
 }
 
+// Two installations can both see a repository of the same full name, and the
+// binding records an installation id — so which one is tried first decides what
+// gets stored, and a push through the wrong installation deploys nothing. The
+// owner's installation goes first, and this pins that at the call site: the
+// helper had its own unit test, but both command-level fixtures happened to list
+// the owner first, so dropping the ordering changed nothing and broke no test.
+func TestConnectPrefersTheOwnersInstallationWhenBothCanSeeTheRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	// Deliberately not first in the slice.
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(otherInstall, "acme", "Organization", "all"),
+		installation(gitInstallation, "octo", "User", "all"),
+	}
+	api.reposByInstallation = map[int64][]map[string]any{
+		otherInstall:    {repository("octo/storefront")},
+		gitInstallation: {repository("octo/storefront")},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.InDelta(t, float64(gitInstallation), api.sentConnectBody()["installation_id"], 0,
+		"the owner's installation is the one recorded")
+}
+
+// When every installation fails, the first failure is the one reported — the
+// owner's, which is the likeliest to be scoped away from the repository and so
+// the likeliest to be actionable. Keeping the last one instead reported whichever
+// installation happened to sort last.
+func TestConnectReportsTheFirstInstallationFailureNotTheLast(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(gitInstallation, "octo", "User", "all"),
+		installation(otherInstall, "acme", "Organization", "all"),
+	}
+	api.reposByInstallation = map[int64][]map[string]any{
+		gitInstallation: {repository("octo/storefront")},
+		otherInstall:    {repository("octo/storefront")},
+	}
+	// Two distinguishable failures, so the message says which one was kept.
+	api.repositoriesStatus[gitInstallation] = http.StatusServiceUnavailable
+	api.repositoriesStatus[otherInstall] = http.StatusUnauthorized
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "git provider integration is not configured",
+		"the owner's installation is tried first, so its failure is the one reported")
+	assert.NotContains(t, err.Error(), "needs reconnecting")
+}
+
 // A whitespace-only --remote used to do two wrong things at once: it counted as
 // "the user named a remote", so the push routing was never read, and then it
 // trimmed away to nothing, so the origin convention decided. The result was a
@@ -1209,12 +1269,21 @@ func TestConnectBindsTheRewrittenPushURL(t *testing.T) {
 		},
 	}
 
+	// The decoy is visible to the App, so binding it would succeed. Without
+	// this the test passes merely because resolving the decoy fails, which is
+	// not the same as choosing the right one.
+	api.reposByInstallation[gitInstallation] = []map[string]any{
+		repository("octo/storefront"), repository("octo/decoy"),
+	}
+
 	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Connected octo/storefront")
 	assert.NotContains(t, out, "decoy")
-	require.NotNil(t, api.sentConnectBody())
+	body := api.sentConnectBody()
+	require.NotNil(t, body)
+	assert.InDelta(t, float64(repoIDFor("octo/storefront")), body["repository_id"], 0)
 }
 
 // The same route with a credential in it. CI rewrites leave a job token in these

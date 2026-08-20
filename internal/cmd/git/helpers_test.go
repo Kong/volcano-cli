@@ -377,15 +377,22 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.connectBody))
 
 	// The preferred selector is the numeric id, so resolve it the way the
-	// platform would rather than echoing whatever was sent.
-	a.connected = "octo/storefront"
-	a.connectedRepoID = gitRepositoryID
+	// platform would rather than echoing a fixed name: a fake that answers
+	// "octo/storefront" whatever it is sent cannot fail a test that binds the
+	// wrong repository.
+	selector, ok := a.connectBody["repository_id"].(float64)
+	require.True(a.t, ok, "the bind must select by repository id")
+	full := a.repositoryByID(int64(selector))
+	require.NotEmpty(a.t, full, "repository_id %v is not in this fixture", selector)
+
+	a.connected = full
+	a.connectedRepoID = repoIDFor(full)
 	a.connectedRoot, _ = a.connectBody["root_directory"].(string)
 	if id, ok := a.connectBody["installation_id"].(float64); ok {
 		a.connectedInstallation = int64(id)
 	}
 	writeGitJSON(a.t, w, http.StatusOK,
-		connectionPayload(a.connected, a.connectedRoot, gitRepositoryID, a.currentInstallation()))
+		connectionPayload(a.connected, a.connectedRoot, a.connectedRepoID, a.currentInstallation()))
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
@@ -462,11 +469,43 @@ func installation(id int64, login, accountType, selection string) map[string]any
 
 func repository(fullName string) map[string]any {
 	return map[string]any{
-		"id":             gitRepositoryID,
+		"id":             repoIDFor(fullName),
 		"full_name":      fullName,
 		"default_branch": "main",
 		"private":        true,
 	}
+}
+
+// repoIDFor gives every repository in a fixture a distinct id.
+//
+// One shared id let a test assert "Connected octo/storefront" while the command
+// had sent the id of a different repository, because serveConnect echoed a fixed
+// name back regardless of the selector. The wrong-repository tests then passed
+// only because the decoy was absent from the fixture, so resolving it failed —
+// which is not the same as asserting the right one was chosen, and it is the
+// failure class this whole feature is about.
+func repoIDFor(fullName string) int64 {
+	if strings.EqualFold(fullName, "octo/storefront") {
+		return gitRepositoryID // the primary, so existing assertions still name it
+	}
+	id := int64(1)
+	for _, b := range []byte(strings.ToLower(fullName)) {
+		id = id*31 + int64(b)
+	}
+	return gitRepositoryID + 1 + id%100000
+}
+
+// repositoryByID reverses the selector the way the platform does, so the fake
+// reports the repository it was actually asked to bind.
+func (a *gitAPI) repositoryByID(id int64) string {
+	for _, repositories := range a.reposByInstallation {
+		for _, candidate := range repositories {
+			if full, ok := candidate["full_name"].(string); ok && repoIDFor(full) == id {
+				return full
+			}
+		}
+	}
+	return ""
 }
 
 func writeGitJSON(t *testing.T, w http.ResponseWriter, status int, value any) {

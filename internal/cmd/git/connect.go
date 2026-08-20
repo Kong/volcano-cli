@@ -145,9 +145,12 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return err
 	}
 
+	// Through guide, like the same read in status and disconnect: this is where a
+	// project that does not exist is first noticed, and the guidance for that —
+	// how to select a different one — is the whole of what the user can act on.
 	existing, err := currentConnection(ctx, service)
 	if err != nil {
-		return err
+		return guide(opts.deps, webURL, err)
 	}
 
 	// Resolve before deciding anything. repo_full_name is cached at connect

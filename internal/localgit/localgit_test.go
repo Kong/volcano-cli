@@ -281,6 +281,30 @@ func TestDescribeConfigValueStillNamesARemoteName(t *testing.T) {
 	assert.Equal(t, `" fork "`, describeConfigValue(" fork "))
 }
 
+// The padded-value refusal states the whitespace instead of relying on the
+// rendered value to show it. Both branches then read the same way: a URL goes
+// through Redact, which trims, so a message that showed the raw value would
+// accuse padding the reader cannot see — and a name shown with its padding
+// invites the reader to compare two strings that differ by invisible characters.
+func TestCheckPushRouteNamesTheWhitespaceRatherThanShowingIt(t *testing.T) {
+	t.Parallel()
+	for name, value := range map[string]string{
+		"a padded remote name": " fork ",
+		"a padded URL":         "  https://github.com/octo/app.git\t",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			err := checkPushRoute("remote.pushDefault", value)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "with whitespace around it")
+			// The value is rendered trimmed, so nothing in the message depends on
+			// the reader spotting a space.
+			assert.Contains(t, err.Error(), strings.TrimSpace(value))
+			assert.NotContains(t, err.Error(), `" fork "`)
+		})
+	}
+}
+
 // The limit of the above, recorded rather than left to be discovered: a secret
 // mistyped into one of these keys — "git config remote.pushDefault $WRONG_VAR" —
 // is shaped exactly like a remote name, and is echoed. Nothing about the string

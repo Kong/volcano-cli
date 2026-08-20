@@ -236,10 +236,15 @@ func checkPushRoute(key, value string) error {
 	if value != trimmed {
 		// git uses the value verbatim, so the padding is part of the path it
 		// looks for: "' origin ' does not appear to be a git repository".
+		//
+		// The whitespace is stated rather than shown. Rendering the raw value
+		// would leave the message accusing padding the reader cannot see, since
+		// a URL goes through Redact and Redact trims — which reads as a bug in
+		// the CLI rather than a diagnosis of the config.
 		return fmt.Errorf(
-			"%s is set to %s, and git uses that verbatim — the surrounding whitespace makes it "+
-				"a repository that does not exist; fix that setting, name a remote with --remote, "+
-				"or pass the repository URL", key, describeConfigValue(value))
+			"%s is set to %s with whitespace around it, and git uses the value verbatim, so it "+
+				"names a repository that does not exist; fix that setting, name a remote with "+
+				"--remote, or pass the repository URL", key, describeConfigValue(trimmed))
 	}
 	return nil
 }

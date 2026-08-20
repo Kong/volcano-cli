@@ -621,6 +621,10 @@ func TestRealGitRefusesAPaddedPushURL(t *testing.T) {
 	_, err := c.client.PushRemote(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "verbatim")
+	// The padding is named, not shown: Redact trims, so a message relying on the
+	// rendered value to display it would accuse whitespace the reader cannot see.
+	assert.Contains(t, err.Error(), "with whitespace around it")
+	assert.Contains(t, err.Error(), "https://github.com/octo/app.git")
 
 	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "padded route")
 	require.Error(t, gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run(),
