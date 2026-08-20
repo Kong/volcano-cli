@@ -763,3 +763,51 @@ func TestConnectRedactsAQuerySecretFromTheError(t *testing.T) {
 	assert.NotContains(t, err.Error(), "CANARY")
 	assert.NotContains(t, err.Error(), "private_token")
 }
+
+// The bind is a full replace that names no prior state, and everything the
+// command decided rests on a read taken before resolving and before the prompt.
+// If the project moved in that window, the write would discard a binding the
+// user was never shown.
+func TestConnectRefusesWhenTheBindingMovedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.connectedAfterRead = "acme/somewhere-else"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "y\n", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Contains(t, err.Error(), "acme/somewhere-else")
+	assert.Contains(t, err.Error(), "volcano git status")
+	assert.Nil(t, api.sentConnectBody(), "nothing the user did not see may be overwritten")
+}
+
+// A project that gained a binding while the command was running also changed,
+// even though the command started from "nothing connected".
+func TestConnectRefusesWhenSomethingElseConnectedFirst(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connectedAfterRead = "acme/raced-in"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Contains(t, err.Error(), "acme/raced-in")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// The mirror case: a project that lost its binding mid-command.
+func TestConnectRefusesWhenTheBindingDisappeared(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.disconnectAfterRead = true
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "y\n", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "no repository connected")
+	assert.Nil(t, api.sentConnectBody())
+}

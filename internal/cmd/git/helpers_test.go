@@ -108,6 +108,8 @@ type gitAPI struct {
 	// connectedAfterRead makes the binding change on the next read, modelling
 	// something else repointing the project while a prompt is open.
 	connectedAfterRead string
+	// disconnectAfterRead is the same for a binding that goes away.
+	disconnectAfterRead bool
 
 	connections               []map[string]any
 	installationsByConnection map[string][]map[string]any
@@ -249,9 +251,14 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 	// the second read on models something else repointing the project while
 	// that prompt was open.
 	a.connectionReads++
-	if a.connectedAfterRead != "" && a.connectionReads > 1 {
-		a.connected, a.connectedAfterRead = a.connectedAfterRead, ""
-		a.connectedRepoID = otherRepoID
+	if a.connectionReads > 1 {
+		switch {
+		case a.connectedAfterRead != "":
+			a.connected, a.connectedAfterRead = a.connectedAfterRead, ""
+			a.connectedRepoID = otherRepoID
+		case a.disconnectAfterRead:
+			a.connected, a.disconnectAfterRead = "", false
+		}
 	}
 	if a.connected == "" {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})

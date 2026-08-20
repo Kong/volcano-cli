@@ -228,10 +228,24 @@ func (s Service) resolveThroughConnection(
 	return nil, failure
 }
 
-// Connect binds the current project to a resolved repository.
-func (s Service) Connect(ctx context.Context, target Target, rootDirectory string) (*apiclient.ProjectGitConnection, error) {
+// Connect binds the current project to a resolved repository, provided its
+// binding is still expected — nil for a project that had none.
+//
+// The bind is a full replace and names no prior state, so it overwrites whatever
+// is bound when it arrives. Everything the caller decided rests on a read taken
+// before resolving the repository and before any prompt, so the window is wide:
+// three provider round-trips plus however long the user takes to answer. Within
+// it another actor can point the project somewhere the user was never shown.
+// Re-reading narrows that; the API has no conditional write to close it.
+func (s Service) Connect(
+	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
+) (*apiclient.ProjectGitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
+		return nil, err
+	}
+
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
 		return nil, err
 	}
 
@@ -266,12 +280,8 @@ func (s Service) Disconnect(ctx context.Context, expected *apiclient.ProjectGitC
 		return err
 	}
 
-	current, err := s.Status(ctx)
-	if err != nil {
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
 		return err
-	}
-	if current.RepoId != expected.RepoId || !strings.EqualFold(current.RepoFullName, expected.RepoFullName) {
-		return fmt.Errorf("%w: it now points at %s", ErrBindingChanged, current.RepoFullName)
 	}
 
 	if err := authenticated.API.DisconnectProjectGit(ctx, authenticated.ProjectID); err != nil {
@@ -281,6 +291,47 @@ func (s Service) Disconnect(ctx context.Context, expected *apiclient.ProjectGitC
 		return classify(err, "failed to disconnect the repository")
 	}
 	return nil
+}
+
+// confirmUnchanged rejects a write whose premise no longer holds: the binding
+// the caller read, showed, and asked about is not the one there now. Both writes
+// behind this are full replaces that name no prior state, so without it either
+// would silently discard a change made while the command was running.
+func (s Service) confirmUnchanged(ctx context.Context, expected *apiclient.ProjectGitConnection) error {
+	current, err := s.binding(ctx)
+	if err != nil {
+		return err
+	}
+	if sameBinding(current, expected) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrBindingChanged, describeBinding(current))
+}
+
+// binding reads the project's connection, reporting a project with none as a nil
+// connection rather than an error, so absence can be compared like any value.
+func (s Service) binding(ctx context.Context) (*apiclient.ProjectGitConnection, error) {
+	connection, err := s.Status(ctx)
+	if errors.Is(err, ErrNotConnected) {
+		return nil, nil //nolint:nilnil // no binding is a value here, not a failure
+	}
+	return connection, err
+}
+
+// sameBinding reports whether two reads describe the same binding. Absence
+// counts: a project that gained or lost one in between changed.
+func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.RepoId == b.RepoId && strings.EqualFold(a.RepoFullName, b.RepoFullName)
+}
+
+func describeBinding(connection *apiclient.ProjectGitConnection) string {
+	if connection == nil {
+		return "it now has no repository connected"
+	}
+	return "it now points at " + connection.RepoFullName
 }
 
 // DeploySettings returns what a push to the production branch deploys. It is

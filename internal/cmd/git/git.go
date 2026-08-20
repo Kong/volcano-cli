@@ -75,8 +75,8 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))
 	case errors.Is(err, gitconnect.ErrBindingChanged):
-		return fmt.Errorf("%w\n\nNothing was removed. Run %s again to see the current connection",
-			err, cliruntime.CommandPath(deps, "git disconnect"))
+		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
+			err, cliruntime.CommandPath(deps, "git status"))
 	case errors.Is(err, gitconnect.ErrNotConnected):
 		// The API answers 404 for both "no binding" and "no such project", so
 		// name the second possibility rather than asserting the first.

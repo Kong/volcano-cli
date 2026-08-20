@@ -167,7 +167,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		output.Note(opts.out, "Replacing the existing connection to %s.", existing.RepoFullName)
 	}
 
-	connection, err := service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts))
+	connection, err := service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}
