@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -146,12 +147,30 @@ func TestRemotesReportsNoDivergenceForAnOrdinaryRemote(t *testing.T) {
 	assert.False(t, remotes[0].Diverges())
 }
 
-// A remote with nothing to push to cannot be the target of a deployment.
-func TestRemotesSkipsARemoteWithNoPushURL(t *testing.T) {
+// A remote with nothing to push to is still reported. Dropping it made a named
+// lookup deny a remote git still lists, and silently moved the selection to
+// another one; PushTarget is where having nothing to push to is raised.
+func TestRemotesKeepsARemoteWithNoPushURL(t *testing.T) {
 	t.Parallel()
-	_, err := clientReturning(t, "git remote -v",
+	remotes, err := clientReturning(t, "git remote -v",
 		"origin\tgit@github.com:octo/storefront.git (fetch)\n").Remotes(t.Context())
-	require.ErrorIs(t, err, ErrNoRemotes)
+	require.NoError(t, err)
+	require.Len(t, remotes, 1)
+	assert.Empty(t, remotes[0].PushURLs)
+
+	_, err = remotes[0].PushTarget()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `remote "origin" has nothing to push to`)
+}
+
+// Having no remotes is not Remotes' verdict to give. A checkout with none can
+// still have a push route — remote.pushDefault holding a URL is one — so the
+// empty list comes back as a list, and SelectRemote decides whether it matters.
+func TestRemotesReturnsAnEmptyListRatherThanFailing(t *testing.T) {
+	t.Parallel()
+	remotes, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, remotes)
 }
 
 // A query string can carry a credential of its own, and it is no part of what
@@ -204,15 +223,174 @@ func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 
 	// Two remotes and one named origin: origin wins, rather than the list
 	// collapsing to one entry and the lone-remote branch picking upstream.
-	selected, err := SelectRemote(remotes, "")
+	selected, err := SelectRemote(remotes, "", PushRemote{})
 	require.NoError(t, err)
 	assert.Equal(t, "origin", selected.Name)
 }
 
-func TestRemotesReportsAnEmptyRemoteList(t *testing.T) {
+// Where the empty list does become a failure: nothing else named a destination,
+// so there is no remote to fall back on.
+func TestSelectRemoteReportsAnEmptyRemoteListWhenNothingElseDecides(t *testing.T) {
 	t.Parallel()
-	_, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
+	_, err := SelectRemote(nil, "", PushRemote{})
 	require.ErrorIs(t, err, ErrNoRemotes)
+
+	// And when the user named one that cannot exist.
+	_, err = SelectRemote(nil, "origin", PushRemote{})
+	require.ErrorIs(t, err, ErrNoRemotes)
+}
+
+// describeConfigValue is a second redactor, and it must not disagree with Redact
+// about what may be echoed. "URL-shaped, or else safe to quote" was the bug: the
+// two shapes Redact refuses — a bare token and a local path — contain no colon,
+// so both took the quoted branch and were printed whole.
+func TestDescribeConfigValueNeverEchoesWhatRedactWouldRefuse(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	for name, value := range map[string]string{
+		// Ordinary config for these keys, not a mistake — and it discloses
+		// directory structure and client names into a build log.
+		"a local mirror path":  "/srv/mirrors/clients/" + canary + "/repo.git",
+		"a relative path":      "../mirrors/" + canary + "/repo.git",
+		"a windows path":       `C:\mirrors\` + canary + `\repo.git`,
+		"a padded local path":  "  /srv/mirrors/" + canary + "/repo.git  ",
+		"a shell substitution": "$(cat /run/secrets/" + canary + ")",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			described := describeConfigValue(value)
+			assert.NotContains(t, described, canary)
+			// And the two agree: whatever Redact refuses, this refuses.
+			if Redact(value) == Placeholder {
+				assert.Equal(t, Placeholder, described,
+					"Redact refuses this, so describeConfigValue must too")
+			}
+		})
+	}
+}
+
+// A name-shaped value is still echoed, because naming it is the whole point of
+// the message — including the padding, which is what the padded-value error is
+// about.
+func TestDescribeConfigValueStillNamesARemoteName(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, `"missing"`, describeConfigValue("missing"))
+	assert.Equal(t, `"we@ird"`, describeConfigValue("we@ird"))
+	assert.Equal(t, `"upstream-2.0"`, describeConfigValue("upstream-2.0"))
+	// The padding has to stay visible: it is what the message blames.
+	assert.Equal(t, `" fork "`, describeConfigValue(" fork "))
+}
+
+// The padded-value refusal states the whitespace instead of relying on the
+// rendered value to show it. Both branches then read the same way: a URL goes
+// through Redact, which trims, so a message that showed the raw value would
+// accuse padding the reader cannot see — and a name shown with its padding
+// invites the reader to compare two strings that differ by invisible characters.
+func TestCheckPushRouteNamesTheWhitespaceRatherThanShowingIt(t *testing.T) {
+	t.Parallel()
+	for name, value := range map[string]string{
+		"a padded remote name": " fork ",
+		"a padded URL":         "  https://github.com/octo/app.git\t",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			err := checkPushRoute("remote.pushDefault", value)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "with whitespace around it")
+			// The value is rendered trimmed, so nothing in the message depends on
+			// the reader spotting a space.
+			assert.Contains(t, err.Error(), strings.TrimSpace(value))
+			assert.NotContains(t, err.Error(), `" fork "`)
+		})
+	}
+}
+
+// The limit of the above, recorded rather than left to be discovered: a secret
+// mistyped into one of these keys — "git config remote.pushDefault $WRONG_VAR" —
+// is shaped exactly like a remote name, and is echoed. Nothing about the string
+// distinguishes it, and refusing every name to cover this would empty out the one
+// message where naming the value is the point. Redact is stricter because it
+// judges URLs, where a name is never the answer.
+func TestDescribeConfigValueCannotTellANameFromABareSecret(t *testing.T) {
+	t.Parallel()
+	const looksLikeAName = "ghp_16C7e42F292c6912E7710c838347Ae178B4a"
+	assert.Equal(t, strconv.Quote(looksLikeAName), describeConfigValue(looksLikeAName))
+	assert.Equal(t, Placeholder, Redact(looksLikeAName),
+		"Redact is stricter on purpose; this asymmetry is the accepted residue")
+}
+
+// One line ending comes off, not every trailing one. A cutset read a value that
+// ends in a newline as the valid remote name underneath it, and Windows is a
+// release target so the terminator there may be "\r\n".
+func TestTrimRecordTerminatorRemovesOneLineEnding(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ in, want string }{
+		"lf terminator":         {"origin\n", "origin"},
+		"crlf terminator":       {"origin\r\n", "origin"},
+		"value ending in lf":    {"origin\n\n", "origin\n"},
+		"value ending in crlf":  {"origin\r\n\r\n", "origin\r\n"},
+		"no terminator at all":  {"origin", "origin"},
+		"padding is not a line": {" origin \n", " origin "},
+		"empty":                 {"\n", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, trimRecordTerminator(tc.in))
+		})
+	}
+}
+
+// Resolving the rewrite is only half the job: the binding has to be made from
+// it. git pushes to the rewritten URL, so binding the configured one binds a
+// repository the push never reaches — silently, since both are valid GitHub
+// URLs and nothing fails.
+func TestSelectRemoteBindsTheRewrittenPushURL(t *testing.T) {
+	t.Parallel()
+	selected, err := SelectRemote(nil, "", PushRemote{
+		Name:         "https://github.com/octo/decoy.git",
+		Source:       "remote.pushDefault",
+		RewrittenURL: "https://github.com/octo/storefront.git",
+	})
+	require.NoError(t, err)
+
+	pushURL, err := selected.PushTarget()
+	require.NoError(t, err)
+	repository, err := ParseGitHubRepository(pushURL)
+	require.NoError(t, err)
+	assert.Equal(t, "octo/storefront", repository.FullName())
+	assert.NotEqual(t, "octo/decoy", repository.FullName())
+}
+
+// A rewrite does not apply to a remote name: git looks the name up first, and
+// only an unmatched value is treated as a URL.
+func TestSelectRemoteIgnoresARewriteWhenTheValueNamesARemote(t *testing.T) {
+	t.Parallel()
+	fork := Remote{Name: "fork", PushURLs: []string{"git@github.com:me/storefront.git"}}
+
+	selected, err := SelectRemote([]Remote{fork}, "", PushRemote{
+		Name:         "fork",
+		Source:       "remote.pushDefault",
+		RewrittenURL: "https://github.com/wrong/repository.git",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "fork", selected.Name)
+}
+
+// But a push route needs no remote list at all: git follows a URL in these keys
+// out of a checkout with no remotes, so refusing it for an empty `git remote -v`
+// would refuse a repository a push really does deploy from.
+func TestSelectRemoteFollowsAPushURLWithNoRemotesAtAll(t *testing.T) {
+	t.Parallel()
+	selected, err := SelectRemote(nil, "",
+		PushRemote{Name: "https://github.com/me/storefront.git", Source: "remote.pushDefault"})
+	require.NoError(t, err)
+	assert.False(t, selected.Named())
+
+	pushURL, err := selected.PushTarget()
+	require.NoError(t, err)
+	repository, err := ParseGitHubRepository(pushURL)
+	require.NoError(t, err)
+	assert.Equal(t, "me/storefront", repository.FullName())
 }
 
 func TestRemotesReportsANonRepository(t *testing.T) {
@@ -329,35 +507,35 @@ func TestSelectRemote(t *testing.T) {
 
 	t.Run("a lone remote is taken whatever it is called", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream}, "")
+		selected, err := SelectRemote([]Remote{upstream}, "", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("origin wins among several", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream, origin}, "")
+		selected, err := SelectRemote([]Remote{upstream, origin}, "", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, origin, selected)
 	})
 
 	t.Run("several remotes without origin are ambiguous", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{upstream, fork}, "")
+		_, err := SelectRemote([]Remote{upstream, fork}, "", PushRemote{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--remote")
 	})
 
 	t.Run("a named remote is used even when origin exists", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream")
+		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream", PushRemote{})
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("a missing named remote is an error", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{origin}, "nope")
+		_, err := SelectRemote([]Remote{origin}, "nope", PushRemote{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `no remote named "nope"`)
 	})
@@ -425,6 +603,34 @@ func TestParseGitHubRepositoryRejectsNamesGitHubWouldNotAccept(t *testing.T) {
 // echoed: the transport-helper form is a command line that can carry a
 // password, a local path names directories, and a mistyped argument is often a
 // bare token. The value is replaced rather than trusted.
+// A transport helper's "URL" is a command line, and it frequently ends in a URL
+// of its own — git's documented example is "ext::ssh … %S ssh://…". Splitting on
+// the first "://" made the entire command line up to that point the "scheme" and
+// echoed it verbatim, password and all. That is the one shape Redact's contract
+// singles out as unechoable, and the fixtures above missed it only because none
+// of them contains "://".
+func TestRedactRefusesATransportHelperEndingInAURL(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	for name, rawURL := range map[string]string{
+		"git's own documented ext:: form": "ext::ssh -o Password=" + canary +
+			" %S ssh://git@github.com/octo/repo.git",
+		"a credential-passing wrapper": "ext::/usr/bin/authwrap --token " + canary +
+			" https://github.com/octo/repo.git",
+		"an injected auth header": `ext::git-remote-https --header "Authorization: Bearer ` +
+			canary + `" https://github.com/octo/repo.git`,
+		"a helper wrapping a real URL":   "gcrypt::https://user:" + canary + "@github.com/o/r.git",
+		"a token where a scheme belongs": canary + "://github.com/octo/repo.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			redacted := Redact(rawURL)
+			assert.NotContains(t, redacted, canary)
+			assert.Equal(t, Placeholder, redacted)
+		})
+	}
+}
+
 func TestRedactRefusesToEchoUnrecognizedForms(t *testing.T) {
 	t.Parallel()
 	for name, raw := range map[string]string{
@@ -573,4 +779,300 @@ func TestPushTargetRefusesARemoteWithNothingToPushTo(t *testing.T) {
 	_, err := Remote{Name: "origin"}.PushTarget()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nothing to push to")
+}
+
+// git routes a bare `git push` through branch.<name>.pushRemote, then
+// remote.pushDefault, then branch.<name>.remote, and only falls back to origin
+// when none is set (git help config). A fork checkout routinely pushes to
+// something other than origin, and that is the repository a deployment comes
+// from.
+func TestPushRemoteFollowsGitsPrecedence(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		config map[string]string
+		want   string
+		source string
+	}{
+		"nothing configured": {map[string]string{"git branch --show-current": "main"}, "", ""},
+		"branch pushRemote wins over everything": {map[string]string{
+			"git branch --show-current":               "main",
+			"git config --get branch.main.pushRemote": "fork",
+			"git config --get remote.pushDefault":     "upstream",
+			"git config --get branch.main.remote":     "origin",
+		}, "fork", "branch.main.pushRemote"},
+		"pushDefault beats branch remote": {map[string]string{
+			"git branch --show-current":           "main",
+			"git config --get remote.pushDefault": "upstream",
+			"git config --get branch.main.remote": "origin",
+		}, "upstream", ""},
+		"branch remote is the last word": {map[string]string{
+			"git branch --show-current":           "main",
+			"git config --get branch.main.remote": "upstream",
+		}, "upstream", ""},
+		// Detached HEAD prints nothing and succeeds, so the branch-scoped keys
+		// are simply not asked for.
+		"detached HEAD skips the branch keys": {map[string]string{
+			"git branch --show-current":           "",
+			"git config --get remote.pushDefault": "upstream",
+		}, "upstream", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			client := Client{runner: configRunner(tc.config)}
+			push, err := client.PushRemote(t.Context())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, push.Name)
+			if tc.source != "" {
+				assert.Equal(t, tc.source, push.Source)
+			}
+		})
+	}
+}
+
+func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
+	t.Parallel()
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/upstream.git"}}
+	fork := Remote{Name: "fork", PushURLs: []string{"git@github.com:me/storefront.git"}}
+
+	t.Run("the push remote wins over the origin convention", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, fork}, "", PushRemote{Name: "fork", Source: "remote.pushDefault"})
+		require.NoError(t, err)
+		assert.Equal(t, "fork", selected.Name)
+	})
+
+	t.Run("--remote still wins over the push remote", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, fork}, "origin", PushRemote{Name: "fork", Source: "remote.pushDefault"})
+		require.NoError(t, err)
+		assert.Equal(t, "origin", selected.Name)
+	})
+
+	// Falling back to origin would bind a repository this checkout never pushes
+	// to, which is the failure the routing exists to avoid.
+	t.Run("a push remote naming nothing is refused", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{origin, fork}, "",
+			PushRemote{Name: "missing", Source: "remote.pushDefault"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
+		assert.Contains(t, err.Error(), "not a GitHub repository this can deploy from")
+		assert.Contains(t, err.Error(), "--remote")
+		// The refusal must not be reachable by silently picking origin instead.
+		assert.NotContains(t, err.Error(), "acme/upstream")
+	})
+
+	t.Run("the ambiguity error names the remotes", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{fork, {Name: "other"}}, "", PushRemote{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "fork, other")
+	})
+}
+
+// git-push(1) takes "either a URL or the name of a remote", and all three
+// routing keys feed it, so a URL in one of them is a working push route — a
+// bare `git push` really does send there. Refusing it would refuse a checkout
+// that deploys perfectly well, and falling back to origin would bind the wrong
+// repository. Verified against git: with remote.pushDefault set to a URL and
+// origin pointing elsewhere, `git push` updates the URL's repository.
+func TestSelectRemoteFollowsAURLInThePushConfiguration(t *testing.T) {
+	t.Parallel()
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/upstream.git"}}
+
+	for name, key := range map[string]string{
+		"pushRemote":  "branch.main.pushRemote",
+		"pushDefault": "remote.pushDefault",
+		"remote":      "branch.main.remote",
+	} {
+		t.Run("a URL in "+name+" is followed", func(t *testing.T) {
+			t.Parallel()
+			selected, err := SelectRemote([]Remote{origin}, "",
+				PushRemote{Name: "https://github.com/me/storefront.git", Source: key})
+			require.NoError(t, err)
+			// No remote in this repository describes it, so it has no name.
+			assert.False(t, selected.Named())
+			assert.Empty(t, selected.Name)
+
+			pushURL, err := selected.PushTarget()
+			require.NoError(t, err)
+			repository, err := ParseGitHubRepository(pushURL)
+			require.NoError(t, err)
+			assert.Equal(t, "me/storefront", repository.FullName())
+			// Both sides are the same URL, so there is no divergence to report.
+			assert.False(t, selected.Diverges())
+		})
+	}
+
+	t.Run("an scp-like URL is followed too", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin}, "",
+			PushRemote{Name: "git@github.com:me/storefront.git", Source: "remote.pushDefault"})
+		require.NoError(t, err)
+		pushURL, err := selected.PushTarget()
+		require.NoError(t, err)
+		repository, err := ParseGitHubRepository(pushURL)
+		require.NoError(t, err)
+		assert.Equal(t, "me/storefront", repository.FullName())
+	})
+
+	// A push there succeeds; it just lands somewhere Volcano cannot deploy from.
+	// Telling the user to fix the setting would be wrong advice.
+	t.Run("a URL hosted elsewhere is refused as not GitHub", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{origin}, "",
+			PushRemote{Name: "https://gitlab.com/me/storefront.git", Source: "remote.pushDefault"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not a github.com repository")
+		assert.Contains(t, err.Error(), "remote.pushDefault")
+		assert.NotContains(t, err.Error(), "fix that setting")
+	})
+}
+
+// The routing keys are read out of the repository's config, and CI rewrites put
+// a job token in one as a matter of course — GitLab's own recipe is
+// "https://gitlab-ci-token:<token>@…". An error naming the value verbatim would
+// print that token into the build log.
+func TestPushConfigurationValuesAreNeverEchoedWithCredentials(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+
+	for name, value := range map[string]string{
+		"a GitLab CI token":           "https://gitlab-ci-token:" + canary + "@gitlab.com/me/app.git",
+		"a PAT as the whole userinfo": "https://" + canary + "@github.enterprise.test/me/app.git",
+		"an scp-like credential":      canary + "@gitlab.com:me/app.git",
+		"a transport helper":          "ext::ssh -o Password=" + canary + " %S repo.git",
+		"a credential with a slash":   "https://user:" + canary + "/x@gitlab.com/me/app.git",
+	} {
+		t.Run(name+" is not echoed", func(t *testing.T) {
+			t.Parallel()
+			_, err := SelectRemote(
+				[]Remote{{Name: "origin", PushURLs: []string{"git@github.com:acme/app.git"}}}, "",
+				PushRemote{Name: value, Source: "remote.pushDefault"})
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), canary)
+			// The key the user has to look at is still named.
+			assert.Contains(t, err.Error(), "remote.pushDefault")
+		})
+	}
+}
+
+// --remote takes a name, and the argument takes a URL. A script reaching for
+// $CI_REPOSITORY_URL gets the flag wrong, and that value carries a job token.
+func TestSelectRemoteRefusesAURLGivenAsARemoteName(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/app.git"}}
+
+	_, err := SelectRemote([]Remote{origin}, "https://gitlab-ci-token:"+canary+"@gitlab.com/me/app.git",
+		PushRemote{})
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), canary)
+	assert.Contains(t, err.Error(), "--remote takes the name of a Git remote, not a URL")
+
+	// "@" is not the test: git accepts "we@ird" as a remote name, so a value
+	// with no colon is looked up as the name it is.
+	_, err = SelectRemote([]Remote{origin}, "we@ird", PushRemote{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `no remote named "we@ird"`)
+}
+
+// Fetching over https and pushing over ssh is an ordinary setup and names one
+// repository. Comparing URL strings reported every such checkout as pointing at
+// two places — and redacted the "git@" as though it were a credential.
+func TestDivergesComparesRepositoriesNotURLs(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		fetch, push string
+		want        bool
+	}{
+		"https fetch, ssh push, same repo": {
+			"https://github.com/octo/storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"dot-git on one side only": {
+			"https://github.com/octo/storefront", "https://github.com/octo/storefront.git", false,
+		},
+		"ssh url versus scp-like": {
+			"ssh://git@github.com/octo/storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"different case": {
+			"https://github.com/Octo/Storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"genuinely different repositories": {
+			"https://github.com/acme/upstream.git", "git@github.com:octo/storefront.git", true,
+		},
+		"one is not a GitHub repository at all": {
+			"https://gitlab.com/octo/storefront.git", "git@github.com:octo/storefront.git", true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			remote := Remote{Name: "origin", FetchURL: tc.fetch, PushURLs: []string{tc.push}}
+			assert.Equal(t, tc.want, remote.Diverges())
+		})
+	}
+}
+
+// configRunner answers the config reads behind PushRemote. An entry that is
+// missing fails with a real exit status 1, which is how git reports an unset key
+// and what tells that apart from a genuine failure.
+func configRunner(outputs map[string]string) cliruntime.CommandRunner {
+	return cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+		command := strings.TrimSpace(name + " " + strings.Join(args, " "))
+		if out, ok := outputs[command]; ok {
+			return []byte(out), nil
+		}
+		return nil, exitStatus(1)
+	})
+}
+
+// exitStatus builds a real *exec.ExitError carrying code, by running a command
+// that exits with it. ProcessState cannot be constructed by hand.
+func exitStatus(code int) error {
+	err := exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run()
+	return err
+}
+
+// A malformed config, or any other real git failure, exits with something other
+// than 1. Reading that as "not set" would let this command quietly disagree with
+// the git the user runs.
+func TestPushRemoteReportsARealGitFailure(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			if args[0] == "branch" {
+				return []byte("main\n"), nil
+			}
+			return nil, exitStatus(128)
+		})}
+
+	_, err := client.PushRemote(t.Context())
+	require.ErrorIs(t, err, ErrGitUnavailable)
+}
+
+// The branch read can fail for the same reasons — dubious ownership, an
+// unreadable config — and swallowing it would make a broken repository look
+// like one with no push routing configured.
+func TestPushRemoteReportsAFailingBranchRead(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: cliruntime.CommandRunnerFunc(
+		func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			if args[0] == "branch" {
+				return nil, exitStatus(128)
+			}
+			return []byte("upstream\n"), nil
+		})}
+
+	_, err := client.PushRemote(t.Context())
+	require.ErrorIs(t, err, ErrGitUnavailable)
+}
+
+// An unset key is an answer, not a failure, and git says so with exit 1 alone.
+func TestPushRemoteTreatsAnUnsetKeyAsNoAnswer(t *testing.T) {
+	t.Parallel()
+	client := Client{runner: configRunner(map[string]string{"git branch --show-current": "main"})}
+
+	push, err := client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, push.Name)
 }

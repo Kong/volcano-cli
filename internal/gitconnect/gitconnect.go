@@ -40,6 +40,17 @@ var (
 	// ErrBindingChanged indicates the project's binding was not what the command
 	// read before it asked the user about it.
 	ErrBindingChanged = errors.New("the project's repository connection changed while this command was running")
+	// ErrNotAuthenticated indicates the platform rejected this CLI's own
+	// credential on a Git route.
+	//
+	// Named for the CLI session because that is the cause the contract gives:
+	// every route this flow calls documents its 401 as authentication — "Not
+	// authenticated" on the connection routes, "Unauthorized - invalid or missing
+	// token" on the project binding — and none documents a 401 for the stored
+	// GitHub token. "The provider connection must be reconnected" is a 409, and
+	// only on the import routes, which this flow never calls. So a 401 here is
+	// first of all a session to renew, and reconnecting GitHub is the fallback.
+	ErrNotAuthenticated = errors.New("not authenticated: your CLI session may have expired")
 	// ErrProjectNotFound indicates the selected project does not exist. The
 	// binding read answers 404 for this and for a project with no repository
 	// connected, so the two are told apart before either is reported.
@@ -184,15 +195,15 @@ func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*
 		return nil, classifyProvider(err, "failed to list your GitHub connections")
 	}
 
-	usable := usableConnections(connections)
+	usable := githubConnections(connections)
 	if len(usable) == 0 {
 		return nil, ErrNoGitHubConnection
 	}
 
-	// One unhealthy connection must not hide a repository another can see.
-	// Connection status is provider-defined free text, so a dead connection is
-	// not reliably filtered out beforehand — it shows up as a failing lookup
-	// here. Keep the first failure and report it only if nothing resolves.
+	// The schema allows one GitHub connection per user, so this loop runs once
+	// today. It is written as a walk anyway because the API returns a list, and
+	// a failing lookup must not hide a repository a later entry could see.
+	// Keep the first failure and report it only if nothing resolves.
 	var failure error
 	for _, connection := range usable {
 		target, err := s.resolveThroughConnection(ctx, authenticated.API, connection, repository)
@@ -347,21 +358,25 @@ func (s Service) binding(ctx context.Context) (*apiclient.ProjectGitConnection, 
 // sameBinding reports whether two reads describe the same binding. Absence
 // counts: a project that gained or lost one in between changed.
 //
-// UpdatedAt carries the comparison, not the repository fields. The platform
-// bumps it only when the row really changes (migration 033 guards the trigger
-// on NEW IS DISTINCT FROM OLD), so it catches every mutation — including the
-// mutable parts of a binding that stays on the same repository, like a root
-// directory another actor just edited, and including fields this CLI does not
-// model. Comparing the fields we happen to read would be incomplete by
-// construction. It is broader than the binding alone, so an unrelated change to
-// the project can abort a command; that fails closed, and a re-run is cheaper
-// than silently reverting someone else's edit.
+// UpdatedAt does the work the fields cannot: the platform bumps it only when the
+// row really changes (migration 033 guards the trigger on NEW IS DISTINCT FROM
+// OLD), so it catches mutations to fields this CLI does not model. It is broader
+// than the binding alone, so an unrelated change to the project can abort a
+// command; that fails closed, and a re-run is cheaper than silently reverting
+// someone else's edit.
+//
+// Every field is compared as well, so this does not depend on a trigger in
+// another repository staying the way it is.
 func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
 	return a.UpdatedAt.Equal(b.UpdatedAt) &&
-		a.RepoId == b.RepoId && strings.EqualFold(a.RepoFullName, b.RepoFullName)
+		a.RepoId == b.RepoId &&
+		a.RepoInstallationId == b.RepoInstallationId &&
+		a.RootDirectory == b.RootDirectory &&
+		a.ProductionBranch == b.ProductionBranch &&
+		strings.EqualFold(a.RepoFullName, b.RepoFullName)
 }
 
 func describeBinding(connection *apiclient.ProjectGitConnection) string {
@@ -400,19 +415,21 @@ func (s Service) WebURL() (string, error) {
 	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
 }
 
-// usableConnections keeps the GitHub connections that are not flagged as
-// needing reconnection. Status is provider-defined text, so anything other than
-// an explicit bad state is treated as usable rather than guessed at.
-func usableConnections(connections []apiclient.GitConnection) []apiclient.GitConnection {
+// githubConnections keeps the connections for the provider this CLI can bind.
+//
+// Status is deliberately not filtered on. The column is constrained to
+// ('active', 'revoked'), only ever written 'active', and disconnecting deletes
+// the row instead of marking it — so a "revoked" filter could never fire, and a
+// dead connection announces itself as a 401 on the next call rather than in this
+// list. The schema also holds one connection per user and provider, so this
+// returns at most one entry today; it stays a list because that is what the API
+// returns.
+func githubConnections(connections []apiclient.GitConnection) []apiclient.GitConnection {
 	usable := make([]apiclient.GitConnection, 0, len(connections))
 	for _, connection := range connections {
-		if !strings.EqualFold(connection.Provider, githubProvider) {
-			continue
+		if strings.EqualFold(connection.Provider, githubProvider) {
+			usable = append(usable, connection)
 		}
-		if strings.EqualFold(strings.TrimSpace(connection.Status), "revoked") {
-			continue
-		}
-		usable = append(usable, connection)
 	}
 	return usable
 }
@@ -439,10 +456,17 @@ func orderByOwner(installations []apiclient.GitInstallation, owner string) []api
 // this: on a route that does not, a 503 came from something in front of the
 // API and saying "no GitHub App configured" would be a guess.
 func classifyProvider(err error, action string) error {
-	if api.Status(err) == http.StatusServiceUnavailable {
+	switch api.Status(err) {
+	case http.StatusServiceUnavailable:
 		return ErrProviderNotConfigured
+	case http.StatusUnauthorized:
+		// Authentication, per the contract — see ErrNotAuthenticated. Reporting
+		// this as a GitHub reconnect sent users to the dashboard for a failure
+		// only signing in again can fix.
+		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
+	default:
+		return classify(err, action)
 	}
-	return classify(err, action)
 }
 
 // classify annotates an error with what was being done when it happened.

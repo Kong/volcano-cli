@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,7 +45,22 @@ func TestConnectOnlyReadsTheLocalRepository(t *testing.T) {
 
 	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"git remote -v"}, runner.ran())
+
+	// The exact set, so any new git invocation is a deliberate decision rather
+	// than something that slipped in.
+	assert.Equal(t, []string{
+		"git remote -v",
+		"git branch --show-current",
+		"git config --get remote.pushDefault",
+	}, runner.ran())
+	for _, command := range runner.ran() {
+		assert.True(t,
+			strings.HasPrefix(command, "git remote -v") ||
+				strings.HasPrefix(command, "git branch --show-current") ||
+				strings.HasPrefix(command, "git config --get ") ||
+				strings.HasPrefix(command, "git config -z --get-regexp "),
+			"every git invocation has to be one of the reads: %q", command)
+	}
 }
 
 func TestConnectSendsTheRootDirectoryWhenGiven(t *testing.T) {
@@ -57,11 +73,11 @@ func TestConnectSendsTheRootDirectoryWhenGiven(t *testing.T) {
 	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
 }
 
-// Re-running connect reports no change, and still rewrites the binding. The
-// read contract does not expose which GitHub connection the binding uses, so
-// skipping the write is the only way to leave deploys pinned to a connection
-// that no longer works while reporting one that does.
-func TestConnectReportsNoChangeButStillRebinds(t *testing.T) {
+// A binding already recording everything the contract exposes has nothing to
+// write, so nothing is written. The binding stores no connection id — deploys
+// resolve the token from the project's owner — so a rewrite could not refresh
+// one, and there is nothing else left to refresh.
+func TestConnectSendsNothingWhenTheBindingIsAlreadyCorrect(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connected = "octo/storefront"
@@ -70,31 +86,26 @@ func TestConnectReportsNoChangeButStillRebinds(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "octo/storefront is already connected to this project.")
-	assert.NotContains(t, out, "✓ Connected", "nothing the user can see changed")
-	require.NotNil(t, api.sentConnectBody(), "the binding is refreshed so its connection cannot go stale")
-	assert.Equal(t, gitConnectionID, api.sentConnectBody()["connection_id"])
+	assert.NotContains(t, out, "✓ Connected", "nothing changed")
+	assert.Nil(t, api.sentConnectBody(), "there is nothing left for a write to fix")
 }
 
-// A revoked connection with another able to reach the same repository is the
-// case the rebind exists for: the resolved connection reaches the binding.
-func TestConnectRebindsThroughTheConnectionThatWorks(t *testing.T) {
+// The production branch is re-resolved from GitHub's live default by the bind,
+// so a repository whose default moved has a stale one recorded — and that run
+// is the one an operator needs told, not reported as unchanged.
+func TestConnectRebindsWhenTheDefaultBranchMoved(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connected = "octo/storefront"
-	api.connections = []map[string]any{
-		revokedGitHubConnection(gitConnectionID, "stale"),
-		githubConnection(otherConnection, "octo"),
-	}
-	api.installationsByConnection[otherConnection] = []map[string]any{
-		installation(gitInstallation, "octo", "User", "all"),
-	}
+	api.connectedBranch = "master"
 
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.NoError(t, err)
 
-	assert.Equal(t, otherConnection, api.sentConnectBody()["connection_id"],
-		"the binding must move to the connection that can reach the repository")
-	assert.Contains(t, out, "GitHub account: octo")
+	assert.Contains(t, out, "✓ Connected octo/storefront")
+	assert.NotContains(t, out, "already connected")
+	assert.NotNil(t, api.sentConnectBody())
+	assert.Contains(t, out, "Production branch: main")
 }
 
 // GitHub preserves the case an owner typed but does not treat it as
@@ -136,7 +147,7 @@ func TestConnectReplacesAnotherRepositoryWhenConfirmed(t *testing.T) {
 	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "y\n", "connect")
 	require.NoError(t, err)
 
-	assert.Contains(t, out, "Replacing the existing connection to acme/old-store.")
+	assert.Contains(t, out, "Replaced the existing connection to acme/old-store.")
 	assert.Contains(t, out, "Connected octo/storefront")
 	assert.NotNil(t, api.sentConnectBody())
 }
@@ -292,6 +303,28 @@ func TestConnectReportsAnEmptyRemoteList(t *testing.T) {
 	assert.Contains(t, err.Error(), "no remote URLs found in your Git config")
 }
 
+// An empty remote list is not on its own a refusal: a checkout with no remotes
+// can still have a push route, since git follows a URL in the routing keys out
+// of one. Reading the remote list first and failing on it made the URL route
+// unreachable exactly where it is the only route there is.
+func TestConnectFollowsAPushURLWithNoRemotesAtAll(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "no remote URLs found")
+	require.NotNil(t, api.sentConnectBody())
+}
+
 func TestConnectRejectsANonGitHubRemote(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
@@ -376,9 +409,7 @@ func TestConnectLeavesAnUnmentionedRootDirectoryAlone(t *testing.T) {
 
 	assert.Contains(t, out, "already connected")
 	assert.Contains(t, out, "Root directory: apps/api")
-	// The rebind carries it forward rather than resetting it: an omitted flag
-	// is not a request to clear anything.
-	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+	assert.Nil(t, api.sentConnectBody(), "an omitted flag asks for no change, so nothing is written")
 }
 
 func TestConnectMatchingTheRootDirectoryIsStillIdempotent(t *testing.T) {
@@ -392,7 +423,7 @@ func TestConnectMatchingTheRootDirectoryIsStillIdempotent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "already connected", "asking for what is already set changes nothing")
-	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+	assert.Nil(t, api.sentConnectBody())
 }
 
 // Moving to a different repository starts from the root: the old
@@ -471,7 +502,7 @@ func TestConnectTreatsARenamedRepositoryAsTheSameOne(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotContains(t, out, "Replace it")
-	assert.NotContains(t, out, "Replacing the existing connection")
+	assert.NotContains(t, out, "Replaced the existing connection")
 	assert.Contains(t, out, "Connected octo/storefront", "the rebind refreshes the cached name")
 	assert.NotNil(t, api.sentConnectBody())
 }
@@ -813,8 +844,9 @@ func TestConnectRefusesWhenTheBindingDisappeared(t *testing.T) {
 }
 
 // A mutable part of the binding changing counts too: another actor editing the
-// root directory leaves the repository alone, and a re-bind carrying the value
-// this command read would silently revert their edit.
+// root directory leaves the repository alone, so the repository comparison would
+// pass it. A write that went ahead would carry the value this command read and
+// revert their edit.
 func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
@@ -823,11 +855,28 @@ func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 	api.connectedRoot = "apps/old"
 	api.rootAfterRead = "apps/new"
 
-	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	// A root directory of its own is asked for, so there is a write to guard.
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/mine")
 	require.Error(t, err)
 
 	assert.Contains(t, err.Error(), "changed while this command was running")
-	assert.Nil(t, api.sentConnectBody(), "apps/new must not be reverted to apps/old")
+	assert.Nil(t, api.sentConnectBody(), "apps/new must not be overwritten")
+}
+
+// Nothing is written when the binding already matches, so a concurrent edit
+// cannot be reverted on that path at all — it simply is not touched.
+func TestConnectWritesNothingSoCannotRevertAConcurrentEdit(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedRoot = "apps/old"
+	api.rootAfterRead = "apps/new"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+	assert.Nil(t, api.sentConnectBody())
 }
 
 func TestConnectReportsAMissingProject(t *testing.T) {
@@ -838,6 +887,10 @@ func TestConnectReportsAMissingProject(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the selected project does not exist")
+	// And the guidance, which is the whole of what the user can act on. This
+	// read used to return its error raw, so connect alone reported the sentinel
+	// with no way forward while status and disconnect explained it.
+	assert.Contains(t, err.Error(), "Select one with volcano use <project>")
 	assert.Nil(t, api.sentConnectBody())
 }
 
@@ -875,4 +928,453 @@ func TestConnectAcceptsAnExplicitURLDespiteSeveralPushURLs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Connected octo/storefront")
 	assert.Empty(t, runner.ran(), "an explicit URL does not need the remotes")
+}
+
+// The help promised "the only remote, or origin" for a release in which the
+// default was already where git pushes — so in a fork checkout the command's own
+// help named a different repository from the one it bound. Anyone changing the
+// default again has to come through here.
+func TestConnectHelpDescribesThePushRoutingDefault(t *testing.T) {
+	setGitCommandTestHome(t)
+	out, err := executeGitCommand(t, newGitAPI(t).serve(), nil, "", "connect", "--help")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, `wherever "git push" sends this branch`)
+	// And the flag's own default, which repeated the stale claim on its own line.
+	assert.Contains(t, out, "where git pushes this branch")
+}
+
+// git routes a bare push through remote.pushDefault, so in a fork checkout the
+// repository that receives pushes — and so the one a deployment comes from —
+// is routinely not origin. Binding origin regardless connects a repository the
+// user never pushes to.
+func TestConnectBindsWhereGitPushesNotOrigin(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:acme/upstream.git (fetch)\n" +
+			"origin\tgit@github.com:acme/upstream.git (push)\n" +
+			"fork\tgit@github.com:octo/storefront.git (fetch)\n" +
+			"fork\tgit@github.com:octo/storefront.git (push)\n",
+		outputs: map[string]string{"git config --get remote.pushDefault": "fork"},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.Contains(t, out, `Using remote "fork": remote.pushDefault sends this branch's pushes there.`)
+	// The id, not the echoed name: origin's acme/upstream is a different id.
+	assert.InDelta(t, float64(repoIDFor("octo/storefront")), api.sentConnectBody()["repository_id"], 0)
+}
+
+// Saying so matters only when it changed the answer.
+func TestConnectStaysQuietWhenThePushRemoteIsOrigin(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "origin"},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "Using remote")
+}
+
+// --remote is the user speaking, and outranks the configuration.
+func TestConnectHonoursRemoteOverThePushRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:octo/storefront.git (fetch)\n" +
+			"origin\tgit@github.com:octo/storefront.git (push)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (fetch)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (push)\n",
+		outputs: map[string]string{"git config --get remote.pushDefault": "fork"},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "Using remote")
+}
+
+// Fetching over https and pushing over ssh names one repository, so there is
+// nothing to report — the note used to fire on every such checkout.
+func TestConnectStaysQuietWhenTransportsDifferButRepositoryDoesNot(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\thttps://github.com/octo/storefront.git (fetch)\n" +
+		"origin\tgit@github.com:octo/storefront.git (push)\n"}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "the push target is what deploys")
+}
+
+// A named remote git still lists must not be denied. Dropping it also moved the
+// selection to another remote without saying so.
+func TestConnectReportsARemoteThatHasNothingToPushTo(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\t\n" +
+		"upstream\tgit@github.com:acme/upstream.git (fetch)\n" +
+		"upstream\tgit@github.com:acme/upstream.git (push)\n"}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `remote "origin" has nothing to push to`)
+	assert.NotContains(t, err.Error(), "no remote named")
+}
+
+// An empty --root-directory resets to the repository root; whitespace is a
+// mistyped value or an unset variable, and clearing on that would be silent.
+func TestConnectRejectsAWhitespaceRootDirectory(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRoot = "apps/api"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "   ")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only whitespace")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// An expired GitHub token is the likeliest way a working setup stops working,
+// and it has to carry the same reconnect guidance as having no connection.
+func TestConnectGuidesASignInOnA401(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.providerStatus = http.StatusUnauthorized
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	// Signing in comes first, because that is the cause the contract documents
+	// for this 401 on every route the flow calls. Leading with the dashboard sent
+	// users to fix something that was not broken.
+	assert.Contains(t, err.Error(), "your CLI session may have expired")
+	assert.Contains(t, err.Error(), "volcano login")
+	signIn := strings.Index(err.Error(), "volcano login")
+	dashboard := strings.Index(err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	require.Positive(t, dashboard, "the dashboard is still offered as the fallback")
+	assert.Less(t, signIn, dashboard, "signing in is the first thing offered")
+}
+
+// A push remote naming neither a remote nor a URL leaves nothing to connect, and
+// falling back to origin would bind a repository this checkout does not push to.
+func TestConnectRefusesAPushRemoteThatDoesNotExist(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "missing"},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
+	assert.Contains(t, err.Error(), "not a GitHub repository this can deploy from")
+	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+}
+
+// git-push(1) takes "either a URL or the name of a remote", so a URL in the
+// routing config is a working push route rather than a broken remote name — a
+// bare `git push` really sends there. Binding origin instead would bind a
+// repository this checkout does not push to.
+func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:acme/upstream.git (fetch)\n" +
+			"origin\tgit@github.com:acme/upstream.git (push)\n",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	// origin points at acme/upstream, which the App cannot see, so a fallback
+	// to origin fails outright rather than binding the wrong repository quietly.
+	assert.Contains(t, out, "Connected octo/storefront")
+	// No remote in this repository describes it, so the URL is what gets named.
+	assert.Contains(t, out,
+		"Using remote.pushDefault: it sends this branch's pushes to https://github.com/octo/storefront.git.")
+	body := api.sentConnectBody()
+	require.NotNil(t, body)
+	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
+}
+
+// Two installations can both see a repository of the same full name, and the
+// binding records an installation id — so which one is tried first decides what
+// gets stored, and a push through the wrong installation deploys nothing. The
+// owner's installation goes first, and this pins that at the call site: the
+// helper had its own unit test, but both command-level fixtures happened to list
+// the owner first, so dropping the ordering changed nothing and broke no test.
+func TestConnectPrefersTheOwnersInstallationWhenBothCanSeeTheRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	// Deliberately not first in the slice.
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(otherInstall, "acme", "Organization", "all"),
+		installation(gitInstallation, "octo", "User", "all"),
+	}
+	api.reposByInstallation = map[int64][]map[string]any{
+		otherInstall:    {repository("octo/storefront")},
+		gitInstallation: {repository("octo/storefront")},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.InDelta(t, float64(gitInstallation), api.sentConnectBody()["installation_id"], 0,
+		"the owner's installation is the one recorded")
+}
+
+// When every installation fails, the first failure is the one reported — the
+// owner's, which is the likeliest to be scoped away from the repository and so
+// the likeliest to be actionable. Keeping the last one instead reported whichever
+// installation happened to sort last.
+func TestConnectReportsTheFirstInstallationFailureNotTheLast(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.installationsByConnection[gitConnectionID] = []map[string]any{
+		installation(gitInstallation, "octo", "User", "all"),
+		installation(otherInstall, "acme", "Organization", "all"),
+	}
+	api.reposByInstallation = map[int64][]map[string]any{
+		gitInstallation: {repository("octo/storefront")},
+		otherInstall:    {repository("octo/storefront")},
+	}
+	// Two distinguishable failures, so the message says which one was kept.
+	api.repositoriesStatus[gitInstallation] = http.StatusServiceUnavailable
+	api.repositoriesStatus[otherInstall] = http.StatusUnauthorized
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "git provider integration is not configured",
+		"the owner's installation is tried first, so its failure is the one reported")
+	assert.NotContains(t, err.Error(), "needs reconnecting")
+}
+
+// A whitespace-only --remote used to do two wrong things at once: it counted as
+// "the user named a remote", so the push routing was never read, and then it
+// trimmed away to nothing, so the origin convention decided. The result was a
+// clean exit 0 reporting the wrong repository. git rejects a remote name
+// containing whitespace, so no legitimate name is ever padded.
+func TestConnectRefusesAWhitespaceRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:octo/storefront.git (fetch)\n" +
+			"origin\tgit@github.com:octo/storefront.git (push)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (fetch)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (push)\n",
+		outputs: map[string]string{"git config --get remote.pushDefault": "fork"},
+	}
+
+	for _, value := range []string{"   ", "\t"} {
+		_, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", value)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--remote is only whitespace")
+		assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+	}
+}
+
+// The refusal for an unusable push route offers --remote as the way out, so it
+// has to be a way out. Reading the routing before honouring --remote made the
+// command refuse its own advice, and there was then no way to connect at all
+// short of editing the Git config.
+func TestConnectHonoursRemoteDespiteAnUnusablePushRoute(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		// Set, and unusable: git fails on this rather than falling through.
+		outputs: map[string]string{"git config --get remote.pushDefault": "   "},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	// Not merely tolerated — not read at all, since --remote outranks it.
+	assert.NotContains(t, runner.ran(), "git config --get remote.pushDefault")
+}
+
+// And the route is still refused when nothing overrides it, so the guard above
+// did not simply switch the check off.
+func TestConnectStillRefusesAnUnusablePushRouteWithoutRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "   "},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "remote.pushDefault")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// The note about a diverging remote prints on SUCCESS, where nothing prompts
+// anyone to look twice at the output and the exit code is 0 — so a credential
+// reaching it goes straight into the build log. A transport-helper fetch URL is
+// the shape that got through: it is a command line, and this one ends in a URL.
+func TestConnectDoesNotEchoATransportHelperRemoteOnSuccess(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	const canary = "s3cr3t-canary-token"
+	runner := &gitRunner{stdout: "" +
+		"origin\text::ssh -o Password=" + canary +
+		" %S ssh://git@github.com/octo/storefront.git (fetch)\n" +
+		"origin\thttps://github.com/octo/storefront.git (push)\n"}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	// The note has to have fired, or this would pass by not printing at all.
+	assert.Contains(t, out, "the push target is what deploys")
+	assert.NotContains(t, out, canary)
+}
+
+// git rewrites a push destination before using it, so the repository bound has
+// to come from the rewritten URL. Both URLs here are valid GitHub URLs, so
+// binding the configured one would bind a repository the push never reaches
+// without anything failing — the decoy is what the App cannot see.
+func TestConnectBindsTheRewrittenPushURL(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/decoy.git",
+			// A typo here makes the rewrite silently not apply, which fails this
+			// test rather than passing it.
+			// -z framing: "key\nvalue\0" per record.
+			`git config -z --get-regexp ^url\..*\.(push)?insteadof$`: "" +
+				"url.https://github.com/octo/storefront.git.pushinsteadof\n" +
+				"https://github.com/octo/decoy.git\x00",
+		},
+	}
+
+	// The decoy is visible to the App, so binding it would succeed. Without
+	// this the test passes merely because resolving the decoy fails, which is
+	// not the same as choosing the right one.
+	api.reposByInstallation[gitInstallation] = []map[string]any{
+		repository("octo/storefront"), repository("octo/decoy"),
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "decoy")
+	body := api.sentConnectBody()
+	require.NotNil(t, body)
+	assert.InDelta(t, float64(repoIDFor("octo/storefront")), body["repository_id"], 0)
+}
+
+// The same route with a credential in it. CI rewrites leave a job token in these
+// values, and the note prints on success — where nothing is going wrong to make
+// anyone look twice at the output.
+func TestConnectRedactsACredentialInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://x-access-token:CANARYSECRET@github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.NotContains(t, out, "CANARYSECRET")
+	assert.Contains(t, out, "***@github.com/octo/storefront.git")
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// A push there succeeds; it just lands where Volcano cannot deploy from. The URL
+// is still redacted, and the key is still named.
+func TestConnectRefusesANonGitHubURLInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://gitlab-ci-token:CANARYSECRET@gitlab.com/octo/storefront.git",
+		},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+
+	assert.NotContains(t, err.Error(), "CANARYSECRET")
+	assert.Contains(t, err.Error(), "remote.pushDefault")
+	assert.Contains(t, err.Error(), "not a github.com repository")
+	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+}
+
+// The key that set it is named, so the user knows what to fix.
+func TestConnectNamesTheKeyBehindABrokenPushRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git branch --show-current":               "main",
+			"git config --get branch.main.pushRemote": "gone",
+		},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `branch.main.pushRemote names "gone"`)
+}
+
+// --remote is the user speaking and outranks a broken configuration, so it is
+// still a way through.
+func TestConnectHonoursRemoteDespiteABrokenPushRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout:  originRemoteOutput,
+		outputs: map[string]string{"git config --get remote.pushDefault": "missing"},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// A real git failure reading the configuration is not "nothing is configured".
+func TestConnectReportsAGitFailureReadingTheConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput, failConfig: true}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not read this directory's Git repository")
+	assert.Nil(t, api.sentConnectBody())
 }

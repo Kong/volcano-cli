@@ -48,12 +48,42 @@ one rather than as an unbound project.
 
 ## Connecting
 
-With no argument the repository is read from this directory's Git remotes — the
-only remote, or `origin` when there are several. A remote with a separate
-`pushurl` names two repositories, and the push target is the one bound, since a
-push is what deploys; the CLI says so when the two differ. A remote configured
-with *several* push URLs has no single repository to connect — a push reaches
-all of them — so it is refused, and you name the repository yourself:
+With no argument the repository is read from this directory's Git config. The
+one git would push to wins — `git push` follows `branch.<name>.pushRemote`, then
+`remote.pushDefault`, then `branch.<name>.remote` — because a push is what
+deploys, so in a fork or triangular checkout the repository bound is the one you
+push to rather than the one you fetch from. Failing all of that: the only
+remote, or `origin` when there are several. The CLI says what it used whenever
+the configuration, not the convention, decided it.
+
+Those three keys hold either a remote name or a repository URL — `git push`
+accepts both — so a URL is followed to the repository it names, even though no
+remote in the checkout describes it, and even in a checkout with no remotes at
+all. A value that is neither, such as a typo for a remote name, is refused rather
+than quietly falling back to `origin`: falling back would bind a repository this
+checkout never pushes to. A value that is set but empty, or padded with
+whitespace, is refused rather than skipped: git uses these verbatim and fails on
+them instead of falling through to the next key, so skipping one would bind
+whatever the convention picked for a checkout that cannot push at all.
+Credentials are never echoed back, since a CI rewrite routinely leaves a job
+token in one of these values.
+
+`--remote` and a repository URL both outrank the routing, and neither reads it at
+all — so either one connects a checkout whose routing is broken, without having
+to edit the Git config first.
+
+`url.<base>.pushInsteadOf` and `url.<base>.insteadOf` are applied to such a URL
+before it is resolved, the same way `git push` applies them — push rules first,
+then fetch rules, the longest matching prefix winning and the first of two rules
+sharing a prefix. So the repository bound is the one a push reaches rather than
+the one the setting spells. A remote named in the usual way needs none of this:
+`git remote -v` already reports the rewritten push URL.
+
+A remote with a separate `pushurl` names two repositories, and the push target is
+the one bound, since a push is what deploys; the CLI says so when the two differ.
+A remote configured with *several* push URLs has no single repository to connect
+— a push reaches all of them — so it is refused, and you name the repository
+yourself:
 
 ```bash
 volcano git connect
@@ -69,16 +99,21 @@ volcano git connect --remote upstream
 
 For a monorepo, say which subdirectory the project builds from. It has to be a
 path inside the repository — an absolute path, or one climbing out with `..`, is
-refused rather than accepted and silently built from nothing:
+refused rather than accepted and silently built from nothing. An empty value
+resets it to the repository root; whitespace is refused, since that is a mistyped
+value or an unset variable rather than a request to clear:
 
 ```bash
 volcano git connect --root-directory apps/api
+volcano git connect --root-directory ""     # back to the repository root
 ```
 
-Connecting is idempotent from your side: running it again on a project already
-bound to the same repository reports that nothing changed. It does rewrite the
-binding, which is how a project whose connected GitHub account was revoked
-starts using a working one again. A repository renamed on
+Connecting is idempotent: running it again on a project already bound to the
+same repository reports that nothing changed and writes nothing. "The same" means
+every part of the binding — the repository, the App installation, the root
+directory, and the production branch — so a repository whose GitHub default
+branch has moved is *not* unchanged, and re-running connect updates the branch a
+push has to land on. A repository renamed on
 GitHub is still the same repository — the binding follows its id, not its name —
 so re-running connect simply refreshes the name. Re-running it with a
 different `--root-directory` edits that, which is the only way to change it
@@ -94,9 +129,17 @@ repository's GitHub default branch deploys — `volcano git connect` prints whic
 branch that is, as `Production branch`. Pushing any other branch is safe and
 deploys nothing.
 
+A bare `git push` goes to the repository the binding was read from, since both
+follow the same routing:
+
 ```bash
-git push origin main   # or whatever the CLI reported as the production branch
+git push
 ```
+
+If you name a remote instead, name the connected one. In a fork or triangular
+checkout `git push origin` goes to the repository you *fetch* from, which is not
+the one connected and deploys nothing — `volcano git status` reports which
+repository is bound.
 
 ## Disconnecting
 

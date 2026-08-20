@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,16 +54,48 @@ func setGitCommandTestHome(t *testing.T) {
 // reads the local repository — no remote is written, and no credential is
 // stored in .git/config.
 type gitRunner struct {
-	mu       sync.Mutex
-	stdout   string
-	commands []string
+	mu sync.Mutex
+	// stdout answers `git remote -v`.
+	stdout string
+	// outputs answers any other command by its full command line. A command with
+	// no entry fails, which is what git does for an unset config key — the
+	// commands behind PushRemote read that as "the configuration does not say".
+	outputs map[string]string
+	// failConfig makes a config read fail the way a malformed config does,
+	// which is not the same as a key being unset.
+	failConfig bool
+	commands   []string
 }
 
 func (r *gitRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.commands = append(r.commands, strings.TrimSpace(name+" "+strings.Join(args, " ")))
-	return []byte(r.stdout), nil
+
+	command := strings.TrimSpace(name + " " + strings.Join(args, " "))
+	r.commands = append(r.commands, command)
+	switch command {
+	case "git remote -v":
+		return []byte(r.stdout), nil
+	case "git branch --show-current":
+		// Detached HEAD, unless a test says otherwise: prints nothing, exits 0.
+		return []byte(r.outputs[command]), nil
+	default:
+		if out, ok := r.outputs[command]; ok {
+			return []byte(out), nil
+		}
+		if r.failConfig {
+			return nil, exitStatus(128)
+		}
+		// An unset config key, which git signals with exit status 1 and nothing
+		// else — the code tells that apart from a real failure.
+		return nil, exitStatus(1)
+	}
+}
+
+// exitStatus builds a real *exec.ExitError carrying code, by running a command
+// that exits with it. ProcessState cannot be constructed by hand.
+func exitStatus(code int) error {
+	return exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run()
 }
 
 func (r *gitRunner) ran() []string {
@@ -105,6 +138,9 @@ type gitAPI struct {
 	// connectedInstallation overrides the binding's installation id, which a
 	// reinstall of the App changes.
 	connectedInstallation int64
+	// connectedBranch overrides the binding's cached production branch, which
+	// goes stale when the repository's GitHub default branch moves.
+	connectedBranch string
 	// connectedAfterRead makes the binding change on the next read, modelling
 	// something else repointing the project while a prompt is open.
 	connectedAfterRead string
@@ -312,6 +348,9 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		return
 	}
 	payload := connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation())
+	if a.connectedBranch != "" {
+		payload["production_branch"] = a.connectedBranch
+	}
 	if a.connectionUpdated != "" {
 		payload["updated_at"] = a.connectionUpdated
 	}
@@ -338,15 +377,22 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.connectBody))
 
 	// The preferred selector is the numeric id, so resolve it the way the
-	// platform would rather than echoing whatever was sent.
-	a.connected = "octo/storefront"
-	a.connectedRepoID = gitRepositoryID
+	// platform would rather than echoing a fixed name: a fake that answers
+	// "octo/storefront" whatever it is sent cannot fail a test that binds the
+	// wrong repository.
+	selector, ok := a.connectBody["repository_id"].(float64)
+	require.True(a.t, ok, "the bind must select by repository id")
+	full := a.repositoryByID(int64(selector))
+	require.NotEmpty(a.t, full, "repository_id %v is not in this fixture", selector)
+
+	a.connected = full
+	a.connectedRepoID = repoIDFor(full)
 	a.connectedRoot, _ = a.connectBody["root_directory"].(string)
 	if id, ok := a.connectBody["installation_id"].(float64); ok {
 		a.connectedInstallation = int64(id)
 	}
 	writeGitJSON(a.t, w, http.StatusOK,
-		connectionPayload(a.connected, a.connectedRoot, gitRepositoryID, a.currentInstallation()))
+		connectionPayload(a.connected, a.connectedRoot, a.connectedRepoID, a.currentInstallation()))
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
@@ -412,12 +458,6 @@ func githubConnection(id, login string) map[string]any {
 	}
 }
 
-func revokedGitHubConnection(id, login string) map[string]any {
-	connection := githubConnection(id, login)
-	connection["status"] = "revoked"
-	return connection
-}
-
 func installation(id int64, login, accountType, selection string) map[string]any {
 	return map[string]any{
 		"id":                   id,
@@ -429,11 +469,43 @@ func installation(id int64, login, accountType, selection string) map[string]any
 
 func repository(fullName string) map[string]any {
 	return map[string]any{
-		"id":             gitRepositoryID,
+		"id":             repoIDFor(fullName),
 		"full_name":      fullName,
 		"default_branch": "main",
 		"private":        true,
 	}
+}
+
+// repoIDFor gives every repository in a fixture a distinct id.
+//
+// One shared id let a test assert "Connected octo/storefront" while the command
+// had sent the id of a different repository, because serveConnect echoed a fixed
+// name back regardless of the selector. The wrong-repository tests then passed
+// only because the decoy was absent from the fixture, so resolving it failed —
+// which is not the same as asserting the right one was chosen, and it is the
+// failure class this whole feature is about.
+func repoIDFor(fullName string) int64 {
+	if strings.EqualFold(fullName, "octo/storefront") {
+		return gitRepositoryID // the primary, so existing assertions still name it
+	}
+	id := int64(1)
+	for _, b := range []byte(strings.ToLower(fullName)) {
+		id = id*31 + int64(b)
+	}
+	return gitRepositoryID + 1 + id%100000
+}
+
+// repositoryByID reverses the selector the way the platform does, so the fake
+// reports the repository it was actually asked to bind.
+func (a *gitAPI) repositoryByID(id int64) string {
+	for _, repositories := range a.reposByInstallation {
+		for _, candidate := range repositories {
+			if full, ok := candidate["full_name"].(string); ok && repoIDFor(full) == id {
+				return full
+			}
+		}
+	}
+	return ""
 }
 
 func writeGitJSON(t *testing.T, w http.ResponseWriter, status int, value any) {

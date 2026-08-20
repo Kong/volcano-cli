@@ -74,6 +74,15 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))
+	case errors.Is(err, gitconnect.ErrNotAuthenticated):
+		// The session first, because that is the cause the contract documents for
+		// this 401. The dashboard is kept as the fallback only because a revoked
+		// GitHub connection is not documented on these routes at all, so it
+		// cannot be ruled out — not because anything says it is likelier.
+		return fmt.Errorf("%w\n\nSign in again, then run this command again:\n  %s\n\n%s",
+			err,
+			cliruntime.CommandPath(deps, "login"),
+			dashboardStep(webURL, "If you are already signed in, reconnect GitHub in the dashboard:"))
 	case errors.Is(err, gitconnect.ErrBindingChanged):
 		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
 			err, cliruntime.CommandPath(deps, "git status"))

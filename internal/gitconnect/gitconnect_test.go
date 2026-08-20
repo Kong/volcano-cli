@@ -12,21 +12,43 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
-func TestUsableConnectionsKeepsLiveGitHubConnections(t *testing.T) {
+// Only the provider is filtered on. Status is never anything but "active" —
+// disconnecting deletes the row — so filtering on it would drop nothing, and a
+// dead connection shows up as a 401 rather than in this list.
+func TestGitHubConnectionsFiltersOnProviderAlone(t *testing.T) {
 	t.Parallel()
 	connections := []apiclient.GitConnection{
 		{Provider: "github", Status: "active", ProviderLogin: "octo"},
-		{Provider: "github", Status: "revoked", ProviderLogin: "stale"},
 		{Provider: "gitlab", Status: "active", ProviderLogin: "elsewhere"},
-		// Status is provider-defined text: anything that is not an explicit bad
-		// state is treated as usable rather than guessed at.
-		{Provider: "GitHub", Status: "", ProviderLogin: "unlabelled"},
+		{Provider: "GitHub", Status: "", ProviderLogin: "uppercase"},
+		{Provider: "github", Status: "revoked", ProviderLogin: "kept-anyway"},
 	}
 
-	usable := usableConnections(connections)
-	require.Len(t, usable, 2)
+	usable := githubConnections(connections)
+	require.Len(t, usable, 3)
 	assert.Equal(t, "octo", usable[0].ProviderLogin)
-	assert.Equal(t, "unlabelled", usable[1].ProviderLogin)
+	assert.Equal(t, "uppercase", usable[1].ProviderLogin)
+	assert.Equal(t, "kept-anyway", usable[2].ProviderLogin)
+}
+
+// An expired GitHub token is the likeliest way a working setup stops working,
+// and its 401 has to carry the same reconnect guidance as having no connection
+// at all rather than surfacing raw.
+//
+// As authentication, not as a GitHub reconnect: every Git route this flow calls
+// documents its 401 as authentication ("Not authenticated", "Unauthorized -
+// invalid or missing token"), and none documents one for the stored GitHub token
+// — "The provider connection must be reconnected" is a 409 on the import routes,
+// which this flow never calls. Reporting it as a reconnect sent users to the
+// dashboard for a failure only signing in again can fix.
+func TestClassifyProviderMapsUnauthorizedToNotAuthenticated(t *testing.T) {
+	t.Parallel()
+	err := classifyProvider(
+		&api.Error{StatusCode: http.StatusUnauthorized, Message: "not authenticated"},
+		"failed to do a thing")
+
+	require.ErrorIs(t, err, ErrNotAuthenticated)
+	assert.Contains(t, err.Error(), "your CLI session may have expired")
 }
 
 func TestOrderByOwnerTriesTheOwningAccountFirst(t *testing.T) {
