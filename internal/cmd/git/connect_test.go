@@ -57,7 +57,8 @@ func TestConnectOnlyReadsTheLocalRepository(t *testing.T) {
 		assert.True(t,
 			strings.HasPrefix(command, "git remote -v") ||
 				strings.HasPrefix(command, "git branch --show-current") ||
-				strings.HasPrefix(command, "git config --get "),
+				strings.HasPrefix(command, "git config --get ") ||
+				strings.HasPrefix(command, "git config -z --get-regexp "),
 			"every git invocation has to be one of the reads: %q", command)
 	}
 }
@@ -1070,7 +1071,7 @@ func TestConnectRefusesAPushRemoteThatDoesNotExist(t *testing.T) {
 	require.Error(t, err)
 
 	assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
-	assert.Contains(t, err.Error(), "neither a remote in this repository nor a repository URL")
+	assert.Contains(t, err.Error(), "not a GitHub repository this can deploy from")
 	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
 }
 
@@ -1102,6 +1103,31 @@ func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
 	body := api.sentConnectBody()
 	require.NotNil(t, body)
 	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
+}
+
+// A whitespace-only --remote used to do two wrong things at once: it counted as
+// "the user named a remote", so the push routing was never read, and then it
+// trimmed away to nothing, so the origin convention decided. The result was a
+// clean exit 0 reporting the wrong repository. git rejects a remote name
+// containing whitespace, so no legitimate name is ever padded.
+func TestConnectRefusesAWhitespaceRemote(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:octo/storefront.git (fetch)\n" +
+			"origin\tgit@github.com:octo/storefront.git (push)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (fetch)\n" +
+			"fork\tgit@github.com:acme/elsewhere.git (push)\n",
+		outputs: map[string]string{"git config --get remote.pushDefault": "fork"},
+	}
+
+	for _, value := range []string{"   ", "\t"} {
+		_, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", value)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--remote is only whitespace")
+		assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+	}
 }
 
 // The refusal for an unusable push route offers --remote as the way out, so it
@@ -1176,8 +1202,10 @@ func TestConnectBindsTheRewrittenPushURL(t *testing.T) {
 			"git config --get remote.pushDefault": "https://github.com/octo/decoy.git",
 			// A typo here makes the rewrite silently not apply, which fails this
 			// test rather than passing it.
-			`git config --get-regexp ^url\..*\.(push)?insteadof$`: "" +
-				"url.https://github.com/octo/storefront.git.pushinsteadof https://github.com/octo/decoy.git\n",
+			// -z framing: "key\nvalue\0" per record.
+			`git config -z --get-regexp ^url\..*\.(push)?insteadof$`: "" +
+				"url.https://github.com/octo/storefront.git.pushinsteadof\n" +
+				"https://github.com/octo/decoy.git\x00",
 		},
 	}
 

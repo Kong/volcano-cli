@@ -240,6 +240,61 @@ func TestSelectRemoteReportsAnEmptyRemoteListWhenNothingElseDecides(t *testing.T
 	require.ErrorIs(t, err, ErrNoRemotes)
 }
 
+// describeConfigValue is a second redactor, and it must not disagree with Redact
+// about what may be echoed. "URL-shaped, or else safe to quote" was the bug: the
+// two shapes Redact refuses — a bare token and a local path — contain no colon,
+// so both took the quoted branch and were printed whole.
+func TestDescribeConfigValueNeverEchoesWhatRedactWouldRefuse(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	for name, value := range map[string]string{
+		// Ordinary config for these keys, not a mistake — and it discloses
+		// directory structure and client names into a build log.
+		"a local mirror path":  "/srv/mirrors/clients/" + canary + "/repo.git",
+		"a relative path":      "../mirrors/" + canary + "/repo.git",
+		"a windows path":       `C:\mirrors\` + canary + `\repo.git`,
+		"a padded local path":  "  /srv/mirrors/" + canary + "/repo.git  ",
+		"a shell substitution": "$(cat /run/secrets/" + canary + ")",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			described := describeConfigValue(value)
+			assert.NotContains(t, described, canary)
+			// And the two agree: whatever Redact refuses, this refuses.
+			if Redact(value) == Placeholder {
+				assert.Equal(t, Placeholder, described,
+					"Redact refuses this, so describeConfigValue must too")
+			}
+		})
+	}
+}
+
+// A name-shaped value is still echoed, because naming it is the whole point of
+// the message — including the padding, which is what the padded-value error is
+// about.
+func TestDescribeConfigValueStillNamesARemoteName(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, `"missing"`, describeConfigValue("missing"))
+	assert.Equal(t, `"we@ird"`, describeConfigValue("we@ird"))
+	assert.Equal(t, `"upstream-2.0"`, describeConfigValue("upstream-2.0"))
+	// The padding has to stay visible: it is what the message blames.
+	assert.Equal(t, `" fork "`, describeConfigValue(" fork "))
+}
+
+// The limit of the above, recorded rather than left to be discovered: a secret
+// mistyped into one of these keys — "git config remote.pushDefault $WRONG_VAR" —
+// is shaped exactly like a remote name, and is echoed. Nothing about the string
+// distinguishes it, and refusing every name to cover this would empty out the one
+// message where naming the value is the point. Redact is stricter because it
+// judges URLs, where a name is never the answer.
+func TestDescribeConfigValueCannotTellANameFromABareSecret(t *testing.T) {
+	t.Parallel()
+	const looksLikeAName = "ghp_16C7e42F292c6912E7710c838347Ae178B4a"
+	assert.Equal(t, strconv.Quote(looksLikeAName), describeConfigValue(looksLikeAName))
+	assert.Equal(t, Placeholder, Redact(looksLikeAName),
+		"Redact is stricter on purpose; this asymmetry is the accepted residue")
+}
+
 // One line ending comes off, not every trailing one. A cutset read a value that
 // ends in a newline as the valid remote name underneath it, and Windows is a
 // release target so the terminator there may be "\r\n".
@@ -777,7 +832,7 @@ func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
 			PushRemote{Name: "missing", Source: "remote.pushDefault"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
-		assert.Contains(t, err.Error(), "neither a remote in this repository nor a repository URL")
+		assert.Contains(t, err.Error(), "not a GitHub repository this can deploy from")
 		assert.Contains(t, err.Error(), "--remote")
 		// The refusal must not be reachable by silently picking origin instead.
 		assert.NotContains(t, err.Error(), "acme/upstream")

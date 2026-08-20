@@ -257,7 +257,13 @@ func checkPushRoute(key, value string) error {
 // Only a value used as a URL needs this. A named remote needs nothing: `git
 // remote -v` already prints the rewritten URL on its (push) line.
 func (c Client) rewritePushURL(ctx context.Context, value string) (string, error) {
-	out, err := c.runner.Run(ctx, "git", "config", "--get-regexp", `^url\..*\.(push)?insteadof$`)
+	// -z, because the default framing is ambiguous: git prints the url.<base>
+	// subsection verbatim, and a base is often a local path, which may contain a
+	// space. Splitting on the first space then truncated the key, no suffix
+	// matched, and the rule was dropped in silence — leaving the binding on the
+	// repository the setting spells while every push went to the rewritten one.
+	// With -z each record is "key\nvalue\0", so neither part can be mistaken.
+	out, err := c.runner.Run(ctx, "git", "config", "-z", "--get-regexp", `^url\..*\.(push)?insteadof$`)
 	if err != nil {
 		if isUnsetConfigKey(err) {
 			return "", nil // no rewrite rules configured
@@ -268,10 +274,13 @@ func (c Client) rewritePushURL(ctx context.Context, value string) (string, error
 	// Two passes rather than one map, because a pushInsteadOf match wins over any
 	// insteadOf match however much shorter it is.
 	push, fetch := map[string]string{}, map[string]string{}
-	for line := range strings.SplitSeq(string(out), "\n") {
-		key, prefix, found := strings.Cut(strings.TrimRight(line, "\r"), " ")
-		if !found || prefix == "" {
-			continue
+	for record := range strings.SplitSeq(string(out), "\x00") {
+		// An empty prefix is kept: git matches it against every URL, since every
+		// string starts with "". Skipping it reported no rewrite for a
+		// configuration under which git cannot push at all.
+		key, prefix, found := strings.Cut(record, "\n")
+		if !found {
+			continue // the trailing empty record, or a key with no value
 		}
 		// The key is "url." + base + "." + variable, and the base is a URL
 		// prefix full of dots and colons, so it is cut from both ends. git
@@ -520,10 +529,13 @@ func pushDestination(remotes []Remote, push PushRemote) (Remote, error) {
 				"pass a GitHub repository URL, or name a remote with --remote",
 			push.Source, Redact(target))
 	default:
+		// Deliberately not "fix that setting": a local path or a file:// URL
+		// lands here and is a push route that works, it just does not lead to
+		// GitHub. Only the caller knows whether the value is broken or merely
+		// somewhere Volcano cannot deploy from, so the message says neither.
 		return Remote{}, fmt.Errorf(
-			"%s names %s, which is neither a remote in this repository nor a repository URL, "+
-				"so there is nothing to connect; fix that setting, name a remote with --remote, "+
-				"or pass the repository URL",
+			"%s names %s, which is not a GitHub repository this can deploy from; "+
+				"name a remote with --remote, or pass the repository URL",
 			push.Source, describeConfigValue(target))
 	}
 }
@@ -549,15 +561,54 @@ func (r Remote) Named() bool { return r.Name != "" }
 // however tempting: "we@ird" is a name git accepts.
 func looksLikeURL(value string) bool { return strings.Contains(value, ":") }
 
-// describeConfigValue renders a push configuration value for a message. A remote
-// name is quoted as it stands — the user chose that label, and naming it is what
-// makes the error actionable. Anything URL-shaped goes through Redact instead,
-// since git accepts a URL in these keys and a CI rewrite puts a job token in one.
+// describeConfigValue renders a push configuration value for a message. Only a
+// value shaped like a remote name is echoed as it stands — the user chose that
+// label, and naming it is what makes the error actionable. A URL goes through
+// Redact, and anything else is not echoed at all.
+//
+// That third case is the one that matters. "URL-shaped or else safe" was wrong:
+// Redact refuses to echo a bare token and a local path, and neither contains a
+// colon, so both took the quoted branch and were printed whole. A local path is
+// ordinary in these keys — "/srv/mirrors/clients/acme/repo.git" — and echoing it
+// puts directory structure and client names in a build log, which is the thing
+// Redact exists to prevent. Two redactors must not disagree about their subject.
 func describeConfigValue(value string) string {
-	if looksLikeURL(value) {
+	switch {
+	case looksLikeURL(value):
 		return Redact(value)
+	case isRemoteNameShaped(value):
+		return strconv.Quote(value)
+	default:
+		return Placeholder
 	}
-	return strconv.Quote(value)
+}
+
+// isRemoteNameShaped reports whether value could be the name of a git remote,
+// padding aside — the padded-value message quotes the value to show the padding,
+// so that is judged on the name underneath it.
+//
+// git's own rules are narrow: it refuses a colon, whitespace and the glob and
+// path characters that would break a refspec. Matching them loosely is enough,
+// because the question is whether this is a label a user chose or an opaque
+// string, not whether git would accept it.
+//
+// It cannot tell a name from a bare secret. A mistyped "$TOKEN" in one of these
+// keys is name-shaped and is echoed; nothing about its shape says otherwise, and
+// refusing every name to cover that would empty out the one message where the
+// value is the whole point.
+func isRemoteNameShaped(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case isASCIIAlphanumeric(r), r == '-', r == '_', r == '.', r == '@':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func namedRemote(remotes []Remote, name string) (Remote, error) {

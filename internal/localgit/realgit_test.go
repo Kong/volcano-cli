@@ -410,6 +410,88 @@ func TestRealGitFollowsTheFirstOfTwoFetchRulesSharingAPrefix(t *testing.T) {
 	assert.Empty(t, c.headOf(t, second), "the later rule must not win")
 }
 
+// git prints the url.<base> subsection verbatim, and a base is often a local
+// path, which may contain a space. Splitting `--get-regexp` output on the first
+// space truncated the key, no suffix matched, and the rule was dropped without a
+// word — leaving the binding on the repository the setting spells while every
+// push went to the rewritten one. That is the silent wrong bind this resolution
+// exists to prevent, so the space has to be in the base, not just the value.
+func TestRealGitResolvesARewriteBaseContainingASpace(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	target := c.bare(t, "my mirrors/app.git")
+	const configured = "https://gh.test/octo/app.git"
+	git(t, c.dir, "config", "remote.pushDefault", configured)
+	git(t, c.dir, "config", "url."+filepath.Join(c.root, "my mirrors")+"/.pushInsteadOf",
+		"https://gh.test/octo/")
+
+	c.assertPushGoesTo(t, target)
+}
+
+// A space in the value was always handled; kept alongside so the pair documents
+// which half was broken.
+func TestRealGitResolvesARewritePrefixContainingASpace(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	target := c.bare(t, "mirror.git")
+	const configured = "https://gh.test/o c/app.git"
+	git(t, c.dir, "config", "remote.pushDefault", configured)
+	git(t, c.dir, "config", "url."+target+".pushInsteadOf", configured)
+
+	c.assertPushGoesTo(t, target)
+}
+
+// git matches an empty insteadOf prefix against every URL, since every string
+// starts with "". Skipping the rule reported no rewrite for a configuration under
+// which git cannot push at all, so the CLI would bind a repository for a checkout
+// with no working push route.
+func TestRealGitAppliesAnEmptyRewritePrefixToEveryURL(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
+	git(t, c.dir, "config", "url."+filepath.Join(c.root, "nowhere")+"/.insteadOf", "")
+
+	push, err := c.client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(c.root, "nowhere")+"/"+c.unnamed, push.RewrittenURL,
+		"the empty prefix matches, so the base is prepended whole")
+
+	// git agrees: it refuses, rather than pushing to the unrewritten value.
+	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "empty prefix")
+	require.Error(t, gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run())
+	assert.Empty(t, c.headOf(t, c.unnamed), "git did not fall back to the configured value")
+}
+
+// git lists a remote that has no URL — one configured with only a fetch refspec,
+// or with an empty url, which git discards rather than stores. Dropping that line
+// made a named lookup deny a remote git still lists, and silently moved the
+// selection to another remote.
+func TestRealGitListsARemoteWithNoURL(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	git(t, c.dir, "config", "remote.ghost.fetch", "+refs/heads/*:refs/remotes/ghost/*")
+
+	remotes, err := c.client.Remotes(t.Context())
+	require.NoError(t, err)
+
+	var ghost *Remote
+	for i := range remotes {
+		if remotes[i].Name == "ghost" {
+			ghost = &remotes[i]
+		}
+	}
+	require.NotNil(t, ghost, "git lists it, so it must not be dropped")
+	assert.Empty(t, ghost.PushURLs)
+	assert.Empty(t, ghost.FetchURL)
+
+	// And naming it reports what is wrong with it, rather than denying it exists.
+	_, err = SelectRemote(remotes, "ghost", PushRemote{})
+	require.NoError(t, err, "the remote is found")
+	_, err = ghost.PushTarget()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "has nothing to push to")
+}
+
 // git's config syntax admits a value ending in a newline, and `git config --get`
 // then emits that newline plus its own terminator. Removing both read the value
 // as the valid remote "origin" and bound that repository, while git refuses the

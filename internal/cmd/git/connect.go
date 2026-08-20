@@ -69,6 +69,15 @@ the repository's default branch yourself.`,
 				strings.TrimSpace(raw) == "" {
 				return errors.New("--root-directory is only whitespace; pass an empty value to reset it to the repository root")
 			}
+			// git rejects a remote name containing whitespace, so this is a
+			// mistyped value or an unset variable — and it used to do two wrong
+			// things at once: naming no remote, while still counting as "the user
+			// named one" and suppressing the push routing. The origin convention
+			// then decided, and reported success for the wrong repository.
+			if raw := cmd.Flags().Lookup("remote").Value.String(); raw != "" &&
+				strings.TrimSpace(raw) == "" {
+				return errors.New("--remote is only whitespace; pass the name of a Git remote")
+			}
 			// Both say where the repository comes from and the URL wins, so
 			// taking the pair would silently ignore what the user asked for.
 			if gitURL != "" && cmd.Flags().Changed("remote") {
