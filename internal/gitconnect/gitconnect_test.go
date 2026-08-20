@@ -34,14 +34,21 @@ func TestGitHubConnectionsFiltersOnProviderAlone(t *testing.T) {
 // An expired GitHub token is the likeliest way a working setup stops working,
 // and its 401 has to carry the same reconnect guidance as having no connection
 // at all rather than surfacing raw.
-func TestClassifyProviderMapsUnauthorizedToReconnectRequired(t *testing.T) {
+//
+// As authentication, not as a GitHub reconnect: every Git route this flow calls
+// documents its 401 as authentication ("Not authenticated", "Unauthorized -
+// invalid or missing token"), and none documents one for the stored GitHub token
+// — "The provider connection must be reconnected" is a 409 on the import routes,
+// which this flow never calls. Reporting it as a reconnect sent users to the
+// dashboard for a failure only signing in again can fix.
+func TestClassifyProviderMapsUnauthorizedToNotAuthenticated(t *testing.T) {
 	t.Parallel()
 	err := classifyProvider(
-		&api.Error{StatusCode: http.StatusUnauthorized, Message: "connection expired, reconnect required"},
+		&api.Error{StatusCode: http.StatusUnauthorized, Message: "not authenticated"},
 		"failed to do a thing")
 
-	require.ErrorIs(t, err, ErrReconnectRequired)
-	assert.Contains(t, err.Error(), "reconnect required")
+	require.ErrorIs(t, err, ErrNotAuthenticated)
+	assert.Contains(t, err.Error(), "your CLI session may have expired")
 }
 
 func TestOrderByOwnerTriesTheOwningAccountFirst(t *testing.T) {

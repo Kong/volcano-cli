@@ -1051,7 +1051,7 @@ func TestConnectRejectsAWhitespaceRootDirectory(t *testing.T) {
 
 // An expired GitHub token is the likeliest way a working setup stops working,
 // and it has to carry the same reconnect guidance as having no connection.
-func TestConnectGuidesAReconnectOnAnExpiredConnection(t *testing.T) {
+func TestConnectGuidesASignInOnA401(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.providerStatus = http.StatusUnauthorized
@@ -1059,8 +1059,15 @@ func TestConnectGuidesAReconnectOnAnExpiredConnection(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
 	require.Error(t, err)
 
-	assert.Contains(t, err.Error(), "needs reconnecting")
-	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	// Signing in comes first, because that is the cause the contract documents
+	// for this 401 on every route the flow calls. Leading with the dashboard sent
+	// users to fix something that was not broken.
+	assert.Contains(t, err.Error(), "your CLI session may have expired")
+	assert.Contains(t, err.Error(), "volcano login")
+	signIn := strings.Index(err.Error(), "volcano login")
+	dashboard := strings.Index(err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	require.Positive(t, dashboard, "the dashboard is still offered as the fallback")
+	assert.Less(t, signIn, dashboard, "signing in is the first thing offered")
 }
 
 // A push remote naming neither a remote nor a URL leaves nothing to connect, and

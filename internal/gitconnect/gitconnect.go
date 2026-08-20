@@ -40,11 +40,17 @@ var (
 	// ErrBindingChanged indicates the project's binding was not what the command
 	// read before it asked the user about it.
 	ErrBindingChanged = errors.New("the project's repository connection changed while this command was running")
-	// ErrReconnectRequired indicates the stored GitHub connection can no longer
-	// be used — an expired or withdrawn token. It is the likeliest way a working
-	// setup stops working, and the fix is the same reconnect ErrNoGitHubConnection
-	// asks for.
-	ErrReconnectRequired = errors.New("your GitHub connection needs reconnecting")
+	// ErrNotAuthenticated indicates the platform rejected this CLI's own
+	// credential on a Git route.
+	//
+	// Named for the CLI session because that is the cause the contract gives:
+	// every route this flow calls documents its 401 as authentication — "Not
+	// authenticated" on the connection routes, "Unauthorized - invalid or missing
+	// token" on the project binding — and none documents a 401 for the stored
+	// GitHub token. "The provider connection must be reconnected" is a 409, and
+	// only on the import routes, which this flow never calls. So a 401 here is
+	// first of all a session to renew, and reconnecting GitHub is the fallback.
+	ErrNotAuthenticated = errors.New("not authenticated: your CLI session may have expired")
 	// ErrProjectNotFound indicates the selected project does not exist. The
 	// binding read answers 404 for this and for a project with no repository
 	// connected, so the two are told apart before either is reported.
@@ -454,10 +460,10 @@ func classifyProvider(err error, action string) error {
 	case http.StatusServiceUnavailable:
 		return ErrProviderNotConfigured
 	case http.StatusUnauthorized:
-		// The contract gives these routes one 401 for two causes: this CLI's own
-		// credential, and the stored GitHub token. Both are a reconnect of some
-		// kind, so the guidance names both rather than picking one.
-		return fmt.Errorf("%w: %w", ErrReconnectRequired, err)
+		// Authentication, per the contract — see ErrNotAuthenticated. Reporting
+		// this as a GitHub reconnect sent users to the dashboard for a failure
+		// only signing in again can fix.
+		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	default:
 		return classify(err, action)
 	}
