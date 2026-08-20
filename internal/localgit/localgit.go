@@ -176,6 +176,10 @@ type PushRemote struct {
 	// Source is the config key that set Name, so a configuration pointing
 	// somewhere unusable can be reported by the key the user has to fix.
 	Source string
+	// RewrittenURL is Name after git's push URL rewriting, and is empty when no
+	// rule matched — the ordinary case. It only applies when Name is used as a
+	// URL rather than as a remote name, because git looks the name up first.
+	RewrittenURL string
 }
 
 // PushRemote reads the push routing out of the repository's configuration.
@@ -195,15 +199,119 @@ func (c Client) PushRemote(ctx context.Context) (PushRemote, error) {
 	}
 
 	for _, key := range keys {
-		value, err := c.configValue(ctx, key)
+		value, set, err := c.configValue(ctx, key)
 		if err != nil {
 			return PushRemote{}, err
 		}
-		if value != "" {
-			return PushRemote{Name: value, Source: key}, nil
+		if !set {
+			continue
 		}
+		if err := checkPushRoute(key, value); err != nil {
+			return PushRemote{}, err
+		}
+
+		rewritten, err := c.rewritePushURL(ctx, value)
+		if err != nil {
+			return PushRemote{}, err
+		}
+		return PushRemote{Name: value, Source: key, RewrittenURL: rewritten}, nil
 	}
 	return PushRemote{}, nil
+}
+
+// checkPushRoute refuses a value git cannot push to. A key that is set decides
+// the route even when its value cannot work: git does not fall through to the
+// next key or to origin, it fails — measured, not assumed. So treating one of
+// these as "not configured" would bind whatever the convention picked, for a
+// checkout that cannot push at all.
+func checkPushRoute(key, value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		// git: "fatal: No configured push destination." for an empty value, and
+		// "'   ' does not appear to be a git repository" for whitespace.
+		return fmt.Errorf(
+			"%s is set to an empty value, so this branch has no push destination; "+
+				"unset it, name a remote with --remote, or pass the repository URL", key)
+	}
+	if value != trimmed {
+		// git uses the value verbatim, so the padding is part of the path it
+		// looks for: "' origin ' does not appear to be a git repository".
+		return fmt.Errorf(
+			"%s is set to %s, and git uses that verbatim — the surrounding whitespace makes it "+
+				"a repository that does not exist; fix that setting, name a remote with --remote, "+
+				"or pass the repository URL", key, describeConfigValue(value))
+	}
+	return nil
+}
+
+// rewritePushURL resolves what a push to this value actually reaches, and
+// returns "" when no rule matched it — which is the ordinary case. A rule that
+// matches and rewrites the value to itself returns that value, not "".
+//
+// git rewrites a push destination before using it: url.<base>.pushInsteadOf
+// replaces a matching prefix, url.<base>.insteadOf does so when no
+// pushInsteadOf matches, and the longest matching prefix wins. All three
+// measured against git, not read off the documentation. Binding the configured
+// value would bind a repository the push never reaches.
+//
+// Only a value used as a URL needs this. A named remote needs nothing: `git
+// remote -v` already prints the rewritten URL on its (push) line.
+func (c Client) rewritePushURL(ctx context.Context, value string) (string, error) {
+	out, err := c.runner.Run(ctx, "git", "config", "--get-regexp", `^url\..*\.(push)?insteadof$`)
+	if err != nil {
+		if isUnsetConfigKey(err) {
+			return "", nil // no rewrite rules configured
+		}
+		return "", gitFailure(err)
+	}
+
+	// Two passes rather than one map, because a pushInsteadOf match wins over any
+	// insteadOf match however much shorter it is.
+	push, fetch := map[string]string{}, map[string]string{}
+	for line := range strings.SplitSeq(string(out), "\n") {
+		key, prefix, found := strings.Cut(strings.TrimRight(line, "\r"), " ")
+		if !found || prefix == "" {
+			continue
+		}
+		// The key is "url." + base + "." + variable, and the base is a URL
+		// prefix full of dots and colons, so it is cut from both ends. git
+		// lowercases the variable name in this output; the base it prints
+		// verbatim.
+		base, ok := strings.CutPrefix(key, "url.")
+		if !ok {
+			continue
+		}
+		if trimmed, ok := strings.CutSuffix(base, ".pushinsteadof"); ok {
+			push[prefix] = trimmed
+			continue
+		}
+		if trimmed, ok := strings.CutSuffix(base, ".insteadof"); ok {
+			fetch[prefix] = trimmed
+		}
+	}
+
+	if rewritten, ok := longestPrefixRewrite(value, push); ok {
+		return rewritten, nil
+	}
+	rewritten, _ := longestPrefixRewrite(value, fetch)
+	return rewritten, nil
+}
+
+// longestPrefixRewrite replaces the longest matching prefix of value with the
+// base configured for it, reporting whether any rule matched.
+//
+// Whether a rule matched, not whether it changed the value: git honours a
+// matching pushInsteadOf rather than falling through to insteadOf even when the
+// rule rewrites the URL to itself — measured. Treating an identity rewrite as
+// "no rewrite" reached the fetch rule and resolved a different repository.
+func longestPrefixRewrite(value string, rules map[string]string) (string, bool) {
+	longest, rewritten := -1, ""
+	for prefix, base := range rules {
+		if len(prefix) > longest && strings.HasPrefix(value, prefix) {
+			longest, rewritten = len(prefix), base+value[len(prefix):]
+		}
+	}
+	return rewritten, longest >= 0
 }
 
 func (c Client) currentBranch(ctx context.Context) (string, error) {
@@ -216,20 +324,25 @@ func (c Client) currentBranch(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// configValue reads one git config key. An unset key is not a failure — it means
-// the configuration does not say, which is an answer — and git says so with exit
-// status 1 specifically. Anything else is a real failure (a malformed config
-// exits 128), and reporting it as "not set" would let this command quietly
-// disagree with the git the user runs.
-func (c Client) configValue(ctx context.Context, key string) (string, error) {
+// configValue reads one git config key, reporting whether it is set at all. An
+// unset key is not a failure — it means the configuration does not say, which is
+// an answer — and git says so with exit status 1 specifically. Anything else is a
+// real failure (a malformed config exits 128), and reporting it as "not set"
+// would let this command quietly disagree with the git the user runs.
+//
+// Only the newline git appends is removed. The value is not trimmed, because git
+// does not trim it either: " origin " is not the origin remote but a path git
+// reports as not a repository, and a set-but-empty value is not the same as an
+// unset one. Trimming erased both distinctions and turned them into a fallback.
+func (c Client) configValue(ctx context.Context, key string) (value string, set bool, err error) {
 	out, err := c.runner.Run(ctx, "git", "config", "--get", key)
 	switch {
 	case err == nil:
-		return strings.TrimSpace(string(out)), nil
+		return strings.TrimRight(string(out), "\r\n"), true, nil
 	case isUnsetConfigKey(err):
-		return "", nil
+		return "", false, nil
 	default:
-		return "", gitFailure(err)
+		return "", false, gitFailure(err)
 	}
 }
 
@@ -354,27 +467,37 @@ func SelectRemote(remotes []Remote, name string, push PushRemote) (Remote, error
 // What must not happen is falling back to origin, which binds a repository this
 // checkout never pushes to — the whole failure this routing exists to avoid.
 func pushDestination(remotes []Remote, push PushRemote) (Remote, error) {
+	// The name first, because that is git's order: it looks the value up as a
+	// remote and only treats it as a URL when no remote matches. A rewrite rule
+	// does not apply to a remote name.
 	if remote, err := namedRemote(remotes, push.Name); err == nil {
 		return remote, nil
 	}
 
-	_, err := ParseGitHubRepository(push.Name)
+	// Used as a URL, so git's rewriting applies: what a push reaches is not
+	// necessarily what the key says.
+	target := push.Name
+	if push.RewrittenURL != "" {
+		target = push.RewrittenURL
+	}
+
+	_, err := ParseGitHubRepository(target)
 	switch {
 	case err == nil:
-		return directPush(push.Name), nil
+		return directPush(target), nil
 	case errors.Is(err, ErrNotGitHub):
 		// The push route works; it just does not lead anywhere Volcano can
 		// deploy from. Saying "fix that setting" would be wrong advice.
 		return Remote{}, fmt.Errorf(
 			"%s sends this branch's pushes to %s, which is not a github.com repository; "+
 				"pass a GitHub repository URL, or name a remote with --remote",
-			push.Source, Redact(push.Name))
+			push.Source, Redact(target))
 	default:
 		return Remote{}, fmt.Errorf(
 			"%s names %s, which is neither a remote in this repository nor a repository URL, "+
 				"so there is nothing to connect; fix that setting, name a remote with --remote, "+
 				"or pass the repository URL",
-			push.Source, describeConfigValue(push.Name))
+			push.Source, describeConfigValue(target))
 	}
 }
 

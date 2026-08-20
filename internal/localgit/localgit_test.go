@@ -240,6 +240,42 @@ func TestSelectRemoteReportsAnEmptyRemoteListWhenNothingElseDecides(t *testing.T
 	require.ErrorIs(t, err, ErrNoRemotes)
 }
 
+// Resolving the rewrite is only half the job: the binding has to be made from
+// it. git pushes to the rewritten URL, so binding the configured one binds a
+// repository the push never reaches — silently, since both are valid GitHub
+// URLs and nothing fails.
+func TestSelectRemoteBindsTheRewrittenPushURL(t *testing.T) {
+	t.Parallel()
+	selected, err := SelectRemote(nil, "", PushRemote{
+		Name:         "https://github.com/octo/decoy.git",
+		Source:       "remote.pushDefault",
+		RewrittenURL: "https://github.com/octo/storefront.git",
+	})
+	require.NoError(t, err)
+
+	pushURL, err := selected.PushTarget()
+	require.NoError(t, err)
+	repository, err := ParseGitHubRepository(pushURL)
+	require.NoError(t, err)
+	assert.Equal(t, "octo/storefront", repository.FullName())
+	assert.NotEqual(t, "octo/decoy", repository.FullName())
+}
+
+// A rewrite does not apply to a remote name: git looks the name up first, and
+// only an unmatched value is treated as a URL.
+func TestSelectRemoteIgnoresARewriteWhenTheValueNamesARemote(t *testing.T) {
+	t.Parallel()
+	fork := Remote{Name: "fork", PushURLs: []string{"git@github.com:me/storefront.git"}}
+
+	selected, err := SelectRemote([]Remote{fork}, "", PushRemote{
+		Name:         "fork",
+		Source:       "remote.pushDefault",
+		RewrittenURL: "https://github.com/wrong/repository.git",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "fork", selected.Name)
+}
+
 // But a push route needs no remote list at all: git follows a URL in these keys
 // out of a checkout with no remotes, so refusing it for an empty `git remote -v`
 // would refuse a repository a push really does deploy from.

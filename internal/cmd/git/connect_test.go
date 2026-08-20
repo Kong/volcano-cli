@@ -1104,6 +1104,32 @@ func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
 	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
 }
 
+// git rewrites a push destination before using it, so the repository bound has
+// to come from the rewritten URL. Both URLs here are valid GitHub URLs, so
+// binding the configured one would bind a repository the push never reaches
+// without anything failing — the decoy is what the App cannot see.
+func TestConnectBindsTheRewrittenPushURL(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/decoy.git",
+			// A typo here makes the rewrite silently not apply, which fails this
+			// test rather than passing it.
+			`git config --get-regexp ^url\..*\.(push)?insteadof$`: "" +
+				"url.https://github.com/octo/storefront.git.pushinsteadof https://github.com/octo/decoy.git\n",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "decoy")
+	require.NotNil(t, api.sentConnectBody())
+}
+
 // The same route with a credential in it. CI rewrites leave a job token in these
 // values, and the note prints on success — where nothing is going wrong to make
 // anyone look twice at the output.

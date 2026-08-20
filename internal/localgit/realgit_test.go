@@ -67,6 +67,7 @@ func git(t *testing.T, dir string, args ...string) string {
 // checkout is a work repository with two bare repositories to push to, and a
 // third that no remote names.
 type checkout struct {
+	root    string
 	dir     string
 	branch  string
 	origin  string
@@ -79,14 +80,8 @@ func newCheckout(t *testing.T) checkout {
 	t.Helper()
 	requireGit(t)
 	root := t.TempDir()
-
-	bare := func(name string) string {
-		path := filepath.Join(root, name)
-		require.NoError(t, os.MkdirAll(path, 0o755))
-		git(t, path, "init", "--quiet", "--bare")
-		return path
-	}
-	origin, fork, unnamed := bare("origin.git"), bare("fork.git"), bare("unnamed.git")
+	c := checkout{root: root}
+	origin, fork, unnamed := c.bare(t, "origin.git"), c.bare(t, "fork.git"), c.bare(t, "unnamed.git")
 
 	work := filepath.Join(root, "work")
 	require.NoError(t, os.MkdirAll(work, 0o755))
@@ -100,11 +95,20 @@ func newCheckout(t *testing.T) checkout {
 	git(t, work, "remote", "add", "origin", origin)
 	git(t, work, "remote", "add", "fork", fork)
 
-	return checkout{
-		dir: work, branch: git(t, work, "branch", "--show-current"),
-		origin: origin, fork: fork, unnamed: unnamed,
-		client: realGitClient(t, work),
-	}
+	c.dir, c.branch = work, git(t, work, "branch", "--show-current")
+	c.origin, c.fork, c.unnamed = origin, fork, unnamed
+	c.client = realGitClient(t, work)
+	return c
+}
+
+// bare creates a bare repository at relative path under the checkout's root and
+// returns its absolute path, so a test can use it as a rewrite target.
+func (c checkout) bare(t *testing.T, relative string) string {
+	t.Helper()
+	path := filepath.Join(c.root, relative)
+	require.NoError(t, os.MkdirAll(path, 0o755))
+	git(t, path, "init", "--quiet", "--bare")
+	return path
 }
 
 // commitAndPush makes a commit, runs a bare `git push`, and reports the commit
@@ -118,11 +122,30 @@ func (c checkout) commitAndPush(t *testing.T, message string) string {
 
 func (c checkout) received(t *testing.T, bare, commit string) bool {
 	t.Helper()
+	return c.headOf(t, bare) == commit
+}
+
+// headOf reports the checkout's branch in a bare repository, or "" when the
+// branch is not there — meaning nothing was pushed to it.
+func (c checkout) headOf(t *testing.T, bare string) string {
+	t.Helper()
 	out, err := gitCommand(t.Context(), bare, "git", "rev-parse", c.branch).Output()
 	if err != nil {
-		return false // the branch does not exist there, so nothing was pushed
+		return ""
 	}
-	return strings.TrimSpace(string(out)) == commit
+	return strings.TrimSpace(string(out))
+}
+
+// assertPushGoesTo is the claim the rewriting has to satisfy: the URL resolved
+// out of the configuration is the repository a real `git push` updates.
+func (c checkout) assertPushGoesTo(t *testing.T, want string) {
+	t.Helper()
+	push, err := c.client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, want, push.RewrittenURL, "the URL resolved from the configuration")
+
+	commit := c.commitAndPush(t, "rewritten push")
+	assert.Equal(t, commit, c.headOf(t, want), "the repository git actually pushed to")
 }
 
 // The precedence PushRemote implements is git's, and this asserts it by watching
@@ -251,6 +274,214 @@ func TestRealGitPushesWithNoRemotesConfigured(t *testing.T) {
 	assert.Contains(t, err.Error(), "remote.pushDefault")
 }
 
+// git rewrites a push destination before using it, and no git command resolves
+// that for a bare URL — `git remote get-url --push` refuses a remote that exists
+// only in -c config ("No such remote"), and `git ls-remote --get-url` applies
+// only the fetch-side rule. So the rules are implemented by hand, which means
+// each one has to be asserted against where a real push landed rather than
+// against the documentation it was read from.
+//
+// The configured URL is unreachable on purpose: if a rule failed to apply, the
+// push would try to reach gh.test rather than quietly land somewhere plausible.
+func TestRealGitPushURLRewritingAgreesWithWhereGitPushes(t *testing.T) {
+	t.Parallel()
+	const configured = "https://gh.test/octo/app.git"
+
+	t.Run("pushInsteadOf rewrites the whole URL", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		target := c.bare(t, "rw.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+target+".pushInsteadOf", configured)
+
+		c.assertPushGoesTo(t, target)
+	})
+
+	// insteadOf is a fetch-side rule, but a push with no pushInsteadOf follows it.
+	t.Run("insteadOf applies when no pushInsteadOf matches", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		target := c.bare(t, "rw.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+target+".insteadOf", configured)
+
+		c.assertPushGoesTo(t, target)
+	})
+
+	// A pushInsteadOf that does not match must not suppress one that does: the
+	// question is whether a push rule matched this URL, not whether any exists.
+	t.Run("a non-matching pushInsteadOf does not shadow insteadOf", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		target, unused := c.bare(t, "rw.git"), c.bare(t, "unused.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+unused+".pushInsteadOf", "https://elsewhere.test/")
+		git(t, c.dir, "config", "url."+target+".insteadOf", configured)
+
+		c.assertPushGoesTo(t, target)
+	})
+
+	// And when both match, the push rule wins — however much shorter it is.
+	t.Run("pushInsteadOf beats insteadOf", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		pushTarget, fetchTarget := c.bare(t, "push.git"), c.bare(t, "fetch.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+fetchTarget+".insteadOf", configured)
+		git(t, c.dir, "config", "url."+pushTarget+".pushInsteadOf", configured)
+
+		c.assertPushGoesTo(t, pushTarget)
+		assert.Empty(t, c.headOf(t, fetchTarget), "the fetch-side rule must not win")
+	})
+
+	// The base is a prefix and the remainder is appended, so a directory base
+	// rewrites a family of URLs at once.
+	t.Run("the remainder is appended to the base", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		c.bare(t, "nest/app.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+filepath.Join(c.root, "nest")+"/.pushInsteadOf",
+			"https://gh.test/octo/")
+
+		c.assertPushGoesTo(t, filepath.Join(c.root, "nest", "app.git"))
+	})
+
+	// Two rules match; the longer prefix decides. Picking either arbitrarily
+	// would bind a repository the push does not reach.
+	t.Run("the longest matching prefix wins", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		c.bare(t, "deep/app.git")
+		c.bare(t, "shallow/app.git")
+		git(t, c.dir, "config", "remote.pushDefault", configured)
+		git(t, c.dir, "config", "url."+filepath.Join(c.root, "shallow")+"/.pushInsteadOf",
+			"https://gh.test/")
+		git(t, c.dir, "config", "url."+filepath.Join(c.root, "deep")+"/.pushInsteadOf",
+			"https://gh.test/octo/")
+
+		c.assertPushGoesTo(t, filepath.Join(c.root, "deep", "app.git"))
+		assert.Empty(t, c.headOf(t, filepath.Join(c.root, "shallow", "app.git")),
+			"the shorter prefix must not win")
+	})
+
+	// No rules at all is the ordinary case, and reports no rewrite rather than
+	// echoing the value back as though one applied.
+	t.Run("no rules means no rewrite", func(t *testing.T) {
+		t.Parallel()
+		c := newCheckout(t)
+		git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
+
+		push, err := c.client.PushRemote(t.Context())
+		require.NoError(t, err)
+		assert.Empty(t, push.RewrittenURL)
+		assert.Equal(t, c.unnamed, push.Name)
+	})
+}
+
+// A matching pushInsteadOf wins even when it rewrites the URL to itself: git
+// does not fall through to insteadOf. Treating an identity rewrite as "no
+// rewrite" reached the fetch rule and resolved a different repository — a guard
+// that looked like a harmless shortcut until a real push disagreed with it.
+//
+// The configured value is a path that does not exist, so honouring the identity
+// rule fails the push and falling through would have succeeded. No network.
+func TestRealGitHonoursAnIdentityPushInsteadOf(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	configured := filepath.Join(c.root, "does-not-exist.git")
+	fetchTarget := c.bare(t, "fetch-target.git")
+	git(t, c.dir, "config", "remote.pushDefault", configured)
+	git(t, c.dir, "config", "url."+configured+".pushInsteadOf", configured)
+	git(t, c.dir, "config", "url."+fetchTarget+".insteadOf", configured)
+
+	push, err := c.client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, configured, push.RewrittenURL, "the identity push rule wins")
+	assert.NotEqual(t, fetchTarget, push.RewrittenURL, "the fetch rule must not be reached")
+
+	// git agrees: it tries the path that does not exist, not the repository the
+	// fetch rule names.
+	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "identity rewrite")
+	require.Error(t, gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run())
+	assert.Empty(t, c.headOf(t, fetchTarget), "git did not fall back to the insteadOf rule")
+}
+
+// Why the rewrite is applied only to a value used as a URL: for a named remote
+// git has already done it, and `git remote -v` prints the rewritten URL on the
+// (push) line. Rewriting again here would rewrite an already-rewritten URL.
+func TestRealGitRemoteVAlreadyShowsTheRewrittenPushURL(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	target := c.bare(t, "rw.git")
+	const configured = "https://gh.test/octo/app.git"
+	git(t, c.dir, "remote", "set-url", "fork", configured)
+	git(t, c.dir, "config", "url."+target+".pushInsteadOf", configured)
+
+	remotes, err := c.client.Remotes(t.Context())
+	require.NoError(t, err)
+	var fork Remote
+	for _, remote := range remotes {
+		if remote.Name == "fork" {
+			fork = remote
+		}
+	}
+	pushURL, err := fork.PushTarget()
+	require.NoError(t, err)
+	assert.Equal(t, target, pushURL, "git remote -v resolves the push rewrite itself")
+	assert.Equal(t, configured, fork.FetchURL, "and leaves the fetch URL alone")
+}
+
+// A routing key that is set decides the route even when its value cannot work:
+// git does not fall through to the next key, it fails. Treating one of these as
+// "not configured" bound whatever the origin convention picked, for a checkout
+// that cannot push at all.
+func TestRealGitDoesNotFallThroughFromAnUnusablePushRoute(t *testing.T) {
+	t.Parallel()
+	for name, value := range map[string]string{
+		"an empty value":       "",
+		"a whitespace value":   "   ",
+		"a padded remote name": " fork ",
+	} {
+		t.Run(name+" is refused rather than skipped", func(t *testing.T) {
+			t.Parallel()
+			c := newCheckout(t)
+			git(t, c.dir, "config", "branch."+c.branch+".pushRemote", value)
+			// A working route behind it, which git does not reach and neither
+			// may this.
+			git(t, c.dir, "config", "remote.pushDefault", "fork")
+
+			_, err := c.client.PushRemote(t.Context())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "branch."+c.branch+".pushRemote")
+
+			// git agrees: the push fails, and nothing reaches fork.
+			git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "unusable route")
+			require.Error(t,
+				gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run(),
+				"git must refuse this configuration too")
+			assert.Empty(t, c.headOf(t, c.fork), "git did not fall through to remote.pushDefault")
+		})
+	}
+}
+
+// A padded value must not be trimmed into something that works. git uses it
+// verbatim, so " <url> " is a repository that does not exist — and trimming it
+// bound a repository no push reaches.
+func TestRealGitRefusesAPaddedPushURL(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	git(t, c.dir, "config", "remote.pushDefault", " https://github.com/octo/app.git ")
+
+	_, err := c.client.PushRemote(t.Context())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "verbatim")
+
+	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "padded route")
+	require.Error(t, gitCommand(t.Context(), c.dir, "git", "push", "--quiet").Run(),
+		"git refuses the padded value too")
+}
+
 // An unset key is an answer, not a failure, and git says so with exit status 1
 // specifically. A fake returning a plain error let this pass while the code
 // could not tell an unset key from a repository it failed to read.
@@ -258,9 +489,10 @@ func TestRealGitReportsAnUnsetConfigKeyWithExitStatusOne(t *testing.T) {
 	t.Parallel()
 	c := newCheckout(t)
 
-	value, err := c.client.configValue(t.Context(), "remote.pushDefault")
+	value, set, err := c.client.configValue(t.Context(), "remote.pushDefault")
 	require.NoError(t, err)
 	assert.Empty(t, value)
+	assert.False(t, set, "an unset key reports itself as unset, not as empty")
 
 	// The exit status itself, since that is what the code branches on.
 	err = gitCommand(t.Context(), c.dir, "git", "config", "--get", "remote.pushDefault").Run()
@@ -283,7 +515,7 @@ func TestRealGitReportsABrokenConfigAsAFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(c.dir, ".git", "config"),
 		[]byte("[remote \"origin\"\n\tbroken\n"), 0o600))
 
-	_, err := c.client.configValue(t.Context(), "remote.pushDefault")
+	_, _, err := c.client.configValue(t.Context(), "remote.pushDefault")
 	require.ErrorIs(t, err, ErrGitUnavailable)
 
 	err = gitCommand(t.Context(), c.dir, "git", "config", "--get", "remote.pushDefault").Run()
