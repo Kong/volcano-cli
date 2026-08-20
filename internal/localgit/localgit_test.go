@@ -146,11 +146,26 @@ func TestRemotesReportsNoDivergenceForAnOrdinaryRemote(t *testing.T) {
 	assert.False(t, remotes[0].Diverges())
 }
 
-// A remote with nothing to push to cannot be the target of a deployment.
-func TestRemotesSkipsARemoteWithNoPushURL(t *testing.T) {
+// A remote with nothing to push to is still reported. Dropping it made a named
+// lookup deny a remote git still lists, and silently moved the selection to
+// another one; PushTarget is where having nothing to push to is raised.
+func TestRemotesKeepsARemoteWithNoPushURL(t *testing.T) {
 	t.Parallel()
-	_, err := clientReturning(t, "git remote -v",
+	remotes, err := clientReturning(t, "git remote -v",
 		"origin\tgit@github.com:octo/storefront.git (fetch)\n").Remotes(t.Context())
+	require.NoError(t, err)
+	require.Len(t, remotes, 1)
+	assert.Empty(t, remotes[0].PushURLs)
+
+	_, err = remotes[0].PushTarget()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `remote "origin" has nothing to push to`)
+}
+
+// Only a repository with no remotes at all reports that.
+func TestRemotesReportsNoRemotesOnlyWhenThereAreNone(t *testing.T) {
+	t.Parallel()
+	_, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
 	require.ErrorIs(t, err, ErrNoRemotes)
 }
 
@@ -204,7 +219,7 @@ func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 
 	// Two remotes and one named origin: origin wins, rather than the list
 	// collapsing to one entry and the lone-remote branch picking upstream.
-	selected, err := SelectRemote(remotes, "")
+	selected, err := SelectRemote(remotes, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "origin", selected.Name)
 }
@@ -329,35 +344,35 @@ func TestSelectRemote(t *testing.T) {
 
 	t.Run("a lone remote is taken whatever it is called", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream}, "")
+		selected, err := SelectRemote([]Remote{upstream}, "", "")
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("origin wins among several", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{upstream, origin}, "")
+		selected, err := SelectRemote([]Remote{upstream, origin}, "", "")
 		require.NoError(t, err)
 		assert.Equal(t, origin, selected)
 	})
 
 	t.Run("several remotes without origin are ambiguous", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{upstream, fork}, "")
+		_, err := SelectRemote([]Remote{upstream, fork}, "", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--remote")
 	})
 
 	t.Run("a named remote is used even when origin exists", func(t *testing.T) {
 		t.Parallel()
-		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream")
+		selected, err := SelectRemote([]Remote{origin, upstream}, "upstream", "")
 		require.NoError(t, err)
 		assert.Equal(t, upstream, selected)
 	})
 
 	t.Run("a missing named remote is an error", func(t *testing.T) {
 		t.Parallel()
-		_, err := SelectRemote([]Remote{origin}, "nope")
+		_, err := SelectRemote([]Remote{origin}, "nope", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `no remote named "nope"`)
 	})
@@ -573,4 +588,125 @@ func TestPushTargetRefusesARemoteWithNothingToPushTo(t *testing.T) {
 	_, err := Remote{Name: "origin"}.PushTarget()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nothing to push to")
+}
+
+// git routes a bare `git push` through branch.<name>.pushRemote, then
+// remote.pushDefault, then branch.<name>.remote, and only falls back to origin
+// when none is set (git help config). A fork checkout routinely pushes to
+// something other than origin, and that is the repository a deployment comes
+// from.
+func TestPushRemoteFollowsGitsPrecedence(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		config map[string]string
+		want   string
+	}{
+		"nothing configured": {map[string]string{"git branch --show-current": "main"}, ""},
+		"branch pushRemote wins over everything": {map[string]string{
+			"git branch --show-current":               "main",
+			"git config --get branch.main.pushRemote": "fork",
+			"git config --get remote.pushDefault":     "upstream",
+			"git config --get branch.main.remote":     "origin",
+		}, "fork"},
+		"pushDefault beats branch remote": {map[string]string{
+			"git branch --show-current":           "main",
+			"git config --get remote.pushDefault": "upstream",
+			"git config --get branch.main.remote": "origin",
+		}, "upstream"},
+		"branch remote is the last word": {map[string]string{
+			"git branch --show-current":           "main",
+			"git config --get branch.main.remote": "upstream",
+		}, "upstream"},
+		"detached HEAD skips the branch keys": {map[string]string{
+			"git config --get remote.pushDefault": "upstream",
+		}, "upstream"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			client := Client{runner: configRunner(tc.config)}
+			assert.Equal(t, tc.want, client.PushRemote(t.Context()))
+		})
+	}
+}
+
+func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
+	t.Parallel()
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/upstream.git"}}
+	fork := Remote{Name: "fork", PushURLs: []string{"git@github.com:me/storefront.git"}}
+
+	t.Run("the push remote wins over the origin convention", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, fork}, "", "fork")
+		require.NoError(t, err)
+		assert.Equal(t, "fork", selected.Name)
+	})
+
+	t.Run("--remote still wins over the push remote", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, fork}, "origin", "fork")
+		require.NoError(t, err)
+		assert.Equal(t, "origin", selected.Name)
+	})
+
+	t.Run("a push remote naming nothing falls back", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin, fork}, "", "does-not-exist")
+		require.NoError(t, err)
+		assert.Equal(t, "origin", selected.Name)
+	})
+
+	t.Run("the ambiguity error names the remotes", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{fork, {Name: "other"}}, "", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "fork, other")
+	})
+}
+
+// Fetching over https and pushing over ssh is an ordinary setup and names one
+// repository. Comparing URL strings reported every such checkout as pointing at
+// two places — and redacted the "git@" as though it were a credential.
+func TestDivergesComparesRepositoriesNotURLs(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		fetch, push string
+		want        bool
+	}{
+		"https fetch, ssh push, same repo": {
+			"https://github.com/octo/storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"dot-git on one side only": {
+			"https://github.com/octo/storefront", "https://github.com/octo/storefront.git", false,
+		},
+		"ssh url versus scp-like": {
+			"ssh://git@github.com/octo/storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"different case": {
+			"https://github.com/Octo/Storefront.git", "git@github.com:octo/storefront.git", false,
+		},
+		"genuinely different repositories": {
+			"https://github.com/acme/upstream.git", "git@github.com:octo/storefront.git", true,
+		},
+		"one is not a GitHub repository at all": {
+			"https://gitlab.com/octo/storefront.git", "git@github.com:octo/storefront.git", true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			remote := Remote{Name: "origin", FetchURL: tc.fetch, PushURLs: []string{tc.push}}
+			assert.Equal(t, tc.want, remote.Diverges())
+		})
+	}
+}
+
+// configRunner answers the config reads behind PushRemote, failing an unset key
+// the way git does.
+func configRunner(outputs map[string]string) cliruntime.CommandRunner {
+	return cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+		command := strings.TrimSpace(name + " " + strings.Join(args, " "))
+		if out, ok := outputs[command]; ok {
+			return []byte(out), nil
+		}
+		return nil, errors.New("exit status 1")
+	})
 }

@@ -60,6 +60,13 @@ the repository's default branch yourself.`,
 					return errors.New("the repository URL is empty")
 				}
 			}
+			// An explicitly empty --root-directory resets to the repository
+			// root, so it has to stay accepted — but whitespace is a mistyped
+			// value or an unset variable, never a request to clear.
+			if raw := cmd.Flags().Lookup("root-directory").Value.String(); raw != "" &&
+				strings.TrimSpace(raw) == "" {
+				return errors.New("--root-directory is only whitespace; pass an empty value to reset it to the repository root")
+			}
 			// Both say where the repository comes from and the URL wins, so
 			// taking the pair would silently ignore what the user asked for.
 			if gitURL != "" && cmd.Flags().Changed("remote") {
@@ -94,16 +101,22 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return err
 	}
 
-	repository, diverging, err := resolveRepository(ctx, opts)
+	repository, selected, err := resolveRepository(ctx, opts)
 	if err != nil {
 		return err
 	}
-	if diverging != nil {
+	if selected != nil && selected.pushConfigured {
+		// The pick did not come from the usual convention, so say what decided
+		// it. Binding a repository the user never pushes to is the failure this
+		// prevents, and silence would make it look like the convention held.
+		output.Note(opts.out, "Using remote %q: that is where git pushes this branch.", selected.remote.Name)
+	}
+	if selected != nil && selected.remote.Diverges() {
 		// The push URL is the one bound, because a push is what deploys. Say so:
 		// the remote the user thinks of as "origin" fetches from somewhere else.
-		pushURL, _ := diverging.PushTarget()
+		pushURL, _ := selected.remote.PushTarget()
 		output.Note(opts.out, "Remote %q pushes to %s and fetches from %s; the push target is what deploys.",
-			diverging.Name, localgit.Redact(pushURL), localgit.Redact(diverging.FetchURL))
+			selected.remote.Name, localgit.Redact(pushURL), localgit.Redact(selected.remote.FetchURL))
 	}
 
 	project, err := service.Project()
@@ -130,15 +143,21 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return resolveError(opts.deps, webURL, existing, repository, err)
 	}
 
-	// A binding that already names this repository is still rewritten. The
-	// binding also records which GitHub connection the platform reads the
-	// repository with, and the read contract does not expose that id — so with a
-	// stored connection revoked and another able to reach the same repository,
-	// skipping the write would leave deploys tied to the revoked one while this
-	// command reported the working one. Rebinding is the only way to make the
-	// two agree, and it is cheap: the bind is a full replace, and the platform
-	// only defaults deploy settings on a project that has no binding yet.
-	settled := unchanged(existing, target, opts)
+	// Nothing to change: report the binding and stop. Connecting is idempotent
+	// on purpose — an agent or a CI job re-running it should not have to
+	// special-case "already done".
+	if unchanged(existing, target, opts) {
+		settings, settingsErr := service.DeploySettings(ctx)
+		output.GitConnection(opts.out, output.GitBinding{
+			Connection:          existing,
+			Settings:            settings,
+			SettingsErr:         settingsErr,
+			Project:             project.Label(),
+			GitHubAccount:       target.ConnectionLogin,
+			InstallationAccount: target.InstallationAccount,
+		})
+		return nil
+	}
 
 	// Editing the root directory of the repository already bound is not a
 	// replacement, and neither is picking up a rename. Neither may be described
@@ -161,38 +180,31 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		}
 	}
 
-	if replacing {
-		// The bind is a full replace, so the old binding does not need removing
-		// first. Say what happened anyway: the previous repository stops
-		// deploying, and that is worth stating rather than leaving to inference.
-		output.Note(opts.out, "Replacing the existing connection to %s.", existing.RepoFullName)
-	}
-
 	connection, err := service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
+	}
+
+	if replacing {
+		// Said after the write, not before: the write can still be refused, and
+		// a past-tense claim next to a failure reads as a contradiction. The
+		// bind is a full replace, so the old binding needed no removing — worth
+		// stating rather than leaving to inference that it stopped deploying.
+		output.Note(opts.out, "Replaced the existing connection to %s.", existing.RepoFullName)
 	}
 
 	// The binding is made at this point, so failing to read back what a push
 	// deploys must not turn a successful connect into an error — but it is said
 	// out loud rather than left to look like "nothing is configured".
 	settings, settingsErr := service.DeploySettings(ctx)
-	binding := output.GitBinding{
+	output.GitConnected(opts.out, output.GitBinding{
 		Connection:          connection,
 		Settings:            settings,
 		SettingsErr:         settingsErr,
 		Project:             project.Label(),
 		GitHubAccount:       target.ConnectionLogin,
 		InstallationAccount: target.InstallationAccount,
-	}
-	// Nothing the user can see changed, so do not announce a change. Connecting
-	// stays idempotent from the caller's side — an agent or a CI job re-running
-	// it needs no special case for "already done".
-	if settled {
-		output.GitConnection(opts.out, binding)
-		return nil
-	}
-	output.GitConnected(opts.out, binding)
+	})
 	return nil
 }
 
@@ -217,23 +229,35 @@ func validateRootDirectory(opts connectOptions) error {
 	return nil
 }
 
+// selectedRemote is the remote a repository was read from, and whether git's
+// push configuration rather than the "origin" convention chose it.
+type selectedRemote struct {
+	remote         localgit.Remote
+	pushConfigured bool
+}
+
 // resolveRepository determines which repository to connect: the one the user
-// named, or the one this directory's remotes push to. It also reports the remote
-// back when its two URLs disagree, so the caller can say which one was used.
+// named, or the one this directory's remotes push to. It returns the remote it
+// read when there is something about that worth reporting.
 func resolveRepository(
 	ctx context.Context, opts connectOptions,
-) (repository localgit.Repository, diverging *localgit.Remote, err error) {
+) (repository localgit.Repository, selected *selectedRemote, err error) {
 	if opts.gitURL != "" {
 		repository, err = localgit.ParseGitHubRepository(opts.gitURL)
 		return repository, nil, err
 	}
 
-	remotes, err := localgit.New(opts.deps).Remotes(ctx)
+	client := localgit.New(opts.deps)
+	remotes, err := client.Remotes(ctx)
 	if err != nil {
 		return localgit.Repository{}, nil, err
 	}
 
-	remote, err := localgit.SelectRemote(remotes, opts.remote)
+	// Ask git where a push goes rather than assuming origin: a fork or
+	// triangular checkout routinely pushes somewhere else, and the repository
+	// that receives pushes is the one a deployment comes from.
+	pushRemote := client.PushRemote(ctx)
+	remote, err := localgit.SelectRemote(remotes, opts.remote, pushRemote)
 	if err != nil {
 		return localgit.Repository{}, nil, err
 	}
@@ -247,10 +271,12 @@ func resolveRepository(
 	if err != nil {
 		return localgit.Repository{}, nil, fmt.Errorf("remote %q: %w", remote.Name, err)
 	}
-	if remote.Diverges() {
-		return repository, &remote, nil
-	}
-	return repository, nil, nil
+	return repository, &selectedRemote{
+		remote: remote,
+		// Only worth mentioning when it changed the answer: a pushDefault of
+		// origin picks what the convention would have picked anyway.
+		pushConfigured: opts.remote == "" && pushRemote == remote.Name && pushRemote != localgit.DefaultRemoteName,
+	}, nil
 }
 
 // currentConnection reads the project's binding, mapping "no binding" to a nil
@@ -285,6 +311,12 @@ func unchanged(existing *apiclient.ProjectGitConnection, target *gitconnect.Targ
 	// GitHub preserves the case an owner typed but does not treat it as
 	// significant, so a differently-cased name is the same name.
 	if !strings.EqualFold(existing.RepoFullName, target.Repository.FullName) {
+		return false
+	}
+	// The bind re-resolves the production branch from GitHub's live default, so
+	// a repository whose default moved has a stale one recorded — and that run
+	// is exactly the one an operator needs told, not reported as unchanged.
+	if existing.ProductionBranch != target.Repository.DefaultBranch {
 		return false
 	}
 	if !opts.rootDirectorySet {

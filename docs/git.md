@@ -48,8 +48,13 @@ one rather than as an unbound project.
 
 ## Connecting
 
-With no argument the repository is read from this directory's Git remotes — the
-only remote, or `origin` when there are several. A remote with a separate
+With no argument the repository is read from this directory's Git remotes. The
+one git would push to wins — `git push` follows `branch.<name>.pushRemote`, then
+`remote.pushDefault`, then `branch.<name>.remote` — because a push is what
+deploys, so in a fork or triangular checkout the repository bound is the one you
+push to rather than the one you fetch from. Failing all of that: the only
+remote, or `origin` when there are several. The CLI says which remote it used
+whenever the configuration, not the convention, decided it. A remote with a separate
 `pushurl` names two repositories, and the push target is the one bound, since a
 push is what deploys; the CLI says so when the two differ. A remote configured
 with *several* push URLs has no single repository to connect — a push reaches
@@ -69,16 +74,21 @@ volcano git connect --remote upstream
 
 For a monorepo, say which subdirectory the project builds from. It has to be a
 path inside the repository — an absolute path, or one climbing out with `..`, is
-refused rather than accepted and silently built from nothing:
+refused rather than accepted and silently built from nothing. An empty value
+resets it to the repository root; whitespace is refused, since that is a mistyped
+value or an unset variable rather than a request to clear:
 
 ```bash
 volcano git connect --root-directory apps/api
+volcano git connect --root-directory ""     # back to the repository root
 ```
 
-Connecting is idempotent from your side: running it again on a project already
-bound to the same repository reports that nothing changed. It does rewrite the
-binding, which is how a project whose connected GitHub account was revoked
-starts using a working one again. A repository renamed on
+Connecting is idempotent: running it again on a project already bound to the
+same repository reports that nothing changed and writes nothing. "The same" means
+every part of the binding — the repository, the App installation, the root
+directory, and the production branch — so a repository whose GitHub default
+branch has moved is *not* unchanged, and re-running connect updates the branch a
+push has to land on. A repository renamed on
 GitHub is still the same repository — the binding follows its id, not its name —
 so re-running connect simply refreshes the name. Re-running it with a
 different `--root-directory` edits that, which is the only way to change it

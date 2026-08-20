@@ -69,10 +69,26 @@ func (r Remote) PushTarget() (string, error) {
 	}
 }
 
-// Diverges reports whether this remote fetches from somewhere other than the
-// single place it pushes to.
+// Diverges reports whether this remote fetches from a different repository than
+// the single one it pushes to.
+//
+// Repositories, not URL strings: fetching over https and pushing over ssh is an
+// ordinary setup — `git remote set-url --push` and url.<base>.pushInsteadOf both
+// produce it — and the two spellings name the same repository. Comparing the
+// strings would report every such checkout as pointing at two places.
 func (r Remote) Diverges() bool {
-	return len(r.PushURLs) == 1 && r.FetchURL != "" && r.FetchURL != r.PushURLs[0]
+	if len(r.PushURLs) != 1 || r.FetchURL == "" {
+		return false
+	}
+
+	push, pushErr := ParseGitHubRepository(r.PushURLs[0])
+	fetch, fetchErr := ParseGitHubRepository(r.FetchURL)
+	if pushErr != nil || fetchErr != nil {
+		// One of them is not a GitHub repository at all, which is a difference
+		// worth reporting whatever the strings look like.
+		return r.FetchURL != r.PushURLs[0]
+	}
+	return !strings.EqualFold(push.FullName(), fetch.FullName())
 }
 
 // Repository is a GitHub repository identified by a remote URL.
@@ -123,34 +139,72 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 			remotes = append(remotes, Remote{Name: name})
 			position = index[name]
 		}
-		if kind == remotePush {
+		switch kind {
+		case remotePush:
 			// Appended, not assigned: several pushurl entries produce several
 			// push lines, and keeping only the last would silently bind one
 			// repository while pushes went to all of them.
 			remotes[position].PushURLs = append(remotes[position].PushURLs, url)
-		} else {
+		case remoteFetch:
 			remotes[position].FetchURL = url
+		case remoteNone:
 		}
 	}
 
-	// A remote git reported without a push line has nothing to push to, so it
-	// cannot be the target of a deployment.
-	usable := make([]Remote, 0, len(remotes))
-	for _, remote := range remotes {
-		if len(remote.PushURLs) > 0 {
-			usable = append(usable, remote)
-		}
-	}
-	if len(usable) == 0 {
+	// A remote with no push line is kept: dropping it made a named lookup deny
+	// a remote git still lists, and quietly moved the selection to another one.
+	// PushTarget is where having nothing to push to is reported.
+	if len(remotes) == 0 {
 		return nil, ErrNoRemotes
 	}
-	return usable, nil
+	return remotes, nil
+}
+
+// PushRemote reports the remote a `git push` with no arguments would send to,
+// or "" when the configuration does not say. git decides this in a precedence
+// git help config spells out — branch.<name>.pushRemote, then
+// remote.pushDefault, then branch.<name>.remote — and only falls back to origin
+// when none is set. Picking origin regardless would bind the repository a
+// triangular or fork checkout never pushes to.
+func (c Client) PushRemote(ctx context.Context) string {
+	branch := c.configValue(ctx, "branch")
+	if branch != "" {
+		if remote := c.configValue(ctx, "branch."+branch+".pushRemote"); remote != "" {
+			return remote
+		}
+	}
+	if remote := c.configValue(ctx, "remote.pushDefault"); remote != "" {
+		return remote
+	}
+	if branch != "" {
+		return c.configValue(ctx, "branch."+branch+".remote")
+	}
+	return ""
+}
+
+// configValue reads one git config key, or the current branch name for the
+// sentinel "branch". An unset key exits non-zero, which is not a failure worth
+// reporting: it means the configuration does not say, which is the answer.
+func (c Client) configValue(ctx context.Context, key string) string {
+	args := []string{"config", "--get", key}
+	if key == "branch" {
+		args = []string{"branch", "--show-current"}
+	}
+	out, err := c.runner.Run(ctx, "git", args...)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 type remoteKind int
 
 const (
-	remoteFetch remoteKind = iota
+	// remoteNone is a line that names a remote and gives it no URL. git prints
+	// one for a remote whose url is unset, and the name has to be kept: denying
+	// a remote git still lists moved the selection elsewhere in silence.
+	remoteNone remoteKind = iota
+	remoteFetch
 	remotePush
 )
 
@@ -179,7 +233,10 @@ func gitFailure(err error) error {
 func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 	name, rest, found := strings.Cut(strings.TrimRight(line, "\r\n"), "\t")
 	if !found || name == "" {
-		return "", "", 0, false
+		return "", "", remoteNone, false
+	}
+	if rest == "" {
+		return name, "", remoteNone, true
 	}
 	if url, found = strings.CutSuffix(rest, " (push)"); found {
 		return name, url, remotePush, url != ""
@@ -187,21 +244,29 @@ func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 	if url, found = strings.CutSuffix(rest, " (fetch)"); found {
 		return name, url, remoteFetch, url != ""
 	}
-	return "", "", 0, false
+	return "", "", remoteNone, false
 }
 
 // SelectRemote picks the remote to connect. A named remote must exist. With no
-// name, a lone remote is taken as-is and "origin" wins among several; anything
-// else is ambiguous and the caller has to choose.
-func SelectRemote(remotes []Remote, name string) (Remote, error) {
-	name = strings.TrimSpace(name)
-	if name != "" {
-		for _, remote := range remotes {
-			if remote.Name == name {
-				return remote, nil
-			}
+// name, the remote git would push to wins, then a lone remote, then "origin";
+// anything else is ambiguous and the caller has to choose.
+//
+// pushRemote comes from Client.PushRemote and is what makes this agree with
+// git rather than with a convention: in a fork checkout the repository that
+// receives pushes — and so the one a deployment comes from — is routinely not
+// origin.
+func SelectRemote(remotes []Remote, name, pushRemote string) (Remote, error) {
+	if name = strings.TrimSpace(name); name != "" {
+		return namedRemote(remotes, name)
+	}
+
+	if pushRemote != "" {
+		if remote, err := namedRemote(remotes, pushRemote); err == nil {
+			return remote, nil
 		}
-		return Remote{}, fmt.Errorf("no remote named %q in this repository", name)
+		// A pushDefault naming a remote that does not exist is a broken
+		// configuration git would fail on too; fall through rather than making
+		// this command the one that reports it.
 	}
 
 	if len(remotes) == 1 {
@@ -212,9 +277,23 @@ func SelectRemote(remotes []Remote, name string) (Remote, error) {
 			return remote, nil
 		}
 	}
+
+	names := make([]string, 0, len(remotes))
+	for _, remote := range remotes {
+		names = append(names, remote.Name)
+	}
 	return Remote{}, fmt.Errorf(
-		"this repository has %d remotes and none is named %q; pass the repository URL, or name one with --remote",
-		len(remotes), DefaultRemoteName)
+		"this repository has %d remotes (%s) and none is named %q; pass the repository URL, or name one with --remote",
+		len(remotes), strings.Join(names, ", "), DefaultRemoteName)
+}
+
+func namedRemote(remotes []Remote, name string) (Remote, error) {
+	for _, remote := range remotes {
+		if remote.Name == name {
+			return remote, nil
+		}
+	}
+	return Remote{}, fmt.Errorf("no remote named %q in this repository", name)
 }
 
 // ParseGitHubRepository resolves a Git remote URL to the GitHub repository it

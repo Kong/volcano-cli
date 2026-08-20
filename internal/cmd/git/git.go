@@ -74,6 +74,11 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))
+	case errors.Is(err, gitconnect.ErrReconnectRequired):
+		return fmt.Errorf("%w\n\n%s\n\nIf that is already current, your CLI session may be the one that expired: %s",
+			err,
+			dashboardStep(webURL, "Reconnect GitHub in the dashboard, then run this command again:"),
+			cliruntime.CommandPath(deps, "login"))
 	case errors.Is(err, gitconnect.ErrBindingChanged):
 		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
 			err, cliruntime.CommandPath(deps, "git status"))
