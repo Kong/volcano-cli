@@ -221,6 +221,36 @@ func TestRealGitPushesToAURLInThePushConfiguration(t *testing.T) {
 	assert.NotContains(t, err.Error(), "origin")
 }
 
+// A checkout with no remotes at all can still have a push route, so an empty
+// `git remote -v` is not on its own a refusal. Reading the remote list first and
+// failing on it made the URL route unreachable exactly where it is the only
+// route there is.
+func TestRealGitPushesWithNoRemotesConfigured(t *testing.T) {
+	t.Parallel()
+	c := newCheckout(t)
+	git(t, c.dir, "remote", "remove", "origin")
+	git(t, c.dir, "remote", "remove", "fork")
+	git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
+
+	remotes, err := c.client.Remotes(t.Context())
+	require.NoError(t, err, "an empty remote list is not Remotes' verdict to give")
+	assert.Empty(t, remotes)
+
+	push, err := c.client.PushRemote(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, c.unnamed, push.Name)
+
+	commit := c.commitAndPush(t, "pushed with no remotes configured")
+	assert.True(t, c.received(t, c.unnamed, commit), "git pushed with no remotes configured")
+
+	// So the selection must consult the push route before the empty list. A
+	// local path is not a GitHub repository, so the refusal names that instead.
+	_, err = SelectRemote(remotes, "", push)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrNoRemotes)
+	assert.Contains(t, err.Error(), "remote.pushDefault")
+}
+
 // An unset key is an answer, not a failure, and git says so with exit status 1
 // specifically. A fake returning a plain error let this pass while the code
 // could not tell an unset key from a repository it failed to read.

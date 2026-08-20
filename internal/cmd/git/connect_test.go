@@ -302,6 +302,28 @@ func TestConnectReportsAnEmptyRemoteList(t *testing.T) {
 	assert.Contains(t, err.Error(), "no remote URLs found in your Git config")
 }
 
+// An empty remote list is not on its own a refusal: a checkout with no remotes
+// can still have a push route, since git follows a URL in the routing keys out
+// of one. Reading the remote list first and failing on it made the URL route
+// unreachable exactly where it is the only route there is.
+func TestConnectFollowsAPushURLWithNoRemotesAtAll(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "no remote URLs found")
+	require.NotNil(t, api.sentConnectBody())
+}
+
 func TestConnectRejectsANonGitHubRemote(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)

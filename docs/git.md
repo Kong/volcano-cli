@@ -58,7 +58,8 @@ the configuration, not the convention, decided it.
 
 Those three keys hold either a remote name or a repository URL — `git push`
 accepts both — so a URL is followed to the repository it names, even though no
-remote in the checkout describes it. A value that is neither, such as a typo for
+remote in the checkout describes it, and even in a checkout with no remotes at
+all. A value that is neither, such as a typo for
 a remote name, is refused rather than quietly falling back to `origin`: falling
 back would bind a repository this checkout never pushes to. Credentials are
 never echoed back, since a CI rewrite routinely leaves a job token in one of

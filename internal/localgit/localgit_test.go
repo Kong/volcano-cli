@@ -163,11 +163,14 @@ func TestRemotesKeepsARemoteWithNoPushURL(t *testing.T) {
 	assert.Contains(t, err.Error(), `remote "origin" has nothing to push to`)
 }
 
-// Only a repository with no remotes at all reports that.
-func TestRemotesReportsNoRemotesOnlyWhenThereAreNone(t *testing.T) {
+// Having no remotes is not Remotes' verdict to give. A checkout with none can
+// still have a push route — remote.pushDefault holding a URL is one — so the
+// empty list comes back as a list, and SelectRemote decides whether it matters.
+func TestRemotesReturnsAnEmptyListRatherThanFailing(t *testing.T) {
 	t.Parallel()
-	_, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
-	require.ErrorIs(t, err, ErrNoRemotes)
+	remotes, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, remotes)
 }
 
 // A query string can carry a credential of its own, and it is no part of what
@@ -225,10 +228,33 @@ func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 	assert.Equal(t, "origin", selected.Name)
 }
 
-func TestRemotesReportsAnEmptyRemoteList(t *testing.T) {
+// Where the empty list does become a failure: nothing else named a destination,
+// so there is no remote to fall back on.
+func TestSelectRemoteReportsAnEmptyRemoteListWhenNothingElseDecides(t *testing.T) {
 	t.Parallel()
-	_, err := clientReturning(t, "git remote -v", "").Remotes(t.Context())
+	_, err := SelectRemote(nil, "", PushRemote{})
 	require.ErrorIs(t, err, ErrNoRemotes)
+
+	// And when the user named one that cannot exist.
+	_, err = SelectRemote(nil, "origin", PushRemote{})
+	require.ErrorIs(t, err, ErrNoRemotes)
+}
+
+// But a push route needs no remote list at all: git follows a URL in these keys
+// out of a checkout with no remotes, so refusing it for an empty `git remote -v`
+// would refuse a repository a push really does deploy from.
+func TestSelectRemoteFollowsAPushURLWithNoRemotesAtAll(t *testing.T) {
+	t.Parallel()
+	selected, err := SelectRemote(nil, "",
+		PushRemote{Name: "https://github.com/me/storefront.git", Source: "remote.pushDefault"})
+	require.NoError(t, err)
+	assert.False(t, selected.Named())
+
+	pushURL, err := selected.PushTarget()
+	require.NoError(t, err)
+	repository, err := ParseGitHubRepository(pushURL)
+	require.NoError(t, err)
+	assert.Equal(t, "me/storefront", repository.FullName())
 }
 
 func TestRemotesReportsANonRepository(t *testing.T) {

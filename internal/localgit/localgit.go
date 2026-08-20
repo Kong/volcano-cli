@@ -155,9 +155,11 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	// A remote with no push line is kept: dropping it made a named lookup deny
 	// a remote git still lists, and quietly moved the selection to another one.
 	// PushTarget is where having nothing to push to is reported.
-	if len(remotes) == 0 {
-		return nil, ErrNoRemotes
-	}
+	//
+	// An empty list is returned as one rather than as ErrNoRemotes. Having no
+	// remote is only a failure for a caller that needed one, and a checkout with
+	// no remotes at all can still have a push route: remote.pushDefault holding
+	// a URL is one, and `git push` follows it. SelectRemote decides.
 	return remotes, nil
 }
 
@@ -305,11 +307,22 @@ func SelectRemote(remotes []Remote, name string, push PushRemote) (Remote, error
 				"--remote takes the name of a Git remote, not a URL (%s); "+
 					"pass the repository URL as the argument instead", Redact(name))
 		}
+		if len(remotes) == 0 {
+			return Remote{}, ErrNoRemotes
+		}
 		return namedRemote(remotes, name)
 	}
 
+	// Before the remote list, because a push route does not need one: git
+	// follows a URL in these keys out of a checkout with no remotes at all.
 	if push.Name != "" {
 		return pushDestination(remotes, push)
+	}
+
+	// Nothing named a destination and there is no remote to fall back on. This
+	// is the one place the empty list is a failure.
+	if len(remotes) == 0 {
+		return Remote{}, ErrNoRemotes
 	}
 
 	if len(remotes) == 1 {
