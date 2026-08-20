@@ -40,6 +40,10 @@ var (
 	// ErrBindingChanged indicates the project's binding was not what the command
 	// read before it asked the user about it.
 	ErrBindingChanged = errors.New("the project's repository connection changed while this command was running")
+	// ErrProjectNotFound indicates the selected project does not exist. The
+	// binding read answers 404 for this and for a project with no repository
+	// connected, so the two are told apart before either is reported.
+	ErrProjectNotFound = errors.New("the selected project does not exist")
 )
 
 const githubProvider = "github"
@@ -137,11 +141,33 @@ func (s Service) Status(ctx context.Context) (*apiclient.ProjectGitConnection, e
 	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
 	if err != nil {
 		if api.Status(err) == http.StatusNotFound {
-			return nil, ErrNotConnected
+			return nil, s.explainNotFound(ctx)
 		}
 		return nil, classify(err, "failed to get the project's repository connection")
 	}
 	return connection, nil
+}
+
+// explainNotFound resolves the one ambiguous status this API has: the binding
+// read answers 404 both for a project with no repository connected and for a
+// project that does not exist — a deleted one, or a VOLCANO_PROJECT_ID naming
+// nothing. Reporting the benign reading for both would tell a script that an
+// invalid selection is a valid unbound project.
+func (s Service) explainNotFound(ctx context.Context) error {
+	authenticated, err := s.current()
+	if err != nil {
+		return err
+	}
+
+	if _, err := authenticated.API.GetProject(ctx, authenticated.ProjectID); err != nil {
+		if api.Status(err) == http.StatusNotFound {
+			return fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID)
+		}
+		// The project could not be confirmed either way, which is not the same
+		// as knowing it has no binding, so the failure is reported as itself.
+		return classify(err, "failed to confirm the selected project exists")
+	}
+	return ErrNotConnected
 }
 
 // Resolve finds the repository named by a local remote among the repos the
@@ -320,11 +346,22 @@ func (s Service) binding(ctx context.Context) (*apiclient.ProjectGitConnection, 
 
 // sameBinding reports whether two reads describe the same binding. Absence
 // counts: a project that gained or lost one in between changed.
+//
+// UpdatedAt carries the comparison, not the repository fields. The platform
+// bumps it only when the row really changes (migration 033 guards the trigger
+// on NEW IS DISTINCT FROM OLD), so it catches every mutation — including the
+// mutable parts of a binding that stays on the same repository, like a root
+// directory another actor just edited, and including fields this CLI does not
+// model. Comparing the fields we happen to read would be incomplete by
+// construction. It is broader than the binding alone, so an unrelated change to
+// the project can abort a command; that fails closed, and a re-run is cheaper
+// than silently reverting someone else's edit.
 func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return a.RepoId == b.RepoId && strings.EqualFold(a.RepoFullName, b.RepoFullName)
+	return a.UpdatedAt.Equal(b.UpdatedAt) &&
+		a.RepoId == b.RepoId && strings.EqualFold(a.RepoFullName, b.RepoFullName)
 }
 
 func describeBinding(connection *apiclient.ProjectGitConnection) string {

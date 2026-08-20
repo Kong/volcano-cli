@@ -110,6 +110,19 @@ type gitAPI struct {
 	connectedAfterRead string
 	// disconnectAfterRead is the same for a binding that goes away.
 	disconnectAfterRead bool
+	// projectMissing makes GET /projects/{id} answer 404, which is what a
+	// deleted project or a VOLCANO_PROJECT_ID naming nothing looks like.
+	projectMissing bool
+	// projectReadStatus fails only GET /projects/{id}, leaving the binding read
+	// to answer its own 404 — the shape where the project can be neither
+	// confirmed nor ruled out.
+	projectReadStatus int
+	// rootAfterRead changes only the binding's root directory on the next read,
+	// leaving the repository alone.
+	rootAfterRead string
+	// connectionUpdated overrides the binding's updated_at, which the platform
+	// bumps whenever the row really changes.
+	connectionUpdated string
 
 	connections               []map[string]any
 	installationsByConnection map[string][]map[string]any
@@ -175,6 +188,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case r.Method == http.MethodGet && isProjectPath(r.URL.Path):
+		a.serveProject(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == connectionsPath:
 		writeGitJSON(a.t, w, http.StatusOK, map[string]any{"connections": a.connections})
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/installations"):
@@ -244,6 +259,35 @@ func (a *gitAPI) currentInstallation() int64 {
 	return gitInstallation
 }
 
+// isProjectPath matches "/projects/{id}" and nothing below it, so any project
+// id a test selects is served.
+func isProjectPath(path string) bool {
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	return len(segments) == 2 && segments[0] == "projects"
+}
+
+// serveProject answers the read that tells a project with no binding apart from
+// a project that does not exist.
+func (a *gitAPI) serveProject(w http.ResponseWriter, r *http.Request) {
+	if a.projectReadStatus != 0 {
+		writeGitJSON(a.t, w, a.projectReadStatus, map[string]any{"error": "project read failed"})
+		return
+	}
+	if a.projectMissing {
+		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project not found"})
+		return
+	}
+	segments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	writeGitJSON(a.t, w, http.StatusOK, map[string]any{
+		"id":               segments[1],
+		"name":             "Storefront",
+		"status":           "active",
+		"all_regions":      false,
+		"selected_regions": []string{"aws-us-east-1"},
+		"created_at":       "2026-08-18T00:00:00Z",
+	})
+}
+
 func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -258,14 +302,20 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 			a.connectedRepoID = otherRepoID
 		case a.disconnectAfterRead:
 			a.connected, a.disconnectAfterRead = "", false
+		case a.rootAfterRead != "":
+			a.connectedRoot, a.rootAfterRead = a.rootAfterRead, ""
+			a.connectionUpdated = "2026-08-18T00:00:01Z"
 		}
 	}
 	if a.connected == "" {
 		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repo connection"})
 		return
 	}
-	writeGitJSON(a.t, w, http.StatusOK,
-		connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation()))
+	payload := connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation())
+	if a.connectionUpdated != "" {
+		payload["updated_at"] = a.connectionUpdated
+	}
+	writeGitJSON(a.t, w, http.StatusOK, payload)
 }
 
 // currentRepoID derives the bound repository's id from its name unless a test

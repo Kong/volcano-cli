@@ -77,11 +77,13 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	case errors.Is(err, gitconnect.ErrBindingChanged):
 		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
 			err, cliruntime.CommandPath(deps, "git status"))
+	case errors.Is(err, gitconnect.ErrProjectNotFound):
+		return fmt.Errorf("%w\n\nSelect one with %s, or check VOLCANO_PROJECT_ID",
+			err, cliruntime.CommandPath(deps, "use <project>"))
 	case errors.Is(err, gitconnect.ErrNotConnected):
-		// The API answers 404 for both "no binding" and "no such project", so
-		// name the second possibility rather than asserting the first.
-		return fmt.Errorf("%w\n\nConnect one with %s, or check the active project with %s",
-			err, cliruntime.CommandPath(deps, "git connect"), cliruntime.CommandPath(deps, "projects get"))
+		// No hedging about the project: the ambiguous 404 behind this is
+		// resolved before it gets here.
+		return fmt.Errorf("%w\n\nConnect one with %s", err, cliruntime.CommandPath(deps, "git connect"))
 	default:
 		return err
 	}

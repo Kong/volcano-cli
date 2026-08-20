@@ -105,3 +105,36 @@ func TestStatusDoesNotReadAsAnOutcome(t *testing.T) {
 	assert.NotContains(t, out, "already connected")
 	assert.Nil(t, api.sentConnectBody(), "status must not write")
 }
+
+// The binding read answers 404 both for a project with no repository and for a
+// project that does not exist. Reporting the benign reading for both would tell
+// a script that an invalid selection is a valid unbound project.
+func TestStatusDistinguishesAMissingProjectFromAnUnconnectedOne(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.projectMissing = true
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.Error(t, err, "an invalid project selection must not exit 0")
+
+	assert.Contains(t, err.Error(), "the selected project does not exist")
+	assert.Contains(t, err.Error(), "VOLCANO_PROJECT_ID")
+	assert.NotContains(t, out, "No repository is connected")
+}
+
+// A project that cannot be confirmed either way is not the same as one known
+// not to exist, so the failure is reported as itself rather than resolved to the
+// more definite reading. The binding read has to answer its own 404 here for the
+// disambiguation to run at all.
+func TestStatusDoesNotGuessWhenTheProjectCannotBeConfirmed(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.projectReadStatus = http.StatusInternalServerError
+
+	_, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "failed to confirm the selected project exists")
+	assert.NotContains(t, err.Error(), "does not exist")
+	assert.NotContains(t, err.Error(), "No repository is connected")
+}

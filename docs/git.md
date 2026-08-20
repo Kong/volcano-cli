@@ -39,8 +39,12 @@ volcano git status
 This reports the project's own binding — the repository, the branch a push has
 to land on, the subdirectory it builds from, and what a push deploys. It does
 not contact GitHub, so it tells you what the platform recorded rather than
-whether that recording still works. A project with nothing connected is not an
-error: it says so and exits 0.
+whether that recording still works.
+
+A project with nothing connected is not an error: it says so and exits 0, so the
+command is usable in a conditional. A project that does not exist — a deleted
+one, or a `VOLCANO_PROJECT_ID` naming nothing — is an error, and is reported as
+one rather than as an unbound project.
 
 ## Connecting
 

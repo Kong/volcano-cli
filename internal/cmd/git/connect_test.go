@@ -811,3 +811,32 @@ func TestConnectRefusesWhenTheBindingDisappeared(t *testing.T) {
 	assert.Contains(t, err.Error(), "no repository connected")
 	assert.Nil(t, api.sentConnectBody())
 }
+
+// A mutable part of the binding changing counts too: another actor editing the
+// root directory leaves the repository alone, and a re-bind carrying the value
+// this command read would silently revert their edit.
+func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedRoot = "apps/old"
+	api.rootAfterRead = "apps/new"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Nil(t, api.sentConnectBody(), "apps/new must not be reverted to apps/old")
+}
+
+func TestConnectReportsAMissingProject(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.projectMissing = true
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "the selected project does not exist")
+	assert.Nil(t, api.sentConnectBody())
+}
