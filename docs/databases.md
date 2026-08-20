@@ -68,8 +68,11 @@ volcano cloud databases branches get app feature-x --show-connection-string
 ```
 
 `reset` discards everything the branch has diverged by and re-forks it from the
-parent's current state, keeping the branch's name and credentials. `extend`
-replaces a branch's lifetime rather than adding to it, counting from now.
+parent's current state, keeping the branch's name and credentials. It rewinds in
+the background, so the branch goes back to `provisioning` and stops serving
+connections until it reports `active` again — poll it with `get` the same way you
+would after a `create`. `extend` replaces a branch's lifetime rather than adding
+to it, counting from now.
 
 ## Examples
 

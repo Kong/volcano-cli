@@ -208,9 +208,11 @@ func TestResetProceedsWithYes(t *testing.T) {
 	setBranchCommandTestHome(t)
 	saveBranchCommandTestConfig(t)
 
+	// A reset is accepted, not applied: the branch comes back provisioning and
+	// the rewind finishes in the background.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == branchPath+"/reset" {
-			writeBranchJSON(t, w, http.StatusOK, branchPayload("feature-x", "active"))
+			writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature-x", "provisioning"))
 			return
 		}
 		http.NotFound(w, r)
@@ -220,6 +222,7 @@ func TestResetProceedsWithYes(t *testing.T) {
 	out, err := executeBranchCommand(t, newTestCommand(server), "reset", "app", "feature-x", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Branch 'feature-x' reset to database 'app'")
+	assert.Contains(t, out, "does not serve connections until it reports active")
 }
 
 func TestRotatePasswordShowsNewConnectionStringOnRequest(t *testing.T) {

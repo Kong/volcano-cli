@@ -41,6 +41,13 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 		requireSuccess(t, "Branch '"+branch+"' now expires")
 	env.runCloudCLI(t, "databases", "branches", "reset", database, branch, "--yes").
 		requireSuccess(t, "Branch '"+branch+"' reset to database '"+database+"'")
+
+	// The reset only claims the branch: it returns with the branch already out of
+	// service in 'provisioning' and rewinds in the background. Rotating a password
+	// needs an active branch, so wait for the rewind to land before going on.
+	env.waitForCloudCLIContains(t, 15*time.Minute, "Status: active",
+		"databases", "branches", "get", database, branch)
+
 	env.runCloudCLI(t, "databases", "branches", "rotate-password", database, branch, "--yes").
 		requireSuccess(t, "Password rotated for branch '"+branch+"'")
 
