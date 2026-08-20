@@ -1,0 +1,451 @@
+// Package gitconnect binds the current project to a GitHub repository.
+//
+// The CLI never creates push credentials and never pushes: it resolves a local
+// remote to a repository the caller's GitHub connection can already see, and
+// asks the platform to bind it. Pushing stays the user's own `git push`.
+package gitconnect
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/google/uuid"
+
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/localgit"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
+)
+
+var (
+	// ErrNoGitHubConnection indicates the caller has no usable GitHub
+	// connection. The CLI cannot create one: the connect flow is a browser
+	// redirect bound to an HttpOnly cookie, so it has to happen in the
+	// dashboard.
+	ErrNoGitHubConnection = errors.New("no GitHub account is connected")
+	// ErrRepositoryNotAccessible indicates the repository is real as far as the
+	// local remote is concerned, but the Volcano GitHub App cannot see it
+	// through any of the caller's installations.
+	ErrRepositoryNotAccessible = errors.New("repository is not accessible through your GitHub connection")
+	// ErrProviderNotConfigured indicates the API has no GitHub App configured.
+	// Local mode is the usual cause: those settings are first-party only.
+	ErrProviderNotConfigured = errors.New("git provider integration is not configured on this API")
+	// ErrNotConnected indicates the project has no repository bound.
+	ErrNotConnected = errors.New("this project is not connected to a repository")
+	// ErrBindingChanged indicates the project's binding was not what the command
+	// read before it asked the user about it.
+	ErrBindingChanged = errors.New("the project's repository connection changed while this command was running")
+	// ErrProjectNotFound indicates the selected project does not exist. The
+	// binding read answers 404 for this and for a project with no repository
+	// connected, so the two are told apart before either is reported.
+	ErrProjectNotFound = errors.New("the selected project does not exist")
+)
+
+const githubProvider = "github"
+
+// Service performs project git-connection work for the current project.
+type Service struct {
+	sessions clisession.Factory
+	pinned   *pinnedProject
+}
+
+// pinnedProject resolves the project once per service. Every call would
+// otherwise re-read the configuration, so a command that reads a binding, asks
+// the user about it, and then writes could act on three different projects if
+// the configuration changed underneath it.
+type pinnedProject struct {
+	once    sync.Once
+	session *clisession.ProjectSession
+	err     error
+}
+
+// NewService returns a git connection service.
+func NewService(deps cliruntime.Deps) Service {
+	return Service{sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+// current returns the project session this service is pinned to.
+func (s Service) current() (*clisession.ProjectSession, error) {
+	s.pinned.once.Do(func() {
+		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+	})
+	return s.pinned.session, s.pinned.err
+}
+
+// Target is a resolved repository, and the connection and installation it was
+// reached through. It is everything the bind call needs.
+//
+// ConnectionLogin and InstallationAccount are carried for reporting only. The
+// connection decides whose stored GitHub token the platform reads the
+// repository with on every future deploy, and more than one connection can
+// reach the same repository, so which one was picked is not something to leave
+// unsaid.
+type Target struct {
+	ConnectionID        uuid.UUID
+	ConnectionLogin     string
+	InstallationID      int64
+	InstallationAccount string
+	Repository          apiclient.GitRepository
+}
+
+// ProjectRef identifies the project a command acts on. The repository comes
+// from the working directory and the project comes from the CLI's own
+// configuration, so the two are chosen independently and both have to be
+// reported.
+type ProjectRef struct {
+	ID uuid.UUID
+	// Name is empty when the configuration cannot name the selected project,
+	// which is what VOLCANO_PROJECT_ID pointing somewhere else looks like.
+	Name string
+}
+
+// Label renders the project for output: its name where one is known, and always
+// enough to identify it.
+func (p ProjectRef) Label() string {
+	if p.Name == "" {
+		return p.ID.String()
+	}
+	return fmt.Sprintf("%s (%s)", p.Name, p.ID)
+}
+
+// Project returns the project these commands act on.
+func (s Service) Project() (ProjectRef, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return ProjectRef{}, err
+	}
+
+	ref := ProjectRef{ID: authenticated.ProjectID}
+	// Only trust the stored name when it belongs to the selected project: an
+	// environment override changes the id without changing the name beside it.
+	if current := authenticated.Config.CurrentProject; current != nil && current.ID == ref.ID.String() {
+		ref.Name = current.Name
+	}
+	return ref, nil
+}
+
+// Status returns the project's current connection, or ErrNotConnected when it
+// has none. A project without a binding answers 404, which is an outcome here
+// rather than a failure.
+func (s Service) Status(ctx context.Context) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
+	if err != nil {
+		if api.Status(err) == http.StatusNotFound {
+			return nil, s.explainNotFound(ctx)
+		}
+		return nil, classify(err, "failed to get the project's repository connection")
+	}
+	return connection, nil
+}
+
+// explainNotFound resolves the one ambiguous status this API has: the binding
+// read answers 404 both for a project with no repository connected and for a
+// project that does not exist — a deleted one, or a VOLCANO_PROJECT_ID naming
+// nothing. Reporting the benign reading for both would tell a script that an
+// invalid selection is a valid unbound project.
+func (s Service) explainNotFound(ctx context.Context) error {
+	authenticated, err := s.current()
+	if err != nil {
+		return err
+	}
+
+	if _, err := authenticated.API.GetProject(ctx, authenticated.ProjectID); err != nil {
+		if api.Status(err) == http.StatusNotFound {
+			return fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID)
+		}
+		// The project could not be confirmed either way, which is not the same
+		// as knowing it has no binding, so the failure is reported as itself.
+		return classify(err, "failed to confirm the selected project exists")
+	}
+	return ErrNotConnected
+}
+
+// Resolve finds the repository named by a local remote among the repos the
+// caller's GitHub connection can reach, so the caller can confirm the binding
+// before it is made.
+func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*Target, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connections, err := authenticated.API.ListGitConnections(ctx)
+	if err != nil {
+		return nil, classifyProvider(err, "failed to list your GitHub connections")
+	}
+
+	usable := usableConnections(connections)
+	if len(usable) == 0 {
+		return nil, ErrNoGitHubConnection
+	}
+
+	// One unhealthy connection must not hide a repository another can see.
+	// Connection status is provider-defined free text, so a dead connection is
+	// not reliably filtered out beforehand — it shows up as a failing lookup
+	// here. Keep the first failure and report it only if nothing resolves.
+	var failure error
+	for _, connection := range usable {
+		target, err := s.resolveThroughConnection(ctx, authenticated.API, connection, repository)
+		switch {
+		case target != nil:
+			return target, nil
+		case err != nil && failure == nil:
+			failure = err
+		}
+	}
+	if failure != nil {
+		return nil, failure
+	}
+	return nil, fmt.Errorf("%w: %s", ErrRepositoryNotAccessible, repository.FullName())
+}
+
+// resolveThroughConnection looks for the repository among one connection's
+// installations. The installation whose account owns the repository is tried
+// first; a miss there falls through to the rest, because an installation
+// scoped to selected repositories can carry a repo its account does not own.
+// A nil target with a nil error means "not found here, keep looking".
+func (s Service) resolveThroughConnection(
+	ctx context.Context,
+	client *api.Client,
+	connection apiclient.GitConnection,
+	repository localgit.Repository,
+) (*Target, error) {
+	installations, err := client.ListGitInstallations(ctx, connection.Id)
+	if err != nil {
+		return nil, classifyProvider(err, "failed to list your GitHub App installations")
+	}
+
+	// One installation that cannot be listed must not hide a repository another
+	// one holds, for the same reason the connection loop keeps going: the
+	// owner's installation is tried first and is exactly the one most likely to
+	// be scoped away from the repository.
+	var failure error
+	for _, installation := range orderByOwner(installations, repository.Owner) {
+		repositories, err := client.ListGitInstallationRepositories(ctx, connection.Id, installation.Id)
+		if err != nil {
+			if failure == nil {
+				failure = classifyProvider(err, "failed to list repositories for "+installation.AccountLogin)
+			}
+			continue
+		}
+
+		for _, candidate := range repositories {
+			if strings.EqualFold(candidate.FullName, repository.FullName()) {
+				return &Target{
+					ConnectionID:        connection.Id,
+					ConnectionLogin:     connection.ProviderLogin,
+					InstallationID:      installation.Id,
+					InstallationAccount: installation.AccountLogin,
+					Repository:          candidate,
+				}, nil
+			}
+		}
+	}
+	return nil, failure
+}
+
+// Connect binds the current project to a resolved repository, provided its
+// binding is still expected — nil for a project that had none.
+//
+// The bind is a full replace and names no prior state, so it overwrites whatever
+// is bound when it arrives. Everything the caller decided rests on a read taken
+// before resolving the repository and before any prompt, so the window is wide:
+// three provider round-trips plus however long the user takes to answer. Within
+// it another actor can point the project somewhere the user was never shown.
+// Re-reading narrows that; the API has no conditional write to close it.
+func (s Service) Connect(
+	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
+) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
+		return nil, err
+	}
+
+	repositoryID := target.Repository.Id
+	body := apiclient.ConnectProjectGitJSONRequestBody{
+		ConnectionId:   target.ConnectionID,
+		InstallationId: target.InstallationID,
+		RepositoryId:   &repositoryID,
+	}
+	if trimmed := strings.TrimSpace(rootDirectory); trimmed != "" {
+		body.RootDirectory = &trimmed
+	}
+
+	connection, err := authenticated.API.ConnectProjectGit(ctx, authenticated.ProjectID, body)
+	if err != nil {
+		return nil, classifyProvider(err, "failed to connect "+target.Repository.FullName)
+	}
+	return connection, nil
+}
+
+// Disconnect removes the project's repository binding, provided it is still the
+// one in expected. The repository itself is untouched.
+//
+// The delete names no repository, so it removes whatever is bound when it
+// arrives. Re-reading first keeps the command from deleting a binding the user
+// was never shown — the window between reading a binding and confirming it is
+// as long as the user takes to answer. It narrows that window rather than
+// closing it; the API has no conditional delete to close it with.
+func (s Service) Disconnect(ctx context.Context, expected *apiclient.ProjectGitConnection) error {
+	authenticated, err := s.current()
+	if err != nil {
+		return err
+	}
+
+	if err := s.confirmUnchanged(ctx, expected); err != nil {
+		return err
+	}
+
+	if err := authenticated.API.DisconnectProjectGit(ctx, authenticated.ProjectID); err != nil {
+		if api.Status(err) == http.StatusNotFound {
+			return ErrNotConnected
+		}
+		return classify(err, "failed to disconnect the repository")
+	}
+	return nil
+}
+
+// confirmUnchanged rejects a write whose premise no longer holds: the binding
+// the caller read, showed, and asked about is not the one there now. Both writes
+// behind this are full replaces that name no prior state, so without it either
+// would silently discard a change made while the command was running.
+func (s Service) confirmUnchanged(ctx context.Context, expected *apiclient.ProjectGitConnection) error {
+	current, err := s.binding(ctx)
+	if err != nil {
+		return err
+	}
+	if sameBinding(current, expected) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrBindingChanged, describeBinding(current))
+}
+
+// binding reads the project's connection, reporting a project with none as a nil
+// connection rather than an error, so absence can be compared like any value.
+func (s Service) binding(ctx context.Context) (*apiclient.ProjectGitConnection, error) {
+	connection, err := s.Status(ctx)
+	if errors.Is(err, ErrNotConnected) {
+		return nil, nil //nolint:nilnil // no binding is a value here, not a failure
+	}
+	return connection, err
+}
+
+// sameBinding reports whether two reads describe the same binding. Absence
+// counts: a project that gained or lost one in between changed.
+//
+// UpdatedAt carries the comparison, not the repository fields. The platform
+// bumps it only when the row really changes (migration 033 guards the trigger
+// on NEW IS DISTINCT FROM OLD), so it catches every mutation — including the
+// mutable parts of a binding that stays on the same repository, like a root
+// directory another actor just edited, and including fields this CLI does not
+// model. Comparing the fields we happen to read would be incomplete by
+// construction. It is broader than the binding alone, so an unrelated change to
+// the project can abort a command; that fails closed, and a re-run is cheaper
+// than silently reverting someone else's edit.
+func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.UpdatedAt.Equal(b.UpdatedAt) &&
+		a.RepoId == b.RepoId && strings.EqualFold(a.RepoFullName, b.RepoFullName)
+}
+
+func describeBinding(connection *apiclient.ProjectGitConnection) string {
+	if connection == nil {
+		return "it now has no repository connected"
+	}
+	return "it now points at " + connection.RepoFullName
+}
+
+// DeploySettings returns what a push to the production branch deploys. It is
+// reported alongside a successful connect so the user learns straight away
+// whether a push does anything.
+func (s Service) DeploySettings(ctx context.Context) (*apiclient.ProjectGitDeploySettings, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	settings, err := authenticated.API.GetProjectGitDeploySettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, classify(err, "failed to read the project's deploy settings")
+	}
+	return settings, nil
+}
+
+// WebURL returns the dashboard URL for the configured API, so callers can point
+// at the page that owns a flow the CLI cannot run itself.
+func (s Service) WebURL() (string, error) {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return "", err
+	}
+	// Resolve the web URL from the API URL the session will actually use, so a
+	// runtime override does not produce a link to a different environment.
+	webURL := cfg.WebURLForAPIURL(s.sessions.APIURL(cfg))
+	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
+}
+
+// usableConnections keeps the GitHub connections that are not flagged as
+// needing reconnection. Status is provider-defined text, so anything other than
+// an explicit bad state is treated as usable rather than guessed at.
+func usableConnections(connections []apiclient.GitConnection) []apiclient.GitConnection {
+	usable := make([]apiclient.GitConnection, 0, len(connections))
+	for _, connection := range connections {
+		if !strings.EqualFold(connection.Provider, githubProvider) {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(connection.Status), "revoked") {
+			continue
+		}
+		usable = append(usable, connection)
+	}
+	return usable
+}
+
+// orderByOwner puts the installation for owner first, leaving the rest in their
+// original order behind it.
+func orderByOwner(installations []apiclient.GitInstallation, owner string) []apiclient.GitInstallation {
+	ordered := make([]apiclient.GitInstallation, 0, len(installations))
+	for _, installation := range installations {
+		if strings.EqualFold(installation.AccountLogin, owner) {
+			ordered = append(ordered, installation)
+		}
+	}
+	for _, installation := range installations {
+		if !strings.EqualFold(installation.AccountLogin, owner) {
+			ordered = append(ordered, installation)
+		}
+	}
+	return ordered
+}
+
+// classifyProvider turns a 503 into ErrProviderNotConfigured so the command
+// layer can explain it once. Only the routes whose contract defines a 503 use
+// this: on a route that does not, a 503 came from something in front of the
+// API and saying "no GitHub App configured" would be a guess.
+func classifyProvider(err error, action string) error {
+	if api.Status(err) == http.StatusServiceUnavailable {
+		return ErrProviderNotConfigured
+	}
+	return classify(err, action)
+}
+
+// classify annotates an error with what was being done when it happened.
+func classify(err error, action string) error {
+	return fmt.Errorf("%s: %w", action, err)
+}

@@ -26,6 +26,7 @@ account (auth)
     ├── storage ............... buckets → objects, policies    → storage.md
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
+    ├── git connection ........ push-to-deploy from GitHub     → git.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 
@@ -34,6 +35,8 @@ Cross-cutting concerns:
 - **Authentication** gates all cloud access — see [authentication.md](authentication.md).
 - **Declarative configuration** applies settings across every element from one
   manifest — see [project-configuration.md](project-configuration.md).
+- **Git connection** lets a push deploy the project without a CLI invocation —
+  see [git.md](git.md).
 
 ## Local vs. cloud target
 
