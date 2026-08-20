@@ -1141,6 +1141,28 @@ func TestConnectStillRefusesAnUnusablePushRouteWithoutRemote(t *testing.T) {
 	assert.Nil(t, api.sentConnectBody())
 }
 
+// The note about a diverging remote prints on SUCCESS, where nothing prompts
+// anyone to look twice at the output and the exit code is 0 — so a credential
+// reaching it goes straight into the build log. A transport-helper fetch URL is
+// the shape that got through: it is a command line, and this one ends in a URL.
+func TestConnectDoesNotEchoATransportHelperRemoteOnSuccess(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	const canary = "s3cr3t-canary-token"
+	runner := &gitRunner{stdout: "" +
+		"origin\text::ssh -o Password=" + canary +
+		" %S ssh://git@github.com/octo/storefront.git (fetch)\n" +
+		"origin\thttps://github.com/octo/storefront.git (push)\n"}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Connected octo/storefront")
+	// The note has to have fired, or this would pass by not printing at all.
+	assert.Contains(t, out, "the push target is what deploys")
+	assert.NotContains(t, out, canary)
+}
+
 // git rewrites a push destination before using it, so the repository bound has
 // to come from the rewritten URL. Both URLs here are valid GitHub URLs, so
 // binding the configured one would bind a repository the push never reaches

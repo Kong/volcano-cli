@@ -612,11 +612,20 @@ const Placeholder = "[redacted: unrecognized remote URL]"
 // than verbatim. git accepts remotes whose "URL" is a command line
 // ("ext::ssh -o Password=… %S repo.git"), a local path, or — when an argument
 // was mistyped — a bare token, and none of those can be safely echoed.
+//
+// The scheme is checked against the transports git names, not taken as whatever
+// precedes the first "://". A transport helper's command line frequently ends in
+// a URL — git's own documented example is "ext::ssh -o Password=… %S
+// ssh://…" — and splitting on the first "://" makes the whole command line up to
+// that point the "scheme", which was then echoed with the password in it.
 func Redact(rawURL string) string {
 	rawURL = strings.TrimSpace(rawURL)
 	scheme, rest, found := strings.Cut(rawURL, "://")
 	if !found {
 		return redactScpLike(rawURL)
+	}
+	if !isTransportScheme(scheme) {
+		return Placeholder
 	}
 
 	authority, remainder, hasPath := strings.Cut(rest, "/")
@@ -695,13 +704,24 @@ func looksLikeHost(s string) bool {
 	return true
 }
 
+// isTransportScheme reports whether scheme is one of the transports git names
+// for a "://" URL. Anything else — most importantly a transport helper, whose
+// "URL" is a command line — is not a URL this package can take apart, and its
+// contents cannot be echoed.
+func isTransportScheme(scheme string) bool {
+	switch asciiLower(scheme) {
+	case "ssh", "git", "http", "https":
+		return true
+	default:
+		return false
+	}
+}
+
 // splitRemoteURL separates a remote URL's host from its path without going
 // through net/url, which does not understand the scp-like SSH form.
 func splitRemoteURL(rawURL string) (host, path string, ok bool) {
 	if scheme, rest, found := strings.Cut(rawURL, "://"); found {
-		switch asciiLower(scheme) {
-		case "ssh", "git", "http", "https":
-		default:
+		if !isTransportScheme(scheme) {
 			return "", "", false
 		}
 		authority, remainder, _ := strings.Cut(rest, "/")

@@ -524,6 +524,34 @@ func TestParseGitHubRepositoryRejectsNamesGitHubWouldNotAccept(t *testing.T) {
 // echoed: the transport-helper form is a command line that can carry a
 // password, a local path names directories, and a mistyped argument is often a
 // bare token. The value is replaced rather than trusted.
+// A transport helper's "URL" is a command line, and it frequently ends in a URL
+// of its own — git's documented example is "ext::ssh … %S ssh://…". Splitting on
+// the first "://" made the entire command line up to that point the "scheme" and
+// echoed it verbatim, password and all. That is the one shape Redact's contract
+// singles out as unechoable, and the fixtures above missed it only because none
+// of them contains "://".
+func TestRedactRefusesATransportHelperEndingInAURL(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	for name, rawURL := range map[string]string{
+		"git's own documented ext:: form": "ext::ssh -o Password=" + canary +
+			" %S ssh://git@github.com/octo/repo.git",
+		"a credential-passing wrapper": "ext::/usr/bin/authwrap --token " + canary +
+			" https://github.com/octo/repo.git",
+		"an injected auth header": `ext::git-remote-https --header "Authorization: Bearer ` +
+			canary + `" https://github.com/octo/repo.git`,
+		"a helper wrapping a real URL":   "gcrypt::https://user:" + canary + "@github.com/o/r.git",
+		"a token where a scheme belongs": canary + "://github.com/octo/repo.git",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			redacted := Redact(rawURL)
+			assert.NotContains(t, redacted, canary)
+			assert.Equal(t, Placeholder, redacted)
+		})
+	}
+}
+
 func TestRedactRefusesToEchoUnrecognizedForms(t *testing.T) {
 	t.Parallel()
 	for name, raw := range map[string]string{
