@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -287,8 +288,8 @@ func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 	return "", "", remoteNone, false
 }
 
-// SelectRemote picks the remote to connect. A named remote must exist. With no
-// name, the remote git would push to wins, then a lone remote, then "origin";
+// SelectRemote picks the push destination to connect. A named remote must exist.
+// With no name, where git would push wins, then a lone remote, then "origin";
 // anything else is ambiguous and the caller has to choose.
 //
 // push comes from Client.PushRemote and is what makes this agree with git rather
@@ -296,22 +297,19 @@ func parseRemoteLine(line string) (name, url string, kind remoteKind, ok bool) {
 // — and so the one a deployment comes from — is routinely not origin.
 func SelectRemote(remotes []Remote, name string, push PushRemote) (Remote, error) {
 	if name = strings.TrimSpace(name); name != "" {
+		// --remote names a remote; the argument takes a URL. A script passing
+		// $CI_REPOSITORY_URL here hits this, and that value carries a job
+		// token, so it is not echoed once it looks like a URL.
+		if looksLikeURL(name) {
+			return Remote{}, fmt.Errorf(
+				"--remote takes the name of a Git remote, not a URL (%s); "+
+					"pass the repository URL as the argument instead", Redact(name))
+		}
 		return namedRemote(remotes, name)
 	}
 
 	if push.Name != "" {
-		remote, err := namedRemote(remotes, push.Name)
-		if err == nil {
-			return remote, nil
-		}
-		// Falling back to origin here would bind a repository this checkout
-		// never pushes to, which is the whole failure this routing exists to
-		// avoid. git refuses the same configuration outright — a push reports
-		// "does not appear to be a git repository" — so this does too.
-		return Remote{}, fmt.Errorf(
-			"%s names %q, which is not a remote in this repository, so a push would fail; "+
-				"fix that setting, name a remote with --remote, or pass the repository URL",
-			push.Source, push.Name)
+		return pushDestination(remotes, push)
 	}
 
 	if len(remotes) == 1 {
@@ -330,6 +328,73 @@ func SelectRemote(remotes []Remote, name string, push PushRemote) (Remote, error
 	return Remote{}, fmt.Errorf(
 		"this repository has %d remotes (%s) and none is named %q; pass the repository URL, or name one with --remote",
 		len(remotes), strings.Join(names, ", "), DefaultRemoteName)
+}
+
+// pushDestination resolves what git's push configuration points at.
+//
+// git looks the value up as a remote name and, finding none, uses it as a URL:
+// git-push(1) documents its repository as "either a URL or the name of a
+// remote", and remote.pushDefault, branch.<name>.pushRemote and
+// branch.<name>.remote all feed it. A URL there is a working push route, so
+// refusing it would refuse a checkout that deploys perfectly well.
+//
+// What must not happen is falling back to origin, which binds a repository this
+// checkout never pushes to — the whole failure this routing exists to avoid.
+func pushDestination(remotes []Remote, push PushRemote) (Remote, error) {
+	if remote, err := namedRemote(remotes, push.Name); err == nil {
+		return remote, nil
+	}
+
+	_, err := ParseGitHubRepository(push.Name)
+	switch {
+	case err == nil:
+		return directPush(push.Name), nil
+	case errors.Is(err, ErrNotGitHub):
+		// The push route works; it just does not lead anywhere Volcano can
+		// deploy from. Saying "fix that setting" would be wrong advice.
+		return Remote{}, fmt.Errorf(
+			"%s sends this branch's pushes to %s, which is not a github.com repository; "+
+				"pass a GitHub repository URL, or name a remote with --remote",
+			push.Source, Redact(push.Name))
+	default:
+		return Remote{}, fmt.Errorf(
+			"%s names %s, which is neither a remote in this repository nor a repository URL, "+
+				"so there is nothing to connect; fix that setting, name a remote with --remote, "+
+				"or pass the repository URL",
+			push.Source, describeConfigValue(push.Name))
+	}
+}
+
+// directPush is the destination for a push configuration holding a URL rather
+// than a remote name. It has no name because no remote in this repository
+// describes it, and both URLs are the same one: there is no fetch side to
+// diverge from.
+func directPush(url string) Remote {
+	return Remote{FetchURL: url, PushURLs: []string{url}}
+}
+
+// Named reports whether this destination is one of the repository's configured
+// remotes. An unnamed one came from a URL in git's push configuration, and has
+// to be described by its redacted URL rather than by a remote name that does
+// not exist.
+func (r Remote) Named() bool { return r.Name != "" }
+
+// looksLikeURL reports whether a value given where a remote name belongs is
+// really a URL. A colon is the test: git refuses it in a remote name ("fatal:
+// 'we:ird' is not a valid remote name"), and every Git URL form has one — after
+// the scheme, or between host and path in the scp-like form. "@" is not a test,
+// however tempting: "we@ird" is a name git accepts.
+func looksLikeURL(value string) bool { return strings.Contains(value, ":") }
+
+// describeConfigValue renders a push configuration value for a message. A remote
+// name is quoted as it stands — the user chose that label, and naming it is what
+// makes the error actionable. Anything URL-shaped goes through Redact instead,
+// since git accepts a URL in these keys and a CI rewrite puts a job token in one.
+func describeConfigValue(value string) string {
+	if looksLikeURL(value) {
+		return Redact(value)
+	}
+	return strconv.Quote(value)
 }
 
 func namedRemote(remotes []Remote, name string) (Remote, error) {

@@ -42,9 +42,11 @@ func newConnect(deps cliruntime.Deps) *cobra.Command {
 		Short: "Connect the current project to a GitHub repository",
 		Long: `Connect the current project to a GitHub repository.
 
-With no argument, the repository is read from this directory's Git remotes:
-the only remote, or "origin" when there are several. Pass a repository URL to
-name one explicitly, or use --remote to pick a remote by name.
+With no argument, the repository is read from this directory's Git config:
+wherever "git push" sends this branch, then the only remote, then "origin".
+In a fork or triangular checkout that is not origin, and the CLI says which
+setting decided it. Pass a repository URL to name one explicitly, or use
+--remote to pick a remote by name.
 
 Connecting only binds the project. Nothing is created on GitHub, nothing is
 pushed, and no token is written to your Git config. To start deploying, push to
@@ -85,7 +87,8 @@ the repository's default branch yourself.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&remote, "remote", "", "Git remote to read the repository from (default: the only remote, or \"origin\")")
+	cmd.Flags().StringVar(&remote, "remote", "",
+		"Git remote to read the repository from (default: where git pushes this branch, else the only remote or \"origin\")")
 	cmd.Flags().StringVar(&rootDirectory, "root-directory", "", "Subdirectory the project builds from (default: the repository root)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompts")
 	return cmd
@@ -105,11 +108,20 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	if err != nil {
 		return err
 	}
-	if selected != nil && selected.pushConfigured {
+	if selected != nil && selected.source != "" {
 		// The pick did not come from the usual convention, so say what decided
 		// it. Binding a repository the user never pushes to is the failure this
 		// prevents, and silence would make it look like the convention held.
-		output.Note(opts.out, "Using remote %q: that is where git pushes this branch.", selected.remote.Name)
+		if selected.remote.Named() {
+			output.Note(opts.out, "Using remote %q: %s sends this branch's pushes there.",
+				selected.remote.Name, selected.source)
+		} else {
+			// No remote to name — the configuration holds the URL itself, which
+			// is a shape git allows and nothing in `git remote -v` shows.
+			pushURL, _ := selected.remote.PushTarget()
+			output.Note(opts.out, "Using %s: it sends this branch's pushes to %s.",
+				selected.source, localgit.Redact(pushURL))
+		}
 	}
 	if selected != nil && selected.remote.Diverges() {
 		// The push URL is the one bound, because a push is what deploys. Say so:
@@ -229,11 +241,11 @@ func validateRootDirectory(opts connectOptions) error {
 	return nil
 }
 
-// selectedRemote is the remote a repository was read from, and whether git's
-// push configuration rather than the "origin" convention chose it.
+// selectedRemote is the destination a repository was read from, and the git
+// config key that chose it — empty when the "origin" convention did.
 type selectedRemote struct {
-	remote         localgit.Remote
-	pushConfigured bool
+	remote localgit.Remote
+	source string
 }
 
 // resolveRepository determines which repository to connect: the one the user
@@ -271,16 +283,20 @@ func resolveRepository(
 		return localgit.Repository{}, nil, err
 	}
 
+	// An unnamed destination came from a URL SelectRemote already parsed, so
+	// only a named remote's URL can fail here.
 	repository, err = localgit.ParseGitHubRepository(pushURL)
 	if err != nil {
 		return localgit.Repository{}, nil, fmt.Errorf("remote %q: %w", remote.Name, err)
 	}
-	return repository, &selectedRemote{
-		remote: remote,
-		// Only worth mentioning when it changed the answer: a pushDefault of
-		// origin picks what the convention would have picked anyway.
-		pushConfigured: opts.remote == "" && push.Name == remote.Name && push.Name != localgit.DefaultRemoteName,
-	}, nil
+
+	// The source is only worth reporting when it changed the answer: a
+	// pushDefault of origin picks what the convention would have picked anyway.
+	source := ""
+	if opts.remote == "" && push.Name != "" && push.Name != localgit.DefaultRemoteName {
+		source = push.Source
+	}
+	return repository, &selectedRemote{remote: remote, source: source}, nil
 }
 
 // currentConnection reads the project's binding, mapping "no binding" to a nil

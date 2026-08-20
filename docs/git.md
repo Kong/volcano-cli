@@ -48,19 +48,27 @@ one rather than as an unbound project.
 
 ## Connecting
 
-With no argument the repository is read from this directory's Git remotes. The
+With no argument the repository is read from this directory's Git config. The
 one git would push to wins — `git push` follows `branch.<name>.pushRemote`, then
 `remote.pushDefault`, then `branch.<name>.remote` — because a push is what
 deploys, so in a fork or triangular checkout the repository bound is the one you
 push to rather than the one you fetch from. Failing all of that: the only
-remote, or `origin` when there are several. The CLI says which remote it used
-whenever the configuration, not the convention, decided it — and if that
-configuration names a remote the repository does not have, it says so rather
-than falling back, because `git push` would fail there too. A remote with a separate
-`pushurl` names two repositories, and the push target is the one bound, since a
-push is what deploys; the CLI says so when the two differ. A remote configured
-with *several* push URLs has no single repository to connect — a push reaches
-all of them — so it is refused, and you name the repository yourself:
+remote, or `origin` when there are several. The CLI says what it used whenever
+the configuration, not the convention, decided it.
+
+Those three keys hold either a remote name or a repository URL — `git push`
+accepts both — so a URL is followed to the repository it names, even though no
+remote in the checkout describes it. A value that is neither, such as a typo for
+a remote name, is refused rather than quietly falling back to `origin`: falling
+back would bind a repository this checkout never pushes to. Credentials are
+never echoed back, since a CI rewrite routinely leaves a job token in one of
+these values.
+
+A remote with a separate `pushurl` names two repositories, and the push target is
+the one bound, since a push is what deploys; the CLI says so when the two differ.
+A remote configured with *several* push URLs has no single repository to connect
+— a push reaches all of them — so it is refused, and you name the repository
+yourself:
 
 ```bash
 volcano git connect

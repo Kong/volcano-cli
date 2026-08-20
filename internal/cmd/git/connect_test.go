@@ -903,6 +903,20 @@ func TestConnectAcceptsAnExplicitURLDespiteSeveralPushURLs(t *testing.T) {
 	assert.Empty(t, runner.ran(), "an explicit URL does not need the remotes")
 }
 
+// The help promised "the only remote, or origin" for a release in which the
+// default was already where git pushes — so in a fork checkout the command's own
+// help named a different repository from the one it bound. Anyone changing the
+// default again has to come through here.
+func TestConnectHelpDescribesThePushRoutingDefault(t *testing.T) {
+	setGitCommandTestHome(t)
+	out, err := executeGitCommand(t, newGitAPI(t).serve(), nil, "", "connect", "--help")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, `wherever "git push" sends this branch`)
+	// And the flag's own default, which repeated the stale claim on its own line.
+	assert.Contains(t, out, "where git pushes this branch")
+}
+
 // git routes a bare push through remote.pushDefault, so in a fork checkout the
 // repository that receives pushes — and so the one a deployment comes from —
 // is routinely not origin. Binding origin regardless connects a repository the
@@ -923,7 +937,7 @@ func TestConnectBindsWhereGitPushesNotOrigin(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Connected octo/storefront")
-	assert.Contains(t, out, `Using remote "fork": that is where git pushes this branch.`)
+	assert.Contains(t, out, `Using remote "fork": remote.pushDefault sends this branch's pushes there.`)
 }
 
 // Saying so matters only when it changed the answer.
@@ -1020,9 +1034,8 @@ func TestConnectGuidesAReconnectOnAnExpiredConnection(t *testing.T) {
 	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
 }
 
-// A push remote naming nothing is a configuration git itself refuses — a push
-// reports "does not appear to be a git repository" — so falling back to origin
-// would bind a repository this checkout cannot push to at all.
+// A push remote naming neither a remote nor a URL leaves nothing to connect, and
+// falling back to origin would bind a repository this checkout does not push to.
 func TestConnectRefusesAPushRemoteThatDoesNotExist(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
@@ -1035,7 +1048,79 @@ func TestConnectRefusesAPushRemoteThatDoesNotExist(t *testing.T) {
 	require.Error(t, err)
 
 	assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
-	assert.Contains(t, err.Error(), "a push would fail")
+	assert.Contains(t, err.Error(), "neither a remote in this repository nor a repository URL")
+	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
+}
+
+// git-push(1) takes "either a URL or the name of a remote", so a URL in the
+// routing config is a working push route rather than a broken remote name — a
+// bare `git push` really sends there. Binding origin instead would bind a
+// repository this checkout does not push to.
+func TestConnectFollowsAURLInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: "" +
+			"origin\tgit@github.com:acme/upstream.git (fetch)\n" +
+			"origin\tgit@github.com:acme/upstream.git (push)\n",
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	// origin points at acme/upstream, which the App cannot see, so a fallback
+	// to origin fails outright rather than binding the wrong repository quietly.
+	assert.Contains(t, out, "Connected octo/storefront")
+	// No remote in this repository describes it, so the URL is what gets named.
+	assert.Contains(t, out,
+		"Using remote.pushDefault: it sends this branch's pushes to https://github.com/octo/storefront.git.")
+	body := api.sentConnectBody()
+	require.NotNil(t, body)
+	assert.InDelta(t, float64(gitRepositoryID), body["repository_id"], 0)
+}
+
+// The same route with a credential in it. CI rewrites leave a job token in these
+// values, and the note prints on success — where nothing is going wrong to make
+// anyone look twice at the output.
+func TestConnectRedactsACredentialInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://x-access-token:CANARYSECRET@github.com/octo/storefront.git",
+		},
+	}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+
+	assert.NotContains(t, out, "CANARYSECRET")
+	assert.Contains(t, out, "***@github.com/octo/storefront.git")
+	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// A push there succeeds; it just lands where Volcano cannot deploy from. The URL
+// is still redacted, and the key is still named.
+func TestConnectRefusesANonGitHubURLInThePushConfiguration(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{
+		stdout: originRemoteOutput,
+		outputs: map[string]string{
+			"git config --get remote.pushDefault": "https://gitlab-ci-token:CANARYSECRET@gitlab.com/octo/storefront.git",
+		},
+	}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+
+	assert.NotContains(t, err.Error(), "CANARYSECRET")
+	assert.Contains(t, err.Error(), "remote.pushDefault")
+	assert.Contains(t, err.Error(), "not a github.com repository")
 	assert.Nil(t, api.sentConnectBody(), "origin must not be bound instead")
 }
 

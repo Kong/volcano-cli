@@ -659,16 +659,17 @@ func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
 	})
 
 	// Falling back to origin would bind a repository this checkout never pushes
-	// to, which is the failure the routing exists to avoid. git refuses the same
-	// configuration outright.
+	// to, which is the failure the routing exists to avoid.
 	t.Run("a push remote naming nothing is refused", func(t *testing.T) {
 		t.Parallel()
 		_, err := SelectRemote([]Remote{origin, fork}, "",
 			PushRemote{Name: "missing", Source: "remote.pushDefault"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `remote.pushDefault names "missing"`)
-		assert.Contains(t, err.Error(), "a push would fail")
+		assert.Contains(t, err.Error(), "neither a remote in this repository nor a repository URL")
 		assert.Contains(t, err.Error(), "--remote")
+		// The refusal must not be reachable by silently picking origin instead.
+		assert.NotContains(t, err.Error(), "acme/upstream")
 	})
 
 	t.Run("the ambiguity error names the remotes", func(t *testing.T) {
@@ -677,6 +678,113 @@ func TestSelectRemotePrefersWhereGitPushes(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "fork, other")
 	})
+}
+
+// git-push(1) takes "either a URL or the name of a remote", and all three
+// routing keys feed it, so a URL in one of them is a working push route — a
+// bare `git push` really does send there. Refusing it would refuse a checkout
+// that deploys perfectly well, and falling back to origin would bind the wrong
+// repository. Verified against git: with remote.pushDefault set to a URL and
+// origin pointing elsewhere, `git push` updates the URL's repository.
+func TestSelectRemoteFollowsAURLInThePushConfiguration(t *testing.T) {
+	t.Parallel()
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/upstream.git"}}
+
+	for name, key := range map[string]string{
+		"pushRemote":  "branch.main.pushRemote",
+		"pushDefault": "remote.pushDefault",
+		"remote":      "branch.main.remote",
+	} {
+		t.Run("a URL in "+name+" is followed", func(t *testing.T) {
+			t.Parallel()
+			selected, err := SelectRemote([]Remote{origin}, "",
+				PushRemote{Name: "https://github.com/me/storefront.git", Source: key})
+			require.NoError(t, err)
+			// No remote in this repository describes it, so it has no name.
+			assert.False(t, selected.Named())
+			assert.Empty(t, selected.Name)
+
+			pushURL, err := selected.PushTarget()
+			require.NoError(t, err)
+			repository, err := ParseGitHubRepository(pushURL)
+			require.NoError(t, err)
+			assert.Equal(t, "me/storefront", repository.FullName())
+			// Both sides are the same URL, so there is no divergence to report.
+			assert.False(t, selected.Diverges())
+		})
+	}
+
+	t.Run("an scp-like URL is followed too", func(t *testing.T) {
+		t.Parallel()
+		selected, err := SelectRemote([]Remote{origin}, "",
+			PushRemote{Name: "git@github.com:me/storefront.git", Source: "remote.pushDefault"})
+		require.NoError(t, err)
+		pushURL, err := selected.PushTarget()
+		require.NoError(t, err)
+		repository, err := ParseGitHubRepository(pushURL)
+		require.NoError(t, err)
+		assert.Equal(t, "me/storefront", repository.FullName())
+	})
+
+	// A push there succeeds; it just lands somewhere Volcano cannot deploy from.
+	// Telling the user to fix the setting would be wrong advice.
+	t.Run("a URL hosted elsewhere is refused as not GitHub", func(t *testing.T) {
+		t.Parallel()
+		_, err := SelectRemote([]Remote{origin}, "",
+			PushRemote{Name: "https://gitlab.com/me/storefront.git", Source: "remote.pushDefault"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not a github.com repository")
+		assert.Contains(t, err.Error(), "remote.pushDefault")
+		assert.NotContains(t, err.Error(), "fix that setting")
+	})
+}
+
+// The routing keys are read out of the repository's config, and CI rewrites put
+// a job token in one as a matter of course — GitLab's own recipe is
+// "https://gitlab-ci-token:<token>@…". An error naming the value verbatim would
+// print that token into the build log.
+func TestPushConfigurationValuesAreNeverEchoedWithCredentials(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+
+	for name, value := range map[string]string{
+		"a GitLab CI token":           "https://gitlab-ci-token:" + canary + "@gitlab.com/me/app.git",
+		"a PAT as the whole userinfo": "https://" + canary + "@github.enterprise.test/me/app.git",
+		"an scp-like credential":      canary + "@gitlab.com:me/app.git",
+		"a transport helper":          "ext::ssh -o Password=" + canary + " %S repo.git",
+		"a credential with a slash":   "https://user:" + canary + "/x@gitlab.com/me/app.git",
+	} {
+		t.Run(name+" is not echoed", func(t *testing.T) {
+			t.Parallel()
+			_, err := SelectRemote(
+				[]Remote{{Name: "origin", PushURLs: []string{"git@github.com:acme/app.git"}}}, "",
+				PushRemote{Name: value, Source: "remote.pushDefault"})
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), canary)
+			// The key the user has to look at is still named.
+			assert.Contains(t, err.Error(), "remote.pushDefault")
+		})
+	}
+}
+
+// --remote takes a name, and the argument takes a URL. A script reaching for
+// $CI_REPOSITORY_URL gets the flag wrong, and that value carries a job token.
+func TestSelectRemoteRefusesAURLGivenAsARemoteName(t *testing.T) {
+	t.Parallel()
+	const canary = "s3cr3t-canary-token"
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:acme/app.git"}}
+
+	_, err := SelectRemote([]Remote{origin}, "https://gitlab-ci-token:"+canary+"@gitlab.com/me/app.git",
+		PushRemote{})
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), canary)
+	assert.Contains(t, err.Error(), "--remote takes the name of a Git remote, not a URL")
+
+	// "@" is not the test: git accepts "we@ird" as a remote name, so a value
+	// with no colon is looked up as the name it is.
+	_, err = SelectRemote([]Remote{origin}, "we@ird", PushRemote{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `no remote named "we@ird"`)
 }
 
 // Fetching over https and pushing over ssh is an ordinary setup and names one
