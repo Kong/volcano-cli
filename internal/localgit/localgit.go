@@ -38,20 +38,42 @@ const DefaultRemoteName = "origin"
 // Remote is one configured Git remote.
 type Remote struct {
 	Name string
-	// URL is the remote's push URL. That is deliberately the one reported: a
-	// push is what triggers a deployment, so binding anything else would leave
-	// `git push` sending commits to a repository the project is not connected
-	// to. git prints the fetch URL as the push URL unless a pushurl is set.
-	URL string
-	// FetchURL is where the remote fetches from. It differs from URL only when
-	// the remote has a separate pushurl configured, which is worth reporting
-	// because the two then name different repositories.
+	// FetchURL is where the remote fetches from.
 	FetchURL string
+	// PushURLs is every destination a push to this remote reaches. git accepts
+	// several `remote.<name>.pushurl` entries and a single push updates all of
+	// them, so a remote with more than one names no single repository to bind.
+	// git prints the fetch URL as the sole push URL unless a pushurl is set.
+	PushURLs []string
 }
 
-// Diverges reports whether this remote fetches from and pushes to different
-// places.
-func (r Remote) Diverges() bool { return r.FetchURL != "" && r.FetchURL != r.URL }
+// PushTarget returns the one repository a push to this remote reaches. A push is
+// what triggers a deployment, so this — not the fetch URL — is what a binding
+// has to name; a remote that reaches several has no answer, and choosing one
+// would bind a repository while pushes kept updating the others.
+func (r Remote) PushTarget() (string, error) {
+	switch len(r.PushURLs) {
+	case 1:
+		return r.PushURLs[0], nil
+	case 0:
+		return "", fmt.Errorf("remote %q has nothing to push to", r.Name)
+	default:
+		redacted := make([]string, 0, len(r.PushURLs))
+		for _, url := range r.PushURLs {
+			redacted = append(redacted, Redact(url))
+		}
+		return "", fmt.Errorf(
+			"remote %q pushes to %d repositories (%s), so there is no single one to connect; "+
+				"pass the repository URL to choose",
+			r.Name, len(r.PushURLs), strings.Join(redacted, ", "))
+	}
+}
+
+// Diverges reports whether this remote fetches from somewhere other than the
+// single place it pushes to.
+func (r Remote) Diverges() bool {
+	return len(r.PushURLs) == 1 && r.FetchURL != "" && r.FetchURL != r.PushURLs[0]
+}
 
 // Repository is a GitHub repository identified by a remote URL.
 type Repository struct {
@@ -102,7 +124,10 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 			position = index[name]
 		}
 		if kind == remotePush {
-			remotes[position].URL = url
+			// Appended, not assigned: several pushurl entries produce several
+			// push lines, and keeping only the last would silently bind one
+			// repository while pushes went to all of them.
+			remotes[position].PushURLs = append(remotes[position].PushURLs, url)
 		} else {
 			remotes[position].FetchURL = url
 		}
@@ -112,7 +137,7 @@ func (c Client) Remotes(ctx context.Context) ([]Remote, error) {
 	// cannot be the target of a deployment.
 	usable := make([]Remote, 0, len(remotes))
 	for _, remote := range remotes {
-		if remote.URL != "" {
+		if len(remote.PushURLs) > 0 {
 			usable = append(usable, remote)
 		}
 	}

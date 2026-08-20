@@ -51,7 +51,9 @@ one rather than as an unbound project.
 With no argument the repository is read from this directory's Git remotes — the
 only remote, or `origin` when there are several. A remote with a separate
 `pushurl` names two repositories, and the push target is the one bound, since a
-push is what deploys; the CLI says so when the two differ:
+push is what deploys; the CLI says so when the two differ. A remote configured
+with *several* push URLs has no single repository to connect — a push reaches
+all of them — so it is refused, and you name the repository yourself:
 
 ```bash
 volcano git connect

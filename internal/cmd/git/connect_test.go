@@ -840,3 +840,39 @@ func TestConnectReportsAMissingProject(t *testing.T) {
 	assert.Contains(t, err.Error(), "the selected project does not exist")
 	assert.Nil(t, api.sentConnectBody())
 }
+
+// A push to a remote with several pushurl entries reaches all of them, so
+// binding any one would leave the others deploying nowhere while the CLI
+// claimed a single push target.
+func TestConnectRefusesARemoteWithSeveralPushURLs(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\thttps://github.com/octo/storefront.git (fetch)\n" +
+		"origin\tgit@github.com:octo/mirror-one.git (push)\n" +
+		"origin\tgit@github.com:octo/mirror-two.git (push)\n"}
+
+	_, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "pushes to 2 repositories")
+	assert.Contains(t, err.Error(), "pass the repository URL to choose")
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// Naming the repository explicitly is the way through, and it does not consult
+// the remotes at all.
+func TestConnectAcceptsAnExplicitURLDespiteSeveralPushURLs(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: "" +
+		"origin\thttps://github.com/octo/storefront.git (fetch)\n" +
+		"origin\tgit@github.com:octo/mirror-one.git (push)\n" +
+		"origin\tgit@github.com:octo/mirror-two.git (push)\n"}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "",
+		"connect", "git@github.com:octo/storefront.git", "--yes")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.Empty(t, runner.ran(), "an explicit URL does not need the remotes")
+}

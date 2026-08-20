@@ -102,13 +102,13 @@ func TestRemotesReadsEveryRemoteInOrder(t *testing.T) {
 	require.Len(t, remotes, 2)
 	assert.Equal(t, Remote{
 		Name:     "origin",
-		URL:      "git@github.com:octo/storefront.git",
 		FetchURL: "git@github.com:octo/storefront.git",
+		PushURLs: []string{"git@github.com:octo/storefront.git"},
 	}, remotes[0])
 	assert.Equal(t, Remote{
 		Name:     "upstream",
-		URL:      "https://github.com/acme/storefront.git",
 		FetchURL: "https://github.com/acme/storefront.git",
+		PushURLs: []string{"https://github.com/acme/storefront.git"},
 	}, remotes[1])
 }
 
@@ -128,7 +128,7 @@ func TestRemotesTakesThePushURLAndKeepsTheFetchURL(t *testing.T) {
 			remotes, err := clientReturning(t, "git remote -v", output).Remotes(t.Context())
 			require.NoError(t, err)
 			require.Len(t, remotes, 1)
-			assert.Equal(t, "git@github.com:octo/mirror.git", remotes[0].URL)
+			assert.Equal(t, "git@github.com:octo/mirror.git", remotes[0].PushURLs[0])
 			assert.Equal(t, "git@github.com:octo/storefront.git", remotes[0].FetchURL)
 			assert.True(t, remotes[0].Diverges())
 		})
@@ -200,7 +200,7 @@ func TestRemotesReadsARemoteURLContainingASpace(t *testing.T) {
 	remotes, err := client.Remotes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, remotes, 2)
-	assert.Equal(t, "https://github.com/octo/store front.git", remotes[0].URL)
+	assert.Equal(t, "https://github.com/octo/store front.git", remotes[0].PushURLs[0])
 
 	// Two remotes and one named origin: origin wins, rather than the list
 	// collapsing to one entry and the lone-remote branch picking upstream.
@@ -323,9 +323,9 @@ func TestRedact(t *testing.T) {
 
 func TestSelectRemote(t *testing.T) {
 	t.Parallel()
-	origin := Remote{Name: "origin", URL: "git@github.com:octo/storefront.git"}
-	upstream := Remote{Name: "upstream", URL: "git@github.com:acme/storefront.git"}
-	fork := Remote{Name: "fork", URL: "git@github.com:me/storefront.git"}
+	origin := Remote{Name: "origin", PushURLs: []string{"git@github.com:octo/storefront.git"}}
+	upstream := Remote{Name: "upstream", PushURLs: []string{"git@github.com:acme/storefront.git"}}
+	fork := Remote{Name: "fork", PushURLs: []string{"git@github.com:me/storefront.git"}}
 
 	t.Run("a lone remote is taken whatever it is called", func(t *testing.T) {
 		t.Parallel()
@@ -521,4 +521,56 @@ func TestParseGitHubRepositoryRedactsAScpLikeTokenInErrors(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotGitHub)
 	assert.NotContains(t, err.Error(), "ghp_16C7e42F292c6912E7710c838347Ae178B4a")
 	assert.Contains(t, err.Error(), "***@gitlab.com:octo/storefront.git")
+}
+
+// git accepts several remote.<name>.pushurl entries and a single push updates
+// every one of them, so `git remote -v` prints several (push) lines. Keeping
+// only the last would bind one repository while pushes kept reaching the
+// others — and the CLI would report that one as "the push target".
+func TestRemotesKeepsEveryPushURL(t *testing.T) {
+	t.Parallel()
+	remotes, err := clientReturning(t, "git remote -v", ""+
+		"origin\thttps://github.com/octo/storefront.git (fetch)\n"+
+		"origin\tgit@github.com:octo/mirror-one.git (push)\n"+
+		"origin\tgit@github.com:octo/mirror-two.git (push)\n").Remotes(t.Context())
+	require.NoError(t, err)
+	require.Len(t, remotes, 1)
+
+	assert.Equal(t, []string{
+		"git@github.com:octo/mirror-one.git",
+		"git@github.com:octo/mirror-two.git",
+	}, remotes[0].PushURLs)
+	assert.False(t, remotes[0].Diverges(), "divergence is about one push target, and there is not one")
+}
+
+// With several push targets there is no single repository to connect, so the
+// caller is told to choose rather than having one chosen for it.
+func TestPushTargetRefusesSeveralPushURLs(t *testing.T) {
+	t.Parallel()
+	remote := Remote{Name: "origin", PushURLs: []string{
+		"https://user:SECRET@github.com/octo/mirror-one.git",
+		"git@github.com:octo/mirror-two.git",
+	}}
+
+	_, err := remote.PushTarget()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `remote "origin" pushes to 2 repositories`)
+	assert.Contains(t, err.Error(), "pass the repository URL to choose")
+	// The list names them, so the credential in one has to be redacted.
+	assert.NotContains(t, err.Error(), "SECRET")
+	assert.Contains(t, err.Error(), "***@github.com/octo/mirror-one.git")
+}
+
+func TestPushTargetReturnsTheOnlyPushURL(t *testing.T) {
+	t.Parallel()
+	target, err := Remote{Name: "origin", PushURLs: []string{"git@github.com:octo/storefront.git"}}.PushTarget()
+	require.NoError(t, err)
+	assert.Equal(t, "git@github.com:octo/storefront.git", target)
+}
+
+func TestPushTargetRefusesARemoteWithNothingToPushTo(t *testing.T) {
+	t.Parallel()
+	_, err := Remote{Name: "origin"}.PushTarget()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nothing to push to")
 }

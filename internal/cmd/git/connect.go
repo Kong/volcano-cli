@@ -101,8 +101,9 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	if diverging != nil {
 		// The push URL is the one bound, because a push is what deploys. Say so:
 		// the remote the user thinks of as "origin" fetches from somewhere else.
+		pushURL, _ := diverging.PushTarget()
 		output.Note(opts.out, "Remote %q pushes to %s and fetches from %s; the push target is what deploys.",
-			diverging.Name, localgit.Redact(diverging.URL), localgit.Redact(diverging.FetchURL))
+			diverging.Name, localgit.Redact(pushURL), localgit.Redact(diverging.FetchURL))
 	}
 
 	project, err := service.Project()
@@ -237,7 +238,12 @@ func resolveRepository(
 		return localgit.Repository{}, nil, err
 	}
 
-	repository, err = localgit.ParseGitHubRepository(remote.URL)
+	pushURL, err := remote.PushTarget()
+	if err != nil {
+		return localgit.Repository{}, nil, err
+	}
+
+	repository, err = localgit.ParseGitHubRepository(pushURL)
 	if err != nil {
 		return localgit.Repository{}, nil, fmt.Errorf("remote %q: %w", remote.Name, err)
 	}
