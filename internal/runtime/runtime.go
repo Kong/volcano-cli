@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os/exec"
 	goruntime "runtime"
@@ -37,7 +38,11 @@ type Deps struct {
 	LocalCommandRunner  CommandRunner
 	UpdateCommandRunner CommandRunner
 	GitCommandRunner    CommandRunner
-	ExecutablePath      string
+	// GitTerminalRunner runs the git commands that write, which need the user's
+	// terminal rather than a captured buffer: a push can prompt for credentials
+	// and reports progress as it goes.
+	GitTerminalRunner TerminalCommandRunner
+	ExecutablePath    string
 	UpdateGitHubAPIURL  string
 	CommandPathPrefix   string
 	// DocsCacheDir overrides the base cache directory used by `volcano docs`.
@@ -80,6 +85,24 @@ type CommandRunnerFunc func(ctx context.Context, name string, args ...string) ([
 // Run calls f(ctx, name, args...).
 func (f CommandRunnerFunc) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return f(ctx, name, args...)
+}
+
+// TerminalCommandRunner runs an external command with the user's terminal
+// attached: output reaches out as the command produces it, and the command can
+// prompt on stdin. CommandRunner captures both instead, which is right for
+// reading git's answers and wrong for a push — a credential prompt with no
+// terminal fails, and a captured progress stream leaves the user watching
+// nothing during an upload.
+type TerminalCommandRunner interface {
+	Run(ctx context.Context, out io.Writer, name string, args ...string) error
+}
+
+// TerminalCommandRunnerFunc adapts a function to TerminalCommandRunner.
+type TerminalCommandRunnerFunc func(ctx context.Context, out io.Writer, name string, args ...string) error
+
+// Run calls f(ctx, out, name, args...).
+func (f TerminalCommandRunnerFunc) Run(ctx context.Context, out io.Writer, name string, args ...string) error {
+	return f(ctx, out, name, args...)
 }
 
 // Timer is the subset of time.Timer used by command services.

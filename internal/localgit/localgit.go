@@ -1,14 +1,19 @@
-// Package localgit reads the local Git repository through the git binary.
+// Package localgit reads and writes the local Git repository through the git
+// binary.
 //
-// It is deliberately read-only where credentials are concerned: nothing here
-// writes a token into .git/config, and nothing here pushes. Pushing is always
-// the user's own `git push`, with the credentials already on their machine.
+// Reads are the bulk of it. The two writes — adding a remote and pushing to it
+// — are deliberately credential-free: the remote URL carries none, nothing here
+// writes a token into .git/config, and the push runs as the user's own git with
+// the credentials already on their machine. Nothing here mints a credential or
+// asks the platform for one.
 package localgit
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -104,6 +109,11 @@ func (r Repository) FullName() string { return r.Owner + "/" + r.Name }
 // Client runs git in the working directory.
 type Client struct {
 	runner cliruntime.CommandRunner
+	// terminal runs the commands whose output the user has to see and whose
+	// prompts they have to answer. Separate from runner because the two need
+	// opposite things from the process: one captures, the other hands over the
+	// terminal.
+	terminal cliruntime.TerminalCommandRunner
 }
 
 // New returns a client that runs the real git binary unless deps injects a
@@ -115,7 +125,21 @@ func New(deps cliruntime.Deps) Client {
 			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are constants from this package
 		})
 	}
-	return Client{runner: runner}
+	terminal := deps.GitTerminalRunner
+	if terminal == nil {
+		terminal = cliruntime.TerminalCommandRunnerFunc(
+			func(ctx context.Context, out io.Writer, name string, args ...string) error {
+				cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // command name and args are constants from this package
+				// The real stdin, so a credential helper or an askpass program can
+				// prompt. Progress goes to out: git reports it on stderr, so
+				// dropping stderr would leave an upload looking like a hang.
+				cmd.Stdin = os.Stdin
+				cmd.Stdout = out
+				cmd.Stderr = out
+				return cmd.Run()
+			})
+	}
+	return Client{runner: runner, terminal: terminal}
 }
 
 // Remotes returns the remotes configured in the working directory, in git's own

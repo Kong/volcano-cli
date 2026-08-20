@@ -69,6 +69,26 @@ func (c *Client) ConnectProjectGit(ctx context.Context, projectID uuid.UUID, bod
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
+// CreateProjectGitRepository creates a new, empty repository on the provider and
+// binds the project to it in one call.
+//
+// Unlike every other call in this file it changes something outside Volcano, and
+// something Volcano cannot undo. A response naming a repository reports one that
+// exists on GitHub even when the status is a failure, so callers must report the
+// name rather than only that the request failed — a caller told only "failed"
+// creates a second repository.
+func (c *Client) CreateProjectGitRepository(
+	ctx context.Context, projectID uuid.UUID, body apiclient.CreateProjectGitRepositoryJSONRequestBody,
+) (*apiclient.CreatedProjectGitConnection, error) {
+	resp, err := c.client.CreateProjectGitRepositoryWithResponse(ctx, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body,
+		resp.JSON201, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404,
+		resp.JSON409, resp.JSON422, resp.JSON429, resp.JSON500, resp.JSON503)
+}
+
 // DisconnectProjectGit removes a project's repo connection. The repository
 // itself is untouched.
 func (c *Client) DisconnectProjectGit(ctx context.Context, projectID uuid.UUID) error {

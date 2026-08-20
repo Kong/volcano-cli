@@ -43,6 +43,74 @@ func GitConnected(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitCreation is a repository this CLI created, and what was done to the
+// checkout afterwards. The local half is reported rather than assumed: the push
+// is skipped in a case the user has to act on, and a report that implied it
+// happened would hide the one failure that produces no error anywhere.
+type GitCreation struct {
+	Binding GitBinding
+	// AppInstalled is false when Volcano could not confirm the GitHub App can see
+	// the new repository. The binding is complete either way; no push deploys
+	// until access is granted.
+	AppInstalled bool
+	// InstallURL is where that access is granted, when it is missing.
+	InstallURL  *string
+	RemoteAdded bool
+	RemoteName  string
+	Pushed      bool
+	// NextCommands is what the user has to run themselves, for every case where
+	// this command did not push. It starts from whatever was not already done, so
+	// a checkout that got its remote is told only to push.
+	NextCommands []string
+}
+
+// GitCreated renders a created repository: what exists on GitHub now, what the
+// project is bound to, and what is left for the user to do.
+func GitCreated(w io.Writer, creation GitCreation) {
+	on := theme.On(w)
+	connection := creation.Binding.Connection
+	Success(w, "Created %s", connection.RepoFullName)
+	gitBindingDetail(w, on, creation.Binding)
+	if creation.RemoteAdded {
+		kv(w, on, "Remote", "%s", creation.RemoteName)
+	}
+	if creation.Pushed {
+		Success(w, "Pushed %s to %s", connection.ProductionBranch, connection.RepoFullName)
+	}
+	gitDeploySettings(w, creation.Binding)
+	gitCreationNextStep(w, on, creation)
+}
+
+// gitCreationNextStep says what is left. Access to grant comes first: a push
+// without it lands the code and deploys nothing, silently, so it is the one
+// thing worth interrupting for.
+func gitCreationNextStep(w io.Writer, on bool, creation GitCreation) {
+	if !creation.AppInstalled {
+		fmt.Fprintln(w)
+		Warning(w, "The Volcano GitHub App could not be confirmed to have access to %s, "+
+			"so a push would deploy nothing.", creation.Binding.Connection.RepoFullName)
+		if creation.InstallURL != nil && *creation.InstallURL != "" {
+			fmt.Fprintf(w, "%s\n  %s\n", theme.Dim("Grant it access here:", on), *creation.InstallURL)
+		}
+		gitCreationCommands(w, on, "Then push:", creation.NextCommands)
+		return
+	}
+	if creation.Pushed {
+		return
+	}
+	gitCreationCommands(w, on, "Push to deploy:", creation.NextCommands)
+}
+
+func gitCreationCommands(w io.Writer, on bool, instruction string, commands []string) {
+	if len(commands) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\n%s\n", theme.Dim(instruction, on))
+	for _, command := range commands {
+		fmt.Fprintf(w, "  %s\n", theme.Command(command, on))
+	}
+}
+
 // GitConnection renders an existing binding without claiming anything changed.
 func GitConnection(w io.Writer, binding GitBinding) {
 	fmt.Fprintf(w, "%s is already connected to this project.\n", binding.Connection.RepoFullName)

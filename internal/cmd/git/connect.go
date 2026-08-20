@@ -109,7 +109,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// below still reports what went wrong, so it is not worth failing over.
 	webURL, _ := service.WebURL()
 
-	if err := validateRootDirectory(opts); err != nil {
+	if err := validateRootDirectory(opts.rootDirectory, opts.rootDirectorySet); err != nil {
 		return err
 	}
 
@@ -236,13 +236,17 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 // from this path inside the repository, so an absolute path or one climbing out
 // of it deploys nothing — and the CLI is what reports success, so it should not
 // report it for a value that cannot work.
-func validateRootDirectory(opts connectOptions) error {
-	if !opts.rootDirectorySet || opts.rootDirectory == "" {
+//
+// set separates "the flag was given" from "the flag was given as empty", which
+// connect uses to reset an existing root directory. An empty value has nothing
+// to validate either way.
+func validateRootDirectory(value string, set bool) error {
+	if !set || value == "" {
 		return nil
 	}
 
-	root := filepath.ToSlash(opts.rootDirectory)
-	if strings.HasPrefix(root, "/") || filepath.IsAbs(opts.rootDirectory) {
+	root := filepath.ToSlash(value)
+	if strings.HasPrefix(root, "/") || filepath.IsAbs(value) {
 		return fmt.Errorf("--root-directory must be a path inside the repository, not an absolute path: %s", root)
 	}
 	for segment := range strings.SplitSeq(root, "/") {

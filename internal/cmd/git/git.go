@@ -22,12 +22,15 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Short: "Manage the Git repository connected to the current project",
 		Long: `Connect the current project to a GitHub repository so that pushes deploy.
 
-Volcano never pushes for you and never stores push credentials: connecting only
-binds the project to a repository you can already reach through your GitHub
-connection. Pushing stays your own "git push", with the credentials already on
-your machine.`,
+Bring a repository you already have with "git connect", or have one created for
+this project with "git create".
+
+Volcano never stores a push credential and never pushes on its own: it binds the
+project to a repository, and any push runs as your own "git push", with the
+credentials already on your machine.`,
 	}
 	cmd.AddCommand(newStatus(deps))
+	cmd.AddCommand(newCreate(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
@@ -83,6 +86,16 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 			err,
 			cliruntime.CommandPath(deps, "login"),
 			dashboardStep(webURL, "If you are already signed in, reconnect GitHub in the dashboard:"))
+	case errors.Is(err, gitconnect.ErrOwnerNotInstallable):
+		return fmt.Errorf("%w\n\n%s", err,
+			dashboardStep(webURL, "Install the App on that account, then run this command again:"))
+	case errors.Is(err, gitconnect.ErrRepositoryMayExist):
+		// The one failure in this CLI where retrying is the wrong reflex: the
+		// repository may be on GitHub already, and a retry under a new name leaves
+		// the user owning two, one of them bound to nothing.
+		return fmt.Errorf("%w\n\nCheck the account on GitHub before trying again. If the repository is "+
+			"there, connect it with %s instead of creating another one under a different name", err,
+			cliruntime.CommandPath(deps, "git connect"))
 	case errors.Is(err, gitconnect.ErrBindingChanged):
 		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
 			err, cliruntime.CommandPath(deps, "git status"))
