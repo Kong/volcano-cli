@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -27,6 +29,7 @@ const (
 	gitRepositoryID = int64(90210)
 	otherRepoID     = int64(90211)
 	connectionPath  = "/projects/" + gitProjectID + "/git-connection"
+	createRepoPath  = connectionPath + "/repository"
 	deploySettings  = "/projects/" + gitProjectID + "/git-deploy-settings"
 	connectionsPath = "/user/git/connections"
 
@@ -104,11 +107,77 @@ func (r *gitRunner) ran() []string {
 	return append([]string(nil), r.commands...)
 }
 
+// allow makes one command succeed with no output. Writes are registered by their
+// exact command line so a test asserts the arguments git is actually given,
+// rather than that something vaguely like a remote was added.
+func (r *gitRunner) allow(command string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.outputs[command] = ""
+}
+
+// checkoutRunner answers the reads a create makes in a working checkout: a work
+// tree, on branch, with a commit to push. remotes is what `git remote -v`
+// reports, empty for a checkout with none.
+func checkoutRunner(branch, remotes string) *gitRunner {
+	return &gitRunner{
+		stdout: remotes,
+		outputs: map[string]string{
+			"git rev-parse --is-inside-work-tree": "true\n",
+			"git rev-parse --quiet --verify HEAD": "d34db33f\n",
+			"git branch --show-current":           branch,
+		},
+	}
+}
+
+// gitTerminalRunner stands in for the git commands that get the user's terminal.
+// It records them, so a test can assert that a push happened — or that it did
+// not, which is the more important of the two.
+type gitTerminalRunner struct {
+	mu       sync.Mutex
+	commands []string
+	// output is what git writes while running, which the command passes straight
+	// through to the user.
+	output string
+	err    error
+}
+
+func (r *gitTerminalRunner) Run(_ context.Context, out io.Writer, name string, args ...string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.commands = append(r.commands, strings.TrimSpace(name+" "+strings.Join(args, " ")))
+	if r.output != "" {
+		fmt.Fprint(out, r.output)
+	}
+	return r.err
+}
+
+func (r *gitTerminalRunner) ran() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.commands...)
+}
+
 func executeGitCommand(t *testing.T, server *httptest.Server, runner *gitRunner, stdin string, args ...string) (string, error) {
+	t.Helper()
+	return executeGitCommandWith(t, server, runner, nil, stdin, args...)
+}
+
+func executeGitCommandWith(
+	t *testing.T,
+	server *httptest.Server,
+	runner *gitRunner,
+	terminal cliruntime.TerminalCommandRunner,
+	stdin string,
+	args ...string,
+) (string, error) {
 	t.Helper()
 	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
 	if runner != nil {
 		deps.GitCommandRunner = runner
+	}
+	if terminal != nil {
+		deps.GitTerminalRunner = terminal
 	}
 
 	cmd := New(deps)
@@ -183,8 +252,21 @@ type gitAPI struct {
 	// commands tolerate without failing the connect.
 	deploySettingsStatus int
 
+	// createStatus overrides the create-repository response, and
+	// createErrorMessage the message it carries — the platform's message is the
+	// only thing that tells the causes of a shared status apart.
+	createStatus       int
+	createErrorMessage string
+	// createAppInstalled reports whether the App installation covers the new
+	// repository. False is not a failure: the repository and the binding both
+	// exist, and no push deploys.
+	createAppInstalled bool
+	createInstallURL   string
+
 	mu              sync.Mutex
 	connectBody     map[string]any
+	createBody      map[string]any
+	createCalls     int
 	deleted         bool
 	connectionReads int
 }
@@ -204,6 +286,9 @@ func newGitAPI(t *testing.T) *gitAPI {
 		repositoriesStatus:  map[int64]int{},
 		autoDeploy:          true,
 		deployFunctions:     true,
+		// Connecting a repository turns auto-deploy on, and a create is a connect,
+		// so the App covering the new repository is the ordinary case.
+		createAppInstalled: true,
 	}
 }
 
@@ -232,6 +317,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveInstallations(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/repositories"):
 		a.serveRepositories(w, r)
+	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git-connection/repository"):
+		a.serveCreateRepository(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveConnection(w)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection"):
@@ -393,6 +480,64 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	writeGitJSON(a.t, w, http.StatusOK,
 		connectionPayload(a.connected, a.connectedRoot, a.connectedRepoID, a.currentInstallation()))
+}
+
+// serveCreateRepository models the create: the repository is named by the
+// request, so a fake that answered with a fixed name could not fail a test that
+// created the wrong one.
+func (a *gitAPI) serveCreateRepository(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.createBody))
+	a.createCalls++
+
+	if a.createStatus != 0 {
+		message := a.createErrorMessage
+		if message == "" {
+			message = "the repository could not be created"
+		}
+		writeGitJSON(a.t, w, a.createStatus, map[string]any{"error": message})
+		return
+	}
+
+	name, ok := a.createBody["name"].(string)
+	require.True(a.t, ok, "the create must name the repository")
+	owner, hasOwner := a.createBody["owner"].(string)
+	if !hasOwner {
+		// The connected account, which the platform resolves when owner is
+		// omitted. The CLI must not be sending a login of its own here.
+		owner = "octo"
+	}
+	full := owner + "/" + name
+	root, _ := a.createBody["root_directory"].(string)
+	branch, named := a.createBody["production_branch"].(string)
+	if !named {
+		// What the platform falls back to for a repository created empty: the
+		// account's configured default branch name, which is a prediction.
+		branch = "main"
+	}
+
+	a.connected, a.connectedRepoID = full, repoIDFor(full)
+	a.connectedRoot, a.connectedBranch = root, branch
+	payload := connectionPayload(full, root, a.connectedRepoID, a.currentInstallation())
+	payload["production_branch"] = branch
+	created := map[string]any{"connection": payload, "app_installed": a.createAppInstalled}
+	if !a.createAppInstalled && a.createInstallURL != "" {
+		created["install_url"] = a.createInstallURL
+	}
+	writeGitJSON(a.t, w, http.StatusCreated, created)
+}
+
+func (a *gitAPI) sentCreateBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.createBody
+}
+
+func (a *gitAPI) createAttempts() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.createCalls
 }
 
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {

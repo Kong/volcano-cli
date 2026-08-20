@@ -11,6 +11,7 @@ package localgit
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,10 +30,18 @@ import (
 func realGitClient(t *testing.T, dir string) Client {
 	t.Helper()
 	requireGit(t)
-	return Client{runner: cliruntime.CommandRunnerFunc(
-		func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return gitCommand(ctx, dir, name, args...).Output()
-		})}
+	return Client{
+		runner: cliruntime.CommandRunnerFunc(
+			func(ctx context.Context, name string, args ...string) ([]byte, error) {
+				return gitCommand(ctx, dir, name, args...).Output()
+			}),
+		terminal: cliruntime.TerminalCommandRunnerFunc(
+			func(ctx context.Context, out io.Writer, name string, args ...string) error {
+				cmd := gitCommand(ctx, dir, name, args...)
+				cmd.Stdout, cmd.Stderr = out, out
+				return cmd.Run()
+			}),
+	}
 }
 
 func requireGit(t *testing.T) {

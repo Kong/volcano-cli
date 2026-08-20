@@ -32,7 +32,7 @@ type createOptions struct {
 	branch    string
 	branchSet bool
 	remote    string
-	push      bool
+	noPush    bool
 	ssh       bool
 	yes       bool
 	in        io.Reader
@@ -83,8 +83,8 @@ To connect a repository that already exists, use "git connect" instead.`,
 		"Branch to deploy from (default: the branch this checkout is on)")
 	cmd.Flags().StringVar(&opts.remote, "remote", localgit.DefaultRemoteName,
 		"Name for the Git remote added for the new repository")
-	cmd.Flags().BoolVar(&opts.push, "push", true,
-		"Push this checkout to the new repository; --no-push leaves the checkout untouched")
+	cmd.Flags().BoolVar(&opts.noPush, "no-push", false,
+		"Create and connect the repository without touching this checkout")
 	cmd.Flags().BoolVar(&opts.ssh, "ssh", false, "Record the remote with its ssh URL instead of https")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Skip confirmation prompts")
 	return cmd
@@ -175,7 +175,7 @@ func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest,
 		RootDirectory:    strings.TrimSpace(opts.rootDirectory),
 		ProductionBranch: branch,
 	}}
-	if !opts.push {
+	if opts.noPush {
 		return request, nil
 	}
 	return withPushBranch(ctx, opts, request)
