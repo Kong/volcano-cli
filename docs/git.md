@@ -1,17 +1,20 @@
 ---
 title: "Git connection"
-description: "Bind a project to a GitHub repository so that pushing to its default branch deploys."
+description: "Bind a project to a GitHub repository — one you already have, or one Volcano creates for you — so that pushing deploys."
 ---
 
 ## What it is
 
 A binding between a **project** and a GitHub repository. Once connected, a push
-to the repository's default branch deploys the project — no CLI invocation
-needed.
+to the production branch deploys the project — no CLI invocation needed.
 
-Connecting only records the binding. Volcano never creates push credentials,
-never pushes on your behalf, and never writes a token into your `.git/config`.
-Pushing stays your own `git push`, with the credentials already on your machine.
+Bring a repository you already have with `volcano git connect`, or have one
+created for a project that has none with `volcano git create`.
+
+Volcano never creates push credentials and never writes a token into your
+`.git/config`. Every push runs as your own `git push`, with the credentials
+already on your machine — including the first one `volcano git create` runs for
+you.
 
 ## How it relates
 
@@ -27,7 +30,8 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Operation | Command |
 |---|---|
 | Show the connection | `volcano git status` |
-| Connect | `volcano git connect [git-url]` |
+| Create a repository and push to it | `volcano git create [name]` |
+| Connect an existing repository | `volcano git connect [git-url]` |
 | Disconnect | `volcano git disconnect` |
 
 ## Seeing what is connected
@@ -45,6 +49,94 @@ A project with nothing connected is not an error: it says so and exits 0, so the
 command is usable in a conditional. A project that does not exist — a deleted
 one, or a `VOLCANO_PROJECT_ID` naming nothing — is an error, and is reported as
 one rather than as an unbound project.
+
+## Creating a repository
+
+For a project that has no repository yet — one scaffolded with `volcano init`, or
+built by an agent — Volcano creates the repository and pushes this checkout into
+it:
+
+```bash
+volcano git create
+```
+
+With no argument the repository takes this directory's name. It is created
+**empty** and **private**: no initial commit, no README. The first commit is the
+one you already have here, pushed as your own `git push`.
+
+The command creates the repository, connects the project to it, adds a Git remote
+(`origin`, or `--remote`), and pushes the branch you are on. Auto-deploy is on
+from the moment a repository is connected, so that first push deploys — what it
+deploys is reported when the command finishes.
+
+**Nothing here can be undone from the CLI.** Volcano cannot delete a GitHub
+repository, so `git create` asks before it creates anything, and everything it
+can check it checks first: that the project has no repository, that this checkout
+has a commit to push, and that the remote name is free. Pass `--yes` to skip the
+prompt in a script or an agent.
+
+### The branch that deploys
+
+Only pushes to the project's **production branch** deploy. An empty repository
+has no commits and therefore no real default branch, so `git create` sends the
+branch you are standing on — the one it is about to push — rather than leaving
+the platform to predict one. Name a different branch with `--branch`; it has to
+exist in this checkout, because it is also the branch that gets pushed.
+
+### Choosing the account and layout
+
+```bash
+volcano git create storefront --owner acme --public
+volcano git create --root-directory apps/api
+volcano git create --ssh
+```
+
+| Flag | Effect |
+|---|---|
+| `--owner` | GitHub account to create under. Omit for your own account. The Volcano App must be installed on it, and your own GitHub permissions still apply. |
+| `--public` | Create a public repository. The default is private, since the next step is pushing your source into it. |
+| `--description` | Repository description shown on GitHub. |
+| `--root-directory` | Monorepo subdirectory the project builds from. Same rule as `git connect`: a relative path inside the repository. |
+| `--branch` | Branch to deploy from, and to push. Defaults to the branch this checkout is on. |
+| `--remote` | Name for the new Git remote. Defaults to `origin`, and an existing remote of that name is never taken over. |
+| `--ssh` | Record the remote with its ssh URL. The default is https, which git rewrites for you if you have `url.<base>.insteadOf` configured. |
+| `--no-push` | Create and connect the repository without touching this checkout. |
+
+### Creating without pushing
+
+`--no-push` leaves the working directory alone — no remote is added and nothing
+is pushed. Use it when the source is somewhere else, or when there is no commit
+yet. The command prints the two steps left:
+
+```bash
+git remote add origin https://github.com/octo/storefront.git
+git push --set-upstream origin main
+```
+
+### When the App cannot see the new repository
+
+If the Volcano GitHub App is installed for **selected repositories** rather than
+all of them, it may not cover a repository created after the fact. The
+repository and the binding are both fine; no push would deploy. `git create`
+reports this instead of pushing, and prints where to grant access. Once granted,
+push with the command it printed — there is nothing to redo.
+
+Installing the App with access to all repositories on the account avoids this
+entirely.
+
+### If it fails
+
+A failure that names a repository means that repository **exists on GitHub**: it
+was created and something afterwards did not finish. Do not re-run with a
+different name — that leaves you owning two. Check the account, then connect the
+one that is there:
+
+```bash
+volcano git connect https://github.com/octo/storefront.git
+```
+
+A failed push is the mildest case of this: the repository and the binding are
+both in place, and the push is yours to retry.
 
 ## Connecting
 
@@ -148,7 +240,9 @@ volcano git disconnect
 ```
 
 Only the binding is removed. The repository is untouched, and so is the GitHub
-App's access to it — pushes simply stop deploying.
+App's access to it — pushes simply stop deploying. That holds for a repository
+`git create` made too: disconnecting does not delete it, and nothing in the CLI
+does.
 
 ## Prerequisites the CLI cannot set up
 
@@ -161,11 +255,14 @@ The App being installed for **selected repositories** rather than all of them is
 the usual cause of a repository the CLI can otherwise see in your remote but
 cannot connect.
 
+`volcano git create` needs the App installed on the account it creates under. It
+says which accounts it is installed on when the one you named is not among them.
+
 ## Local mode
 
 Git connections are a cloud-only feature: the local stack ships without GitHub
-App settings, so `volcano git connect` reports that the integration is not
-configured. Run these commands against the cloud API.
+App settings, so `volcano git connect` and `volcano git create` report that the
+integration is not configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
