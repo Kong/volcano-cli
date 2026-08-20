@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/Kong/volcano-cli/compare/v0.21.1...v0.21.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **databases:** accept the 202 a branch reset now returns ([#162](https://github.com/Kong/volcano-cli/issues/162)) ([1a8bceb](https://github.com/Kong/volcano-cli/commit/1a8bceb05f7483cae0dfe34e0efc3a45ca92bb0b))
+
 ## [0.21.1](https://github.com/Kong/volcano-cli/compare/v0.21.0...v0.21.1) (2026-08-19)
 
 
