@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/Kong/volcano-cli/compare/v0.21.2...v0.22.0) (2026-08-20)
+
+
+### Features
+
+* **git:** connect and disconnect a project's GitHub repository ([#159](https://github.com/Kong/volcano-cli/issues/159)) ([e455992](https://github.com/Kong/volcano-cli/commit/e4559925ce526bec2dccfadd3e6b415138cdef20))
+
 ## [0.21.2](https://github.com/Kong/volcano-cli/compare/v0.21.1...v0.21.2) (2026-08-20)
 
 
