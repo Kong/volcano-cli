@@ -1216,7 +1216,7 @@ paths:
         - Projects
       summary: Get the project logo image
       description: |
-        Returns the raw logo image stored in the project's S3 folder. This
+        Returns the raw logo image stored in the project's storage folder. This
         endpoint is unauthenticated so the asset can be rendered directly in an
         `<img>` tag; project IDs are unguessable UUIDs and logos are
         non-sensitive branding. The `Project.logo_url` field exposes a versioned
@@ -1260,8 +1260,8 @@ paths:
         - Projects
       summary: Upload or replace the project logo
       description: |
-        Uploads an image as the project's logo, storing it in the project's S3
-        folder. Accepts PNG, JPEG, GIF, WebP, or SVG up to 2 MB. Replaces any
+        Uploads an image as the project's logo, storing it in the project's
+        storage folder. Accepts PNG, JPEG, GIF, WebP, or SVG up to 2 MB. Replaces any
         existing logo. Returns the updated project, whose `logo_url` reflects
         the new logo.
       operationId: uploadProjectLogo
@@ -1324,7 +1324,7 @@ paths:
         - Projects
       summary: Remove the project logo
       description: |
-        Deletes the project logo from the project's S3 folder and clears its
+        Deletes the project logo from the project's storage folder and clears its
         record. Returns the updated project with no `logo_url`.
       operationId: deleteProjectLogo
       security:
@@ -1527,6 +1527,202 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProjectConfigValidationErrorResponse'
+  /projects/{id}/git-connection/repository:
+    post:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Create a GitHub repository for a project and connect it
+      description: |
+        Creates a new, empty repository under the caller's GitHub account or an
+        organization they have the App installed on, then binds the project to
+        it. This is the "Create on Git" counterpart to importing an existing
+        repo with PUT /projects/{id}/git-connection.
+
+        The repository is created without an initial commit: its first commit
+        comes from the client that already holds the project's source, pushed
+        with the user's own Git credentials. Volcano never pushes on the user's
+        behalf.
+
+        Because it has no commits, it has no real default branch either — so
+        name the branch you are about to push in production_branch. Omitting it
+        binds the branch name GitHub reports for the new repository, which is
+        the account's configured default and only a guess at what will be
+        pushed; a push to anything else deploys nothing.
+
+        A 201 with app_installed false means the repository and the binding both
+        exist but the App cannot see the repo, so no push will ever deploy until
+        the user grants access at install_url.
+      operationId: createProjectGitRepository
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectGitRepositoryRequest'
+      responses:
+        '201':
+          description: Repository created and connected to the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProjectGitConnection'
+        '400':
+          description: |
+            Malformed request body, a missing repository name, a root_directory
+            that is not a relative path inside the repository, or a
+            production_branch that is not a valid Git branch name. All are
+            refused before the repository is created, so none of them means a
+            repository exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized, or the stored GitHub connection needs reconnecting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Project not owned by the caller, or the GitHub account refused the
+            creation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project not found, no GitHub connection, or the App is not installed
+            on the requested owner account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The project already has a repository connected, or a concurrent
+            request connected one first, or the created repository landed under
+            a different account than the one selected. A body naming a
+            repository means that repository exists on GitHub and was not
+            connected; a body that names none means nothing was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: |
+            GitHub refused to create the repository. The name may already exist
+            on the account, the organization may forbid member repository
+            creation, or the account may be at its repository limit — GitHub
+            reports all of these identically, so the cause is not distinguished.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: GitHub rate limited the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: |
+            The repository was created but could not be connected, its creation
+            could not be confirmed, or the request failed before reaching
+            GitHub. The body is the discriminator, as it is for 409: one that
+            names a repository, or says the outcome could not be confirmed,
+            means a repository may exist — check the account before retrying
+            with another name. One that says no repository was created means
+            exactly that, and the same name can be retried.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Git provider integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/git-connection/production-branch:
+    put:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Set the branch a project deploys from
+      description: |
+        Changes only the production branch, leaving the repository binding
+        alone. PUT /projects/{id}/git-connection can also set it, but that is a
+        full rebind: it needs connection_id, installation_id and a repository
+        selector resent, and re-resolves the repository against GitHub for a
+        field that does not depend on it.
+
+        The branch does not have to exist. It is validated as a Git branch name
+        and nothing more, so a project can be pointed at a branch that is about
+        to be pushed — the case a repository created empty depends on.
+
+        Setting the branch here marks it as the project's own choice, so a later
+        default-branch rename on GitHub no longer moves it. Projects that never
+        set one keep following the repository's default branch.
+      operationId: setProjectGitProductionBranch
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProjectGitProductionBranchRequest'
+      responses:
+        '200':
+          description: The project's repo connection, with the new branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectGitConnection'
+        '400':
+          description: |
+            Malformed request body, or a production_branch that is not a valid
+            Git branch name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project not found, or it has no repository connected. The branch is
+            part of the connection, so there is nothing to set it on until one
+            exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to set the production branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/git-connection:
     get:
       tags:
@@ -1602,7 +1798,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectGitConnection'
         '400':
-          description: Malformed request body
+          description: |
+            Malformed request body, no repository selector, selectors that
+            identify different repositories, a production_branch that is not a
+            valid Git branch name, no production_branch on a repository with no
+            default branch to follow (name one to connect a repository that has
+            no commits yet), or a production_branch other than the new
+            repository's default in a request that also changes repository.
           content:
             application/json:
               schema:
@@ -1725,10 +1927,16 @@ paths:
       summary: Update a project's Git auto-deploy settings
       description: |
         Full replace of the project's Git auto-deploy settings: what a push to
-        the connected repo's production branch deploys. All settings are
-        default-off. The frontend need not exist when the settings are saved;
-        frontend_name is resolved at deploy time. Independent of the repo
-        binding (see connectProjectGit).
+        the connected repo's production branch deploys.
+
+        Connecting a repository sets auto_deploy_enabled and deploy_functions
+        to true for a project that has never called this endpoint, so a push
+        deploys without any further setup. Once these settings have been saved
+        here they are the project's own: connecting, rebinding, disconnecting
+        and reconnecting all leave them untouched, including when they were
+        saved before any repository was connected. Frontend settings are off
+        until set here; the frontend need not exist when they are saved, since
+        frontend_name is resolved at deploy time.
       operationId: updateProjectGitDeploySettings
       security:
         - UserToken: []
@@ -2021,7 +2229,7 @@ paths:
         Success rate uses conclusive outcomes only: active and deleted attempts
         are successful; failed and degraded attempts are failures; in-progress
         and superseded attempts are excluded. Median build duration includes
-        completed, non-superseded attempts with recorded CodeBuild work,
+        completed, non-superseded attempts with recorded build work,
         including failed builds.
       operationId: summarizeProjectDeployments
       security:
@@ -2180,7 +2388,7 @@ paths:
         dependency directories. Volcano installs Node.js, Python, and Ruby dependencies during the
         function compile build.
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
-        does not apply its own source archive size limit. After the final Lambda container image is
+        does not apply its own source archive size limit. After the final container image is
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
         Uploaded source archives cannot contain symlink entries. Safe symlinks created during
         the cloud build are materialized before publish.
@@ -2455,6 +2663,10 @@ paths:
               description: Volcano API/runtime version that served this invocation (`<version>` in production, `<env>-<version>` in non-production)
               schema:
                 type: string
+            X-Volcano-Region:
+              description: Region the function ran in (for example `us-east-1`)
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2509,6 +2721,10 @@ paths:
           headers:
             X-Volcano-Version:
               description: Volcano API/runtime version that served this invocation (`<version>` in production, `<env>-<version>` in non-production)
+              schema:
+                type: string
+            X-Volcano-Region:
+              description: Region the function ran in (for example `us-east-1`)
               schema:
                 type: string
           content:
@@ -2801,7 +3017,7 @@ paths:
         for each uploaded and normalized source archive. The server records a shared
         deployment batch ID for the resulting function deployments. Each function deployment runs its own
         compile/publish workflow concurrently, and each publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB`
-        for the final Lambda container image.
+        for the final container image.
         One batch request can include up to 100 functions. Submit multiple batch requests for larger projects.
         If one function fails before its workflow starts, already-started function deployments are left
         running and the failed function is reported in the `failed` array. Failed new functions are deleted;
@@ -3091,7 +3307,7 @@ paths:
         The selected Node.js family must also satisfy the installed Next.js package's
         `engines.node` constraint. Volcano tests Next 15.5.23 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.3.1 (`>=20.9.0`).
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
-        does not apply its own source archive size limit. After the final Lambda container images are
+        does not apply its own source archive size limit. After the final container images are
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
         This operation is limited by plan-based frontend deployment quotas (`FREE_FRONTEND_DEPLOYMENTS`, `PRO_FRONTEND_DEPLOYMENTS`).
         Each project can contain up to 10,000 frontends regardless of plan.
@@ -3787,13 +4003,13 @@ paths:
         - Databases
       summary: Delete a database
       description: |
-        Deletes a database and its backing Neon project. When the Neon project is
+        Deletes a database and the instance backing it. When the instance is
         removed synchronously the database row is deleted and the response is
-        `204`. If the Neon project cannot be deleted right away, the database row
+        `204`. If the instance cannot be deleted right away, the database row
         is retained (status `deleting`) and its teardown is handed to the
-        background reconciler, which retries the Neon deletion and removes the row
-        once Neon is gone; in that case the response is `202`. The database row is
-        never dropped while its Neon project still exists, so a Neon project is
+        background reconciler, which retries the deletion and removes the row
+        once the instance is gone; in that case the response is `202`. The database row is
+        never dropped while its instance still exists, so an instance is
         never orphaned without a record to retry from.
       operationId: deleteDatabase
       security:
@@ -3804,7 +4020,7 @@ paths:
       responses:
         '202':
           description: |
-            Deletion accepted and in progress. The Neon project could not be
+            Deletion accepted and in progress. The backing instance could not be
             removed synchronously, so the database is marked `deleting` and torn
             down asynchronously by the reconciler.
           content:
@@ -3819,7 +4035,7 @@ paths:
                     type: string
                     example: database deletion in progress
         '204':
-          description: Database deleted (Neon project removed synchronously)
+          description: Database deleted (backing instance removed synchronously)
   /projects/{id}/databases/{databaseName}/branches:
     get:
       tags:
@@ -4159,7 +4375,7 @@ paths:
       summary: Reset database password
       description: |
         Rotates the Volcano-managed PostgreSQL password used by clients when connecting
-        through pgproxy. This does not rotate or expose the internal Neon owner password.
+        through pgproxy. This does not rotate or expose the internal owner password.
         The returned password and connection string are the only client credentials that
         will authenticate through pgproxy after reset.
       operationId: resetDatabasePassword
@@ -4360,7 +4576,7 @@ paths:
         - Simple data retrieval
         - Filtered searches with sorting and pagination
 
-        **Note:** For complex queries (JOINs, CTEs), use Lambda functions with direct SQL
+        **Note:** For complex queries (JOINs, CTEs), use functions with direct SQL
       operationId: queryDatabaseSelect
       security:
         - AuthUserAccessToken: []
@@ -4955,14 +5171,14 @@ paths:
     get:
       tags:
         - Databases
-      summary: List platform-supported AWS-backed regions for database provisioning
+      summary: List platform-supported regions for database provisioning
       operationId: listDatabaseRegions
       description: |
-        Returns the AWS-backed Neon regions enabled for this platform environment.
+        Returns the regions enabled for database provisioning in this platform environment.
         This is a public endpoint that doesn't require authentication.
       responses:
         '200':
-          description: List of platform-supported AWS-backed regions
+          description: List of platform-supported regions
           content:
             application/json:
               schema:
@@ -5033,11 +5249,11 @@ paths:
     get:
       tags:
         - Functions
-      summary: List available AWS regions for function deployment
+      summary: List available regions for function deployment
       operationId: listFunctionRegions
       security: []
       description: |
-        Returns the configured AWS regions where functions can be deployed, each annotated
+        Returns the configured regions where functions can be deployed, each annotated
         with a human-readable label and country flag emoji for use in UI pickers.
         This is a public endpoint that doesn't require authentication.
       responses:
@@ -9440,7 +9656,7 @@ paths:
 
         - Public files can be downloaded with just an anon key (no user authentication required)
         - Private files (default) require authentication and must pass policy checks
-        - All downloads go through the Volcano API - there is no direct S3 access
+        - All downloads go through the Volcano API - there is no direct access to the underlying store
       operationId: updateStorageObjectVisibility
       security:
         - ServiceRoleKey: []
@@ -9915,7 +10131,6 @@ components:
           default: 15
           description: Configured minimum password length in Unicode characters.
         password_policy:
-          readOnly: true
           $ref: '#/components/schemas/AuthPasswordPolicy'
         require_uppercase:
           type: boolean
@@ -10405,6 +10620,8 @@ components:
         - user_id
         - provider
         - expires_at
+        - is_active
+        - is_current
     AuthSignupResponse:
       type: object
       description: |
@@ -10607,7 +10824,7 @@ components:
           example: my_database
         region:
           type: string
-          description: AWS region for database hosting
+          description: Region for database hosting
           example: aws-us-east-1
           enum:
             - aws-us-east-1
@@ -10923,7 +11140,7 @@ components:
             - `volcano_user_access` — Anonymous access (anon role, RLS enforced)
         region:
           type: string
-          description: AWS region where database is hosted
+          description: Region where the database is hosted
           example: aws-us-east-1
         pg_version:
           type: string
@@ -11007,6 +11224,11 @@ components:
             Branch status. A new branch starts `provisioning` and is not
             connectable until it reports `active`; poll this endpoint until it
             does. `connection_string` is only present while `active`.
+
+            `provisioning` also covers a branch being rebuilt after a `reset`,
+            and a build that is between retries, so it is the status to keep
+            waiting on. `failed` is terminal: it means the platform gave up, and
+            the branch will not become `active` on its own.
         connection_string:
           type: string
           description: |
@@ -11915,7 +12137,7 @@ components:
           type: string
         production_branch:
           type: string
-          description: The repository's GitHub default branch, cached at connect time and used as the deployment target.
+          description: The branch a push must land on to deploy. Follows the repository's GitHub default branch unless the project set its own, which a default-branch rename on GitHub then leaves alone.
         updated_at:
           type: string
           format: date-time
@@ -12021,6 +12243,61 @@ components:
           description: Current holder's fencing token. Present only when held.
       required:
         - held
+    CreateProjectGitRepositoryRequest:
+      type: object
+      properties:
+        owner:
+          type: string
+          maxLength: 39
+          pattern: ^[A-Za-z0-9-]+$
+          description: GitHub account to create the repository under, as returned in account_login by /user/git/connections/{id}/installations. Omit for the connected user's own account. Must be an organization the app is installed on, or your own account.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Repository name, unique within the owner account.
+        private:
+          type: boolean
+          default: true
+          description: 'Whether the new repository is private. Defaults to true: the next step is pushing the project''s source into it, so an omitted field must not publish it.'
+        description:
+          type: string
+          maxLength: 350
+          description: Repository description shown on GitHub.
+        root_directory:
+          type: string
+          description: Monorepo subdirectory the project builds from, as a relative path inside the repository. Omit for the repo root. Absolute paths and ".." traversal are rejected before the repository is created, because the build applies the same rule and nothing would deploy.
+        production_branch:
+          type: string
+          maxLength: 255
+          description: 'The branch to deploy from — name the one you are about to push. The repository is created empty, so it has no real default branch to follow: omitting this binds whatever branch name GitHub reports for the new repository (falling back to "main" if it reports none), which is the account''s configured default and a prediction, and pushing anything else then deploys nothing. Naming the branch GitHub already reports is not treated as pinning it, so the project still tracks a later default-branch rename; naming any other branch pins it. Rejected before the repository is created if it is not a valid Git branch name; it does not have to exist.'
+      required:
+        - name
+    SetProjectGitProductionBranchRequest:
+      type: object
+      properties:
+        production_branch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+      required:
+        - production_branch
+    CreatedProjectGitConnection:
+      type: object
+      description: A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
+      properties:
+        connection:
+          $ref: '#/components/schemas/ProjectGitConnection'
+        app_installed:
+          type: boolean
+          description: Whether the App installation covers the new repository. False means the binding is complete but no push will deploy until the user grants access at install_url. An installation scoped to selected repositories never picks up a new repo on its own.
+        install_url:
+          type: string
+          description: Where the user grants the App access to the new repository. Present only when app_installed is false.
+      required:
+        - connection
+        - app_installed
     ConnectProjectGitRequest:
       type: object
       properties:
@@ -12044,8 +12321,8 @@ components:
           description: Monorepo subdirectory the project builds from. Omit for the repo root.
         production_branch:
           type: string
-          deprecated: true
-          description: Deprecated. The deployment branch always follows the repository's GitHub default branch; when given it must equal that default branch. New callers omit it.
+          maxLength: 255
+          description: 'The branch a push must land on to deploy, with three cases, because this is a full replace and a read-modify-write client sends back whatever it read. Omit it to follow the repository''s GitHub default branch, which also discards a branch set earlier. Send back the branch the project already deploys from, when that is the repository''s default, and nothing changes either way — a project pinned to that branch stays pinned. Sending the default branch when the project deploys from something else returns it to following the default, including on a rebind, where a pin describes a branch chosen for the repository being left. Any other branch becomes the project''s own choice, exempt from later default-branch renames. Validated as a Git branch name only: it does not have to exist yet, so a project can be pointed at a branch about to be pushed. Changing repository and naming a branch other than the new repository''s default in one request is refused with 400, because the branch named is almost always the previous repository''s, echoed back — connect first, then set the branch.'
       required:
         - connection_id
         - installation_id
@@ -12554,7 +12831,7 @@ components:
           type: object
           additionalProperties: true
           description: |
-            Payload to send to the Lambda function.
+            Payload to send to the function.
 
             If invoked with auth user token, Volcano automatically injects `__volcano_auth` context:
             ```javascript
@@ -12754,7 +13031,7 @@ components:
         code:
           type: string
           example: us-east-1
-          description: AWS region identifier accepted by function APIs.
+          description: Region identifier accepted by function APIs.
         label:
           type: string
           example: NA-East
@@ -13502,7 +13779,7 @@ components:
             Relative API path that serves the project logo when one has been
             uploaded. The path is versioned with a `?v=` cache-busting query
             param that changes on each upload. Absent when the project has no
-            logo. The logo image is stored in the project's S3 folder.
+            logo. The logo image is stored in the project's storage folder.
           example: /projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/logo?v=1718524800
         created_at:
           type: string
@@ -13964,7 +14241,7 @@ components:
           minLength: 1
         region:
           type: string
-          description: Deployed region (aws- prefixed, e.g. aws-us-east-1). Asserted, never written.
+          description: Deployed region ID (e.g. aws-us-east-1). Asserted, never written.
         pg_version:
           type: string
           enum:
@@ -14144,7 +14421,7 @@ components:
           type: array
           items:
             type: string
-          description: Region subset (bare AWS names). Requires `all_regions=false`.
+          description: Region subset (bare region names). Requires `all_regions=false`.
     ProjectConfigRealtime:
       type: object
       additionalProperties: false
@@ -14955,7 +15232,7 @@ components:
           description: MIME type
         etag:
           type: string
-          description: S3 ETag for cache validation
+          description: Entity tag for cache validation
         metadata:
           type: object
           additionalProperties: true

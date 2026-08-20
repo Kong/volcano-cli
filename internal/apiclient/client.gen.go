@@ -3449,10 +3449,10 @@ type AuthSession struct {
 	IpAddress *string `json:"ip_address,omitempty"`
 
 	// IsActive Whether the session is currently active (not expired)
-	IsActive *bool `json:"is_active,omitempty"`
+	IsActive bool `json:"is_active"`
 
 	// IsCurrent Whether this is the session making the current request
-	IsCurrent *bool `json:"is_current,omitempty"`
+	IsCurrent bool `json:"is_current"`
 
 	// LastActivityAt Last activity timestamp
 	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
@@ -3578,8 +3578,7 @@ type ConnectProjectGitRequest struct {
 	ConnectionId   openapi_types.UUID `json:"connection_id"`
 	InstallationId int64              `json:"installation_id"`
 
-	// ProductionBranch Deprecated. The deployment branch always follows the repository's GitHub default branch; when given it must equal that default branch. New callers omit it.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	// ProductionBranch The branch a push must land on to deploy, with three cases, because this is a full replace and a read-modify-write client sends back whatever it read. Omit it to follow the repository's GitHub default branch, which also discards a branch set earlier. Send back the branch the project already deploys from, when that is the repository's default, and nothing changes either way — a project pinned to that branch stays pinned. Sending the default branch when the project deploys from something else returns it to following the default, including on a rebind, where a pin describes a branch chosen for the repository being left. Any other branch becomes the project's own choice, exempt from later default-branch renames. Validated as a Git branch name only: it does not have to exist yet, so a project can be pointed at a branch about to be pushed. Changing repository and naming a branch other than the new repository's default in one request is refused with 400, because the branch named is almost always the previous repository's, echoed back — connect first, then set the branch.
 	ProductionBranch *string `json:"production_branch,omitempty"`
 
 	// RepoFullName Deprecated selector kept for a compatibility window; prefer repository_id. Either repository_id or repo_full_name is required.
@@ -3619,7 +3618,7 @@ type CreateDatabaseRequest struct {
 	// PgVersion PostgreSQL major version
 	PgVersion CreateDatabaseRequestPgVersion `json:"pg_version"`
 
-	// Region AWS region for database hosting
+	// Region Region for database hosting
 	Region CreateDatabaseRequestRegion `json:"region"`
 }
 
@@ -3630,7 +3629,7 @@ type CreateDatabaseRequestDatabaseType string
 // CreateDatabaseRequestPgVersion PostgreSQL major version
 type CreateDatabaseRequestPgVersion string
 
-// CreateDatabaseRequestRegion AWS region for database hosting
+// CreateDatabaseRequestRegion Region for database hosting
 type CreateDatabaseRequestRegion string
 
 // CreateEmailTemplateRequest defines model for CreateEmailTemplateRequest.
@@ -3690,6 +3689,27 @@ type CreateOAuthConfigRequest struct {
 
 // CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
 type CreateOAuthConfigRequestProvider string
+
+// CreateProjectGitRepositoryRequest defines model for CreateProjectGitRepositoryRequest.
+type CreateProjectGitRepositoryRequest struct {
+	// Description Repository description shown on GitHub.
+	Description *string `json:"description,omitempty"`
+
+	// Name Repository name, unique within the owner account.
+	Name string `json:"name"`
+
+	// Owner GitHub account to create the repository under, as returned in account_login by /user/git/connections/{id}/installations. Omit for the connected user's own account. Must be an organization the app is installed on, or your own account.
+	Owner *string `json:"owner,omitempty"`
+
+	// Private Whether the new repository is private. Defaults to true: the next step is pushing the project's source into it, so an omitted field must not publish it.
+	Private *bool `json:"private,omitempty"`
+
+	// ProductionBranch The branch to deploy from — name the one you are about to push. The repository is created empty, so it has no real default branch to follow: omitting this binds whatever branch name GitHub reports for the new repository (falling back to "main" if it reports none), which is the account's configured default and a prediction, and pushing anything else then deploys nothing. Naming the branch GitHub already reports is not treated as pinning it, so the project still tracks a later default-branch rename; naming any other branch pins it. Rejected before the repository is created if it is not a valid Git branch name; it does not have to exist.
+	ProductionBranch *string `json:"production_branch,omitempty"`
+
+	// RootDirectory Monorepo subdirectory the project builds from, as a relative path inside the repository. Omit for the repo root. Absolute paths and ".." traversal are rejected before the repository is created, because the build applies the same rule and nothing would deploy.
+	RootDirectory *string `json:"root_directory,omitempty"`
+}
 
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
@@ -3770,6 +3790,16 @@ type CreateVariableRequest struct {
 	Value string `json:"value"`
 }
 
+// CreatedProjectGitConnection A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
+type CreatedProjectGitConnection struct {
+	// AppInstalled Whether the App installation covers the new repository. False means the binding is complete but no push will deploy until the user grants access at install_url. An installation scoped to selected repositories never picks up a new repo on its own.
+	AppInstalled bool                 `json:"app_installed"`
+	Connection   ProjectGitConnection `json:"connection"`
+
+	// InstallUrl Where the user grants the App access to the new repository. Present only when app_installed is false.
+	InstallUrl *string `json:"install_url,omitempty"`
+}
+
 // Database PostgreSQL database with automatic scalability and security features.
 type Database struct {
 	// ConnectionString Secure PostgreSQL connection URI for your database.
@@ -3800,7 +3830,7 @@ type Database struct {
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
 	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
 
-	// Region AWS region where database is hosted
+	// Region Region where the database is hosted
 	Region *string `json:"region,omitempty"`
 
 	// Status Database provisioning status
@@ -3862,6 +3892,11 @@ type DatabaseBranch struct {
 	// Status Branch status. A new branch starts `provisioning` and is not
 	// connectable until it reports `active`; poll this endpoint until it
 	// does. `connection_string` is only present while `active`.
+	//
+	// `provisioning` also covers a branch being rebuilt after a `reset`,
+	// and a build that is between retries, so it is the status to keep
+	// waiting on. `failed` is terminal: it means the platform gave up, and
+	// the branch will not become `active` on its own.
 	Status DatabaseBranchStatus `json:"status"`
 
 	// StorageBytes Bytes this branch has diverged from its parent, which is what a
@@ -3880,6 +3915,11 @@ type DatabaseBranch struct {
 // DatabaseBranchStatus Branch status. A new branch starts `provisioning` and is not
 // connectable until it reports `active`; poll this endpoint until it
 // does. `connection_string` is only present while `active`.
+//
+// `provisioning` also covers a branch being rebuilt after a `reset`,
+// and a build that is between retries, so it is the status to keep
+// waiting on. `failed` is terminal: it means the platform gave up, and
+// the branch will not become `active` on its own.
 type DatabaseBranchStatus string
 
 // DatabaseBranchList defines model for DatabaseBranchList.
@@ -4467,7 +4507,7 @@ type FunctionDeploymentStatus string
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
 type FunctionInvocationRequest struct {
-	// Payload Payload to send to the Lambda function.
+	// Payload Payload to send to the function.
 	//
 	// If invoked with auth user token, Volcano automatically injects `__volcano_auth` context:
 	// ```javascript
@@ -4489,7 +4529,7 @@ type FunctionInvocationResponse map[string]interface{}
 
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
-	// Code AWS region identifier accepted by function APIs.
+	// Code Region identifier accepted by function APIs.
 	Code string `json:"code"`
 
 	// Flag Country flag emoji associated with the region's geography.
@@ -5335,7 +5375,7 @@ type Project struct {
 	// LogoUrl Relative API path that serves the project logo when one has been
 	// uploaded. The path is versioned with a `?v=` cache-busting query
 	// param that changes on each upload. Absent when the project has no
-	// logo. The logo image is stored in the project's S3 folder.
+	// logo. The logo image is stored in the project's storage folder.
 	LogoUrl *string `json:"logo_url,omitempty"`
 	Name    string  `json:"name"`
 
@@ -5659,7 +5699,7 @@ type ProjectConfigDatabase struct {
 	// PgVersion PostgreSQL major version. Asserted, never written.
 	PgVersion ProjectConfigDatabasePgVersion `json:"pg_version"`
 
-	// Region Deployed region (aws- prefixed, e.g. aws-us-east-1). Asserted, never written.
+	// Region Deployed region ID (e.g. aws-us-east-1). Asserted, never written.
 	Region string `json:"region"`
 }
 
@@ -5766,7 +5806,7 @@ type ProjectConfigProject struct {
 	AllRegions *bool   `json:"all_regions,omitempty"`
 	Name       *string `json:"name,omitempty"`
 
-	// SelectedRegions Region subset (bare AWS names). Requires `all_regions=false`.
+	// SelectedRegions Region subset (bare region names). Requires `all_regions=false`.
 	SelectedRegions *[]string `json:"selected_regions,omitempty"`
 }
 
@@ -5913,7 +5953,7 @@ type ProjectFrontendCustomDomainVerificationStatus string
 
 // ProjectGitConnection defines model for ProjectGitConnection.
 type ProjectGitConnection struct {
-	// ProductionBranch The repository's GitHub default branch, cached at connect time and used as the deployment target.
+	// ProductionBranch The branch a push must land on to deploy. Follows the repository's GitHub default branch unless the project set its own, which a default-branch rename on GitHub then leaves alone.
 	ProductionBranch string `json:"production_branch"`
 	RepoFullName     string `json:"repo_full_name"`
 
@@ -6360,6 +6400,12 @@ type ServiceKey struct {
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
 }
 
+// SetProjectGitProductionBranchRequest defines model for SetProjectGitProductionBranchRequest.
+type SetProjectGitProductionBranchRequest struct {
+	// ProductionBranch The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+	ProductionBranch string `json:"production_branch"`
+}
+
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
 type StorageBucket struct {
@@ -6410,7 +6456,7 @@ type StorageObject struct {
 	BucketId  openapi_types.UUID `json:"bucket_id"`
 	CreatedAt *time.Time         `json:"created_at,omitempty"`
 
-	// Etag S3 ETag for cache validation
+	// Etag Entity tag for cache validation
 	Etag *string            `json:"etag,omitempty"`
 	Id   openapi_types.UUID `json:"id"`
 
@@ -8381,6 +8427,12 @@ type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
 // ConnectProjectGitJSONRequestBody defines body for ConnectProjectGit for application/json ContentType.
 type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
 
+// SetProjectGitProductionBranchJSONRequestBody defines body for SetProjectGitProductionBranch for application/json ContentType.
+type SetProjectGitProductionBranchJSONRequestBody = SetProjectGitProductionBranchRequest
+
+// CreateProjectGitRepositoryJSONRequestBody defines body for CreateProjectGitRepository for application/json ContentType.
+type CreateProjectGitRepositoryJSONRequestBody = CreateProjectGitRepositoryRequest
+
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
 
@@ -9788,6 +9840,16 @@ type ClientInterface interface {
 	ConnectProjectGitWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ConnectProjectGit(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectGitProductionBranchWithBody request with any body
+	SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectGitRepositoryWithBody request with any body
+	CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectGitDeploySettings request
 	GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12402,6 +12464,54 @@ func (c *Client) ConnectProjectGitWithBody(ctx context.Context, id ProjectId, co
 
 func (c *Client) ConnectProjectGit(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewConnectProjectGitRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitProductionBranchRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitProductionBranchRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectGitRepositoryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectGitRepositoryRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21075,6 +21185,100 @@ func NewConnectProjectGitRequestWithBody(server string, id ProjectId, contentTyp
 	return req, nil
 }
 
+// NewSetProjectGitProductionBranchRequest calls the generic SetProjectGitProductionBranch builder with application/json body
+func NewSetProjectGitProductionBranchRequest(server string, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectGitProductionBranchRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectGitProductionBranchRequestWithBody generates requests for SetProjectGitProductionBranch with any type of body
+func NewSetProjectGitProductionBranchRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/production-branch", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateProjectGitRepositoryRequest calls the generic CreateProjectGitRepository builder with application/json body
+func NewCreateProjectGitRepositoryRequest(server string, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectGitRepositoryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateProjectGitRepositoryRequestWithBody generates requests for CreateProjectGitRepository with any type of body
+func NewCreateProjectGitRepositoryRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/repository", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectGitDeploySettingsRequest generates requests for GetProjectGitDeploySettings
 func NewGetProjectGitDeploySettingsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -24793,6 +24997,16 @@ type ClientWithResponsesInterface interface {
 	ConnectProjectGitWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectProjectGitClientResponse, error)
 
 	ConnectProjectGitWithResponse(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectProjectGitClientResponse, error)
+
+	// SetProjectGitProductionBranchWithBodyWithResponse request with any body
+	SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
+
+	SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
+
+	// CreateProjectGitRepositoryWithBodyWithResponse request with any body
+	CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
+
+	CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
 
 	// GetProjectGitDeploySettingsWithResponse request
 	GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error)
@@ -29908,6 +30122,80 @@ func (r ConnectProjectGitClientResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectGitProductionBranchClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectGitProductionBranchClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectGitProductionBranchClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectGitProductionBranchClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectGitRepositoryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *CreatedProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectGitRepositoryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectGitRepositoryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectGitRepositoryClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectGitDeploySettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -33507,6 +33795,40 @@ func (c *ClientWithResponses) ConnectProjectGitWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseConnectProjectGitClientResponse(rsp)
+}
+
+// SetProjectGitProductionBranchWithBodyWithResponse request with arbitrary body returning *SetProjectGitProductionBranchClientResponse
+func (c *ClientWithResponses) SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error) {
+	rsp, err := c.SetProjectGitProductionBranchWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitProductionBranchClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error) {
+	rsp, err := c.SetProjectGitProductionBranch(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitProductionBranchClientResponse(rsp)
+}
+
+// CreateProjectGitRepositoryWithBodyWithResponse request with arbitrary body returning *CreateProjectGitRepositoryClientResponse
+func (c *ClientWithResponses) CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
+	rsp, err := c.CreateProjectGitRepositoryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectGitRepositoryClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
+	rsp, err := c.CreateProjectGitRepository(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectGitRepositoryClientResponse(rsp)
 }
 
 // GetProjectGitDeploySettingsWithResponse request returning *GetProjectGitDeploySettingsClientResponse
@@ -40380,6 +40702,156 @@ func ParseConnectProjectGitClientResponse(rsp *http.Response) (*ConnectProjectGi
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectGitProductionBranchClientResponse parses an HTTP response from a SetProjectGitProductionBranchWithResponse call
+func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetProjectGitProductionBranchClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectGitProductionBranchClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectGitRepositoryClientResponse parses an HTTP response from a CreateProjectGitRepositoryWithResponse call
+func ParseCreateProjectGitRepositoryClientResponse(rsp *http.Response) (*CreateProjectGitRepositoryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectGitRepositoryClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreatedProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
