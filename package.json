@@ -1,6 +1,6 @@
 {
   "name": "@volcano.dev/cli",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "description": "CLI for Volcano's hosting platform.",
   "keywords": [
     "volcano",

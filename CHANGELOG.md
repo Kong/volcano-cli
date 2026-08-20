@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/Kong/volcano-cli/compare/v0.22.0...v0.22.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **git:** follow git's push routing, and correct a wrong justification from [#159](https://github.com/Kong/volcano-cli/issues/159) ([#165](https://github.com/Kong/volcano-cli/issues/165)) ([a8e6bf1](https://github.com/Kong/volcano-cli/commit/a8e6bf1e0b961313dd569c2de2de7695efa189a3))
+
 ## [0.22.0](https://github.com/Kong/volcano-cli/compare/v0.21.2...v0.22.0) (2026-08-20)
 
 
