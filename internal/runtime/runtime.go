@@ -41,10 +41,10 @@ type Deps struct {
 	// GitTerminalRunner runs the git commands that write, which need the user's
 	// terminal rather than a captured buffer: a push can prompt for credentials
 	// and reports progress as it goes.
-	GitTerminalRunner TerminalCommandRunner
-	ExecutablePath    string
-	UpdateGitHubAPIURL  string
-	CommandPathPrefix   string
+	GitTerminalRunner  TerminalCommandRunner
+	ExecutablePath     string
+	UpdateGitHubAPIURL string
+	CommandPathPrefix  string
 	// DocsCacheDir overrides the base cache directory used by `volcano docs`.
 	// Empty uses os.UserCacheDir()/volcano. Tests inject a t.TempDir().
 	DocsCacheDir string

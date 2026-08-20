@@ -327,13 +327,19 @@ func TestGitCreateSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 
 // The platform refuses this too, with a 404 that cannot say which accounts would
 // have worked. This can, because it has the installation list in hand.
+//
+// No --yes, so this also pins the order: the check runs before the prompt. Asking
+// the user to confirm a create that has already been established to be impossible
+// gets a "yes" for nothing, and it is the prompt guarding the one action here
+// that cannot be undone.
 func TestGitCreateRefusesAnOwnerTheAppIsNotInstalledOn(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
-	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "storefront", "--owner", "acme", "--yes")
+	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
+		"create", "storefront", "--owner", "acme")
 	require.Error(t, err)
+	assert.NotContains(t, out, "Create it", "the prompt must not be reached")
 	assert.Contains(t, err.Error(), "not installed on that account: acme")
 	assert.Contains(t, err.Error(), "It is installed on: octo")
 	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")

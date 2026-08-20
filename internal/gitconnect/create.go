@@ -49,18 +49,18 @@ type CreateRepositoryInput struct {
 // project to it.
 //
 // This is the only call in this package that creates something outside Volcano,
-// and nothing can undo it: there is no delete. So everything checkable is
-// checked first, and every failure afterwards reports whether a repository may
-// exist rather than only that the request failed.
+// and nothing can undo it: there is no delete. So every failure reports whether
+// a repository may exist rather than only that the request failed.
+//
+// Callers are expected to have run CheckOwner first, which is where a named
+// account the App cannot create under is refused without sending anything. The
+// platform refuses it too, so skipping the check costs a worse message rather
+// than a wrong outcome.
 func (s Service) CreateRepository(
 	ctx context.Context, input CreateRepositoryInput,
 ) (*apiclient.CreatedProjectGitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
-		return nil, err
-	}
-
-	if err := s.checkOwner(ctx, input.Owner); err != nil {
 		return nil, err
 	}
 
@@ -92,15 +92,15 @@ func createBody(input CreateRepositoryInput) apiclient.CreateProjectGitRepositor
 	return body
 }
 
-// checkOwner refuses an owner the App cannot create under, before anything is
-// created. The platform refuses it too, with a 404 that cannot say which
-// accounts would have worked; this can, because it has the installation list in
-// hand.
+// CheckOwner refuses an owner the App cannot create under, before anything is
+// created and before the user is asked to confirm. The platform refuses it too,
+// with a 404 that cannot say which accounts would have worked; this can, because
+// it has the installation list in hand.
 //
 // Only an explicitly named owner is checked. An omitted one resolves to the
 // connected account on the platform side, and guessing which login that is here
 // would let the CLI refuse a create the platform would have accepted.
-func (s Service) checkOwner(ctx context.Context, owner string) error {
+func (s Service) CheckOwner(ctx context.Context, owner string) error {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
 		return nil

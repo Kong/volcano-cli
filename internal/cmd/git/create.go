@@ -121,6 +121,13 @@ func runCreate(ctx context.Context, opts createOptions) error {
 			cliruntime.CommandPath(opts.deps, "git connect"))
 	}
 
+	// Last of the checks, so the prompt is the only thing left between here and a
+	// repository: the user is never asked to confirm a create the CLI has already
+	// established it cannot make.
+	if err := service.CheckOwner(ctx, request.input.Owner); err != nil {
+		return guide(opts.deps, webURL, err)
+	}
+
 	confirmed, err := confirmCreate(opts, project, request)
 	if err != nil || !confirmed {
 		return err
