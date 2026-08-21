@@ -86,6 +86,14 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 			err,
 			cliruntime.CommandPath(deps, "login"),
 			dashboardStep(webURL, "If you are already signed in, reconnect GitHub in the dashboard:"))
+	case errors.Is(err, gitconnect.ErrCreateNotFound):
+		// The platform's message says which of the three it is; the link is here
+		// because two of them are fixed in the dashboard and neither is reachable
+		// from the CLI. The third — a project that does not exist — is answered by
+		// the message itself.
+		return fmt.Errorf("%w\n\n%s", err, dashboardStep(webURL,
+			"If GitHub is not connected, or the App is not installed on that account, "+
+				"fix it in the dashboard:"))
 	case errors.Is(err, gitconnect.ErrOwnerNotInstallable):
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Install the App on that account, then run this command again:"))

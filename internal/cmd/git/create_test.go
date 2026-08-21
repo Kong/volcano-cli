@@ -260,6 +260,11 @@ func TestGitCreateSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
 	assert.Empty(t, terminal.ran(), "a push that deploys nothing must not be presented as progress")
 	assert.Contains(t, out, "could not be confirmed to have access")
 	assert.Contains(t, out, "https://github.com/apps/volcano/installations/new")
+	// What a push deploys is said after the warning and in the future tense.
+	// Above it, in the present tense, it read as a flat contradiction: one line
+	// promising functions deploy, the next saying a push deploys nothing.
+	assert.NotContains(t, out, "A push to main deploys:")
+	assert.Contains(t, out, "Once it can, a push to main deploys: functions")
 	// The remote is still recorded: it is what the user pushes with once access
 	// is granted, and re-running create is not an option.
 	assert.Contains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git")
@@ -454,6 +459,9 @@ func TestShellQuote(t *testing.T) {
 		{"a`id`b", "'a`id`b'"},
 		{"a|b", `'a|b'`},
 		{"~branch", `'~branch'`},
+		// zsh expands a word starting with "=" to a command's path, and git
+		// accepts "=foo" as a branch name.
+		{"=foo", `'=foo'`},
 		{"", `''`},
 		// The one escape a single-quoted word needs.
 		{"it's", `'it'\''s'`},
@@ -471,6 +479,43 @@ func TestGitCreateRefusesAnAbsoluteRootDirectory(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not an absolute path")
 	assert.Zero(t, api.createAttempts())
+}
+
+// connect accepts an empty --root-directory because it has a previous value to
+// reset. A repository being created has none, so a value that trims to nothing is
+// a mistyped path or an unset variable — and it used to pass silently, binding an
+// irreversible create to the repository root.
+func TestGitCreateRefusesAWhitespaceRootDirectory(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+
+	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
+		"create", "storefront", "--root-directory", "   ", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only whitespace")
+	assert.Zero(t, api.createAttempts())
+}
+
+// The commonest first failure of this command: GitHub was never connected. The
+// platform answers 404 for that, for a missing project, and for an App not
+// installed on the owner — two of the three are fixed in the dashboard, so the
+// link has to be there. Without it this was the only git subcommand that left the
+// user with a bare HTTP status.
+func TestGitCreatePointsAtTheDashboardWhenNothingWasFound(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.createStatus = 404
+	api.createErrorMessage = "No GitHub account is connected"
+
+	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.Error(t, err)
+	// The platform's own message survives: it is the only thing that says which
+	// of the three 404s this is.
+	assert.Contains(t, err.Error(), "No GitHub account is connected")
+	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	// Nothing was created, so nothing may suggest a repository might exist.
+	assert.NotContains(t, err.Error(), "may have been created")
 }
 
 func TestGitCreateSendsTheRootDirectory(t *testing.T) {

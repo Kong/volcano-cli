@@ -162,7 +162,8 @@ func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest,
 	if err := checkRemoteName(opts.remote); err != nil {
 		return createRequest{}, err
 	}
-	if err := validateRootDirectory(opts.rootDirectory, opts.rootDirectory != ""); err != nil {
+	root, err := requestedRootDirectory(opts.rootDirectory)
+	if err != nil {
 		return createRequest{}, err
 	}
 
@@ -180,7 +181,7 @@ func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest,
 		Owner:            strings.TrimSpace(opts.owner),
 		Private:          !opts.public,
 		Description:      opts.description,
-		RootDirectory:    strings.TrimSpace(opts.rootDirectory),
+		RootDirectory:    root,
 		ProductionBranch: branch,
 	}}
 	if opts.noPush {
@@ -254,6 +255,26 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 	}
 	request.pushBranch = branch
 	return request, nil
+}
+
+// requestedRootDirectory reads --root-directory for a repository being created.
+//
+// A value that is only whitespace is refused rather than trimmed away. connect
+// accepts an empty one because it has a previous value to reset; a repository
+// being created has none, so an empty-after-trimming value is a mistyped path or
+// an unset variable in a script and nothing else — and it would otherwise pass
+// silently, leaving an irreversible create bound to the repository root instead
+// of failing.
+func requestedRootDirectory(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if value != "" && trimmed == "" {
+		return "", errors.New(
+			"--root-directory is only whitespace; omit it to build from the repository root")
+	}
+	if err := validateRootDirectory(trimmed, trimmed != ""); err != nil {
+		return "", err
+	}
+	return trimmed, nil
 }
 
 // checkRemoteName refuses the two remote names git cannot be asked about: an
@@ -503,6 +524,9 @@ func shellUnsafe(r rune) bool {
 	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
 		return false
 	default:
-		return !strings.ContainsRune("-_./:@+,=", r)
+		// "=" is absent deliberately, alongside "~": zsh expands a word starting
+		// with either, and git accepts both in a ref name, so "=foo" printed bare
+		// is a command zsh resolves to a path instead of pushing a branch.
+		return !strings.ContainsRune("-_./:@+,", r)
 	}
 }

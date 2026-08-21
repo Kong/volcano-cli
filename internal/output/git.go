@@ -77,7 +77,12 @@ func GitCreated(w io.Writer, creation GitCreation) {
 	if creation.Pushed {
 		Success(w, "Pushed %s to %s", connection.ProductionBranch, connection.RepoFullName)
 	}
-	gitDeploySettings(w, creation.Binding)
+	// Only when a push can deploy. Said above the access warning it read as a flat
+	// contradiction of it — one line promising a push deploys functions, the next
+	// saying a push deploys nothing — so in that case it moves below, reworded.
+	if creation.AppInstalled {
+		gitDeploySettings(w, creation.Binding)
+	}
 	gitCreationNextStep(w, on, creation)
 }
 
@@ -92,6 +97,7 @@ func gitCreationNextStep(w io.Writer, on bool, creation GitCreation) {
 		if creation.InstallURL != nil && *creation.InstallURL != "" {
 			fmt.Fprintf(w, "%s\n  %s\n", theme.Dim("Grant it access here:", on), *creation.InstallURL)
 		}
+		gitCreationDeferredDeploy(w, on, creation.Binding)
 		gitCreationCommands(w, on, "Then push:", creation.NextCommands)
 		return
 	}
@@ -99,6 +105,32 @@ func gitCreationNextStep(w io.Writer, on bool, creation GitCreation) {
 		return
 	}
 	gitCreationCommands(w, on, "Push to deploy:", creation.NextCommands)
+}
+
+// gitCreationDeferredDeploy says what a push will deploy once the App can see
+// the repository — the same fact gitDeploySettings reports, phrased for a state
+// where it is not true yet. A failed settings read is still surfaced: "nothing
+// configured" and "could not find out" are different answers, and this is the
+// case where the user is already being asked to go and fix something.
+func gitCreationDeferredDeploy(w io.Writer, on bool, binding GitBinding) {
+	settings := binding.Settings
+	if settings == nil {
+		if binding.SettingsErr != nil {
+			Warning(w, "Its deploy settings could not be read either, so what a push to %s "+
+				"will deploy is unknown: %v", binding.Connection.ProductionBranch, binding.SettingsErr)
+		}
+		return
+	}
+	targets := deployTargets(settings)
+	if !settings.AutoDeployEnabled || len(targets) == 0 {
+		// Nothing would deploy even with access, which the warning above already
+		// covers; adding "and nothing is selected" here only dilutes it.
+		return
+	}
+	fmt.Fprintf(w, "%s%s\n",
+		theme.Dim(fmt.Sprintf("Once it can, a push to %s deploys: ", binding.Connection.ProductionBranch), on),
+		strings.Join(targets, ", "),
+	)
 }
 
 func gitCreationCommands(w io.Writer, on bool, instruction string, commands []string) {

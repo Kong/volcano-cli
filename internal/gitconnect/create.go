@@ -17,6 +17,15 @@ var (
 	// and the accounts that would work are known, so this is refused with them
 	// named rather than sent.
 	ErrOwnerNotInstallable = errors.New("the Volcano GitHub App is not installed on that account")
+	// ErrCreateNotFound indicates the platform could not find something the create
+	// needs: the project, a connected GitHub account, or an App installation on
+	// the owner. All three answer 404 and only the platform's message tells them
+	// apart, so it is kept as the text the user reads — this exists to carry the
+	// dashboard link, which is where two of the three are fixed.
+	//
+	// It names no repository on purpose: a 404 is refused before the provider is
+	// reached, so nothing was created.
+	ErrCreateNotFound = errors.New("failed to create the repository")
 	// ErrRepositoryMayExist indicates a creation whose failure does not mean
 	// nothing was created. The repository is made on GitHub before the binding is
 	// written and before some of the failures below can happen, so a caller that
@@ -181,6 +190,8 @@ func classifyCreate(err error, name string) error {
 		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	case http.StatusServiceUnavailable:
 		return ErrProviderNotConfigured
+	case http.StatusNotFound:
+		return fmt.Errorf("%w: %w", ErrCreateNotFound, err)
 	case noHTTPStatus, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		return fmt.Errorf("failed to create %s: %w: %w", name, ErrRepositoryMayExist, err)
 	default:
