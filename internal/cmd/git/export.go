@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -21,9 +20,8 @@ import (
 
 type exportOptions struct {
 	deps cliruntime.Deps
-	// name is empty when the working directory's name should be used.
-	name          string
-	owner         string
+	// repo is the repository to export into, as "name" or "owner/name".
+	repo          string
 	private       bool
 	public        bool
 	description   string
@@ -32,8 +30,6 @@ type exportOptions struct {
 	// given: see the note where the flag is marked required.
 	branch string
 	remote string
-	// repo names an existing repository to export into, instead of creating one.
-	repo   string
 	noPush bool
 	ssh    bool
 	yes    bool
@@ -44,7 +40,7 @@ type exportOptions struct {
 func newExport(deps cliruntime.Deps) *cobra.Command {
 	opts := exportOptions{deps: deps}
 	cmd := &cobra.Command{
-		Use:   "export [name]",
+		Use:   "export",
 		Short: "Create a GitHub repository for the current project and push to it",
 		Long: `Create a new, empty GitHub repository, connect the current project to it, and
 push this checkout into it so the project starts deploying on every push.
@@ -60,22 +56,12 @@ anything afterwards fails.
 
 Connecting a repository you already have is a dashboard flow; this command only
 creates new ones.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 1 {
-				// Falling back to the directory name here would quietly ignore an
-				// unset variable in a script and create a repository under a name
-				// the caller never chose.
-				if opts.name = strings.TrimSpace(args[0]); opts.name == "" {
-					return errors.New("the repository name is empty")
-				}
-			}
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.in, opts.out = cmd.InOrStdin(), cmd.OutOrStdout()
 			return runExport(cmd.Context(), opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.owner, "owner", "",
-		"GitHub account to create the repository under (default: your own account)")
 	cmd.Flags().BoolVar(&opts.private, "private", false, "Create a private repository (the default)")
 	cmd.Flags().BoolVar(&opts.public, "public", false, "Create a public repository")
 	cmd.Flags().StringVar(&opts.description, "description", "", "Repository description shown on GitHub")
@@ -84,7 +70,7 @@ creates new ones.`,
 	cmd.Flags().StringVar(&opts.branch, "branch", "",
 		"Branch to push, which becomes the branch that deploys (required)")
 	cmd.Flags().StringVar(&opts.repo, "repo", "",
-		"Export into a GitHub repository that already exists, instead of creating one")
+		`Repository to export into, as "name" or "owner/name" (required)`)
 	cmd.Flags().StringVar(&opts.remote, "remote", localgit.DefaultRemoteName,
 		"Name for the Git remote added for the repository")
 	cmd.Flags().BoolVar(&opts.noPush, "no-push", false,
@@ -97,6 +83,10 @@ creates new ones.`,
 	// branch for good. git pushes a branch it is not standing on perfectly well,
 	// so naming it costs the user nothing but a switch they no longer have to make.
 	_ = cmd.MarkFlagRequired("branch")
+	// Named for the same reason as the branch: the directory this happens to run
+	// in is not a statement about what the repository should be called, and a
+	// repository is the one thing here Volcano cannot delete afterwards.
+	_ = cmd.MarkFlagRequired("repo")
 	return cmd
 }
 
@@ -135,42 +125,64 @@ func runExport(ctx context.Context, opts exportOptions) error {
 	// Last of the checks, so the prompt is the only thing left between here and a
 	// repository: the user is never asked to confirm a create the CLI has already
 	// established it cannot make. This is where a caller with no GitHub account
-	// connected is turned away, which is the commonest reason a create cannot work.
+	// connected is turned away, which is the commonest reason an export cannot work.
 	if err := service.CheckCreatable(ctx, request.input.Owner); err != nil {
 		return guide(opts.deps, webURL, err)
 	}
 
-	confirmed, err := confirmExport(opts, project, request)
+	// Which of the three shapes this export takes is a fact about GitHub, not
+	// something the caller declared: the repository may not exist, may exist
+	// empty, or may already have a history of its own.
+	target, err := resolveExportTarget(ctx, opts, service, request.plan, request.input.Owner, request.input.Name)
+	if err != nil {
+		return existingRepoError(webURL, request.input.Owner, guide(opts.deps, webURL, err))
+	}
+
+	confirmed, err := confirmExport(opts, project, request, target)
 	if err != nil || !confirmed {
 		return err
 	}
 
-	created, err := service.CreateRepository(ctx, request.input)
+	outcome, err := exportTo(ctx, service, request, target)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}
+	return reportExport(ctx, opts, service, project, outcome)
+}
 
-	return reportExport(ctx, opts, service, project, exportOutcome{
+// exportTo binds the project to the repository, creating it first when there is
+// none to bind.
+func exportTo(
+	ctx context.Context,
+	service gitconnect.Service,
+	request exportRequest,
+	target resolveTarget,
+) (exportOutcome, error) {
+	if target.existing != nil {
+		return bindExisting(ctx, service, target, request.input.RootDirectory, request.plan)
+	}
+
+	created, err := service.CreateRepository(ctx, request.input)
+	if err != nil {
+		return exportOutcome{}, err
+	}
+	return exportOutcome{
 		connection: &created.Connection,
 		created:    true,
 		appMissing: !created.AppInstalled,
 		installURL: created.InstallUrl,
-		pushBranch: request.pushBranch,
-		routing:    request.routing,
-	})
+		pushBranch: request.plan.branch,
+		routing:    request.plan.routing,
+	}, nil
 }
 
 // exportRequest is a validated request: everything the platform is asked for,
 // plus the local work that follows a successful create.
 type exportRequest struct {
 	input gitconnect.CreateRepositoryInput
-	// pushBranch is the branch to push, empty when the checkout is not being
-	// touched. It always equals the production branch when set: pushing anything
-	// else would leave the project connected and not deploying.
-	pushBranch string
-	// routing is where this checkout's configuration sends a bare `git push`,
-	// when that is not the remote being created.
-	routing pushRouting
+	// plan is the local half: the branch to push and where this checkout's
+	// configuration would send a later bare push.
+	plan checkoutPlan
 }
 
 // pushRouting is what a later bare `git push` in this checkout would do.
@@ -212,7 +224,7 @@ func buildExportRequest(ctx context.Context, opts exportOptions) (exportRequest,
 		return exportRequest{}, err
 	}
 
-	name, err := repositoryName(opts.name)
+	owner, name, err := repositoryName(opts.repo)
 	if err != nil {
 		return exportRequest{}, err
 	}
@@ -223,7 +235,7 @@ func buildExportRequest(ctx context.Context, opts exportOptions) (exportRequest,
 
 	request := exportRequest{input: gitconnect.CreateRepositoryInput{
 		Name:             name,
-		Owner:            strings.TrimSpace(opts.owner),
+		Owner:            owner,
 		Private:          !opts.public,
 		Description:      opts.description,
 		RootDirectory:    root,
@@ -240,7 +252,7 @@ func buildExportRequest(ctx context.Context, opts exportOptions) (exportRequest,
 	// The branch about to be pushed is the one the new repository deploys from,
 	// so it is what the create carries.
 	request.input.ProductionBranch = plan.branch
-	request.pushBranch, request.routing = plan.branch, plan.routing
+	request.plan = plan
 	return request, nil
 }
 
@@ -408,21 +420,33 @@ func checkRemoteFree(ctx context.Context, client localgit.Client, name string) e
 	return nil
 }
 
-// repositoryName resolves the name to create under, defaulting to the working
-// directory's own name.
-func repositoryName(named string) (string, error) {
-	name := named
+// repositoryName splits --repo into the account to create under and the
+// repository name. The account is empty for "name" alone, which leaves it to the
+// platform to resolve as the connected account.
+//
+// No default from the working directory: the directory this happens to run in is
+// not a statement about what the repository should be called, and this is the one
+// thing here that cannot be undone.
+func repositoryName(repo string) (owner, name string, err error) {
+	repo = strings.TrimSpace(repo)
+	owner, name, found := strings.Cut(repo, "/")
+	if !found {
+		owner, name = "", repo
+	}
+	if strings.Contains(name, "/") {
+		return "", "", fmt.Errorf(
+			"--repo %q has too many parts: pass %q or %q", repo, "name", "owner/name")
+	}
+	if owner == "" && found {
+		return "", "", fmt.Errorf("--repo %q names no account before the %q", repo, "/")
+	}
 	if name == "" {
-		working, err := os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("could not read the working directory to name the repository: %w", err)
-		}
-		name = filepath.Base(working)
+		return "", "", fmt.Errorf("--repo %q names no repository", repo)
 	}
 	if err := checkRepositoryName(name); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return name, nil
+	return owner, name, nil
 }
 
 // checkRepositoryName refuses a name GitHub would not create as written.
@@ -433,8 +457,8 @@ func repositoryName(named string) (string, error) {
 // as if it were the name asked for. Refusing is the only outcome that keeps what
 // the CLI reports true.
 func checkRepositoryName(name string) error {
-	if name == "." || name == ".." || name == string(filepath.Separator) {
-		return fmt.Errorf("%q cannot be used as a repository name: pass one as an argument", name)
+	if name == "." || name == ".." {
+		return fmt.Errorf("%q cannot be used as a repository name", name)
 	}
 	for _, r := range name {
 		switch {
@@ -467,7 +491,12 @@ func requestedBranch(opts exportOptions) (string, error) {
 	return branch, nil
 }
 
-func confirmExport(opts exportOptions, project gitconnect.ProjectRef, request exportRequest) (bool, error) {
+func confirmExport(
+	opts exportOptions, project gitconnect.ProjectRef, request exportRequest, target resolveTarget,
+) (bool, error) {
+	if target.existing != nil {
+		return confirmBindExisting(opts, project, request, target)
+	}
 	visibility := "private"
 	if !request.input.Private {
 		visibility = "public"
@@ -481,8 +510,31 @@ func confirmExport(opts exportOptions, project gitconnect.ProjectRef, request ex
 			"Volcano cannot delete a repository, so this cannot be undone from here.",
 		visibility, request.input.Name, owner, project.Label())
 	question := "Create it?"
-	if request.pushBranch != "" {
-		question = fmt.Sprintf("Create it and push %s?", request.pushBranch)
+	if request.plan.branch != "" {
+		question = fmt.Sprintf("Create it and push %s?", request.plan.branch)
+	}
+	return ask(opts.in, opts.out, opts.yes, warning, question)
+}
+
+// confirmBindExisting asks about a repository that already exists, where the
+// thing worth surfacing is not that something is created but whether the push
+// will deploy: a repository with its own history takes the project on a branch
+// and waits for a merge.
+func confirmBindExisting(
+	opts exportOptions, project gitconnect.ProjectRef, request exportRequest, target resolveTarget,
+) (bool, error) {
+	fullName := target.existing.Repository.FullName
+	warning := fmt.Sprintf("This connects project %s to %s, which already exists.", project.Label(), fullName)
+	question := "Connect it?"
+	switch {
+	case target.sideBranch != "":
+		warning += fmt.Sprintf(
+			"\n%s has its own history, so %s will be pushed to the branch %s rather than merged into %s.\n"+
+				"Nothing deploys until you merge that branch.",
+			fullName, request.plan.branch, target.sideBranch, target.existing.Repository.DefaultBranch)
+		question = fmt.Sprintf("Connect it and push %s?", target.sideBranch)
+	case request.plan.branch != "":
+		question = fmt.Sprintf("Connect it and push %s?", request.plan.branch)
 	}
 	return ask(opts.in, opts.out, opts.yes, warning, question)
 }
