@@ -153,6 +153,33 @@ type createRequest struct {
 	// touched. It always equals the production branch when set: pushing anything
 	// else would leave the project connected and not deploying.
 	pushBranch string
+	// routing is where this checkout's configuration sends a bare `git push`,
+	// when that is not the remote being created.
+	routing pushRouting
+}
+
+// pushRouting is what a later bare `git push` in this checkout would do.
+//
+// The create's own push names its remote, so routing never changes where it
+// goes. What it changes is everything after: `--set-upstream` writes
+// branch.<name>.remote, which git consults *last* — behind
+// branch.<name>.pushRemote and remote.pushDefault. A checkout with either of
+// those set keeps sending bare pushes to the old destination, so the new
+// repository silently stops receiving commits and the project silently stops
+// deploying.
+type pushRouting struct {
+	// Elsewhere is true when the configuration sends pushes somewhere other than
+	// the remote this command created.
+	Elsewhere bool
+	// Target is the remote name or URL it sends them to, redacted.
+	Target string
+	// Source is the config key that decided it, so the user can fix the one that
+	// matters.
+	Source string
+	// Err is why the routing could not be read, when it could not. A malformed
+	// push configuration is not a reason to fail a create, but it is a reason not
+	// to claim the routing is fine.
+	Err error
 }
 
 // buildCreateRequest resolves and checks everything that can be decided without
@@ -257,7 +284,33 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 		return createRequest{}, err
 	}
 	request.pushBranch = branch
+	request.routing = readPushRouting(ctx, client, opts.remote)
 	return request, nil
+}
+
+// readPushRouting reports whether a later bare `git push` would leave the new
+// repository behind.
+//
+// Best-effort on purpose: this describes what happens after the create, so a
+// configuration this cannot read is worth saying so about but not worth refusing
+// a create over. The value is redacted because a CI rewrite routinely leaves a
+// job token in one of these keys.
+func readPushRouting(ctx context.Context, client localgit.Client, remote string) pushRouting {
+	push, err := client.PushRemote(ctx)
+	switch {
+	case err != nil:
+		return pushRouting{Err: err}
+	case push.Name == "" || push.Name == remote:
+		// Nothing configured, or configured to the remote being created: after
+		// --set-upstream a bare push reaches it either way.
+		return pushRouting{}
+	default:
+		target := push.Name
+		if push.RewrittenURL != "" {
+			target = push.RewrittenURL
+		}
+		return pushRouting{Elsewhere: true, Target: localgit.Redact(target), Source: push.Source}
+	}
 }
 
 // requestedRootDirectory reads --root-directory for a repository being created.
@@ -457,6 +510,15 @@ func reportCreated(
 		RemoteName:   opts.remote,
 		Pushed:       local.pushed,
 		NextCommands: nextCommands(opts, created, local),
+		Routing: output.GitPushRouting{
+			Elsewhere: request.routing.Elsewhere,
+			Target:    request.routing.Target,
+			Source:    request.routing.Source,
+			Err:       request.routing.Err,
+			// The push that does reach the new repository, for a checkout whose
+			// bare push does not.
+			Command: fmt.Sprintf("git push %s %s", shellQuote(opts.remote), shellQuote(request.pushBranch)),
+		},
 	})
 	if err != nil {
 		// The repository exists and the project is bound to it. Saying only that

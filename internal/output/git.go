@@ -62,6 +62,26 @@ type GitCreation struct {
 	// this command did not push. It starts from whatever was not already done, so
 	// a checkout that got its remote is told only to push.
 	NextCommands []string
+	// Routing describes where this checkout's configuration sends a later bare
+	// `git push`.
+	Routing GitPushRouting
+}
+
+// GitPushRouting is what a bare `git push` in this checkout would do after the
+// repository was created.
+//
+// Worth reporting because `--set-upstream` loses to it: git consults
+// branch.<name>.pushRemote and remote.pushDefault before the upstream, so a
+// checkout with either set keeps pushing to the old destination. The new
+// repository then stops receiving commits and the project stops deploying, with
+// nothing failing anywhere.
+type GitPushRouting struct {
+	Elsewhere bool
+	Target    string
+	Source    string
+	Err       error
+	// Command is the push that does reach the new repository.
+	Command string
 }
 
 // GitCreated renders a created repository: what exists on GitHub now, what the
@@ -102,9 +122,26 @@ func gitCreationNextStep(w io.Writer, on bool, creation GitCreation) {
 		return
 	}
 	if creation.Pushed {
+		gitPushRouting(w, on, creation.Routing)
 		return
 	}
 	gitCreationCommands(w, on, "Push to deploy:", creation.NextCommands)
+}
+
+// gitPushRouting warns when the push that just succeeded is the last one this
+// checkout will send to the new repository on its own.
+func gitPushRouting(w io.Writer, on bool, routing GitPushRouting) {
+	switch {
+	case routing.Err != nil:
+		fmt.Fprintln(w)
+		Warning(w, "This checkout's push configuration could not be read, so whether a later "+
+			"%s reaches the new repository is unknown: %v", "git push", routing.Err)
+	case routing.Elsewhere:
+		fmt.Fprintln(w)
+		Warning(w, "%s sends this branch's pushes to %s, which outranks the upstream just set — "+
+			"so a bare %s will not reach the new repository.", routing.Source, routing.Target, "git push")
+		fmt.Fprintf(w, "%s%s\n", theme.Dim("Push to it with: ", on), theme.Command(routing.Command, on))
+	}
 }
 
 // gitCreationDeferredDeploy says what a push will deploy once the App can see

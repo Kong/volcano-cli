@@ -293,6 +293,78 @@ func TestGitCreateReportsTheRepositoryWhenThePushFails(t *testing.T) {
 	assert.NotContains(t, out, "Pushed")
 }
 
+// The create's own push names its remote, so it always lands. What does not is
+// everything after: --set-upstream writes branch.<name>.remote, which git
+// consults last, behind pushRemote and pushDefault. A checkout with either set
+// keeps pushing elsewhere, the new repository stops receiving commits, and the
+// project stops deploying with nothing failing anywhere.
+func TestGitCreateWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.outputs["git config --get remote.pushDefault"] = "upstream\n"
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err, "the create and its push both succeeded; this is a warning about the next one")
+
+	assert.Contains(t, out, "Pushed main to octo/storefront")
+	assert.Contains(t, out, "remote.pushDefault")
+	assert.Contains(t, out, "upstream")
+	assert.Contains(t, out, "will not reach the new repository")
+	assert.Contains(t, out, "git push origin main")
+}
+
+// Routing that already points at the remote being created needs no warning: the
+// upstream and the configuration agree.
+func TestGitCreateStaysQuietWhenTheRoutingAgrees(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.outputs["git config --get remote.pushDefault"] = "origin\n"
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "will not reach the new repository")
+}
+
+// These keys hold either a remote name or a URL, and a CI rewrite routinely
+// leaves a job token in one of them.
+func TestGitCreateRedactsACredentialInThePushRouting(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.outputs["git config --get branch.main.pushRemote"] =
+		"https://x-access-token:SECRETTOKEN@github.com/octo/elsewhere.git\n"
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "will not reach the new repository")
+	assert.NotContains(t, out, "SECRETTOKEN")
+}
+
+// A push configuration git itself would fail on is not a reason to fail a create
+// that already succeeded — but it is a reason not to claim the routing is fine.
+func TestGitCreateSaysSoWhenTheRoutingCannotBeRead(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.outputs["git config --get remote.pushDefault"] = "   \n"
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Pushed main to octo/storefront")
+	assert.Contains(t, out, "push configuration could not be read")
+}
+
 func TestGitCreatePublicRepositorySendsPrivateFalse(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
