@@ -337,8 +337,7 @@ func TestGitCreateRedactsACredentialInThePushRouting(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
-	runner.outputs["git config --get branch.main.pushRemote"] =
-		"https://x-access-token:SECRETTOKEN@github.com/octo/elsewhere.git\n"
+	runner.outputs["git config --get branch.main.pushRemote"] = "https://x-access-token:SECRETTOKEN@github.com/octo/elsewhere.git\n"
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
