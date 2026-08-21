@@ -30,7 +30,7 @@ Connecting a repository you already have, and disconnecting one, are done in the
 dashboard.`,
 	}
 	cmd.AddCommand(newStatus(deps))
-	cmd.AddCommand(newCreate(deps))
+	cmd.AddCommand(newExport(deps))
 	return cmd
 }
 
@@ -109,7 +109,7 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	case errors.Is(err, gitconnect.ErrNotConnected):
 		// No hedging about the project: the ambiguous 404 behind this is
 		// resolved before it gets here.
-		return fmt.Errorf("%w\n\nCreate one with %s", err, cliruntime.CommandPath(deps, "git create"))
+		return fmt.Errorf("%w\n\nCreate one with %s", err, cliruntime.CommandPath(deps, "git export"))
 	default:
 		return err
 	}

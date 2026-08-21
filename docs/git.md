@@ -11,12 +11,12 @@ the production branch deploys the project — no CLI invocation needed.
 From the CLI you create that repository:
 
 ```bash
-volcano git create
+volcano git export
 ```
 
 Volcano never creates push credentials and never writes a token into your
 `.git/config`. Every push runs as your own `git push`, with the credentials
-already on your machine — including the first one `volcano git create` runs for
+already on your machine — including the first one `volcano git export` runs for
 you.
 
 ## How it relates
@@ -33,7 +33,7 @@ you.
 | Operation | Command |
 |---|---|
 | Show the connection | `volcano git status` |
-| Create a repository and push to it | `volcano git create [name]` |
+| Export to a new repository and push | `volcano git export [name]` |
 
 Connecting a repository that already exists, and disconnecting one, are dashboard
 flows.
@@ -61,7 +61,7 @@ built by an agent — Volcano creates the repository and pushes this checkout in
 it:
 
 ```bash
-volcano git create
+volcano git export
 ```
 
 With no argument the repository takes this directory's name. It is created
@@ -74,7 +74,7 @@ from the moment a repository is connected, so that first push deploys — what i
 deploys is reported when the command finishes.
 
 **Nothing here can be undone from the CLI.** Volcano cannot delete a GitHub
-repository, so `git create` asks before it creates anything, and everything it
+repository, so `git export` asks before it creates anything, and everything it
 can check it checks first:
 
 - a GitHub account is connected to your Volcano account;
@@ -88,7 +88,7 @@ Pass `--yes` to skip the prompt in a script or an agent.
 ### The branch that deploys
 
 Only pushes to the project's **production branch** deploy. An empty repository
-has no commits and therefore no real default branch, so `git create` sends the
+has no commits and therefore no real default branch, so `git export` sends the
 branch you are standing on — the one it is about to push — rather than leaving
 the platform to predict one. Name a different branch with `--branch`; it has to
 exist in this checkout, because it is also the branch that gets pushed.
@@ -96,9 +96,9 @@ exist in this checkout, because it is also the branch that gets pushed.
 ### Choosing the account and layout
 
 ```bash
-volcano git create storefront --owner acme --public
-volcano git create --root-directory apps/api
-volcano git create --ssh
+volcano git export storefront --owner acme --public
+volcano git export --root-directory apps/api
+volcano git export --ssh
 ```
 
 | Flag | Effect |
@@ -127,7 +127,7 @@ git push --set-upstream origin main
 
 If the Volcano GitHub App is installed for **selected repositories** rather than
 all of them, it may not cover a repository created after the fact. The
-repository and the binding are both fine; no push would deploy. `git create`
+repository and the binding are both fine; no push would deploy. `git export`
 reports this instead of pushing, and prints where to grant access. Once granted,
 push with the command it printed — there is nothing to redo.
 
@@ -151,7 +151,7 @@ place, the remote is recorded, and the push is yours to retry.
 ## Prerequisites the CLI cannot set up
 
 Connecting a GitHub account is a browser redirect bound to a short-lived cookie,
-so it has to happen in the dashboard. `volcano git create` checks for it before
+so it has to happen in the dashboard. `volcano git export` checks for it before
 it creates anything, and prints the dashboard URL when no account is connected.
 
 The App also has to be installed on the account you create under. When the
@@ -161,5 +161,5 @@ installed on.
 ## Local mode
 
 Git connections are a cloud-only feature: the local stack ships without GitHub
-App settings, so `volcano git create` reports that the integration is not
+App settings, so `volcano git export` reports that the integration is not
 configured. Run it against the cloud API.

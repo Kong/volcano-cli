@@ -19,7 +19,7 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-type createOptions struct {
+type exportOptions struct {
 	deps cliruntime.Deps
 	// name is empty when the working directory's name should be used.
 	name          string
@@ -40,10 +40,10 @@ type createOptions struct {
 	out       io.Writer
 }
 
-func newCreate(deps cliruntime.Deps) *cobra.Command {
-	opts := createOptions{deps: deps}
+func newExport(deps cliruntime.Deps) *cobra.Command {
+	opts := exportOptions{deps: deps}
 	cmd := &cobra.Command{
-		Use:   "create [name]",
+		Use:   "export [name]",
 		Short: "Create a GitHub repository for the current project and push to it",
 		Long: `Create a new, empty GitHub repository, connect the current project to it, and
 push this checkout into it so the project starts deploying on every push.
@@ -71,7 +71,7 @@ creates new ones.`,
 			}
 			opts.branchSet = cmd.Flags().Changed("branch")
 			opts.in, opts.out = cmd.InOrStdin(), cmd.OutOrStdout()
-			return runCreate(cmd.Context(), opts)
+			return runExport(cmd.Context(), opts)
 		},
 	}
 	cmd.Flags().StringVar(&opts.owner, "owner", "",
@@ -92,11 +92,11 @@ creates new ones.`,
 	return cmd
 }
 
-func runCreate(ctx context.Context, opts createOptions) error {
+func runExport(ctx context.Context, opts exportOptions) error {
 	service := gitconnect.NewService(opts.deps)
 	webURL, _ := service.WebURL()
 
-	request, err := buildCreateRequest(ctx, opts)
+	request, err := buildExportRequest(ctx, opts)
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}
@@ -132,7 +132,7 @@ func runCreate(ctx context.Context, opts createOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	confirmed, err := confirmCreate(opts, project, request)
+	confirmed, err := confirmExport(opts, project, request)
 	if err != nil || !confirmed {
 		return err
 	}
@@ -142,12 +142,12 @@ func runCreate(ctx context.Context, opts createOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	return reportCreated(ctx, opts, service, project, request, created)
+	return reportExport(ctx, opts, service, project, request, created)
 }
 
-// createRequest is a validated request: everything the platform is asked for,
+// exportRequest is a validated request: everything the platform is asked for,
 // plus the local work that follows a successful create.
-type createRequest struct {
+type exportRequest struct {
 	input gitconnect.CreateRepositoryInput
 	// pushBranch is the branch to push, empty when the checkout is not being
 	// touched. It always equals the production branch when set: pushing anything
@@ -182,31 +182,31 @@ type pushRouting struct {
 	Err error
 }
 
-// buildCreateRequest resolves and checks everything that can be decided without
+// buildExportRequest resolves and checks everything that can be decided without
 // creating anything. Creation is irreversible and Volcano cannot delete a
 // repository, so a request that cannot work must fail before it is sent.
-func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest, error) {
+func buildExportRequest(ctx context.Context, opts exportOptions) (exportRequest, error) {
 	if opts.private && opts.public {
-		return createRequest{}, errors.New("--private and --public cannot be combined: both say who can see the repository")
+		return exportRequest{}, errors.New("--private and --public cannot be combined: both say who can see the repository")
 	}
 	if err := checkRemoteName(opts.remote); err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 	root, err := requestedRootDirectory(opts.rootDirectory)
 	if err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 
 	name, err := repositoryName(opts.name)
 	if err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 	branch, err := requestedBranch(opts)
 	if err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 
-	request := createRequest{input: gitconnect.CreateRepositoryInput{
+	request := exportRequest{input: gitconnect.CreateRepositoryInput{
 		Name:             name,
 		Owner:            strings.TrimSpace(opts.owner),
 		Private:          !opts.public,
@@ -226,16 +226,16 @@ func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest,
 // All of it runs before the repository is created, because a checkout that
 // cannot push is a fixable mistake before the create and an orphaned repository
 // after it.
-func withPushBranch(ctx context.Context, opts createOptions, request createRequest) (createRequest, error) {
+func withPushBranch(ctx context.Context, opts exportOptions, request exportRequest) (exportRequest, error) {
 	client := localgit.New(opts.deps)
 	checkout, err := client.Checkout(ctx)
 	if err != nil {
-		return createRequest{}, fmt.Errorf(
+		return exportRequest{}, fmt.Errorf(
 			"%w\n\nCommit what you want to push first, or pass --no-push to create the repository "+
 				"and push it yourself", err)
 	}
 	if !checkout.HasCommits {
-		return createRequest{}, errors.New(
+		return exportRequest{}, errors.New(
 			"this repository has no commits, so there is nothing to push\n\n" +
 				"Commit your work first, or pass --no-push to create the repository and push it yourself")
 	}
@@ -247,7 +247,7 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 		// predict one, and a wrong prediction leaves the project connected and
 		// never deploying.
 		if checkout.Branch == "" {
-			return createRequest{}, errors.New(
+			return exportRequest{}, errors.New(
 				"this checkout is not on a branch, so there is no branch to deploy from\n\n" +
 					"Check out a branch, or name one with --branch")
 		}
@@ -260,10 +260,10 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 	if branch != checkout.Branch {
 		exists, err := client.BranchExists(ctx, branch)
 		if err != nil {
-			return createRequest{}, err
+			return exportRequest{}, err
 		}
 		if !exists {
-			return createRequest{}, fmt.Errorf(
+			return exportRequest{}, fmt.Errorf(
 				"--branch %s does not exist in this checkout, so it cannot be pushed\n\n"+
 					"Create it, name the branch you are on (%s), or pass --no-push", branch, checkout.Branch)
 		}
@@ -274,14 +274,14 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 	// the create leaves a repository whose remote never got recorded.
 	valid, err := client.ValidRemoteName(ctx, opts.remote)
 	if err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 	if !valid {
-		return createRequest{}, fmt.Errorf(
+		return exportRequest{}, fmt.Errorf(
 			"git will not accept %q as a remote name\n\nPass --remote with another name", opts.remote)
 	}
 	if err := checkRemoteFree(ctx, client, opts.remote); err != nil {
-		return createRequest{}, err
+		return exportRequest{}, err
 	}
 	request.pushBranch = branch
 	request.routing = readPushRouting(ctx, client, opts.remote)
@@ -445,7 +445,7 @@ func checkRepositoryName(name string) error {
 // command's own git invocation or is plainly a mistyped value. The platform
 // applies git's full ref-name rules before it creates anything, and duplicating
 // them here would only add a second opinion to disagree with.
-func requestedBranch(opts createOptions) (string, error) {
+func requestedBranch(opts exportOptions) (string, error) {
 	if !opts.branchSet {
 		return "", nil
 	}
@@ -462,7 +462,7 @@ func requestedBranch(opts createOptions) (string, error) {
 	return branch, nil
 }
 
-func confirmCreate(opts createOptions, project gitconnect.ProjectRef, request createRequest) (bool, error) {
+func confirmExport(opts exportOptions, project gitconnect.ProjectRef, request exportRequest) (bool, error) {
 	visibility := "private"
 	if !request.input.Private {
 		visibility = "public"
@@ -482,15 +482,15 @@ func confirmCreate(opts createOptions, project gitconnect.ProjectRef, request cr
 	return ask(opts.in, opts.out, opts.yes, warning, question)
 }
 
-// reportCreated finishes the local half and reports the outcome. The repository
+// reportExport finishes the local half and reports the outcome. The repository
 // and the binding both exist by now, so nothing here may return an error that
 // reads as "the repository was not created".
-func reportCreated(
+func reportExport(
 	ctx context.Context,
-	opts createOptions,
+	opts exportOptions,
 	service gitconnect.Service,
 	project gitconnect.ProjectRef,
-	request createRequest,
+	request exportRequest,
 	created *apiclient.CreatedProjectGitConnection,
 ) error {
 	connection := &created.Connection
@@ -545,7 +545,7 @@ type localWork struct {
 // error anywhere. The remote is still recorded, because it is what the user
 // needs to push by hand once access is granted.
 func pushToCreated(
-	ctx context.Context, opts createOptions, request createRequest, created *apiclient.CreatedProjectGitConnection,
+	ctx context.Context, opts exportOptions, request exportRequest, created *apiclient.CreatedProjectGitConnection,
 ) (localWork, error) {
 	if request.pushBranch == "" {
 		return localWork{}, nil
@@ -566,7 +566,7 @@ func pushToCreated(
 	return done, nil
 }
 
-func remoteURL(opts createOptions, fullName string) string {
+func remoteURL(opts exportOptions, fullName string) string {
 	if opts.ssh {
 		return localgit.SSHRemoteURL(fullName)
 	}
@@ -580,7 +580,7 @@ func remoteURL(opts createOptions, fullName string) string {
 // nothing local was resolved, and the platform's answer is the branch a push has
 // to land on — naming any other one here would print a command that deploys
 // nothing.
-func nextCommands(opts createOptions, created *apiclient.CreatedProjectGitConnection, done localWork) []string {
+func nextCommands(opts exportOptions, created *apiclient.CreatedProjectGitConnection, done localWork) []string {
 	remote := shellQuote(opts.remote)
 	commands := make([]string, 0, 2)
 	if !done.remoteAdded {

@@ -13,7 +13,7 @@ import (
 // The happy path, end to end: a repository is created, the project is bound to
 // it, and this checkout is pushed — the last part being the whole reason for
 // doing this from the CLI rather than from the API.
-func TestGitCreateCreatesConnectsAndPushes(t *testing.T) {
+func TestGitExportCreatesConnectsAndPushes(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -21,7 +21,7 @@ func TestGitCreateCreatesConnectsAndPushes(t *testing.T) {
 	terminal := &gitTerminalRunner{output: "Everything up-to-date\n"}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 
 	body := api.sentCreateBody()
@@ -43,7 +43,7 @@ func TestGitCreateCreatesConnectsAndPushes(t *testing.T) {
 // created empty has no default branch, so the platform would otherwise predict
 // one from the account's setting, and a wrong prediction leaves the project
 // connected and never deploying.
-func TestGitCreateSendsTheBranchItIsAboutToPush(t *testing.T) {
+func TestGitExportSendsTheBranchItIsAboutToPush(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("trunk", "")
@@ -51,7 +51,7 @@ func TestGitCreateSendsTheBranchItIsAboutToPush(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "trunk", api.sentCreateBody()["production_branch"])
@@ -60,7 +60,7 @@ func TestGitCreateSendsTheBranchItIsAboutToPush(t *testing.T) {
 	assert.Equal(t, []string{"git push --set-upstream -- origin trunk"}, terminal.ran())
 }
 
-func TestGitCreateNamesTheRepositoryAfterTheDirectory(t *testing.T) {
+func TestGitExportNamesTheRepositoryAfterTheDirectory(t *testing.T) {
 	setGitCommandTestHome(t)
 	working := filepath.Join(t.TempDir(), "storefront")
 	require.NoError(t, os.MkdirAll(working, 0o755))
@@ -70,7 +70,7 @@ func TestGitCreateNamesTheRepositoryAfterTheDirectory(t *testing.T) {
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
-	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "", "create", "--yes")
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "", "export", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "storefront", api.sentCreateBody()["name"])
@@ -80,22 +80,22 @@ func TestGitCreateNamesTheRepositoryAfterTheDirectory(t *testing.T) {
 // GitHub silently replaces the characters it does not allow, so a directory
 // named "my app" would become "my-app" — a repository under a name nobody chose,
 // which this command would then report as the name that was asked for.
-func TestGitCreateRefusesANameGitHubWouldRewrite(t *testing.T) {
+func TestGitExportRefusesANameGitHubWouldRewrite(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "my app", "--yes")
+		"export", "my app", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "which GitHub does not allow")
 	assert.Zero(t, api.createAttempts(), "nothing may be created for a name that cannot be used")
 }
 
-func TestGitCreateRefusesAnEmptyName(t *testing.T) {
+func TestGitExportRefusesAnEmptyName(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
-	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "", "create", "   ", "--yes")
+	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "", "export", "   ", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the repository name is empty")
 	assert.Zero(t, api.createAttempts())
@@ -105,13 +105,13 @@ func TestGitCreateRefusesAnEmptyName(t *testing.T) {
 // platform — but only after the repository exists, in one of the two races it
 // guards. The cheap read here is what keeps the ordinary mistake from costing an
 // orphaned repository.
-func TestGitCreateRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
+func TestGitExportRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connected = "octo/storefront"
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "another", "--yes")
+		"export", "another", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already connected to octo/storefront")
 	// Both ways out are dashboard flows now that the CLI only creates.
@@ -119,28 +119,28 @@ func TestGitCreateRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitCreateRefusesACheckoutWithNothingToPush(t *testing.T) {
+func TestGitExportRefusesACheckoutWithNothingToPush(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	// An unborn HEAD: git init has run, nothing is committed.
 	delete(runner.outputs, "git rev-parse --quiet --verify HEAD")
 
-	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "", "create", "storefront", "--yes")
+	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "", "export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no commits")
 	assert.Contains(t, err.Error(), "--no-push")
 	assert.Zero(t, api.createAttempts(), "a repository that cannot be pushed to must not be created")
 }
 
-func TestGitCreateRefusesADirectoryThatIsNotARepository(t *testing.T) {
+func TestGitExportRefusesADirectoryThatIsNotARepository(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	// Nothing registered, so every git read fails the way it does outside a
 	// repository.
 	_, err := executeGitCommandWith(t, api.serve(), &gitRunner{outputs: map[string]string{}}, nil, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a Git work tree")
 	assert.Contains(t, err.Error(), "--no-push")
@@ -150,19 +150,19 @@ func TestGitCreateRefusesADirectoryThatIsNotARepository(t *testing.T) {
 // Taking over a remote name this checkout already uses would silently redirect
 // where it pushes, so it is refused — before anything is created, because git
 // would only refuse it afterwards.
-func TestGitCreateRefusesARemoteNameAlreadyInUse(t *testing.T) {
+func TestGitExportRefusesARemoteNameAlreadyInUse(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", originRemoteOutput), nil, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `already has a remote named "origin"`)
 	assert.Contains(t, err.Error(), "--remote")
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitCreateUsesAnotherRemoteName(t *testing.T) {
+func TestGitExportUsesAnotherRemoteName(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", originRemoteOutput)
@@ -171,7 +171,7 @@ func TestGitCreateUsesAnotherRemoteName(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--remote", "volcano", "--yes")
+		"export", "storefront", "--remote", "volcano", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"git push --set-upstream -- volcano main"}, terminal.ran())
@@ -182,19 +182,19 @@ func TestGitCreateUsesAnotherRemoteName(t *testing.T) {
 // --branch names what deploys, so it is also what gets pushed. A branch that is
 // not in this checkout cannot be pushed, and pushing the current one instead
 // would deploy nothing.
-func TestGitCreateRefusesABranchThatIsNotInTheCheckout(t *testing.T) {
+func TestGitExportRefusesABranchThatIsNotInTheCheckout(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "storefront", "--branch", "release", "--yes")
+		"export", "storefront", "--branch", "release", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--branch release does not exist in this checkout")
 	assert.Contains(t, err.Error(), "main")
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitCreatePushesANamedBranchThatExists(t *testing.T) {
+func TestGitExportPushesANamedBranchThatExists(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -203,19 +203,19 @@ func TestGitCreatePushesANamedBranchThatExists(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--branch", "release", "--yes")
+		"export", "storefront", "--branch", "release", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "release", api.sentCreateBody()["production_branch"])
 	assert.Equal(t, []string{"git push --set-upstream -- origin release"}, terminal.ran())
 }
 
-func TestGitCreateRefusesABranchGitWouldReadAsAnOption(t *testing.T) {
+func TestGitExportRefusesABranchGitWouldReadAsAnOption(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"create", "storefront", "--branch", "-delete", "--yes")
+		"export", "storefront", "--branch", "-delete", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "git reads it as an option")
 	assert.Zero(t, api.createAttempts())
@@ -223,14 +223,14 @@ func TestGitCreateRefusesABranchGitWouldReadAsAnOption(t *testing.T) {
 
 // --no-push means the checkout is not touched at all, so the report has to hand
 // back both steps the user is left with — not just the push.
-func TestGitCreateWithNoPushLeavesTheCheckoutAlone(t *testing.T) {
+func TestGitExportWithNoPushLeavesTheCheckoutAlone(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--no-push", "--yes")
+		"export", "storefront", "--no-push", "--yes")
 	require.NoError(t, err)
 
 	assert.Empty(t, runner.ran(), "--no-push must not read or write the checkout")
@@ -245,7 +245,7 @@ func TestGitCreateWithNoPushLeavesTheCheckoutAlone(t *testing.T) {
 // The failure that produces no error anywhere: the push succeeds, the code
 // lands, and nothing ever deploys. So it is not attempted, and the access to
 // grant is reported instead.
-func TestGitCreateSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
+func TestGitExportSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.createAppInstalled = false
@@ -255,7 +255,7 @@ func TestGitCreateSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err, "the repository and the binding both exist; this is not a failure")
 
 	assert.Empty(t, terminal.ran(), "a push that deploys nothing must not be presented as progress")
@@ -275,7 +275,7 @@ func TestGitCreateSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
 
 // The repository exists and the project is bound by the time the push runs, so a
 // push failure may not read as "nothing happened".
-func TestGitCreateReportsTheRepositoryWhenThePushFails(t *testing.T) {
+func TestGitExportReportsTheRepositoryWhenThePushFails(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -283,7 +283,7 @@ func TestGitCreateReportsTheRepositoryWhenThePushFails(t *testing.T) {
 	terminal := &gitTerminalRunner{err: errors.New("exit status 128")}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "octo/storefront was created and connected")
 	assert.Contains(t, err.Error(), "the local step did not finish")
@@ -298,7 +298,7 @@ func TestGitCreateReportsTheRepositoryWhenThePushFails(t *testing.T) {
 // consults last, behind pushRemote and pushDefault. A checkout with either set
 // keeps pushing elsewhere, the new repository stops receiving commits, and the
 // project stops deploying with nothing failing anywhere.
-func TestGitCreateWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
+func TestGitExportWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -306,7 +306,7 @@ func TestGitCreateWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err, "the create and its push both succeeded; this is a warning about the next one")
 
 	assert.Contains(t, out, "Pushed main to octo/storefront")
@@ -318,7 +318,7 @@ func TestGitCreateWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
 
 // Routing that already points at the remote being created needs no warning: the
 // upstream and the configuration agree.
-func TestGitCreateStaysQuietWhenTheRoutingAgrees(t *testing.T) {
+func TestGitExportStaysQuietWhenTheRoutingAgrees(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -326,14 +326,14 @@ func TestGitCreateStaysQuietWhenTheRoutingAgrees(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 	assert.NotContains(t, out, "will not reach the new repository")
 }
 
 // These keys hold either a remote name or a URL, and a CI rewrite routinely
 // leaves a job token in one of them.
-func TestGitCreateRedactsACredentialInThePushRouting(t *testing.T) {
+func TestGitExportRedactsACredentialInThePushRouting(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -341,7 +341,7 @@ func TestGitCreateRedactsACredentialInThePushRouting(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "will not reach the new repository")
@@ -350,7 +350,7 @@ func TestGitCreateRedactsACredentialInThePushRouting(t *testing.T) {
 
 // A push configuration git itself would fail on is not a reason to fail a create
 // that already succeeded — but it is a reason not to claim the routing is fine.
-func TestGitCreateSaysSoWhenTheRoutingCannotBeRead(t *testing.T) {
+func TestGitExportSaysSoWhenTheRoutingCannotBeRead(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
@@ -358,36 +358,36 @@ func TestGitCreateSaysSoWhenTheRoutingCannotBeRead(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Pushed main to octo/storefront")
 	assert.Contains(t, out, "push configuration could not be read")
 }
 
-func TestGitCreatePublicRepositorySendsPrivateFalse(t *testing.T) {
+func TestGitExportPublicRepositorySendsPrivateFalse(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--public", "--yes")
+		"export", "storefront", "--public", "--yes")
 	require.NoError(t, err)
 	assert.Equal(t, false, api.sentCreateBody()["private"])
 }
 
-func TestGitCreateRefusesPrivateAndPublicTogether(t *testing.T) {
+func TestGitExportRefusesPrivateAndPublicTogether(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"create", "storefront", "--private", "--public", "--yes")
+		"export", "storefront", "--private", "--public", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--private and --public cannot be combined")
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitCreateSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
+func TestGitExportSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.installationsByConnection[gitConnectionID] = append(
@@ -396,7 +396,7 @@ func TestGitCreateSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/acme/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--owner", "acme", "--yes")
+		"export", "storefront", "--owner", "acme", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "acme", api.sentCreateBody()["owner"])
@@ -407,13 +407,13 @@ func TestGitCreateSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 // work, and the one the CLI cannot fix: connecting an account is a browser
 // redirect, so it happens in the dashboard. Refused before anything is created,
 // and before the user is asked to confirm.
-func TestGitCreateRefusesWhenNoGitHubAccountIsConnected(t *testing.T) {
+func TestGitExportRefusesWhenNoGitHubAccountIsConnected(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connections = nil
 
 	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
-		"create", "storefront")
+		"export", "storefront")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no GitHub account is connected")
 	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
@@ -423,14 +423,14 @@ func TestGitCreateRefusesWhenNoGitHubAccountIsConnected(t *testing.T) {
 
 // Checked even without --owner, which used to skip the connection read entirely
 // and leave the platform's 404 to explain it after the fact.
-func TestGitCreateChecksTheConnectionWithoutAnOwner(t *testing.T) {
+func TestGitExportChecksTheConnectionWithoutAnOwner(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 	// The connection was read, and no installation listing was needed for it: an
 	// unnamed owner is the platform's to resolve.
@@ -445,12 +445,12 @@ func TestGitCreateChecksTheConnectionWithoutAnOwner(t *testing.T) {
 // the user to confirm a create that has already been established to be impossible
 // gets a "yes" for nothing, and it is the prompt guarding the one action here
 // that cannot be undone.
-func TestGitCreateRefusesAnOwnerTheAppIsNotInstalledOn(t *testing.T) {
+func TestGitExportRefusesAnOwnerTheAppIsNotInstalledOn(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "storefront", "--owner", "acme")
+		"export", "storefront", "--owner", "acme")
 	require.Error(t, err)
 	assert.NotContains(t, out, "Create it", "the prompt must not be reached")
 	assert.Contains(t, err.Error(), "not installed on that account: acme")
@@ -461,7 +461,7 @@ func TestGitCreateRefusesAnOwnerTheAppIsNotInstalledOn(t *testing.T) {
 
 // Retrying under a new name is the wrong reflex here: the repository may already
 // be on GitHub, and a retry leaves the user owning two.
-func TestGitCreateWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
+func TestGitExportWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.createStatus = 409
@@ -469,7 +469,7 @@ func TestGitCreateWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
 	assert.Contains(t, err.Error(), "octo/storefront was created but could not be connected")
@@ -482,14 +482,14 @@ func TestGitCreateWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 // The worst of the ambiguous outcomes: the request arrived, the repository may
 // have been created, and no status came back to classify. Reported as a plain
 // failure it would send the caller straight into a retry under a new name.
-func TestGitCreateWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) {
+func TestGitExportWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.createHangsUp = true
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	assert.Equal(t, 1, api.createAttempts(), "the request did reach the platform")
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
@@ -499,12 +499,12 @@ func TestGitCreateWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) 
 
 // git refuses a remote name with whitespace, and it would refuse it after the
 // create — leaving a repository whose remote never got recorded.
-func TestGitCreateRefusesARemoteNameWithWhitespace(t *testing.T) {
+func TestGitExportRefusesARemoteNameWithWhitespace(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"create", "storefront", "--remote", "foo ", "--yes")
+		"export", "storefront", "--remote", "foo ", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "contains whitespace")
 	assert.Zero(t, api.createAttempts())
@@ -512,25 +512,25 @@ func TestGitCreateRefusesARemoteNameWithWhitespace(t *testing.T) {
 
 // The names git refuses are more than the flag check can state — a leading dot,
 // "..", "~", a ".lock" suffix — so git is asked, and asked before the create.
-func TestGitCreateRefusesARemoteNameGitRejects(t *testing.T) {
+func TestGitExportRefusesARemoteNameGitRejects(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "",
-		"create", "storefront", "--remote", "a~b", "--yes")
+		"export", "storefront", "--remote", "a~b", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `git will not accept "a~b" as a remote name`)
 	assert.Contains(t, runner.ran(), "git check-ref-format --allow-onelevel a~b")
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitCreateRefusesARemoteNameGitWouldReadAsAnOption(t *testing.T) {
+func TestGitExportRefusesARemoteNameGitWouldReadAsAnOption(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"create", "storefront", "--remote", "-x", "--yes")
+		"export", "storefront", "--remote", "-x", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "git reads it as an option")
 	assert.Zero(t, api.createAttempts())
@@ -539,7 +539,7 @@ func TestGitCreateRefusesARemoteNameGitWouldReadAsAnOption(t *testing.T) {
 // git accepts "$", ";" and backticks in a branch name, so a command printed for
 // the user to copy has to survive their shell unchanged. Printed bare,
 // "topic$(id)" would run id instead of pushing topic.
-func TestGitCreateQuotesTheCommandsItPrints(t *testing.T) {
+func TestGitExportQuotesTheCommandsItPrints(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.createAppInstalled = false
@@ -547,7 +547,7 @@ func TestGitCreateQuotesTheCommandsItPrints(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, `git push --set-upstream origin 'topic$(id)'`)
@@ -578,12 +578,12 @@ func TestShellQuote(t *testing.T) {
 	}
 }
 
-func TestGitCreateRefusesAnAbsoluteRootDirectory(t *testing.T) {
+func TestGitExportRefusesAnAbsoluteRootDirectory(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"create", "storefront", "--root-directory", "/etc", "--yes")
+		"export", "storefront", "--root-directory", "/etc", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not an absolute path")
 	assert.Zero(t, api.createAttempts())
@@ -593,12 +593,12 @@ func TestGitCreateRefusesAnAbsoluteRootDirectory(t *testing.T) {
 // reset. A repository being created has none, so a value that trims to nothing is
 // a mistyped path or an unset variable — and it used to pass silently, binding an
 // irreversible create to the repository root.
-func TestGitCreateRefusesAWhitespaceRootDirectory(t *testing.T) {
+func TestGitExportRefusesAWhitespaceRootDirectory(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"create", "storefront", "--root-directory", "   ", "--yes")
+		"export", "storefront", "--root-directory", "   ", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only whitespace")
 	assert.Zero(t, api.createAttempts())
@@ -609,14 +609,14 @@ func TestGitCreateRefusesAWhitespaceRootDirectory(t *testing.T) {
 // installed on the owner — two of the three are fixed in the dashboard, so the
 // link has to be there. Without it this was the only git subcommand that left the
 // user with a bare HTTP status.
-func TestGitCreatePointsAtTheDashboardWhenNothingWasFound(t *testing.T) {
+func TestGitExportPointsAtTheDashboardWhenNothingWasFound(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.createStatus = 404
 	api.createErrorMessage = "No GitHub account is connected"
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
-		"create", "storefront", "--yes")
+		"export", "storefront", "--yes")
 	require.Error(t, err)
 	// The platform's own message survives: it is the only thing that says which
 	// of the three 404s this is.
@@ -626,28 +626,28 @@ func TestGitCreatePointsAtTheDashboardWhenNothingWasFound(t *testing.T) {
 	assert.NotContains(t, err.Error(), "may have been created")
 }
 
-func TestGitCreateSendsTheRootDirectory(t *testing.T) {
+func TestGitExportSendsTheRootDirectory(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--root-directory", "apps/api", "--yes")
+		"export", "storefront", "--root-directory", "apps/api", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apps/api", api.sentCreateBody()["root_directory"])
 	assert.Contains(t, out, "apps/api")
 }
 
-func TestGitCreateRecordsAnSSHRemoteWhenAsked(t *testing.T) {
+func TestGitExportRecordsAnSSHRemoteWhenAsked(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin git@github.com:octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"create", "storefront", "--ssh", "--yes")
+		"export", "storefront", "--ssh", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, runner.ran(), "git remote add -- origin git@github.com:octo/storefront.git")
 }
@@ -655,13 +655,13 @@ func TestGitCreateRecordsAnSSHRemoteWhenAsked(t *testing.T) {
 // Declining creates nothing and exits 0, as everywhere else in the CLI. The
 // prompt matters more here than for any other git subcommand: it is the only one
 // whose effect Volcano cannot undo.
-func TestGitCreateDeclinedCreatesNothing(t *testing.T) {
+func TestGitExportDeclinedCreatesNothing(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", "")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "n\n",
-		"create", "storefront")
+		"export", "storefront")
 	require.NoError(t, err)
 
 	assert.Zero(t, api.createAttempts())
