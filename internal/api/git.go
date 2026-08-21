@@ -89,6 +89,23 @@ func (c *Client) CreateProjectGitRepository(
 		resp.JSON409, resp.JSON422, resp.JSON429, resp.JSON500, resp.JSON503)
 }
 
+// SetProjectGitProductionBranch points a bound project at the branch a push must
+// land on to deploy.
+//
+// Separate from the bind because the bind refuses to change repository and name a
+// non-default branch in one request: the branch named there is almost always the
+// previous repository's, echoed back. Connect first, then set the branch.
+func (c *Client) SetProjectGitProductionBranch(
+	ctx context.Context, projectID uuid.UUID, body apiclient.SetProjectGitProductionBranchJSONRequestBody,
+) (*apiclient.ProjectGitConnection, error) {
+	resp, err := c.client.SetProjectGitProductionBranchWithResponse(ctx, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body,
+		resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
+
 // DisconnectProjectGit removes a project's repo connection. The repository
 // itself is untouched.
 func (c *Client) DisconnectProjectGit(ctx context.Context, projectID uuid.UUID) error {
