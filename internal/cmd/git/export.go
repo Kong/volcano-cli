@@ -28,16 +28,17 @@ type exportOptions struct {
 	public        bool
 	description   string
 	rootDirectory string
-	// branch overrides the branch to deploy from; branchSet distinguishes an
-	// unset flag from one that was given.
-	branch    string
-	branchSet bool
-	remote    string
-	noPush    bool
-	ssh       bool
-	yes       bool
-	in        io.Reader
-	out       io.Writer
+	// branch is the branch to push, which becomes the branch that deploys. Always
+	// given: see the note where the flag is marked required.
+	branch string
+	remote string
+	// repo names an existing repository to export into, instead of creating one.
+	repo   string
+	noPush bool
+	ssh    bool
+	yes    bool
+	in     io.Reader
+	out    io.Writer
 }
 
 func newExport(deps cliruntime.Deps) *cobra.Command {
@@ -69,7 +70,6 @@ creates new ones.`,
 					return errors.New("the repository name is empty")
 				}
 			}
-			opts.branchSet = cmd.Flags().Changed("branch")
 			opts.in, opts.out = cmd.InOrStdin(), cmd.OutOrStdout()
 			return runExport(cmd.Context(), opts)
 		},
@@ -82,13 +82,21 @@ creates new ones.`,
 	cmd.Flags().StringVar(&opts.rootDirectory, "root-directory", "",
 		"Subdirectory the project builds from (default: the repository root)")
 	cmd.Flags().StringVar(&opts.branch, "branch", "",
-		"Branch to deploy from (default: the branch this checkout is on)")
+		"Branch to push, which becomes the branch that deploys (required)")
+	cmd.Flags().StringVar(&opts.repo, "repo", "",
+		"Export into a GitHub repository that already exists, instead of creating one")
 	cmd.Flags().StringVar(&opts.remote, "remote", localgit.DefaultRemoteName,
-		"Name for the Git remote added for the new repository")
+		"Name for the Git remote added for the repository")
 	cmd.Flags().BoolVar(&opts.noPush, "no-push", false,
 		"Create and connect the repository without touching this checkout")
 	cmd.Flags().BoolVar(&opts.ssh, "ssh", false, "Record the remote with its ssh URL instead of https")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "Skip confirmation prompts")
+	// Stated, never inferred. This CLI runs from any terminal and any checkout, so
+	// the branch that happens to be checked out is not evidence of the branch the
+	// user wants deployed — and inferring it would pin a project to a feature
+	// branch for good. git pushes a branch it is not standing on perfectly well,
+	// so naming it costs the user nothing but a switch they no longer have to make.
+	_ = cmd.MarkFlagRequired("branch")
 	return cmd
 }
 
@@ -142,7 +150,14 @@ func runExport(ctx context.Context, opts exportOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	return reportExport(ctx, opts, service, project, request, created)
+	return reportExport(ctx, opts, service, project, exportOutcome{
+		connection: &created.Connection,
+		created:    true,
+		appMissing: !created.AppInstalled,
+		installURL: created.InstallUrl,
+		pushBranch: request.pushBranch,
+		routing:    request.routing,
+	})
 }
 
 // exportRequest is a validated request: everything the platform is asked for,
@@ -217,75 +232,68 @@ func buildExportRequest(ctx context.Context, opts exportOptions) (exportRequest,
 	if opts.noPush {
 		return request, nil
 	}
-	return withPushBranch(ctx, opts, request)
-}
 
-// withPushBranch resolves the branch this command will push and checks the
-// checkout can push it.
-//
-// All of it runs before the repository is created, because a checkout that
-// cannot push is a fixable mistake before the create and an orphaned repository
-// after it.
-func withPushBranch(ctx context.Context, opts exportOptions, request exportRequest) (exportRequest, error) {
-	client := localgit.New(opts.deps)
-	checkout, err := client.Checkout(ctx)
-	if err != nil {
-		return exportRequest{}, fmt.Errorf(
-			"%w\n\nCommit what you want to push first, or pass --no-push to create the repository "+
-				"and push it yourself", err)
-	}
-	if !checkout.HasCommits {
-		return exportRequest{}, errors.New(
-			"this repository has no commits, so there is nothing to push\n\n" +
-				"Commit your work first, or pass --no-push to create the repository and push it yourself")
-	}
-
-	branch := request.input.ProductionBranch
-	if branch == "" {
-		// The whole reason this command resolves a branch at all: a repository
-		// created empty has no default branch, so the platform would have to
-		// predict one, and a wrong prediction leaves the project connected and
-		// never deploying.
-		if checkout.Branch == "" {
-			return exportRequest{}, errors.New(
-				"this checkout is not on a branch, so there is no branch to deploy from\n\n" +
-					"Check out a branch, or name one with --branch")
-		}
-		branch = checkout.Branch
-		request.input.ProductionBranch = branch
-	}
-
-	// A named branch that does not exist locally cannot be pushed, and pushing
-	// something else would deploy nothing.
-	if branch != checkout.Branch {
-		exists, err := client.BranchExists(ctx, branch)
-		if err != nil {
-			return exportRequest{}, err
-		}
-		if !exists {
-			return exportRequest{}, fmt.Errorf(
-				"--branch %s does not exist in this checkout, so it cannot be pushed\n\n"+
-					"Create it, name the branch you are on (%s), or pass --no-push", branch, checkout.Branch)
-		}
-	}
-
-	// Asked of git, and asked here rather than after the create: git refuses more
-	// remote names than the flag check can state, and a refusal on the far side of
-	// the create leaves a repository whose remote never got recorded.
-	valid, err := client.ValidRemoteName(ctx, opts.remote)
+	plan, err := prepareCheckout(ctx, opts, branch)
 	if err != nil {
 		return exportRequest{}, err
 	}
+	// The branch about to be pushed is the one the new repository deploys from,
+	// so it is what the create carries.
+	request.input.ProductionBranch = plan.branch
+	request.pushBranch, request.routing = plan.branch, plan.routing
+	return request, nil
+}
+
+// checkoutPlan is the local half of an export, resolved before anything
+// irreversible happens.
+type checkoutPlan struct {
+	// branch is the branch to push, empty when the checkout is not being touched.
+	branch  string
+	routing pushRouting
+}
+
+// prepareCheckout checks the checkout can push the branch the caller named.
+//
+// It deliberately never reads HEAD. The branch to export is stated, not
+// inferred, so which branch happens to be checked out is not this command's
+// business — `git push origin <branch>` sends any local branch without touching
+// the working tree. Inferring it would mean a user standing on a feature branch
+// exports that one, and the project then deploys from it for good.
+//
+// All of it runs before the repository is created or bound: a checkout that
+// cannot push is a fixable mistake beforehand and an orphaned repository after.
+func prepareCheckout(ctx context.Context, opts exportOptions, branch string) (checkoutPlan, error) {
+	client := localgit.New(opts.deps)
+	// A branch ref points at a commit, so this covers "is there anything to
+	// push?" as well as "is that branch here?". Outside a repository git fails
+	// here, which is the same answer with a better message than any check of ours.
+	exists, err := client.BranchExists(ctx, branch)
+	if err != nil {
+		return checkoutPlan{}, fmt.Errorf(
+			"%w\n\nRun this from a checkout that has %s, or pass --no-push to leave the checkout alone",
+			err, branch)
+	}
+	if !exists {
+		return checkoutPlan{}, fmt.Errorf(
+			"branch %s does not exist in this checkout, so it cannot be pushed\n\n"+
+				"Create or fetch it here, name another with --branch, or pass --no-push", branch)
+	}
+
+	// Asked of git, and asked here rather than afterwards: git refuses more remote
+	// names than the flag check can state, and a refusal on the far side of the
+	// create leaves a repository whose remote never got recorded.
+	valid, err := client.ValidRemoteName(ctx, opts.remote)
+	if err != nil {
+		return checkoutPlan{}, err
+	}
 	if !valid {
-		return exportRequest{}, fmt.Errorf(
+		return checkoutPlan{}, fmt.Errorf(
 			"git will not accept %q as a remote name\n\nPass --remote with another name", opts.remote)
 	}
 	if err := checkRemoteFree(ctx, client, opts.remote); err != nil {
-		return exportRequest{}, err
+		return checkoutPlan{}, err
 	}
-	request.pushBranch = branch
-	request.routing = readPushRouting(ctx, client, opts.remote)
-	return request, nil
+	return checkoutPlan{branch: branch, routing: readPushRouting(ctx, client, opts.remote, branch)}, nil
 }
 
 // readPushRouting reports whether a later bare `git push` would leave the new
@@ -295,8 +303,8 @@ func withPushBranch(ctx context.Context, opts exportOptions, request exportReque
 // configuration this cannot read is worth saying so about but not worth refusing
 // a create over. The value is redacted because a CI rewrite routinely leaves a
 // job token in one of these keys.
-func readPushRouting(ctx context.Context, client localgit.Client, remote string) pushRouting {
-	push, err := client.PushRemote(ctx)
+func readPushRouting(ctx context.Context, client localgit.Client, remote, branch string) pushRouting {
+	push, err := client.PushRemote(ctx, branch)
 	switch {
 	case err != nil:
 		return pushRouting{Err: err}
@@ -446,9 +454,6 @@ func checkRepositoryName(name string) error {
 // applies git's full ref-name rules before it creates anything, and duplicating
 // them here would only add a second opinion to disagree with.
 func requestedBranch(opts exportOptions) (string, error) {
-	if !opts.branchSet {
-		return "", nil
-	}
 	branch := opts.branch
 	if strings.TrimSpace(branch) == "" {
 		return "", errors.New("--branch is empty: pass the branch a push should deploy from")
@@ -482,50 +487,78 @@ func confirmExport(opts exportOptions, project gitconnect.ProjectRef, request ex
 	return ask(opts.in, opts.out, opts.yes, warning, question)
 }
 
-// reportExport finishes the local half and reports the outcome. The repository
-// and the binding both exist by now, so nothing here may return an error that
-// reads as "the repository was not created".
+// exportOutcome is what the platform ended up with, from either path: a
+// repository created for the project, or one it already had bound to it.
+type exportOutcome struct {
+	connection *apiclient.ProjectGitConnection
+	// created distinguishes a repository this command made from one that already
+	// existed, which is the difference between "Created" and "Connected".
+	created bool
+	// appMissing is true when Volcano could not confirm the App can see the
+	// repository. Only a create reports this; a repository resolved through the
+	// installations was seen through one by definition.
+	appMissing bool
+	installURL *string
+	// pushBranch is the local branch to push, empty when the checkout is not
+	// being touched.
+	pushBranch string
+	// sideBranch is the remote branch to push to instead of the production
+	// branch, set only when the repository already has history.
+	sideBranch string
+	// base is the branch a pull request from sideBranch targets.
+	base    string
+	routing pushRouting
+}
+
+// reportExport finishes the local half and reports the outcome. The binding
+// exists by now, so nothing here may return an error that reads as "nothing
+// happened".
 func reportExport(
 	ctx context.Context,
 	opts exportOptions,
 	service gitconnect.Service,
 	project gitconnect.ProjectRef,
-	request exportRequest,
-	created *apiclient.CreatedProjectGitConnection,
+	outcome exportOutcome,
 ) error {
-	connection := &created.Connection
-	local, err := pushToCreated(ctx, opts, request, created)
+	connection := outcome.connection
+	local, err := pushToRepository(ctx, opts, outcome)
 
 	settings, settingsErr := service.DeploySettings(ctx)
-	output.GitCreated(opts.out, output.GitCreation{
+	creation := output.GitCreation{
 		Binding: output.GitBinding{
 			Connection:  connection,
 			Settings:    settings,
 			SettingsErr: settingsErr,
 			Project:     project.Label(),
 		},
-		AppInstalled: created.AppInstalled,
-		InstallURL:   created.InstallUrl,
+		Created:      outcome.created,
+		AppInstalled: !outcome.appMissing,
+		InstallURL:   outcome.installURL,
 		RemoteAdded:  local.remoteAdded,
 		RemoteName:   opts.remote,
 		Pushed:       local.pushed,
-		NextCommands: nextCommands(opts, created, local),
+		PushedBranch: outcome.sideBranch,
+		NextCommands: nextCommands(opts, outcome, local),
 		Routing: output.GitPushRouting{
-			Elsewhere: request.routing.Elsewhere,
-			Target:    request.routing.Target,
-			Source:    request.routing.Source,
-			Err:       request.routing.Err,
-			// The push that does reach the new repository, for a checkout whose
-			// bare push does not.
-			Command: fmt.Sprintf("git push %s %s", shellQuote(opts.remote), shellQuote(request.pushBranch)),
+			Elsewhere: outcome.routing.Elsewhere,
+			Target:    outcome.routing.Target,
+			Source:    outcome.routing.Source,
+			Err:       outcome.routing.Err,
+			Command: fmt.Sprintf("git push %s %s",
+				shellQuote(opts.remote), shellQuote(outcome.pushBranch)),
 		},
-	})
+	}
+	if outcome.sideBranch != "" {
+		creation.PullRequestURL = localgit.CompareURL(connection.RepoFullName, outcome.base, outcome.sideBranch)
+	}
+	output.GitCreated(opts.out, creation)
+
 	if err != nil {
 		// The repository exists and the project is bound to it. Saying only that
 		// the push failed would read as "nothing happened", so the name goes in
-		// the error too — this is the same rule the platform applies to every
+		// the error too — the same rule the platform applies to every
 		// post-creation failure.
-		return fmt.Errorf("%s was created and connected, but the local step did not finish: %w",
+		return fmt.Errorf("%s is connected, but the local step did not finish: %w",
 			connection.RepoFullName, err)
 	}
 	return nil
@@ -538,28 +571,37 @@ type localWork struct {
 	pushed      bool
 }
 
-// pushToCreated adds the remote and pushes.
+// pushToRepository adds the remote and pushes.
 //
 // The push is skipped when the App cannot see the repository: it would succeed
 // and deploy nothing, which is the one failure in this flow that produces no
 // error anywhere. The remote is still recorded, because it is what the user
 // needs to push by hand once access is granted.
-func pushToCreated(
-	ctx context.Context, opts exportOptions, request exportRequest, created *apiclient.CreatedProjectGitConnection,
-) (localWork, error) {
-	if request.pushBranch == "" {
+func pushToRepository(ctx context.Context, opts exportOptions, outcome exportOutcome) (localWork, error) {
+	if outcome.pushBranch == "" {
 		return localWork{}, nil
 	}
 
 	client := localgit.New(opts.deps)
-	if err := client.AddRemote(ctx, opts.remote, remoteURL(opts, created.Connection.RepoFullName)); err != nil {
+	if err := client.AddRemote(ctx, opts.remote, remoteURL(opts, outcome.connection.RepoFullName)); err != nil {
 		return localWork{}, err
 	}
 	done := localWork{remoteAdded: true}
-	if !created.AppInstalled {
+	if outcome.appMissing {
 		return done, nil
 	}
-	if err := client.Push(ctx, opts.out, opts.remote, request.pushBranch); err != nil {
+
+	// A repository with history takes the project on a branch of its own: the
+	// two histories are unrelated, so a push to the production branch would be
+	// refused, and forcing it would discard what is already there.
+	if outcome.sideBranch != "" {
+		if err := client.PushTo(ctx, opts.out, opts.remote, outcome.pushBranch, outcome.sideBranch); err != nil {
+			return done, err
+		}
+		done.pushed = true
+		return done, nil
+	}
+	if err := client.Push(ctx, opts.out, opts.remote, outcome.pushBranch); err != nil {
 		return done, err
 	}
 	done.pushed = true
@@ -580,15 +622,19 @@ func remoteURL(opts exportOptions, fullName string) string {
 // nothing local was resolved, and the platform's answer is the branch a push has
 // to land on — naming any other one here would print a command that deploys
 // nothing.
-func nextCommands(opts exportOptions, created *apiclient.CreatedProjectGitConnection, done localWork) []string {
+func nextCommands(opts exportOptions, outcome exportOutcome, done localWork) []string {
 	remote := shellQuote(opts.remote)
 	commands := make([]string, 0, 2)
 	if !done.remoteAdded {
 		commands = append(commands, fmt.Sprintf("git remote add %s %s",
-			remote, shellQuote(remoteURL(opts, created.Connection.RepoFullName))))
+			remote, shellQuote(remoteURL(opts, outcome.connection.RepoFullName))))
+	}
+	if outcome.sideBranch != "" {
+		return append(commands, fmt.Sprintf("git push %s %s:%s",
+			remote, shellQuote(outcome.pushBranch), shellQuote(outcome.sideBranch)))
 	}
 	return append(commands, fmt.Sprintf("git push --set-upstream %s %s",
-		remote, shellQuote(created.Connection.ProductionBranch)))
+		remote, shellQuote(outcome.connection.ProductionBranch)))
 }
 
 // shellQuote renders value as one POSIX shell word.

@@ -233,3 +233,25 @@ func orderByOwner(installations []apiclient.GitInstallation, owner string) []api
 	}
 	return ordered
 }
+
+// SetProductionBranch points the bound project at the branch a push must land on
+// to deploy.
+//
+// A second call rather than part of the bind: the bind refuses to change
+// repository and name a non-default branch in one request, because the branch
+// named there is almost always the previous repository's echoed back. So a
+// repository with no commits — which has no real default branch, only the
+// account's configured name — is bound first and corrected here.
+func (s Service) SetProductionBranch(ctx context.Context, branch string) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := authenticated.API.SetProjectGitProductionBranch(ctx, authenticated.ProjectID,
+		apiclient.SetProjectGitProductionBranchJSONRequestBody{ProductionBranch: branch})
+	if err != nil {
+		return nil, classify(err, "failed to set the production branch to "+branch)
+	}
+	return connection, nil
+}

@@ -34,21 +34,15 @@ type GitBinding struct {
 	SettingsErr error
 }
 
-// GitConnected renders a repository binding that was just made, followed by
-// what a push to the production branch will actually deploy. Settings are
-// optional: a connect still succeeded if reading them afterwards did not.
-func GitConnected(w io.Writer, binding GitBinding) {
-	Success(w, "Connected %s", binding.Connection.RepoFullName)
-	gitBindingDetail(w, theme.On(w), binding)
-	gitDeploySettings(w, binding)
-}
-
 // GitCreation is a repository this CLI created, and what was done to the
 // checkout afterwards. The local half is reported rather than assumed: the push
 // is skipped in a case the user has to act on, and a report that implied it
 // happened would hide the one failure that produces no error anywhere.
 type GitCreation struct {
 	Binding GitBinding
+	// Created distinguishes a repository this command made from one that already
+	// existed and was bound: the difference between "Created" and "Connected".
+	Created bool
 	// AppInstalled is false when Volcano could not confirm the GitHub App can see
 	// the new repository. The binding is complete either way; no push deploys
 	// until access is granted.
@@ -62,6 +56,13 @@ type GitCreation struct {
 	// this command did not push. It starts from whatever was not already done, so
 	// a checkout that got its remote is told only to push.
 	NextCommands []string
+	// PushedBranch is the remote branch the push went to when that is not the
+	// production branch. A repository with history takes the project on a branch
+	// of its own, because the two histories are unrelated.
+	PushedBranch string
+	// PullRequestURL is where that branch is merged into the production branch.
+	// Until it is, nothing deploys — which is the point worth making loudest.
+	PullRequestURL string
 	// Routing describes where this checkout's configuration sends a later bare
 	// `git push`.
 	Routing GitPushRouting
@@ -89,19 +90,30 @@ type GitPushRouting struct {
 func GitCreated(w io.Writer, creation GitCreation) {
 	on := theme.On(w)
 	connection := creation.Binding.Connection
-	Success(w, "Created %s", connection.RepoFullName)
+	if creation.Created {
+		Success(w, "Created %s", connection.RepoFullName)
+	} else {
+		Success(w, "Connected %s", connection.RepoFullName)
+	}
 	gitBindingDetail(w, on, creation.Binding)
 	if creation.RemoteAdded {
 		kv(w, on, "Remote", "%s", creation.RemoteName)
 	}
-	if creation.Pushed {
+	switch {
+	case creation.Pushed && creation.PushedBranch != "":
+		Success(w, "Pushed to %s on %s", creation.PushedBranch, connection.RepoFullName)
+	case creation.Pushed:
 		Success(w, "Pushed %s to %s", connection.ProductionBranch, connection.RepoFullName)
 	}
 	// Only when a push can deploy. Said above the access warning it read as a flat
 	// contradiction of it — one line promising a push deploys functions, the next
 	// saying a push deploys nothing — so in that case it moves below, reworded.
-	if creation.AppInstalled {
+	if creation.AppInstalled && creation.PullRequestURL == "" {
 		gitDeploySettings(w, creation.Binding)
+	}
+	if creation.PullRequestURL != "" {
+		gitPullRequestStep(w, on, creation)
+		return
 	}
 	gitCreationNextStep(w, on, creation)
 }
@@ -168,6 +180,21 @@ func gitCreationDeferredDeploy(w io.Writer, on bool, binding GitBinding) {
 		theme.Dim(fmt.Sprintf("Once it can, a push to %s deploys: ", binding.Connection.ProductionBranch), on),
 		strings.Join(targets, ", "),
 	)
+}
+
+// gitPullRequestStep reports the one outcome where the push landed and still
+// deploys nothing: the repository already had history, so the project went to a
+// branch of its own and waits on a merge.
+func gitPullRequestStep(w io.Writer, on bool, creation GitCreation) {
+	connection := creation.Binding.Connection
+	fmt.Fprintln(w)
+	Warning(w, "%s already has its own history, so the project was pushed to %s rather than "+
+		"merged into %s. Nothing deploys until that merge lands.",
+		connection.RepoFullName, creation.PushedBranch, connection.ProductionBranch)
+	fmt.Fprintf(w, "%s\n  %s\n", theme.Dim("Open a pull request:", on), creation.PullRequestURL)
+	if !creation.Pushed {
+		gitCreationCommands(w, on, "Then push:", creation.NextCommands)
+	}
 }
 
 func gitCreationCommands(w io.Writer, on bool, instruction string, commands []string) {

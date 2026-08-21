@@ -16,61 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckoutReportsAnUnbornBranchBeforeTheFirstCommit(t *testing.T) {
-	t.Parallel()
-	c := newCheckout(t)
-
-	state, err := c.client.Checkout(t.Context())
-	require.NoError(t, err)
-	// The unborn branch is reported, and it is the name the first push will
-	// create. This is the whole reason the CLI can name a production branch
-	// instead of leaving the platform to predict one.
-	assert.Equal(t, c.branch, state.Branch)
-	assert.False(t, state.HasCommits, "a repository with no commits has none to push")
-
-	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "first")
-
-	state, err = c.client.Checkout(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, c.branch, state.Branch)
-	assert.True(t, state.HasCommits)
-}
-
-func TestCheckoutRefusesADirectoryThatIsNotARepository(t *testing.T) {
-	t.Parallel()
-	client := realGitClient(t, t.TempDir())
-
-	_, err := client.Checkout(t.Context())
-	require.ErrorIs(t, err, ErrNoCheckout)
-	// git's own message is kept: "not a repository" and a config git refuses to
-	// read exit the same way, and only one of them is fixed by `git init`.
-	assert.ErrorIs(t, err, ErrGitUnavailable)
-}
-
-func TestCheckoutRefusesABareRepository(t *testing.T) {
-	t.Parallel()
-	c := newCheckout(t)
-
-	_, err := realGitClient(t, c.origin).Checkout(t.Context())
-	require.ErrorIs(t, err, ErrNoCheckout)
-	// A bare repository answers the work-tree question with "false" and exit 0,
-	// so it is not a git failure — it is a directory with nothing to push from.
-	assert.Contains(t, err.Error(), "bare repository")
-	assert.NotErrorIs(t, err, ErrGitUnavailable)
-}
-
-func TestCheckoutOnADetachedHeadReportsNoBranch(t *testing.T) {
-	t.Parallel()
-	c := newCheckout(t)
-	git(t, c.dir, "commit", "--quiet", "--allow-empty", "-m", "first")
-	git(t, c.dir, "checkout", "--quiet", "--detach")
-
-	state, err := c.client.Checkout(t.Context())
-	require.NoError(t, err)
-	assert.Empty(t, state.Branch, "a detached HEAD is on no branch")
-	assert.True(t, state.HasCommits)
-}
-
 func TestBranchExistsAnswersForLocalBranchesOnly(t *testing.T) {
 	t.Parallel()
 	c := newCheckout(t)

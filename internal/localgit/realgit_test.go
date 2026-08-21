@@ -149,7 +149,7 @@ func (c checkout) headOf(t *testing.T, bare string) string {
 // out of the configuration is the repository a real `git push` updates.
 func (c checkout) assertPushGoesTo(t *testing.T, want string) {
 	t.Helper()
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, want, push.RewrittenURL, "the URL resolved from the configuration")
 
@@ -204,7 +204,7 @@ func TestPushRemoteAgreesWithRealGitAboutPrecedence(t *testing.T) {
 				git(t, c.dir, "config", expand(key), value)
 			}
 
-			push, err := c.client.PushRemote(t.Context())
+			push, err := c.client.PushRemote(t.Context(), c.branch)
 			require.NoError(t, err)
 			assert.Equal(t,
 				PushRemote{Name: tc.wantRemote, Source: expand(tc.wantSource)}, push)
@@ -234,7 +234,7 @@ func TestRealGitPushesToAURLInThePushConfiguration(t *testing.T) {
 	c := newCheckout(t)
 	git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
 
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, c.unnamed, push.Name)
 	assert.Equal(t, "remote.pushDefault", push.Source)
@@ -268,7 +268,7 @@ func TestRealGitPushesWithNoRemotesConfigured(t *testing.T) {
 	require.NoError(t, err, "an empty remote list is not Remotes' verdict to give")
 	assert.Empty(t, remotes)
 
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, c.unnamed, push.Name)
 
@@ -381,7 +381,7 @@ func TestRealGitPushURLRewritingAgreesWithWhereGitPushes(t *testing.T) {
 		c := newCheckout(t)
 		git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
 
-		push, err := c.client.PushRemote(t.Context())
+		push, err := c.client.PushRemote(t.Context(), c.branch)
 		require.NoError(t, err)
 		assert.Empty(t, push.RewrittenURL)
 		assert.Equal(t, c.unnamed, push.Name)
@@ -460,7 +460,7 @@ func TestRealGitAppliesAnEmptyRewritePrefixToEveryURL(t *testing.T) {
 	git(t, c.dir, "config", "remote.pushDefault", c.unnamed)
 	git(t, c.dir, "config", "url."+filepath.Join(c.root, "nowhere")+"/.insteadOf", "")
 
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(c.root, "nowhere")+"/"+c.unnamed, push.RewrittenURL,
 		"the empty prefix matches, so the base is prepended whole")
@@ -515,7 +515,7 @@ func TestRealGitRefusesAValueEndingInANewline(t *testing.T) {
 	require.True(t, set)
 	assert.Equal(t, "origin\n", value, "only git's own terminator comes off")
 
-	_, err = c.client.PushRemote(t.Context())
+	_, err = c.client.PushRemote(t.Context(), c.branch)
 	require.Error(t, err, "the value keeps its newline, so it is refused as padded")
 
 	// git agrees: it does not read this as the origin remote.
@@ -549,7 +549,7 @@ func TestRealGitHonoursAnIdentityPushInsteadOf(t *testing.T) {
 	git(t, c.dir, "config", "url."+configured+".pushInsteadOf", configured)
 	git(t, c.dir, "config", "url."+fetchTarget+".insteadOf", configured)
 
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, configured, push.RewrittenURL, "the identity push rule wins")
 	assert.NotEqual(t, fetchTarget, push.RewrittenURL, "the fetch rule must not be reached")
@@ -605,7 +605,7 @@ func TestRealGitDoesNotFallThroughFromAnUnusablePushRoute(t *testing.T) {
 			// may this.
 			git(t, c.dir, "config", "remote.pushDefault", "fork")
 
-			_, err := c.client.PushRemote(t.Context())
+			_, err := c.client.PushRemote(t.Context(), c.branch)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "branch."+c.branch+".pushRemote")
 
@@ -627,7 +627,7 @@ func TestRealGitRefusesAPaddedPushURL(t *testing.T) {
 	c := newCheckout(t)
 	git(t, c.dir, "config", "remote.pushDefault", " https://github.com/octo/app.git ")
 
-	_, err := c.client.PushRemote(t.Context())
+	_, err := c.client.PushRemote(t.Context(), c.branch)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "verbatim")
 	// The padding is named, not shown: Redact trims, so a message relying on the
@@ -660,7 +660,7 @@ func TestRealGitReportsAnUnsetConfigKeyWithExitStatusOne(t *testing.T) {
 	assert.Equal(t, 1, exitErr.ExitCode())
 	assert.True(t, isUnsetConfigKey(err))
 
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, PushRemote{}, push)
 }
@@ -697,7 +697,7 @@ func TestRealGitPrintsNoBranchOnADetachedHead(t *testing.T) {
 
 	// remote.pushDefault is still consulted; only the branch-scoped keys drop out.
 	git(t, c.dir, "config", "remote.pushDefault", "fork")
-	push, err := c.client.PushRemote(t.Context())
+	push, err := c.client.PushRemote(t.Context(), c.branch)
 	require.NoError(t, err)
 	assert.Equal(t, PushRemote{Name: "fork", Source: "remote.pushDefault"}, push)
 }

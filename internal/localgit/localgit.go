@@ -206,13 +206,14 @@ type PushRemote struct {
 	RewrittenURL string
 }
 
-// PushRemote reads the push routing out of the repository's configuration.
-func (c Client) PushRemote(ctx context.Context) (PushRemote, error) {
-	branch, err := c.currentBranch(ctx)
-	if err != nil {
-		return PushRemote{}, err
-	}
-
+// PushRemote reads the push routing for branch out of the repository's
+// configuration.
+//
+// The branch is named by the caller rather than read from HEAD: a command that
+// acts on a branch the user named has to ask about that branch's routing, and
+// the checkout may well be sitting on a different one. An empty branch asks only
+// the repository-wide key.
+func (c Client) PushRemote(ctx context.Context, branch string) (PushRemote, error) {
 	keys := make([]string, 0, 3)
 	if branch != "" {
 		keys = append(keys, "branch."+branch+".pushRemote")

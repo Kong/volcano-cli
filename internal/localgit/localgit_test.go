@@ -809,9 +809,9 @@ func TestPushRemoteFollowsGitsPrecedence(t *testing.T) {
 			"git branch --show-current":           "main",
 			"git config --get branch.main.remote": "upstream",
 		}, "upstream", ""},
-		// Detached HEAD prints nothing and succeeds, so the branch-scoped keys
-		// are simply not asked for.
-		"detached HEAD skips the branch keys": {map[string]string{
+		// An empty branch — what a caller standing on a detached HEAD would pass —
+		// leaves the branch-scoped keys unasked.
+		"an empty branch skips the branch keys": {map[string]string{
 			"git branch --show-current":           "",
 			"git config --get remote.pushDefault": "upstream",
 		}, "upstream", ""},
@@ -819,7 +819,7 @@ func TestPushRemoteFollowsGitsPrecedence(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			client := Client{runner: configRunner(tc.config)}
-			push, err := client.PushRemote(t.Context())
+			push, err := client.PushRemote(t.Context(), tc.config["git branch --show-current"])
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, push.Name)
 			if tc.source != "" {
@@ -1046,24 +1046,7 @@ func TestPushRemoteReportsARealGitFailure(t *testing.T) {
 			return nil, exitStatus(128)
 		})}
 
-	_, err := client.PushRemote(t.Context())
-	require.ErrorIs(t, err, ErrGitUnavailable)
-}
-
-// The branch read can fail for the same reasons — dubious ownership, an
-// unreadable config — and swallowing it would make a broken repository look
-// like one with no push routing configured.
-func TestPushRemoteReportsAFailingBranchRead(t *testing.T) {
-	t.Parallel()
-	client := Client{runner: cliruntime.CommandRunnerFunc(
-		func(_ context.Context, _ string, args ...string) ([]byte, error) {
-			if args[0] == "branch" {
-				return nil, exitStatus(128)
-			}
-			return []byte("upstream\n"), nil
-		})}
-
-	_, err := client.PushRemote(t.Context())
+	_, err := client.PushRemote(t.Context(), "main")
 	require.ErrorIs(t, err, ErrGitUnavailable)
 }
 
@@ -1072,7 +1055,7 @@ func TestPushRemoteTreatsAnUnsetKeyAsNoAnswer(t *testing.T) {
 	t.Parallel()
 	client := Client{runner: configRunner(map[string]string{"git branch --show-current": "main"})}
 
-	push, err := client.PushRemote(t.Context())
+	push, err := client.PushRemote(t.Context(), "main")
 	require.NoError(t, err)
 	assert.Empty(t, push.Name)
 }

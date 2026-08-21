@@ -21,7 +21,7 @@ func TestGitExportCreatesConnectsAndPushes(t *testing.T) {
 	terminal := &gitTerminalRunner{output: "Everything up-to-date\n"}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err)
 
 	body := api.sentCreateBody()
@@ -51,7 +51,7 @@ func TestGitExportSendsTheBranchItIsAboutToPush(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "trunk", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "trunk", api.sentCreateBody()["production_branch"])
@@ -70,7 +70,7 @@ func TestGitExportNamesTheRepositoryAfterTheDirectory(t *testing.T) {
 	runner := checkoutRunner("main", "")
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
-	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "", "export", "--yes")
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "", "export", "--branch", "main", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "storefront", api.sentCreateBody()["name"])
@@ -85,7 +85,7 @@ func TestGitExportRefusesANameGitHubWouldRewrite(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"export", "my app", "--yes")
+		"export", "my app", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "which GitHub does not allow")
 	assert.Zero(t, api.createAttempts(), "nothing may be created for a name that cannot be used")
@@ -95,7 +95,7 @@ func TestGitExportRefusesAnEmptyName(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
-	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "", "export", "   ", "--yes")
+	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "", "export", "   ", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the repository name is empty")
 	assert.Zero(t, api.createAttempts())
@@ -111,7 +111,7 @@ func TestGitExportRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
 	api.connected = "octo/storefront"
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"export", "another", "--yes")
+		"export", "another", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already connected to octo/storefront")
 	// Both ways out are dashboard flows now that the CLI only creates.
@@ -119,30 +119,16 @@ func TestGitExportRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
 	assert.Zero(t, api.createAttempts())
 }
 
-func TestGitExportRefusesACheckoutWithNothingToPush(t *testing.T) {
-	setGitCommandTestHome(t)
-	api := newGitAPI(t)
-	runner := checkoutRunner("main", "")
-	// An unborn HEAD: git init has run, nothing is committed.
-	delete(runner.outputs, "git rev-parse --quiet --verify HEAD")
-
-	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "", "export", "storefront", "--yes")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no commits")
-	assert.Contains(t, err.Error(), "--no-push")
-	assert.Zero(t, api.createAttempts(), "a repository that cannot be pushed to must not be created")
-}
-
 func TestGitExportRefusesADirectoryThatIsNotARepository(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 
-	// Nothing registered, so every git read fails the way it does outside a
-	// repository.
-	_, err := executeGitCommandWith(t, api.serve(), &gitRunner{outputs: map[string]string{}}, nil, "",
-		"export", "storefront", "--yes")
+	// Exit 128 is what git gives outside a repository, and it is not the exit 1
+	// that means "no such branch" — the two must not be reported alike.
+	_, err := executeGitCommandWith(t, api.serve(), &gitRunner{outputs: map[string]string{}, failConfig: true}, nil, "",
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a Git work tree")
+	assert.Contains(t, err.Error(), "could not read this directory's Git repository")
 	assert.Contains(t, err.Error(), "--no-push")
 	assert.Zero(t, api.createAttempts())
 }
@@ -155,7 +141,7 @@ func TestGitExportRefusesARemoteNameAlreadyInUse(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", originRemoteOutput), nil, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `already has a remote named "origin"`)
 	assert.Contains(t, err.Error(), "--remote")
@@ -171,7 +157,7 @@ func TestGitExportUsesAnotherRemoteName(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--remote", "volcano", "--yes")
+		"export", "--branch", "main", "storefront", "--remote", "volcano", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"git push --set-upstream -- volcano main"}, terminal.ran())
@@ -189,8 +175,8 @@ func TestGitExportRefusesABranchThatIsNotInTheCheckout(t *testing.T) {
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
 		"export", "storefront", "--branch", "release", "--yes")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--branch release does not exist in this checkout")
-	assert.Contains(t, err.Error(), "main")
+	assert.Contains(t, err.Error(), "branch release does not exist in this checkout")
+	assert.Contains(t, err.Error(), "--no-push")
 	assert.Zero(t, api.createAttempts())
 }
 
@@ -230,16 +216,16 @@ func TestGitExportWithNoPushLeavesTheCheckoutAlone(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--no-push", "--yes")
+		"export", "--branch", "main", "storefront", "--no-push", "--yes")
 	require.NoError(t, err)
 
 	assert.Empty(t, runner.ran(), "--no-push must not read or write the checkout")
 	assert.Empty(t, terminal.ran())
 	assert.Contains(t, out, "git remote add origin https://github.com/octo/storefront.git")
 	assert.Contains(t, out, "git push --set-upstream origin main")
-	// With nothing local resolved, the branch printed is the one the platform
-	// bound — printing anything else would print a command that deploys nothing.
-	assert.NotContains(t, api.sentCreateBody(), "production_branch")
+	// The branch is stated even here, so it is still what the new repository
+	// deploys from — --no-push withholds the push, not the declaration.
+	assert.Equal(t, "main", api.sentCreateBody()["production_branch"])
 }
 
 // The failure that produces no error anywhere: the push succeeds, the code
@@ -255,7 +241,7 @@ func TestGitExportSkipsThePushWhenTheAppCannotSeeTheRepository(t *testing.T) {
 	terminal := &gitTerminalRunner{}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err, "the repository and the binding both exist; this is not a failure")
 
 	assert.Empty(t, terminal.ran(), "a push that deploys nothing must not be presented as progress")
@@ -283,9 +269,9 @@ func TestGitExportReportsTheRepositoryWhenThePushFails(t *testing.T) {
 	terminal := &gitTerminalRunner{err: errors.New("exit status 128")}
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "octo/storefront was created and connected")
+	assert.Contains(t, err.Error(), "octo/storefront is connected")
 	assert.Contains(t, err.Error(), "the local step did not finish")
 	// And the report still describes what exists, so the user is not left
 	// guessing whether the repository is there.
@@ -306,7 +292,7 @@ func TestGitExportWarnsWhenABarePushWouldGoElsewhere(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err, "the create and its push both succeeded; this is a warning about the next one")
 
 	assert.Contains(t, out, "Pushed main to octo/storefront")
@@ -326,7 +312,7 @@ func TestGitExportStaysQuietWhenTheRoutingAgrees(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err)
 	assert.NotContains(t, out, "will not reach the new repository")
 }
@@ -341,7 +327,7 @@ func TestGitExportRedactsACredentialInThePushRouting(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "will not reach the new repository")
@@ -358,7 +344,7 @@ func TestGitExportSaysSoWhenTheRoutingCannotBeRead(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Pushed main to octo/storefront")
 	assert.Contains(t, out, "push configuration could not be read")
@@ -371,7 +357,7 @@ func TestGitExportPublicRepositorySendsPrivateFalse(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--public", "--yes")
+		"export", "--branch", "main", "storefront", "--public", "--yes")
 	require.NoError(t, err)
 	assert.Equal(t, false, api.sentCreateBody()["private"])
 }
@@ -381,7 +367,7 @@ func TestGitExportRefusesPrivateAndPublicTogether(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"export", "storefront", "--private", "--public", "--yes")
+		"export", "--branch", "main", "storefront", "--private", "--public", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--private and --public cannot be combined")
 	assert.Zero(t, api.createAttempts())
@@ -396,7 +382,7 @@ func TestGitExportSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/acme/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--owner", "acme", "--yes")
+		"export", "--branch", "main", "storefront", "--owner", "acme", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "acme", api.sentCreateBody()["owner"])
@@ -413,7 +399,7 @@ func TestGitExportRefusesWhenNoGitHubAccountIsConnected(t *testing.T) {
 	api.connections = nil
 
 	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
-		"export", "storefront")
+		"export", "storefront", "--branch", "main")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no GitHub account is connected")
 	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
@@ -430,7 +416,7 @@ func TestGitExportChecksTheConnectionWithoutAnOwner(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.NoError(t, err)
 	// The connection was read, and no installation listing was needed for it: an
 	// unnamed owner is the platform's to resolve.
@@ -450,7 +436,7 @@ func TestGitExportRefusesAnOwnerTheAppIsNotInstalledOn(t *testing.T) {
 	api := newGitAPI(t)
 
 	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"export", "storefront", "--owner", "acme")
+		"export", "--branch", "main", "storefront", "--owner", "acme")
 	require.Error(t, err)
 	assert.NotContains(t, out, "Create it", "the prompt must not be reached")
 	assert.Contains(t, err.Error(), "not installed on that account: acme")
@@ -469,7 +455,7 @@ func TestGitExportWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
 	assert.Contains(t, err.Error(), "octo/storefront was created but could not be connected")
@@ -489,7 +475,7 @@ func TestGitExportWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) 
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
 	assert.Equal(t, 1, api.createAttempts(), "the request did reach the platform")
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
@@ -504,7 +490,7 @@ func TestGitExportRefusesARemoteNameWithWhitespace(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
-		"export", "storefront", "--remote", "foo ", "--yes")
+		"export", "--branch", "main", "storefront", "--remote", "foo ", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "contains whitespace")
 	assert.Zero(t, api.createAttempts())
@@ -518,7 +504,7 @@ func TestGitExportRefusesARemoteNameGitRejects(t *testing.T) {
 	runner := checkoutRunner("main", "")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "",
-		"export", "storefront", "--remote", "a~b", "--yes")
+		"export", "--branch", "main", "storefront", "--remote", "a~b", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `git will not accept "a~b" as a remote name`)
 	assert.Contains(t, runner.ran(), "git check-ref-format --allow-onelevel a~b")
@@ -530,7 +516,7 @@ func TestGitExportRefusesARemoteNameGitWouldReadAsAnOption(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"export", "storefront", "--remote", "-x", "--yes")
+		"export", "--branch", "main", "storefront", "--remote", "-x", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "git reads it as an option")
 	assert.Zero(t, api.createAttempts())
@@ -547,7 +533,7 @@ func TestGitExportQuotesTheCommandsItPrints(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "topic$(id)", "--yes")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, `git push --set-upstream origin 'topic$(id)'`)
@@ -583,7 +569,7 @@ func TestGitExportRefusesAnAbsoluteRootDirectory(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"export", "storefront", "--root-directory", "/etc", "--yes")
+		"export", "--branch", "main", "storefront", "--root-directory", "/etc", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not an absolute path")
 	assert.Zero(t, api.createAttempts())
@@ -598,7 +584,7 @@ func TestGitExportRefusesAWhitespaceRootDirectory(t *testing.T) {
 	api := newGitAPI(t)
 
 	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
-		"export", "storefront", "--root-directory", "   ", "--yes")
+		"export", "--branch", "main", "storefront", "--root-directory", "   ", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only whitespace")
 	assert.Zero(t, api.createAttempts())
@@ -616,7 +602,7 @@ func TestGitExportPointsAtTheDashboardWhenNothingWasFound(t *testing.T) {
 	api.createErrorMessage = "No GitHub account is connected"
 
 	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
-		"export", "storefront", "--yes")
+		"export", "storefront", "--branch", "main", "--yes")
 	require.Error(t, err)
 	// The platform's own message survives: it is the only thing that says which
 	// of the three 404s this is.
@@ -633,7 +619,7 @@ func TestGitExportSendsTheRootDirectory(t *testing.T) {
 	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--root-directory", "apps/api", "--yes")
+		"export", "--branch", "main", "storefront", "--root-directory", "apps/api", "--yes")
 	require.NoError(t, err)
 
 	assert.Equal(t, "apps/api", api.sentCreateBody()["root_directory"])
@@ -647,7 +633,7 @@ func TestGitExportRecordsAnSSHRemoteWhenAsked(t *testing.T) {
 	runner.allow("git remote add -- origin git@github.com:octo/storefront.git")
 
 	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
-		"export", "storefront", "--ssh", "--yes")
+		"export", "--branch", "main", "storefront", "--ssh", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, runner.ran(), "git remote add -- origin git@github.com:octo/storefront.git")
 }
@@ -661,7 +647,7 @@ func TestGitExportDeclinedCreatesNothing(t *testing.T) {
 	runner := checkoutRunner("main", "")
 
 	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "n\n",
-		"export", "storefront")
+		"export", "storefront", "--branch", "main")
 	require.NoError(t, err)
 
 	assert.Zero(t, api.createAttempts())

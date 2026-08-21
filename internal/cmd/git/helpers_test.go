@@ -116,18 +116,16 @@ func (r *gitRunner) allow(command string) {
 	r.outputs[command] = ""
 }
 
-// checkoutRunner answers the reads a create makes in a working checkout: a work
-// tree, on branch, with a commit to push. remotes is what `git remote -v`
-// reports, empty for a checkout with none.
+// checkoutRunner answers the reads an export makes: the named branch is here,
+// and "origin" is a name git accepts. HEAD is deliberately not modelled — the
+// command never reads it, because the branch is stated rather than inferred.
+// remotes is what `git remote -v` reports, empty for a checkout with none.
 func checkoutRunner(branch, remotes string) *gitRunner {
 	return &gitRunner{
 		stdout: remotes,
 		outputs: map[string]string{
-			"git rev-parse --is-inside-work-tree": "true\n",
-			"git rev-parse --quiet --verify HEAD": "d34db33f\n",
-			"git branch --show-current":           branch,
-			// git is asked whether the remote name is one it accepts; an
-			// unregistered name answers exit 1, which is git's "no".
+			"git rev-parse --quiet --verify refs/heads/" + branch: "d34db33f\n",
+			// An unregistered remote name answers exit 1, which is git's "no".
 			"git check-ref-format --allow-onelevel origin": "",
 		},
 	}
