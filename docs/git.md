@@ -98,7 +98,7 @@ volcano git create --ssh
 | `--description` | Repository description shown on GitHub. |
 | `--root-directory` | Monorepo subdirectory the project builds from. Same rule as `git connect`: a relative path inside the repository. |
 | `--branch` | Branch to deploy from, and to push. Defaults to the branch this checkout is on. |
-| `--remote` | Name for the new Git remote. Defaults to `origin`, and an existing remote of that name is never taken over. |
+| `--remote` | Name for the new Git remote. Defaults to `origin`. It has to be a name git accepts, and an existing remote of that name is never taken over. |
 | `--ssh` | Record the remote with its ssh URL. The default is https, which git rewrites for you if you have `url.<base>.insteadOf` configured. |
 | `--no-push` | Create and connect the repository without touching this checkout. |
 
@@ -126,17 +126,20 @@ entirely.
 
 ### If it fails
 
-A failure that names a repository means that repository **exists on GitHub**: it
-was created and something afterwards did not finish. Do not re-run with a
-different name — that leaves you owning two. Check the account, then connect the
-one that is there:
+A failure saying a repository **may have been created** means exactly that: it
+may be on GitHub. Do not re-run with a different name — that leaves you owning
+two. Check the account, then connect the one that is there:
 
 ```bash
 volcano git connect https://github.com/octo/storefront.git
 ```
 
-A failed push is the mildest case of this: the repository and the binding are
-both in place, and the push is yours to retry.
+This covers a create that was interrupted, or that reached GitHub while the
+answer never made it back. In both, the repository exists and nothing recorded
+it.
+
+A failed push is the mildest case: the repository and the binding are both in
+place, the remote is recorded, and the push is yours to retry.
 
 ## Connecting
 

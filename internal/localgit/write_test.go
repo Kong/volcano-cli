@@ -155,6 +155,29 @@ func TestPushReportsTheRemoteItFailedOn(t *testing.T) {
 	assert.NotEmpty(t, out.String())
 }
 
+// The claim ValidRemoteName rests on: `git check-ref-format --allow-onelevel`
+// answers the same question `git remote add` asks. Asserted against both, so a
+// git that ever disagreed would fail here rather than after a repository has
+// been created for a remote name that cannot be recorded.
+func TestValidRemoteNameAgreesWithGitRemoteAdd(t *testing.T) {
+	t.Parallel()
+	// The interesting half is the accepted column: shell metacharacters are legal
+	// remote names, which is why the printed commands are quoted.
+	for _, name := range []string{"origin", "volcano", "a/b", "a;b", "a$b", ".a", "a..b", "a~b", "a.lock", `a\b`} {
+		c := newCheckout(t)
+		// The fixture's own remotes are removed first: "origin" already existing
+		// would fail the add for a reason that has nothing to do with the name.
+		git(t, c.dir, "remote", "remove", "origin")
+		git(t, c.dir, "remote", "remove", "fork")
+
+		valid, err := c.client.ValidRemoteName(t.Context(), name)
+		require.NoErrorf(t, err, "checking %q", name)
+
+		err = c.client.AddRemote(t.Context(), name, HTTPSRemoteURL("octo/storefront"))
+		assert.Equalf(t, err == nil, valid, "git remote add and check-ref-format disagree on %q", name)
+	}
+}
+
 func TestRemoteURLsCarryNoCredential(t *testing.T) {
 	t.Parallel()
 

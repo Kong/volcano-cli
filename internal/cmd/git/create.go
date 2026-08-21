@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -158,8 +159,8 @@ func buildCreateRequest(ctx context.Context, opts createOptions) (createRequest,
 	if opts.private && opts.public {
 		return createRequest{}, errors.New("--private and --public cannot be combined: both say who can see the repository")
 	}
-	if strings.TrimSpace(opts.remote) == "" {
-		return createRequest{}, errors.New("--remote is empty: pass the name to give the new Git remote")
+	if err := checkRemoteName(opts.remote); err != nil {
+		return createRequest{}, err
 	}
 	if err := validateRootDirectory(opts.rootDirectory, opts.rootDirectory != ""); err != nil {
 		return createRequest{}, err
@@ -237,11 +238,43 @@ func withPushBranch(ctx context.Context, opts createOptions, request createReque
 		}
 	}
 
+	// Asked of git, and asked here rather than after the create: git refuses more
+	// remote names than the flag check can state, and a refusal on the far side of
+	// the create leaves a repository whose remote never got recorded.
+	valid, err := client.ValidRemoteName(ctx, opts.remote)
+	if err != nil {
+		return createRequest{}, err
+	}
+	if !valid {
+		return createRequest{}, fmt.Errorf(
+			"git will not accept %q as a remote name\n\nPass --remote with another name", opts.remote)
+	}
 	if err := checkRemoteFree(ctx, client, opts.remote); err != nil {
 		return createRequest{}, err
 	}
 	request.pushBranch = branch
 	return request, nil
+}
+
+// checkRemoteName refuses the two remote names git cannot be asked about: an
+// empty one, and one starting with "-", which git's own validator would read as
+// an option instead of a name. Whitespace is refused here too, because that is
+// the mistyped value or unset variable this catches in a script, and saying so
+// beats "git will not accept it".
+//
+// Everything else is left to ValidRemoteName, which asks git. This check runs
+// even for --no-push, where nothing local happens: the report still prints a
+// `git remote add` for the user to run, and it should be a command that works.
+func checkRemoteName(name string) error {
+	switch {
+	case name == "":
+		return errors.New("--remote is empty: pass the name to give the new Git remote")
+	case strings.HasPrefix(name, "-"):
+		return fmt.Errorf("--remote %q cannot start with %q: git reads it as an option", name, "-")
+	case strings.ContainsFunc(name, unicode.IsSpace):
+		return fmt.Errorf("--remote %q contains whitespace, which git does not allow in a remote name", name)
+	}
+	return nil
 }
 
 // checkRemoteFree refuses a remote name this checkout already uses. git refuses
@@ -435,11 +468,41 @@ func remoteURL(opts createOptions, fullName string) string {
 // to land on — naming any other one here would print a command that deploys
 // nothing.
 func nextCommands(opts createOptions, created *apiclient.CreatedProjectGitConnection, done localWork) []string {
+	remote := shellQuote(opts.remote)
 	commands := make([]string, 0, 2)
 	if !done.remoteAdded {
-		commands = append(commands,
-			fmt.Sprintf("git remote add %s %s", opts.remote, remoteURL(opts, created.Connection.RepoFullName)))
+		commands = append(commands, fmt.Sprintf("git remote add %s %s",
+			remote, shellQuote(remoteURL(opts, created.Connection.RepoFullName))))
 	}
-	return append(commands,
-		fmt.Sprintf("git push --set-upstream %s %s", opts.remote, created.Connection.ProductionBranch))
+	return append(commands, fmt.Sprintf("git push --set-upstream %s %s",
+		remote, shellQuote(created.Connection.ProductionBranch)))
+}
+
+// shellQuote renders value as one POSIX shell word.
+//
+// These commands are printed for the user to copy into a shell, and git's own
+// rules allow a branch or remote name to hold "$", "(", ")", ";", "&", "|" and
+// backticks — "topic$(id)" is a branch git creates without complaint. Printed
+// bare, such a name turns a command that claims to push into one that runs
+// something else. The commands this CLI runs itself are unaffected: they are
+// passed to git as separate arguments, with no shell in between.
+func shellQuote(value string) string {
+	if value != "" && !strings.ContainsFunc(value, shellUnsafe) {
+		return value
+	}
+	// The one escape a single-quoted word needs: end the quoting, emit a literal
+	// quote, start it again.
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
+}
+
+// shellUnsafe reports whether r has to be quoted to survive a shell unchanged.
+// The allowed set is deliberately small: everything a repository URL, a branch
+// name or a remote name ordinarily contains, and nothing a shell reads specially.
+func shellUnsafe(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return false
+	default:
+		return !strings.ContainsRune("-_./:@+,=", r)
+	}
 }

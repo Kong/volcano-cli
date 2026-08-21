@@ -2,8 +2,10 @@ package localgit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 )
 
@@ -26,6 +28,32 @@ func HTTPSRemoteURL(fullName string) string {
 // caller who asked for ssh explicitly.
 func SSHRemoteURL(fullName string) string {
 	return "git@" + gitHubHost + ":" + strings.TrimSuffix(fullName, ".git") + ".git"
+}
+
+// ValidRemoteName reports whether git would accept name as a remote name.
+//
+// Asked of git rather than reimplemented here. `git remote add` applies git's
+// ref-format rules, which refuse a good deal more than whitespace — a leading
+// dot, "..", "~", a ".lock" suffix — while allowing plenty that looks unlikely,
+// including ";" and "$". `git check-ref-format --allow-onelevel` is that same
+// check, and agrees with `git remote add` on every name tried. Guessing instead
+// would either refuse names git accepts or accept names it refuses, and the
+// second one costs a repository: the refusal would land after the create.
+//
+// A name starting with "-" has to be refused by the caller. check-ref-format
+// takes no "--" separator, so git would read it as an option rather than answer
+// the question.
+func (c Client) ValidRemoteName(ctx context.Context, name string) (bool, error) {
+	if _, err := c.runner.Run(ctx, "git", "check-ref-format", "--allow-onelevel", name); err != nil {
+		var exitErr *exec.ExitError
+		// git says "no" with exit status 1 and nothing else, the same convention
+		// the unset-config and unborn-HEAD reads rely on.
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, gitFailure(err)
+	}
+	return true, nil
 }
 
 // AddRemote records url under name.

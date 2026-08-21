@@ -126,8 +126,16 @@ func checkoutRunner(branch, remotes string) *gitRunner {
 			"git rev-parse --is-inside-work-tree": "true\n",
 			"git rev-parse --quiet --verify HEAD": "d34db33f\n",
 			"git branch --show-current":           branch,
+			// git is asked whether the remote name is one it accepts; an
+			// unregistered name answers exit 1, which is git's "no".
+			"git check-ref-format --allow-onelevel origin": "",
 		},
 	}
+}
+
+// allowRemoteName makes git accept name as a remote name.
+func (r *gitRunner) allowRemoteName(name string) {
+	r.allow("git check-ref-format --allow-onelevel " + name)
 }
 
 // gitTerminalRunner stands in for the git commands that get the user's terminal.
@@ -262,6 +270,10 @@ type gitAPI struct {
 	// exist, and no push deploys.
 	createAppInstalled bool
 	createInstallURL   string
+	// createHangsUp drops the connection after the request arrives, without
+	// answering. The repository may exist and nothing said so, which is the worst
+	// of the ambiguous outcomes and carries no HTTP status to classify.
+	createHangsUp bool
 
 	mu              sync.Mutex
 	connectBody     map[string]any
@@ -491,6 +503,16 @@ func (a *gitAPI) serveCreateRepository(w http.ResponseWriter, r *http.Request) {
 	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.createBody))
 	a.createCalls++
 
+	if a.createHangsUp {
+		// The request was received in full; only the answer is lost. Hijacking and
+		// closing is the one way to produce that from a test server.
+		hijacker, ok := w.(http.Hijacker)
+		require.True(a.t, ok, "the test server must support hijacking")
+		conn, _, err := hijacker.Hijack()
+		require.NoError(a.t, err)
+		require.NoError(a.t, conn.Close())
+		return
+	}
 	if a.createStatus != 0 {
 		message := a.createErrorMessage
 		if message == "" {

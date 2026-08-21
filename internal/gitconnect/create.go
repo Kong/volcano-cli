@@ -155,6 +155,10 @@ func listAccounts(accounts []string) string {
 	return ". It is installed on: " + strings.Join(accounts, ", ")
 }
 
+// noHTTPStatus is what api.Status reports for an error that never became an HTTP
+// response: a connection that dropped, a timeout, a cancelled context.
+const noHTTPStatus = 0
+
 // classifyCreate maps a creation failure, keeping the platform's own message —
 // it is the only thing that can tell three causes of a 404 apart, or say which
 // of GitHub's validation refusals happened.
@@ -164,13 +168,20 @@ func listAccounts(accounts []string) string {
 // landed under another account; 422 covers a retry of a request that already
 // created one; 500 covers a creation whose outcome GitHub never reported. None
 // of them can be read as "nothing was created" from the status alone.
+//
+// Neither can no status at all, which is the worst case of the three: the
+// request may have reached GitHub and the answer may have been lost on the way
+// back, so the repository exists and nothing said so. It also covers a request
+// that never left the machine, which created nothing — indistinguishable from
+// here, and worth over-reporting: the cost is a glance at the GitHub account,
+// against a repository nobody knows about.
 func classifyCreate(err error, name string) error {
 	switch api.Status(err) {
 	case http.StatusUnauthorized:
 		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	case http.StatusServiceUnavailable:
 		return ErrProviderNotConfigured
-	case http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError:
+	case noHTTPStatus, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError:
 		return fmt.Errorf("failed to create %s: %w: %w", name, ErrRepositoryMayExist, err)
 	default:
 		return classify(err, "failed to create "+name)

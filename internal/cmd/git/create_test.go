@@ -165,6 +165,7 @@ func TestGitCreateUsesAnotherRemoteName(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	runner := checkoutRunner("main", originRemoteOutput)
+	runner.allowRemoteName("volcano")
 	runner.allow("git remote add -- volcano https://github.com/octo/storefront.git")
 	terminal := &gitTerminalRunner{}
 
@@ -363,6 +364,102 @@ func TestGitCreateWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 	assert.Contains(t, err.Error(), "volcano git connect")
 	assert.NotContains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git",
 		"no remote may be recorded for a repository that may not be bound")
+}
+
+// The worst of the ambiguous outcomes: the request arrived, the repository may
+// have been created, and no status came back to classify. Reported as a plain
+// failure it would send the caller straight into a retry under a new name.
+func TestGitCreateWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.createHangsUp = true
+	runner := checkoutRunner("main", "")
+
+	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.Error(t, err)
+	assert.Equal(t, 1, api.createAttempts(), "the request did reach the platform")
+	assert.Contains(t, err.Error(), "may have been created on GitHub")
+	assert.Contains(t, err.Error(), "volcano git connect")
+	assert.NotContains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git")
+}
+
+// git refuses a remote name with whitespace, and it would refuse it after the
+// create — leaving a repository whose remote never got recorded.
+func TestGitCreateRefusesARemoteNameWithWhitespace(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+
+	_, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), nil, "",
+		"create", "storefront", "--remote", "foo ", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "contains whitespace")
+	assert.Zero(t, api.createAttempts())
+}
+
+// The names git refuses are more than the flag check can state — a leading dot,
+// "..", "~", a ".lock" suffix — so git is asked, and asked before the create.
+func TestGitCreateRefusesARemoteNameGitRejects(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+
+	_, err := executeGitCommandWith(t, api.serve(), runner, nil, "",
+		"create", "storefront", "--remote", "a~b", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `git will not accept "a~b" as a remote name`)
+	assert.Contains(t, runner.ran(), "git check-ref-format --allow-onelevel a~b")
+	assert.Zero(t, api.createAttempts())
+}
+
+func TestGitCreateRefusesARemoteNameGitWouldReadAsAnOption(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+
+	_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
+		"create", "storefront", "--remote", "-x", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "git reads it as an option")
+	assert.Zero(t, api.createAttempts())
+}
+
+// git accepts "$", ";" and backticks in a branch name, so a command printed for
+// the user to copy has to survive their shell unchanged. Printed bare,
+// "topic$(id)" would run id instead of pushing topic.
+func TestGitCreateQuotesTheCommandsItPrints(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.createAppInstalled = false
+	runner := checkoutRunner("topic$(id)", "")
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, `git push --set-upstream origin 'topic$(id)'`)
+	assert.NotContains(t, out, "git push --set-upstream origin topic$(id)\n")
+	// An ordinary name is not dressed up in quotes it does not need.
+	assert.NotContains(t, out, "'origin'")
+}
+
+func TestShellQuote(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ value, want string }{
+		{"main", "main"},
+		{"release/2.0", "release/2.0"},
+		{"https://github.com/octo/storefront.git", "https://github.com/octo/storefront.git"},
+		{"topic$(id)", `'topic$(id)'`},
+		{"a;b", `'a;b'`},
+		{"a`id`b", "'a`id`b'"},
+		{"a|b", `'a|b'`},
+		{"~branch", `'~branch'`},
+		{"", `''`},
+		// The one escape a single-quoted word needs.
+		{"it's", `'it'\''s'`},
+	} {
+		assert.Equal(t, tc.want, shellQuote(tc.value), "quoting %q", tc.value)
+	}
 }
 
 func TestGitCreateRefusesAnAbsoluteRootDirectory(t *testing.T) {
