@@ -145,18 +145,33 @@ type gitTerminalRunner struct {
 	// output is what git writes while running, which the command passes straight
 	// through to the user.
 	output string
-	err    error
+	// lsRemote answers `git ls-remote`, which is how the command tells an empty
+	// repository from one that already has a history. Empty means no branches.
+	lsRemote string
+	err      error
 }
 
 func (r *gitTerminalRunner) Run(_ context.Context, out io.Writer, name string, args ...string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.commands = append(r.commands, strings.TrimSpace(name+" "+strings.Join(args, " ")))
+	command := strings.TrimSpace(name + " " + strings.Join(args, " "))
+	r.commands = append(r.commands, command)
+	// ls-remote is a read whose output the command parses, and it must not fail
+	// for the reasons a push might: a test that makes the push fail is not saying
+	// the repository could not be listed.
+	if strings.Contains(command, "ls-remote") {
+		fmt.Fprint(out, r.lsRemote)
+		return nil
+	}
 	if r.output != "" {
 		fmt.Fprint(out, r.output)
 	}
 	return r.err
 }
+
+// remoteHistory is what ls-remote prints for a repository that already has a
+// branch, which is what sends an export to a branch of its own.
+const remoteHistory = "d34db33f\trefs/heads/main\n"
 
 func (r *gitTerminalRunner) ran() []string {
 	r.mu.Lock()
@@ -273,14 +288,15 @@ type gitAPI struct {
 	// of the ambiguous outcomes and carries no HTTP status to classify.
 	createHangsUp bool
 
-	mu               sync.Mutex
-	connectionReadsN int
-	installationsN   int
-	connectBody      map[string]any
-	createBody       map[string]any
-	createCalls      int
-	deleted          bool
-	connectionReads  int
+	mu                   sync.Mutex
+	connectionReadsN     int
+	installationsN       int
+	connectBody          map[string]any
+	productionBranchBody map[string]any
+	createBody           map[string]any
+	createCalls          int
+	deleted              bool
+	connectionReads      int
 }
 
 func newGitAPI(t *testing.T) *gitAPI {
@@ -334,6 +350,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveRepositories(w, r)
 	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git-connection/repository"):
 		a.serveCreateRepository(w, r)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/production-branch"):
+		a.serveProductionBranch(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveConnection(w)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection"):
@@ -554,6 +572,27 @@ func (a *gitAPI) serveCreateRepository(w http.ResponseWriter, r *http.Request) {
 		created["install_url"] = a.createInstallURL
 	}
 	writeGitJSON(a.t, w, http.StatusCreated, created)
+}
+
+// serveProductionBranch models the second call an empty repository needs: the
+// bind cannot carry a non-default branch, so it is corrected afterwards.
+func (a *gitAPI) serveProductionBranch(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.productionBranchBody))
+
+	branch, ok := a.productionBranchBody["production_branch"].(string)
+	require.True(a.t, ok, "the request must name a branch")
+	a.connectedBranch = branch
+	payload := connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation())
+	payload["production_branch"] = branch
+	writeGitJSON(a.t, w, http.StatusOK, payload)
+}
+
+func (a *gitAPI) sentProductionBranch() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.productionBranchBody
 }
 
 func (a *gitAPI) sentCreateBody() map[string]any {

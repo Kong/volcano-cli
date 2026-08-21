@@ -654,3 +654,92 @@ func TestGitExportDeclinedCreatesNothing(t *testing.T) {
 	assert.NotContains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git")
 	assert.Contains(t, out, "cannot be undone")
 }
+
+// A repository that exists but has no branches is the same job as one this
+// command created: the project's history becomes its history.
+func TestGitExportBindsAnExistingEmptyRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("trunk", "")
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+	terminal := &gitTerminalRunner{} // ls-remote prints nothing: no branches
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
+		"export", "--repo", "octo/storefront", "--branch", "trunk", "--yes")
+	require.NoError(t, err)
+
+	assert.Zero(t, api.createAttempts(), "the repository is already there; creating one would be a duplicate")
+	assert.NotNil(t, api.sentConnectBody(), "it has to be bound")
+	// The bind cannot carry a non-default branch, so an empty repository — whose
+	// recorded branch is only the account's configured name — is corrected after.
+	assert.Equal(t, "trunk", api.sentProductionBranch()["production_branch"])
+	assert.Equal(t, []string{"git push --set-upstream -- origin trunk"}, terminal.ran()[1:])
+	assert.Contains(t, out, "Connected octo/storefront")
+	assert.NotContains(t, out, "Created octo/storefront")
+}
+
+// The case nobody else handles: unrelated histories. A push to the production
+// branch would be refused and forcing it would discard what is there, so the
+// project goes to a branch of its own and waits for a merge.
+func TestGitExportPushesToASideBranchWhenTheRepositoryHasHistory(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+	terminal := &gitTerminalRunner{lsRemote: remoteHistory}
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "",
+		"export", "--repo", "octo/storefront", "--branch", "main", "--yes")
+	require.NoError(t, err)
+
+	assert.Zero(t, api.createAttempts())
+	assert.NotNil(t, api.sentConnectBody())
+	// The production branch stays the repository's own: that is where the pull
+	// request lands, and therefore what should deploy.
+	assert.Nil(t, api.sentProductionBranch(), "the production branch must not be repointed at the side branch")
+	assert.Equal(t, []string{"git push -- origin main:refs/heads/volcano/export"}, terminal.ran()[1:])
+
+	assert.Contains(t, out, "Pushed to volcano/export on octo/storefront")
+	assert.Contains(t, out, "already has its own history")
+	assert.Contains(t, out, "Nothing deploys until that merge lands")
+	assert.Contains(t, out,
+		"https://github.com/octo/storefront/compare/main...volcano/export?expand=1")
+	// Claiming a push deploys would be false here, so that line is withheld.
+	assert.NotContains(t, out, "A push to main deploys:")
+}
+
+// The consequence is stated before the user agrees to it, not discovered in the
+// report afterwards.
+func TestGitExportWarnsBeforeBindingARepositoryWithHistory(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	terminal := &gitTerminalRunner{lsRemote: remoteHistory}
+
+	out, err := executeGitCommandWith(t, api.serve(), runner, terminal, "n\n",
+		"export", "--repo", "octo/storefront", "--branch", "main")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "has its own history")
+	assert.Contains(t, out, "Nothing deploys until you merge that branch")
+	assert.Nil(t, api.sentConnectBody(), "a declined prompt binds nothing")
+	assert.Zero(t, api.createAttempts())
+}
+
+func TestGitExportRefusesRepoShapesThatNameNothing(t *testing.T) {
+	setGitCommandTestHome(t)
+	for _, tc := range []struct{ repo, want string }{
+		{"a/b/c", "too many parts"},
+		{"/storefront", "names no account"},
+		{"octo/", "names no repository"},
+		{"   ", "names no repository"},
+		{"my app", "which GitHub does not allow"},
+	} {
+		api := newGitAPI(t)
+		_, err := executeGitCommandWith(t, api.serve(), nil, nil, "",
+			"export", "--repo", tc.repo, "--branch", "main", "--yes")
+		require.Errorf(t, err, "--repo %q", tc.repo)
+		assert.Containsf(t, err.Error(), tc.want, "--repo %q", tc.repo)
+		assert.Zerof(t, api.createAttempts(), "--repo %q", tc.repo)
+	}
+}
