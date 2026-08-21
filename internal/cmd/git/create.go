@@ -57,7 +57,8 @@ Creating a repository cannot be undone from here — Volcano has no way to delet
 one — so this asks before it creates, and reports the repository by name if
 anything afterwards fails.
 
-To connect a repository that already exists, use "git connect" instead.`,
+Connecting a repository you already have is a dashboard flow; this command only
+creates new ones.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
@@ -114,18 +115,20 @@ func runCreate(ctx context.Context, opts createOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 	if existing != nil {
+		// Both ways out of this are dashboard flows: a project holds one
+		// repository, and neither disconnecting it nor pointing it somewhere else
+		// is something this CLI does.
 		return fmt.Errorf(
-			"project %s is already connected to %s\n\nDisconnect it first with %s, or connect a different "+
-				"existing repository with %s",
+			"project %s is already connected to %s\n\n%s",
 			project.Label(), existing.RepoFullName,
-			cliruntime.CommandPath(opts.deps, "git disconnect"),
-			cliruntime.CommandPath(opts.deps, "git connect"))
+			dashboardStep(webURL, "Disconnect it there first, or point it at another repository:"))
 	}
 
 	// Last of the checks, so the prompt is the only thing left between here and a
 	// repository: the user is never asked to confirm a create the CLI has already
-	// established it cannot make.
-	if err := service.CheckOwner(ctx, request.input.Owner); err != nil {
+	// established it cannot make. This is where a caller with no GitHub account
+	// connected is turned away, which is the commonest reason a create cannot work.
+	if err := service.CheckCreatable(ctx, request.input.Owner); err != nil {
 		return guide(opts.deps, webURL, err)
 	}
 
@@ -271,10 +274,37 @@ func requestedRootDirectory(value string) (string, error) {
 		return "", errors.New(
 			"--root-directory is only whitespace; omit it to build from the repository root")
 	}
-	if err := validateRootDirectory(trimmed, trimmed != ""); err != nil {
-		return "", err
+	if trimmed == "" {
+		return "", nil
+	}
+	// The platform builds from this path inside the repository, so an absolute
+	// path or one climbing out of it deploys nothing — and this command is what
+	// reports success, so it must not report it for a value that cannot work.
+	// Refused before the create, like everything else that is checkable.
+	root := filepath.ToSlash(trimmed)
+	if strings.HasPrefix(root, "/") || filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("--root-directory must be a path inside the repository, not an absolute path: %s", root)
+	}
+	for segment := range strings.SplitSeq(root, "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("--root-directory must stay inside the repository, so it cannot contain %q: %s",
+				"..", root)
+		}
 	}
 	return trimmed, nil
+}
+
+// currentConnection reads the project's binding, mapping "no binding" to a nil
+// connection so callers branch on presence rather than on an error.
+func currentConnection(ctx context.Context, service gitconnect.Service) (*apiclient.ProjectGitConnection, error) {
+	existing, err := service.Status(ctx)
+	if err != nil {
+		if errors.Is(err, gitconnect.ErrNotConnected) {
+			return nil, nil //nolint:nilnil // no binding is an outcome here, not a failure
+		}
+		return nil, err
+	}
+	return existing, nil
 }
 
 // checkRemoteName refuses the two remote names git cannot be asked about: an

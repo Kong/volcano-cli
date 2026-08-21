@@ -51,29 +51,6 @@ func TestClassifyProviderMapsUnauthorizedToNotAuthenticated(t *testing.T) {
 	assert.Contains(t, err.Error(), "your CLI session may have expired")
 }
 
-func TestOrderByOwnerTriesTheOwningAccountFirst(t *testing.T) {
-	t.Parallel()
-	installations := []apiclient.GitInstallation{
-		{Id: 1, AccountLogin: "acme"},
-		{Id: 2, AccountLogin: "Octo"},
-		{Id: 3, AccountLogin: "other"},
-	}
-
-	ordered := orderByOwner(installations, "octo")
-	require.Len(t, ordered, 3)
-	assert.Equal(t, int64(2), ordered[0].Id, "the owner's installation is tried first, case-insensitively")
-	assert.Equal(t, int64(1), ordered[1].Id, "the rest keep their original order")
-	assert.Equal(t, int64(3), ordered[2].Id)
-}
-
-func TestOrderByOwnerKeepsEveryInstallationWhenNoneMatches(t *testing.T) {
-	t.Parallel()
-	installations := []apiclient.GitInstallation{{Id: 1, AccountLogin: "acme"}, {Id: 2, AccountLogin: "other"}}
-
-	ordered := orderByOwner(installations, "octo")
-	assert.Equal(t, installations, ordered)
-}
-
 // On a route whose contract defines a 503, that status means the API has no
 // GitHub App configured at all — a different conversation from whatever call
 // happened to hit it.

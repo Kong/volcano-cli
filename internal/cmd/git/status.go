@@ -51,7 +51,7 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 		// and exiting non-zero for it would make the command useless in a
 		// conditional.
 		if errors.Is(err, gitconnect.ErrNotConnected) {
-			output.GitNotConnected(opts.out, project.Label(), cliruntime.CommandPath(opts.deps, "git connect"))
+			output.GitNotConnected(opts.out, project.Label(), cliruntime.CommandPath(opts.deps, "git create"))
 			return nil
 		}
 		return guide(opts.deps, webURL, err)

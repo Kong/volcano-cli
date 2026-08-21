@@ -20,19 +20,17 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "git",
 		Short: "Manage the Git repository connected to the current project",
-		Long: `Connect the current project to a GitHub repository so that pushes deploy.
-
-Bring a repository you already have with "git connect", or have one created for
-this project with "git create".
+		Long: `Create a GitHub repository for the current project so that pushes deploy.
 
 Volcano never stores a push credential and never pushes on its own: it binds the
 project to a repository, and any push runs as your own "git push", with the
-credentials already on your machine.`,
+credentials already on your machine.
+
+Connecting a repository you already have, and disconnecting one, are done in the
+dashboard.`,
 	}
 	cmd.AddCommand(newStatus(deps))
 	cmd.AddCommand(newCreate(deps))
-	cmd.AddCommand(newConnect(deps))
-	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }
 
@@ -100,20 +98,18 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 	case errors.Is(err, gitconnect.ErrRepositoryMayExist):
 		// The one failure in this CLI where retrying is the wrong reflex: the
 		// repository may be on GitHub already, and a retry under a new name leaves
-		// the user owning two, one of them bound to nothing.
-		return fmt.Errorf("%w\n\nCheck the account on GitHub before trying again. If the repository is "+
-			"there, connect it with %s instead of creating another one under a different name", err,
-			cliruntime.CommandPath(deps, "git connect"))
-	case errors.Is(err, gitconnect.ErrBindingChanged):
-		return fmt.Errorf("%w\n\nNothing was changed. Run %s to see where it stands",
-			err, cliruntime.CommandPath(deps, "git status"))
+		// the user owning two, one of them bound to nothing. Connecting the one
+		// that is there is a dashboard flow — the CLI only creates.
+		return fmt.Errorf("%w\n\nCheck the account on GitHub before trying again. Do not create another "+
+			"one under a different name.\n\n%s", err,
+			dashboardStep(webURL, "If the repository is there, connect it in the dashboard:"))
 	case errors.Is(err, gitconnect.ErrProjectNotFound):
 		return fmt.Errorf("%w\n\nSelect one with %s, or check VOLCANO_PROJECT_ID",
 			err, cliruntime.CommandPath(deps, "use <project>"))
 	case errors.Is(err, gitconnect.ErrNotConnected):
 		// No hedging about the project: the ambiguous 404 behind this is
 		// resolved before it gets here.
-		return fmt.Errorf("%w\n\nConnect one with %s", err, cliruntime.CommandPath(deps, "git connect"))
+		return fmt.Errorf("%w\n\nCreate one with %s", err, cliruntime.CommandPath(deps, "git create"))
 	default:
 		return err
 	}

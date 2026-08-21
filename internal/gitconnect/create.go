@@ -101,21 +101,31 @@ func createBody(input CreateRepositoryInput) apiclient.CreateProjectGitRepositor
 	return body
 }
 
-// CheckOwner refuses an owner the App cannot create under, before anything is
-// created and before the user is asked to confirm. The platform refuses it too,
-// with a 404 that cannot say which accounts would have worked; this can, because
-// it has the installation list in hand.
+// CheckCreatable refuses what can be known before anything is created: a caller
+// with no GitHub account connected at all, and a named owner the App cannot
+// create under.
 //
-// Only an explicitly named owner is checked. An omitted one resolves to the
-// connected account on the platform side, and guessing which login that is here
+// Both are refused by the platform too, with a 404 that covers three causes and
+// cannot say which — nor which accounts would have worked. This can, because it
+// has the connection and installation lists in hand, and it does so before the
+// user is asked to confirm an irreversible create.
+//
+// An owner that was not named is deliberately not resolved. "The account this
+// connection belongs to" is the platform's question, and guessing a login here
 // would let the CLI refuse a create the platform would have accepted.
-func (s Service) CheckOwner(ctx context.Context, owner string) error {
+func (s Service) CheckCreatable(ctx context.Context, owner string) error {
 	owner = strings.TrimSpace(owner)
+	connections, err := s.gitHubConnections(ctx)
+	if err != nil {
+		return err
+	}
 	if owner == "" {
+		// A connection exists, which is all an unnamed owner needs: the platform
+		// resolves the account from it.
 		return nil
 	}
 
-	accounts, err := s.installableAccounts(ctx)
+	accounts, err := s.installableAccounts(ctx, connections)
 	if err != nil {
 		return err
 	}
@@ -127,9 +137,11 @@ func (s Service) CheckOwner(ctx context.Context, owner string) error {
 	return fmt.Errorf("%w: %s%s", ErrOwnerNotInstallable, owner, listAccounts(accounts))
 }
 
-// installableAccounts lists the accounts the caller's GitHub connections have an
-// App installation on.
-func (s Service) installableAccounts(ctx context.Context) ([]string, error) {
+// gitHubConnections returns the caller's usable GitHub connections, reporting
+// ErrNoGitHubConnection when there are none. That is the commonest reason a
+// create cannot work, and the CLI cannot fix it: connecting an account is a
+// browser redirect bound to an HttpOnly cookie, so it happens in the dashboard.
+func (s Service) gitHubConnections(ctx context.Context) ([]apiclient.GitConnection, error) {
 	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
@@ -143,9 +155,21 @@ func (s Service) installableAccounts(ctx context.Context) ([]string, error) {
 	if len(usable) == 0 {
 		return nil, ErrNoGitHubConnection
 	}
+	return usable, nil
+}
 
-	accounts := make([]string, 0, len(usable))
-	for _, connection := range usable {
+// installableAccounts lists the accounts the given connections have an App
+// installation on.
+func (s Service) installableAccounts(
+	ctx context.Context, connections []apiclient.GitConnection,
+) ([]string, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := make([]string, 0, len(connections))
+	for _, connection := range connections {
 		installations, err := authenticated.API.ListGitInstallations(ctx, connection.Id)
 		if err != nil {
 			return nil, classifyProvider(err, "failed to list your GitHub App installations")

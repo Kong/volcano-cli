@@ -56,7 +56,7 @@ func TestStatusReportsAnUnconnectedProjectWithoutFailing(t *testing.T) {
 
 	assert.Contains(t, out, "Project: Storefront ("+gitProjectID+")")
 	assert.Contains(t, out, "No repository is connected, so pushes do not deploy.")
-	assert.Contains(t, out, "volcano git connect")
+	assert.Contains(t, out, "volcano git create")
 }
 
 func TestStatusWarnsWhenTheSettingsCannotBeRead(t *testing.T) {

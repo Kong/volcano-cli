@@ -275,12 +275,14 @@ type gitAPI struct {
 	// of the ambiguous outcomes and carries no HTTP status to classify.
 	createHangsUp bool
 
-	mu              sync.Mutex
-	connectBody     map[string]any
-	createBody      map[string]any
-	createCalls     int
-	deleted         bool
-	connectionReads int
+	mu               sync.Mutex
+	connectionReadsN int
+	installationsN   int
+	connectBody      map[string]any
+	createBody       map[string]any
+	createCalls      int
+	deleted          bool
+	connectionReads  int
 }
 
 func newGitAPI(t *testing.T) *gitAPI {
@@ -324,6 +326,9 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && isProjectPath(r.URL.Path):
 		a.serveProject(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == connectionsPath:
+		a.mu.Lock()
+		a.connectionReadsN++
+		a.mu.Unlock()
 		writeGitJSON(a.t, w, http.StatusOK, map[string]any{"connections": a.connections})
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/installations"):
 		a.serveInstallations(w, r)
@@ -366,6 +371,9 @@ func installationOf(t *testing.T, path string) int64 {
 }
 
 func (a *gitAPI) serveInstallations(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	a.installationsN++
+	a.mu.Unlock()
 	connection := connectionOf(r.URL.Path)
 	if status := a.installationsStatus[connection]; status != 0 {
 		writeGitJSON(a.t, w, status, map[string]any{"error": "github rejected the token for " + connection})
@@ -556,6 +564,20 @@ func (a *gitAPI) sentCreateBody() map[string]any {
 	return a.createBody
 }
 
+// connectionListings and installationListings count the provider reads, so a
+// test can assert an unnamed owner costs the cheap check and not the walk.
+func (a *gitAPI) connectionListings() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.connectionReadsN
+}
+
+func (a *gitAPI) installationListings() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.installationsN
+}
+
 func (a *gitAPI) createAttempts() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -593,12 +615,6 @@ func (a *gitAPI) sentConnectBody() map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.connectBody
-}
-
-func (a *gitAPI) disconnectCalled() bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.deleted
 }
 
 func connectionPayload(fullName, rootDirectory string, repoID, installationID int64) map[string]any {

@@ -114,7 +114,8 @@ func TestGitCreateRefusesAProjectThatIsAlreadyConnected(t *testing.T) {
 		"create", "another", "--yes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already connected to octo/storefront")
-	assert.Contains(t, err.Error(), "volcano git disconnect")
+	// Both ways out are dashboard flows now that the CLI only creates.
+	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
 	assert.Zero(t, api.createAttempts())
 }
 
@@ -331,6 +332,41 @@ func TestGitCreateSendsAnOwnerTheAppIsInstalledOn(t *testing.T) {
 	assert.Contains(t, out, "Created acme/storefront")
 }
 
+// No GitHub account connected at all — the commonest reason a create cannot
+// work, and the one the CLI cannot fix: connecting an account is a browser
+// redirect, so it happens in the dashboard. Refused before anything is created,
+// and before the user is asked to confirm.
+func TestGitCreateRefusesWhenNoGitHubAccountIsConnected(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connections = nil
+
+	out, err := executeGitCommandWith(t, api.serve(), checkoutRunner("main", ""), &gitTerminalRunner{}, "",
+		"create", "storefront")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no GitHub account is connected")
+	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
+	assert.Zero(t, api.createAttempts())
+	assert.NotContains(t, out, "Create it", "the prompt must not be reached")
+}
+
+// Checked even without --owner, which used to skip the connection read entirely
+// and leave the platform's 404 to explain it after the fact.
+func TestGitCreateChecksTheConnectionWithoutAnOwner(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := checkoutRunner("main", "")
+	runner.allow("git remote add -- origin https://github.com/octo/storefront.git")
+
+	_, err := executeGitCommandWith(t, api.serve(), runner, &gitTerminalRunner{}, "",
+		"create", "storefront", "--yes")
+	require.NoError(t, err)
+	// The connection was read, and no installation listing was needed for it: an
+	// unnamed owner is the platform's to resolve.
+	assert.Equal(t, 1, api.connectionListings())
+	assert.Zero(t, api.installationListings())
+}
+
 // The platform refuses this too, with a 404 that cannot say which accounts would
 // have worked. This can, because it has the installation list in hand.
 //
@@ -366,7 +402,8 @@ func TestGitCreateWarnsThatARepositoryMayExistOnConflict(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
 	assert.Contains(t, err.Error(), "octo/storefront was created but could not be connected")
-	assert.Contains(t, err.Error(), "volcano git connect")
+	assert.Contains(t, err.Error(), "Do not create another one under a different name")
+	assert.Contains(t, err.Error(), "https://volcano.test/dashboard/project-settings/git")
 	assert.NotContains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git",
 		"no remote may be recorded for a repository that may not be bound")
 }
@@ -385,7 +422,7 @@ func TestGitCreateWarnsThatARepositoryMayExistWhenNoAnswerArrives(t *testing.T) 
 	require.Error(t, err)
 	assert.Equal(t, 1, api.createAttempts(), "the request did reach the platform")
 	assert.Contains(t, err.Error(), "may have been created on GitHub")
-	assert.Contains(t, err.Error(), "volcano git connect")
+	assert.Contains(t, err.Error(), "Do not create another one under a different name")
 	assert.NotContains(t, runner.ran(), "git remote add -- origin https://github.com/octo/storefront.git")
 }
 
