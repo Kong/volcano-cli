@@ -69,10 +69,22 @@ func TestStatusInProgressStatesAreAmber(t *testing.T) {
 	if amberPrefix == "" {
 		t.Fatal("expected an ANSI prefix for an amber state")
 	}
-	for _, s := range []string{"deleting", "detaching", "pending_verification"} {
+	for _, s := range []string{"deleting", "detaching", "restoring", "pending_verification"} {
 		if !strings.HasPrefix(Status(s, true), amberPrefix) {
 			t.Fatalf("%q should use the amber in-progress style", s)
 		}
+	}
+}
+
+// TestStatusExhaustedReadsAsFailed covers a restore the platform gave up on: it
+// leaves the database failed, so it must not read as inert.
+func TestStatusExhaustedReadsAsFailed(t *testing.T) {
+	failedPrefix, _, _ := strings.Cut(Status("failed", true), "failed")
+	if failedPrefix == "" {
+		t.Fatal("expected an ANSI prefix for a failed state")
+	}
+	if !strings.HasPrefix(Status("exhausted", true), failedPrefix) {
+		t.Fatal("an exhausted restore should use the failed style")
 	}
 }
 

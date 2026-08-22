@@ -74,6 +74,62 @@ connections until it reports `active` again — poll it with `get` the same way 
 would after a `create`. `extend` replaces a branch's lifetime rather than adding
 to it, counting from now.
 
+## Backups and restore
+
+A backup is a point-in-time copy of a database, kept by the platform and
+restorable in place. Backups cover the database itself, not its branches.
+
+Like branching, backups have no local backend, so these commands live under the
+`cloud` group and the prefix is required.
+
+| Operation | Command |
+|---|---|
+| Create | `volcano cloud databases backups create <database> <backup>` |
+| List | `volcano cloud databases backups list <database>` |
+| Get | `volcano cloud databases backups get <database> <backup>` |
+| Delete | `volcano cloud databases backups delete <database> <backup>` |
+| Restore | `volcano cloud databases restore <database> --backup <backup>` |
+| Restore to a point in time | `volcano cloud databases restore <database> --to <RFC 3339>` |
+| Show the schedule | `volcano cloud databases backup-schedule get <database>` |
+| Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 0] [--retention 168h]` |
+| Stop scheduled backups | `volcano cloud databases backup-schedule set <database> --clear` |
+
+How many backups a database may keep, how long they are kept, and how far back a
+point-in-time restore reaches all come from the project's plan. `backups list`
+reports the window a point-in-time restore may target.
+
+```bash
+# Back up before a risky migration
+volcano cloud databases backups create app before_migration
+
+# See what there is to restore, and how far back a point-in-time restore reaches
+volcano cloud databases backups list app
+
+# Put the database back the way that backup found it
+volcano cloud databases restore app --backup before_migration
+
+# Or rewind to an arbitrary moment inside the window
+volcano cloud databases restore app --to 2026-01-15T09:30:00Z
+```
+
+Restoring is destructive and in place: everything written after the point being
+restored is discarded, and there is no way to restore into a second database.
+The restore runs in the background, so the command returns while the database is
+still `restoring` and serving no connections — poll `volcano cloud databases get
+<database>` until it reports `active` again. Its connection string never
+changes, so nothing holding it needs updating.
+
+Branches are not restored. They keep serving their own data, but resetting a
+branch from a database that was just restored is refused for up to 24 hours
+afterwards.
+
+`backup-schedule set` replaces the schedule rather than adding to it, and
+scheduled backups do not count against the plan's backup allowance. Their
+retention is clamped to the plan's, so the schedule printed back can keep
+backups for less time than asked for. Scheduled backups are listed alongside the
+ones you took, with a source of `scheduled`, and are restored and deleted the
+same way.
+
 ## Examples
 
 ```bash
