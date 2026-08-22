@@ -77,6 +77,25 @@ func TestListOmitsRestoreWindowWhenPlanExcludesIt(t *testing.T) {
 	assert.NotContains(t, out, "Point-in-time restore window:")
 }
 
+// A database that is still provisioning has no storage behind it, so the reads
+// answer 409 rather than an empty list. Reporting it as "no backups" would read
+// as data loss on a database that never had any.
+func TestListSurfacesADatabaseWithNoStorageYet(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBackupJSON(t, w, http.StatusConflict, map[string]any{
+			"error": "database has no provider project",
+		})
+	}))
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestCommand(server), "list", "app")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database has no provider project")
+}
+
 func TestCreateSendsNameAndReportsBackup(t *testing.T) {
 	setBackupCommandTestHome(t)
 	saveBackupCommandTestConfig(t)
@@ -113,6 +132,39 @@ func TestCreateSurfacesBackupCapError(t *testing.T) {
 	_, err := executeBackupCommand(t, newTestCommand(server), "create", "app", "nightly")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "max 5 per database")
+}
+
+// The name is the backup's identity, so a create that collides is refused
+// rather than making a second backup the user cannot tell apart. The same 409
+// answers a backup taken moments ago.
+func TestCreateSurfacesDuplicateName(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBackupJSON(t, w, http.StatusConflict, map[string]any{
+			"error": "backup name already exists",
+		})
+	}))
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestCommand(server), "create", "app", "nightly")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup name already exists")
+}
+
+func TestGetSurfacesMissingBackup(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBackupJSON(t, w, http.StatusNotFound, map[string]any{"error": "backup not found"})
+	}))
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestCommand(server), "get", "app", "nightly")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "backup not found")
 }
 
 func TestGetReportsUncostedSize(t *testing.T) {
@@ -165,6 +217,25 @@ func TestDeleteProceedsWithYes(t *testing.T) {
 	out, err := executeBackupCommand(t, newTestCommand(server), "delete", "app", "nightly", "--yes")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Backup 'nightly' of database 'app' deleted")
+}
+
+// A restore is pinned to a backup it may not have used yet, so the platform
+// refuses to delete one while a restore runs. The CLI has nothing to add beyond
+// showing why the delete did not happen.
+func TestDeleteSurfacesRestoreInProgress(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBackupJSON(t, w, http.StatusConflict, map[string]any{
+			"error": "a restore is already in progress for this database",
+		})
+	}))
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestCommand(server), "delete", "app", "nightly", "-y")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "restore is already in progress")
 }
 
 func TestDeleteSurfacesMissingBackup(t *testing.T) {

@@ -17,7 +17,7 @@ func (c *Client) ListDatabaseBackups(ctx context.Context, projectID uuid.UUID, d
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
 // CreateDatabaseBackup captures the database as it is now.
@@ -37,7 +37,7 @@ func (c *Client) GetDatabaseBackup(ctx context.Context, projectID uuid.UUID, dat
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
 // DeleteDatabaseBackup deletes one backup by name.
@@ -46,7 +46,7 @@ func (c *Client) DeleteDatabaseBackup(ctx context.Context, projectID uuid.UUID, 
 	if err != nil {
 		return err
 	}
-	return apiOK(resp.StatusCode(), resp.Body, resp.JSON403, resp.JSON404, resp.JSON503)
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
 // GetDatabaseBackupSchedule returns the database's automated backup schedule.
@@ -55,7 +55,7 @@ func (c *Client) GetDatabaseBackupSchedule(ctx context.Context, projectID uuid.U
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON503)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
 // UpdateDatabaseBackupSchedule replaces the schedule wholesale. An empty entries

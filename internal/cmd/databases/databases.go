@@ -2,6 +2,7 @@ package databases
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -61,5 +62,29 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(migrationcmd.New(deps))
+	cmd.AddCommand(cloudOnly("backups", "backup"))
+	cmd.AddCommand(cloudOnly("backup-schedule"))
+	cmd.AddCommand(cloudOnly("restore"))
+	cmd.AddCommand(cloudOnly("branches", "branch"))
 	return cmd
+}
+
+// cloudOnly stands in for a database command the storage provider backs, which
+// local development does not run. Without it cobra answers an unknown
+// subcommand by printing the parent's help and exiting 0, which reads as if the
+// command had run and says nothing about where it actually lives. The stub is
+// hidden so local help still lists only what local mode can do, and takes its
+// arguments raw so `restore app --backup nightly` reaches it rather than
+// failing on an unknown flag.
+func cloudOnly(name string, aliases ...string) *cobra.Command {
+	return &cobra.Command{
+		Use:                name,
+		Aliases:            aliases,
+		Hidden:             true,
+		DisableFlagParsing: true,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("%q is a cloud command: local development has no storage provider behind it, "+
+				"so run 'volcano cloud databases %s' against a cloud project", name, name)
+		},
+	}
 }

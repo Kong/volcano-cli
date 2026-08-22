@@ -110,6 +110,21 @@ func TestRestoreRejectsEmptyBackupName(t *testing.T) {
 	assert.Contains(t, err.Error(), "name a backup with --backup")
 }
 
+// The same hole on the other flag: an empty --to must not read as "restore to
+// the zero time", which the platform would answer with a window rejection long
+// after the request was already meaningless.
+func TestRestoreRejectsEmptyTimestamp(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := refusingServer(t)
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestRestoreCommand(server), "app", "--to", "  ", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name a backup with --backup")
+}
+
 func TestRestoreRequiresConfirmation(t *testing.T) {
 	setBackupCommandTestHome(t)
 	saveBackupCommandTestConfig(t)

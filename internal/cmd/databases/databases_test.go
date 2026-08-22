@@ -113,6 +113,46 @@ func TestDatabaseCommandsCreateListGetDelete(t *testing.T) {
 	assert.Contains(t, out, "Database 'app' deleted")
 }
 
+// TestLocalTreeSendsProviderOnlyCommandsToCloud guards the split both database
+// trees are built from: `volcano databases` and `volcano local databases` come
+// from NewLocalWithOptions, everything under `volcano cloud` from New.
+//
+// Branches, backups, and restores need the storage provider, which local
+// development does not run, so the local tree does not carry them. Left to
+// cobra that reads as success: an unknown subcommand prints the parent's help
+// and exits 0, telling a user following the docs neither that it failed nor
+// where the command lives.
+func TestLocalTreeSendsProviderOnlyCommandsToCloud(t *testing.T) {
+	providerOnly := [][]string{
+		{"backups", "list", "app"},
+		{"backup", "list", "app"},
+		{"backup-schedule", "get", "app"},
+		{"restore", "app", "--backup", "nightly"},
+		{"branches", "list", "app"},
+	}
+
+	for _, args := range providerOnly {
+		_, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), args...)
+		require.ErrorContains(t, err, "is a cloud command", "%v", args)
+		require.ErrorContains(t, err, "volcano cloud databases "+args[0])
+
+		cloud := New(cliruntime.Deps{})
+		found, _, findErr := cloud.Find(args[:1])
+		require.NoError(t, findErr, "%v", args)
+		assert.NotSame(t, cloud, found, "cloud databases must own %q, or the local guard proves nothing", args[0])
+	}
+}
+
+// The stubs answer the command; they must not advertise it, or local help would
+// list commands local mode cannot run.
+func TestLocalHelpKeepsCloudOnlyCommandsHidden(t *testing.T) {
+	out, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), "--help")
+	require.NoError(t, err)
+	for _, command := range []string{"backups", "backup-schedule", "restore", "branches"} {
+		assert.NotContains(t, out, command)
+	}
+}
+
 func TestDatabaseCommandsRequireProject(t *testing.T) {
 	setDatabaseCommandTestHome(t)
 	saveDatabaseCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})

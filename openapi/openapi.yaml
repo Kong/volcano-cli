@@ -4405,6 +4405,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The database has no storage project yet, so there is nothing to
+            list. A database reports this while it is still provisioning.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Backups are temporarily unavailable
           content:
@@ -4506,6 +4514,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The database has no storage project yet, so it holds no backups. A
+            database reports this while it is still provisioning.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
           description: Backups are temporarily unavailable
           content:
@@ -4520,6 +4536,8 @@ paths:
         Deletes the backup and frees its storage. Scheduled backups can be
         deleted too. A backup that is already gone reports `404`, so a name
         that never existed and a name that no longer does read the same.
+
+        Refused with `409` while the database is being restored.
       operationId: deleteDatabaseBackup
       security:
         - UserToken: []
@@ -4552,6 +4570,15 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Project, database, or backup not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The database is being restored. A restore is pinned to a backup it
+            may not have restored yet, so deleting one is refused until the
+            restore finishes.
           content:
             application/json:
               schema:
@@ -4591,6 +4618,14 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Project or database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The database has no storage project yet, so it has no schedule. A
+            database reports this while it is still provisioning.
           content:
             application/json:
               schema:
@@ -11461,7 +11496,9 @@ components:
       properties:
         name:
           type: string
-          description: Backup name, unique within the database.
+          description: |
+            Backup name, unique within the database. Names beginning with
+            `volcano-` are reserved for the platform's own snapshots.
           pattern: ^[a-z0-9][a-z0-9_-]{0,62}$
           maxLength: 63
           example: before_migration

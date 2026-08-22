@@ -3796,7 +3796,8 @@ type ConnectProjectGitRequest struct {
 
 // CreateDatabaseBackupRequest defines model for CreateDatabaseBackupRequest.
 type CreateDatabaseBackupRequest struct {
-	// Name Backup name, unique within the database.
+	// Name Backup name, unique within the database. Names beginning with
+	// `volcano-` are reserved for the platform's own snapshots.
 	Name string `json:"name"`
 }
 
@@ -29886,6 +29887,7 @@ type GetDatabaseBackupScheduleClientResponse struct {
 	JSON200      *DatabaseBackupSchedule
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -29954,6 +29956,7 @@ type ListDatabaseBackupsClientResponse struct {
 	JSON200      *DatabaseBackupList
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -30025,6 +30028,7 @@ type DeleteDatabaseBackupClientResponse struct {
 	}
 	JSON403 *Error
 	JSON404 *Error
+	JSON409 *Error
 	JSON503 *Error
 }
 
@@ -30058,6 +30062,7 @@ type GetDatabaseBackupClientResponse struct {
 	JSON200      *DatabaseBackup
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON503      *Error
 }
 
@@ -40395,6 +40400,13 @@ func ParseGetDatabaseBackupScheduleClientResponse(rsp *http.Response) (*GetDatab
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40502,6 +40514,13 @@ func ParseListDatabaseBackupsClientResponse(rsp *http.Response) (*ListDatabaseBa
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
@@ -40614,6 +40633,13 @@ func ParseDeleteDatabaseBackupClientResponse(rsp *http.Response) (*DeleteDatabas
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40660,6 +40686,13 @@ func ParseGetDatabaseBackupClientResponse(rsp *http.Response) (*GetDatabaseBacku
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error

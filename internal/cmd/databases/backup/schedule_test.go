@@ -109,6 +109,42 @@ func TestScheduleSetReportsClampedRetention(t *testing.T) {
 	assert.Contains(t, out, "7d")
 }
 
+// Monthly is the frequency where --day means something else: a day of the
+// month, capped at 28 so every month has one. The rejections are covered
+// below; this is the entry actually reaching the API.
+func TestScheduleSetSendsMonthlyDayOfMonth(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == schedulePath {
+			decodeBody(t, r, &body)
+			writeBackupJSON(t, w, http.StatusOK, map[string]any{
+				"entries": []any{
+					map[string]any{"frequency": "monthly", "hour": 2, "day": 28, "retention_seconds": 2592000},
+				},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	out, err := executeBackupCommand(t, newTestScheduleCommand(server),
+		"set", "app", "--frequency", "monthly", "--day", "28", "--hour", "2")
+	require.NoError(t, err)
+	entries, ok := body["entries"].([]any)
+	require.True(t, ok, "entries should be a list, got %v", body["entries"])
+	require.Len(t, entries, 1)
+	entry, ok := entries[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "monthly", entry["frequency"])
+	assert.InDelta(t, float64(28), entry["day"], 0)
+	assert.Contains(t, out, "monthly")
+	assert.Contains(t, out, "day 28")
+}
+
 func TestScheduleSetClearSendsEmptySchedule(t *testing.T) {
 	setBackupCommandTestHome(t)
 	saveBackupCommandTestConfig(t)

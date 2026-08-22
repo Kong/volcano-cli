@@ -80,19 +80,31 @@ A backup is a point-in-time copy of a database, kept by the platform and
 restorable in place. Backups cover the database itself, not its branches.
 
 Like branching, backups have no local backend, so these commands live under the
-`cloud` group and the prefix is required.
+`cloud` group and the prefix is required. Dropping it points you back at the
+cloud path rather than running anything:
+
+```console
+$ volcano databases backups list app
+Error: "backups" is a cloud command: local development has no storage provider
+behind it, so run 'volcano cloud databases backups' against a cloud project
+```
 
 | Operation | Command |
 |---|---|
 | Create | `volcano cloud databases backups create <database> <backup>` |
 | List | `volcano cloud databases backups list <database>` |
 | Get | `volcano cloud databases backups get <database> <backup>` |
-| Delete | `volcano cloud databases backups delete <database> <backup>` |
-| Restore | `volcano cloud databases restore <database> --backup <backup>` |
-| Restore to a point in time | `volcano cloud databases restore <database> --to <RFC 3339>` |
+| Delete | `volcano cloud databases backups delete <database> <backup> [--yes]` |
+| Restore | `volcano cloud databases restore <database> --backup <backup> [--yes]` |
+| Restore to a point in time | `volcano cloud databases restore <database> --to <RFC 3339> [--yes]` |
 | Show the schedule | `volcano cloud databases backup-schedule get <database>` |
 | Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 0] [--retention 168h]` |
 | Stop scheduled backups | `volcano cloud databases backup-schedule set <database> --clear` |
+
+`backups` is also spelled `backup`. `delete` and `restore` ask for confirmation
+first; pass `--yes` (`-y`) to skip the prompt in a script. `--day` is the day of
+the week for a weekly schedule (`0`-`6`, Sunday first) and the day of the month
+for a monthly one (`1`-`28`); a daily schedule ignores it.
 
 How many backups a database may keep, how long they are kept, and how far back a
 point-in-time restore reaches all come from the project's plan. `backups list`
@@ -108,8 +120,8 @@ volcano cloud databases backups list app
 # Put the database back the way that backup found it
 volcano cloud databases restore app --backup before_migration
 
-# Or rewind to an arbitrary moment inside the window
-volcano cloud databases restore app --to 2026-01-15T09:30:00Z
+# Or rewind to an arbitrary moment inside the window, without the prompt
+volcano cloud databases restore app --to 2026-01-15T09:30:00Z --yes
 ```
 
 Restoring is destructive and in place: everything written after the point being
