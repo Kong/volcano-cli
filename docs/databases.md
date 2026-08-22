@@ -119,6 +119,11 @@ still `restoring` and serving no connections — poll `volcano cloud databases g
 <database>` until it reports `active` again. Its connection string never
 changes, so nothing holding it needs updating.
 
+While a restore runs, the commands that would race it are refused: another
+`restore`, `backups create`, `backups delete`, `backup-schedule set`, `databases
+delete`, and `branches create` or `branches reset`. Wait for the database to
+report `active` and retry.
+
 Branches are not restored. They keep serving their own data, but resetting a
 branch from a database that was just restored is refused for up to 24 hours
 afterwards.
