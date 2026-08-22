@@ -79,6 +79,14 @@ to it, counting from now.
 A backup is a point-in-time copy of a database, kept by the platform and
 restorable in place. Backups cover the database itself, not its branches.
 
+Backups are a Pro capability. On the Free plan every command below fails with
+`403`, reads included:
+
+```console
+$ volcano cloud databases backups list app
+Error: backups are not available on this plan
+```
+
 Like branching, backups have no local backend, so these commands live under the
 `cloud` group and the prefix is required. Dropping it points you back at the
 cloud path rather than running anything:
@@ -108,9 +116,10 @@ first; pass `--yes` (`-y`) to skip the prompt in a script. `--day` is the day of
 the week for a weekly schedule (`0`-`6`, Sunday first) and the day of the month
 for a monthly one (`1`-`28`); a daily schedule ignores it.
 
-How many backups a database may keep, how long they are kept, and how far back a
-point-in-time restore reaches all come from the project's plan. `backups list`
-reports the window a point-in-time restore may target.
+Whether a database may be backed up at all, how many backups it may keep, how
+long they are kept, and how far back a point-in-time restore reaches all come
+from the project's plan. `backups list` reports the window a point-in-time
+restore may target.
 
 ```bash
 # Back up before a risky migration

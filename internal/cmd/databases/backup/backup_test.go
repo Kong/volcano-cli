@@ -238,6 +238,25 @@ func TestDeleteSurfacesRestoreInProgress(t *testing.T) {
 	assert.Contains(t, err.Error(), "restore is already in progress")
 }
 
+// Backups are a Pro capability, so the plan refusal reaches even the reads. The
+// CLI has to pass the reason through: "403" on its own reads as a permissions
+// problem with the token rather than a plan that does not include the feature.
+func TestListSurfacesAPlanWithoutBackups(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBackupJSON(t, w, http.StatusForbidden, map[string]any{
+			"error": "backups are not available on this plan",
+		})
+	}))
+	defer server.Close()
+
+	_, err := executeBackupCommand(t, newTestCommand(server), "list", "app")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not available on this plan")
+}
+
 func TestDeleteSurfacesMissingBackup(t *testing.T) {
 	setBackupCommandTestHome(t)
 	saveBackupCommandTestConfig(t)

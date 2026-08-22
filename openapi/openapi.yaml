@@ -4394,7 +4394,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatabaseBackupList'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4457,7 +4457,7 @@ paths:
         '403':
           description: |
             The database has reached its backup allowance, or the owner's plan
-            does not include backups.
+            does not include backups, which are PRO-only.
           content:
             application/json:
               schema:
@@ -4503,7 +4503,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatabaseBackup'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4563,7 +4563,7 @@ paths:
                   - status
                   - message
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4611,7 +4611,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatabaseBackupSchedule'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4672,7 +4672,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4715,7 +4715,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatabaseRestoreList'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
@@ -4779,8 +4779,8 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            The owner's plan does not include backups, or does not include
-            point-in-time restore.
+            The owner's plan does not include backups or point-in-time restore.
+            Both are PRO-only.
           content:
             application/json:
               schema:
@@ -4829,7 +4829,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatabaseRestore'
         '403':
-          description: The owner's plan does not include backups
+          description: Backups are PRO-only and the owner's plan does not include them
           content:
             application/json:
               schema:
