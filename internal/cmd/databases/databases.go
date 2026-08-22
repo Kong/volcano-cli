@@ -40,6 +40,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(branchcmd.New(deps))
 	cmd.AddCommand(backupcmd.New(deps))
 	cmd.AddCommand(backupcmd.NewRestore(deps))
+	cmd.AddCommand(backupcmd.NewRestores(deps))
 	cmd.AddCommand(backupcmd.NewSchedule(deps))
 	cmd.AddCommand(migrationcmd.New(deps))
 	return cmd
@@ -65,6 +66,7 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 	cmd.AddCommand(cloudOnly("backups", "backup"))
 	cmd.AddCommand(cloudOnly("backup-schedule"))
 	cmd.AddCommand(cloudOnly("restore"))
+	cmd.AddCommand(cloudOnly("restores", "restore-history"))
 	cmd.AddCommand(cloudOnly("branches", "branch"))
 	return cmd
 }

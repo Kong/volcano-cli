@@ -23,6 +23,7 @@ const (
 	backupPath       = backupsPath + "/nightly"
 	schedulePath     = databasePath + "/backup-schedule"
 	restoresPath     = databasePath + "/restores"
+	restorePath      = restoresPath + "/" + restoreID
 )
 
 func executeBackupCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
@@ -95,6 +96,10 @@ func newTestCommand(server *httptest.Server) *cobra.Command {
 
 func newTestRestoreCommand(server *httptest.Server) *cobra.Command {
 	return NewRestore(testDeps(server))
+}
+
+func newTestRestoresCommand(server *httptest.Server) *cobra.Command {
+	return NewRestores(testDeps(server))
 }
 
 func newTestScheduleCommand(server *httptest.Server) *cobra.Command {

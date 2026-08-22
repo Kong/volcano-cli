@@ -1,6 +1,7 @@
 package api
 
 import (
+	"regexp"
 	"testing"
 	"time"
 )
@@ -44,8 +45,15 @@ func TestAPIE2ECloudDatabaseBackups(t *testing.T) {
 	env.runCloudCLI(t, "databases", "restore", database, "--to", "2020-01-15T09:30:00Z", "--yes").
 		requireFailure(t, database)
 
-	env.runCloudCLI(t, "databases", "restore", database, "--backup", backup, "--yes").
-		requireSuccess(t, "Restore of database '"+database+"' started from backup '"+backup+"'", "pending")
+	started := env.runCloudCLI(t, "databases", "restore", database, "--backup", backup, "--yes")
+	started.requireSuccess(t, "Restore of database '"+database+"' started from backup '"+backup+"'", "pending")
+	restoreID := apiE2ERestoreID(t, started.output)
+
+	// The restore is readable while it runs, and is the only thing that reports
+	// how it went: the database says 'restoring' and nothing more.
+	env.runCloudCLI(t, "databases", "restores", "list", database).requireSuccess(t, restoreID, backup)
+	env.runCloudCLI(t, "databases", "restores", "get", database, restoreID).
+		requireSuccess(t, "ID: "+restoreID, "Restored: "+backup)
 
 	// The restore only claims the database: it returns with the database out of
 	// service in 'restoring' and replaces the data in the background. The
@@ -54,7 +62,23 @@ func TestAPIE2ECloudDatabaseBackups(t *testing.T) {
 		"databases", "get", database, "--show-connection-string")
 	restored.requireSuccess(t, "postgresql://")
 
+	env.runCloudCLI(t, "databases", "restores", "get", database, restoreID).
+		requireSuccess(t, "Status: completed")
+
 	env.runCloudCLI(t, "databases", "backups", "delete", database, backup, "--yes").
 		requireSuccess(t, "Backup '"+backup+"' of database '"+database+"' deleted")
 	env.runCloudCLI(t, "databases", "backups", "list", database).requireNotContains(t, backup)
+}
+
+var apiE2ERestoreIDLine = regexp.MustCompile(`(?m)^ID:\s+(\S+)`)
+
+// apiE2ERestoreID pulls the restore id out of what the restore command printed,
+// which is the only place the caller gets one.
+func apiE2ERestoreID(t *testing.T, output string) string {
+	t.Helper()
+	match := apiE2ERestoreIDLine.FindStringSubmatch(output)
+	if match == nil {
+		t.Fatalf("restore output named no id:\n%s", output)
+	}
+	return match[1]
 }

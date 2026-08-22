@@ -4793,8 +4793,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: |
-            A restore is already in progress, the database is not active, or
-            another database operation is still running.
+            A restore is already in progress, the database is not active,
+            another database operation is still running, or the database is
+            holding as many pre-restore branches as it may.
           content:
             application/json:
               schema:

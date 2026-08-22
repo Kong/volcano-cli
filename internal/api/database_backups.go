@@ -90,3 +90,23 @@ func (c *Client) CreateDatabaseRestore(ctx context.Context, projectID uuid.UUID,
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON503)
 }
+
+// ListDatabaseRestores returns a database's restore history, newest first. This
+// route keeps answering while a restore is running, which is the point of it.
+func (c *Client) ListDatabaseRestores(ctx context.Context, projectID uuid.UUID, databaseName string) (*apiclient.DatabaseRestoreList, error) {
+	resp, err := c.client.ListDatabaseRestoresWithResponse(ctx, projectID, strings.TrimSpace(databaseName))
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON503)
+}
+
+// GetDatabaseRestore returns one restore by id, scoped to the database, so a
+// restore id belonging to another database reads as not found.
+func (c *Client) GetDatabaseRestore(ctx context.Context, projectID uuid.UUID, databaseName string, restoreID uuid.UUID) (*apiclient.DatabaseRestore, error) {
+	resp, err := c.client.GetDatabaseRestoreWithResponse(ctx, projectID, strings.TrimSpace(databaseName), restoreID)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON503)
+}

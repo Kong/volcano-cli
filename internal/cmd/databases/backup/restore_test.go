@@ -32,7 +32,9 @@ func TestRestoreFromBackupSendsBackupName(t *testing.T) {
 	assert.NotContains(t, body, "restore_to")
 	assert.Contains(t, out, "Restore of database 'app' started from backup 'nightly'")
 	assert.Contains(t, out, "pending")
-	assert.Contains(t, out, "volcano databases get app")
+	// The id it just printed, in the command that reads it: the database only
+	// reports that it is restoring, never why an attempt failed.
+	assert.Contains(t, out, "volcano databases restores get app "+restoreID)
 }
 
 func TestRestoreToTimestampSendsRestoreTo(t *testing.T) {

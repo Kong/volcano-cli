@@ -277,14 +277,17 @@ functions:
 func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	help := runVolcanoLocalModeE2E(t, binary, env, dir, "databases", "--help")
-	for _, command := range []string{"backups", "backup-schedule", "restore", "branches"} {
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches"} {
 		requireNotContains(t, help, command)
 	}
 
 	for _, args := range [][]string{
 		{"databases", "backups", "list", "app"},
+		{"databases", "backup", "list", "app"},
 		{"databases", "backup-schedule", "get", "app"},
 		{"databases", "restore", "app", "--backup", "nightly"},
+		{"databases", "restore", "app", "--to", "2026-01-15T09:30:00Z"},
+		{"databases", "restores", "list", "app"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

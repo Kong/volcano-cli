@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
@@ -111,6 +113,34 @@ func (s Service) restore(ctx context.Context, databaseName string, backupName *s
 	restore, err := authenticated.API.CreateDatabaseRestore(ctx, authenticated.ProjectID, databaseName, backupName, restoreTo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore database %q: %w", databaseName, err)
+	}
+	return restore, nil
+}
+
+// ListRestores returns a database's restore history, newest first.
+func (s Service) ListRestores(ctx context.Context, databaseName string) (*apiclient.DatabaseRestoreList, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	restores, err := authenticated.API.ListDatabaseRestores(ctx, authenticated.ProjectID, databaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list restores of database %q: %w", databaseName, err)
+	}
+	return restores, nil
+}
+
+// GetRestore returns one restore of a database in the current project.
+func (s Service) GetRestore(ctx context.Context, databaseName string, restoreID uuid.UUID) (*apiclient.DatabaseRestore, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	restore, err := authenticated.API.GetDatabaseRestore(ctx, authenticated.ProjectID, databaseName, restoreID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get restore %s of database %q: %w", restoreID, databaseName, err)
 	}
 	return restore, nil
 }

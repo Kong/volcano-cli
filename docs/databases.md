@@ -97,6 +97,8 @@ behind it, so run 'volcano cloud databases backups' against a cloud project
 | Delete | `volcano cloud databases backups delete <database> <backup> [--yes]` |
 | Restore | `volcano cloud databases restore <database> --backup <backup> [--yes]` |
 | Restore to a point in time | `volcano cloud databases restore <database> --to <RFC 3339> [--yes]` |
+| List restores | `volcano cloud databases restores list <database>` |
+| Show one restore | `volcano cloud databases restores get <database> <restore-id>` |
 | Show the schedule | `volcano cloud databases backup-schedule get <database>` |
 | Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 0] [--retention 168h]` |
 | Stop scheduled backups | `volcano cloud databases backup-schedule set <database> --clear` |
@@ -122,14 +124,23 @@ volcano cloud databases restore app --backup before_migration
 
 # Or rewind to an arbitrary moment inside the window, without the prompt
 volcano cloud databases restore app --to 2026-01-15T09:30:00Z --yes
+
+# Watch it, using the id the restore printed
+volcano cloud databases restores get app 6f1c…
 ```
 
 Restoring is destructive and in place: everything written after the point being
 restored is discarded, and there is no way to restore into a second database.
 The restore runs in the background, so the command returns while the database is
-still `restoring` and serving no connections — poll `volcano cloud databases get
-<database>` until it reports `active` again. Its connection string never
+still `restoring` and serving no connections. Its connection string never
 changes, so nothing holding it needs updating.
+
+Watch it with `restores get`, which the restore command prints the id for. A
+`pending` or `running` restore is still going; a `failed` one is being retried
+automatically; `exhausted` means the platform gave up and left the database
+`failed`. Only the restore carries the reason — the database itself reports the
+status and nothing more. `restores list` shows the same for every restore a
+database has had, newest first.
 
 While a restore runs, the commands that would race it are refused: another
 `restore`, `backups create`, `backups delete`, `backup-schedule set`, `databases
