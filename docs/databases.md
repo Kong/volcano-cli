@@ -121,6 +121,14 @@ long they are kept, and how far back a point-in-time restore reaches all come
 from the project's plan. `backups list` reports the window a point-in-time
 restore may target.
 
+What the backups hold counts against the parent database's storage allowance,
+and a backup you take is charged as a full copy of the database as it was then.
+A schedule's first backup is charged the same way and each one after it only for
+the storage it adds, so the `Size` column — how much data a backup holds — runs
+ahead of what the backup costs to keep. Deleting a backup releases its storage
+straight away. A plan without backups is charged nothing for the ones it still
+holds after a downgrade.
+
 ```bash
 # Back up before a risky migration
 volcano cloud databases backups create app before_migration
