@@ -349,6 +349,7 @@ const (
 	DatabaseStatusDeleting     DatabaseStatus = "deleting"
 	DatabaseStatusFailed       DatabaseStatus = "failed"
 	DatabaseStatusProvisioning DatabaseStatus = "provisioning"
+	DatabaseStatusRestoring    DatabaseStatus = "restoring"
 )
 
 // Valid indicates whether the value is a known member of the DatabaseStatus enum.
@@ -361,6 +362,8 @@ func (e DatabaseStatus) Valid() bool {
 	case DatabaseStatusFailed:
 		return true
 	case DatabaseStatusProvisioning:
+		return true
+	case DatabaseStatusRestoring:
 		return true
 	default:
 		return false
@@ -3803,7 +3806,10 @@ type Database struct {
 	// Region AWS region where database is hosted
 	Region *string `json:"region,omitempty"`
 
-	// Status Database provisioning status
+	// Status Database status. `restoring` means a restore is replacing the
+	// database's data: it does not accept connections, and the operations
+	// that would race the restore are rejected until it finishes. Its
+	// branches keep serving throughout.
 	Status DatabaseStatus `json:"status"`
 
 	// StorageBytes Latest observed on-disk size from `pg_database_size`, in bytes. This
@@ -3818,7 +3824,10 @@ type Database struct {
 // DatabaseDatabaseType Database size tier that determines available RAM and scaling limits.
 type DatabaseDatabaseType string
 
-// DatabaseStatus Database provisioning status
+// DatabaseStatus Database status. `restoring` means a restore is replacing the
+// database's data: it does not accept connections, and the operations
+// that would race the restore are rejected until it finishes. Its
+// branches keep serving throughout.
 type DatabaseStatus string
 
 // DatabaseBranch A copy-on-write fork of a database, for development and testing.
@@ -28618,7 +28627,7 @@ func (r UpdateDatabaseBranchClientResponse) ContentType() string {
 type ResetDatabaseBranchClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *DatabaseBranch
+	JSON202      *DatabaseBranch
 	JSON404      *Error
 	JSON409      *Error
 	JSON503      *Error
@@ -38614,12 +38623,12 @@ func ParseResetDatabaseBranchClientResponse(rsp *http.Response) (*ResetDatabaseB
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest DatabaseBranch
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error

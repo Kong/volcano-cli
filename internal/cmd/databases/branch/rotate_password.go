@@ -78,7 +78,7 @@ func runRotatePassword(ctx context.Context, opts rotatePasswordOptions) error {
 
 	output.Success(opts.out, "Password rotated for branch '%s' of database '%s'", opts.name, opts.database)
 	if opts.showConnectionString {
-		output.DatabaseBranchConnectionString(opts.out, branch)
+		output.DatabaseBranchRotatedConnectionString(opts.out, branch, opts.database, cliruntime.CommandPath(opts.deps, ""))
 	}
 	return nil
 }

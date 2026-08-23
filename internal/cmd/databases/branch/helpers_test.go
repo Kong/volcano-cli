@@ -18,7 +18,7 @@ const (
 	branchDatabaseID = "44444444-4444-4444-8444-444444444444"
 	branchID         = "55555555-5555-4555-8555-555555555555"
 	branchesPath     = "/projects/" + branchProjectID + "/databases/app/branches"
-	branchPath       = branchesPath + "/feature-x"
+	branchPath       = branchesPath + "/feature_x"
 )
 
 func executeBranchCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {

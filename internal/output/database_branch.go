@@ -53,21 +53,33 @@ func DatabaseBranch(w io.Writer, branch *apiclient.DatabaseBranch, showConnectio
 	kv(w, on, "Name", "%s", branch.Name)
 	kv(w, on, "Status", "%s", theme.Status(branchStatus(*branch), on))
 	kv(w, on, "Storage", "%s", formatBranchStorage(branch.StorageBytes))
-	kv(w, on, "Expires", "%s (%s)", FormatTimestamp(branch.ExpiresAt), formatBranchExpiry(branch.ExpiresAt))
+	kv(w, on, "Expires", "%s", formatBranchDeadline(branch.ExpiresAt))
 	kv(w, on, "Lifetime", "%s", formatBranchTTL(branch.TtlSeconds))
 	if branch.LastInvokedAt != nil {
 		kv(w, on, "Last used", "%s", FormatTimeAgo(*branch.LastInvokedAt))
 	}
 	if showConnectionString {
-		printConnectionString(w, on, branch.ConnectionString)
+		printConnectionString(w, on, branch.ConnectionString, "branch")
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(branch.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(branch.UpdatedAt))
 }
 
-// DatabaseBranchConnectionString renders just a branch's connection string.
-func DatabaseBranchConnectionString(w io.Writer, branch *apiclient.DatabaseBranch) {
-	printConnectionString(w, theme.On(w), branch.ConnectionString)
+// DatabaseBranchRotatedConnectionString renders the connection string a
+// password rotation returned. That string is the only copy of the new
+// credential the user gets, so an absent one is called out rather than skipped.
+func DatabaseBranchRotatedConnectionString(w io.Writer, branch *apiclient.DatabaseBranch, databaseName string, commandPrefix ...string) {
+	on := theme.On(w)
+	if connectionString := stringPtrValue(branch.ConnectionString); connectionString != "" {
+		kv(w, on, "Connection string", "%s", connectionString)
+		return
+	}
+	Warning(w, "the API returned no connection string for branch '%s'", branch.Name)
+	fmt.Fprintf(w, "%s%s\n",
+		theme.Dim("Read the branch's current string with: ", on),
+		theme.Command(fmt.Sprintf("%s databases branches get %s %s --show-connection-string",
+			commandPathPrefix(commandPrefix), databaseName, branch.Name), on),
+	)
 }
 
 func branchStatus(branch apiclient.DatabaseBranch) string {
@@ -94,13 +106,26 @@ func formatBranchTTL(ttlSeconds int64) string {
 const branchExpiredLabel = "expired"
 
 // formatBranchRemaining renders what is left of a lifetime, bare, for the list
-// view's "Expires in" column.
+// view's "Expires in" column. A deadline the API left out is absent rather than
+// past, so it must not read as expired.
 func formatBranchRemaining(expiresAt time.Time) string {
+	if expiresAt.IsZero() {
+		return "-"
+	}
 	remaining := time.Until(expiresAt)
 	if remaining <= 0 {
 		return branchExpiredLabel
 	}
 	return formatBranchDuration(remaining)
+}
+
+// formatBranchDeadline pairs the absolute deadline with what is left of it for
+// the detail view.
+func formatBranchDeadline(expiresAt time.Time) string {
+	if expiresAt.IsZero() {
+		return "-"
+	}
+	return fmt.Sprintf("%s (%s)", FormatTimestamp(expiresAt), formatBranchExpiry(expiresAt))
 }
 
 // formatBranchExpiry renders the same figure for the detail view, where it sits

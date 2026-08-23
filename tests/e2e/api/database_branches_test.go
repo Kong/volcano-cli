@@ -17,7 +17,9 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 	})
 	env.waitForDatabaseActive(t, database, 30*time.Minute)
 
-	branch := "cli-e2e-branch"
+	// A branch name is a Postgres-safe identifier: lowercase alphanumeric and
+	// underscores only, so no hyphens.
+	branch := "cli_e2e_branch"
 	env.runCloudCLI(t, "databases", "branches", "create", database, branch, "--ttl", "2h").
 		requireSuccess(t, "Branch '"+branch+"' of database '"+database+"' created", "provisioning")
 	t.Cleanup(func() {
@@ -39,6 +41,13 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 		requireSuccess(t, "Branch '"+branch+"' now expires")
 	env.runCloudCLI(t, "databases", "branches", "reset", database, branch, "--yes").
 		requireSuccess(t, "Branch '"+branch+"' reset to database '"+database+"'")
+
+	// The reset only claims the branch: it returns with the branch already out of
+	// service in 'provisioning' and rewinds in the background. Rotating a password
+	// needs an active branch, so wait for the rewind to land before going on.
+	env.waitForCloudCLIContains(t, 15*time.Minute, "Status: active",
+		"databases", "branches", "get", database, branch)
+
 	env.runCloudCLI(t, "databases", "branches", "rotate-password", database, branch, "--yes").
 		requireSuccess(t, "Password rotated for branch '"+branch+"'")
 

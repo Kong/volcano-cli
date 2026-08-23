@@ -30,7 +30,9 @@ func newReset(deps cliruntime.Deps) *cobra.Command {
 		Long: `Discard everything a branch has diverged by and re-fork it from the parent's
 current state.
 
-The branch keeps its name and connection string, and its lifetime is re-armed.
+The rewind runs in the background, so the branch comes back provisioning; fetch
+it until it reports active before connecting again. The branch keeps its name and
+connection string, and its lifetime is re-armed.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,
@@ -74,5 +76,7 @@ func runReset(ctx context.Context, opts resetOptions) error {
 
 	output.Success(opts.out, "Branch '%s' reset to database '%s'; it now expires %s",
 		opts.name, opts.database, output.FormatTimestamp(branch.ExpiresAt))
+	output.Note(opts.out, "The rewind runs in the background. The branch keeps its connection string "+
+		"but does not serve connections until it reports active again.")
 	return nil
 }
