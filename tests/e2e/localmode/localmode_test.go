@@ -288,6 +288,10 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 		{"databases", "restore", "app", "--backup", "nightly"},
 		{"databases", "restore", "app", "--to", "2026-01-15T09:30:00Z"},
 		{"databases", "restores", "list", "app"},
+		{"databases", "restore-history", "list", "app"},
+		{"databases", "branches", "list", "app"},
+		{"databases", "branches", "create", "app", "feature"},
+		{"databases", "branch", "list", "app"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {

@@ -122,25 +122,37 @@ func TestDatabaseCommandsCreateListGetDelete(t *testing.T) {
 // cobra that reads as success: an unknown subcommand prints the parent's help
 // and exits 0, telling a user following the docs neither that it failed nor
 // where the command lives.
+//
+// Aliases are covered too: a spelling the stub does not answer to is a spelling
+// that goes back to reading as success, and the command it points at has to
+// answer to it as well, or the way out it offers is a second dead end.
 func TestLocalTreeSendsProviderOnlyCommandsToCloud(t *testing.T) {
-	providerOnly := [][]string{
-		{"backups", "list", "app"},
-		{"backup", "list", "app"},
-		{"backup-schedule", "get", "app"},
-		{"restore", "app", "--backup", "nightly"},
-		{"restores", "list", "app"},
-		{"branches", "list", "app"},
+	providerOnly := []struct {
+		args  []string
+		cloud string
+	}{
+		{args: []string{"backups", "list", "app"}, cloud: "backups"},
+		{args: []string{"backup", "list", "app"}, cloud: "backups"},
+		{args: []string{"backup-schedule", "get", "app"}, cloud: "backup-schedule"},
+		{args: []string{"restore", "app", "--backup", "nightly"}, cloud: "restore"},
+		{args: []string{"restore", "app", "--to", "2026-01-15T09:30:00Z"}, cloud: "restore"},
+		{args: []string{"restores", "list", "app"}, cloud: "restores"},
+		{args: []string{"restore-history", "list", "app"}, cloud: "restores"},
+		{args: []string{"branches", "list", "app"}, cloud: "branches"},
+		{args: []string{"branches", "create", "app", "feature"}, cloud: "branches"},
+		{args: []string{"branch", "list", "app"}, cloud: "branches"},
 	}
 
-	for _, args := range providerOnly {
-		_, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), args...)
-		require.ErrorContains(t, err, "is a cloud command", "%v", args)
-		require.ErrorContains(t, err, "volcano cloud databases "+args[0])
+	for _, tc := range providerOnly {
+		_, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), tc.args...)
+		require.ErrorContains(t, err, "is a cloud command", "%v", tc.args)
+		require.ErrorContains(t, err, "volcano cloud databases "+tc.cloud, "%v", tc.args)
 
 		cloud := New(cliruntime.Deps{})
-		found, _, findErr := cloud.Find(args[:1])
-		require.NoError(t, findErr, "%v", args)
-		assert.NotSame(t, cloud, found, "cloud databases must own %q, or the local guard proves nothing", args[0])
+		found, _, findErr := cloud.Find(tc.args[:1])
+		require.NoError(t, findErr, "%v", tc.args)
+		require.NotSame(t, cloud, found, "cloud databases must own %q, or the local guard proves nothing", tc.args[0])
+		assert.Equal(t, tc.cloud, found.Name(), "the local guard names where %q lives", tc.args[0])
 	}
 }
 
