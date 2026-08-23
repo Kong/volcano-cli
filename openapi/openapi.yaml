@@ -11909,11 +11909,12 @@ components:
             size, plus what each branch has diverged from it, plus what its
             backups cost to hold. This is the figure the storage allowance is
             enforced against, and the stats endpoint breaks it down. A
-            point-in-time gauge, so it may be absent until the database has been
-            sampled. Summing the latest samples for every database in a project
-            produces the project's "Database Storage (Bytes)" usage gauge.
-            Populated on database list responses; single-database responses omit
-            it.
+            point-in-time gauge recorded by a background pass, so it may be
+            absent until the database has been sampled, and it can trail the
+            stats endpoint's `current_storage_bytes`, which measures on request.
+            Summing the latest samples for every database in a project produces
+            the project's "Database Storage (Bytes)" usage gauge. Populated on
+            database list responses; single-database responses omit it.
         last_invoked_at:
           type: string
           format: date-time
@@ -14206,7 +14207,8 @@ components:
             is not billed separately. "Database Storage (Bytes)" is a current observed gauge,
             not a cumulative counter. It is the sum of the latest samples exposed as
             `storage_bytes` by the project's database list, so it includes what each
-            database's branches and backups hold.
+            database's branches and backups hold, and it inherits that field's lag
+            behind a live measurement.
         total:
           type: integer
           format: int64
