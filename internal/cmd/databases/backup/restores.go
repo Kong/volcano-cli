@@ -43,8 +43,8 @@ type restoresListOptions struct {
 func newRestoresList(deps cliruntime.Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list <database>",
-		Short: "List a database's restores",
-		Long: `List every restore of a database, newest first.
+		Short: "List a database's recent restores",
+		Long: `List the 50 most recent restores of a database, newest first.
 
 A restore that is pending or running is still in flight and the database is not
 connectable. A failed one is retried; an exhausted one was given up on.`,

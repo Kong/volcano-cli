@@ -59,7 +59,9 @@ func TestRestoresListReportsANeverRestoredDatabase(t *testing.T) {
 }
 
 // The reason a restore was given up on lives on the restore and nowhere else:
-// the database it left behind only reports that it failed.
+// the database it left behind reports a status and nothing more. The note must
+// not name that status, because an exhausted restore that never touched the data
+// — this one, whose backup was gone — leaves the database active.
 func TestRestoresGetReportsWhyARestoreWasGivenUpOn(t *testing.T) {
 	setBackupCommandTestHome(t)
 	saveBackupCommandTestConfig(t)
@@ -81,7 +83,8 @@ func TestRestoresGetReportsWhyARestoreWasGivenUpOn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "exhausted")
 	assert.Contains(t, out, "snapshot no longer exists")
-	assert.Contains(t, out, "the database was left failed")
+	assert.Contains(t, out, "Volcano gave up on this restore")
+	assert.NotContains(t, out, "the database was left failed")
 }
 
 // A restore still running is the other reason to read one, and it has to say

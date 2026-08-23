@@ -4392,10 +4392,13 @@ type DatabaseRestore struct {
 
 	// Status Restore status. `pending` and `running` both mean the restore is
 	// still in flight and the database is not connectable; a `failed`
-	// restore is retried automatically, while `exhausted` means the
-	// platform gave up and the database was left `failed`. A restore
-	// cannot be cancelled once it starts, so `completed` and `exhausted`
-	// are the only outcomes it settles on.
+	// restore is retried automatically, while `exhausted` means Volcano
+	// gave up. An exhausted restore leaves the database `failed` if its
+	// data may already have been replaced, and `active` if the restore
+	// never started — a backup that no longer exists at the provider ends
+	// the restore without touching the database. A restore cannot be
+	// cancelled once it starts, so `completed` and `exhausted` are the only
+	// outcomes it settles on.
 	Status    DatabaseRestoreStatus `json:"status"`
 	UpdatedAt time.Time             `json:"updated_at"`
 }
@@ -4406,10 +4409,13 @@ type DatabaseRestoreKind string
 
 // DatabaseRestoreStatus Restore status. `pending` and `running` both mean the restore is
 // still in flight and the database is not connectable; a `failed`
-// restore is retried automatically, while `exhausted` means the
-// platform gave up and the database was left `failed`. A restore
-// cannot be cancelled once it starts, so `completed` and `exhausted`
-// are the only outcomes it settles on.
+// restore is retried automatically, while `exhausted` means Volcano
+// gave up. An exhausted restore leaves the database `failed` if its
+// data may already have been replaced, and `active` if the restore
+// never started — a backup that no longer exists at the provider ends
+// the restore without touching the database. A restore cannot be
+// cancelled once it starts, so `completed` and `exhausted` are the only
+// outcomes it settles on.
 type DatabaseRestoreStatus string
 
 // DatabaseRestoreList defines model for DatabaseRestoreList.

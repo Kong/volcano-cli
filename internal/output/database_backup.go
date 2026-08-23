@@ -124,7 +124,12 @@ func printRestoreOutcome(w io.Writer, on bool, restore *apiclient.DatabaseRestor
 	case apiclient.DatabaseRestoreStatusFailed:
 		note = "This attempt failed and another is coming. The database stays out of service until one lands."
 	case apiclient.DatabaseRestoreStatusExhausted:
-		note = "Every attempt failed and the database was left failed. Its data is whatever the last attempt left behind."
+		// Deliberately does not name a database status. An exhausted restore
+		// leaves the database failed if an attempt had already begun replacing
+		// its data, and active if none had — a backup that no longer exists at
+		// the provider ends the restore without touching anything.
+		note = "Volcano gave up on this restore. Check the database: it is failed if an attempt " +
+			"had already begun replacing its data, and active if none had."
 	default:
 		return
 	}

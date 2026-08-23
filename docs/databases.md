@@ -155,10 +155,12 @@ changes, so nothing holding it needs updating.
 
 Watch it with `restores get`, which the restore command prints the id for. A
 `pending` or `running` restore is still going; a `failed` one is being retried
-automatically; `exhausted` means the platform gave up and left the database
-`failed`. Only the restore carries the reason — the database itself reports the
-status and nothing more. `restores list` shows the same for every restore a
-database has had, newest first.
+automatically; `exhausted` means the platform gave up. An exhausted restore
+leaves the database `failed` if an attempt had already begun replacing its data,
+and `active` if none had — a backup that no longer exists at the provider ends
+the restore without touching the database. Only the restore carries the reason —
+the database itself reports the status and nothing more. `restores list` shows
+the 50 most recent restores of a database, newest first.
 
 While a restore runs, the commands that would race it are refused: another
 `restore`, `backups create`, `backups delete`, `backup-schedule set`, `databases
