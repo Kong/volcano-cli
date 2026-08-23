@@ -1,6 +1,7 @@
 package api
 
 import (
+	"regexp"
 	"testing"
 	"time"
 )
@@ -48,12 +49,42 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 	env.waitForCloudCLIContains(t, 15*time.Minute, "Status: active",
 		"databases", "branches", "get", database, branch)
 
+	// Rotating a branch's password is the branch's business. The parent shares the
+	// branch's data, not its credentials, and an owner rotating a throwaway branch
+	// must not find the parent's connection string invalidated underneath them.
+	parentBefore := apiE2EConnectionString(t, env.runCloudCLI(t, "databases", "get", database, "--show-connection-string").output)
+	branchBefore := apiE2EConnectionString(t,
+		env.runCloudCLI(t, "databases", "branches", "get", database, branch, "--show-connection-string").output)
+
 	env.runCloudCLI(t, "databases", "branches", "rotate-password", database, branch, "--yes").
 		requireSuccess(t, "Password rotated for branch '"+branch+"'")
+
+	parentAfter := apiE2EConnectionString(t, env.runCloudCLI(t, "databases", "get", database, "--show-connection-string").output)
+	branchAfter := apiE2EConnectionString(t,
+		env.runCloudCLI(t, "databases", "branches", "get", database, branch, "--show-connection-string").output)
+	if parentAfter != parentBefore {
+		t.Fatalf("rotating branch %q changed the parent's connection string", branch)
+	}
+	if branchAfter == branchBefore {
+		t.Fatalf("rotating branch %q left its own connection string unchanged", branch)
+	}
 
 	env.runCloudCLI(t, "databases", "branches", "delete", database, branch, "--yes").
 		requireSuccess(t, "Branch '"+branch+"' of database '"+database+"' deleted")
 
 	// Deleting a branch leaves its parent alone.
 	env.runCloudCLI(t, "databases", "get", database).requireSuccess(t, "Name: "+database, "Status: active")
+}
+
+var apiE2EConnectionStringLine = regexp.MustCompile(`(?m)^Connection string:\s+(\S+)`)
+
+// apiE2EConnectionString pulls the connection string out of a get, which is the
+// only place the caller gets one.
+func apiE2EConnectionString(t *testing.T, output string) string {
+	t.Helper()
+	match := apiE2EConnectionStringLine.FindStringSubmatch(output)
+	if match == nil {
+		t.Fatalf("output carried no connection string:\n%s", output)
+	}
+	return match[1]
 }
