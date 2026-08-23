@@ -16,7 +16,7 @@ func DatabaseCreated(w io.Writer, database *apiclient.Database, showConnectionSt
 	Success(w, "Database '%s' created", database.Name)
 	kv(w, on, "Status", "%s", theme.Status(databaseStatus(*database), on))
 	if showConnectionString {
-		printConnectionString(w, on, database.ConnectionString)
+		printConnectionString(w, on, database.ConnectionString, "database")
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(database.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(database.UpdatedAt))
@@ -51,7 +51,7 @@ func Databases(w io.Writer, page *apiclient.PaginatedDatabases, showConnectionSt
 			FormatTimeAgo(database.UpdatedAt),
 		)
 		if showConnectionString {
-			printConnectionString(w, on, database.ConnectionString)
+			printConnectionString(w, on, database.ConnectionString, "database")
 		}
 	}
 	printDatabasePageSummary(w, on, page)
@@ -80,16 +80,22 @@ func Database(w io.Writer, database *apiclient.Database, showConnectionString bo
 		kv(w, on, "Type", "%s", string(*database.DatabaseType))
 	}
 	if showConnectionString {
-		printConnectionString(w, on, database.ConnectionString)
+		printConnectionString(w, on, database.ConnectionString, "database")
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(database.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(database.UpdatedAt))
 }
 
-func printConnectionString(w io.Writer, on bool, value *string) {
-	if connectionString := stringPtrValue(value); connectionString != "" {
-		kv(w, on, "Connection string", "%s", connectionString)
+// printConnectionString reports an absent string rather than skipping the line:
+// the platform issues one only once the resource is active, and a silent
+// --show-connection-string is indistinguishable from a flag that did nothing.
+func printConnectionString(w io.Writer, on bool, value *string, subject string) {
+	connectionString := stringPtrValue(value)
+	if connectionString == "" {
+		kv(w, on, "Connection string", "- %s", theme.Dim("(issued once the "+subject+" is active)", on))
+		return
 	}
+	kv(w, on, "Connection string", "%s", connectionString)
 }
 
 func databaseStatus(database apiclient.Database) string {

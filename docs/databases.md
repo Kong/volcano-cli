@@ -41,7 +41,8 @@ Every branch expires — the default lifetime is 7 days, and `--ttl` accepts
 anything between `1h` and `720h`. Only the data a branch has diverged by counts
 against the parent database's storage allowance, so a fresh branch is free.
 
-Branching is available on PRO projects. Local development projects have no
+Every plan includes branching: a database may hold 10 branches on Free and 25 on
+Pro, counting branches in every state. Local development projects have no
 branching backend, so unlike the commands above these live under the `cloud`
 group and the prefix is required rather than optional.
 
@@ -55,16 +56,19 @@ group and the prefix is required rather than optional.
 | Rotate password | `volcano cloud databases branches rotate-password <database> <branch>` |
 | Delete | `volcano cloud databases branches delete <database> <branch>` |
 
+Branch names are lowercase letters, numbers, and underscores, up to 64
+characters, and unique within their parent database.
+
 A branch has its own connection string with its own credentials, separate from
 the parent's. It is returned before it is ready, so fetch the branch until it
 reports `active`:
 
 ```bash
 # Fork "app" into a branch that lives for a day
-volcano cloud databases branches create app feature-x --ttl 24h
+volcano cloud databases branches create app feature_x --ttl 24h
 
 # Poll until it is connectable, then read its connection string
-volcano cloud databases branches get app feature-x --show-connection-string
+volcano cloud databases branches get app feature_x --show-connection-string
 ```
 
 `reset` discards everything the branch has diverged by and re-forks it from the

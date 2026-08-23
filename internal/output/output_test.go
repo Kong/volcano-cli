@@ -161,6 +161,20 @@ func TestDatabaseOutputHonorsConnectionStringFlag(t *testing.T) {
 	assert.Contains(t, shown.String(), connectionString)
 }
 
+func TestDatabaseExplainsAWithheldConnectionString(t *testing.T) {
+	databaseID, err := uuid.Parse("33333333-3333-4333-8333-333333333333")
+	require.NoError(t, err)
+	var out bytes.Buffer
+
+	Database(&out, &apiclient.Database{
+		Id:     databaseID,
+		Name:   "app",
+		Status: apiclient.DatabaseStatusProvisioning,
+	}, true)
+
+	assert.Contains(t, out.String(), "Connection string: - (issued once the database is active)")
+}
+
 func TestVariablesOutputDoesNotPrintValues(t *testing.T) {
 	variableID, err := uuid.Parse("33333333-3333-4333-8333-333333333333")
 	require.NoError(t, err)
