@@ -4391,14 +4391,13 @@ type DatabaseRestore struct {
 	RestoreTo *time.Time `json:"restore_to,omitempty"`
 
 	// Status Restore status. `pending` and `running` both mean the restore is
-	// still in flight and the database is not connectable; a `failed`
-	// restore is retried automatically, while `exhausted` means Volcano
-	// gave up. An exhausted restore leaves the database `failed` if its
-	// data may already have been replaced, and `active` if the restore
-	// never started — a backup that no longer exists at the provider ends
-	// the restore without touching the database. A restore cannot be
-	// cancelled once it starts, so `completed` and `exhausted` are the only
-	// outcomes it settles on.
+	// still in flight and the database is not connectable; an attempt that
+	// fails with tries left goes back to `pending`. `failed` and
+	// `exhausted` both mean Volcano gave up: the database is left `failed`
+	// if its data may already have been replaced, and `active` if the
+	// restore never started — a backup that no longer exists at the
+	// provider ends the restore without touching the database. A restore
+	// cannot be cancelled once it starts.
 	Status    DatabaseRestoreStatus `json:"status"`
 	UpdatedAt time.Time             `json:"updated_at"`
 }
@@ -4408,14 +4407,13 @@ type DatabaseRestore struct {
 type DatabaseRestoreKind string
 
 // DatabaseRestoreStatus Restore status. `pending` and `running` both mean the restore is
-// still in flight and the database is not connectable; a `failed`
-// restore is retried automatically, while `exhausted` means Volcano
-// gave up. An exhausted restore leaves the database `failed` if its
-// data may already have been replaced, and `active` if the restore
-// never started — a backup that no longer exists at the provider ends
-// the restore without touching the database. A restore cannot be
-// cancelled once it starts, so `completed` and `exhausted` are the only
-// outcomes it settles on.
+// still in flight and the database is not connectable; an attempt that
+// fails with tries left goes back to `pending`. `failed` and
+// `exhausted` both mean Volcano gave up: the database is left `failed`
+// if its data may already have been replaced, and `active` if the
+// restore never started — a backup that no longer exists at the
+// provider ends the restore without touching the database. A restore
+// cannot be cancelled once it starts.
 type DatabaseRestoreStatus string
 
 // DatabaseRestoreList defines model for DatabaseRestoreList.

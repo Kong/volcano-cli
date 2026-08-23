@@ -121,13 +121,15 @@ func printRestoreOutcome(w io.Writer, on bool, restore *apiclient.DatabaseRestor
 	switch restore.Status {
 	case apiclient.DatabaseRestoreStatusPending, apiclient.DatabaseRestoreStatusRunning:
 		note = "The database serves no connections until this finishes."
-	case apiclient.DatabaseRestoreStatusFailed:
-		note = "This attempt failed and another is coming. The database stays out of service until one lands."
-	case apiclient.DatabaseRestoreStatusExhausted:
-		// Deliberately does not name a database status. An exhausted restore
-		// leaves the database failed if an attempt had already begun replacing
-		// its data, and active if none had — a backup that no longer exists at
-		// the provider ends the restore without touching anything.
+	case apiclient.DatabaseRestoreStatusFailed, apiclient.DatabaseRestoreStatusExhausted:
+		// Both mean the same thing to whoever is reading: Volcano is done trying.
+		// A restore that still has attempts left reads `pending` between them, so
+		// neither of these is a restore that is coming back.
+		//
+		// Deliberately does not name a database status. Giving up leaves the
+		// database failed if an attempt had already begun replacing its data, and
+		// active if none had — a backup that no longer exists at the provider
+		// ends the restore without touching anything.
 		note = "Volcano gave up on this restore. Check the database: it is failed if an attempt " +
 			"had already begun replacing its data, and active if none had."
 	default:

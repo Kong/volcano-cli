@@ -154,11 +154,12 @@ still `restoring` and serving no connections. Its connection string never
 changes, so nothing holding it needs updating.
 
 Watch it with `restores get`, which the restore command prints the id for. A
-`pending` or `running` restore is still going; a `failed` one is being retried
-automatically; `exhausted` means the platform gave up. An exhausted restore
-leaves the database `failed` if an attempt had already begun replacing its data,
-and `active` if none had — a backup that no longer exists at the provider ends
-the restore without touching the database. Only the restore carries the reason —
+`pending` or `running` restore is still going, and an attempt that fails with
+tries left goes back to `pending`; `failed` and `exhausted` both mean the platform
+gave up. Either leaves the database `failed` if an attempt had already begun
+replacing its data, and `active` if none had — a backup that no longer exists at
+the provider ends the restore without touching the database. Only the restore
+carries the reason —
 the database itself reports the status and nothing more. `restores list` shows
 the 50 most recent restores of a database, newest first.
 

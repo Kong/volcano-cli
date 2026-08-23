@@ -87,6 +87,32 @@ func TestRestoresGetReportsWhyARestoreWasGivenUpOn(t *testing.T) {
 	assert.NotContains(t, out, "the database was left failed")
 }
 
+// `failed` is the same news as `exhausted` and has to read like it. Volcano
+// retries an attempt on its own and the restore reads `pending` in between, so a
+// restore reported as failed is one nothing is coming back for — telling someone
+// to wait for the next attempt would have them waiting on nothing.
+func TestRestoresGetDoesNotPromiseAnotherAttemptForAFailedRestore(t *testing.T) {
+	setBackupCommandTestHome(t)
+	saveBackupCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == restorePath {
+			payload := restorePayload("snapshot", "failed")
+			payload["backup_name"] = "nightly"
+			payload["error"] = "the restore attempt did not finish"
+			writeBackupJSON(t, w, http.StatusOK, payload)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	out, err := executeBackupCommand(t, newTestRestoresCommand(server), "get", "app", restoreID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Volcano gave up on this restore")
+	assert.NotContains(t, out, "another is coming")
+}
+
 // A restore still running is the other reason to read one, and it has to say
 // that the database is out of service rather than leaving that to be inferred.
 func TestRestoresGetReportsARunningRestore(t *testing.T) {
