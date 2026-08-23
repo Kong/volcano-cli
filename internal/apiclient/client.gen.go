@@ -495,7 +495,6 @@ func (e DatabaseRestoreKind) Valid() bool {
 
 // Defines values for DatabaseRestoreStatus.
 const (
-	DatabaseRestoreStatusCancelled DatabaseRestoreStatus = "cancelled"
 	DatabaseRestoreStatusCompleted DatabaseRestoreStatus = "completed"
 	DatabaseRestoreStatusExhausted DatabaseRestoreStatus = "exhausted"
 	DatabaseRestoreStatusFailed    DatabaseRestoreStatus = "failed"
@@ -506,8 +505,6 @@ const (
 // Valid indicates whether the value is a known member of the DatabaseRestoreStatus enum.
 func (e DatabaseRestoreStatus) Valid() bool {
 	switch e {
-	case DatabaseRestoreStatusCancelled:
-		return true
 	case DatabaseRestoreStatusCompleted:
 		return true
 	case DatabaseRestoreStatusExhausted:
@@ -4132,9 +4129,10 @@ type DatabaseBackupSchedule struct {
 
 // DatabaseBackupScheduleEntry One recurrence of the automated backup schedule.
 type DatabaseBackupScheduleEntry struct {
-	// Day Day of the week (0-6, Sunday first) for a weekly schedule, or day of
-	// the month (1-28) for a monthly one. Ignored for a daily schedule.
-	// Monthly stops at 28 so the schedule fires in every month.
+	// Day Day of the week (1-7, Monday to Sunday) for a weekly schedule, or day
+	// of the month (1-28) for a monthly one. Required for both, ignored for
+	// a daily schedule. Monthly stops at 28 so the schedule fires in every
+	// month.
 	Day       *int                                 `json:"day,omitempty"`
 	Frequency DatabaseBackupScheduleEntryFrequency `json:"frequency"`
 
@@ -4395,7 +4393,9 @@ type DatabaseRestore struct {
 	// Status Restore status. `pending` and `running` both mean the restore is
 	// still in flight and the database is not connectable; a `failed`
 	// restore is retried automatically, while `exhausted` means the
-	// platform gave up and the database was left `failed`.
+	// platform gave up and the database was left `failed`. A restore
+	// cannot be cancelled once it starts, so `completed` and `exhausted`
+	// are the only outcomes it settles on.
 	Status    DatabaseRestoreStatus `json:"status"`
 	UpdatedAt time.Time             `json:"updated_at"`
 }
@@ -4407,7 +4407,9 @@ type DatabaseRestoreKind string
 // DatabaseRestoreStatus Restore status. `pending` and `running` both mean the restore is
 // still in flight and the database is not connectable; a `failed`
 // restore is retried automatically, while `exhausted` means the
-// platform gave up and the database was left `failed`.
+// platform gave up and the database was left `failed`. A restore
+// cannot be cancelled once it starts, so `completed` and `exhausted`
+// are the only outcomes it settles on.
 type DatabaseRestoreStatus string
 
 // DatabaseRestoreList defines model for DatabaseRestoreList.
@@ -29846,6 +29848,8 @@ type DeleteDatabaseClientResponse struct {
 		Message *string `json:"message,omitempty"`
 		Status  *string `json:"status,omitempty"`
 	}
+	JSON404 *Error
+	JSON409 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -30394,6 +30398,9 @@ type ResetDatabasePasswordClientResponse struct {
 		// RoleName Volcano-managed per-database client login (also the pgproxy routing username)
 		RoleName *string `json:"role_name,omitempty"`
 	}
+	JSON400 *Error
+	JSON404 *Error
+	JSON409 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -30558,6 +30565,7 @@ type UpdateDatabaseTypeClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Database
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -40355,6 +40363,20 @@ func ParseDeleteDatabaseClientResponse(rsp *http.Response) (*DeleteDatabaseClien
 		}
 		response.JSON202 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -41151,6 +41173,27 @@ func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabas
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -41378,6 +41421,13 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 

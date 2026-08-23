@@ -4036,6 +4036,21 @@ paths:
                     example: database deletion in progress
         '204':
           description: Database deleted (backing instance removed synchronously)
+        '404':
+          description: Project or database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A restore is running on the database. Deleting it while a worker is
+            replacing its data would race that worker, so wait for the restore
+            to finish.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/databases/{databaseName}/branches:
     get:
       tags:
@@ -4700,7 +4715,10 @@ paths:
       tags:
         - Database Backups
       summary: List a database's restores
-      description: Returns the database's restore history, newest first.
+      description: |
+        Returns the database's restore history, newest first, capped at the 50
+        most recent. There is no pagination: a database that has been restored
+        more than 50 times keeps the older records but does not return them.
       operationId: listDatabaseRestores
       security:
         - UserToken: []
@@ -4882,6 +4900,26 @@ paths:
                   connection_string:
                     type: string
                     description: Updated pgproxy connection string using Volcano-managed credentials.
+        '400':
+          description: Database is not active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A restore is running on the database. A restore replaces the
+            credentials as it finishes, so wait for it and rotate afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/databases/{databaseName}/type:
     patch:
       tags:
@@ -4920,6 +4958,14 @@ paths:
           description: Invalid database type
         '404':
           description: Database not found
+        '409':
+          description: |
+            The database is not active — being provisioned, deleted, or
+            restored. Compute can only be changed while it is active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/databases/{databaseName}/stats:
     get:
       tags:
@@ -10474,12 +10520,15 @@ components:
       required: true
       schema:
         type: string
-        pattern: ^[a-z0-9][a-z0-9_-]{0,62}$
-        maxLength: 63
+        minLength: 1
+        maxLength: 128
       description: |
-        Backup name, unique within the database. Hyphens are allowed here but not
-        in database or branch names, because scheduled backups are named by the
-        storage provider and use them.
+        Backup name, unique within the database, exactly as returned by the list
+        endpoint.
+
+        Deliberately looser than the names you can create: a backup made by a
+        schedule is named for you, so reading or deleting one accepts any name a
+        backup can have.
     BranchName:
       name: branchName
       in: path
@@ -12017,12 +12066,13 @@ components:
           description: Hour of the day in UTC.
         day:
           type: integer
-          minimum: 0
+          minimum: 1
           maximum: 28
           description: |
-            Day of the week (0-6, Sunday first) for a weekly schedule, or day of
-            the month (1-28) for a monthly one. Ignored for a daily schedule.
-            Monthly stops at 28 so the schedule fires in every month.
+            Day of the week (1-7, Monday to Sunday) for a weekly schedule, or day
+            of the month (1-28) for a monthly one. Required for both, ignored for
+            a daily schedule. Monthly stops at 28 so the schedule fires in every
+            month.
         retention_seconds:
           type: integer
           format: int64
@@ -12329,13 +12379,14 @@ components:
             - running
             - completed
             - failed
-            - cancelled
             - exhausted
           description: |
             Restore status. `pending` and `running` both mean the restore is
             still in flight and the database is not connectable; a `failed`
             restore is retried automatically, while `exhausted` means the
-            platform gave up and the database was left `failed`.
+            platform gave up and the database was left `failed`. A restore
+            cannot be cancelled once it starts, so `completed` and `exhausted`
+            are the only outcomes it settles on.
         backup_name:
           type: string
           description: |
