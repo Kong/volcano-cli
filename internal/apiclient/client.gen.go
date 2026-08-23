@@ -4059,11 +4059,15 @@ type Database struct {
 	// branches keep serving throughout.
 	Status DatabaseStatus `json:"status"`
 
-	// StorageBytes Latest observed on-disk size from `pg_database_size`, in bytes. This
-	// point-in-time gauge may be absent until the database has been sampled.
-	// Summing the latest samples for every database in a project produces
-	// the project's "Database Storage (Bytes)" usage gauge. Populated on
-	// database list responses; single-database responses omit it.
+	// StorageBytes Latest observed storage for this database, in bytes: its own on-disk
+	// size, plus what each branch has diverged from it, plus what its
+	// backups cost to hold. This is the figure the storage allowance is
+	// enforced against, and the stats endpoint breaks it down. A
+	// point-in-time gauge, so it may be absent until the database has been
+	// sampled. Summing the latest samples for every database in a project
+	// produces the project's "Database Storage (Bytes)" usage gauge.
+	// Populated on database list responses; single-database responses omit
+	// it.
 	StorageBytes *int64    `json:"storage_bytes,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -4448,6 +4452,19 @@ type DatabaseStats struct {
 	// ActiveTimeSeconds Total active compute time in seconds
 	ActiveTimeSeconds float64 `json:"active_time_seconds"`
 
+	// BackupStorageBytes What this database's backups contribute to `current_storage_bytes`.
+	//
+	// A backup taken on request is charged as a full copy of the database
+	// as it was at that moment, so two backups of a 2 GB database are 4 GB.
+	// A backup schedule is charged its first snapshot in full and each
+	// later one only for the storage it adds. Deleting a backup releases
+	// its storage immediately.
+	//
+	// Sampled from the provider rather than measured live, so it can lag a
+	// change by a few minutes, and a backup taken seconds ago may not be
+	// costed yet. Zero on a plan without backups.
+	BackupStorageBytes int64 `json:"backup_storage_bytes"`
+
 	// Branches Per-branch contribution to `current_storage_bytes`. Empty when the
 	// database has no branches. A branch that has not diverged from its
 	// parent contributes nothing.
@@ -4456,9 +4473,10 @@ type DatabaseStats struct {
 	// ComputeTimeSeconds Total CPU seconds consumed
 	ComputeTimeSeconds float64 `json:"compute_time_seconds"`
 
-	// CurrentStorageBytes On-disk size right now, in bytes: the database itself plus every
-	// branch's divergence from it. This is the figure the storage
-	// allowance is enforced against. `branches` breaks it down.
+	// CurrentStorageBytes On-disk size right now, in bytes: the database itself, plus every
+	// branch's divergence from it, plus what its backups cost to hold. This
+	// is the figure the storage allowance is enforced against. `branches`
+	// and `backup_storage_bytes` break it down.
 	CurrentStorageBytes int64 `json:"current_storage_bytes"`
 
 	// CurrentStorageMb `current_storage_bytes` expressed in megabytes.
@@ -5374,8 +5392,9 @@ type MetricUsageData struct {
 	// "Bandwidth Total (Bytes)", or "Database Storage (Bytes)"). Byte-based metrics are
 	// reported in bytes. "Bandwidth Total (Bytes)" is derived (ingress + egress) and
 	// is not billed separately. "Database Storage (Bytes)" is a current observed gauge,
-	// not a cumulative counter. It is the sum of the latest `pg_database_size` samples
-	// exposed as `storage_bytes` by the project's database list.
+	// not a cumulative counter. It is the sum of the latest samples exposed as
+	// `storage_bytes` by the project's database list, so it includes what each
+	// database's branches and backups hold.
 	Metric string `json:"metric"`
 
 	// Total Total usage for the current usage month
