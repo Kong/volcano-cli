@@ -46,7 +46,7 @@ Examples:
   %s
   %s`,
 			cliruntime.CommandPath(deps, "databases backup-schedule set app --frequency daily --hour 3"),
-			cliruntime.CommandPath(deps, "databases backup-schedule set app --frequency weekly --day 0 --hour 4 --retention 720h"),
+			cliruntime.CommandPath(deps, "databases backup-schedule set app --frequency weekly --day 1 --hour 4 --retention 720h"),
 			cliruntime.CommandPath(deps, "databases backup-schedule set app --clear")),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,7 +77,7 @@ Examples:
 	}
 	cmd.Flags().StringVar(&frequency, "frequency", "", "How often to back up: daily, weekly, or monthly")
 	cmd.Flags().IntVar(&hour, "hour", 0, "Hour of the day in UTC, 0-23")
-	cmd.Flags().IntVar(&day, "day", 0, "Day of the week (0-6, Sunday first) for weekly, or day of the month (1-28) for monthly")
+	cmd.Flags().IntVar(&day, "day", 0, "Day of the week (1-7, Monday to Sunday) for weekly, or day of the month (1-28) for monthly")
 	cmd.Flags().DurationVar(&retention, "retention", 0, "How long to keep each backup (defaults to the plan's retention)")
 	cmd.Flags().BoolVar(&clearSchedule, "clear", false, "Stop scheduled backups")
 	cmd.MarkFlagsMutuallyExclusive("clear", "frequency")
@@ -102,7 +102,8 @@ type scheduleFlags struct {
 // a round trip.
 const (
 	maxScheduleHour     = 23
-	maxScheduleWeekday  = 6
+	minScheduleWeekday  = 1
+	maxScheduleWeekday  = 7
 	minScheduleMonthDay = 1
 	maxScheduleMonthDay = 28
 )
@@ -141,8 +142,11 @@ func applyScheduleDay(entry *apiclient.DatabaseBackupScheduleEntry, frequency st
 		}
 		return nil
 	case "weekly":
-		if flags.day < 0 || flags.day > maxScheduleWeekday {
-			return fmt.Errorf("--day must be between 0 (Sunday) and %d (Saturday) for a weekly schedule", maxScheduleWeekday)
+		// Required, unlike before: the API numbers the week from Monday, so
+		// there is no day left for an unset flag to mean.
+		if !flags.daySet || flags.day < minScheduleWeekday || flags.day > maxScheduleWeekday {
+			return fmt.Errorf("--day must be between %d (Monday) and %d (Sunday) for a weekly schedule",
+				minScheduleWeekday, maxScheduleWeekday)
 		}
 		day := flags.day
 		entry.Day = &day

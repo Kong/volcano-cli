@@ -17,7 +17,7 @@ func TestScheduleGetRendersEntries(t *testing.T) {
 		if r.Method == http.MethodGet && r.URL.Path == schedulePath {
 			writeBackupJSON(t, w, http.StatusOK, map[string]any{
 				"entries": []any{
-					map[string]any{"frequency": "weekly", "hour": 4, "day": 0, "retention_seconds": 604800},
+					map[string]any{"frequency": "weekly", "hour": 4, "day": 7, "retention_seconds": 604800},
 				},
 			})
 			return
@@ -29,6 +29,8 @@ func TestScheduleGetRendersEntries(t *testing.T) {
 	out, err := executeBackupCommand(t, newTestScheduleCommand(server), "get", "app")
 	require.NoError(t, err)
 	assert.Contains(t, out, "weekly")
+	// 7 is Sunday, the end of the API's range and the one an off-by-one in the
+	// weekday table would drop.
 	assert.Contains(t, out, "Sunday 04:00")
 	assert.Contains(t, out, "7d")
 }
@@ -175,8 +177,18 @@ func TestScheduleSetRejectsInvalidFlags(t *testing.T) {
 		"day with daily":      {args: []string{"--frequency", "daily", "--day", "3"}, message: "--day does not apply"},
 		"monthly without day": {args: []string{"--frequency", "monthly"}, message: "--day must be between 1 and 28"},
 		"weekday out of range": {
-			args:    []string{"--frequency", "weekly", "--day", "9"},
-			message: "--day must be between 0 (Sunday) and 6 (Saturday)",
+			args:    []string{"--frequency", "weekly", "--day", "8"},
+			message: "--day must be between 1 (Monday) and 7 (Sunday)",
+		},
+		// Zero is not Sunday any more, so the flag left unset has to be refused
+		// here rather than sending a day the API will not take.
+		"weekly without day": {
+			args:    []string{"--frequency", "weekly"},
+			message: "--day must be between 1 (Monday) and 7 (Sunday)",
+		},
+		"weekday zero": {
+			args:    []string{"--frequency", "weekly", "--day", "0"},
+			message: "--day must be between 1 (Monday) and 7 (Sunday)",
 		},
 		"hour out of range":   {args: []string{"--frequency", "daily", "--hour", "24"}, message: "--hour must be between 0 and 23"},
 		"unknown frequency":   {args: []string{"--frequency", "hourly"}, message: "--frequency must be daily, weekly, or monthly"},

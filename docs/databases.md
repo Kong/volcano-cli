@@ -108,13 +108,14 @@ behind it, so run 'volcano cloud databases backups' against a cloud project
 | List restores | `volcano cloud databases restores list <database>` |
 | Show one restore | `volcano cloud databases restores get <database> <restore-id>` |
 | Show the schedule | `volcano cloud databases backup-schedule get <database>` |
-| Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 0] [--retention 168h]` |
+| Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 1] [--retention 168h]` |
 | Stop scheduled backups | `volcano cloud databases backup-schedule set <database> --clear` |
 
 `backups` is also spelled `backup`. `delete` and `restore` ask for confirmation
 first; pass `--yes` (`-y`) to skip the prompt in a script. `--day` is the day of
-the week for a weekly schedule (`0`-`6`, Sunday first) and the day of the month
-for a monthly one (`1`-`28`); a daily schedule ignores it.
+the week for a weekly schedule (`1`-`7`, Monday to Sunday) and the day of the
+month for a monthly one (`1`-`28`); it is required for both and ignored by a
+daily schedule.
 
 Whether a database may be backed up at all, how many backups it may keep, how
 long they are kept, and how far back a point-in-time restore reaches all come

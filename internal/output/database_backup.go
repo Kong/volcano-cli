@@ -237,7 +237,9 @@ func formatBackupExpiry(expiresAt *time.Time) string {
 	return fmt.Sprintf("%s (%s)", FormatTimestamp(*expiresAt), formatBackupRemaining(expiresAt))
 }
 
-var scheduleWeekdays = [7]string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+// Indexed by the API's weekday: 1 is Monday and 7 is Sunday, so index 0 is
+// never a day.
+var scheduleWeekdays = [8]string{"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
 // formatScheduleWhen renders when a recurrence fires. day carries a weekday for
 // a weekly schedule and a day of the month for a monthly one, and is unused for
@@ -255,7 +257,7 @@ func formatScheduleWhen(entry apiclient.DatabaseBackupScheduleEntry) string {
 }
 
 func formatScheduleWeekday(day *int) string {
-	if day == nil || *day < 0 || *day > 6 {
+	if day == nil || *day < 1 || *day >= len(scheduleWeekdays) {
 		return "-"
 	}
 	return scheduleWeekdays[*day]
