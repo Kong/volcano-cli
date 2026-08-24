@@ -7,6 +7,7 @@ readonly VOLCANO_SIGNATURE_WORKFLOW="https://github.com/Kong/volcano-cli/.github
 readonly VOLCANO_SIGNATURE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 readonly VOLCANO_STABLE_TAG_SIGNATURE_IDENTITY_RE="^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$"
 VOLCANO_INSTALL_DIR="${VOLCANO_INSTALL_DIR:-}"
+RUN_SETUP=0
 
 fail() {
   echo "Error: $*" >&2
@@ -138,6 +139,13 @@ resolve_install_dir() {
   echo "${HOME}/.local/bin"
 }
 
+for arg in "$@"; do
+  case "$arg" in
+    --setup) RUN_SETUP=1 ;;
+    *) fail "unknown option: ${arg}" ;;
+  esac
+done
+
 VERSION="${VOLCANO_VERSION:-$VOLCANO_DEFAULT_VERSION}"
 
 if [ -z "$VERSION" ]; then
@@ -196,6 +204,11 @@ fi
 printf 'script\n' > "${INSTALL_DIR}/.volcano-install-method" 2>/dev/null || true
 
 echo "Installed Volcano CLI to ${INSTALL_PATH}"
+if [ "$RUN_SETUP" = "1" ]; then
+  "$INSTALL_PATH" setup
+  exit 0
+fi
+
 PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"
 if [ -z "$PATH_VOLCANO" ]; then
   echo "Add ${INSTALL_DIR} to your PATH to run '${CLI_COMMAND}' from any shell."

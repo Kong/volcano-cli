@@ -23,7 +23,7 @@ LDFLAGS := -s -w \
 	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID) \
 	-X $(LOCALMODE_PKG).defaultVolcanoImage=$(DEFAULT_LOCAL_IMAGE)
 
-.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check
+.PHONY: all build local test test-installer api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check
 
 all: build
 
@@ -50,8 +50,11 @@ local: ## Build volcano using variables loaded from .env.local
 	fi; \
 	$(MAKE) build
 
-test: ## Run unit tests
+test: test-installer ## Run unit tests
 	go test ./...
+
+test-installer: ## Test the release installer
+	bash scripts/install-volcano.test.sh
 
 openapi-generate: ## Regenerate the API client from the vendored OpenAPI contract
 	go generate ./internal/apiclient
