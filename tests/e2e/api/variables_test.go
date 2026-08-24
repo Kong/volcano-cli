@@ -3,12 +3,12 @@ package api
 import (
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestAPIE2ESmokeVariables(t *testing.T) {
 	env := setupAPIE2E(t, "smoke-variables")
-	apiE2EJSONRequest(t, http.MethodPost, env.mgmtURL+"/users/"+env.userID+"/plan", "", map[string]string{"plan": "PRO"}, http.StatusOK)
 	writeAPIE2EBaseProject(t, env.projectDir)
 
 	env.loginAndUse(t)
@@ -17,6 +17,12 @@ func TestAPIE2ESmokeVariables(t *testing.T) {
 	env.runCloudCLI(t, "variables", "get", "SMOKE_MESSAGE").requireSuccess(t, "SMOKE_MESSAGE")
 
 	secondaryProject := "cli-e2e-smoke-secondary-" + apiE2ESuffix(t)
+	blocked := apiE2EJSONRequest(t, http.MethodPost, env.apiURL+"/projects", env.token, map[string]string{"name": secondaryProject}, http.StatusForbidden)
+	message, _ := blocked["error"].(string)
+	if !strings.Contains(message, "project limit exceeded") {
+		t.Fatalf("FREE second-project error = %q, want project limit exceeded", message)
+	}
+	apiE2EJSONRequest(t, http.MethodPost, env.mgmtURL+"/users/"+env.userID+"/plan", "", map[string]string{"plan": "PRO"}, http.StatusOK)
 	secondaryProjectID := createAPIE2EProject(t, env.apiURL, env.token, secondaryProject)
 	t.Cleanup(func() {
 		if err := deleteAPIE2EProject(env.apiURL, env.token, secondaryProjectID); err != nil {
