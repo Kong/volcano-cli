@@ -54,7 +54,7 @@ test: test-installer ## Run unit tests
 	go test ./...
 
 test-installer: ## Test the release installer
-	bash scripts/install-volcano.test.sh
+	sh scripts/install-volcano.test.sh
 
 openapi-generate: ## Regenerate the API client from the vendored OpenAPI contract
 	go generate ./internal/apiclient
