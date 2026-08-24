@@ -53,8 +53,9 @@ local: ## Build volcano using variables loaded from .env.local
 test: test-installer ## Run unit tests
 	go test ./...
 
-test-installer: ## Test the release installer
+test-installer: ## Test the release installers
 	sh scripts/install-volcano.test.sh
+	node --test scripts/npm/download.test.js
 
 openapi-generate: ## Regenerate the API client from the vendored OpenAPI contract
 	go generate ./internal/apiclient
