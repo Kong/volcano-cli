@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 readonly VOLCANO_GITHUB_RELEASES_URL="${VOLCANO_GITHUB_RELEASES_URL:-https://github.com/Kong/volcano-cli/releases}"
 readonly VOLCANO_DEFAULT_VERSION="latest"
@@ -18,36 +18,38 @@ have() {
   command -v "$1" >/dev/null 2>&1
 }
 
+is_semver() {
+  printf '%s\n' "$1" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+}
+
 detect_os() {
-  local raw
-  raw="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  case "$raw" in
+  detect_os_raw="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  case "$detect_os_raw" in
     linux*) echo "linux" ;;
     darwin*) echo "macos" ;;
     mingw* | msys* | cygwin*) echo "windows" ;;
-    *) fail "unsupported operating system: ${raw}" ;;
+    *) fail "unsupported operating system: ${detect_os_raw}" ;;
   esac
 }
 
 detect_arch() {
-  local raw
-  raw="$(uname -m)"
-  case "$raw" in
+  detect_arch_raw="$(uname -m)"
+  case "$detect_arch_raw" in
     x86_64 | amd64) echo "amd64" ;;
     arm64 | aarch64) echo "arm64" ;;
-    *) fail "unsupported architecture: ${raw}" ;;
+    *) fail "unsupported architecture: ${detect_arch_raw}" ;;
   esac
 }
 
 download_file() {
-  local url="$1"
-  local output="$2"
+  download_file_url="$1"
+  download_file_output="$2"
   if have curl; then
-    curl --fail --location --silent --show-error "$url" --output "$output"
+    curl --fail --location --silent --show-error "$download_file_url" --output "$download_file_output"
     return
   fi
   if have wget; then
-    wget --quiet --output-document="$output" "$url"
+    wget --quiet --output-document="$download_file_output" "$download_file_url"
     return
   fi
   fail "curl or wget is required to download Volcano CLI"
@@ -63,70 +65,65 @@ require_cosign_for_verification() {
 }
 
 verify_signature() {
-  local file="$1"
-  local bundle="$2"
-  local version="$3"
-  local semver_re
-  local identity
+  verify_signature_file="$1"
+  verify_signature_bundle="$2"
+  verify_signature_version="$3"
 
   if [ "${VOLCANO_SKIP_SIGNATURE_VERIFICATION:-}" = "1" ]; then
     echo "Skipping Volcano CLI signature verification because VOLCANO_SKIP_SIGNATURE_VERIFICATION=1."
     return
   fi
 
-  semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-  case "$version" in
+  case "$verify_signature_version" in
     latest)
-      cosign verify-blob "$file" \
-        --bundle "$bundle" \
+      cosign verify-blob "$verify_signature_file" \
+        --bundle "$verify_signature_bundle" \
         --certificate-identity-regexp "$VOLCANO_STABLE_TAG_SIGNATURE_IDENTITY_RE" \
         --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
       ;;
     *)
-      if [[ "$version" =~ $semver_re ]]; then
-        identity="${VOLCANO_SIGNATURE_WORKFLOW}@refs/tags/${version}"
-        cosign verify-blob "$file" \
-          --bundle "$bundle" \
-          --certificate-identity "$identity" \
+      if is_semver "$verify_signature_version"; then
+        verify_signature_identity="${VOLCANO_SIGNATURE_WORKFLOW}@refs/tags/${verify_signature_version}"
+        cosign verify-blob "$verify_signature_file" \
+          --bundle "$verify_signature_bundle" \
+          --certificate-identity "$verify_signature_identity" \
           --certificate-oidc-issuer "$VOLCANO_SIGNATURE_OIDC_ISSUER"
       else
-        fail "cannot verify signature for unsupported Volcano CLI version selector: ${version}; use latest or vMAJOR.MINOR.PATCH"
+        fail "cannot verify signature for unsupported Volcano CLI version selector: ${verify_signature_version}; use latest or vMAJOR.MINOR.PATCH"
       fi
       ;;
   esac
 
-  echo "Verified Volcano CLI signature for ${version}."
+  echo "Verified Volcano CLI signature for ${verify_signature_version}."
 }
 
 release_asset_url() {
-  local version="$1"
-  local asset="$2"
-  local semver_re
+  release_asset_url_version="$1"
+  release_asset_url_asset="$2"
 
-  semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
-  case "$version" in
+  case "$release_asset_url_version" in
     latest)
-      echo "${VOLCANO_GITHUB_RELEASES_URL%/}/latest/download/${asset}"
+      echo "${VOLCANO_GITHUB_RELEASES_URL%/}/latest/download/${release_asset_url_asset}"
       ;;
     *)
-      if [[ "$version" =~ $semver_re ]]; then
-        echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/${version}/${asset}"
+      if is_semver "$release_asset_url_version"; then
+        echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/${release_asset_url_version}/${release_asset_url_asset}"
       else
-        fail "unsupported Volcano CLI version selector: ${version}; use latest or vMAJOR.MINOR.PATCH"
+        fail "unsupported Volcano CLI version selector: ${release_asset_url_version}; use latest or vMAJOR.MINOR.PATCH"
       fi
       ;;
   esac
 }
 
 resolve_install_dir() {
-  local os="$1"
+  resolve_install_dir_os="$1"
 
   if [ -n "$VOLCANO_INSTALL_DIR" ]; then
     echo "$VOLCANO_INSTALL_DIR"
     return
   fi
 
-  if [ "$os" = "windows" ]; then
+  if [ "$resolve_install_dir_os" = "windows" ]; then
     echo "${HOME}/bin"
     return
   fi
@@ -213,7 +210,7 @@ PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"
 if [ -z "$PATH_VOLCANO" ]; then
   echo "Add ${INSTALL_DIR} to your PATH to run '${CLI_COMMAND}' from any shell."
   echo "Run: ${INSTALL_PATH} --help"
-elif [ "$PATH_VOLCANO" != "$INSTALL_PATH" ] && ! [ "$PATH_VOLCANO" -ef "$INSTALL_PATH" ]; then
+elif [ "$PATH_VOLCANO" != "$INSTALL_PATH" ]; then
   echo "Warning: '${CLI_COMMAND}' on your PATH resolves to ${PATH_VOLCANO}, not ${INSTALL_PATH}."
   echo "Move ${INSTALL_DIR} earlier in your PATH or run '${INSTALL_PATH}' directly."
   echo "Run: ${INSTALL_PATH} --help"
