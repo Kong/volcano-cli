@@ -107,7 +107,15 @@ if VOLCANO_VERSION=v01.2.3 sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/vers
 fi
 grep -F "unsupported Volcano CLI version selector: v01.2.3" "$TMP_DIR/version-error.log" >/dev/null
 
-sh "$ROOT/scripts/install-volcano.sh" --setup >/dev/null
+cat > "$TMP_DIR/bin/volcano" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$TMP_DIR/bin/volcano"
+
+setup_output="$(sh "$ROOT/scripts/install-volcano.sh" --setup)"
+printf '%s\n' "$setup_output" | grep -F \
+  "Warning: 'volcano' on your PATH resolves to $TMP_DIR/bin/volcano, not $TMP_DIR/install/volcano." >/dev/null
 test "$(cat "$FAKE_VOLCANO_LOG")" = "setup"
 
 if sh "$ROOT/scripts/install-volcano.sh" --unknown >"$TMP_DIR/error.log" 2>&1; then

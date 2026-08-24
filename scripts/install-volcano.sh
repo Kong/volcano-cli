@@ -201,11 +201,6 @@ fi
 printf 'script\n' > "${INSTALL_DIR}/.volcano-install-method" 2>/dev/null || true
 
 echo "Installed Volcano CLI to ${INSTALL_PATH}"
-if [ "$RUN_SETUP" = "1" ]; then
-  "$INSTALL_PATH" setup
-  exit 0
-fi
-
 PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"
 if [ -z "$PATH_VOLCANO" ]; then
   echo "Add ${INSTALL_DIR} to your PATH to run '${CLI_COMMAND}' from any shell."
@@ -214,6 +209,10 @@ elif [ "$PATH_VOLCANO" != "$INSTALL_PATH" ]; then
   echo "Warning: '${CLI_COMMAND}' on your PATH resolves to ${PATH_VOLCANO}, not ${INSTALL_PATH}."
   echo "Move ${INSTALL_DIR} earlier in your PATH or run '${INSTALL_PATH}' directly."
   echo "Run: ${INSTALL_PATH} --help"
-else
+elif [ "$RUN_SETUP" != "1" ]; then
   echo "Run: ${CLI_COMMAND} --help"
+fi
+
+if [ "$RUN_SETUP" = "1" ]; then
+  "$INSTALL_PATH" setup
 fi
