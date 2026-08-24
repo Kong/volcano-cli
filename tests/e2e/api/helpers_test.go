@@ -29,6 +29,7 @@ type apiE2E struct {
 	homeDir    string
 	projectDir string
 	token      string
+	userID     string
 	projectID  string
 	project    string
 }
@@ -64,6 +65,7 @@ func setupAPIE2E(t *testing.T, prefix string) *apiE2E {
 		homeDir:    t.TempDir(),
 		projectDir: t.TempDir(),
 		token:      token,
+		userID:     userID,
 		projectID:  projectID,
 		project:    projectName,
 	}
