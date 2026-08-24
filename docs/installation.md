@@ -38,6 +38,12 @@ curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.
 volcano --help
 ```
 
+To install the CLI and set up Volcano in detected coding agents:
+
+```bash
+curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash -s -- --setup
+```
+
 ## Upgrading
 
 `volcano upgrade` upgrades the CLI the same way it was installed: it delegates
