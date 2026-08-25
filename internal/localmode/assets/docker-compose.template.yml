@@ -73,10 +73,29 @@ services:
         condition: service_healthy
       dynamodb:
         condition: service_started
+    # Mount docker socket to allow agent worker launch (local mode only).
+    # WARNING: This grants the server container permission to run any container
+    # with the server's privileges, and that access is not limited to the
+    # server's own code: local Volcano functions also run as OS subprocesses
+    # inside this same container, so function code under test can reach the
+    # socket too. Only safe in local development on your machine.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - volcano-storage:/app/local-storage
+    # On Linux, /var/run/docker.sock is typically owned root:docker with mode
+    # 0660, and the server runs as non-root user `volcano`. Add the socket's
+    # host group so docker commands inside the container don't get "permission
+    # denied"; if your docker group GID isn't 999, set DOCKER_GID first:
+    #   DOCKER_GID=$(stat -c '%g' /var/run/docker.sock) docker compose up -d
+    group_add:
+      - "${DOCKER_GID:-999}"
     environment:
       # Core settings
       LOCAL_MODE: "true"
       LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
+      # Required for agent workers to call a model provider; set it before
+      # starting the stack (see docs/internal/local-agent-runtime.md).
+      MODEL_PROVIDER_CREDENTIALS: ${MODEL_PROVIDER_CREDENTIALS:-}
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
       DYNAMODB_ENDPOINT: http://dynamodb:8000
@@ -124,8 +143,6 @@ services:
       VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID: ${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}
       VOLCANO_FIRST_PARTY_AUTH_EMAIL: ${VOLCANO_FIRST_PARTY_AUTH_EMAIL:-}
       VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH: ${VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH:-}
-    volumes:
-      - volcano-storage:/app/local-storage
     ports:
       - "8000:8000"
       - "8002:8002"
@@ -142,6 +159,10 @@ services:
 networks:
   volcano-internal:
     driver: bridge
+    # Pinned so the runtime network name is always "volcano-internal" instead
+    # of Compose's default `<project>_volcano-internal` prefix; the agent
+    # launcher (internal/localmode/worker_launcher.go) joins this literal name.
+    name: volcano-internal
 
 volumes:
   volcano-db:
