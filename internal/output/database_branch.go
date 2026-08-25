@@ -88,7 +88,7 @@ func formatBranchStorage(storageBytes *int64) string {
 }
 
 func formatBranchTTL(ttlSeconds int64) string {
-	return formatBranchDuration(time.Duration(ttlSeconds) * time.Second)
+	return formatCompactDuration(time.Duration(ttlSeconds) * time.Second)
 }
 
 const branchExpiredLabel = "expired"
@@ -100,7 +100,7 @@ func formatBranchRemaining(expiresAt time.Time) string {
 	if remaining <= 0 {
 		return branchExpiredLabel
 	}
-	return formatBranchDuration(remaining)
+	return formatCompactDuration(remaining)
 }
 
 // formatBranchExpiry renders the same figure for the detail view, where it sits
@@ -113,7 +113,9 @@ func formatBranchExpiry(expiresAt time.Time) string {
 	return "in " + formatBranchRemaining(expiresAt)
 }
 
-func formatBranchDuration(d time.Duration) string {
+// formatCompactDuration renders a span as a single largest unit, for the
+// lifetime and retention columns.
+func formatCompactDuration(d time.Duration) string {
 	switch {
 	case d >= 24*time.Hour:
 		return fmt.Sprintf("%dd", int(d.Hours()/24))

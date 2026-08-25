@@ -48,6 +48,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	databasesAfterCreate := waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "cli_contract", "databases", "list")
 	requireContains(t, databasesAfterCreate, "app")
 
+	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
+
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
 	requireContains(t, migrationOutput, "Migrations deployed!")
@@ -265,6 +267,38 @@ functions:
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
 	requireContains(t, configDeleteOutput, "deleted")
+}
+
+// requireLocalModeOmitsProviderOnlyDatabaseCommands checks against the running
+// stack what the unit tests check against the command tree: backups, restores,
+// and branches need the storage provider, which local development does not run.
+// A local project has to be turned away with the cloud path rather than after a
+// request the local server could only fail.
+func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "databases", "--help")
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches"} {
+		requireNotContains(t, help, command)
+	}
+
+	for _, args := range [][]string{
+		{"databases", "backups", "list", "app"},
+		{"databases", "backup", "list", "app"},
+		{"databases", "backup-schedule", "get", "app"},
+		{"databases", "restore", "app", "--backup", "nightly"},
+		{"databases", "restore", "app", "--to", "2026-01-15T09:30:00Z"},
+		{"databases", "restores", "list", "app"},
+		{"databases", "restore-history", "list", "app"},
+		{"databases", "branches", "list", "app"},
+		{"databases", "branches", "create", "app", "feature"},
+		{"databases", "branch", "list", "app"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, "is a cloud command")
+	}
 }
 
 func runVolcanoLocalModeE2E(t *testing.T, binary string, env []string, dir string, args ...string) string {

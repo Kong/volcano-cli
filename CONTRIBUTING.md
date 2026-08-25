@@ -20,6 +20,8 @@ no separate install step is required.
 | Lint + test                   | `make check`                             |
 | Tidy module dependencies      | `make tidy`                              |
 | Local-mode smoke test         | `make localmode-e2e`                     |
+| Cloud API smoke test          | `make api-e2e-smoke`                     |
+| Cloud API provisioning tests  | `make api-e2e-cloud`                     |
 
 `make local` builds the binary with the compiled-in defaults loaded from a
 gitignored `.env.local` file, so you can point the CLI at a non-production
@@ -43,6 +45,14 @@ doesn't follow either convention.
 `make localmode-e2e` uses Docker and is intentionally heavier than the normal
 unit-test workflow. Run it when changing local-mode startup, reset, health, or
 Docker integration behavior.
+
+The `tests/e2e/api` suite drives the built binary against a deployed backend, so
+it needs `VOLCANO_API_URL` and `VOLCANO_MGMT_URL` and skips itself unless
+`VOLCANO_API_E2E=1` — which is what the two `api-e2e` targets set. CI does not
+run them: `make test` reports them as skips. Run `make api-e2e-cloud` yourself
+before shipping a command that only exists in cloud mode, such as branches,
+backups, and restores, since nothing else exercises those against a real
+provider.
 
 ## Generated code
 

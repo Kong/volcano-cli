@@ -74,6 +74,111 @@ connections until it reports `active` again — poll it with `get` the same way 
 would after a `create`. `extend` replaces a branch's lifetime rather than adding
 to it, counting from now.
 
+## Backups and restore
+
+A backup is a point-in-time copy of a database, kept by the platform and
+restorable in place. Backups cover the database itself, not its branches.
+
+Backups are a Pro capability. On the Free plan every command below fails with
+`403`, reads included:
+
+```console
+$ volcano cloud databases backups list app
+Error: backups are not available on this plan
+```
+
+Like branching, backups have no local backend, so these commands live under the
+`cloud` group and the prefix is required. Dropping it points you back at the
+cloud path rather than running anything:
+
+```console
+$ volcano databases backups list app
+Error: "backups" is a cloud command: local development has no storage provider
+behind it, so run 'volcano cloud databases backups' against a cloud project
+```
+
+| Operation | Command |
+|---|---|
+| Create | `volcano cloud databases backups create <database> <backup>` |
+| List | `volcano cloud databases backups list <database>` |
+| Get | `volcano cloud databases backups get <database> <backup>` |
+| Delete | `volcano cloud databases backups delete <database> <backup> [--yes]` |
+| Restore | `volcano cloud databases restore <database> --backup <backup> [--yes]` |
+| Restore to a point in time | `volcano cloud databases restore <database> --to <RFC 3339> [--yes]` |
+| List restores | `volcano cloud databases restores list <database>` |
+| Show one restore | `volcano cloud databases restores get <database> <restore-id>` |
+| Show the schedule | `volcano cloud databases backup-schedule get <database>` |
+| Set the schedule | `volcano cloud databases backup-schedule set <database> --frequency <daily\|weekly\|monthly> [--hour 3] [--day 1] [--retention 168h]` |
+| Stop scheduled backups | `volcano cloud databases backup-schedule set <database> --clear` |
+
+`backups` is also spelled `backup`. `delete` and `restore` ask for confirmation
+first; pass `--yes` (`-y`) to skip the prompt in a script. `--day` is the day of
+the week for a weekly schedule (`1`-`7`, Monday to Sunday) and the day of the
+month for a monthly one (`1`-`28`); it is required for both and ignored by a
+daily schedule.
+
+Whether a database may be backed up at all, how many backups it may keep, how
+long they are kept, and how far back a point-in-time restore reaches all come
+from the project's plan. `backups list` reports the window a point-in-time
+restore may target.
+
+What the backups hold counts against the parent database's storage allowance,
+and a backup you take is charged as a full copy of the database as it was then.
+A schedule's first backup is charged the same way and each one after it only for
+the storage it adds, so the `Size` column — how much data a backup holds — runs
+ahead of what the backup costs to keep. Deleting a backup releases its storage
+straight away. A plan without backups is charged nothing for the ones it still
+holds after a downgrade.
+
+```bash
+# Back up before a risky migration
+volcano cloud databases backups create app before_migration
+
+# See what there is to restore, and how far back a point-in-time restore reaches
+volcano cloud databases backups list app
+
+# Put the database back the way that backup found it
+volcano cloud databases restore app --backup before_migration
+
+# Or rewind to an arbitrary moment inside the window, without the prompt
+volcano cloud databases restore app --to 2026-01-15T09:30:00Z --yes
+
+# Watch it, using the id the restore printed
+volcano cloud databases restores get app 6f1c…
+```
+
+Restoring is destructive and in place: everything written after the point being
+restored is discarded, and there is no way to restore into a second database.
+The restore runs in the background, so the command returns while the database is
+still `restoring` and serving no connections. Its connection string never
+changes, so nothing holding it needs updating.
+
+Watch it with `restores get`, which the restore command prints the id for. A
+`pending` or `running` restore is still going, and an attempt that fails with
+tries left goes back to `pending`; `failed` and `exhausted` both mean the platform
+gave up. Either leaves the database `failed` if an attempt had already begun
+replacing its data, and `active` if none had — a backup that no longer exists at
+the provider ends the restore without touching the database. Only the restore
+carries the reason —
+the database itself reports the status and nothing more. `restores list` shows
+the 50 most recent restores of a database, newest first.
+
+While a restore runs, the commands that would race it are refused: another
+`restore`, `backups create`, `backups delete`, `backup-schedule set`, `databases
+delete`, and `branches create` or `branches reset`. Wait for the database to
+report `active` and retry.
+
+Branches are not restored. They keep serving their own data, but resetting a
+branch from a database that was just restored is refused for up to 24 hours
+afterwards.
+
+`backup-schedule set` replaces the schedule rather than adding to it, and
+scheduled backups do not count against the plan's backup allowance. Their
+retention is clamped to the plan's, so the schedule printed back can keep
+backups for less time than asked for. Scheduled backups are listed alongside the
+ones you took, with a source of `scheduled`, and are restored and deleted the
+same way.
+
 ## Examples
 
 ```bash

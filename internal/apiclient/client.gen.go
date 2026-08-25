@@ -349,6 +349,7 @@ const (
 	DatabaseStatusDeleting     DatabaseStatus = "deleting"
 	DatabaseStatusFailed       DatabaseStatus = "failed"
 	DatabaseStatusProvisioning DatabaseStatus = "provisioning"
+	DatabaseStatusRestoring    DatabaseStatus = "restoring"
 )
 
 // Valid indicates whether the value is a known member of the DatabaseStatus enum.
@@ -361,6 +362,47 @@ func (e DatabaseStatus) Valid() bool {
 	case DatabaseStatusFailed:
 		return true
 	case DatabaseStatusProvisioning:
+		return true
+	case DatabaseStatusRestoring:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseBackupSource.
+const (
+	Manual    DatabaseBackupSource = "manual"
+	Scheduled DatabaseBackupSource = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseBackupSource enum.
+func (e DatabaseBackupSource) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Scheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseBackupScheduleEntryFrequency.
+const (
+	DatabaseBackupScheduleEntryFrequencyDaily   DatabaseBackupScheduleEntryFrequency = "daily"
+	DatabaseBackupScheduleEntryFrequencyMonthly DatabaseBackupScheduleEntryFrequency = "monthly"
+	DatabaseBackupScheduleEntryFrequencyWeekly  DatabaseBackupScheduleEntryFrequency = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseBackupScheduleEntryFrequency enum.
+func (e DatabaseBackupScheduleEntryFrequency) Valid() bool {
+	switch e {
+	case DatabaseBackupScheduleEntryFrequencyDaily:
+		return true
+	case DatabaseBackupScheduleEntryFrequencyMonthly:
+		return true
+	case DatabaseBackupScheduleEntryFrequencyWeekly:
 		return true
 	default:
 		return false
@@ -427,6 +469,51 @@ func (e DatabaseQueryFilterOperator) Valid() bool {
 	case Lte:
 		return true
 	case Neq:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseRestoreKind.
+const (
+	PointInTime DatabaseRestoreKind = "point_in_time"
+	Snapshot    DatabaseRestoreKind = "snapshot"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseRestoreKind enum.
+func (e DatabaseRestoreKind) Valid() bool {
+	switch e {
+	case PointInTime:
+		return true
+	case Snapshot:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseRestoreStatus.
+const (
+	DatabaseRestoreStatusCompleted DatabaseRestoreStatus = "completed"
+	DatabaseRestoreStatusExhausted DatabaseRestoreStatus = "exhausted"
+	DatabaseRestoreStatusFailed    DatabaseRestoreStatus = "failed"
+	DatabaseRestoreStatusPending   DatabaseRestoreStatus = "pending"
+	DatabaseRestoreStatusRunning   DatabaseRestoreStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseRestoreStatus enum.
+func (e DatabaseRestoreStatus) Valid() bool {
+	switch e {
+	case DatabaseRestoreStatusCompleted:
+		return true
+	case DatabaseRestoreStatusExhausted:
+		return true
+	case DatabaseRestoreStatusFailed:
+		return true
+	case DatabaseRestoreStatusPending:
+		return true
+	case DatabaseRestoreStatusRunning:
 		return true
 	default:
 		return false
@@ -2602,6 +2689,42 @@ func (e AuthSigninJSONBodySessionMode) Valid() bool {
 	}
 }
 
+// Defines values for AuthGetMySessionsParamsSort.
+const (
+	AuthGetMySessionsParamsSortCreatedAt    AuthGetMySessionsParamsSort = "created_at"
+	AuthGetMySessionsParamsSortLastActivity AuthGetMySessionsParamsSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the AuthGetMySessionsParamsSort enum.
+func (e AuthGetMySessionsParamsSort) Valid() bool {
+	switch e {
+	case AuthGetMySessionsParamsSortCreatedAt:
+		return true
+	case AuthGetMySessionsParamsSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthGetMySessionsParamsStatus.
+const (
+	AuthGetMySessionsParamsStatusActive  AuthGetMySessionsParamsStatus = "active"
+	AuthGetMySessionsParamsStatusExpired AuthGetMySessionsParamsStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the AuthGetMySessionsParamsStatus enum.
+func (e AuthGetMySessionsParamsStatus) Valid() bool {
+	switch e {
+	case AuthGetMySessionsParamsStatusActive:
+		return true
+	case AuthGetMySessionsParamsStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListDeploymentsParamsResourceType.
 const (
 	ListDeploymentsParamsResourceTypeFrontend ListDeploymentsParamsResourceType = "frontend"
@@ -2821,6 +2944,42 @@ func (e ListAuthUsersParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListUserSessionsParamsSort.
+const (
+	ListUserSessionsParamsSortCreatedAt    ListUserSessionsParamsSort = "created_at"
+	ListUserSessionsParamsSortLastActivity ListUserSessionsParamsSort = "last_activity"
+)
+
+// Valid indicates whether the value is a known member of the ListUserSessionsParamsSort enum.
+func (e ListUserSessionsParamsSort) Valid() bool {
+	switch e {
+	case ListUserSessionsParamsSortCreatedAt:
+		return true
+	case ListUserSessionsParamsSortLastActivity:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListUserSessionsParamsStatus.
+const (
+	Active  ListUserSessionsParamsStatus = "active"
+	Expired ListUserSessionsParamsStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the ListUserSessionsParamsStatus enum.
+func (e ListUserSessionsParamsStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Expired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetProjectConfigParamsFormat.
 const (
 	Json GetProjectConfigParamsFormat = "json"
@@ -2841,19 +3000,19 @@ func (e GetProjectConfigParamsFormat) Valid() bool {
 
 // Defines values for GetDatabaseStatsParamsGranularity.
 const (
-	GetDatabaseStatsParamsGranularityDaily   GetDatabaseStatsParamsGranularity = "daily"
-	GetDatabaseStatsParamsGranularityHourly  GetDatabaseStatsParamsGranularity = "hourly"
-	GetDatabaseStatsParamsGranularityMonthly GetDatabaseStatsParamsGranularity = "monthly"
+	Daily   GetDatabaseStatsParamsGranularity = "daily"
+	Hourly  GetDatabaseStatsParamsGranularity = "hourly"
+	Monthly GetDatabaseStatsParamsGranularity = "monthly"
 )
 
 // Valid indicates whether the value is a known member of the GetDatabaseStatsParamsGranularity enum.
 func (e GetDatabaseStatsParamsGranularity) Valid() bool {
 	switch e {
-	case GetDatabaseStatsParamsGranularityDaily:
+	case Daily:
 		return true
-	case GetDatabaseStatsParamsGranularityHourly:
+	case Hourly:
 		return true
-	case GetDatabaseStatsParamsGranularityMonthly:
+	case Monthly:
 		return true
 	default:
 		return false
@@ -3174,6 +3333,10 @@ type AuthConfig struct {
 	// `mail.domain1.com`. Signups from other domains are rejected with
 	// 403, and `allowed_email_domains_mode` decides whether sign-in is
 	// covered as well.
+	//
+	// The allowlist is a PRO feature to configure and to enforce. A
+	// downgrade parks it: the domains are still returned here and stop
+	// being applied until the project is back on PRO.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
 	// AllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` only gates account
@@ -3304,9 +3467,45 @@ type AuthHostedPage struct {
 	UpdatedAt *time.Time          `json:"updated_at,omitempty"`
 }
 
+// AuthHostedPageDefaults The starting point for an unsaved page: the theme shell we render for the
+// built-in page plus its stylesheet. Valid input to the update endpoint —
+// it carries no script, meta, or link tags.
+type AuthHostedPageDefaults struct {
+	// Css The built-in stylesheet, themed by the customer.
+	Css string `json:"css"`
+
+	// Html Body shell markup containing the runtime render root.
+	Html string `json:"html"`
+}
+
 // AuthHostedPageResponse defines model for AuthHostedPageResponse.
 type AuthHostedPageResponse struct {
-	Page *AuthHostedPage `json:"page,omitempty"`
+	// Defaults The starting point for an unsaved page: the theme shell we render for the
+	// built-in page plus its stylesheet. Valid input to the update endpoint —
+	// it carries no script, meta, or link tags.
+	Defaults AuthHostedPageDefaults `json:"defaults"`
+
+	// Page The saved page, or null when the project has not customized this page type yet.
+	Page *AuthHostedPage `json:"page"`
+
+	// Runtime The server-owned behavior of a hosted page. Clients compose previews from
+	// this instead of reimplementing the page, so a preview cannot drift from
+	// what is actually served.
+	Runtime AuthHostedPageRuntime `json:"runtime"`
+}
+
+// AuthHostedPageRuntime The server-owned behavior of a hosted page. Clients compose previews from
+// this instead of reimplementing the page, so a preview cannot drift from
+// what is actually served.
+type AuthHostedPageRuntime struct {
+	// MockPrelude Preview harness that supplies request params and stubs the hosted-auth API. Never served on a real page.
+	MockPrelude string `json:"mock_prelude"`
+
+	// RootId Element id the runtime script renders into. Markup carrying it opts into the theme-shell contract.
+	RootId string `json:"root_id"`
+
+	// Script The runtime script injected into the rendered page.
+	Script string `json:"script"`
 }
 
 // AuthIdentitiesResponse defines model for AuthIdentitiesResponse.
@@ -3449,10 +3648,10 @@ type AuthSession struct {
 	IpAddress *string `json:"ip_address,omitempty"`
 
 	// IsActive Whether the session is currently active (not expired)
-	IsActive *bool `json:"is_active,omitempty"`
+	IsActive bool `json:"is_active"`
 
 	// IsCurrent Whether this is the session making the current request
-	IsCurrent *bool `json:"is_current,omitempty"`
+	IsCurrent bool `json:"is_current"`
 
 	// LastActivityAt Last activity timestamp
 	LastActivityAt *time.Time `json:"last_activity_at,omitempty"`
@@ -3578,8 +3777,7 @@ type ConnectProjectGitRequest struct {
 	ConnectionId   openapi_types.UUID `json:"connection_id"`
 	InstallationId int64              `json:"installation_id"`
 
-	// ProductionBranch Deprecated. The deployment branch always follows the repository's GitHub default branch; when given it must equal that default branch. New callers omit it.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	// ProductionBranch The branch a push must land on to deploy, with three cases, because this is a full replace and a read-modify-write client sends back whatever it read. Omit it to follow the repository's GitHub default branch, which also discards a branch set earlier. Send back the branch the project already deploys from, when that is the repository's default, and nothing changes either way — a project pinned to that branch stays pinned. Sending the default branch when the project deploys from something else returns it to following the default, including on a rebind, where a pin describes a branch chosen for the repository being left. Any other branch becomes the project's own choice, exempt from later default-branch renames. Validated as a Git branch name only: it does not have to exist yet, so a project can be pointed at a branch about to be pushed. Changing repository and naming a branch other than the new repository's default in one request is refused with 400, because the branch named is almost always the previous repository's, echoed back — connect first, then set the branch.
 	ProductionBranch *string `json:"production_branch,omitempty"`
 
 	// RepoFullName Deprecated selector kept for a compatibility window; prefer repository_id. Either repository_id or repo_full_name is required.
@@ -3591,6 +3789,13 @@ type ConnectProjectGitRequest struct {
 
 	// RootDirectory Monorepo subdirectory the project builds from. Omit for the repo root.
 	RootDirectory *string `json:"root_directory,omitempty"`
+}
+
+// CreateDatabaseBackupRequest defines model for CreateDatabaseBackupRequest.
+type CreateDatabaseBackupRequest struct {
+	// Name Backup name, unique within the database. Names beginning with
+	// `volcano-` are reserved for the platform's own snapshots.
+	Name string `json:"name"`
 }
 
 // CreateDatabaseBranchRequest defines model for CreateDatabaseBranchRequest.
@@ -3619,7 +3824,7 @@ type CreateDatabaseRequest struct {
 	// PgVersion PostgreSQL major version
 	PgVersion CreateDatabaseRequestPgVersion `json:"pg_version"`
 
-	// Region AWS region for database hosting
+	// Region Region for database hosting
 	Region CreateDatabaseRequestRegion `json:"region"`
 }
 
@@ -3630,8 +3835,19 @@ type CreateDatabaseRequestDatabaseType string
 // CreateDatabaseRequestPgVersion PostgreSQL major version
 type CreateDatabaseRequestPgVersion string
 
-// CreateDatabaseRequestRegion AWS region for database hosting
+// CreateDatabaseRequestRegion Region for database hosting
 type CreateDatabaseRequestRegion string
+
+// CreateDatabaseRestoreRequest Names what to restore. Supply exactly one of `backup_name` or
+// `restore_to`.
+type CreateDatabaseRestoreRequest struct {
+	// BackupName A backup of this database to restore.
+	BackupName *string `json:"backup_name,omitempty"`
+
+	// RestoreTo A point in time to restore to, which must fall inside the
+	// `restore_window` reported when listing backups.
+	RestoreTo *time.Time `json:"restore_to,omitempty"`
+}
 
 // CreateEmailTemplateRequest defines model for CreateEmailTemplateRequest.
 type CreateEmailTemplateRequest struct {
@@ -3690,6 +3906,27 @@ type CreateOAuthConfigRequest struct {
 
 // CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
 type CreateOAuthConfigRequestProvider string
+
+// CreateProjectGitRepositoryRequest defines model for CreateProjectGitRepositoryRequest.
+type CreateProjectGitRepositoryRequest struct {
+	// Description Repository description shown on GitHub.
+	Description *string `json:"description,omitempty"`
+
+	// Name Repository name, unique within the owner account.
+	Name string `json:"name"`
+
+	// Owner GitHub account to create the repository under, as returned in account_login by /user/git/connections/{id}/installations. Omit for the connected user's own account. Must be an organization the app is installed on, or your own account.
+	Owner *string `json:"owner,omitempty"`
+
+	// Private Whether the new repository is private. Defaults to true: the next step is pushing the project's source into it, so an omitted field must not publish it.
+	Private *bool `json:"private,omitempty"`
+
+	// ProductionBranch The branch to deploy from — name the one you are about to push. The repository is created empty, so it has no real default branch to follow: omitting this binds whatever branch name GitHub reports for the new repository (falling back to "main" if it reports none), which is the account's configured default and a prediction, and pushing anything else then deploys nothing. Naming the branch GitHub already reports is not treated as pinning it, so the project still tracks a later default-branch rename; naming any other branch pins it. Rejected before the repository is created if it is not a valid Git branch name; it does not have to exist.
+	ProductionBranch *string `json:"production_branch,omitempty"`
+
+	// RootDirectory Monorepo subdirectory the project builds from, as a relative path inside the repository. Omit for the repo root. Absolute paths and ".." traversal are rejected before the repository is created, because the build applies the same rule and nothing would deploy.
+	RootDirectory *string `json:"root_directory,omitempty"`
+}
 
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
@@ -3770,6 +4007,16 @@ type CreateVariableRequest struct {
 	Value string `json:"value"`
 }
 
+// CreatedProjectGitConnection A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
+type CreatedProjectGitConnection struct {
+	// AppInstalled Whether the App installation covers the new repository. False means the binding is complete but no push will deploy until the user grants access at install_url. An installation scoped to selected repositories never picks up a new repo on its own.
+	AppInstalled bool                 `json:"app_installed"`
+	Connection   ProjectGitConnection `json:"connection"`
+
+	// InstallUrl Where the user grants the App access to the new repository. Present only when app_installed is false.
+	InstallUrl *string `json:"install_url,omitempty"`
+}
+
 // Database PostgreSQL database with automatic scalability and security features.
 type Database struct {
 	// ConnectionString Secure PostgreSQL connection URI for your database.
@@ -3800,14 +4047,22 @@ type Database struct {
 	// ProvisioningStartedAt Timestamp when the current provisioning phase started
 	ProvisioningStartedAt *time.Time `json:"provisioning_started_at,omitempty"`
 
-	// Region AWS region where database is hosted
+	// Region Region where the database is hosted
 	Region *string `json:"region,omitempty"`
 
-	// Status Database provisioning status
+	// Status Database status. `restoring` means a restore is replacing the
+	// database's data: it does not accept connections, and the operations
+	// that would race the restore are rejected until it finishes. Its
+	// branches keep serving throughout.
 	Status DatabaseStatus `json:"status"`
 
-	// StorageBytes Latest observed on-disk size from `pg_database_size`, in bytes. This
-	// point-in-time gauge may be absent until the database has been sampled.
+	// StorageBytes Latest observed storage for this database, in bytes: its own on-disk
+	// size, plus what each branch has diverged from it, plus what its
+	// backups cost to hold. This is the figure the storage allowance is
+	// enforced against, and the stats endpoint breaks it down. A
+	// point-in-time gauge recorded by a background pass, so it may be
+	// absent until the database has been sampled, and it can trail the
+	// stats endpoint's `current_storage_bytes`, which measures on request.
 	// Summing the latest samples for every database in a project produces
 	// the project's "Database Storage (Bytes)" usage gauge. Populated on
 	// database list responses; single-database responses omit it.
@@ -3818,8 +4073,79 @@ type Database struct {
 // DatabaseDatabaseType Database size tier that determines available RAM and scaling limits.
 type DatabaseDatabaseType string
 
-// DatabaseStatus Database provisioning status
+// DatabaseStatus Database status. `restoring` means a restore is replacing the
+// database's data: it does not accept connections, and the operations
+// that would race the restore are rejected until it finishes. Its
+// branches keep serving throughout.
 type DatabaseStatus string
+
+// DatabaseBackup A point-in-time copy of a database, kept by the storage provider and
+// restorable in place.
+//
+// Backups cover the database itself, not its branches. Restoring one
+// replaces the database's data and keeps its connection string.
+type DatabaseBackup struct {
+	// CreatedAt The point in time the backup captures.
+	CreatedAt time.Time `json:"created_at"`
+
+	// ExpiresAt When the backup is deleted automatically, from the plan's retention.
+	// Absent means it is kept until deleted explicitly.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// Name Backup name, unique within the database. Backups you create are
+	// named by you; scheduled backups are named by the storage provider.
+	Name string `json:"name"`
+
+	// SizeBytes Storage the backup occupies. Absent until the provider has costed
+	// it, which takes a few minutes after the backup is taken; absent is
+	// not the same as empty.
+	SizeBytes *int64 `json:"size_bytes,omitempty"`
+
+	// Source Whether the backup was requested explicitly or produced by the
+	// backup schedule. Only `manual` backups count against the plan's
+	// backup allowance.
+	Source DatabaseBackupSource `json:"source"`
+}
+
+// DatabaseBackupSource Whether the backup was requested explicitly or produced by the
+// backup schedule. Only `manual` backups count against the plan's
+// backup allowance.
+type DatabaseBackupSource string
+
+// DatabaseBackupList defines model for DatabaseBackupList.
+type DatabaseBackupList struct {
+	Data []DatabaseBackup `json:"data"`
+
+	// RestoreWindow The span a point-in-time restore may target. Empty when the owner's plan
+	// does not include point-in-time restore.
+	RestoreWindow *DatabaseRestoreWindow `json:"restore_window,omitempty"`
+}
+
+// DatabaseBackupSchedule The database's automated backup schedule. An empty list means no
+// scheduled backups; sending one clears the schedule.
+type DatabaseBackupSchedule struct {
+	Entries []DatabaseBackupScheduleEntry `json:"entries"`
+}
+
+// DatabaseBackupScheduleEntry One recurrence of the automated backup schedule.
+type DatabaseBackupScheduleEntry struct {
+	// Day Day of the week (1-7, Monday to Sunday) for a weekly schedule, or day
+	// of the month (1-28) for a monthly one. Required for both, ignored for
+	// a daily schedule. Monthly stops at 28 so the schedule fires in every
+	// month.
+	Day       *int                                 `json:"day,omitempty"`
+	Frequency DatabaseBackupScheduleEntryFrequency `json:"frequency"`
+
+	// Hour Hour of the day in UTC.
+	Hour int `json:"hour"`
+
+	// RetentionSeconds How long each backup from this recurrence is kept. Clamped to the
+	// plan's retention, and defaulted to it when omitted.
+	RetentionSeconds *int64 `json:"retention_seconds,omitempty"`
+}
+
+// DatabaseBackupScheduleEntryFrequency defines model for DatabaseBackupScheduleEntry.Frequency.
+type DatabaseBackupScheduleEntryFrequency string
 
 // DatabaseBranch A copy-on-write fork of a database, for development and testing.
 //
@@ -3862,6 +4188,11 @@ type DatabaseBranch struct {
 	// Status Branch status. A new branch starts `provisioning` and is not
 	// connectable until it reports `active`; poll this endpoint until it
 	// does. `connection_string` is only present while `active`.
+	//
+	// `provisioning` also covers a branch being rebuilt after a `reset`,
+	// and a build that is between retries, so it is the status to keep
+	// waiting on. `failed` is terminal: it means the platform gave up, and
+	// the branch will not become `active` on its own.
 	Status DatabaseBranchStatus `json:"status"`
 
 	// StorageBytes Bytes this branch has diverged from its parent, which is what a
@@ -3880,6 +4211,11 @@ type DatabaseBranch struct {
 // DatabaseBranchStatus Branch status. A new branch starts `provisioning` and is not
 // connectable until it reports `active`; poll this endpoint until it
 // does. `connection_string` is only present while `active`.
+//
+// `provisioning` also covers a branch being rebuilt after a `reset`,
+// and a build that is between retries, so it is the status to keep
+// waiting on. `failed` is terminal: it means the platform gave up, and
+// the branch will not become `active` on its own.
 type DatabaseBranchStatus string
 
 // DatabaseBranchList defines model for DatabaseBranchList.
@@ -4031,6 +4367,72 @@ type DatabaseQueryResult struct {
 	Data *[]map[string]interface{} `json:"data,omitempty"`
 }
 
+// DatabaseRestore A restore of a database, either from a named backup or to a point in
+// time. Restores run in the background and take longer than a request, so
+// the database is unavailable until this reports `completed`.
+type DatabaseRestore struct {
+	// BackupName The backup restored, kept even if that backup is later deleted.
+	// Absent for a point-in-time restore.
+	BackupName  *string            `json:"backup_name,omitempty"`
+	CompletedAt *time.Time         `json:"completed_at,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	DatabaseId  openapi_types.UUID `json:"database_id"`
+
+	// Error Why the most recent attempt failed, when one has.
+	Error *string            `json:"error,omitempty"`
+	Id    openapi_types.UUID `json:"id"`
+
+	// Kind Whether the restore targets a named backup or an arbitrary point in
+	// time. Both replace the database's data in place.
+	Kind      DatabaseRestoreKind `json:"kind"`
+	ProjectId openapi_types.UUID  `json:"project_id"`
+
+	// RestoreTo The point in time restored to. Absent for a backup restore.
+	RestoreTo *time.Time `json:"restore_to,omitempty"`
+
+	// Status Restore status. `pending` and `running` both mean the restore is
+	// still in flight and the database is not connectable; an attempt that
+	// fails with tries left goes back to `pending`. `failed` and
+	// `exhausted` both mean Volcano gave up: the database is left `failed`
+	// if its data may already have been replaced, and `active` if the
+	// restore never started — a backup that no longer exists at the
+	// provider ends the restore without touching the database. A restore
+	// cannot be cancelled once it starts.
+	Status    DatabaseRestoreStatus `json:"status"`
+	UpdatedAt time.Time             `json:"updated_at"`
+}
+
+// DatabaseRestoreKind Whether the restore targets a named backup or an arbitrary point in
+// time. Both replace the database's data in place.
+type DatabaseRestoreKind string
+
+// DatabaseRestoreStatus Restore status. `pending` and `running` both mean the restore is
+// still in flight and the database is not connectable; an attempt that
+// fails with tries left goes back to `pending`. `failed` and
+// `exhausted` both mean Volcano gave up: the database is left `failed`
+// if its data may already have been replaced, and `active` if the
+// restore never started — a backup that no longer exists at the
+// provider ends the restore without touching the database. A restore
+// cannot be cancelled once it starts.
+type DatabaseRestoreStatus string
+
+// DatabaseRestoreList defines model for DatabaseRestoreList.
+type DatabaseRestoreList struct {
+	Data []DatabaseRestore `json:"data"`
+}
+
+// DatabaseRestoreWindow The span a point-in-time restore may target. Empty when the owner's plan
+// does not include point-in-time restore.
+type DatabaseRestoreWindow struct {
+	// EarliestRestoreAt The oldest point that can still be restored. Moves forward
+	// continuously as history ages out, so treat it as a lower bound at
+	// the moment it was read rather than a fixed value.
+	EarliestRestoreAt *time.Time `json:"earliest_restore_at,omitempty"`
+
+	// LatestRestoreAt The most recent point that can be restored, which is now.
+	LatestRestoreAt *time.Time `json:"latest_restore_at,omitempty"`
+}
+
 // DatabaseSelectRequest defines model for DatabaseSelectRequest.
 type DatabaseSelectRequest struct {
 	// Filters WHERE conditions (combined with AND)
@@ -4057,6 +4459,19 @@ type DatabaseStats struct {
 	// ActiveTimeSeconds Total active compute time in seconds
 	ActiveTimeSeconds float64 `json:"active_time_seconds"`
 
+	// BackupStorageBytes What this database's backups contribute to `current_storage_bytes`.
+	//
+	// A backup taken on request is charged as a full copy of the database
+	// as it was at that moment, so two backups of a 2 GB database are 4 GB.
+	// A backup schedule is charged its first snapshot in full and each
+	// later one only for the storage it adds. Deleting a backup releases
+	// its storage immediately.
+	//
+	// Sampled from the provider rather than measured live, so it can lag a
+	// change by a few minutes, and a backup taken seconds ago may not be
+	// costed yet. Zero on a plan without backups.
+	BackupStorageBytes int64 `json:"backup_storage_bytes"`
+
 	// Branches Per-branch contribution to `current_storage_bytes`. Empty when the
 	// database has no branches. A branch that has not diverged from its
 	// parent contributes nothing.
@@ -4065,9 +4480,10 @@ type DatabaseStats struct {
 	// ComputeTimeSeconds Total CPU seconds consumed
 	ComputeTimeSeconds float64 `json:"compute_time_seconds"`
 
-	// CurrentStorageBytes On-disk size right now, in bytes: the database itself plus every
-	// branch's divergence from it. This is the figure the storage
-	// allowance is enforced against. `branches` breaks it down.
+	// CurrentStorageBytes On-disk size right now, in bytes: the database itself, plus every
+	// branch's divergence from it, plus what its backups cost to hold. This
+	// is the figure the storage allowance is enforced against. `branches`
+	// and `backup_storage_bytes` break it down.
 	CurrentStorageBytes int64 `json:"current_storage_bytes"`
 
 	// CurrentStorageMb `current_storage_bytes` expressed in megabytes.
@@ -4467,7 +4883,7 @@ type FunctionDeploymentStatus string
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
 type FunctionInvocationRequest struct {
-	// Payload Payload to send to the Lambda function.
+	// Payload Payload to send to the function.
 	//
 	// If invoked with auth user token, Volcano automatically injects `__volcano_auth` context:
 	// ```javascript
@@ -4489,7 +4905,7 @@ type FunctionInvocationResponse map[string]interface{}
 
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
-	// Code AWS region identifier accepted by function APIs.
+	// Code Region identifier accepted by function APIs.
 	Code string `json:"code"`
 
 	// Flag Country flag emoji associated with the region's geography.
@@ -4983,8 +5399,10 @@ type MetricUsageData struct {
 	// "Bandwidth Total (Bytes)", or "Database Storage (Bytes)"). Byte-based metrics are
 	// reported in bytes. "Bandwidth Total (Bytes)" is derived (ingress + egress) and
 	// is not billed separately. "Database Storage (Bytes)" is a current observed gauge,
-	// not a cumulative counter. It is the sum of the latest `pg_database_size` samples
-	// exposed as `storage_bytes` by the project's database list.
+	// not a cumulative counter. It is the sum of the latest samples exposed as
+	// `storage_bytes` by the project's database list, so it includes what each
+	// database's branches and backups hold, and it inherits that field's lag
+	// behind a live measurement.
 	Metric string `json:"metric"`
 
 	// Total Total usage for the current usage month
@@ -5335,7 +5753,7 @@ type Project struct {
 	// LogoUrl Relative API path that serves the project logo when one has been
 	// uploaded. The path is versioned with a `?v=` cache-busting query
 	// param that changes on each upload. Absent when the project has no
-	// logo. The logo image is stored in the project's S3 folder.
+	// logo. The logo image is stored in the project's storage folder.
 	LogoUrl *string `json:"logo_url,omitempty"`
 	Name    string  `json:"name"`
 
@@ -5583,6 +6001,10 @@ type ProjectConfigAuthSignup struct {
 	// Replaces the stored list; entries are normalized (lowercase, no `@`
 	// prefix) and must be bare domains such as `domain1.com`. Matching is
 	// exact, so subdomains need their own entry. At most 100 entries.
+	//
+	// Restricting signups is a PRO feature to configure and to enforce: a
+	// FREE project can only declare the list it already has or remove the
+	// restriction, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
 	// AllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` gates account
@@ -5659,7 +6081,7 @@ type ProjectConfigDatabase struct {
 	// PgVersion PostgreSQL major version. Asserted, never written.
 	PgVersion ProjectConfigDatabasePgVersion `json:"pg_version"`
 
-	// Region Deployed region (aws- prefixed, e.g. aws-us-east-1). Asserted, never written.
+	// Region Deployed region ID (e.g. aws-us-east-1). Asserted, never written.
 	Region string `json:"region"`
 }
 
@@ -5766,7 +6188,7 @@ type ProjectConfigProject struct {
 	AllRegions *bool   `json:"all_regions,omitempty"`
 	Name       *string `json:"name,omitempty"`
 
-	// SelectedRegions Region subset (bare AWS names). Requires `all_regions=false`.
+	// SelectedRegions Region subset (bare region names). Requires `all_regions=false`.
 	SelectedRegions *[]string `json:"selected_regions,omitempty"`
 }
 
@@ -5913,7 +6335,7 @@ type ProjectFrontendCustomDomainVerificationStatus string
 
 // ProjectGitConnection defines model for ProjectGitConnection.
 type ProjectGitConnection struct {
-	// ProductionBranch The repository's GitHub default branch, cached at connect time and used as the deployment target.
+	// ProductionBranch The branch a push must land on to deploy. Follows the repository's GitHub default branch unless the project set its own, which a default-branch rename on GitHub then leaves alone.
 	ProductionBranch string `json:"production_branch"`
 	RepoFullName     string `json:"repo_full_name"`
 
@@ -6360,6 +6782,12 @@ type ServiceKey struct {
 	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
 }
 
+// SetProjectGitProductionBranchRequest defines model for SetProjectGitProductionBranchRequest.
+type SetProjectGitProductionBranchRequest struct {
+	// ProductionBranch The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+	ProductionBranch string `json:"production_branch"`
+}
+
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
 type StorageBucket struct {
@@ -6410,7 +6838,7 @@ type StorageObject struct {
 	BucketId  openapi_types.UUID `json:"bucket_id"`
 	CreatedAt *time.Time         `json:"created_at,omitempty"`
 
-	// Etag S3 ETag for cache validation
+	// Etag Entity tag for cache validation
 	Etag *string            `json:"etag,omitempty"`
 	Id   openapi_types.UUID `json:"id"`
 
@@ -6563,6 +6991,10 @@ type UpdateAuthConfigRequest struct {
 	// such as `domain1.com` and are stored normalized (lowercase, no `@`
 	// prefix); matching is exact, so subdomains need their own entry. At
 	// most 100 entries.
+	//
+	// Restricting signups is a PRO feature to configure and to enforce: a
+	// FREE project can only remove the restriction and gets 403 for any
+	// other change, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
 	// AllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` gates account
@@ -6846,6 +7278,9 @@ type VariableDeploySource string
 // VariableStatus Latest project variable propagation status, when a sync has run.
 type VariableStatus string
 
+// BackupName defines model for BackupName.
+type BackupName = string
+
 // BranchName defines model for BranchName.
 type BranchName = string
 
@@ -6905,6 +7340,9 @@ type Page = int
 
 // ProjectId defines model for ProjectId.
 type ProjectId = openapi_types.UUID
+
+// RestoreId defines model for RestoreId.
+type RestoreId = openapi_types.UUID
 
 // SchedulerId defines model for SchedulerId.
 type SchedulerId = openapi_types.UUID
@@ -7171,7 +7609,37 @@ type AuthGetMySessionsParams struct {
 
 	// Limit Number of sessions per page (max 100)
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Sort key. `last_activity` (default) orders by most recent activity and
+	// supports offset pagination only. `created_at` orders by session start
+	// and supports both offset and cursor pagination.
+	Sort *AuthGetMySessionsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Status Filter by whether the session can still be refreshed. Omit for every
+	// stored session, including expired ones. `expired` is not supported
+	// with cursor pagination.
+	Status *AuthGetMySessionsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor Opaque keyset cursor from a previous response's `next_cursor`. Requires
+	// `sort=created_at`; mutually exclusive with `page` and `ending_before`.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// EndingBefore Opaque keyset cursor from a previous response's `prev_cursor`, paging
+	// backward. Requires `sort=created_at`; mutually exclusive with `page`
+	// and `cursor`.
+	EndingBefore *string `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Offset Bounded number of rows to skip past the cursor anchor (the hybrid
+	// jump, maximum 100000). Ignored unless `cursor` or `ending_before` is
+	// supplied.
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// AuthGetMySessionsParamsSort defines parameters for AuthGetMySessions.
+type AuthGetMySessionsParamsSort string
+
+// AuthGetMySessionsParamsStatus defines parameters for AuthGetMySessions.
+type AuthGetMySessionsParamsStatus string
 
 // ListDeploymentsParams defines parameters for ListDeployments.
 type ListDeploymentsParams struct {
@@ -7548,7 +8016,37 @@ type ListUserSessionsParams struct {
 
 	// Limit Number of sessions per page (max 100)
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Sort Sort key. `last_activity` (default) orders by most recent activity and
+	// supports offset pagination only. `created_at` orders by session start
+	// and supports both offset and cursor pagination.
+	Sort *ListUserSessionsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Status Filter by whether the session can still be refreshed. Omit for every
+	// stored session, including expired ones. `expired` is not supported
+	// with cursor pagination.
+	Status *ListUserSessionsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor Opaque keyset cursor from a previous response's `next_cursor`. Requires
+	// `sort=created_at`; mutually exclusive with `page` and `ending_before`.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// EndingBefore Opaque keyset cursor from a previous response's `prev_cursor`, paging
+	// backward. Requires `sort=created_at`; mutually exclusive with `page`
+	// and `cursor`.
+	EndingBefore *string `form:"ending_before,omitempty" json:"ending_before,omitempty"`
+
+	// Offset Bounded number of rows to skip past the cursor anchor (the hybrid
+	// jump, maximum 100000). Ignored unless `cursor` or `ending_before` is
+	// supplied.
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// ListUserSessionsParamsSort defines parameters for ListUserSessions.
+type ListUserSessionsParamsSort string
+
+// ListUserSessionsParamsStatus defines parameters for ListUserSessions.
+type ListUserSessionsParamsStatus string
 
 // GetProjectConfigParams defines parameters for GetProjectConfig.
 type GetProjectConfigParams struct {
@@ -8342,11 +8840,20 @@ type ApplyProjectConfigJSONRequestBody = ProjectConfig
 // CreateDatabaseJSONRequestBody defines body for CreateDatabase for application/json ContentType.
 type CreateDatabaseJSONRequestBody = CreateDatabaseRequest
 
+// UpdateDatabaseBackupScheduleJSONRequestBody defines body for UpdateDatabaseBackupSchedule for application/json ContentType.
+type UpdateDatabaseBackupScheduleJSONRequestBody = DatabaseBackupSchedule
+
+// CreateDatabaseBackupJSONRequestBody defines body for CreateDatabaseBackup for application/json ContentType.
+type CreateDatabaseBackupJSONRequestBody = CreateDatabaseBackupRequest
+
 // CreateDatabaseBranchJSONRequestBody defines body for CreateDatabaseBranch for application/json ContentType.
 type CreateDatabaseBranchJSONRequestBody = CreateDatabaseBranchRequest
 
 // UpdateDatabaseBranchJSONRequestBody defines body for UpdateDatabaseBranch for application/json ContentType.
 type UpdateDatabaseBranchJSONRequestBody = UpdateDatabaseBranchRequest
+
+// CreateDatabaseRestoreJSONRequestBody defines body for CreateDatabaseRestore for application/json ContentType.
+type CreateDatabaseRestoreJSONRequestBody = CreateDatabaseRestoreRequest
 
 // UpdateDatabaseTypeJSONRequestBody defines body for UpdateDatabaseType for application/json ContentType.
 type UpdateDatabaseTypeJSONRequestBody = UpdateDatabaseTypeRequest
@@ -8380,6 +8887,12 @@ type UpdateFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
 
 // ConnectProjectGitJSONRequestBody defines body for ConnectProjectGit for application/json ContentType.
 type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
+
+// SetProjectGitProductionBranchJSONRequestBody defines body for SetProjectGitProductionBranch for application/json ContentType.
+type SetProjectGitProductionBranchJSONRequestBody = SetProjectGitProductionBranchRequest
+
+// CreateProjectGitRepositoryJSONRequestBody defines body for CreateProjectGitRepository for application/json ContentType.
+type CreateProjectGitRepositoryJSONRequestBody = CreateProjectGitRepositoryRequest
 
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
@@ -9637,6 +10150,28 @@ type ClientInterface interface {
 	// GetDatabase request
 	GetDatabase(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDatabaseBackupSchedule request
+	GetDatabaseBackupSchedule(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDatabaseBackupScheduleWithBody request with any body
+	UpdateDatabaseBackupScheduleWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDatabaseBackupSchedule(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseBackupScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDatabaseBackups request
+	ListDatabaseBackups(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDatabaseBackupWithBody request with any body
+	CreateDatabaseBackupWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDatabaseBackup request
+	DeleteDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseBackup request
+	GetDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDatabaseBranches request
 	ListDatabaseBranches(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -9667,6 +10202,17 @@ type ClientInterface interface {
 
 	// ResetDatabasePassword request
 	ResetDatabasePassword(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDatabaseRestores request
+	ListDatabaseRestores(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDatabaseRestoreWithBody request with any body
+	CreateDatabaseRestoreWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDatabaseRestore(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseRestoreJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseRestore request
+	GetDatabaseRestore(ctx context.Context, id ProjectId, databaseName DatabaseName, restoreId RestoreId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDatabaseStats request
 	GetDatabaseStats(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetDatabaseStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9788,6 +10334,16 @@ type ClientInterface interface {
 	ConnectProjectGitWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ConnectProjectGit(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectGitProductionBranchWithBody request with any body
+	SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectGitRepositoryWithBody request with any body
+	CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectGitDeploySettings request
 	GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -11764,6 +12320,102 @@ func (c *Client) GetDatabase(ctx context.Context, id ProjectId, databaseName Dat
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetDatabaseBackupSchedule(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseBackupScheduleRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDatabaseBackupScheduleWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDatabaseBackupScheduleRequestWithBody(c.Server, id, databaseName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDatabaseBackupSchedule(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseBackupScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDatabaseBackupScheduleRequest(c.Server, id, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDatabaseBackups(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDatabaseBackupsRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseBackupWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseBackupRequestWithBody(c.Server, id, databaseName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseBackupRequest(c.Server, id, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDatabaseBackupRequest(c.Server, id, databaseName, backupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseBackup(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseBackupRequest(c.Server, id, databaseName, backupName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDatabaseBranches(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDatabaseBranchesRequest(c.Server, id, databaseName)
 	if err != nil {
@@ -11886,6 +12538,54 @@ func (c *Client) GetProjectDatabaseQueries(ctx context.Context, id ProjectId, da
 
 func (c *Client) ResetDatabasePassword(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResetDatabasePasswordRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDatabaseRestores(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDatabaseRestoresRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseRestoreWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseRestoreRequestWithBody(c.Server, id, databaseName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseRestore(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseRestoreJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseRestoreRequest(c.Server, id, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseRestore(ctx context.Context, id ProjectId, databaseName DatabaseName, restoreId RestoreId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseRestoreRequest(c.Server, id, databaseName, restoreId)
 	if err != nil {
 		return nil, err
 	}
@@ -12402,6 +13102,54 @@ func (c *Client) ConnectProjectGitWithBody(ctx context.Context, id ProjectId, co
 
 func (c *Client) ConnectProjectGit(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewConnectProjectGitRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitProductionBranchRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitProductionBranchRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectGitRepositoryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectGitRepositoryRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14748,6 +15496,66 @@ func NewAuthGetMySessionsRequest(server string, params *AuthGetMySessionsParams)
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndingBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ending_before", *params.EndingBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -18080,6 +18888,66 @@ func NewListUserSessionsRequest(server string, id ProjectId, userId openapi_type
 
 		}
 
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.EndingBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ending_before", *params.EndingBefore, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -18568,6 +19436,292 @@ func NewGetDatabaseRequest(server string, id ProjectId, databaseName DatabaseNam
 	return req, nil
 }
 
+// NewGetDatabaseBackupScheduleRequest generates requests for GetDatabaseBackupSchedule
+func NewGetDatabaseBackupScheduleRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backup-schedule", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDatabaseBackupScheduleRequest calls the generic UpdateDatabaseBackupSchedule builder with application/json body
+func NewUpdateDatabaseBackupScheduleRequest(server string, id ProjectId, databaseName DatabaseName, body UpdateDatabaseBackupScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDatabaseBackupScheduleRequestWithBody(server, id, databaseName, "application/json", bodyReader)
+}
+
+// NewUpdateDatabaseBackupScheduleRequestWithBody generates requests for UpdateDatabaseBackupSchedule with any type of body
+func NewUpdateDatabaseBackupScheduleRequestWithBody(server string, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backup-schedule", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListDatabaseBackupsRequest generates requests for ListDatabaseBackups
+func NewListDatabaseBackupsRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backups", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDatabaseBackupRequest calls the generic CreateDatabaseBackup builder with application/json body
+func NewCreateDatabaseBackupRequest(server string, id ProjectId, databaseName DatabaseName, body CreateDatabaseBackupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDatabaseBackupRequestWithBody(server, id, databaseName, "application/json", bodyReader)
+}
+
+// NewCreateDatabaseBackupRequestWithBody generates requests for CreateDatabaseBackup with any type of body
+func NewCreateDatabaseBackupRequestWithBody(server string, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backups", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDatabaseBackupRequest generates requests for DeleteDatabaseBackup
+func NewDeleteDatabaseBackupRequest(server string, id ProjectId, databaseName DatabaseName, backupName BackupName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "backupName", backupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backups/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDatabaseBackupRequest generates requests for GetDatabaseBackup
+func NewGetDatabaseBackupRequest(server string, id ProjectId, databaseName DatabaseName, backupName BackupName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "backupName", backupName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/backups/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListDatabaseBranchesRequest generates requests for ListDatabaseBranches
 func NewListDatabaseBranchesRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
 	var err error
@@ -19018,6 +20172,149 @@ func NewResetDatabasePasswordRequest(server string, id ProjectId, databaseName D
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDatabaseRestoresRequest generates requests for ListDatabaseRestores
+func NewListDatabaseRestoresRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/restores", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDatabaseRestoreRequest calls the generic CreateDatabaseRestore builder with application/json body
+func NewCreateDatabaseRestoreRequest(server string, id ProjectId, databaseName DatabaseName, body CreateDatabaseRestoreJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDatabaseRestoreRequestWithBody(server, id, databaseName, "application/json", bodyReader)
+}
+
+// NewCreateDatabaseRestoreRequestWithBody generates requests for CreateDatabaseRestore with any type of body
+func NewCreateDatabaseRestoreRequestWithBody(server string, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/restores", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDatabaseRestoreRequest generates requests for GetDatabaseRestore
+func NewGetDatabaseRestoreRequest(server string, id ProjectId, databaseName DatabaseName, restoreId RestoreId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "restoreId", restoreId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/restores/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -21066,6 +22363,100 @@ func NewConnectProjectGitRequestWithBody(server string, id ProjectId, contentTyp
 	}
 
 	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetProjectGitProductionBranchRequest calls the generic SetProjectGitProductionBranch builder with application/json body
+func NewSetProjectGitProductionBranchRequest(server string, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectGitProductionBranchRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectGitProductionBranchRequestWithBody generates requests for SetProjectGitProductionBranch with any type of body
+func NewSetProjectGitProductionBranchRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/production-branch", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateProjectGitRepositoryRequest calls the generic CreateProjectGitRepository builder with application/json body
+func NewCreateProjectGitRepositoryRequest(server string, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectGitRepositoryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateProjectGitRepositoryRequestWithBody generates requests for CreateProjectGitRepository with any type of body
+func NewCreateProjectGitRepositoryRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/repository", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -24642,6 +26033,28 @@ type ClientWithResponsesInterface interface {
 	// GetDatabaseWithResponse request
 	GetDatabaseWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseClientResponse, error)
 
+	// GetDatabaseBackupScheduleWithResponse request
+	GetDatabaseBackupScheduleWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseBackupScheduleClientResponse, error)
+
+	// UpdateDatabaseBackupScheduleWithBodyWithResponse request with any body
+	UpdateDatabaseBackupScheduleWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDatabaseBackupScheduleClientResponse, error)
+
+	UpdateDatabaseBackupScheduleWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseBackupScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDatabaseBackupScheduleClientResponse, error)
+
+	// ListDatabaseBackupsWithResponse request
+	ListDatabaseBackupsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseBackupsClientResponse, error)
+
+	// CreateDatabaseBackupWithBodyWithResponse request with any body
+	CreateDatabaseBackupWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseBackupClientResponse, error)
+
+	CreateDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseBackupClientResponse, error)
+
+	// DeleteDatabaseBackupWithResponse request
+	DeleteDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*DeleteDatabaseBackupClientResponse, error)
+
+	// GetDatabaseBackupWithResponse request
+	GetDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*GetDatabaseBackupClientResponse, error)
+
 	// ListDatabaseBranchesWithResponse request
 	ListDatabaseBranchesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseBranchesClientResponse, error)
 
@@ -24672,6 +26085,17 @@ type ClientWithResponsesInterface interface {
 
 	// ResetDatabasePasswordWithResponse request
 	ResetDatabasePasswordWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ResetDatabasePasswordClientResponse, error)
+
+	// ListDatabaseRestoresWithResponse request
+	ListDatabaseRestoresWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseRestoresClientResponse, error)
+
+	// CreateDatabaseRestoreWithBodyWithResponse request with any body
+	CreateDatabaseRestoreWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseRestoreClientResponse, error)
+
+	CreateDatabaseRestoreWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseRestoreJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseRestoreClientResponse, error)
+
+	// GetDatabaseRestoreWithResponse request
+	GetDatabaseRestoreWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, restoreId RestoreId, reqEditors ...RequestEditorFn) (*GetDatabaseRestoreClientResponse, error)
 
 	// GetDatabaseStatsWithResponse request
 	GetDatabaseStatsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetDatabaseStatsParams, reqEditors ...RequestEditorFn) (*GetDatabaseStatsClientResponse, error)
@@ -24793,6 +26217,16 @@ type ClientWithResponsesInterface interface {
 	ConnectProjectGitWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectProjectGitClientResponse, error)
 
 	ConnectProjectGitWithResponse(ctx context.Context, id ProjectId, body ConnectProjectGitJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectProjectGitClientResponse, error)
+
+	// SetProjectGitProductionBranchWithBodyWithResponse request with any body
+	SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
+
+	SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
+
+	// CreateProjectGitRepositoryWithBodyWithResponse request with any body
+	CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
+
+	CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
 
 	// GetProjectGitDeploySettingsWithResponse request
 	GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error)
@@ -26122,12 +27556,24 @@ type AuthGetMySessionsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
+		// Data Sessions for this page (cursor pagination only)
+		Data *[]AuthSession `json:"data,omitempty"`
+
+		// HasMore Whether a further page exists (cursor pagination only)
+		HasMore *bool `json:"has_more,omitempty"`
+
 		// Limit Number of sessions per page
 		Limit *int `json:"limit,omitempty"`
 
+		// NextCursor Opaque cursor for the next page (cursor pagination only)
+		NextCursor *string `json:"next_cursor,omitempty"`
+
 		// Page Current page number
-		Page     *int           `json:"page,omitempty"`
-		Sessions *[]AuthSession `json:"sessions,omitempty"`
+		Page *int `json:"page,omitempty"`
+
+		// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+		PrevCursor *string        `json:"prev_cursor,omitempty"`
+		Sessions   *[]AuthSession `json:"sessions,omitempty"`
 
 		// Total Total number of sessions
 		Total *int `json:"total,omitempty"`
@@ -26135,6 +27581,7 @@ type AuthGetMySessionsClientResponse struct {
 		// TotalPages Total number of pages
 		TotalPages *int `json:"total_pages,omitempty"`
 	}
+	JSON400 *Error
 	JSON401 *Error
 }
 
@@ -27654,6 +29101,7 @@ type UpdateAuthConfigClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AuthConfig
+	JSON403      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -28156,12 +29604,24 @@ type ListUserSessionsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
+		// Data Sessions for this page (cursor pagination only)
+		Data *[]AuthSession `json:"data,omitempty"`
+
+		// HasMore Whether a further page exists (cursor pagination only)
+		HasMore *bool `json:"has_more,omitempty"`
+
 		// Limit Number of sessions per page
 		Limit *int `json:"limit,omitempty"`
 
+		// NextCursor Opaque cursor for the next page (cursor pagination only)
+		NextCursor *string `json:"next_cursor,omitempty"`
+
 		// Page Current page number
-		Page     *int           `json:"page,omitempty"`
-		Sessions *[]AuthSession `json:"sessions,omitempty"`
+		Page *int `json:"page,omitempty"`
+
+		// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+		PrevCursor *string        `json:"prev_cursor,omitempty"`
+		Sessions   *[]AuthSession `json:"sessions,omitempty"`
 
 		// Total Total number of sessions
 		Total *int `json:"total,omitempty"`
@@ -28169,6 +29629,7 @@ type ListUserSessionsClientResponse struct {
 		// TotalPages Total number of pages
 		TotalPages *int `json:"total_pages,omitempty"`
 	}
+	JSON400 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -28391,6 +29852,8 @@ type DeleteDatabaseClientResponse struct {
 		Message *string `json:"message,omitempty"`
 		Status  *string `json:"status,omitempty"`
 	}
+	JSON404 *Error
+	JSON409 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -28441,6 +29904,215 @@ func (r GetDatabaseClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDatabaseClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseBackupScheduleClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseBackupSchedule
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseBackupScheduleClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseBackupScheduleClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseBackupScheduleClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateDatabaseBackupScheduleClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseBackupSchedule
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDatabaseBackupScheduleClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDatabaseBackupScheduleClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateDatabaseBackupScheduleClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDatabaseBackupsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseBackupList
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDatabaseBackupsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDatabaseBackupsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDatabaseBackupsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDatabaseBackupClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *DatabaseBackup
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDatabaseBackupClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDatabaseBackupClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDatabaseBackupClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteDatabaseBackupClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+	JSON403 *Error
+	JSON404 *Error
+	JSON409 *Error
+	JSON503 *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDatabaseBackupClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDatabaseBackupClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDatabaseBackupClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseBackupClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseBackup
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseBackupClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseBackupClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseBackupClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -28730,6 +30402,9 @@ type ResetDatabasePasswordClientResponse struct {
 		// RoleName Volcano-managed per-database client login (also the pgproxy routing username)
 		RoleName *string `json:"role_name,omitempty"`
 	}
+	JSON400 *Error
+	JSON404 *Error
+	JSON409 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -28750,6 +30425,107 @@ func (r ResetDatabasePasswordClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ResetDatabasePasswordClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDatabaseRestoresClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseRestoreList
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDatabaseRestoresClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDatabaseRestoresClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDatabaseRestoresClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDatabaseRestoreClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *DatabaseRestore
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDatabaseRestoreClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDatabaseRestoreClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDatabaseRestoreClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseRestoreClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseRestore
+	JSON403      *Error
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseRestoreClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseRestoreClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseRestoreClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -28793,6 +30569,7 @@ type UpdateDatabaseTypeClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Database
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -28959,6 +30736,7 @@ type CreateEmailTemplateClientResponse struct {
 	JSON201      *EmailTemplate
 	JSON400      *Error
 	JSON403      *Error
+	JSON409      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -29902,6 +31680,80 @@ func (r ConnectProjectGitClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ConnectProjectGitClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetProjectGitProductionBranchClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectGitProductionBranchClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectGitProductionBranchClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectGitProductionBranchClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectGitRepositoryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *CreatedProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectGitRepositoryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectGitRepositoryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectGitRepositoryClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -33033,6 +34885,76 @@ func (c *ClientWithResponses) GetDatabaseWithResponse(ctx context.Context, id Pr
 	return ParseGetDatabaseClientResponse(rsp)
 }
 
+// GetDatabaseBackupScheduleWithResponse request returning *GetDatabaseBackupScheduleClientResponse
+func (c *ClientWithResponses) GetDatabaseBackupScheduleWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseBackupScheduleClientResponse, error) {
+	rsp, err := c.GetDatabaseBackupSchedule(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseBackupScheduleClientResponse(rsp)
+}
+
+// UpdateDatabaseBackupScheduleWithBodyWithResponse request with arbitrary body returning *UpdateDatabaseBackupScheduleClientResponse
+func (c *ClientWithResponses) UpdateDatabaseBackupScheduleWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDatabaseBackupScheduleClientResponse, error) {
+	rsp, err := c.UpdateDatabaseBackupScheduleWithBody(ctx, id, databaseName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDatabaseBackupScheduleClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDatabaseBackupScheduleWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseBackupScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDatabaseBackupScheduleClientResponse, error) {
+	rsp, err := c.UpdateDatabaseBackupSchedule(ctx, id, databaseName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDatabaseBackupScheduleClientResponse(rsp)
+}
+
+// ListDatabaseBackupsWithResponse request returning *ListDatabaseBackupsClientResponse
+func (c *ClientWithResponses) ListDatabaseBackupsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseBackupsClientResponse, error) {
+	rsp, err := c.ListDatabaseBackups(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDatabaseBackupsClientResponse(rsp)
+}
+
+// CreateDatabaseBackupWithBodyWithResponse request with arbitrary body returning *CreateDatabaseBackupClientResponse
+func (c *ClientWithResponses) CreateDatabaseBackupWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseBackupClientResponse, error) {
+	rsp, err := c.CreateDatabaseBackupWithBody(ctx, id, databaseName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseBackupClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseBackupClientResponse, error) {
+	rsp, err := c.CreateDatabaseBackup(ctx, id, databaseName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseBackupClientResponse(rsp)
+}
+
+// DeleteDatabaseBackupWithResponse request returning *DeleteDatabaseBackupClientResponse
+func (c *ClientWithResponses) DeleteDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*DeleteDatabaseBackupClientResponse, error) {
+	rsp, err := c.DeleteDatabaseBackup(ctx, id, databaseName, backupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDatabaseBackupClientResponse(rsp)
+}
+
+// GetDatabaseBackupWithResponse request returning *GetDatabaseBackupClientResponse
+func (c *ClientWithResponses) GetDatabaseBackupWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, backupName BackupName, reqEditors ...RequestEditorFn) (*GetDatabaseBackupClientResponse, error) {
+	rsp, err := c.GetDatabaseBackup(ctx, id, databaseName, backupName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseBackupClientResponse(rsp)
+}
+
 // ListDatabaseBranchesWithResponse request returning *ListDatabaseBranchesClientResponse
 func (c *ClientWithResponses) ListDatabaseBranchesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseBranchesClientResponse, error) {
 	rsp, err := c.ListDatabaseBranches(ctx, id, databaseName, reqEditors...)
@@ -33128,6 +35050,41 @@ func (c *ClientWithResponses) ResetDatabasePasswordWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseResetDatabasePasswordClientResponse(rsp)
+}
+
+// ListDatabaseRestoresWithResponse request returning *ListDatabaseRestoresClientResponse
+func (c *ClientWithResponses) ListDatabaseRestoresWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseRestoresClientResponse, error) {
+	rsp, err := c.ListDatabaseRestores(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDatabaseRestoresClientResponse(rsp)
+}
+
+// CreateDatabaseRestoreWithBodyWithResponse request with arbitrary body returning *CreateDatabaseRestoreClientResponse
+func (c *ClientWithResponses) CreateDatabaseRestoreWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseRestoreClientResponse, error) {
+	rsp, err := c.CreateDatabaseRestoreWithBody(ctx, id, databaseName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseRestoreClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDatabaseRestoreWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body CreateDatabaseRestoreJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseRestoreClientResponse, error) {
+	rsp, err := c.CreateDatabaseRestore(ctx, id, databaseName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseRestoreClientResponse(rsp)
+}
+
+// GetDatabaseRestoreWithResponse request returning *GetDatabaseRestoreClientResponse
+func (c *ClientWithResponses) GetDatabaseRestoreWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, restoreId RestoreId, reqEditors ...RequestEditorFn) (*GetDatabaseRestoreClientResponse, error) {
+	rsp, err := c.GetDatabaseRestore(ctx, id, databaseName, restoreId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseRestoreClientResponse(rsp)
 }
 
 // GetDatabaseStatsWithResponse request returning *GetDatabaseStatsClientResponse
@@ -33507,6 +35464,40 @@ func (c *ClientWithResponses) ConnectProjectGitWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseConnectProjectGitClientResponse(rsp)
+}
+
+// SetProjectGitProductionBranchWithBodyWithResponse request with arbitrary body returning *SetProjectGitProductionBranchClientResponse
+func (c *ClientWithResponses) SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error) {
+	rsp, err := c.SetProjectGitProductionBranchWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitProductionBranchClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error) {
+	rsp, err := c.SetProjectGitProductionBranch(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitProductionBranchClientResponse(rsp)
+}
+
+// CreateProjectGitRepositoryWithBodyWithResponse request with arbitrary body returning *CreateProjectGitRepositoryClientResponse
+func (c *ClientWithResponses) CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
+	rsp, err := c.CreateProjectGitRepositoryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectGitRepositoryClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
+	rsp, err := c.CreateProjectGitRepository(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectGitRepositoryClientResponse(rsp)
 }
 
 // GetProjectGitDeploySettingsWithResponse request returning *GetProjectGitDeploySettingsClientResponse
@@ -35474,12 +37465,24 @@ func ParseAuthGetMySessionsClientResponse(rsp *http.Response) (*AuthGetMySession
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			// Data Sessions for this page (cursor pagination only)
+			Data *[]AuthSession `json:"data,omitempty"`
+
+			// HasMore Whether a further page exists (cursor pagination only)
+			HasMore *bool `json:"has_more,omitempty"`
+
 			// Limit Number of sessions per page
 			Limit *int `json:"limit,omitempty"`
 
+			// NextCursor Opaque cursor for the next page (cursor pagination only)
+			NextCursor *string `json:"next_cursor,omitempty"`
+
 			// Page Current page number
-			Page     *int           `json:"page,omitempty"`
-			Sessions *[]AuthSession `json:"sessions,omitempty"`
+			Page *int `json:"page,omitempty"`
+
+			// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+			PrevCursor *string        `json:"prev_cursor,omitempty"`
+			Sessions   *[]AuthSession `json:"sessions,omitempty"`
 
 			// Total Total number of sessions
 			Total *int `json:"total,omitempty"`
@@ -35491,6 +37494,13 @@ func ParseAuthGetMySessionsClientResponse(rsp *http.Response) (*AuthGetMySession
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
@@ -37638,6 +39648,13 @@ func ParseUpdateAuthConfigClientResponse(rsp *http.Response) (*UpdateAuthConfigC
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -38068,12 +40085,24 @@ func ParseListUserSessionsClientResponse(rsp *http.Response) (*ListUserSessionsC
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			// Data Sessions for this page (cursor pagination only)
+			Data *[]AuthSession `json:"data,omitempty"`
+
+			// HasMore Whether a further page exists (cursor pagination only)
+			HasMore *bool `json:"has_more,omitempty"`
+
 			// Limit Number of sessions per page
 			Limit *int `json:"limit,omitempty"`
 
+			// NextCursor Opaque cursor for the next page (cursor pagination only)
+			NextCursor *string `json:"next_cursor,omitempty"`
+
 			// Page Current page number
-			Page     *int           `json:"page,omitempty"`
-			Sessions *[]AuthSession `json:"sessions,omitempty"`
+			Page *int `json:"page,omitempty"`
+
+			// PrevCursor Opaque cursor for the previous page (cursor pagination only). Send as `ending_before`.
+			PrevCursor *string        `json:"prev_cursor,omitempty"`
+			Sessions   *[]AuthSession `json:"sessions,omitempty"`
 
 			// Total Total number of sessions
 			Total *int `json:"total,omitempty"`
@@ -38085,6 +40114,13 @@ func ParseListUserSessionsClientResponse(rsp *http.Response) (*ListUserSessionsC
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -38331,6 +40367,20 @@ func ParseDeleteDatabaseClientResponse(rsp *http.Response) (*DeleteDatabaseClien
 		}
 		response.JSON202 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -38356,6 +40406,347 @@ func ParseGetDatabaseClientResponse(rsp *http.Response) (*GetDatabaseClientRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseBackupScheduleClientResponse parses an HTTP response from a GetDatabaseBackupScheduleWithResponse call
+func ParseGetDatabaseBackupScheduleClientResponse(rsp *http.Response) (*GetDatabaseBackupScheduleClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseBackupScheduleClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseBackupSchedule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDatabaseBackupScheduleClientResponse parses an HTTP response from a UpdateDatabaseBackupScheduleWithResponse call
+func ParseUpdateDatabaseBackupScheduleClientResponse(rsp *http.Response) (*UpdateDatabaseBackupScheduleClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDatabaseBackupScheduleClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseBackupSchedule
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDatabaseBackupsClientResponse parses an HTTP response from a ListDatabaseBackupsWithResponse call
+func ParseListDatabaseBackupsClientResponse(rsp *http.Response) (*ListDatabaseBackupsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDatabaseBackupsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseBackupList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDatabaseBackupClientResponse parses an HTTP response from a CreateDatabaseBackupWithResponse call
+func ParseCreateDatabaseBackupClientResponse(rsp *http.Response) (*CreateDatabaseBackupClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDatabaseBackupClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DatabaseBackup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDatabaseBackupClientResponse parses an HTTP response from a DeleteDatabaseBackupWithResponse call
+func ParseDeleteDatabaseBackupClientResponse(rsp *http.Response) (*DeleteDatabaseBackupClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDatabaseBackupClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Message string `json:"message"`
+			Status  string `json:"status"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseBackupClientResponse parses an HTTP response from a GetDatabaseBackupWithResponse call
+func ParseGetDatabaseBackupClientResponse(rsp *http.Response) (*GetDatabaseBackupClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseBackupClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseBackup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -38786,6 +41177,182 @@ func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabas
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDatabaseRestoresClientResponse parses an HTTP response from a ListDatabaseRestoresWithResponse call
+func ParseListDatabaseRestoresClientResponse(rsp *http.Response) (*ListDatabaseRestoresClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDatabaseRestoresClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseRestoreList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDatabaseRestoreClientResponse parses an HTTP response from a CreateDatabaseRestoreWithResponse call
+func ParseCreateDatabaseRestoreClientResponse(rsp *http.Response) (*CreateDatabaseRestoreClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDatabaseRestoreClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DatabaseRestore
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseRestoreClientResponse parses an HTTP response from a GetDatabaseRestoreWithResponse call
+func ParseGetDatabaseRestoreClientResponse(rsp *http.Response) (*GetDatabaseRestoreClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseRestoreClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseRestore
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -38858,6 +41425,13 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -39088,6 +41662,13 @@ func ParseCreateEmailTemplateClientResponse(rsp *http.Response) (*CreateEmailTem
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -40380,6 +42961,156 @@ func ParseConnectProjectGitClientResponse(rsp *http.Response) (*ConnectProjectGi
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectGitProductionBranchClientResponse parses an HTTP response from a SetProjectGitProductionBranchWithResponse call
+func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetProjectGitProductionBranchClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectGitProductionBranchClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectGitRepositoryClientResponse parses an HTTP response from a CreateProjectGitRepositoryWithResponse call
+func ParseCreateProjectGitRepositoryClientResponse(rsp *http.Response) (*CreateProjectGitRepositoryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectGitRepositoryClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreatedProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error

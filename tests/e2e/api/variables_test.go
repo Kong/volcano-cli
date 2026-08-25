@@ -1,14 +1,14 @@
 package api
 
 import (
-	"net/http"
 	"path/filepath"
 	"testing"
 )
 
 func TestAPIE2ESmokeVariables(t *testing.T) {
 	env := setupAPIE2E(t, "smoke-variables")
-	apiE2EJSONRequest(t, http.MethodPost, env.mgmtURL+"/users/"+env.userID+"/plan", "", map[string]string{"plan": "PRO"}, http.StatusOK)
+	// A second project is past the Free cap this test creates one under.
+	env.setUserPlan(t, "PRO")
 	writeAPIE2EBaseProject(t, env.projectDir)
 
 	env.loginAndUse(t)

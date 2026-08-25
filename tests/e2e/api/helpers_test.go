@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -70,6 +71,16 @@ func setupAPIE2E(t *testing.T, prefix string) *apiE2E {
 		project:    projectName,
 	}
 	return env
+}
+
+// setUserPlan puts the test's owner on a plan. New users are created on FREE,
+// which has no backups and no point-in-time restore at all, so a test of a paid
+// database capability has to buy it first — the CLI would otherwise be asserting
+// against a 403 the whole way through.
+func (e *apiE2E) setUserPlan(t *testing.T, plan string) {
+	t.Helper()
+	apiE2EJSONRequest(t, http.MethodPost, e.mgmtURL+"/users/"+e.userID+"/plan", "",
+		map[string]string{"plan": plan}, http.StatusOK)
 }
 
 func requireAPIE2EEnabled(t *testing.T) {

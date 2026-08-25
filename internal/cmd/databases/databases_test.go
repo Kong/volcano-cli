@@ -113,6 +113,59 @@ func TestDatabaseCommandsCreateListGetDelete(t *testing.T) {
 	assert.Contains(t, out, "Database 'app' deleted")
 }
 
+// TestLocalTreeSendsProviderOnlyCommandsToCloud guards the split both database
+// trees are built from: `volcano databases` and `volcano local databases` come
+// from NewLocalWithOptions, everything under `volcano cloud` from New.
+//
+// Branches, backups, and restores need the storage provider, which local
+// development does not run, so the local tree does not carry them. Left to
+// cobra that reads as success: an unknown subcommand prints the parent's help
+// and exits 0, telling a user following the docs neither that it failed nor
+// where the command lives.
+//
+// Aliases are covered too: a spelling the stub does not answer to is a spelling
+// that goes back to reading as success, and the command it points at has to
+// answer to it as well, or the way out it offers is a second dead end.
+func TestLocalTreeSendsProviderOnlyCommandsToCloud(t *testing.T) {
+	providerOnly := []struct {
+		args  []string
+		cloud string
+	}{
+		{args: []string{"backups", "list", "app"}, cloud: "backups"},
+		{args: []string{"backup", "list", "app"}, cloud: "backups"},
+		{args: []string{"backup-schedule", "get", "app"}, cloud: "backup-schedule"},
+		{args: []string{"restore", "app", "--backup", "nightly"}, cloud: "restore"},
+		{args: []string{"restore", "app", "--to", "2026-01-15T09:30:00Z"}, cloud: "restore"},
+		{args: []string{"restores", "list", "app"}, cloud: "restores"},
+		{args: []string{"restore-history", "list", "app"}, cloud: "restores"},
+		{args: []string{"branches", "list", "app"}, cloud: "branches"},
+		{args: []string{"branches", "create", "app", "feature"}, cloud: "branches"},
+		{args: []string{"branch", "list", "app"}, cloud: "branches"},
+	}
+
+	for _, tc := range providerOnly {
+		_, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), tc.args...)
+		require.ErrorContains(t, err, "is a cloud command", "%v", tc.args)
+		require.ErrorContains(t, err, "volcano cloud databases "+tc.cloud, "%v", tc.args)
+
+		cloud := New(cliruntime.Deps{})
+		found, _, findErr := cloud.Find(tc.args[:1])
+		require.NoError(t, findErr, "%v", tc.args)
+		require.NotSame(t, cloud, found, "cloud databases must own %q, or the local guard proves nothing", tc.args[0])
+		assert.Equal(t, tc.cloud, found.Name(), "the local guard names where %q lives", tc.args[0])
+	}
+}
+
+// The stubs answer the command; they must not advertise it, or local help would
+// list commands local mode cannot run.
+func TestLocalHelpKeepsCloudOnlyCommandsHidden(t *testing.T) {
+	out, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), "--help")
+	require.NoError(t, err)
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches"} {
+		assert.NotContains(t, out, command)
+	}
+}
+
 func TestDatabaseCommandsRequireProject(t *testing.T) {
 	setDatabaseCommandTestHome(t)
 	saveDatabaseCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})

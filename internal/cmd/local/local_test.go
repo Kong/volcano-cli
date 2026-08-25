@@ -278,6 +278,18 @@ func TestLocalMigrationsUsesDirectDeployPath(t *testing.T) {
 	assert.Contains(t, out, "volcano migrations deploy")
 }
 
+// Branching, backups, and restores all need Neon, which local development does
+// not run. Leaving the commands out of the local tree beats failing at runtime,
+// so the local help must not advertise them.
+func TestLocalDatabasesOmitProviderOnlyCommands(t *testing.T) {
+	out, err := executeLocalCommand(t, New(cliruntime.Deps{}), "databases", "--help")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "backups")
+	assert.NotContains(t, out, "backup-schedule")
+	assert.NotContains(t, out, "restore")
+	assert.NotContains(t, out, "branches")
+}
+
 func TestLocalHelpIncludesReset(t *testing.T) {
 	out, err := executeLocalCommand(t, New(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
