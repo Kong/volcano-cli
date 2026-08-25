@@ -35,8 +35,34 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 		requireSuccess(t, "Name: "+branch, "Status: active", "Connection string:", "postgresql://")
 	env.runCloudCLI(t, "databases", "branches", "list", database).requireSuccess(t, branch, "active")
 
+	// The singular alias is part of the advertised surface, so it has to reach the
+	// same routes.
+	env.runCloudCLI(t, "databases", "branch", "list", database).requireSuccess(t, branch)
+
 	// A branch name is unique within its parent.
 	env.runCloudCLI(t, "databases", "branches", "create", database, branch).requireFailure(t, branch)
+
+	// A name that exists nowhere reads as missing rather than as a failure of the
+	// command, on the branch and on the database it would belong to.
+	env.runCloudCLI(t, "databases", "branches", "get", database, "cli_e2e_absent").
+		requireFailure(t, "not found")
+	env.runCloudCLI(t, "databases", "branches", "delete", database, "cli_e2e_absent", "--yes").
+		requireFailure(t, "not found")
+	env.runCloudCLI(t, "databases", "branches", "list", "cli_e2e_absent_db").
+		requireFailure(t, "not found")
+
+	// Left off, the lifetime is the platform's default rather than nothing: a
+	// branch with no expiry would be one nothing ever collects. This is also the
+	// only path that proves the CLI omits the field instead of sending a zero.
+	defaulted := "cli_e2e_default_ttl"
+	env.runCloudCLI(t, "databases", "branches", "create", database, defaulted).
+		requireSuccess(t, "Branch '"+defaulted+"' of database '"+database+"' created")
+	t.Cleanup(func() {
+		_ = env.runCloudCLI(t, "databases", "branches", "delete", database, defaulted, "--yes")
+	})
+	env.runCloudCLI(t, "databases", "branches", "get", database, defaulted).requireSuccess(t, "(7d)")
+	env.runCloudCLI(t, "databases", "branches", "delete", database, defaulted, "--yes").
+		requireSuccess(t, "Branch '"+defaulted+"' of database '"+database+"' deleted")
 
 	env.runCloudCLI(t, "databases", "branches", "extend", database, branch, "--ttl", "6h").
 		requireSuccess(t, "Branch '"+branch+"' now expires")
@@ -56,12 +82,20 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 	branchBefore := apiE2EConnectionString(t,
 		env.runCloudCLI(t, "databases", "branches", "get", database, branch, "--show-connection-string").output)
 
-	env.runCloudCLI(t, "databases", "branches", "rotate-password", database, branch, "--yes").
-		requireSuccess(t, "Password rotated for branch '"+branch+"'")
+	rotated := env.runCloudCLI(t, "databases", "branches", "rotate-password", database, branch,
+		"--yes", "--show-connection-string")
+	rotated.requireSuccess(t, "Password rotated for branch '"+branch+"'", "postgresql://")
+	printed := apiE2EConnectionString(t, rotated.output)
 
 	parentAfter := apiE2EConnectionString(t, env.runCloudCLI(t, "databases", "get", database, "--show-connection-string").output)
 	branchAfter := apiE2EConnectionString(t,
 		env.runCloudCLI(t, "databases", "branches", "get", database, branch, "--show-connection-string").output)
+	// The credential the rotation printed is the one it installed, not a
+	// pre-rotation read: an owner who only keeps what the command printed has to
+	// end up with a working branch.
+	if printed != branchAfter {
+		t.Fatalf("rotate-password printed %q but the branch now serves %q", printed, branchAfter)
+	}
 	if parentAfter != parentBefore {
 		t.Fatalf("rotating branch %q changed the parent's connection string", branch)
 	}
