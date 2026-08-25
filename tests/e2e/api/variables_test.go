@@ -7,6 +7,8 @@ import (
 
 func TestAPIE2ESmokeVariables(t *testing.T) {
 	env := setupAPIE2E(t, "smoke-variables")
+	// A second project is past the Free cap this test creates one under.
+	env.setUserPlan(t, "PRO")
 	writeAPIE2EBaseProject(t, env.projectDir)
 
 	env.loginAndUse(t)
