@@ -33,10 +33,12 @@ The branch starts as a copy of the parent's current state and is returned
 before it is ready; fetch it until it reports active to get its connection
 string.
 
+A branch name may hold lowercase letters, numbers, and underscores.
+
 Examples:
   %s
   %s`,
-			cliruntime.CommandPath(deps, "databases branches create app feature-x"),
+			cliruntime.CommandPath(deps, "databases branches create app feature_x"),
 			cliruntime.CommandPath(deps, "databases branches create app nightly --ttl 24h")),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

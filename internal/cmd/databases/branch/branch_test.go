@@ -21,7 +21,7 @@ func TestListRendersBranches(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == branchesPath {
 			writeBranchJSON(t, w, http.StatusOK, map[string]any{
-				"data": []any{branchPayload("feature-x", "active")},
+				"data": []any{branchPayload("feature_x", "active")},
 			})
 			return
 		}
@@ -31,7 +31,7 @@ func TestListRendersBranches(t *testing.T) {
 
 	out, err := executeBranchCommand(t, newTestCommand(server), "list", "app")
 	require.NoError(t, err)
-	assert.Contains(t, out, "feature-x")
+	assert.Contains(t, out, "feature_x")
 	assert.Contains(t, out, "active")
 	assert.Contains(t, out, "Showing 1 branch(es) of database 'app'")
 }
@@ -60,18 +60,18 @@ func TestCreateSendsTTLAndReportsProvisioning(t *testing.T) {
 			raw, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
 			require.NoError(t, json.Unmarshal(raw, &body))
-			writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature-x", "provisioning"))
+			writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature_x", "provisioning"))
 			return
 		}
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature-x", "--ttl", "24h")
+	out, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature_x", "--ttl", "24h")
 	require.NoError(t, err)
-	assert.Equal(t, "feature-x", body["name"])
+	assert.Equal(t, "feature_x", body["name"])
 	assert.InDelta(t, float64(86400), body["ttl_seconds"], 0)
-	assert.Contains(t, out, "Branch 'feature-x' of database 'app' created")
+	assert.Contains(t, out, "Branch 'feature_x' of database 'app' created")
 	assert.Contains(t, out, "provisioning")
 }
 
@@ -84,11 +84,11 @@ func TestCreateOmitsTTLWhenFlagUnset(t *testing.T) {
 		raw, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		require.NoError(t, json.Unmarshal(raw, &body))
-		writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature-x", "provisioning"))
+		writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature_x", "provisioning"))
 	}))
 	defer server.Close()
 
-	_, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature-x")
+	_, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature_x")
 	require.NoError(t, err)
 	assert.NotContains(t, body, "ttl_seconds")
 }
@@ -104,7 +104,7 @@ func TestCreateSurfacesBranchCapError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature-x")
+	_, err := executeBranchCommand(t, newTestCommand(server), "create", "app", "feature_x")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "max 10 per database")
 }
@@ -113,7 +113,7 @@ func TestGetHidesConnectionStringByDefault(t *testing.T) {
 	setBranchCommandTestHome(t)
 	saveBranchCommandTestConfig(t)
 
-	payload := branchPayload("feature-x", "active")
+	payload := branchPayload("feature_x", "active")
 	payload["connection_string"] = "postgresql://branch:secret@host/db"
 	payload["storage_bytes"] = 2048
 
@@ -126,14 +126,30 @@ func TestGetHidesConnectionStringByDefault(t *testing.T) {
 	}))
 	defer server.Close()
 
-	hidden, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature-x")
+	hidden, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature_x")
 	require.NoError(t, err)
 	assert.NotContains(t, hidden, "secret")
 	assert.Contains(t, hidden, "2.0 KiB")
 
-	shown, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature-x", "--show-connection-string")
+	shown, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature_x", "--show-connection-string")
 	require.NoError(t, err)
 	assert.Contains(t, shown, "postgresql://branch:secret@host/db")
+}
+
+// A provisioning branch has no connection string yet, so --show-connection-string
+// has to say so rather than print the branch and stop.
+func TestGetExplainsAWithheldConnectionString(t *testing.T) {
+	setBranchCommandTestHome(t)
+	saveBranchCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBranchJSON(t, w, http.StatusOK, branchPayload("feature_x", "provisioning"))
+	}))
+	defer server.Close()
+
+	out, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature_x", "--show-connection-string")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Connection string: - (issued once the branch is active)")
 }
 
 func TestGetReportsUnsampledStorage(t *testing.T) {
@@ -141,11 +157,11 @@ func TestGetReportsUnsampledStorage(t *testing.T) {
 	saveBranchCommandTestConfig(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		writeBranchJSON(t, w, http.StatusOK, branchPayload("feature-x", "provisioning"))
+		writeBranchJSON(t, w, http.StatusOK, branchPayload("feature_x", "provisioning"))
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature-x")
+	out, err := executeBranchCommand(t, newTestCommand(server), "get", "app", "feature_x")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Storage: -")
 }
@@ -160,17 +176,17 @@ func TestExtendSendsNewTTL(t *testing.T) {
 			raw, err := io.ReadAll(r.Body)
 			require.NoError(t, err)
 			require.NoError(t, json.Unmarshal(raw, &body))
-			writeBranchJSON(t, w, http.StatusOK, branchPayload("feature-x", "active"))
+			writeBranchJSON(t, w, http.StatusOK, branchPayload("feature_x", "active"))
 			return
 		}
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "extend", "app", "feature-x", "--ttl", "72h")
+	out, err := executeBranchCommand(t, newTestCommand(server), "extend", "app", "feature_x", "--ttl", "72h")
 	require.NoError(t, err)
 	assert.InDelta(t, float64(259200), body["ttl_seconds"], 0)
-	assert.Contains(t, out, "Branch 'feature-x' now expires")
+	assert.Contains(t, out, "Branch 'feature_x' now expires")
 }
 
 func TestExtendRequiresTTL(t *testing.T) {
@@ -182,7 +198,7 @@ func TestExtendRequiresTTL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeBranchCommand(t, newTestCommand(server), "extend", "app", "feature-x")
+	_, err := executeBranchCommand(t, newTestCommand(server), "extend", "app", "feature_x")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ttl")
 }
@@ -194,11 +210,11 @@ func TestResetRequiresConfirmation(t *testing.T) {
 	called := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		called = true
-		writeBranchJSON(t, w, http.StatusOK, branchPayload("feature-x", "active"))
+		writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature_x", "provisioning"))
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "reset", "app", "feature-x")
+	out, err := executeBranchCommand(t, newTestCommand(server), "reset", "app", "feature_x")
 	require.NoError(t, err)
 	assert.False(t, called, "reset should not call the API when the prompt is declined")
 	assert.Contains(t, out, "Cancelled.")
@@ -212,16 +228,16 @@ func TestResetProceedsWithYes(t *testing.T) {
 	// the rewind finishes in the background.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Path == branchPath+"/reset" {
-			writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature-x", "provisioning"))
+			writeBranchJSON(t, w, http.StatusAccepted, branchPayload("feature_x", "provisioning"))
 			return
 		}
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "reset", "app", "feature-x", "--yes")
+	out, err := executeBranchCommand(t, newTestCommand(server), "reset", "app", "feature_x", "--yes")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Branch 'feature-x' reset to database 'app'")
+	assert.Contains(t, out, "Branch 'feature_x' reset to database 'app'")
 	assert.Contains(t, out, "does not serve connections until it reports active")
 }
 
@@ -229,7 +245,7 @@ func TestRotatePasswordShowsNewConnectionStringOnRequest(t *testing.T) {
 	setBranchCommandTestHome(t)
 	saveBranchCommandTestConfig(t)
 
-	payload := branchPayload("feature-x", "active")
+	payload := branchPayload("feature_x", "active")
 	payload["connection_string"] = "postgresql://branch:s3cr3t@host/db"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -241,13 +257,30 @@ func TestRotatePasswordShowsNewConnectionStringOnRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	hidden, err := executeBranchCommand(t, newTestCommand(server), "rotate-password", "app", "feature-x", "--yes")
+	hidden, err := executeBranchCommand(t, newTestCommand(server), "rotate-password", "app", "feature_x", "--yes")
 	require.NoError(t, err)
 	assert.NotContains(t, hidden, "s3cr3t")
 
-	shown, err := executeBranchCommand(t, newTestCommand(server), "rotate-password", "app", "feature-x", "--yes", "--show-connection-string")
+	shown, err := executeBranchCommand(t, newTestCommand(server), "rotate-password", "app", "feature_x", "--yes", "--show-connection-string")
 	require.NoError(t, err)
 	assert.Contains(t, shown, "postgresql://branch:s3cr3t@host/db")
+}
+
+// The rotated string is the user's only copy of the new credential, so a
+// response without one is called out instead of leaving the command silent.
+func TestRotatePasswordReportsAMissingConnectionString(t *testing.T) {
+	setBranchCommandTestHome(t)
+	saveBranchCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeBranchJSON(t, w, http.StatusOK, branchPayload("feature_x", "active"))
+	}))
+	defer server.Close()
+
+	out, err := executeBranchCommand(t, newTestCommand(server), "rotate-password", "app", "feature_x", "--yes", "--show-connection-string")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Warning: the API returned no connection string for branch 'feature_x'")
+	assert.Contains(t, out, "databases branches get app feature_x --show-connection-string")
 }
 
 func TestDeleteRequiresConfirmation(t *testing.T) {
@@ -261,7 +294,7 @@ func TestDeleteRequiresConfirmation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "delete", "app", "feature-x")
+	out, err := executeBranchCommand(t, newTestCommand(server), "delete", "app", "feature_x")
 	require.NoError(t, err)
 	assert.False(t, called, "delete should not call the API when the prompt is declined")
 	assert.Contains(t, out, "Delete cancelled.")
@@ -280,9 +313,9 @@ func TestDeleteProceedsWithYes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	out, err := executeBranchCommand(t, newTestCommand(server), "delete", "app", "feature-x", "--yes")
+	out, err := executeBranchCommand(t, newTestCommand(server), "delete", "app", "feature_x", "--yes")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Branch 'feature-x' of database 'app' deleted")
+	assert.Contains(t, out, "Branch 'feature_x' of database 'app' deleted")
 }
 
 func newTestCommand(server *httptest.Server) *cobra.Command {
