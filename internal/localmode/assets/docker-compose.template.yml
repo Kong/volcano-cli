@@ -76,6 +76,7 @@ services:
     environment:
       # Core settings
       LOCAL_MODE: "true"
+      LOCAL_MODE_GIT_DEPLOY_WORKER: ${LOCAL_MODE_GIT_DEPLOY_WORKER:-false}
       LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
@@ -124,6 +125,14 @@ services:
       VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID: ${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID:-}
       VOLCANO_FIRST_PARTY_AUTH_EMAIL: ${VOLCANO_FIRST_PARTY_AUTH_EMAIL:-}
       VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH: ${VOLCANO_FIRST_PARTY_AUTH_PASSWORD_HASH:-}
+      # Backend product analytics (internal/productanalytics). Optional: an
+      # empty POSTHOG_PROJECT_TOKEN disables capture (Noop), so local-mode
+      # runs that don't set it are unaffected. POSTHOG_TEST_MARKER_ENVIRONMENT
+      # is only ever set for a local/dev run used to verify instrumentation
+      # against a real shared PostHog project — never in a real deploy.
+      POSTHOG_PROJECT_TOKEN: ${POSTHOG_PROJECT_TOKEN:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-}
+      POSTHOG_TEST_MARKER_ENVIRONMENT: ${POSTHOG_TEST_MARKER_ENVIRONMENT:-}
     volumes:
       - volcano-storage:/app/local-storage
     ports:
