@@ -60,7 +60,7 @@ func TestAPIE2ECloudDatabaseBranches(t *testing.T) {
 	t.Cleanup(func() {
 		_ = env.runCloudCLI(t, "databases", "branches", "delete", database, defaulted, "--yes")
 	})
-	env.runCloudCLI(t, "databases", "branches", "get", database, defaulted).requireSuccess(t, "(7d)")
+	env.runCloudCLI(t, "databases", "branches", "get", database, defaulted).requireSuccess(t, "Lifetime: 7d")
 	env.runCloudCLI(t, "databases", "branches", "delete", database, defaulted, "--yes").
 		requireSuccess(t, "Branch '"+defaulted+"' of database '"+database+"' deleted")
 
