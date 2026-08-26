@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.23.0](https://github.com/Kong/volcano-cli/compare/v0.22.1...v0.23.0) (2026-08-26)
+
+
+### Features
+
+* **databases:** manage database backups and restores from the CLI ([#168](https://github.com/Kong/volcano-cli/issues/168)) ([b4209aa](https://github.com/Kong/volcano-cli/commit/b4209aab8cd3ca1902e8c2b9c2d3a718c920e095))
+
+
+### Bug Fixes
+
+* **databases:** show branch names the API accepts and say when a string is withheld ([#169](https://github.com/Kong/volcano-cli/issues/169)) ([205f3e2](https://github.com/Kong/volcano-cli/commit/205f3e24221719cd97496a2ebaef6ee7948f0ffd))
+* **localmode:** regenerate the compose template from volcano-hosting ([#172](https://github.com/Kong/volcano-cli/issues/172)) ([7b68d7e](https://github.com/Kong/volcano-cli/commit/7b68d7e8527384b97aa705fa34fca0d7ba6ea029))
+
 ## [0.22.1](https://github.com/Kong/volcano-cli/compare/v0.22.0...v0.22.1) (2026-08-20)
 
 
