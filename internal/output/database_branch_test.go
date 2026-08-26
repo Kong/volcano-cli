@@ -71,7 +71,7 @@ func TestDatabaseBranchWithoutADeadlineReadsAsAbsent(t *testing.T) {
 // The column is one cell wide, so a lifetime is truncated to its largest whole
 // unit: a branch with less than a minute left reads 0m, and one with less than
 // two days reads 1d.
-func TestFormatBranchDurationTruncatesToTheLargestUnit(t *testing.T) {
+func TestFormatCompactDurationTruncatesToTheLargestUnit(t *testing.T) {
 	cases := []struct {
 		name string
 		d    time.Duration
@@ -85,7 +85,7 @@ func TestFormatBranchDurationTruncatesToTheLargestUnit(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, formatBranchDuration(tc.d))
+			assert.Equal(t, tc.want, formatCompactDuration(tc.d))
 			assert.Equal(t, tc.want, formatBranchTTL(int64(tc.d.Seconds())))
 		})
 	}
