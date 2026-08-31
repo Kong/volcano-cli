@@ -21,6 +21,10 @@ Every doc must follow the Volcano docs format
 - **No H1 in the body** — the title comes from frontmatter; start at `##`.
 - `kebab-case.md` filenames; `_index.md` (or `README.md`) for a section landing.
 - Every fenced code block declares a language.
+- For links within `docs/`, use a relative path with the `.md` extension. For
+  links to another docs section, use a site-absolute path without an extension,
+  such as `/platform/functions/overview` or `/sdk/js/authentication`. Do not use
+  source-root paths such as `/commands`; this repository is synced under `/cli`.
 
 The shared lint (`.github/workflows/lint-docs.yml`) validates this on PRs that
 touch `docs/`, and `internal/docs` parses the frontmatter for `volcano docs
