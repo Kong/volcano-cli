@@ -265,6 +265,15 @@ auth:
       password: ${SECRET}
 functions:
   - name: hello
+    public: true
+    invocation_mode: http
+    http_auth_mode: none
+    openapi_spec:
+      openapi: 3.1.0
+      info:
+        title: Hello API
+        version: 1.0.0
+      paths: {}
     schedulers:
       - name: nightly
         cron: "0 3 * * *"
@@ -330,6 +339,15 @@ buckets:
     policies: []
 functions:
   - name: hello
+    public: true
+    invocation_mode: http
+    http_auth_mode: none
+    openapi_spec:
+      openapi: 3.1.0
+      info:
+        title: Hello API
+        version: 1.0.0
+      paths: {}
     schedulers:
       - name: nightly
         cron: "0 3 * * *"
@@ -361,12 +379,44 @@ functions:
 	require.True(t, ok)
 	function, ok := functions[0].(map[string]any)
 	require.True(t, ok)
+	assert.Equal(t, true, function["public"])
+	assert.Equal(t, "http", function["invocation_mode"])
+	assert.Equal(t, "none", function["http_auth_mode"])
+	openAPISpec, ok := function["openapi_spec"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "3.1.0", openAPISpec["openapi"])
+	assert.Equal(t, map[string]any{}, openAPISpec["paths"])
 	schedulers, ok := function["schedulers"].([]any)
 	require.True(t, ok)
 	scheduler, ok := schedulers[0].(map[string]any)
 	require.True(t, ok)
 	assert.NotContains(t, scheduler, "regions")
 	assert.NotContains(t, scheduler, "enabled")
+}
+
+func TestManifestUploadPreservesOpenAPISpecNull(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+functions:
+  - name: cleared
+    openapi_spec: null
+  - name: unchanged
+`), noEnv)
+	require.NoError(t, err)
+
+	encoded, err := manifest.uploadBody()
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &body))
+	functions, ok := body["functions"].([]any)
+	require.True(t, ok)
+	cleared, ok := functions[0].(map[string]any)
+	require.True(t, ok)
+	unchanged, ok := functions[1].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, cleared, "openapi_spec")
+	assert.Nil(t, cleared["openapi_spec"])
+	assert.NotContains(t, unchanged, "openapi_spec")
 }
 
 // TestManifestUploadPreservesVariableValueAbsence guards that an omitted variable

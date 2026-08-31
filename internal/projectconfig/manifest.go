@@ -260,9 +260,12 @@ type HostedPageManifest struct {
 
 // FunctionManifest declares configuration for one deployed function.
 type FunctionManifest struct {
-	Name       string               `yaml:"name" json:"name"`
-	Public     *bool                `yaml:"public,omitempty" json:"public,omitempty"`
-	Schedulers *[]SchedulerManifest `yaml:"schedulers,omitempty" json:"schedulers,omitempty"`
+	Name           string               `yaml:"name" json:"name"`
+	Public         *bool                `yaml:"public,omitempty" json:"public,omitempty"`
+	InvocationMode *string              `yaml:"invocation_mode,omitempty" json:"invocation_mode,omitempty"`
+	HTTPAuthMode   *string              `yaml:"http_auth_mode,omitempty" json:"http_auth_mode,omitempty"`
+	OpenAPISpec    any                  `yaml:"openapi_spec,omitempty" json:"openapi_spec,omitempty"`
+	Schedulers     *[]SchedulerManifest `yaml:"schedulers,omitempty" json:"schedulers,omitempty"`
 }
 
 // SchedulerManifest declares one scheduler attached to a function. Regions is

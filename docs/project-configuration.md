@@ -13,7 +13,8 @@ validates and applies the full project configuration:
 - Buckets and policies
 - Realtime
 - Auth configuration, including providers, email, templates, and managed pages
-- Function visibility and schedulers
+- Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
+  and schedulers
 - Frontend custom domains
 
 The same manifest applies to local development and cloud projects — only the
@@ -38,7 +39,13 @@ realtime:
   enabled: true
 functions:
   - name: hello
-    public: false
+    public: true
+    invocation_mode: http
+    http_auth_mode: none
+    openapi_spec:
+      openapi: 3.1.0
+      info: { title: Hello API, version: 1.0.0 }
+      paths: {}
     schedulers:
       - name: refresh-cache      # required, unique per function (the reconcile key)
         cron: "*/5 * * * *"
