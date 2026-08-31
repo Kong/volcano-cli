@@ -195,7 +195,7 @@ jobs:
           find _release -type f -name 'volcano-*' -exec cp {} dist/release-assets/ \;
           cp scripts/install-volcano.sh dist/release-assets/install.sh
           chmod +x dist/release-assets/install.sh
-          bash -n dist/release-assets/install.sh
+          sh -n dist/release-assets/install.sh
 
       - name: Sign installer script
         run: |

@@ -32,8 +32,8 @@ const TARGETS = {
   'win32-x64': 'windows-amd64',
 };
 
-function resolveTarget() {
-  const key = `${process.platform}-${process.arch}`;
+function resolveTarget(platform = process.platform, arch = process.arch) {
+  const key = `${platform}-${arch}`;
   const target = TARGETS[key];
   if (!target) {
     throw new Error(
@@ -44,12 +44,12 @@ function resolveTarget() {
   return target;
 }
 
-function binaryExt() {
-  return process.platform === 'win32' ? '.exe' : '';
+function binaryExt(platform = process.platform) {
+  return platform === 'win32' ? '.exe' : '';
 }
 
-function assetName() {
-  return `volcano-${resolveTarget()}${binaryExt()}`;
+function assetName(platform = process.platform, arch = process.arch) {
+  return `volcano-${resolveTarget(platform, arch)}${binaryExt(platform)}`;
 }
 
 // Absolute path where the downloaded binary lives (next to the launcher shim).
@@ -218,6 +218,7 @@ async function ensureBinary({ force = false } = {}) {
 
 module.exports = {
   resolveTarget,
+  binaryExt,
   assetName,
   binaryPath,
   releaseTag,
