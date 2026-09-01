@@ -11,7 +11,10 @@ grep -Fxq -- '  group: release-please' "$workflow" || {
 
 for required in \
   "    if: \${{ github.ref == 'refs/heads/main' }}" \
+  "RELEASE_PRS: \${{ steps.release.outputs.prs }}" \
   "gh pr list --state open --label 'autorelease: pending'" \
+  "jq -r '(. // [])[]?.number' <<< \"\${RELEASE_PRS:-[]}\"" \
+  'sort -nu' \
   'checks: read' \
   'pull-requests: read' \
   "CHECKS_TOKEN: \${{ github.token }}" \
@@ -36,6 +39,16 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
   echo "CI does not run the release workflow check" >&2
   exit 1
 }
+
+fresh_release_prs='[{"number":181}]'
+release_pr_numbers="$({
+  jq -r '(. // [])[]?.number' <<< "$fresh_release_prs"
+  printf '%s\n' 179 181
+} | sort -nu)"
+if [ "$release_pr_numbers" != $'179\n181' ]; then
+  echo "release PR discovery did not combine fresh and existing PRs" >&2
+  exit 1
+fi
 
 required_checks='[{"name":"Analyze (actions)"},{"name":"Analyze (go)"},{"name":"Analyze (javascript-typescript)"},{"name":"Analyze (python)"},{"name":"Analyze (ruby)"},{"name":"CodeQL"},{"name":"check / check"},{"name":"check / localmode-e2e"},{"name":"license/cla"}]'
 jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$required_checks" >/dev/null
