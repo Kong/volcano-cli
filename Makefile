@@ -23,7 +23,7 @@ LDFLAGS := -s -w \
 	-X $(CONFIG_PKG).compiledFirstPartyDeviceClientID=$(FIRST_PARTY_DEVICE_CLIENT_ID) \
 	-X $(LOCALMODE_PKG).defaultVolcanoImage=$(DEFAULT_LOCAL_IMAGE)
 
-.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check
+.PHONY: all build local test api-e2e-smoke api-e2e-cloud localmode-e2e lint tidy check clean help openapi-generate openapi-generated-check release-workflow-check
 
 all: build
 
@@ -84,7 +84,10 @@ lint: ## Run golangci-lint (includes gofmt, goimports, and go vet)
 tidy: ## Run go mod tidy
 	go mod tidy
 
-check: openapi-generated-check lint test ## Run generated-code check, lint, and test
+release-workflow-check: ## Verify release PRs bypass review after required checks
+	bash scripts/ci/check-release-workflow.sh
+
+check: openapi-generated-check release-workflow-check lint test ## Run generated-code check, lint, and test
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY)
