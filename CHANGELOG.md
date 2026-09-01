@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.1](https://github.com/Kong/volcano-cli/compare/v0.23.0...v0.23.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **config:** accept function invocation metadata ([#177](https://github.com/Kong/volcano-cli/issues/177)) ([81ebaf7](https://github.com/Kong/volcano-cli/commit/81ebaf76a938a9321649099fb786472a5ac9dfb3))
+* **release:** bypass reviews after checks ([#179](https://github.com/Kong/volcano-cli/issues/179)) ([8f58add](https://github.com/Kong/volcano-cli/commit/8f58addb4f4bfe91d2a7c8e2954195e9c64dceaa))
+
 ## [0.23.0](https://github.com/Kong/volcano-cli/compare/v0.22.1...v0.23.0) (2026-08-26)
 
 
