@@ -13,7 +13,8 @@ for required in \
   "    if: \${{ github.ref == 'refs/heads/main' }}" \
   "RELEASE_PRS: \${{ steps.release.outputs.prs }}" \
   "gh pr list --state open --label 'autorelease: pending'" \
-  "jq -r '(. // [])[]?.number' <<< \"\${RELEASE_PRS:-[]}\"" \
+  'type == "array"' \
+  'error("invalid release PR output")' \
   'sort -nu' \
   'checks: read' \
   'pull-requests: read' \
@@ -40,15 +41,22 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
   exit 1
 }
 
+release_pr_filter='if type == "array" and all(.[]; (.number | type) == "number" and .number > 0 and .number == (.number | floor)) then .[].number else error("invalid release PR output") end'
 fresh_release_prs='[{"number":181}]'
 release_pr_numbers="$({
-  jq -r '(. // [])[]?.number' <<< "$fresh_release_prs"
+  jq -r "$release_pr_filter" <<< "$fresh_release_prs"
   printf '%s\n' 179
 } | sort -nu)"
 if [ "$release_pr_numbers" != $'179\n181' ]; then
   echo "release PR discovery did not combine fresh and existing PRs" >&2
   exit 1
 fi
+for invalid_release_prs in '{"entry":{"number":181}}' '[{"number":0}]' '[{"number":"181"}]'; do
+  if jq -r "$release_pr_filter" <<< "$invalid_release_prs" >/dev/null 2>&1; then
+    echo "release PR discovery accepted malformed action output" >&2
+    exit 1
+  fi
+done
 
 required_checks='[{"name":"Analyze (actions)"},{"name":"Analyze (go)"},{"name":"Analyze (javascript-typescript)"},{"name":"Analyze (python)"},{"name":"Analyze (ruby)"},{"name":"CodeQL"},{"name":"check / check"},{"name":"check / localmode-e2e"},{"name":"license/cla"}]'
 jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$required_checks" >/dev/null
