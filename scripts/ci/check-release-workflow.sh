@@ -43,7 +43,7 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
 fresh_release_prs='[{"number":181}]'
 release_pr_numbers="$({
   jq -r '(. // [])[]?.number' <<< "$fresh_release_prs"
-  printf '%s\n' 179 181
+  printf '%s\n' 179
 } | sort -nu)"
 if [ "$release_pr_numbers" != $'179\n181' ]; then
   echo "release PR discovery did not combine fresh and existing PRs" >&2
