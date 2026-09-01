@@ -11,20 +11,23 @@ grep -Fxq -- '  group: release-please' "$workflow" || {
 
 for required in \
   "    if: \${{ github.ref == 'refs/heads/main' }}" \
+  "RELEASE_PRS: \${{ steps.release.outputs.prs }}" \
   "gh pr list --state open --label 'autorelease: pending'" \
+  'type == "array"' \
+  'error("invalid release PR output")' \
+  'sort -nu' \
   'checks: read' \
   'pull-requests: read' \
+  'statuses: read' \
   "CHECKS_TOKEN: \${{ github.token }}" \
   "head_oid=\"\$(jq -r '.headRefOid' <<< \"\$metadata\")\"" \
-  'for attempt in {1..30}' \
-  "checks_probe=\"\$(GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --json name 2>&1)\"" \
-  "if [ \"\$checks_status\" -eq 0 ] || [ \"\$checks_status\" -eq 8 ]; then" \
-  'no (required )?checks reported' \
+  'for attempt in {1..50}' \
+  "commits/\${head_oid}/check-runs?filter=latest&per_page=100" \
+  "commits/\${head_oid}/status" \
   "expected_checks='$expected_checks'" \
-  "\$expected - (map(.name)) | length == 0" \
-  "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --watch --fail-fast" \
-  "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --watch --fail-fast" \
-  'all(.[]; .bucket == "pass" or .bucket == "skipping")' \
+  'any(.[]; .state == "fail")' \
+  '(length > 0 and all(.[]; .state == "pass"))' \
+  '.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"' \
   "gh pr merge \"\$number\" --admin --squash --match-head-commit \"\$head_oid\""; do
   grep -Fq -- "$required" "$workflow" || {
     echo "release workflow is missing: $required" >&2
@@ -37,22 +40,77 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
   exit 1
 }
 
-required_checks='[{"name":"Analyze (actions)"},{"name":"Analyze (go)"},{"name":"Analyze (javascript-typescript)"},{"name":"Analyze (python)"},{"name":"Analyze (ruby)"},{"name":"CodeQL"},{"name":"check / check"},{"name":"check / localmode-e2e"},{"name":"license/cla"}]'
-jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$required_checks" >/dev/null
-if jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< '[{"name":"check / check"}]' >/dev/null; then
-  echo "release check policy accepted an incomplete required-check set" >&2
+release_pr_filter='if type == "array" and all(.[]; (.number | type) == "number" and .number > 0 and .number == (.number | floor)) then .[].number else error("invalid release PR output") end'
+fresh_release_prs='[{"number":181}]'
+release_pr_numbers="$({
+  jq -r "$release_pr_filter" <<< "$fresh_release_prs"
+  printf '%s\n' 179
+} | sort -nu)"
+if [ "$release_pr_numbers" != $'179\n181' ]; then
+  echo "release PR discovery did not combine fresh and existing PRs" >&2
   exit 1
 fi
+for invalid_release_prs in '{"entry":{"number":181}}' '[{"number":0}]' '[{"number":"181"}]'; do
+  if jq -r "$release_pr_filter" <<< "$invalid_release_prs" >/dev/null 2>&1; then
+    echo "release PR discovery accepted malformed action output" >&2
+    exit 1
+  fi
+done
 
-check_success='length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")'
-jq -e "$check_success" <<< '[{"bucket":"pass"},{"bucket":"skipping"}]' >/dev/null
-if jq -e "$check_success" <<< '[{"bucket":"pass"},{"bucket":"fail"}]' >/dev/null; then
-  echo "release check policy accepted a failed non-required check" >&2
+required_checks='["Analyze (actions)","Analyze (go)","Analyze (javascript-typescript)","Analyze (python)","Analyze (ruby)","CodeQL","check / check","check / localmode-e2e","license/cla"]'
+# jq variables expand inside jq, not the shell.
+# shellcheck disable=SC2016
+check_result_filter='[
+  $runs.check_runs[] | {
+    name,
+    state: (if .status != "completed" then "pending"
+      elif .conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped" then "pass"
+      else "fail"
+      end)
+  }
+] + [
+  ($statuses.statuses | group_by(.context)[] | max_by(.updated_at)) | {
+    name: .context,
+    state: (if .state == "success" then "pass"
+      elif .state == "pending" then "pending"
+      else "fail"
+      end)
+  }
+]'
+check_runs="$(jq -c 'map(select(. != "license/cla") | {name: ., status: "completed", conclusion: "success"}) | {check_runs: .}' <<< "$required_checks")"
+commit_statuses='{"statuses":[{"context":"license/cla","state":"failure","updated_at":"2026-01-01T00:00:00Z"},{"context":"license/cla","state":"success","updated_at":"2026-01-01T00:01:00Z"}]}'
+check_results="$(jq -n --argjson runs "$check_runs" --argjson statuses "$commit_statuses" "$check_result_filter")"
+# jq variables expand inside jq, not the shell.
+# shellcheck disable=SC2016
+check_success='($expected - [.[].name] | length == 0) and (length > 0 and all(.[]; .state == "pass"))'
+jq -e --argjson expected "$expected_checks" "$check_success" <<< "$check_results" >/dev/null
+if jq -e 'any(.[]; .state == "fail")' <<< "$check_results" >/dev/null; then
+  echo "release check policy used an old status instead of the latest context status" >&2
+  exit 1
+fi
+pending_results="$(jq 'map(if .name == "check / check" then .state = "pending" else . end)' <<< "$check_results")"
+if jq -e --argjson expected "$expected_checks" "$check_success" <<< "$pending_results" >/dev/null; then
+  echo "release check policy accepted a pending check" >&2
+  exit 1
+fi
+failed_results="$(jq 'map(if .name == "check / check" then .state = "fail" else . end)' <<< "$check_results")"
+if ! jq -e 'any(.[]; .state == "fail")' <<< "$failed_results" >/dev/null; then
+  echo "release check policy did not reject a failed check" >&2
+  exit 1
+fi
+incomplete_results="$(jq 'map(select(.name != "CodeQL"))' <<< "$check_results")"
+if jq -e --argjson expected "$expected_checks" "$check_success" <<< "$incomplete_results" >/dev/null; then
+  echo "release check policy accepted an incomplete required-check set" >&2
   exit 1
 fi
 
 if grep -Fq 'branches/main/protection' "$workflow"; then
   echo "release workflow must not require administration access to read branch protection" >&2
+  exit 1
+fi
+
+if grep -Fq 'gh pr checks' "$workflow"; then
+  echo "release workflow must validate checks against the captured commit" >&2
   exit 1
 fi
 
