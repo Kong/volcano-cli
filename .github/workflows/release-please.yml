@@ -96,30 +96,48 @@ jobs:
               echo "Major bump ${current_version} -> ${new_version}: leaving release PR #${number} for manual merge."
               continue
             fi
-            echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
-            checks_ready=false
-            for attempt in {1..30}; do
-              check_names="$({
-                GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/check-runs?per_page=100" --jq '.check_runs[].name'
-                GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/status" --jq '.statuses[].context'
-              } | jq -Rsc 'split("\n") | map(select(length > 0))')"
-              if jq -e --argjson expected "$expected_checks" '$expected - . | length == 0' <<< "$check_names" >/dev/null; then
-                checks_ready=true
+            echo "Waiting for checks on release PR #${number} (${current_version} -> ${new_version})."
+            checks_passed=false
+            for attempt in {1..50}; do
+              check_runs="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/check-runs?filter=latest&per_page=100")"
+              commit_statuses="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/status")"
+              check_results="$(jq -n --argjson runs "$check_runs" --argjson statuses "$commit_statuses" '
+                [
+                  $runs.check_runs[] | {
+                    name,
+                    state: if .status != "completed" then "pending"
+                      elif .conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped" then "pass"
+                      else "fail"
+                      end
+                  }
+                ] + [
+                  ($statuses.statuses | group_by(.context)[] | max_by(.updated_at)) | {
+                    name: .context,
+                    state: if .state == "success" then "pass"
+                      elif .state == "pending" then "pending"
+                      else "fail"
+                      end
+                  }
+                ]
+              ')"
+              if jq -e 'any(.[]; .state == "fail")' <<< "$check_results" >/dev/null; then
+                echo "A check failed for release PR #${number}; merging nothing." >&2
+                printf '%s\n' "$check_results" >&2
+                exit 1
+              fi
+              if jq -e --argjson expected "$expected_checks" '
+                ($expected - [.[].name] | length == 0) and
+                (length > 0 and all(.[]; .state == "pass"))
+              ' <<< "$check_results" >/dev/null; then
+                checks_passed=true
                 break
               fi
-              echo "Required checks are not all registered yet (attempt ${attempt}/30)."
+              echo "Checks are pending or not all registered yet (attempt ${attempt}/50)."
               sleep 10
             done
-            if [ "$checks_ready" != true ]; then
-              echo "Required checks did not register for release PR #${number}." >&2
-              exit 1
-            fi
-            GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --watch --fail-fast
-            GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --watch --fail-fast
-            all_checks="$(GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --json bucket,name)"
-            if ! jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<< "$all_checks" >/dev/null; then
-              echo "Not all checks passed for release PR #${number}; merging nothing." >&2
-              printf '%s\n' "$all_checks" >&2
+            if [ "$checks_passed" != true ]; then
+              echo "Checks did not pass for release PR #${number}." >&2
+              printf '%s\n' "$check_results" >&2
               exit 1
             fi
             echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
