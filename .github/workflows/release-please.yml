@@ -67,10 +67,15 @@ jobs:
             exit 0
           fi
           current_major="${current_version%%.*}"
+          if ! gh api "repos/${GH_REPO}/branches/main/protection/required_status_checks" --jq '.contexts[]' | grep -Fxq 'check / check'; then
+            echo "Required release check 'check / check' is not configured; merging nothing."
+            exit 1
+          fi
           gh pr list --state open --label 'autorelease: pending' --json number --jq '.[].number' | while read -r number; do
-            metadata="$(gh pr view "$number" --json author,headRefName,title)"
+            metadata="$(gh pr view "$number" --json author,headRefName,headRefOid,title)"
             author="$(jq -r '.author.login' <<< "$metadata")"
             head_ref="$(jq -r '.headRefName' <<< "$metadata")"
+            head_oid="$(jq -r '.headRefOid' <<< "$metadata")"
             title="$(jq -r '.title' <<< "$metadata")"
             if [ "$author" != 'app/kong-volcano-app' ] || [[ "$head_ref" != release-please--* ]]; then
               echo "PR #${number} is not a Volcano app release PR; leaving it unchanged."
@@ -89,5 +94,5 @@ jobs:
             echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
             gh pr checks "$number" --required --watch --fail-fast
             echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
-            gh pr merge "$number" --admin --squash
+            gh pr merge "$number" --admin --squash --match-head-commit "$head_oid"
           done
