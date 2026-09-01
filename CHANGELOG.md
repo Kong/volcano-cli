@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.2](https://github.com/Kong/volcano-cli/compare/v0.23.1...v0.23.2) (2026-09-01)
+
+
+### Bug Fixes
+
+* **release:** include freshly created PRs ([#182](https://github.com/Kong/volcano-cli/issues/182)) ([2b246de](https://github.com/Kong/volcano-cli/commit/2b246de6a06fdcea94ae44133e80cf0541302524))
+* **release:** read checks with workflow token ([#180](https://github.com/Kong/volcano-cli/issues/180)) ([9c2b0a8](https://github.com/Kong/volcano-cli/commit/9c2b0a8d8fd84d38c396ec9f620535bdb166d258))
+
 ## [0.23.1](https://github.com/Kong/volcano-cli/compare/v0.23.0...v0.23.1) (2026-09-01)
 
 
