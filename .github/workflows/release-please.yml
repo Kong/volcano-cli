@@ -49,41 +49,67 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # Auto-merge only non-major release PRs; a major bump is left open for a
-      # maintainer to merge manually. With no required review, an armed
-      # auto-merge completes on its own once check/check passes, so simply not
-      # arming the major PR makes it wait for a manual merge. Fails closed: if
-      # the target version can't be determined, the PR is left for manual merge.
-      - name: Auto-merge non-major release PRs
-        if: ${{ steps.release.outputs.prs_created == 'true' }}
+      # Merge only non-major release PRs. The app waits for required checks,
+      # then uses its pull-request ruleset bypass so the standard review rule
+      # does not block automated releases. Existing pending release PRs are
+      # included so a workflow fix can recover a stalled release.
+      - name: Merge non-major release PRs
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_PRS: ${{ steps.release.outputs.prs }}
         run: |
           set -euo pipefail
           # Last released version is the source of truth for the current major.
-          # Fail closed: if the baseline is missing/malformed, arm nothing.
+          # Fail closed: if the baseline is missing or malformed, merge nothing.
           current_version="$(gh api "repos/${GH_REPO}/contents/.release-please-manifest.json" --jq '.content' | base64 -d | jq -r '.["."] // ""')"
           if ! printf '%s' "$current_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "Current version '${current_version}' is missing or not X.Y.Z; leaving all release PRs for manual merge."
             exit 0
           fi
           current_major="${current_version%%.*}"
-          jq -r '.[].number' <<< "$RELEASE_PRS" | while read -r number; do
-            # Release PR titles follow the exact "release: X.Y.Z" pattern; the
-            # anchored match leaves anything unexpected for manual merge.
-            title="$(gh pr view "$number" --json title --jq .title)"
+          if ! gh api "repos/${GH_REPO}/branches/main/protection/required_status_checks" --jq '.contexts[]' | grep -Fxq 'check / check'; then
+            echo "Required release check 'check / check' is not configured; merging nothing."
+            exit 1
+          fi
+          gh pr list --state open --label 'autorelease: pending' --json number --jq '.[].number' | while read -r number; do
+            metadata="$(gh pr view "$number" --json author,headRefName,headRefOid,title)"
+            author="$(jq -r '.author.login' <<< "$metadata")"
+            head_ref="$(jq -r '.headRefName' <<< "$metadata")"
+            head_oid="$(jq -r '.headRefOid' <<< "$metadata")"
+            title="$(jq -r '.title' <<< "$metadata")"
+            if [ "$author" != 'app/kong-volcano-app' ] || [[ "$head_ref" != release-please--* ]]; then
+              echo "PR #${number} is not a Volcano app release PR; leaving it unchanged."
+              continue
+            fi
             new_version="$(printf '%s' "$title" | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p')"
             if [ -z "$new_version" ]; then
-              echo "Could not parse a version from PR #${number} title '${title}'; leaving for manual merge."
+              echo "Could not parse a version from PR #${number} title '${title}'; leaving it for manual merge."
               continue
             fi
             new_major="${new_version%%.*}"
             if [ "$new_major" -gt "$current_major" ]; then
-              echo "Major bump ${current_version} -> ${new_version}: leaving release PR #${number} for a manual merge."
+              echo "Major bump ${current_version} -> ${new_version}: leaving release PR #${number} for manual merge."
               continue
             fi
-            echo "Enabling squash auto-merge for release PR #${number} (${current_version} -> ${new_version})."
-            gh pr merge "$number" --auto --squash
+            echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
+            checks_ready=false
+            for attempt in {1..30}; do
+              if checks_probe="$(gh pr checks "$number" --required --json name 2>&1)"; then
+                checks_ready=true
+                break
+              fi
+              if ! grep -Eq 'no (required )?checks reported' <<< "$checks_probe"; then
+                printf '%s\n' "$checks_probe" >&2
+                exit 1
+              fi
+              echo "Required checks are not registered yet (attempt ${attempt}/30)."
+              sleep 10
+            done
+            if [ "$checks_ready" != true ]; then
+              echo "Required checks did not register for release PR #${number}." >&2
+              exit 1
+            fi
+            gh pr checks "$number" --required --watch --fail-fast
+            echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
+            gh pr merge "$number" --admin --squash --match-head-commit "$head_oid"
           done
