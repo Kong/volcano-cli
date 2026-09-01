@@ -11,10 +11,12 @@ concurrency:
   group: release-please-${{ github.ref }}
   cancel-in-progress: false
 
-# Least privilege for the default GITHUB_TOKEN: the release work runs on the
-# GitHub App token minted below, so the default token needs no write scope.
+# The default GITHUB_TOKEN reads PR checks. Release writes use the scoped
+# GitHub App token minted below.
 permissions:
+  checks: read
   contents: read
+  pull-requests: read
 
 jobs:
   release-please:
@@ -55,6 +57,7 @@ jobs:
       # included so a workflow fix can recover a stalled release.
       - name: Merge non-major release PRs
         env:
+          CHECKS_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
@@ -67,10 +70,6 @@ jobs:
             exit 0
           fi
           current_major="${current_version%%.*}"
-          if ! gh api "repos/${GH_REPO}/branches/main/protection/required_status_checks" --jq '.contexts[]' | grep -Fxq 'check / check'; then
-            echo "Required release check 'check / check' is not configured; merging nothing."
-            exit 1
-          fi
           gh pr list --state open --label 'autorelease: pending' --json number --jq '.[].number' | while read -r number; do
             metadata="$(gh pr view "$number" --json author,headRefName,headRefOid,title)"
             author="$(jq -r '.author.login' <<< "$metadata")"
@@ -94,7 +93,11 @@ jobs:
             echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
             checks_ready=false
             for attempt in {1..30}; do
-              if checks_probe="$(gh pr checks "$number" --required --json name 2>&1)"; then
+              if checks_probe="$(GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --json name 2>&1)"; then
+                if ! jq -e 'map(.name) | index("check / check") != null' <<< "$checks_probe" >/dev/null; then
+                  echo "Required release check 'check / check' is not configured; merging nothing." >&2
+                  exit 1
+                fi
                 checks_ready=true
                 break
               fi
@@ -109,7 +112,7 @@ jobs:
               echo "Required checks did not register for release PR #${number}." >&2
               exit 1
             fi
-            gh pr checks "$number" --required --watch --fail-fast
+            GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --watch --fail-fast
             echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
             gh pr merge "$number" --admin --squash --match-head-commit "$head_oid"
           done
