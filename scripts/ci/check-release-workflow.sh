@@ -21,6 +21,8 @@ for required in \
   'no (required )?checks reported' \
   'map(.name) | index("check / check") != null' \
   "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --watch --fail-fast" \
+  "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --watch --fail-fast" \
+  'all(.[]; .bucket == "pass" or .bucket == "skipping")' \
   "gh pr merge \"\$number\" --admin --squash --match-head-commit \"\$head_oid\""; do
   grep -Fq -- "$required" "$workflow" || {
     echo "release workflow is missing: $required" >&2
@@ -32,6 +34,13 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
   echo "CI does not run the release workflow check" >&2
   exit 1
 }
+
+check_success='length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")'
+jq -e "$check_success" <<< '[{"bucket":"pass"},{"bucket":"skipping"}]' >/dev/null
+if jq -e "$check_success" <<< '[{"bucket":"pass"},{"bucket":"fail"}]' >/dev/null; then
+  echo "release check policy accepted a failed non-required check" >&2
+  exit 1
+fi
 
 if grep -Fq 'branches/main/protection' "$workflow"; then
   echo "release workflow must not require administration access to read branch protection" >&2

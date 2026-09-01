@@ -119,6 +119,13 @@ jobs:
               exit 1
             fi
             GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --watch --fail-fast
+            GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --watch --fail-fast
+            all_checks="$(GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --json bucket,name)"
+            if ! jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<< "$all_checks" >/dev/null; then
+              echo "Not all checks passed for release PR #${number}; merging nothing." >&2
+              printf '%s\n' "$all_checks" >&2
+              exit 1
+            fi
             echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
             gh pr merge "$number" --admin --squash --match-head-commit "$head_oid"
           done
