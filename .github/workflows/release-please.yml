@@ -6,9 +6,9 @@ on:
       - main
   workflow_dispatch:
 
-# Serialize release runs so overlapping pushes don't race the release PR/tag.
+# Serialize all release runs so manual and push events cannot race.
 concurrency:
-  group: release-please-${{ github.ref }}
+  group: release-please
   cancel-in-progress: false
 
 # The default GITHUB_TOKEN reads PR checks. Release writes use the scoped
@@ -20,6 +20,7 @@ permissions:
 
 jobs:
   release-please:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -94,6 +95,11 @@ jobs:
             checks_ready=false
             for attempt in {1..30}; do
               if checks_probe="$(GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --json name 2>&1)"; then
+                checks_status=0
+              else
+                checks_status=$?
+              fi
+              if [ "$checks_status" -eq 0 ] || [ "$checks_status" -eq 8 ]; then
                 if ! jq -e 'map(.name) | index("check / check") != null' <<< "$checks_probe" >/dev/null; then
                   echo "Required release check 'check / check' is not configured; merging nothing." >&2
                   exit 1
