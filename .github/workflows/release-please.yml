@@ -92,6 +92,23 @@ jobs:
               continue
             fi
             echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
+            checks_ready=false
+            for attempt in {1..30}; do
+              if checks_probe="$(gh pr checks "$number" --required --json name 2>&1)"; then
+                checks_ready=true
+                break
+              fi
+              if ! grep -Eq 'no (required )?checks reported' <<< "$checks_probe"; then
+                printf '%s\n' "$checks_probe" >&2
+                exit 1
+              fi
+              echo "Required checks are not registered yet (attempt ${attempt}/30)."
+              sleep 10
+            done
+            if [ "$checks_ready" != true ]; then
+              echo "Required checks did not register for release PR #${number}." >&2
+              exit 1
+            fi
             gh pr checks "$number" --required --watch --fail-fast
             echo "Squash-merging release PR #${number} with the Volcano app ruleset bypass."
             gh pr merge "$number" --admin --squash --match-head-commit "$head_oid"
