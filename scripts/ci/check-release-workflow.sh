@@ -62,18 +62,18 @@ required_checks='["Analyze (actions)","Analyze (go)","Analyze (javascript-typesc
 check_result_filter='[
   $runs.check_runs[] | {
     name,
-    state: if .status != "completed" then "pending"
+    state: (if .status != "completed" then "pending"
       elif .conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped" then "pass"
       else "fail"
-      end
+      end)
   }
 ] + [
   ($statuses.statuses | group_by(.context)[] | max_by(.updated_at)) | {
     name: .context,
-    state: if .state == "success" then "pass"
+    state: (if .state == "success" then "pass"
       elif .state == "pending" then "pending"
       else "fail"
-      end
+      end)
   }
 ]'
 check_runs="$(jq -c 'map(select(. != "license/cla") | {name: ., status: "completed", conclusion: "success"}) | {check_runs: .}' <<< "$required_checks")"
