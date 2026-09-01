@@ -18,6 +18,7 @@ for required in \
   'sort -nu' \
   'checks: read' \
   'pull-requests: read' \
+  'statuses: read' \
   "CHECKS_TOKEN: \${{ github.token }}" \
   "head_oid=\"\$(jq -r '.headRefOid' <<< \"\$metadata\")\"" \
   'for attempt in {1..50}' \
