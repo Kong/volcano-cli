@@ -99,19 +99,13 @@ jobs:
             echo "Waiting for required checks on release PR #${number} (${current_version} -> ${new_version})."
             checks_ready=false
             for attempt in {1..30}; do
-              if checks_probe="$(GH_TOKEN="$CHECKS_TOKEN" gh pr checks "$number" --required --json name 2>&1)"; then
-                checks_status=0
-              else
-                checks_status=$?
-              fi
-              if [ "$checks_status" -eq 0 ] || [ "$checks_status" -eq 8 ]; then
-                if jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$checks_probe" >/dev/null; then
-                  checks_ready=true
-                  break
-                fi
-              elif ! grep -Eq 'no (required )?checks reported' <<< "$checks_probe"; then
-                printf '%s\n' "$checks_probe" >&2
-                exit 1
+              check_names="$({
+                GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/check-runs?per_page=100" --jq '.check_runs[].name'
+                GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/status" --jq '.statuses[].context'
+              } | jq -Rsc 'split("\n") | map(select(length > 0))')"
+              if jq -e --argjson expected "$expected_checks" '$expected - . | length == 0' <<< "$check_names" >/dev/null; then
+                checks_ready=true
+                break
               fi
               echo "Required checks are not all registered yet (attempt ${attempt}/30)."
               sleep 10

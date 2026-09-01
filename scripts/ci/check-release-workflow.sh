@@ -21,11 +21,10 @@ for required in \
   "CHECKS_TOKEN: \${{ github.token }}" \
   "head_oid=\"\$(jq -r '.headRefOid' <<< \"\$metadata\")\"" \
   'for attempt in {1..30}' \
-  "checks_probe=\"\$(GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --json name 2>&1)\"" \
-  "if [ \"\$checks_status\" -eq 0 ] || [ \"\$checks_status\" -eq 8 ]; then" \
-  'no (required )?checks reported' \
+  "commits/\${head_oid}/check-runs?per_page=100" \
+  "commits/\${head_oid}/status" \
   "expected_checks='$expected_checks'" \
-  "\$expected - (map(.name)) | length == 0" \
+  "\$expected - . | length == 0" \
   "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --watch --fail-fast" \
   "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --watch --fail-fast" \
   'all(.[]; .bucket == "pass" or .bucket == "skipping")' \
@@ -58,9 +57,15 @@ for invalid_release_prs in '{"entry":{"number":181}}' '[{"number":0}]' '[{"numbe
   fi
 done
 
-required_checks='[{"name":"Analyze (actions)"},{"name":"Analyze (go)"},{"name":"Analyze (javascript-typescript)"},{"name":"Analyze (python)"},{"name":"Analyze (ruby)"},{"name":"CodeQL"},{"name":"check / check"},{"name":"check / localmode-e2e"},{"name":"license/cla"}]'
-jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$required_checks" >/dev/null
-if jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< '[{"name":"check / check"}]' >/dev/null; then
+required_checks='["Analyze (actions)","Analyze (go)","Analyze (javascript-typescript)","Analyze (python)","Analyze (ruby)","CodeQL","check / check","check / localmode-e2e","license/cla"]'
+check_runs="$(jq -c 'map(select(. != "license/cla") | {name: .}) | {check_runs: .}' <<< "$required_checks")"
+commit_statuses='{"statuses":[{"context":"license/cla"}]}'
+registered_checks="$({
+  jq -r '.check_runs[].name' <<< "$check_runs"
+  jq -r '.statuses[].context' <<< "$commit_statuses"
+} | jq -Rsc 'split("\n") | map(select(length > 0))')"
+jq -e --argjson expected "$expected_checks" '$expected - . | length == 0' <<< "$registered_checks" >/dev/null
+if jq -e --argjson expected "$expected_checks" '$expected - . | length == 0' <<< '["check / check"]' >/dev/null; then
   echo "release check policy accepted an incomplete required-check set" >&2
   exit 1
 fi
