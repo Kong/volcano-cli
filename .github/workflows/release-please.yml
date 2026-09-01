@@ -71,6 +71,7 @@ jobs:
             exit 0
           fi
           current_major="${current_version%%.*}"
+          expected_checks='["Analyze (actions)","Analyze (go)","Analyze (javascript-typescript)","Analyze (python)","Analyze (ruby)","CodeQL","check / check","check / localmode-e2e","license/cla"]'
           gh pr list --state open --label 'autorelease: pending' --json number --jq '.[].number' | while read -r number; do
             metadata="$(gh pr view "$number" --json author,headRefName,headRefOid,title)"
             author="$(jq -r '.author.login' <<< "$metadata")"
@@ -100,18 +101,15 @@ jobs:
                 checks_status=$?
               fi
               if [ "$checks_status" -eq 0 ] || [ "$checks_status" -eq 8 ]; then
-                if ! jq -e 'map(.name) | index("check / check") != null' <<< "$checks_probe" >/dev/null; then
-                  echo "Required release check 'check / check' is not configured; merging nothing." >&2
-                  exit 1
+                if jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$checks_probe" >/dev/null; then
+                  checks_ready=true
+                  break
                 fi
-                checks_ready=true
-                break
-              fi
-              if ! grep -Eq 'no (required )?checks reported' <<< "$checks_probe"; then
+              elif ! grep -Eq 'no (required )?checks reported' <<< "$checks_probe"; then
                 printf '%s\n' "$checks_probe" >&2
                 exit 1
               fi
-              echo "Required checks are not registered yet (attempt ${attempt}/30)."
+              echo "Required checks are not all registered yet (attempt ${attempt}/30)."
               sleep 10
             done
             if [ "$checks_ready" != true ]; then

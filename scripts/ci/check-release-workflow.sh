@@ -3,6 +3,7 @@ set -euo pipefail
 
 workflow=".github/workflows/release-please.yml"
 check_workflow=".github/workflows/check.yml"
+expected_checks='["Analyze (actions)","Analyze (go)","Analyze (javascript-typescript)","Analyze (python)","Analyze (ruby)","CodeQL","check / check","check / localmode-e2e","license/cla"]'
 grep -Fxq -- '  group: release-please' "$workflow" || {
   echo "release workflow must serialize all refs in one concurrency group" >&2
   exit 1
@@ -19,7 +20,8 @@ for required in \
   "checks_probe=\"\$(GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --json name 2>&1)\"" \
   "if [ \"\$checks_status\" -eq 0 ] || [ \"\$checks_status\" -eq 8 ]; then" \
   'no (required )?checks reported' \
-  'map(.name) | index("check / check") != null' \
+  "expected_checks='$expected_checks'" \
+  "\$expected - (map(.name)) | length == 0" \
   "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --required --watch --fail-fast" \
   "GH_TOKEN=\"\$CHECKS_TOKEN\" gh pr checks \"\$number\" --watch --fail-fast" \
   'all(.[]; .bucket == "pass" or .bucket == "skipping")' \
@@ -34,6 +36,13 @@ grep -Fq -- 'run: make release-workflow-check' "$check_workflow" || {
   echo "CI does not run the release workflow check" >&2
   exit 1
 }
+
+required_checks='[{"name":"Analyze (actions)"},{"name":"Analyze (go)"},{"name":"Analyze (javascript-typescript)"},{"name":"Analyze (python)"},{"name":"Analyze (ruby)"},{"name":"CodeQL"},{"name":"check / check"},{"name":"check / localmode-e2e"},{"name":"license/cla"}]'
+jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< "$required_checks" >/dev/null
+if jq -e --argjson expected "$expected_checks" '$expected - (map(.name)) | length == 0' <<< '[{"name":"check / check"}]' >/dev/null; then
+  echo "release check policy accepted an incomplete required-check set" >&2
+  exit 1
+fi
 
 check_success='length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")'
 jq -e "$check_success" <<< '[{"bucket":"pass"},{"bucket":"skipping"}]' >/dev/null
