@@ -28,8 +28,8 @@ const (
 	// supported. The API pairs it with an HTTP 426 on non-exempt routes.
 	CLIInstructionRequireVersionUpgrade = "require_version_upgrade"
 
-	// CLIInstructionLowCreditWarning signals the project's credit balance is
-	// low; non-blocking. CLIInstructionNotEnoughCredit signals the project has
+	// CLIInstructionLowCreditWarning signals the account's credit balance is
+	// low; non-blocking. CLIInstructionNotEnoughCredit signals the account has
 	// no credit left; the request itself is blocked by the API's own error
 	// response (this instruction only adds explanatory context, it does not
 	// gate anything CLI-side).
@@ -52,6 +52,7 @@ type Instructions struct {
 type cliInstructionPair struct {
 	instruction   string
 	latestVersion string
+	creditURL     string
 }
 
 var (
@@ -76,12 +77,15 @@ func LastInstructions() Instructions {
 	return lastInstructions
 }
 
-// ConsumeCLIInstructions returns each observed CLI instruction/latest-version
-// pair once. Repeated API responses commonly carry the same pair, so retaining
-// the last consumed pair prevents a long-running command from rendering the
-// same notice again after a poll or stream reconnect. DeviceInstruction is
-// returned unchanged because callers render the reauthentication hint from
-// LastInstructions alongside command errors.
+// ConsumeCLIInstructions returns each observed CLI instruction/latest-version/
+// credit-URL combination once. Repeated API responses commonly carry the same
+// combination, so retaining the last consumed one prevents a long-running
+// command from rendering the same notice again after a poll or stream
+// reconnect. CreditURL is part of the identity so a later response with the
+// same instruction and version but a changed credit URL is treated as new
+// information and rendered again, instead of being suppressed as a repeat.
+// DeviceInstruction is returned unchanged because callers render the
+// reauthentication hint from LastInstructions alongside command errors.
 func ConsumeCLIInstructions() Instructions {
 	instructionsMu.Lock()
 	defer instructionsMu.Unlock()
@@ -90,6 +94,7 @@ func ConsumeCLIInstructions() Instructions {
 	pair := cliInstructionPair{
 		instruction:   instructions.CLIInstruction,
 		latestVersion: instructions.LatestVersion,
+		creditURL:     instructions.CreditURL,
 	}
 	_, consumed := consumedCLIInstructions[pair]
 	if pair.instruction == "" || consumed {

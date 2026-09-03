@@ -104,7 +104,7 @@ func printNotEnoughCreditWarning(cmd *cobra.Command, creditURL string) {
 func printLowCreditWarning(cmd *cobra.Command, creditURL string) {
 	w := cmd.ErrOrStderr()
 	on := theme.On(w)
-	fmt.Fprintln(w, theme.Warn("Warning:", on), "your project is running low on credit.")
+	fmt.Fprintln(w, theme.Warn("Warning:", on), "your account is running low on credit.")
 	printCreditURL(w, on, creditURL)
 }
 

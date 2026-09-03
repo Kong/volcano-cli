@@ -234,7 +234,7 @@ func TestPrintAPIInstructionNotices_LowCreditWarning(t *testing.T) {
 	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
 
 	assert.Contains(t, out.String(), "Warning:")
-	assert.Contains(t, out.String(), "your project is running low on credit.")
+	assert.Contains(t, out.String(), "your account is running low on credit.")
 }
 
 func TestPrintAPIInstructionNotices_LowCreditWarningWithURL(t *testing.T) {
@@ -245,8 +245,53 @@ func TestPrintAPIInstructionNotices_LowCreditWarningWithURL(t *testing.T) {
 	cmd.SetErr(&out)
 	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
 
-	assert.Contains(t, out.String(), "your project is running low on credit.")
+	assert.Contains(t, out.String(), "your account is running low on credit.")
 	assert.Contains(t, out.String(), "https://volcano.dev/billing")
+}
+
+// TestPrintAPIInstructionNotices_RendersChangedCreditURLOnSameInstruction
+// simulates a log-follow style command that polls the API repeatedly within
+// one invocation: it consumes and renders a low_credit_warning notice, then a
+// later poll returns the same instruction and (empty) latest version but a
+// changed X-Volcano-Credit-URL, before the next PrintAPIInstructionNotices
+// call. The updated billing URL must render, not be suppressed as an
+// already-consumed repeat of the same instruction (VOL-354).
+func TestPrintAPIInstructionNotices_RendersChangedCreditURLOnSameInstruction(t *testing.T) {
+	api.ResetLastInstructionsForTest()
+	t.Cleanup(api.ResetLastInstructionsForTest)
+
+	creditURL := "https://volcano.dev/billing"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Volcano-CLI-Instruction", api.CLIInstructionLowCreditWarning)
+		w.Header().Set("X-Volcano-Credit-URL", creditURL)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := api.NewClient(server.URL, "", api.WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.ListProjects(context.Background(), api.DefaultPage, api.DefaultLimit)
+	require.NoError(t, err)
+
+	cmd := &cobra.Command{Use: "functions"}
+	var first bytes.Buffer
+	cmd.SetErr(&first)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+	assert.Contains(t, first.String(), creditURL, "the first notice must render the original credit URL")
+
+	// The API rotates the billing link on a later poll within the same
+	// invocation; the instruction and (empty) latest version are unchanged.
+	creditURL = "https://volcano.dev/billing?updated=true"
+	_, err = client.ListProjects(context.Background(), api.DefaultPage, api.DefaultLimit)
+	require.NoError(t, err)
+
+	var second bytes.Buffer
+	cmd.SetErr(&second)
+	PrintAPIInstructionNotices(cmd, cliruntime.Deps{})
+	assert.Contains(t, second.String(), creditURL, "a changed credit URL for the same instruction must render, not be suppressed as a repeat")
 }
 
 // TestPrintAPIInstructionNotices_CreditNoticesArePlainOutput asserts the
