@@ -19,6 +19,7 @@ const (
 	headerCLIVersion        = "X-Volcano-CLI-Version"
 	headerCLIInstruction    = "X-Volcano-CLI-Instruction"
 	headerCLILatestVersion  = "X-Volcano-CLI-Latest-Version"
+	headerCreditURL         = "X-Volcano-Credit-URL"
 	headerDeviceInstruction = "X-Volcano-Device-Instruction"
 
 	// CLIInstructionSuggestionVersionUpgrade signals a newer CLI is published; non-blocking.
@@ -27,13 +28,11 @@ const (
 	// supported. The API pairs it with an HTTP 426 on non-exempt routes.
 	CLIInstructionRequireVersionUpgrade = "require_version_upgrade"
 
-	// CLIInstructionLowCreditWarning and CLIInstructionNotEnoughCredit are
-	// RESERVED for a future billing/credit gate. PrintAPIInstructionNotices
-	// already has cases for both, but they're unreached today: the API does
-	// not emit them yet — billing integration into this protocol needs its own
-	// design pass. Naming is locked in now, parallel to the version
-	// instructions, so a future server-side implementation doesn't need a
-	// wire-format rename.
+	// CLIInstructionLowCreditWarning signals the project's credit balance is
+	// low; non-blocking. CLIInstructionNotEnoughCredit signals the project has
+	// no credit left; the request itself is blocked by the API's own error
+	// response (this instruction only adds explanatory context, it does not
+	// gate anything CLI-side).
 	CLIInstructionLowCreditWarning = "low_credit_warning"
 	CLIInstructionNotEnoughCredit  = "not_enough_credit"
 
@@ -46,6 +45,7 @@ const (
 type Instructions struct {
 	CLIInstruction    string
 	LatestVersion     string
+	CreditURL         string
 	DeviceInstruction string
 }
 
@@ -95,6 +95,7 @@ func ConsumeCLIInstructions() Instructions {
 	if pair.instruction == "" || consumed {
 		instructions.CLIInstruction = ""
 		instructions.LatestVersion = ""
+		instructions.CreditURL = ""
 		return instructions
 	}
 
@@ -113,13 +114,15 @@ func ConsumeCLIInstructions() Instructions {
 // that makes several API calls must not have an earlier real notice silently
 // dropped just because a later, unrelated response didn't repeat the header.
 //
-// CLIInstruction and LatestVersion update together (never independently):
-// they come from the same server-side gate decision, so a response that sets
-// one is authoritative for both, even if that response's LatestVersion is
-// itself empty (e.g. no latest configured).
+// CLIInstruction, LatestVersion, and CreditURL update together (never
+// independently): they come from the same server-side gate decision, so a
+// response that sets CLIInstruction is authoritative for all three, even if
+// LatestVersion or CreditURL is itself empty (e.g. no latest configured, or
+// no billing URL for this instruction).
 func recordInstructions(header http.Header) {
 	cliInstruction := strings.TrimSpace(header.Get(headerCLIInstruction))
 	latestVersion := strings.TrimSpace(header.Get(headerCLILatestVersion))
+	creditURL := strings.TrimSpace(header.Get(headerCreditURL))
 	deviceInstruction := strings.TrimSpace(header.Get(headerDeviceInstruction))
 
 	instructionsMu.Lock()
@@ -127,6 +130,7 @@ func recordInstructions(header http.Header) {
 	if cliInstruction != "" {
 		lastInstructions.CLIInstruction = cliInstruction
 		lastInstructions.LatestVersion = latestVersion
+		lastInstructions.CreditURL = creditURL
 	}
 	if deviceInstruction != "" {
 		lastInstructions.DeviceInstruction = deviceInstruction
