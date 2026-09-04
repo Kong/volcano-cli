@@ -67,6 +67,13 @@ volcano databases list | cat    # plain (piped)
 NO_COLOR=1 volcano databases list
 ```
 
+## Account credit notices
+
+Cloud commands can report when your account is running low on credits or has
+no credits left. The notice includes the billing page address when available.
+Open that page to add credits. These notices do not prompt or open a browser.
+Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
+
 ## Element → CLI ability at a glance
 
 | Element | CLI can… | Commands | Details |
