@@ -163,7 +163,8 @@ snapshot of a prior apply. Practical implications:
   unit. Omitting an entire section or field leaves it untouched. That does
   **not** apply within a section you've already declared as fully synced
   (`variables`, `buckets[].policies`, `auth.providers.oauth`,
-  `auth.email.templates`, `functions[].schedulers`) — omitting one entry
+  `auth.email.templates`, `functions[].schedulers`,
+  `functions[].variables`) — omitting one entry
   from an otherwise-declared list still deletes that entry, since the
   declared list is the source of truth for the whole section. See "Key
   semantics" above.

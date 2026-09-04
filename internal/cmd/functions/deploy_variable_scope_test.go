@@ -149,3 +149,53 @@ functions:
 	assert.Nil(t, plain.VariableScope)
 	assert.Nil(t, plain.Variables)
 }
+
+// Local mode uploads each function individually rather than as a batch. That
+// loop reads the packages built in runDeployAll, so it inherits the same
+// declarations; this pins that down.
+func TestLocalFunctionsDeployAllSendsPerFunctionScope(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "scoped-fn.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "plain-fn.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	require.NoError(t, writeProjectFile("volcano-config.yaml", `version: 1
+functions:
+  - name: scoped-fn
+    variable_scope: scoped
+    variables:
+      - API_KEY
+`))
+
+	scopes := map[string]string{}
+	declared := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			name := r.FormValue("name")
+			if values, ok := r.MultipartForm.Value["variable_scope"]; ok {
+				scopes[name] = values[0]
+			}
+			if values, ok := r.MultipartForm.Value["variables"]; ok {
+				declared[name] = values[0]
+			}
+			writeFunctionCommandJSON(t, w, http.StatusCreated, functionCommandPayload(functionID, name))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeFunctionsCommand(t, NewLocal(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all")
+	require.NoError(t, err)
+
+	assert.Equal(t, "scoped", scopes["scoped-fn"])
+	assert.JSONEq(t, `["API_KEY"]`, declared["scoped-fn"])
+
+	// The undeclared sibling sends neither field.
+	assert.NotContains(t, scopes, "plain-fn")
+	assert.NotContains(t, declared, "plain-fn")
+}
