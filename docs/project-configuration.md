@@ -40,6 +40,9 @@ realtime:
 functions:
   - name: hello
     public: true
+    variable_scope: scoped     # only the variables this function needs
+    variables:
+      - STRIPE_SECRET_KEY
     invocation_mode: http
     http_auth_mode: none
     openapi_spec:
@@ -89,6 +92,55 @@ Key semantics:
 - Write-only secrets, such as SMTP passwords, OAuth client secrets, and TLS
   material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation.
+- `functions[].variables` is fully synced when declared: the list replaces the
+  function's declared variable names. Omitting it, like omitting
+  `variable_scope`, leaves the function's existing declaration untouched. See
+  "Function variable scope" below.
+
+## Function variable scope
+
+By default a function receives every project variable. Set `variable_scope` to
+`scoped` to give it only the variables it actually needs:
+
+```yaml
+version: 1
+variables:
+  - name: STRIPE_SECRET_KEY
+    value: ${STRIPE_SECRET_KEY}
+  - name: SENDGRID_API_KEY
+    value: ${SENDGRID_API_KEY}
+functions:
+  - name: charge
+    variable_scope: scoped
+    variables:
+      - STRIPE_SECRET_KEY
+  - name: notify
+    variable_scope: scoped     # SENDGRID_API_KEY is read directly, so detection finds it
+```
+
+`variable_scope` takes `all` or `scoped`:
+
+- `all` is the default and gives the function every project variable.
+- `scoped` gives it the names listed in `variables`, plus the names Volcano
+  detects in the function's source that the project defines.
+
+Volcano reads the uploaded source and adds direct environment references it
+finds there, so a variable the function reads by its literal name does not need
+to be listed. List a name in `variables` when:
+
+- the function reads it through a computed key, which detection cannot see, or
+- the function must not deploy without it.
+
+That difference matters on apply. A name you declare that the project does not
+define fails the deploy; a name Volcano merely detected that the project does
+not define is ignored, since such a reference is often optional.
+
+A scoped function whose resulting environment exceeds 4096 bytes is rejected
+before anything is deployed.
+
+Both fields are optional and independent of each other. Omitting them sends
+nothing, so an existing function keeps whatever scope it already has, and a
+manifest written before scoping existed behaves exactly as it did.
 
 ## Coming from Terraform?
 

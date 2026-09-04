@@ -12,7 +12,9 @@ is invoked over HTTP, by name/alias, or on a schedule.
 ## How it relates
 
 - Belongs to a **project**.
-- Reads configuration and secrets from **variables**.
+- Reads configuration and secrets from **variables**. By default it receives
+  every project variable; declare a narrower
+  [variable scope](project-configuration.md) to give it only the ones it needs.
 - Connects to **databases** and **storage** in the same project.
 - Its **visibility** (public/private) and **schedulers** can be declared in the
   [declarative config](project-configuration.md) or managed with the CLI.
@@ -20,6 +22,12 @@ is invoked over HTTP, by name/alias, or on a schedule.
 
 The CLI discovers functions in the `volcano/functions` directory, detects the
 runtime from source file extensions, and uploads a packaged archive.
+
+If a `volcano-config.yaml` is present, `functions deploy` also sends the
+`variable_scope` and `variables` declared there for each function it uploads.
+Functions the manifest does not mention keep their existing scope. The manifest
+is only read — deploying never writes it back. See
+[variable scope](project-configuration.md).
 
 ## CLI operations
 
