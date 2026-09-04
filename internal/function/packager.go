@@ -39,6 +39,12 @@ type Package struct {
 	Handler     string
 	ArchiveData []byte
 	Size        int64
+
+	// VariableScope and Variables carry the volcano-config.yaml declaration for
+	// this function. Both nil means the manifest declared nothing, so deploy
+	// sends neither field and the server keeps the function's stored scope.
+	VariableScope *string
+	Variables     *[]string
 }
 
 // PackageSource packages a cloud function source bundle with manifests and shared libraries.

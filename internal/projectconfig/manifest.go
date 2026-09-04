@@ -262,6 +262,8 @@ type HostedPageManifest struct {
 type FunctionManifest struct {
 	Name           string               `yaml:"name" json:"name"`
 	Public         *bool                `yaml:"public,omitempty" json:"public,omitempty"`
+	VariableScope  *string              `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
+	Variables      *[]string            `yaml:"variables,omitempty" json:"variables,omitempty"`
 	InvocationMode *string              `yaml:"invocation_mode,omitempty" json:"invocation_mode,omitempty"`
 	HTTPAuthMode   *string              `yaml:"http_auth_mode,omitempty" json:"http_auth_mode,omitempty"`
 	OpenAPISpec    any                  `yaml:"openapi_spec,omitempty" json:"openapi_spec,omitempty"`
@@ -450,4 +452,44 @@ func fileExists(path string) bool {
 		return false
 	}
 	return info.Mode().IsRegular()
+}
+
+// FunctionVariableDeclaration is one function's variable scope declaration read
+// from volcano-config.yaml. Both fields nil means the manifest declared
+// nothing for that function.
+type FunctionVariableDeclaration struct {
+	VariableScope *string
+	Variables     *[]string
+}
+
+// FunctionVariableDeclarations reads the manifest that `volcano config deploy`
+// would use and returns each function's variable declaration keyed by function
+// name. Function deploy is not a config command: a missing, unreadable, or
+// invalid manifest is not an error here, it just means no declarations, so
+// deploy behaves exactly as it did before scoping existed. The manifest is only
+// read — deploy never writes it back.
+func FunctionVariableDeclarations(fileArg string) map[string]FunctionVariableDeclaration {
+	path, err := ResolveManifestPath(fileArg)
+	if err != nil {
+		return nil
+	}
+	manifest, _, err := Load(path)
+	if err != nil || manifest.Functions == nil {
+		return nil
+	}
+
+	declarations := make(map[string]FunctionVariableDeclaration)
+	for _, function := range *manifest.Functions {
+		if function.VariableScope == nil && function.Variables == nil {
+			continue
+		}
+		declarations[function.Name] = FunctionVariableDeclaration{
+			VariableScope: function.VariableScope,
+			Variables:     function.Variables,
+		}
+	}
+	if len(declarations) == 0 {
+		return nil
+	}
+	return declarations
 }
