@@ -118,6 +118,11 @@ functions:
     variable_scope: scoped     # SENDGRID_API_KEY is read directly, so detection finds it
 ```
 
+Because `functions deploy` reads these declarations from the manifest, every
+`${VAR}` reference in the file must be set in the deploying shell. If one is
+not, the deploy stops before uploading rather than continuing without the scope
+declared here. See [functions](functions.md).
+
 `variable_scope` takes `all` or `scoped`:
 
 - `all` is the default and gives the function every project variable.

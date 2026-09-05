@@ -401,10 +401,17 @@ func (m *Manifest) Validate() error {
 	return nil
 }
 
+// ErrManifestNotFound reports that no volcano-config.yaml exists at any of the
+// locations the CLI looks in. Callers that treat an absent manifest as "nothing
+// declared" match it with errors.Is; every other resolution failure (an
+// explicit path that does not exist, or two competing manifests) is a real
+// error that must not be read as absence.
+var ErrManifestNotFound = errors.New("no volcano-config.yaml file found.\ncreate volcano/volcano-config.yaml or ./volcano-config.yaml, or use --file to specify a path")
+
 // ResolveManifestPath returns the manifest path that config commands should
 // use. An explicit path is used as-is (after existence check); otherwise the
 // CLI looks for volcano/volcano-config.yaml then volcano-config.yaml in the
-// working directory.
+// working directory. When nothing is found it returns ErrManifestNotFound.
 func ResolveManifestPath(fileArg string) (string, error) {
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
 		if !fileExists(trimmed) {
@@ -423,7 +430,7 @@ func ResolveManifestPath(fileArg string) (string, error) {
 
 	switch len(found) {
 	case 0:
-		return "", errors.New("no volcano-config.yaml file found.\ncreate volcano/volcano-config.yaml or ./volcano-config.yaml, or use --file to specify a path")
+		return "", ErrManifestNotFound
 	case 1:
 		return found[0], nil
 	default:
@@ -464,18 +471,30 @@ type FunctionVariableDeclaration struct {
 
 // FunctionVariableDeclarations reads the manifest that `volcano config deploy`
 // would use and returns each function's variable declaration keyed by function
-// name. Function deploy is not a config command: a missing, unreadable, or
-// invalid manifest is not an error here, it just means no declarations, so
-// deploy behaves exactly as it did before scoping existed. The manifest is only
-// read — deploy never writes it back.
-func FunctionVariableDeclarations(fileArg string) map[string]FunctionVariableDeclaration {
+// name. The manifest is only read — deploy never writes it back.
+//
+// Absence and invalidity are different answers. With no volcano-config.yaml
+// anywhere, there is nothing to declare: this returns (nil, nil) and deploy
+// behaves exactly as it did before scoping existed. When a manifest does exist
+// but cannot be resolved, read, interpolated, or validated, this returns an
+// error so deploy aborts before uploading. Failing open there would silently
+// drop an explicit `variable_scope: scoped` — for example when an unrelated
+// `value: ${API_KEY}` elsewhere in the manifest is unset in the deploying
+// shell — and hand the function every project variable instead.
+func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDeclaration, error) {
 	path, err := ResolveManifestPath(fileArg)
+	if errors.Is(err, ErrManifestNotFound) {
+		return nil, nil //nolint:nilnil // no manifest means nothing declared, not a failure
+	}
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	manifest, _, err := Load(path)
-	if err != nil || manifest.Functions == nil {
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("failed to read function variable scope from volcano-config.yaml: %w\nfix the manifest (or export the environment variables it references) and deploy again", err)
+	}
+	if manifest.Functions == nil {
+		return nil, nil //nolint:nilnil // no functions section means nothing declared
 	}
 
 	declarations := make(map[string]FunctionVariableDeclaration)
@@ -489,7 +508,7 @@ func FunctionVariableDeclarations(fileArg string) map[string]FunctionVariableDec
 		}
 	}
 	if len(declarations) == 0 {
-		return nil
+		return nil, nil //nolint:nilnil // a manifest that declares no scope is not a failure
 	}
-	return declarations
+	return declarations, nil
 }

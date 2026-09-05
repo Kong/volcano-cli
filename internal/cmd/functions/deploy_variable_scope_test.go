@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -198,4 +200,101 @@ functions:
 	// The undeclared sibling sends neither field.
 	assert.NotContains(t, scopes, "plain-fn")
 	assert.NotContains(t, declared, "plain-fn")
+}
+
+// An existing manifest that cannot be read must abort every deploy path before
+// any upload. Failing open would deploy the function without the scope it
+// explicitly declared, handing it every project variable instead. These assert
+// the upload count stayed at zero, not merely that the command errored.
+func TestFunctionsDeployAbortsBeforeUploadWhenManifestUnreadable(t *testing.T) {
+	// An unset ${ENV} in a section unrelated to function scope.
+	const manifestWithUnsetSecret = `version: 1
+variables:
+  - name: UNRELATED
+    value: ${VOLCANO_TEST_DEPLOY_UNRELATED_SECRET}
+functions:
+  - name: scoped-fn
+    variable_scope: scoped
+    variables:
+      - API_KEY
+`
+	const invalidManifest = "version: 1\nnot_a_section: true\n"
+
+	for _, testCase := range []struct {
+		name     string
+		manifest string
+		wantErr  string
+	}{
+		{name: "unrelated unset interpolation", manifest: manifestWithUnsetSecret, wantErr: "VOLCANO_TEST_DEPLOY_UNRELATED_SECRET"},
+		{name: "invalid manifest", manifest: invalidManifest, wantErr: "function variable scope"},
+	} {
+		for _, path := range []struct {
+			name    string
+			command func(cliruntime.Deps) *cobra.Command
+			args    []string
+		}{
+			{name: "single", command: New, args: []string{"deploy", "-f", "volcano/functions/scoped-fn.js"}},
+			{name: "cloud batch", command: New, args: []string{"deploy", "--all"}},
+			{name: "local all", command: NewLocal, args: []string{"deploy", "--all"}},
+		} {
+			t.Run(testCase.name+"/"+path.name, func(t *testing.T) {
+				setFunctionCommandTestHome(t)
+				saveFunctionCommandTestConfig(t)
+				t.Chdir(t.TempDir())
+				require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "scoped-fn.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+				require.NoError(t, writeProjectFile("volcano-config.yaml", testCase.manifest))
+
+				uploads := 0
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch {
+					case writeFunctionRuntimesCommandResponse(w, r):
+						return
+					case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/projects/"+functionProjectID+"/functions"):
+						uploads++
+						writeFunctionCommandJSON(t, w, http.StatusCreated, functionCommandPayload(functionID, "scoped-fn"))
+					default:
+						http.NotFound(w, r)
+					}
+				}))
+				defer server.Close()
+
+				_, err := executeFunctionsCommand(t, path.command(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), path.args...)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), testCase.wantErr)
+				assert.Zero(t, uploads, "deploy must abort before uploading anything")
+			})
+		}
+	}
+}
+
+// The no-manifest case is unchanged: deploy succeeds and uploads.
+func TestFunctionsDeployAllSucceedsWithoutManifest(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+
+	var manifest []batchManifestItem
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions/batch":
+			require.NoError(t, r.ParseMultipartForm(32*1024*1024))
+			require.NoError(t, json.Unmarshal([]byte(r.FormValue("functions")), &manifest))
+			writeFunctionCommandJSON(t, w, http.StatusAccepted, map[string]any{
+				"batch_id": "77777777-7777-4777-8777-000000000002",
+				"data":     []any{functionCommandPayload(functionID, "hello")},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all")
+	require.NoError(t, err)
+	require.Len(t, manifest, 1)
+	assert.Nil(t, manifest[0].VariableScope)
+	assert.Nil(t, manifest[0].Variables)
 }

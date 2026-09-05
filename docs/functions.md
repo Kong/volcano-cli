@@ -29,6 +29,15 @@ Functions the manifest does not mention keep their existing scope. The manifest
 is only read — deploying never writes it back. See
 [variable scope](project-configuration.md).
 
+Because those declarations come from the manifest, a manifest that is present
+but cannot be read stops the deploy before anything is uploaded, and the error
+says what to fix. That includes a `${VAR}` reference anywhere in the file whose
+environment variable is not set in the deploying shell, even in a section
+unrelated to functions. Deploying past it would upload a function without the
+scope it declared, giving it every project variable. With no
+`volcano-config.yaml` at all there is nothing to declare and deploy runs
+normally.
+
 ## CLI operations
 
 | Operation | Command |

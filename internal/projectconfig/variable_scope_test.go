@@ -127,7 +127,8 @@ functions:
     public: true
 `), 0o644))
 
-		declarations := FunctionVariableDeclarations("")
+		declarations, err := FunctionVariableDeclarations("")
+		require.NoError(t, err)
 		require.Len(t, declarations, 1)
 
 		scoped := declarations["scoped-fn"]
@@ -142,17 +143,94 @@ functions:
 	})
 }
 
-// Function deploy is not a config command, so a missing or broken manifest
-// must not fail it — it just yields no declarations.
-func TestFunctionVariableDeclarationsTolerantOfBadManifest(t *testing.T) {
+// No manifest anywhere means nothing was declared. Function deploy is not a
+// config command, so this must not fail it.
+func TestFunctionVariableDeclarationsAbsentManifest(t *testing.T) {
 	withTempWorkingDir(t, func(_ string) {
-		assert.Nil(t, FunctionVariableDeclarations(""))
+		declarations, err := FunctionVariableDeclarations("")
+		require.NoError(t, err)
+		assert.Nil(t, declarations)
+	})
+}
 
-		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 99\n"), 0o644))
-		assert.Nil(t, FunctionVariableDeclarations(""))
+// A manifest that exists but cannot be read is not the same as no manifest.
+// Returning no declarations there would deploy a function that explicitly asked
+// for scoped variables with every project variable instead.
+func TestFunctionVariableDeclarationsInvalidManifestErrors(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		contents string
+	}{
+		{name: "unsupported version", contents: "version: 99\n"},
+		{name: "malformed yaml", contents: ":\tnot yaml\n"},
+		{name: "unknown field", contents: "version: 1\nnot_a_section: true\n"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			withTempWorkingDir(t, func(_ string) {
+				require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(testCase.contents), 0o644))
 
-		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(":\tnot yaml\n"), 0o644))
-		assert.Nil(t, FunctionVariableDeclarations(""))
+				declarations, err := FunctionVariableDeclarations("")
+				require.Error(t, err)
+				assert.Nil(t, declarations)
+				assert.Contains(t, err.Error(), "function variable scope")
+			})
+		})
+	}
+}
+
+// The reported defect: an unset ${ENV} in a section that has nothing to do with
+// function scope must not quietly erase an explicit declaration.
+func TestFunctionVariableDeclarationsUnrelatedUnsetInterpolationErrors(t *testing.T) {
+	const manifest = `version: 1
+variables:
+  - name: UNRELATED
+    value: ${VOLCANO_TEST_UNRELATED_SECRET}
+functions:
+  - name: hello
+    variable_scope: scoped
+    variables:
+      - API_KEY
+`
+
+	t.Run("unset aborts instead of dropping the declaration", func(t *testing.T) {
+		withTempWorkingDir(t, func(_ string) {
+			require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(manifest), 0o644))
+
+			declarations, err := FunctionVariableDeclarations("")
+			require.Error(t, err)
+			assert.Nil(t, declarations)
+			assert.Contains(t, err.Error(), "VOLCANO_TEST_UNRELATED_SECRET")
+		})
+	})
+
+	// Control: the only difference is the unrelated variable being set.
+	t.Run("set yields the declaration", func(t *testing.T) {
+		t.Setenv("VOLCANO_TEST_UNRELATED_SECRET", "value")
+		withTempWorkingDir(t, func(_ string) {
+			require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(manifest), 0o644))
+
+			declarations, err := FunctionVariableDeclarations("")
+			require.NoError(t, err)
+			require.Len(t, declarations, 1)
+			require.NotNil(t, declarations["hello"].VariableScope)
+			assert.Equal(t, "scoped", *declarations["hello"].VariableScope)
+			require.NotNil(t, declarations["hello"].Variables)
+			assert.Equal(t, []string{"API_KEY"}, *declarations["hello"].Variables)
+		})
+	})
+}
+
+// Two competing manifests is an ambiguity, not an absence.
+func TestFunctionVariableDeclarationsAmbiguousManifestErrors(t *testing.T) {
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.MkdirAll("volcano", 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\n"), 0o644))
+
+		declarations, err := FunctionVariableDeclarations("")
+		require.Error(t, err)
+		assert.Nil(t, declarations)
+		assert.Contains(t, err.Error(), "multiple volcano-config.yaml files")
 	})
 }
 
@@ -165,7 +243,8 @@ functions:
     variable_scope: all
 `), 0o644))
 
-		declarations := FunctionVariableDeclarations("")
+		declarations, err := FunctionVariableDeclarations("")
+		require.NoError(t, err)
 		require.Len(t, declarations, 1)
 		require.NotNil(t, declarations["nested-fn"].VariableScope)
 		assert.Equal(t, "all", *declarations["nested-fn"].VariableScope)

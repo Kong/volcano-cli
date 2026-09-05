@@ -116,7 +116,13 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
-	declarations := projectconfig.FunctionVariableDeclarations("")
+	// Read the manifest before anything is uploaded. An existing but unreadable
+	// manifest aborts here rather than deploying with its scope declarations
+	// silently dropped.
+	declarations, err := projectconfig.FunctionVariableDeclarations("")
+	if err != nil {
+		return err
+	}
 
 	if opts.all {
 		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, declarations)
