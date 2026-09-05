@@ -484,7 +484,7 @@ type FunctionVariableDeclaration struct {
 func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDeclaration, error) {
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
-		return nil, nil //nolint:nilnil // no manifest means nothing declared, not a failure
+		return map[string]FunctionVariableDeclaration{}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -494,7 +494,7 @@ func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDe
 		return nil, fmt.Errorf("failed to read function variable scope from volcano-config.yaml: %w\nfix the manifest (or export the environment variables it references) and deploy again", err)
 	}
 	if manifest.Functions == nil {
-		return nil, nil //nolint:nilnil // no functions section means nothing declared
+		return map[string]FunctionVariableDeclaration{}, nil
 	}
 
 	declarations := make(map[string]FunctionVariableDeclaration)
@@ -508,7 +508,7 @@ func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDe
 		}
 	}
 	if len(declarations) == 0 {
-		return nil, nil //nolint:nilnil // a manifest that declares no scope is not a failure
+		return declarations, nil
 	}
 	return declarations, nil
 }

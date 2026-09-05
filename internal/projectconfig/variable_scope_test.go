@@ -149,7 +149,7 @@ func TestFunctionVariableDeclarationsAbsentManifest(t *testing.T) {
 	withTempWorkingDir(t, func(_ string) {
 		declarations, err := FunctionVariableDeclarations("")
 		require.NoError(t, err)
-		assert.Nil(t, declarations)
+		assert.Empty(t, declarations)
 	})
 }
 
