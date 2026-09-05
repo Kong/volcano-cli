@@ -17,6 +17,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/oapi-codegen/nullable"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -64,6 +65,135 @@ func (e AuthInsightsInterval) Valid() bool {
 	case Month:
 		return true
 	case Week:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageDensity.
+const (
+	Comfortable AuthPageDensity = "comfortable"
+	Compact     AuthPageDensity = "compact"
+	Spacious    AuthPageDensity = "spacious"
+)
+
+// Valid indicates whether the value is a known member of the AuthPageDensity enum.
+func (e AuthPageDensity) Valid() bool {
+	switch e {
+	case Comfortable:
+		return true
+	case Compact:
+		return true
+	case Spacious:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageFont.
+const (
+	AuthPageFontGeometric AuthPageFont = "geometric"
+	AuthPageFontHumanist  AuthPageFont = "humanist"
+	AuthPageFontMono      AuthPageFont = "mono"
+	AuthPageFontSlab      AuthPageFont = "slab"
+	AuthPageFontSystem    AuthPageFont = "system"
+)
+
+// Valid indicates whether the value is a known member of the AuthPageFont enum.
+func (e AuthPageFont) Valid() bool {
+	switch e {
+	case AuthPageFontGeometric:
+		return true
+	case AuthPageFontHumanist:
+		return true
+	case AuthPageFontMono:
+		return true
+	case AuthPageFontSlab:
+		return true
+	case AuthPageFontSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageLayout.
+const (
+	Centered   AuthPageLayout = "centered"
+	SplitLeft  AuthPageLayout = "split-left"
+	SplitRight AuthPageLayout = "split-right"
+)
+
+// Valid indicates whether the value is a known member of the AuthPageLayout enum.
+func (e AuthPageLayout) Valid() bool {
+	switch e {
+	case Centered:
+		return true
+	case SplitLeft:
+		return true
+	case SplitRight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageRadius.
+const (
+	AuthPageRadiusLarge  AuthPageRadius = "large"
+	AuthPageRadiusMedium AuthPageRadius = "medium"
+	AuthPageRadiusNone   AuthPageRadius = "none"
+	AuthPageRadiusSmall  AuthPageRadius = "small"
+)
+
+// Valid indicates whether the value is a known member of the AuthPageRadius enum.
+func (e AuthPageRadius) Valid() bool {
+	switch e {
+	case AuthPageRadiusLarge:
+		return true
+	case AuthPageRadiusMedium:
+		return true
+	case AuthPageRadiusNone:
+		return true
+	case AuthPageRadiusSmall:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageScale.
+const (
+	AuthPageScaleDefault AuthPageScale = "default"
+	AuthPageScaleLarge   AuthPageScale = "large"
+	AuthPageScaleSmall   AuthPageScale = "small"
+)
+
+// Valid indicates whether the value is a known member of the AuthPageScale enum.
+func (e AuthPageScale) Valid() bool {
+	switch e {
+	case AuthPageScaleDefault:
+		return true
+	case AuthPageScaleLarge:
+		return true
+	case AuthPageScaleSmall:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthPageThemeVersion.
+const (
+	AuthPageThemeVersionN1 AuthPageThemeVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the AuthPageThemeVersion enum.
+func (e AuthPageThemeVersion) Valid() bool {
+	switch e {
+	case AuthPageThemeVersionN1:
 		return true
 	default:
 		return false
@@ -1021,6 +1151,42 @@ func (e FunctionDeploymentStatus) Valid() bool {
 	}
 }
 
+// Defines values for FunctionHTTPAuthMode.
+const (
+	None    FunctionHTTPAuthMode = "none"
+	Volcano FunctionHTTPAuthMode = "volcano"
+)
+
+// Valid indicates whether the value is a known member of the FunctionHTTPAuthMode enum.
+func (e FunctionHTTPAuthMode) Valid() bool {
+	switch e {
+	case None:
+		return true
+	case Volcano:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionInvocationMode.
+const (
+	Http FunctionInvocationMode = "http"
+	Rpc  FunctionInvocationMode = "rpc"
+)
+
+// Valid indicates whether the value is a known member of the FunctionInvocationMode enum.
+func (e FunctionInvocationMode) Valid() bool {
+	switch e {
+	case Http:
+		return true
+	case Rpc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionSchedulerScheduleKind.
 const (
 	FunctionSchedulerScheduleKindCron FunctionSchedulerScheduleKind = "cron"
@@ -1038,16 +1204,28 @@ func (e FunctionSchedulerScheduleKind) Valid() bool {
 
 // Defines values for HostedAuthPageType.
 const (
-	HostedAuthPageTypeLogin         HostedAuthPageType = "login"
-	HostedAuthPageTypeResetPassword HostedAuthPageType = "reset-password"
+	HostedAuthPageTypeDevice         HostedAuthPageType = "device"
+	HostedAuthPageTypeForgotPassword HostedAuthPageType = "forgot-password"
+	HostedAuthPageTypeLogin          HostedAuthPageType = "login"
+	HostedAuthPageTypeResetPassword  HostedAuthPageType = "reset-password"
+	HostedAuthPageTypeSignup         HostedAuthPageType = "signup"
+	HostedAuthPageTypeVerifyEmail    HostedAuthPageType = "verify-email"
 )
 
 // Valid indicates whether the value is a known member of the HostedAuthPageType enum.
 func (e HostedAuthPageType) Valid() bool {
 	switch e {
+	case HostedAuthPageTypeDevice:
+		return true
+	case HostedAuthPageTypeForgotPassword:
+		return true
 	case HostedAuthPageTypeLogin:
 		return true
 	case HostedAuthPageTypeResetPassword:
+		return true
+	case HostedAuthPageTypeSignup:
+		return true
+	case HostedAuthPageTypeVerifyEmail:
 		return true
 	default:
 		return false
@@ -1056,13 +1234,25 @@ func (e HostedAuthPageType) Valid() bool {
 
 // Defines values for HostedRenderablePageType.
 const (
-	HostedRenderablePageTypeResetPassword HostedRenderablePageType = "reset-password"
+	HostedRenderablePageTypeDevice         HostedRenderablePageType = "device"
+	HostedRenderablePageTypeForgotPassword HostedRenderablePageType = "forgot-password"
+	HostedRenderablePageTypeResetPassword  HostedRenderablePageType = "reset-password"
+	HostedRenderablePageTypeSignup         HostedRenderablePageType = "signup"
+	HostedRenderablePageTypeVerifyEmail    HostedRenderablePageType = "verify-email"
 )
 
 // Valid indicates whether the value is a known member of the HostedRenderablePageType enum.
 func (e HostedRenderablePageType) Valid() bool {
 	switch e {
+	case HostedRenderablePageTypeDevice:
+		return true
+	case HostedRenderablePageTypeForgotPassword:
+		return true
 	case HostedRenderablePageTypeResetPassword:
+		return true
+	case HostedRenderablePageTypeSignup:
+		return true
+	case HostedRenderablePageTypeVerifyEmail:
 		return true
 	default:
 		return false
@@ -1287,13 +1477,13 @@ func (e ProjectStatus) Valid() bool {
 
 // Defines values for ProjectConfigVersion.
 const (
-	N1 ProjectConfigVersion = 1
+	ProjectConfigVersionN1 ProjectConfigVersion = 1
 )
 
 // Valid indicates whether the value is a known member of the ProjectConfigVersion enum.
 func (e ProjectConfigVersion) Valid() bool {
 	switch e {
-	case N1:
+	case ProjectConfigVersionN1:
 		return true
 	default:
 		return false
@@ -2074,6 +2264,30 @@ func (e ProjectMetricsUnit) Valid() bool {
 	}
 }
 
+// Defines values for ProjectSourceExportStateMode.
+const (
+	Git          ProjectSourceExportStateMode = "git"
+	GitExporting ProjectSourceExportStateMode = "git_exporting"
+	GitPending   ProjectSourceExportStateMode = "git_pending"
+	Platform     ProjectSourceExportStateMode = "platform"
+)
+
+// Valid indicates whether the value is a known member of the ProjectSourceExportStateMode enum.
+func (e ProjectSourceExportStateMode) Valid() bool {
+	switch e {
+	case Git:
+		return true
+	case GitExporting:
+		return true
+	case GitPending:
+		return true
+	case Platform:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceReferenceType.
 const (
 	ResourceReferenceTypeDatabase ResourceReferenceType = "database"
@@ -2232,28 +2446,28 @@ func (e UploadSessionStatusResponseStatus) Valid() bool {
 
 // Defines values for VariableDeploySource.
 const (
-	Api     VariableDeploySource = "api"
-	Cli     VariableDeploySource = "cli"
-	Git     VariableDeploySource = "git"
-	System  VariableDeploySource = "system"
-	Unknown VariableDeploySource = "unknown"
-	Web     VariableDeploySource = "web"
+	VariableDeploySourceApi     VariableDeploySource = "api"
+	VariableDeploySourceCli     VariableDeploySource = "cli"
+	VariableDeploySourceGit     VariableDeploySource = "git"
+	VariableDeploySourceSystem  VariableDeploySource = "system"
+	VariableDeploySourceUnknown VariableDeploySource = "unknown"
+	VariableDeploySourceWeb     VariableDeploySource = "web"
 )
 
 // Valid indicates whether the value is a known member of the VariableDeploySource enum.
 func (e VariableDeploySource) Valid() bool {
 	switch e {
-	case Api:
+	case VariableDeploySourceApi:
 		return true
-	case Cli:
+	case VariableDeploySourceCli:
 		return true
-	case Git:
+	case VariableDeploySourceGit:
 		return true
-	case System:
+	case VariableDeploySourceSystem:
 		return true
-	case Unknown:
+	case VariableDeploySourceUnknown:
 		return true
-	case Web:
+	case VariableDeploySourceWeb:
 		return true
 	default:
 		return false
@@ -2964,16 +3178,16 @@ func (e ListUserSessionsParamsSort) Valid() bool {
 
 // Defines values for ListUserSessionsParamsStatus.
 const (
-	Active  ListUserSessionsParamsStatus = "active"
-	Expired ListUserSessionsParamsStatus = "expired"
+	ListUserSessionsParamsStatusActive  ListUserSessionsParamsStatus = "active"
+	ListUserSessionsParamsStatusExpired ListUserSessionsParamsStatus = "expired"
 )
 
 // Valid indicates whether the value is a known member of the ListUserSessionsParamsStatus enum.
 func (e ListUserSessionsParamsStatus) Valid() bool {
 	switch e {
-	case Active:
+	case ListUserSessionsParamsStatusActive:
 		return true
-	case Expired:
+	case ListUserSessionsParamsStatusExpired:
 		return true
 	default:
 		return false
@@ -2992,6 +3206,33 @@ func (e GetProjectConfigParamsFormat) Valid() bool {
 	case Json:
 		return true
 	case Yaml:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListDatabasesParamsStatus.
+const (
+	ListDatabasesParamsStatusActive       ListDatabasesParamsStatus = "active"
+	ListDatabasesParamsStatusDeleting     ListDatabasesParamsStatus = "deleting"
+	ListDatabasesParamsStatusFailed       ListDatabasesParamsStatus = "failed"
+	ListDatabasesParamsStatusProvisioning ListDatabasesParamsStatus = "provisioning"
+	ListDatabasesParamsStatusRestoring    ListDatabasesParamsStatus = "restoring"
+)
+
+// Valid indicates whether the value is a known member of the ListDatabasesParamsStatus enum.
+func (e ListDatabasesParamsStatus) Valid() bool {
+	switch e {
+	case ListDatabasesParamsStatusActive:
+		return true
+	case ListDatabasesParamsStatusDeleting:
+		return true
+	case ListDatabasesParamsStatusFailed:
+		return true
+	case ListDatabasesParamsStatusProvisioning:
+		return true
+	case ListDatabasesParamsStatusRestoring:
 		return true
 	default:
 		return false
@@ -3607,6 +3848,71 @@ type AuthMethodsResponse struct {
 	Methods []AuthMethodSummary `json:"methods"`
 }
 
+// AuthPageAppearanceDefaults defines model for AuthPageAppearanceDefaults.
+type AuthPageAppearanceDefaults struct {
+	Layout AuthPageLayout `json:"layout"`
+	Theme  AuthPageTheme  `json:"theme"`
+}
+
+// AuthPageAppearanceOptions defines model for AuthPageAppearanceOptions.
+type AuthPageAppearanceOptions struct {
+	Densities []AuthPageDensity    `json:"densities"`
+	Fonts     []AuthPageFont       `json:"fonts"`
+	Layouts   []AuthPageLayout     `json:"layouts"`
+	Pages     []HostedAuthPageType `json:"pages"`
+	Radii     []AuthPageRadius     `json:"radii"`
+	Scales    []AuthPageScale      `json:"scales"`
+}
+
+// AuthPageAppearanceResponse defines model for AuthPageAppearanceResponse.
+type AuthPageAppearanceResponse struct {
+	CustomisationAllowed bool                       `json:"customisation_allowed"`
+	Defaults             AuthPageAppearanceDefaults `json:"defaults"`
+	Layouts              map[string]AuthPageLayout  `json:"layouts"`
+	Options              AuthPageAppearanceOptions  `json:"options"`
+
+	// Parked Per-page saved-but-not-live state.
+	Parked map[string]bool `json:"parked"`
+	Theme  AuthPageTheme   `json:"theme"`
+}
+
+// AuthPageDensity defines model for AuthPageDensity.
+type AuthPageDensity string
+
+// AuthPageFont defines model for AuthPageFont.
+type AuthPageFont string
+
+// AuthPageLayout defines model for AuthPageLayout.
+type AuthPageLayout string
+
+// AuthPageRadius defines model for AuthPageRadius.
+type AuthPageRadius string
+
+// AuthPageScale defines model for AuthPageScale.
+type AuthPageScale string
+
+// AuthPageTheme defines model for AuthPageTheme.
+type AuthPageTheme struct {
+	Colors  AuthPageThemeColors  `json:"colors"`
+	Density AuthPageDensity      `json:"density"`
+	Font    AuthPageFont         `json:"font"`
+	Radius  AuthPageRadius       `json:"radius"`
+	Scale   AuthPageScale        `json:"scale"`
+	Version AuthPageThemeVersion `json:"version"`
+}
+
+// AuthPageThemeVersion defines model for AuthPageTheme.Version.
+type AuthPageThemeVersion int
+
+// AuthPageThemeColors defines model for AuthPageThemeColors.
+type AuthPageThemeColors struct {
+	Accent     string `json:"accent"`
+	AccentText string `json:"accent_text"`
+	Background string `json:"background"`
+	Surface    string `json:"surface"`
+	Text       string `json:"text"`
+}
+
 // AuthPasswordPolicy Effective backend-enforced password policy.
 type AuthPasswordPolicy struct {
 	// CompromisedPasswordsRejected Whether common and known-compromised passwords are rejected by the backend.
@@ -3841,7 +4147,12 @@ type CreateDatabaseRequestRegion string
 // CreateDatabaseRestoreRequest Names what to restore. Supply exactly one of `backup_name` or
 // `restore_to`.
 type CreateDatabaseRestoreRequest struct {
-	// BackupName A backup of this database to restore.
+	// BackupName A backup of this database to restore, exactly as returned by the list
+	// endpoint.
+	//
+	// Deliberately looser than the names you can create, like the backup
+	// path parameter: a backup made by a schedule is named for you, so
+	// restoring one accepts any name a backup can have.
 	BackupName *string `json:"backup_name,omitempty"`
 
 	// RestoreTo A point in time to restore to, which must fall inside the
@@ -3906,27 +4217,6 @@ type CreateOAuthConfigRequest struct {
 
 // CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
 type CreateOAuthConfigRequestProvider string
-
-// CreateProjectGitRepositoryRequest defines model for CreateProjectGitRepositoryRequest.
-type CreateProjectGitRepositoryRequest struct {
-	// Description Repository description shown on GitHub.
-	Description *string `json:"description,omitempty"`
-
-	// Name Repository name, unique within the owner account.
-	Name string `json:"name"`
-
-	// Owner GitHub account to create the repository under, as returned in account_login by /user/git/connections/{id}/installations. Omit for the connected user's own account. Must be an organization the app is installed on, or your own account.
-	Owner *string `json:"owner,omitempty"`
-
-	// Private Whether the new repository is private. Defaults to true: the next step is pushing the project's source into it, so an omitted field must not publish it.
-	Private *bool `json:"private,omitempty"`
-
-	// ProductionBranch The branch to deploy from — name the one you are about to push. The repository is created empty, so it has no real default branch to follow: omitting this binds whatever branch name GitHub reports for the new repository (falling back to "main" if it reports none), which is the account's configured default and a prediction, and pushing anything else then deploys nothing. Naming the branch GitHub already reports is not treated as pinning it, so the project still tracks a later default-branch rename; naming any other branch pins it. Rejected before the repository is created if it is not a valid Git branch name; it does not have to exist.
-	ProductionBranch *string `json:"production_branch,omitempty"`
-
-	// RootDirectory Monorepo subdirectory the project builds from, as a relative path inside the repository. Omit for the repo root. Absolute paths and ".." traversal are rejected before the repository is created, because the build applies the same rule and nothing would deploy.
-	RootDirectory *string `json:"root_directory,omitempty"`
-}
 
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
@@ -4005,16 +4295,6 @@ type CreateUploadSessionResponse struct {
 type CreateVariableRequest struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
-}
-
-// CreatedProjectGitConnection A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
-type CreatedProjectGitConnection struct {
-	// AppInstalled Whether the App installation covers the new repository. False means the binding is complete but no push will deploy until the user grants access at install_url. An installation scoped to selected repositories never picks up a new repo on its own.
-	AppInstalled bool                 `json:"app_installed"`
-	Connection   ProjectGitConnection `json:"connection"`
-
-	// InstallUrl Where the user grants the App access to the new repository. Present only when app_installed is false.
-	InstallUrl *string `json:"install_url,omitempty"`
 }
 
 // Database PostgreSQL database with automatic scalability and security features.
@@ -4116,8 +4396,12 @@ type DatabaseBackupSource string
 type DatabaseBackupList struct {
 	Data []DatabaseBackup `json:"data"`
 
-	// RestoreWindow The span a point-in-time restore may target. Empty when the owner's plan
-	// does not include point-in-time restore.
+	// RestoreWindow The span a point-in-time restore may target. Absent from the response
+	// when the owner's plan does not include point-in-time restore, and while
+	// the storage provider has no history window in place yet — briefly the
+	// case after an upgrade, since the window is applied asynchronously. The
+	// window is read from the provider rather than from the plan, so it never
+	// advertises a point a restore could not actually reach.
 	RestoreWindow *DatabaseRestoreWindow `json:"restore_window,omitempty"`
 }
 
@@ -4421,8 +4705,12 @@ type DatabaseRestoreList struct {
 	Data []DatabaseRestore `json:"data"`
 }
 
-// DatabaseRestoreWindow The span a point-in-time restore may target. Empty when the owner's plan
-// does not include point-in-time restore.
+// DatabaseRestoreWindow The span a point-in-time restore may target. Absent from the response
+// when the owner's plan does not include point-in-time restore, and while
+// the storage provider has no history window in place yet — briefly the
+// case after an upgrade, since the window is applied asynchronously. The
+// window is read from the provider rather than from the plan, so it never
+// advertises a point a restore could not actually reach.
 type DatabaseRestoreWindow struct {
 	// EarliestRestoreAt The oldest point that can still be restored. Moves forward
 	// continuously as history ages out, so treat it as a lower bound at
@@ -4599,6 +4887,12 @@ type Error struct {
 	// Code Stable machine-readable error code when a specific recovery path is available.
 	Code  *string `json:"code,omitempty"`
 	Error string  `json:"error"`
+}
+
+// ExportProjectSourceRequest defines model for ExportProjectSourceRequest.
+type ExportProjectSourceRequest struct {
+	// ProductionBranch The currently configured production branch the user confirmed for export.
+	ProductionBranch string `json:"production_branch"`
 }
 
 // Frontend defines model for Frontend.
@@ -4809,9 +5103,20 @@ type Function struct {
 	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
 
 	// DeployedRegions Regions where this function is currently deployed
-	DeployedRegions []string           `json:"deployed_regions"`
-	Handler         *string            `json:"handler,omitempty"`
-	Id              openapi_types.UUID `json:"id"`
+	DeployedRegions []string `json:"deployed_regions"`
+	Handler         *string  `json:"handler,omitempty"`
+
+	// HasOpenapiSpec Whether OpenAPI metadata is configured; list responses omit the document itself.
+	HasOpenapiSpec bool `json:"has_openapi_spec"`
+
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
+	// HTTP-mode functions and is intended for externally signed webhooks.
+	HttpAuthMode FunctionHTTPAuthMode `json:"http_auth_mode"`
+	Id           openapi_types.UUID   `json:"id"`
+
+	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
+	// `http` forwards HTTP request semantics to the function runtime.
+	InvocationMode FunctionInvocationMode `json:"invocation_mode"`
 
 	// InvokeUrl Canonical GeoDNS endpoint URL for invoking this function (always HTTPS)
 	InvokeUrl *string `json:"invoke_url,omitempty"`
@@ -4824,6 +5129,9 @@ type Function struct {
 	// LastInvokedAt Most recent successful invocation timestamp
 	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
 	Name          string     `json:"name"`
+
+	// OpenapiSpec Optional OpenAPI 3.0 or 3.1 document describing an HTTP-mode function.
+	OpenapiSpec *map[string]interface{} `json:"openapi_spec"`
 
 	// PendingDeploymentId Newest queued deployment that will run after the current operation
 	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
@@ -4880,6 +5188,14 @@ type FunctionDeploymentOperation string
 
 // FunctionDeploymentStatus defines model for FunctionDeployment.Status.
 type FunctionDeploymentStatus string
+
+// FunctionHTTPAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
+// HTTP-mode functions and is intended for externally signed webhooks.
+type FunctionHTTPAuthMode string
+
+// FunctionInvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
+// `http` forwards HTTP request semantics to the function runtime.
+type FunctionInvocationMode string
 
 // FunctionInvocationRequest defines model for FunctionInvocationRequest.
 type FunctionInvocationRequest struct {
@@ -5035,8 +5351,11 @@ type GitRepository struct {
 	FullName      string `json:"full_name"`
 
 	// Id Stable GitHub repository id (repository.id), unchanged by renames.
-	Id      int64 `json:"id"`
-	Private bool  `json:"private"`
+	Id int64 `json:"id"`
+
+	// IsEmpty Whether the repository has no commits and can receive an initial source export.
+	IsEmpty bool `json:"is_empty"`
+	Private bool `json:"private"`
 }
 
 // HostedAuthPageType defines model for HostedAuthPageType.
@@ -5737,6 +6056,19 @@ type PlatformExchangeResponse struct {
 	UserId    string             `json:"user_id"`
 }
 
+// PreviewAuthPageRequest defines model for PreviewAuthPageRequest.
+type PreviewAuthPageRequest struct {
+	Action *string        `json:"action,omitempty"`
+	Layout AuthPageLayout `json:"layout"`
+	Theme  AuthPageTheme  `json:"theme"`
+}
+
+// PreviewAuthPageResponse defines model for PreviewAuthPageResponse.
+type PreviewAuthPageResponse struct {
+	ExpiresAt  time.Time `json:"expires_at"`
+	PreviewUrl string    `json:"preview_url"`
+}
+
 // Project defines model for Project.
 type Project struct {
 	// AllRegions Region policy for function deployment.
@@ -5926,6 +6258,8 @@ type ProjectConfigAuthEmailVerification struct {
 
 // ProjectConfigAuthManagedPages defines model for ProjectConfigAuthManagedPages.
 type ProjectConfigAuthManagedPages struct {
+	Appearance *ProjectConfigAuthPageAppearance `json:"appearance,omitempty"`
+
 	// Enabled Enable or disable managed auth hosted pages
 	Enabled *bool `json:"enabled,omitempty"`
 
@@ -5933,6 +6267,22 @@ type ProjectConfigAuthManagedPages struct {
 	// pages are left untouched (there is no delete for hosted pages).
 	Pages     *ProjectConfigHostedPages   `json:"pages,omitempty"`
 	Redirects *ProjectConfigAuthRedirects `json:"redirects,omitempty"`
+}
+
+// ProjectConfigAuthPageAppearance defines model for ProjectConfigAuthPageAppearance.
+type ProjectConfigAuthPageAppearance struct {
+	Layouts *ProjectConfigAuthPageLayouts `json:"layouts,omitempty"`
+	Theme   *AuthPageTheme                `json:"theme,omitempty"`
+}
+
+// ProjectConfigAuthPageLayouts defines model for ProjectConfigAuthPageLayouts.
+type ProjectConfigAuthPageLayouts struct {
+	Device         *AuthPageLayout `json:"device,omitempty"`
+	ForgotPassword *AuthPageLayout `json:"forgot_password,omitempty"`
+	Login          *AuthPageLayout `json:"login,omitempty"`
+	ResetPassword  *AuthPageLayout `json:"reset_password,omitempty"`
+	Signup         *AuthPageLayout `json:"signup,omitempty"`
+	VerifyEmail    *AuthPageLayout `json:"verify_email,omitempty"`
 }
 
 // ProjectConfigAuthPassword defines model for ProjectConfigAuthPassword.
@@ -6131,7 +6481,17 @@ type ProjectConfigFrontend struct {
 // it is fully synced (schedulers absent from the list are deleted);
 // omitting `schedulers` leaves the function's schedulers untouched.
 type ProjectConfigFunction struct {
-	Name string `json:"name"`
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
+	// HTTP-mode functions and is intended for externally signed webhooks.
+	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
+
+	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
+	// `http` forwards HTTP request semantics to the function runtime.
+	InvocationMode *FunctionInvocationMode `json:"invocation_mode,omitempty"`
+	Name           string                  `json:"name"`
+
+	// OpenapiSpec OpenAPI 3.0 or 3.1 metadata for an HTTP-mode function
+	OpenapiSpec nullable.Nullable[map[string]interface{}] `json:"openapi_spec,omitempty"`
 
 	// Public Function visibility for anon-key invocation
 	Public     *bool                     `json:"public,omitempty"`
@@ -6150,8 +6510,12 @@ type ProjectConfigHostedPage struct {
 // ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
 // pages are left untouched (there is no delete for hosted pages).
 type ProjectConfigHostedPages struct {
-	Login         *ProjectConfigHostedPage `json:"login,omitempty"`
-	ResetPassword *ProjectConfigHostedPage `json:"reset_password,omitempty"`
+	Device         *ProjectConfigHostedPage `json:"device,omitempty"`
+	ForgotPassword *ProjectConfigHostedPage `json:"forgot_password,omitempty"`
+	Login          *ProjectConfigHostedPage `json:"login,omitempty"`
+	ResetPassword  *ProjectConfigHostedPage `json:"reset_password,omitempty"`
+	Signup         *ProjectConfigHostedPage `json:"signup,omitempty"`
+	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
 }
 
 // ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
@@ -6652,6 +7016,55 @@ type ProjectMetricsWindow struct {
 	To   time.Time `json:"to"`
 }
 
+// ProjectSourceExport The initial production-branch commit, and everything export could not carry.
+type ProjectSourceExport struct {
+	// Branch The production branch that was created.
+	Branch    string `json:"branch"`
+	CommitSha string `json:"commit_sha"`
+	FileCount int    `json:"file_count"`
+
+	// Omitted Things deliberately left out of the branch.
+	Omitted      []ProjectSourceExportOmission `json:"omitted"`
+	RepoFullName string                        `json:"repo_full_name"`
+
+	// Skipped Resources whose source could not be taken, with the reason. Most often a resource that has never deployed successfully.
+	Skipped []ProjectSourceExportSkip `json:"skipped"`
+}
+
+// ProjectSourceExportOmission defines model for ProjectSourceExportOmission.
+type ProjectSourceExportOmission struct {
+	// Kind What was left out: migrations Volcano stores no copy of, variable values, a credential-shaped file, installed dependencies, or an archive entry a repository cannot carry.
+	Kind string `json:"kind"`
+	Path string `json:"path"`
+
+	// Resource The resource it came from, empty when project-wide.
+	Resource string `json:"resource"`
+}
+
+// ProjectSourceExportSkip defines model for ProjectSourceExportSkip.
+type ProjectSourceExportSkip struct {
+	// Kind The kind of resource, "function" or "frontend". Deliberately not an enum: the generated constants would collide with an existing resource-type enum and rename its members.
+	Kind   string `json:"kind"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
+// ProjectSourceExportState The project's source of truth and any pending Git transition.
+type ProjectSourceExportState struct {
+	// ExportedAt When the initial export push entered deployment, or when a transition was canceled after its commit was reserved. Once set, the one-time export is consumed.
+	ExportedAt *time.Time `json:"exported_at"`
+
+	// HandedOverAt When a complete production-branch deployment first proved the repository could drive the project, null until then. Once set, the repository is the project's source of truth.
+	HandedOverAt *time.Time                   `json:"handed_over_at"`
+	Mode         ProjectSourceExportStateMode `json:"mode"`
+
+	// TransitionStartedAt When source export started, cleared if an incomplete transition is canceled.
+	TransitionStartedAt *time.Time `json:"transition_started_at"`
+}
+
+// ProjectSourceExportStateMode defines model for ProjectSourceExportState.Mode.
+type ProjectSourceExportStateMode string
+
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
 	// Frontends Per-frontend request totals for the current usage month
@@ -7085,6 +7498,16 @@ type UpdateAuthHostedPageRequest struct {
 	Html string `json:"html"`
 }
 
+// UpdateAuthPageLayoutRequest defines model for UpdateAuthPageLayoutRequest.
+type UpdateAuthPageLayoutRequest struct {
+	Layout AuthPageLayout `json:"layout"`
+}
+
+// UpdateAuthPageThemeRequest defines model for UpdateAuthPageThemeRequest.
+type UpdateAuthPageThemeRequest struct {
+	Theme AuthPageTheme `json:"theme"`
+}
+
 // UpdateDatabaseBranchRequest Replace the branch's lifetime and restart its countdown from now.
 type UpdateDatabaseBranchRequest struct {
 	// TtlSeconds The new lifetime, between one hour and 30 days.
@@ -7109,10 +7532,21 @@ type UpdateEmailTemplateRequest struct {
 
 // UpdateFunctionRequest defines model for UpdateFunctionRequest.
 type UpdateFunctionRequest struct {
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
+	// HTTP-mode functions and is intended for externally signed webhooks.
+	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
+
+	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
+	// `http` forwards HTTP request semantics to the function runtime.
+	InvocationMode *FunctionInvocationMode `json:"invocation_mode,omitempty"`
+
 	// IsPublic Function visibility for anon-key invocation.
 	// - `false` (default): private function
 	// - `true`: public function (anon keys with `functions.invoke` can invoke)
-	IsPublic bool `json:"is_public"`
+	IsPublic *bool `json:"is_public,omitempty"`
+
+	// OpenapiSpec OpenAPI 3.0 or 3.1 metadata for HTTP mode. Send null to clear it.
+	OpenapiSpec *map[string]interface{} `json:"openapi_spec,omitempty"`
 }
 
 // UpdateFunctionSchedulerRequest defines model for UpdateFunctionSchedulerRequest.
@@ -7355,6 +7789,9 @@ type VariableName = string
 
 // BandwidthCapExceeded defines model for BandwidthCapExceeded.
 type BandwidthCapExceeded = Error
+
+// DatabaseBranchQueryUnavailable defines model for DatabaseBranchQueryUnavailable.
+type DatabaseBranchQueryUnavailable = Error
 
 // DatabaseQueryCapExceeded defines model for DatabaseQueryCapExceeded.
 type DatabaseQueryCapExceeded = Error
@@ -7960,6 +8397,12 @@ type ConfigureAuthMethodsJSONBody struct {
 	} `json:"oauth_providers,omitempty"`
 }
 
+// RenderAuthPagePreviewParams defines parameters for RenderAuthPagePreview.
+type RenderAuthPagePreviewParams struct {
+	// Ticket Short-lived signed preview ticket returned by the POST operation.
+	Ticket string `form:"ticket" json:"ticket"`
+}
+
 // ListAuthUsersParams defines parameters for ListAuthUsers.
 type ListAuthUsersParams struct {
 	// Page Page number (1-indexed) for offset pagination. Declares no schema
@@ -8098,7 +8541,13 @@ type ListDatabasesParams struct {
 	// Search Case-insensitive substring match on the resource `name`. See the
 	// endpoint description for supported pagination modes.
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// Status Return only the databases in this status.
+	Status *ListDatabasesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 }
+
+// ListDatabasesParamsStatus defines parameters for ListDatabases.
+type ListDatabasesParamsStatus string
 
 // GetProjectDatabaseQueriesParams defines parameters for GetProjectDatabaseQueries.
 type GetProjectDatabaseQueriesParams struct {
@@ -8352,8 +8801,22 @@ type CreateFunctionMultipartBody struct {
 	// - Ruby: def handler() (in main.rb)
 	Handler *string `json:"handler,omitempty"`
 
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
+	// HTTP-mode functions and is intended for externally signed webhooks.
+	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
+
+	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
+	// `http` forwards HTTP request semantics to the function runtime.
+	InvocationMode *FunctionInvocationMode `json:"invocation_mode,omitempty"`
+
+	// IsPublic Whether the function can be reached through public invocation ingress.
+	IsPublic *bool `json:"is_public,omitempty"`
+
 	// Name DNS-safe function name (lowercase letters, numbers, hyphens; cannot start or end with hyphen)
 	Name string `json:"name"`
+
+	// OpenapiSpec JSON-encoded OpenAPI 3.0 or 3.1 metadata for an HTTP-mode function.
+	OpenapiSpec *string `json:"openapi_spec,omitempty"`
 
 	// Runtime Runtime environment. Required.
 	// - Node.js: nodejs22.x, nodejs24.x
@@ -8831,6 +9294,15 @@ type HostedLoginCheckEmailJSONRequestBody = HostedLoginEmailCheckRequest
 // ConfigureAuthMethodsJSONRequestBody defines body for ConfigureAuthMethods for application/json ContentType.
 type ConfigureAuthMethodsJSONRequestBody ConfigureAuthMethodsJSONBody
 
+// UpdateAuthPageThemeJSONRequestBody defines body for UpdateAuthPageTheme for application/json ContentType.
+type UpdateAuthPageThemeJSONRequestBody = UpdateAuthPageThemeRequest
+
+// UpdateAuthPageLayoutJSONRequestBody defines body for UpdateAuthPageLayout for application/json ContentType.
+type UpdateAuthPageLayoutJSONRequestBody = UpdateAuthPageLayoutRequest
+
+// PreviewAuthPageJSONRequestBody defines body for PreviewAuthPage for application/json ContentType.
+type PreviewAuthPageJSONRequestBody = PreviewAuthPageRequest
+
 // BanAuthUserJSONRequestBody defines body for BanAuthUser for application/json ContentType.
 type BanAuthUserJSONRequestBody BanAuthUserJSONBody
 
@@ -8891,9 +9363,6 @@ type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
 // SetProjectGitProductionBranchJSONRequestBody defines body for SetProjectGitProductionBranch for application/json ContentType.
 type SetProjectGitProductionBranchJSONRequestBody = SetProjectGitProductionBranchRequest
 
-// CreateProjectGitRepositoryJSONRequestBody defines body for CreateProjectGitRepository for application/json ContentType.
-type CreateProjectGitRepositoryJSONRequestBody = CreateProjectGitRepositoryRequest
-
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
 
@@ -8923,6 +9392,9 @@ type UpdateRealtimeConfigJSONRequestBody = UpdateRealtimeConfigRequest
 
 // CreateServiceKeyJSONRequestBody defines body for CreateServiceKey for application/json ContentType.
 type CreateServiceKeyJSONRequestBody CreateServiceKeyJSONBody
+
+// ExportProjectSourceJSONRequestBody defines body for ExportProjectSource for application/json ContentType.
+type ExportProjectSourceJSONRequestBody = ExportProjectSourceRequest
 
 // CreateStorageBucketJSONRequestBody defines body for CreateStorageBucket for application/json ContentType.
 type CreateStorageBucketJSONRequestBody = CreateStorageBucketRequest
@@ -10102,6 +10574,33 @@ type ClientInterface interface {
 
 	ConfigureAuthMethods(ctx context.Context, id ProjectId, body ConfigureAuthMethodsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAuthPageAppearance request
+	GetAuthPageAppearance(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAuthPageTheme request
+	DeleteAuthPageTheme(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthPageThemeWithBody request with any body
+	UpdateAuthPageThemeWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAuthPageTheme(ctx context.Context, id ProjectId, body UpdateAuthPageThemeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAuthPageLayout request
+	DeleteAuthPageLayout(ctx context.Context, id ProjectId, pageType HostedAuthPageType, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthPageLayoutWithBody request with any body
+	UpdateAuthPageLayoutWithBody(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAuthPageLayout(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body UpdateAuthPageLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenderAuthPagePreview request
+	RenderAuthPagePreview(ctx context.Context, id ProjectId, pageType HostedAuthPageType, params *RenderAuthPagePreviewParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewAuthPageWithBody request with any body
+	PreviewAuthPageWithBody(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PreviewAuthPage(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body PreviewAuthPageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAuthUsers request
 	ListAuthUsers(ctx context.Context, id ProjectId, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -10340,11 +10839,6 @@ type ClientInterface interface {
 
 	SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateProjectGitRepositoryWithBody request with any body
-	CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetProjectGitDeploySettings request
 	GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -10437,6 +10931,17 @@ type ClientInterface interface {
 
 	// RegenerateServiceKey request
 	RegenerateServiceKey(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelProjectSourceExport request
+	CancelProjectSourceExport(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectSourceExport request
+	GetProjectSourceExport(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExportProjectSourceWithBody request with any body
+	ExportProjectSourceWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ExportProjectSource(ctx context.Context, id ProjectId, body ExportProjectSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStorageBuckets request
 	ListStorageBuckets(ctx context.Context, id ProjectId, params *ListStorageBucketsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12116,6 +12621,126 @@ func (c *Client) ConfigureAuthMethods(ctx context.Context, id ProjectId, body Co
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetAuthPageAppearance(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuthPageAppearanceRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAuthPageTheme(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAuthPageThemeRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthPageThemeWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthPageThemeRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthPageTheme(ctx context.Context, id ProjectId, body UpdateAuthPageThemeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthPageThemeRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAuthPageLayout(ctx context.Context, id ProjectId, pageType HostedAuthPageType, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAuthPageLayoutRequest(c.Server, id, pageType)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthPageLayoutWithBody(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthPageLayoutRequestWithBody(c.Server, id, pageType, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthPageLayout(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body UpdateAuthPageLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthPageLayoutRequest(c.Server, id, pageType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenderAuthPagePreview(ctx context.Context, id ProjectId, pageType HostedAuthPageType, params *RenderAuthPagePreviewParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenderAuthPagePreviewRequest(c.Server, id, pageType, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreviewAuthPageWithBody(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAuthPageRequestWithBody(c.Server, id, pageType, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreviewAuthPage(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body PreviewAuthPageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewAuthPageRequest(c.Server, id, pageType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListAuthUsers(ctx context.Context, id ProjectId, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAuthUsersRequest(c.Server, id, params)
 	if err != nil {
@@ -13136,30 +13761,6 @@ func (c *Client) SetProjectGitProductionBranch(ctx context.Context, id ProjectId
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProjectGitRepositoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProjectGitRepositoryRequestWithBody(c.Server, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateProjectGitRepository(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProjectGitRepositoryRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectGitDeploySettingsRequest(c.Server, id)
 	if err != nil {
@@ -13558,6 +14159,54 @@ func (c *Client) GetServiceKey(ctx context.Context, id ProjectId, keyId openapi_
 
 func (c *Client) RegenerateServiceKey(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRegenerateServiceKeyRequest(c.Server, id, keyId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelProjectSourceExport(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelProjectSourceExportRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectSourceExport(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectSourceExportRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExportProjectSourceWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportProjectSourceRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExportProjectSource(ctx context.Context, id ProjectId, body ExportProjectSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExportProjectSourceRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18512,6 +19161,334 @@ func NewConfigureAuthMethodsRequestWithBody(server string, id ProjectId, content
 	return req, nil
 }
 
+// NewGetAuthPageAppearanceRequest generates requests for GetAuthPageAppearance
+func NewGetAuthPageAppearanceRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/appearance", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteAuthPageThemeRequest generates requests for DeleteAuthPageTheme
+func NewDeleteAuthPageThemeRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/theme", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAuthPageThemeRequest calls the generic UpdateAuthPageTheme builder with application/json body
+func NewUpdateAuthPageThemeRequest(server string, id ProjectId, body UpdateAuthPageThemeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAuthPageThemeRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateAuthPageThemeRequestWithBody generates requests for UpdateAuthPageTheme with any type of body
+func NewUpdateAuthPageThemeRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/theme", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAuthPageLayoutRequest generates requests for DeleteAuthPageLayout
+func NewDeleteAuthPageLayoutRequest(server string, id ProjectId, pageType HostedAuthPageType) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pageType", pageType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/%s/layout", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAuthPageLayoutRequest calls the generic UpdateAuthPageLayout builder with application/json body
+func NewUpdateAuthPageLayoutRequest(server string, id ProjectId, pageType HostedAuthPageType, body UpdateAuthPageLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAuthPageLayoutRequestWithBody(server, id, pageType, "application/json", bodyReader)
+}
+
+// NewUpdateAuthPageLayoutRequestWithBody generates requests for UpdateAuthPageLayout with any type of body
+func NewUpdateAuthPageLayoutRequestWithBody(server string, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pageType", pageType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/%s/layout", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRenderAuthPagePreviewRequest generates requests for RenderAuthPagePreview
+func NewRenderAuthPagePreviewRequest(server string, id ProjectId, pageType HostedAuthPageType, params *RenderAuthPagePreviewParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pageType", pageType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/%s/preview", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ticket", params.Ticket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPreviewAuthPageRequest calls the generic PreviewAuthPage builder with application/json body
+func NewPreviewAuthPageRequest(server string, id ProjectId, pageType HostedAuthPageType, body PreviewAuthPageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewAuthPageRequestWithBody(server, id, pageType, "application/json", bodyReader)
+}
+
+// NewPreviewAuthPageRequestWithBody generates requests for PreviewAuthPage with any type of body
+func NewPreviewAuthPageRequestWithBody(server string, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pageType", pageType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/auth/pages/%s/preview", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListAuthUsersRequest generates requests for ListAuthUsers
 func NewListAuthUsersRequest(server string, id ProjectId, params *ListAuthUsersParams) (*http.Request, error) {
 	var err error
@@ -19284,6 +20261,18 @@ func NewListDatabasesRequest(server string, id ProjectId, params *ListDatabasesP
 		if params.Search != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -22419,53 +23408,6 @@ func NewSetProjectGitProductionBranchRequestWithBody(server string, id ProjectId
 	return req, nil
 }
 
-// NewCreateProjectGitRepositoryRequest calls the generic CreateProjectGitRepository builder with application/json body
-func NewCreateProjectGitRepositoryRequest(server string, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateProjectGitRepositoryRequestWithBody(server, id, "application/json", bodyReader)
-}
-
-// NewCreateProjectGitRepositoryRequestWithBody generates requests for CreateProjectGitRepository with any type of body
-func NewCreateProjectGitRepositoryRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/projects/%s/git-connection/repository", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetProjectGitDeploySettingsRequest generates requests for GetProjectGitDeploySettings
 func NewGetProjectGitDeploySettingsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -23770,6 +24712,121 @@ func NewRegenerateServiceKeyRequest(server string, id ProjectId, keyId openapi_t
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCancelProjectSourceExportRequest generates requests for CancelProjectSourceExport
+func NewCancelProjectSourceExportRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/source-export", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectSourceExportRequest generates requests for GetProjectSourceExport
+func NewGetProjectSourceExportRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/source-export", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewExportProjectSourceRequest calls the generic ExportProjectSource builder with application/json body
+func NewExportProjectSourceRequest(server string, id ProjectId, body ExportProjectSourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExportProjectSourceRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewExportProjectSourceRequestWithBody generates requests for ExportProjectSource with any type of body
+func NewExportProjectSourceRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/source-export", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -25985,6 +27042,33 @@ type ClientWithResponsesInterface interface {
 
 	ConfigureAuthMethodsWithResponse(ctx context.Context, id ProjectId, body ConfigureAuthMethodsJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureAuthMethodsClientResponse, error)
 
+	// GetAuthPageAppearanceWithResponse request
+	GetAuthPageAppearanceWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetAuthPageAppearanceClientResponse, error)
+
+	// DeleteAuthPageThemeWithResponse request
+	DeleteAuthPageThemeWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteAuthPageThemeClientResponse, error)
+
+	// UpdateAuthPageThemeWithBodyWithResponse request with any body
+	UpdateAuthPageThemeWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthPageThemeClientResponse, error)
+
+	UpdateAuthPageThemeWithResponse(ctx context.Context, id ProjectId, body UpdateAuthPageThemeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthPageThemeClientResponse, error)
+
+	// DeleteAuthPageLayoutWithResponse request
+	DeleteAuthPageLayoutWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, reqEditors ...RequestEditorFn) (*DeleteAuthPageLayoutClientResponse, error)
+
+	// UpdateAuthPageLayoutWithBodyWithResponse request with any body
+	UpdateAuthPageLayoutWithBodyWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthPageLayoutClientResponse, error)
+
+	UpdateAuthPageLayoutWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body UpdateAuthPageLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthPageLayoutClientResponse, error)
+
+	// RenderAuthPagePreviewWithResponse request
+	RenderAuthPagePreviewWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, params *RenderAuthPagePreviewParams, reqEditors ...RequestEditorFn) (*RenderAuthPagePreviewClientResponse, error)
+
+	// PreviewAuthPageWithBodyWithResponse request with any body
+	PreviewAuthPageWithBodyWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAuthPageClientResponse, error)
+
+	PreviewAuthPageWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body PreviewAuthPageJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAuthPageClientResponse, error)
+
 	// ListAuthUsersWithResponse request
 	ListAuthUsersWithResponse(ctx context.Context, id ProjectId, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*ListAuthUsersClientResponse, error)
 
@@ -26223,11 +27307,6 @@ type ClientWithResponsesInterface interface {
 
 	SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
 
-	// CreateProjectGitRepositoryWithBodyWithResponse request with any body
-	CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
-
-	CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error)
-
 	// GetProjectGitDeploySettingsWithResponse request
 	GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error)
 
@@ -26320,6 +27399,17 @@ type ClientWithResponsesInterface interface {
 
 	// RegenerateServiceKeyWithResponse request
 	RegenerateServiceKeyWithResponse(ctx context.Context, id ProjectId, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RegenerateServiceKeyClientResponse, error)
+
+	// CancelProjectSourceExportWithResponse request
+	CancelProjectSourceExportWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*CancelProjectSourceExportClientResponse, error)
+
+	// GetProjectSourceExportWithResponse request
+	GetProjectSourceExportWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectSourceExportClientResponse, error)
+
+	// ExportProjectSourceWithBodyWithResponse request with any body
+	ExportProjectSourceWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExportProjectSourceClientResponse, error)
+
+	ExportProjectSourceWithResponse(ctx context.Context, id ProjectId, body ExportProjectSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*ExportProjectSourceClientResponse, error)
 
 	// ListStorageBucketsWithResponse request
 	ListStorageBucketsWithResponse(ctx context.Context, id ProjectId, params *ListStorageBucketsParams, reqEditors ...RequestEditorFn) (*ListStorageBucketsClientResponse, error)
@@ -27727,6 +28817,7 @@ type QueryDatabaseBranchDeleteClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON429      *DatabaseQueryCapExceeded
+	JSON503      *DatabaseBranchQueryUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -27762,6 +28853,7 @@ type QueryDatabaseBranchInsertClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON429      *DatabaseQueryCapExceeded
+	JSON503      *DatabaseBranchQueryUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -27796,6 +28888,7 @@ type QueryDatabaseBranchPingClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON429      *DatabaseQueryCapExceeded
+	JSON503      *DatabaseBranchQueryUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -27831,6 +28924,7 @@ type QueryDatabaseBranchSelectClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON429      *DatabaseQueryCapExceeded
+	JSON503      *DatabaseBranchQueryUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -27866,6 +28960,7 @@ type QueryDatabaseBranchUpdateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON429      *DatabaseQueryCapExceeded
+	JSON503      *DatabaseBranchQueryUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -29450,6 +30545,241 @@ func (r ConfigureAuthMethodsClientResponse) ContentType() string {
 	return ""
 }
 
+type GetAuthPageAppearanceClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthPageAppearanceResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuthPageAppearanceClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuthPageAppearanceClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuthPageAppearanceClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAuthPageThemeClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAuthPageThemeClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAuthPageThemeClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAuthPageThemeClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAuthPageThemeClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UpdateAuthPageThemeRequest
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAuthPageThemeClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAuthPageThemeClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAuthPageThemeClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAuthPageLayoutClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAuthPageLayoutClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAuthPageLayoutClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAuthPageLayoutClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAuthPageLayoutClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UpdateAuthPageLayoutRequest
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAuthPageLayoutClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAuthPageLayoutClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAuthPageLayoutClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RenderAuthPagePreviewClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RenderAuthPagePreviewClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenderAuthPagePreviewClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RenderAuthPagePreviewClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewAuthPageClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PreviewAuthPageResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewAuthPageClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewAuthPageClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewAuthPageClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListAuthUsersClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -29854,6 +31184,7 @@ type DeleteDatabaseClientResponse struct {
 	}
 	JSON404 *Error
 	JSON409 *Error
+	JSON503 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -30405,6 +31736,7 @@ type ResetDatabasePasswordClientResponse struct {
 	JSON400 *Error
 	JSON404 *Error
 	JSON409 *Error
+	JSON503 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -30570,6 +31902,7 @@ type UpdateDatabaseTypeClientResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *Database
 	JSON409      *Error
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -31589,6 +32922,7 @@ type DisconnectProjectGitClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -31658,6 +32992,7 @@ type ConnectProjectGitClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -31694,6 +33029,7 @@ type SetProjectGitProductionBranchClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -31715,45 +33051,6 @@ func (r SetProjectGitProductionBranchClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetProjectGitProductionBranchClientResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type CreateProjectGitRepositoryClientResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *CreatedProjectGitConnection
-	JSON400      *Error
-	JSON401      *Error
-	JSON403      *Error
-	JSON404      *Error
-	JSON409      *Error
-	JSON422      *Error
-	JSON429      *Error
-	JSON500      *Error
-	JSON503      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateProjectGitRepositoryClientResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateProjectGitRepositoryClientResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateProjectGitRepositoryClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -31802,6 +33099,7 @@ type UpdateProjectGitDeploySettingsClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 }
 
@@ -32555,6 +33853,116 @@ func (r RegenerateServiceKeyClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RegenerateServiceKeyClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelProjectSourceExportClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelProjectSourceExportClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelProjectSourceExportClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelProjectSourceExportClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectSourceExportClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectSourceExportState
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectSourceExportClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectSourceExportClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectSourceExportClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExportProjectSourceClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ProjectSourceExport
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ExportProjectSourceClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExportProjectSourceClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExportProjectSourceClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -34735,6 +36143,93 @@ func (c *ClientWithResponses) ConfigureAuthMethodsWithResponse(ctx context.Conte
 	return ParseConfigureAuthMethodsClientResponse(rsp)
 }
 
+// GetAuthPageAppearanceWithResponse request returning *GetAuthPageAppearanceClientResponse
+func (c *ClientWithResponses) GetAuthPageAppearanceWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetAuthPageAppearanceClientResponse, error) {
+	rsp, err := c.GetAuthPageAppearance(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuthPageAppearanceClientResponse(rsp)
+}
+
+// DeleteAuthPageThemeWithResponse request returning *DeleteAuthPageThemeClientResponse
+func (c *ClientWithResponses) DeleteAuthPageThemeWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteAuthPageThemeClientResponse, error) {
+	rsp, err := c.DeleteAuthPageTheme(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAuthPageThemeClientResponse(rsp)
+}
+
+// UpdateAuthPageThemeWithBodyWithResponse request with arbitrary body returning *UpdateAuthPageThemeClientResponse
+func (c *ClientWithResponses) UpdateAuthPageThemeWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthPageThemeClientResponse, error) {
+	rsp, err := c.UpdateAuthPageThemeWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthPageThemeClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAuthPageThemeWithResponse(ctx context.Context, id ProjectId, body UpdateAuthPageThemeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthPageThemeClientResponse, error) {
+	rsp, err := c.UpdateAuthPageTheme(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthPageThemeClientResponse(rsp)
+}
+
+// DeleteAuthPageLayoutWithResponse request returning *DeleteAuthPageLayoutClientResponse
+func (c *ClientWithResponses) DeleteAuthPageLayoutWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, reqEditors ...RequestEditorFn) (*DeleteAuthPageLayoutClientResponse, error) {
+	rsp, err := c.DeleteAuthPageLayout(ctx, id, pageType, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAuthPageLayoutClientResponse(rsp)
+}
+
+// UpdateAuthPageLayoutWithBodyWithResponse request with arbitrary body returning *UpdateAuthPageLayoutClientResponse
+func (c *ClientWithResponses) UpdateAuthPageLayoutWithBodyWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthPageLayoutClientResponse, error) {
+	rsp, err := c.UpdateAuthPageLayoutWithBody(ctx, id, pageType, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthPageLayoutClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAuthPageLayoutWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body UpdateAuthPageLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthPageLayoutClientResponse, error) {
+	rsp, err := c.UpdateAuthPageLayout(ctx, id, pageType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthPageLayoutClientResponse(rsp)
+}
+
+// RenderAuthPagePreviewWithResponse request returning *RenderAuthPagePreviewClientResponse
+func (c *ClientWithResponses) RenderAuthPagePreviewWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, params *RenderAuthPagePreviewParams, reqEditors ...RequestEditorFn) (*RenderAuthPagePreviewClientResponse, error) {
+	rsp, err := c.RenderAuthPagePreview(ctx, id, pageType, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenderAuthPagePreviewClientResponse(rsp)
+}
+
+// PreviewAuthPageWithBodyWithResponse request with arbitrary body returning *PreviewAuthPageClientResponse
+func (c *ClientWithResponses) PreviewAuthPageWithBodyWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewAuthPageClientResponse, error) {
+	rsp, err := c.PreviewAuthPageWithBody(ctx, id, pageType, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAuthPageClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PreviewAuthPageWithResponse(ctx context.Context, id ProjectId, pageType HostedAuthPageType, body PreviewAuthPageJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewAuthPageClientResponse, error) {
+	rsp, err := c.PreviewAuthPage(ctx, id, pageType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewAuthPageClientResponse(rsp)
+}
+
 // ListAuthUsersWithResponse request returning *ListAuthUsersClientResponse
 func (c *ClientWithResponses) ListAuthUsersWithResponse(ctx context.Context, id ProjectId, params *ListAuthUsersParams, reqEditors ...RequestEditorFn) (*ListAuthUsersClientResponse, error) {
 	rsp, err := c.ListAuthUsers(ctx, id, params, reqEditors...)
@@ -35483,23 +36978,6 @@ func (c *ClientWithResponses) SetProjectGitProductionBranchWithResponse(ctx cont
 	return ParseSetProjectGitProductionBranchClientResponse(rsp)
 }
 
-// CreateProjectGitRepositoryWithBodyWithResponse request with arbitrary body returning *CreateProjectGitRepositoryClientResponse
-func (c *ClientWithResponses) CreateProjectGitRepositoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
-	rsp, err := c.CreateProjectGitRepositoryWithBody(ctx, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateProjectGitRepositoryClientResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateProjectGitRepositoryWithResponse(ctx context.Context, id ProjectId, body CreateProjectGitRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectGitRepositoryClientResponse, error) {
-	rsp, err := c.CreateProjectGitRepository(ctx, id, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateProjectGitRepositoryClientResponse(rsp)
-}
-
 // GetProjectGitDeploySettingsWithResponse request returning *GetProjectGitDeploySettingsClientResponse
 func (c *ClientWithResponses) GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error) {
 	rsp, err := c.GetProjectGitDeploySettings(ctx, id, reqEditors...)
@@ -35795,6 +37273,41 @@ func (c *ClientWithResponses) RegenerateServiceKeyWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseRegenerateServiceKeyClientResponse(rsp)
+}
+
+// CancelProjectSourceExportWithResponse request returning *CancelProjectSourceExportClientResponse
+func (c *ClientWithResponses) CancelProjectSourceExportWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*CancelProjectSourceExportClientResponse, error) {
+	rsp, err := c.CancelProjectSourceExport(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelProjectSourceExportClientResponse(rsp)
+}
+
+// GetProjectSourceExportWithResponse request returning *GetProjectSourceExportClientResponse
+func (c *ClientWithResponses) GetProjectSourceExportWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectSourceExportClientResponse, error) {
+	rsp, err := c.GetProjectSourceExport(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectSourceExportClientResponse(rsp)
+}
+
+// ExportProjectSourceWithBodyWithResponse request with arbitrary body returning *ExportProjectSourceClientResponse
+func (c *ClientWithResponses) ExportProjectSourceWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExportProjectSourceClientResponse, error) {
+	rsp, err := c.ExportProjectSourceWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportProjectSourceClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) ExportProjectSourceWithResponse(ctx context.Context, id ProjectId, body ExportProjectSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*ExportProjectSourceClientResponse, error) {
+	rsp, err := c.ExportProjectSource(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExportProjectSourceClientResponse(rsp)
 }
 
 // ListStorageBucketsWithResponse request returning *ListStorageBucketsClientResponse
@@ -37673,6 +39186,13 @@ func ParseQueryDatabaseBranchDeleteClientResponse(rsp *http.Response) (*QueryDat
 		}
 		response.JSON429 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest DatabaseBranchQueryUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -37734,6 +39254,13 @@ func ParseQueryDatabaseBranchInsertClientResponse(rsp *http.Response) (*QueryDat
 		}
 		response.JSON429 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest DatabaseBranchQueryUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -37787,6 +39314,13 @@ func ParseQueryDatabaseBranchPingClientResponse(rsp *http.Response) (*QueryDatab
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest DatabaseBranchQueryUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -37849,6 +39383,13 @@ func ParseQueryDatabaseBranchSelectClientResponse(rsp *http.Response) (*QueryDat
 		}
 		response.JSON429 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest DatabaseBranchQueryUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -37909,6 +39450,13 @@ func ParseQueryDatabaseBranchUpdateClientResponse(rsp *http.Response) (*QueryDat
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest DatabaseBranchQueryUnavailable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -39945,6 +41493,360 @@ func ParseConfigureAuthMethodsClientResponse(rsp *http.Response) (*ConfigureAuth
 	return response, nil
 }
 
+// ParseGetAuthPageAppearanceClientResponse parses an HTTP response from a GetAuthPageAppearanceWithResponse call
+func ParseGetAuthPageAppearanceClientResponse(rsp *http.Response) (*GetAuthPageAppearanceClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuthPageAppearanceClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthPageAppearanceResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAuthPageThemeClientResponse parses an HTTP response from a DeleteAuthPageThemeWithResponse call
+func ParseDeleteAuthPageThemeClientResponse(rsp *http.Response) (*DeleteAuthPageThemeClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAuthPageThemeClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAuthPageThemeClientResponse parses an HTTP response from a UpdateAuthPageThemeWithResponse call
+func ParseUpdateAuthPageThemeClientResponse(rsp *http.Response) (*UpdateAuthPageThemeClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAuthPageThemeClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UpdateAuthPageThemeRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAuthPageLayoutClientResponse parses an HTTP response from a DeleteAuthPageLayoutWithResponse call
+func ParseDeleteAuthPageLayoutClientResponse(rsp *http.Response) (*DeleteAuthPageLayoutClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAuthPageLayoutClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAuthPageLayoutClientResponse parses an HTTP response from a UpdateAuthPageLayoutWithResponse call
+func ParseUpdateAuthPageLayoutClientResponse(rsp *http.Response) (*UpdateAuthPageLayoutClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAuthPageLayoutClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UpdateAuthPageLayoutRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRenderAuthPagePreviewClientResponse parses an HTTP response from a RenderAuthPagePreviewWithResponse call
+func ParseRenderAuthPagePreviewClientResponse(rsp *http.Response) (*RenderAuthPagePreviewClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenderAuthPagePreviewClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePreviewAuthPageClientResponse parses an HTTP response from a PreviewAuthPageWithResponse call
+func ParsePreviewAuthPageClientResponse(rsp *http.Response) (*PreviewAuthPageClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewAuthPageClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PreviewAuthPageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAuthUsersClientResponse parses an HTTP response from a ListAuthUsersWithResponse call
 func ParseListAuthUsersClientResponse(rsp *http.Response) (*ListAuthUsersClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -40380,6 +42282,13 @@ func ParseDeleteDatabaseClientResponse(rsp *http.Response) (*DeleteDatabaseClien
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -41198,6 +43107,13 @@ func ParseResetDatabasePasswordClientResponse(rsp *http.Response) (*ResetDatabas
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
 	}
 
 	return response, nil
@@ -41432,6 +43348,13 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
@@ -42847,6 +44770,13 @@ func ParseDisconnectProjectGitClientResponse(rsp *http.Response) (*DisconnectPro
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -42962,6 +44892,13 @@ func ParseConnectProjectGitClientResponse(rsp *http.Response) (*ConnectProjectGi
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -43030,67 +44967,6 @@ func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetP
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateProjectGitRepositoryClientResponse parses an HTTP response from a CreateProjectGitRepositoryWithResponse call
-func ParseCreateProjectGitRepositoryClientResponse(rsp *http.Response) (*CreateProjectGitRepositoryClientResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateProjectGitRepositoryClientResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest CreatedProjectGitConnection
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -43098,33 +44974,12 @@ func ParseCreateProjectGitRepositoryClientResponse(rsp *http.Response) (*CreateP
 		}
 		response.JSON409 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
 
 	}
 
@@ -43233,6 +45088,13 @@ func ParseUpdateProjectGitDeploySettingsClientResponse(rsp *http.Response) (*Upd
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -44078,6 +45940,224 @@ func ParseRegenerateServiceKeyClientResponse(rsp *http.Response) (*RegenerateSer
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelProjectSourceExportClientResponse parses an HTTP response from a CancelProjectSourceExportWithResponse call
+func ParseCancelProjectSourceExportClientResponse(rsp *http.Response) (*CancelProjectSourceExportClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelProjectSourceExportClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectSourceExportClientResponse parses an HTTP response from a GetProjectSourceExportWithResponse call
+func ParseGetProjectSourceExportClientResponse(rsp *http.Response) (*GetProjectSourceExportClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectSourceExportClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectSourceExportState
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExportProjectSourceClientResponse parses an HTTP response from a ExportProjectSourceWithResponse call
+func ParseExportProjectSourceClientResponse(rsp *http.Response) (*ExportProjectSourceClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExportProjectSourceClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ProjectSourceExport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
