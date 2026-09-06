@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -716,6 +717,23 @@ func TestResolveManifestPath_ErrorsWhenMissing(t *testing.T) {
 		_, err := ResolveManifestPath("")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no volcano-config.yaml file found")
+	})
+}
+
+func TestResolveManifestPath_PropagatesAccessErrors(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires enforced Unix directory permissions")
+	}
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.MkdirAll("volcano", 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+		require.NoError(t, os.Chmod("volcano", 0o000))
+		t.Cleanup(func() { _ = os.Chmod("volcano", 0o755) })
+
+		_, err := ResolveManifestPath("")
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrManifestNotFound)
+		assert.Contains(t, err.Error(), "permission denied")
 	})
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/archive"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
+	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -115,13 +116,33 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
-	if opts.all {
-		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll)
+	// Read the manifest before anything is uploaded. An existing but unreadable
+	// manifest aborts here rather than deploying with its scope declarations
+	// silently dropped.
+	declarations, err := projectconfig.FunctionVariableDeclarations("")
+	if err != nil {
+		return err
 	}
-	return runDeployOne(ctx, opts.out, service, baseDir, sources[0])
+
+	if opts.all {
+		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, declarations)
+	}
+	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], declarations)
 }
 
-func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo) error {
+// applyVariableDeclaration attaches the manifest declaration for pkg, if the
+// manifest declared one. Without a matching entry both fields stay nil and
+// deploy sends neither, leaving the function's stored scope unchanged.
+func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]projectconfig.FunctionVariableDeclaration) {
+	declaration, ok := declarations[pkg.Name]
+	if !ok {
+		return
+	}
+	pkg.VariableScope = declaration.VariableScope
+	pkg.Variables = declaration.Variables
+}
+
+func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
 	pkg, err := clifunction.PackageSource(source, baseDir)
@@ -129,6 +150,7 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 		return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
+	applyVariableDeclaration(pkg, declarations)
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -141,7 +163,7 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 	return nil
 }
 
-func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool) error {
+func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
 	for i, source := range sources {
@@ -152,6 +174,7 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 			return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
+		applyVariableDeclaration(pkg, declarations)
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}

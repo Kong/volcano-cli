@@ -1420,6 +1420,24 @@ func (e ProjectConfigDatabasePgVersion) Valid() bool {
 	}
 }
 
+// Defines values for ProjectConfigFunctionVariableScope.
+const (
+	ProjectConfigFunctionVariableScopeAll    ProjectConfigFunctionVariableScope = "all"
+	ProjectConfigFunctionVariableScopeScoped ProjectConfigFunctionVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigFunctionVariableScope enum.
+func (e ProjectConfigFunctionVariableScope) Valid() bool {
+	switch e {
+	case ProjectConfigFunctionVariableScopeAll:
+		return true
+	case ProjectConfigFunctionVariableScopeScoped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectConfigMissingResourceType.
 const (
 	ProjectConfigMissingResourceTypeBucket   ProjectConfigMissingResourceType = "bucket"
@@ -3178,6 +3196,24 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 	case Ruby34:
 		return true
 	case Ruby40:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateFunctionMultipartBodyVariableScope.
+const (
+	CreateFunctionMultipartBodyVariableScopeAll    CreateFunctionMultipartBodyVariableScope = "all"
+	CreateFunctionMultipartBodyVariableScopeScoped CreateFunctionMultipartBodyVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyVariableScope enum.
+func (e CreateFunctionMultipartBodyVariableScope) Valid() bool {
+	switch e {
+	case CreateFunctionMultipartBodyVariableScopeAll:
+		return true
+	case CreateFunctionMultipartBodyVariableScopeScoped:
 		return true
 	default:
 		return false
@@ -6129,14 +6165,36 @@ type ProjectConfigFrontend struct {
 // ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
 // created or deleted through the manifest. When `schedulers` is declared
 // it is fully synced (schedulers absent from the list are deleted);
-// omitting `schedulers` leaves the function's schedulers untouched.
+// omitting `schedulers` leaves the function's schedulers untouched. The
+// same applies to `variables`: declaring it replaces the function's
+// declared variable names, and omitting it leaves them untouched.
 type ProjectConfigFunction struct {
 	Name string `json:"name"`
 
 	// Public Function visibility for anon-key invocation
 	Public     *bool                     `json:"public,omitempty"`
 	Schedulers *[]ProjectConfigScheduler `json:"schedulers,omitempty"`
+
+	// VariableScope Which project variables this function receives. `all` (the default)
+	// gives it every project variable. `scoped` gives it only the variables
+	// it selects: every name declared in `variables`, plus the names
+	// Volcano detects in its source that the project defines.
+	VariableScope *ProjectConfigFunctionVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables Project variable names this function requires, on top of the ones
+	// detected in its source. Declare a name here when the function reads
+	// it through a computed key, which detection cannot see, or when the
+	// function must not deploy without it: a declared name the project does
+	// not define fails the apply, while a detected name it does not define
+	// is ignored. Only used when `variable_scope` is `scoped`.
+	Variables *[]string `json:"variables,omitempty"`
 }
+
+// ProjectConfigFunctionVariableScope Which project variables this function receives. `all` (the default)
+// gives it every project variable. `scoped` gives it only the variables
+// it selects: every name declared in `variables`, plus the names
+// Volcano detects in its source that the project defines.
+type ProjectConfigFunctionVariableScope string
 
 // ProjectConfigHostedPage defines model for ProjectConfigHostedPage.
 type ProjectConfigHostedPage struct {
@@ -8360,10 +8418,19 @@ type CreateFunctionMultipartBody struct {
 	// - Python: python3.10, python3.11, python3.12, python3.13, python3.14
 	// - Ruby: ruby3.3, ruby3.4, ruby4.0
 	Runtime CreateFunctionMultipartBodyRuntime `json:"runtime"`
+
+	// VariableScope Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
+	VariableScope *CreateFunctionMultipartBodyVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+	Variables *string `json:"variables,omitempty"`
 }
 
 // CreateFunctionMultipartBodyRuntime defines parameters for CreateFunction.
 type CreateFunctionMultipartBodyRuntime string
+
+// CreateFunctionMultipartBodyVariableScope defines parameters for CreateFunction.
+type CreateFunctionMultipartBodyVariableScope string
 
 // CreateFunctionsBatchMultipartBody defines parameters for CreateFunctionsBatch.
 type CreateFunctionsBatchMultipartBody struct {
@@ -8371,6 +8438,8 @@ type CreateFunctionsBatchMultipartBody struct {
 	Code0 *openapi_types.File `json:"code_0,omitempty"`
 
 	// Functions JSON array of functions with `name`, `runtime`, optional `handler`, and `file_field`. Each `file_field` must name a multipart file field containing that function's ZIP or tar.gz source bundle.
+	//
+	// Each entry may also declare `variable_scope` (`all` or `scoped`) and `variables` (an array of project variable names). Omitting them leaves the function's stored declaration unchanged. Volcano detects direct environment references in the uploaded source and adds the ones the project defines to the declared names; a detected name the project does not define is ignored, since such a reference is often optional. Declare a name when the function reads it through a computed key, or when it must not deploy without the variable. The request is rejected with 400 before anything is deployed if a scoped function declares a variable the project does not define, or if the resulting environment exceeds 4096 bytes.
 	Functions string `json:"functions"`
 }
 

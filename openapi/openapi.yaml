@@ -2458,6 +2458,15 @@ paths:
                     - Ruby: def handler() (in main.rb)
                   default: handler
                   example: handler
+                variable_scope:
+                  type: string
+                  enum: [all, scoped]
+                  description: |
+                    Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
+                variables:
+                  type: string
+                  description: |
+                    JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
       responses:
         '200':
           description: Existing function updated; its deployment was started or queued
@@ -3036,7 +3045,10 @@ paths:
               properties:
                 functions:
                   type: string
-                  description: JSON array of functions with `name`, `runtime`, optional `handler`, and `file_field`. Each `file_field` must name a multipart file field containing that function's ZIP or tar.gz source bundle.
+                  description: |
+                    JSON array of functions with `name`, `runtime`, optional `handler`, and `file_field`. Each `file_field` must name a multipart file field containing that function's ZIP or tar.gz source bundle.
+
+                    Each entry may also declare `variable_scope` (`all` or `scoped`) and `variables` (an array of project variable names). Omitting them leaves the function's stored declaration unchanged. Volcano detects direct environment references in the uploaded source and adds the ones the project defines to the declared names; a detected name the project does not define is ignored, since such a reference is often optional. Declare a name when the function reads it through a computed key, or when it must not deploy without the variable. The request is rejected with 400 before anything is deployed if a scoped function declares a variable the project does not define, or if the resulting environment exceeds 4096 bytes.
                 code_0:
                   type: string
                   format: binary
@@ -15335,7 +15347,9 @@ components:
         Configuration for an existing (deployed) function. Functions are never
         created or deleted through the manifest. When `schedulers` is declared
         it is fully synced (schedulers absent from the list are deleted);
-        omitting `schedulers` leaves the function's schedulers untouched.
+        omitting `schedulers` leaves the function's schedulers untouched. The
+        same applies to `variables`: declaring it replaces the function's
+        declared variable names, and omitting it leaves them untouched.
       properties:
         name:
           type: string
@@ -15343,6 +15357,27 @@ components:
         public:
           type: boolean
           description: Function visibility for anon-key invocation
+        variable_scope:
+          type: string
+          enum: [all, scoped]
+          description: |
+            Which project variables this function receives. `all` (the default)
+            gives it every project variable. `scoped` gives it only the variables
+            it selects: every name declared in `variables`, plus the names
+            Volcano detects in its source that the project defines.
+        variables:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 256
+          description: |
+            Project variable names this function requires, on top of the ones
+            detected in its source. Declare a name here when the function reads
+            it through a computed key, which detection cannot see, or when the
+            function must not deploy without it: a declared name the project does
+            not define fails the apply, while a detected name it does not define
+            is ignored. Only used when `variable_scope` is `scoped`.
         schedulers:
           type: array
           items:

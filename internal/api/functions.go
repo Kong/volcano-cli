@@ -13,12 +13,16 @@ import (
 	"github.com/Kong/volcano-cli/internal/archive"
 )
 
-// FunctionDeployInput contains one packaged function source archive.
+// FunctionDeployInput contains one packaged function source archive. A nil
+// VariableScope or Variables sends no field at all, which leaves the stored
+// declaration on the server unchanged.
 type FunctionDeployInput struct {
 	Name          string
 	Runtime       string
 	Handler       string
 	SourceArchive []byte
+	VariableScope *string
+	Variables     *[]string
 }
 
 // FunctionSchedulerInput contains one function scheduler create or update request.
@@ -191,6 +195,22 @@ func buildFunctionDeployMultipart(fn FunctionDeployInput) (*bytes.Buffer, string
 	if err := writer.WriteField("handler", fn.Handler); err != nil {
 		return nil, "", fmt.Errorf("failed to write handler field: %w", err)
 	}
+	if fn.VariableScope != nil {
+		if err := writer.WriteField("variable_scope", *fn.VariableScope); err != nil {
+			return nil, "", fmt.Errorf("failed to write variable_scope field: %w", err)
+		}
+	}
+	if fn.Variables != nil {
+		// This endpoint takes the declared names as a JSON-encoded string, unlike
+		// the batch manifest which nests them as a real JSON array.
+		encoded, err := json.Marshal(*fn.Variables)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to encode variables field: %w", err)
+		}
+		if err := writer.WriteField("variables", string(encoded)); err != nil {
+			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
+		}
+	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
 		return nil, "", err
 	}
@@ -204,19 +224,23 @@ func buildFunctionsBatchMultipart(functions []FunctionDeployInput) (*bytes.Buffe
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	type manifestItem struct {
-		Name      string `json:"name"`
-		Runtime   string `json:"runtime"`
-		Handler   string `json:"handler"`
-		FileField string `json:"file_field"`
+		Name          string    `json:"name"`
+		Runtime       string    `json:"runtime"`
+		Handler       string    `json:"handler"`
+		FileField     string    `json:"file_field"`
+		VariableScope *string   `json:"variable_scope,omitempty"`
+		Variables     *[]string `json:"variables,omitempty"`
 	}
 	manifest := make([]manifestItem, 0, len(functions))
 	for i, fn := range functions {
 		fieldName := fmt.Sprintf("code_%d", i)
 		manifest = append(manifest, manifestItem{
-			Name:      fn.Name,
-			Runtime:   fn.Runtime,
-			Handler:   fn.Handler,
-			FileField: fieldName,
+			Name:          fn.Name,
+			Runtime:       fn.Runtime,
+			Handler:       fn.Handler,
+			FileField:     fieldName,
+			VariableScope: fn.VariableScope,
+			Variables:     fn.Variables,
 		})
 		if err := archive.WriteArchivePart(writer, fieldName, fn.Name, fn.SourceArchive); err != nil {
 			return nil, "", err
