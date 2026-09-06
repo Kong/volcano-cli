@@ -15,6 +15,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/archive"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
+	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -98,20 +99,29 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		return nil
 	}
 
-	sources := allSources
+	durableNames := declaredDurableNames(opts.out)
+	var sources []clifunction.SourceInfo
 	if !opts.all {
-		sources = nil
 		for _, source := range allSources {
-			if sourceMatchesTarget(source, opts.file, baseDir) {
+			if clifunction.MatchesTarget(source, opts.file, baseDir) {
 				sources = append(sources, source)
 				break
 			}
 		}
 		if len(sources) == 0 {
-			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, formatSourceNames(allSources))
+			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
+		}
+		if durableNames[sources[0].Name] {
+			return fmt.Errorf("%q is declared durable in volcano-config.yaml; deploy it with %q",
+				sources[0].Name, "volcano cloud durable deploy -f "+sources[0].Name)
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
+		sources = excludeDurable(allSources, durableNames, opts.out)
+		if len(sources) == 0 {
+			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
+			return nil
+		}
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
@@ -119,6 +129,53 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll)
 	}
 	return runDeployOne(ctx, opts.out, service, baseDir, sources[0])
+}
+
+// declaredDurableNames reads the durable functions the project's manifest
+// declares. Their sources sit in volcano/functions alongside standard ones, and
+// a function's kind is fixed when it is created, so this collection has to leave
+// them to the durable one.
+//
+// Best effort: the server refuses a cross-kind name with a 409 either way, so an
+// unreadable manifest costs a clear local message rather than correctness.
+func declaredDurableNames(out io.Writer) map[string]bool {
+	manifestPath, err := projectconfig.ResolveManifestPath("")
+	if err != nil {
+		return nil
+	}
+	manifest, _, err := projectconfig.Load(manifestPath)
+	if err != nil {
+		fmt.Fprintf(out, "Warning: could not read %s to tell durable functions apart: %v\n", manifestPath, err)
+		return nil
+	}
+
+	names := map[string]bool{}
+	for _, name := range manifest.DurableFunctionNames() {
+		names[name] = true
+	}
+	return names
+}
+
+func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
+	if len(durableNames) == 0 {
+		return sources
+	}
+
+	kept := make([]clifunction.SourceInfo, 0, len(sources))
+	var skipped []string
+	for _, source := range sources {
+		if durableNames[source.Name] {
+			skipped = append(skipped, source.Name)
+			continue
+		}
+		kept = append(kept, source)
+	}
+	if len(skipped) > 0 {
+		fmt.Fprintf(out, "Skipping %d durable function(s) declared in volcano-config.yaml: %s\n",
+			len(skipped), strings.Join(skipped, ", "))
+		fmt.Fprintln(out, "Deploy them with \"volcano cloud durable deploy --all\"")
+	}
+	return kept
 }
 
 func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo) error {
@@ -219,43 +276,6 @@ func printSourceSummary(out io.Writer, source clifunction.SourceInfo) {
 	}
 	fmt.Fprintf(out, "  Runtime: %s (detected from %s)\n", source.Runtime.Name, detectedFrom)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
-}
-
-func normalizeSourceTarget(target string) string {
-	name := filepath.Base(strings.TrimSpace(target))
-	if ext := filepath.Ext(name); ext != "" {
-		name = strings.TrimSuffix(name, ext)
-	}
-	return name
-}
-
-func sourceMatchesTarget(source clifunction.SourceInfo, target, baseDir string) bool {
-	target = strings.TrimSpace(target)
-	if source.Name == normalizeSourceTarget(target) {
-		return true
-	}
-
-	sourcePath, err := filepath.Abs(source.Path)
-	if err != nil {
-		return false
-	}
-	targetPath := target
-	if !filepath.IsAbs(targetPath) {
-		targetPath = filepath.Join(baseDir, targetPath)
-	}
-	targetPath, err = filepath.Abs(targetPath)
-	if err != nil {
-		return false
-	}
-	return filepath.Clean(sourcePath) == filepath.Clean(targetPath)
-}
-
-func formatSourceNames(sources []clifunction.SourceInfo) string {
-	names := make([]string, len(sources))
-	for i, source := range sources {
-		names[i] = source.Name
-	}
-	return strings.Join(names, ", ")
 }
 
 func batchFailures(resp *apiclient.BatchFunctionDeployResponse) []apiclient.BatchFunctionDeployFailure {

@@ -21,6 +21,7 @@ account (auth)
     │     ├── connects → databases, storage
     │     ├── runs on → a runtime
     │     ├── invoked via → alias / HTTP / scheduler
+    ├── durable functions ..... long-running, checkpointed logic → durable-functions.md
     ├── databases ............. managed Postgres               → databases.md
     │     └── schema changed by → migrations
     ├── storage ............... buckets → objects, policies    → storage.md
@@ -74,6 +75,7 @@ NO_COLOR=1 volcano databases list
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Project | create, list, get, delete, select, get anon keys | `projects …`, `use` | below |
 | Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
+| Durable functions | deploy, start, inspect executions | `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |

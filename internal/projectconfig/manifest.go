@@ -20,6 +20,10 @@ const (
 	// ManifestVersion is the only currently supported manifest schema version.
 	ManifestVersion = 1
 
+	// FunctionKindDurable is the manifest value that declares a durable
+	// function.
+	FunctionKindDurable = "durable"
+
 	manifestDir        = "volcano"
 	nestedManifestPath = "volcano/volcano-config.yaml"
 	rootManifestPath   = "volcano-config.yaml"
@@ -260,12 +264,39 @@ type HostedPageManifest struct {
 
 // FunctionManifest declares configuration for one deployed function.
 type FunctionManifest struct {
-	Name           string               `yaml:"name" json:"name"`
-	Public         *bool                `yaml:"public,omitempty" json:"public,omitempty"`
+	Name string `yaml:"name" json:"name"`
+	// Kind is asserted rather than applied: a function's kind is fixed when it
+	// is created, so the server compares this against the deployed function.
+	// Empty means standard, which is what every manifest written before durable
+	// functions existed declares.
+	Kind   *string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Public *bool   `yaml:"public,omitempty" json:"public,omitempty"`
+	// The invocation settings describe synchronous HTTP invocation, which a
+	// durable function does not have; the server rejects them on one.
 	InvocationMode *string              `yaml:"invocation_mode,omitempty" json:"invocation_mode,omitempty"`
 	HTTPAuthMode   *string              `yaml:"http_auth_mode,omitempty" json:"http_auth_mode,omitempty"`
 	OpenAPISpec    any                  `yaml:"openapi_spec,omitempty" json:"openapi_spec,omitempty"`
 	Schedulers     *[]SchedulerManifest `yaml:"schedulers,omitempty" json:"schedulers,omitempty"`
+}
+
+// DurableFunctionNames returns the functions the manifest declares durable, in
+// declaration order.
+//
+// A kind cannot be changed once a function exists, so deploying one of these
+// through the standard collection would create the wrong kind of function
+// permanently. The deploy commands use this to keep each name with its own
+// collection.
+func (m *Manifest) DurableFunctionNames() []string {
+	if m == nil || m.Functions == nil {
+		return nil
+	}
+	var names []string
+	for _, fn := range *m.Functions {
+		if fn.Kind != nil && strings.TrimSpace(*fn.Kind) == FunctionKindDurable {
+			names = append(names, fn.Name)
+		}
+	}
+	return names
 }
 
 // SchedulerManifest declares one scheduler attached to a function. Regions is
