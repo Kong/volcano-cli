@@ -40,13 +40,10 @@ func updateOptions(deps cliruntime.Deps) update.Options {
 	}
 }
 
-// PrintAPIInstructionNotices prints a non-blocking upgrade suggestion or a
-// deprecation warning based on the most recent VOL-180 instructions observed
-// on this invocation's API responses (api.LastInstructions). This replaces
-// the previous GitHub-release polling notice (VOL-168): the API is now the
-// sole source of truth for whether/how loudly to nudge an upgrade, and the
-// check adds no extra network round-trip — it only reads headers the command
-// already received.
+// PrintAPIInstructionNotices prints non-blocking upgrade and account-credit
+// notices from the instructions observed on this invocation's API responses.
+// ConsumeCLIInstructions makes each notice one-shot. The check adds no network
+// request because it only reads headers the command already received.
 //
 // A command that made no API call (help, version, completion, local-only
 // commands) observes a zero-value Instructions and prints nothing.
