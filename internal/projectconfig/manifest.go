@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -414,7 +415,11 @@ var ErrManifestNotFound = errors.New("no volcano-config.yaml file found.\ncreate
 // working directory. When nothing is found it returns ErrManifestNotFound.
 func ResolveManifestPath(fileArg string) (string, error) {
 	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
-		if !fileExists(trimmed) {
+		exists, err := fileExists(trimmed)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
 			return "", fmt.Errorf("specified file not found: %s", trimmed)
 		}
 		return trimmed, nil
@@ -423,7 +428,11 @@ func ResolveManifestPath(fileArg string) (string, error) {
 	candidates := []string{nestedManifestPath, rootManifestPath}
 	found := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
-		if fileExists(candidate) {
+		exists, err := fileExists(candidate)
+		if err != nil {
+			return "", err
+		}
+		if exists {
 			found = append(found, candidate)
 		}
 	}
@@ -443,7 +452,7 @@ func ResolveManifestPath(fileArg string) (string, error) {
 // when the volcano directory exists, else ./volcano-config.yaml.
 func DefaultPullPath() string {
 	for _, candidate := range []string{nestedManifestPath, rootManifestPath} {
-		if fileExists(candidate) {
+		if exists, _ := fileExists(candidate); exists {
 			return candidate
 		}
 	}
@@ -453,12 +462,15 @@ func DefaultPullPath() string {
 	return rootManifestPath
 }
 
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
 	}
-	return info.Mode().IsRegular()
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, fmt.Errorf("failed to access %s: %w", path, err)
 }
 
 // FunctionVariableDeclaration is one function's variable scope declaration read
