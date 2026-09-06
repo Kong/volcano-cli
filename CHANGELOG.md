@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/Kong/volcano-cli/compare/v0.23.2...v0.24.0) (2026-09-06)
+
+
+### Features
+
+* **functions:** send function variable scope on deploy ([#184](https://github.com/Kong/volcano-cli/issues/184)) ([38f1d04](https://github.com/Kong/volcano-cli/commit/38f1d04cb53746a9661e8639e826e2d453dfe2f1))
+
 ## [0.23.2](https://github.com/Kong/volcano-cli/compare/v0.23.1...v0.23.2) (2026-09-01)
 
 
