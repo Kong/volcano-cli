@@ -474,7 +474,7 @@ type FunctionVariableDeclaration struct {
 // name. The manifest is only read — deploy never writes it back.
 //
 // Absence and invalidity are different answers. With no volcano-config.yaml
-// anywhere, there is nothing to declare: this returns (nil, nil) and deploy
+// anywhere, there is nothing to declare: this returns an empty map and deploy
 // behaves exactly as it did before scoping existed. When a manifest does exist
 // but cannot be resolved, read, interpolated, or validated, this returns an
 // error so deploy aborts before uploading. Failing open there would silently
