@@ -2,15 +2,14 @@ package durable
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -65,7 +64,7 @@ func runStart(ctx context.Context, opts startOptions) error {
 	// An omitted --input starts the execution with no input at all, which is not
 	// the same thing as starting it with an empty object.
 	if value := strings.TrimSpace(opts.input); value != "" {
-		input, err := parseStartInput(value)
+		input, err := cmdutil.ParseJSONObject("input", value)
 		if err != nil {
 			return err
 		}
@@ -82,23 +81,4 @@ func runStart(ctx context.Context, opts startOptions) error {
 	fmt.Fprintf(opts.out, "Follow it with %s\n",
 		cliruntime.CommandPath(opts.deps, "durable executions get "+opts.function+" "+execution.Id.String()))
 	return nil
-}
-
-// parseStartInput reads --input as inline JSON, or as the contents of the file
-// it names.
-func parseStartInput(value string) (map[string]any, error) {
-	data := []byte(value)
-	if info, err := os.Stat(value); err == nil && !info.IsDir() {
-		fileBytes, readErr := os.ReadFile(value)
-		if readErr != nil {
-			return nil, fmt.Errorf("failed to read input file %q: %w", value, readErr)
-		}
-		data = fileBytes
-	}
-
-	var input map[string]any
-	if err := json.Unmarshal(data, &input); err != nil {
-		return nil, fmt.Errorf("input must be a JSON object: %w", err)
-	}
-	return input, nil
 }
