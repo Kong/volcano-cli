@@ -53,6 +53,10 @@ functions:
 | List executions | `volcano cloud durable executions list <name> [--status …]` |
 | Get one execution | `volcano cloud durable executions get <name> <execution-id>` |
 | Stop an execution | `volcano cloud durable executions stop <name> <execution-id>` |
+| Schedule executions | `volcano cloud durable schedulers create <name> --cron "0 * * * *" [--input …] [--regions …]` |
+| List schedulers | `volcano cloud durable schedulers list <name>` |
+| Pause or resume one | `volcano cloud durable schedulers disable\|enable <name> <scheduler-id>` |
+| Delete one | `volcano cloud durable schedulers delete <name> <scheduler-id>` |
 
 There is no top-level `volcano durable …`: the local development environment
 does not run durable executions, and the local server refuses to create a
@@ -77,6 +81,30 @@ volcano cloud durable executions list order-pipeline --status running
 # End one where it is
 volcano cloud durable executions stop order-pipeline 66666666-6666-4666-8666-666666666666
 ```
+
+## Scheduling executions
+
+A scheduler ticks on a cron expression and starts an execution instead of
+invoking the function, so every tick produces an execution you can list, follow,
+and stop like any other:
+
+```bash
+# Start one execution an hour, with the same input each time
+volcano cloud durable schedulers create order-pipeline --cron "0 * * * *" --input '{"scope":"hourly"}'
+
+volcano cloud durable schedulers list order-pipeline
+volcano cloud durable executions list order-pipeline
+```
+
+Each tick names its execution after the run, so a tick Volcano has to retry
+resolves to the execution it already started rather than beginning a second one.
+Ticks draw on the same invocation allowance and concurrency cap a manual start
+does; a tick that would exceed the cap fails that run rather than queueing.
+
+`schedulers disable` stops the ticks and leaves the scheduler in place;
+executions it already started keep running. `schedulers delete` removes the
+scheduler and its run history, and also leaves running executions alone — stop
+those with `executions stop`.
 
 ## Starting is asynchronous
 
