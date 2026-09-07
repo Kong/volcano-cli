@@ -74,6 +74,30 @@ func (s Service) Get(ctx context.Context, projectID string) (*apiclient.Project,
 	return project, nil
 }
 
+// Rename changes a project's name and refreshes the saved active project.
+func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient.Project, error) {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.Parse(strings.TrimSpace(projectID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to rename project: invalid project ID %q: %w", projectID, err)
+	}
+
+	project, err := authenticated.API.RenameProject(ctx, id, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rename project: %w", err)
+	}
+	if authenticated.Config.CurrentProject != nil && authenticated.Config.CurrentProject.ID == id.String() {
+		if err := saveCurrentProject(authenticated.Config, project); err != nil {
+			return nil, fmt.Errorf("project renamed but failed to update the saved active project: %w", err)
+		}
+	}
+	return project, nil
+}
+
 // ListAnonKeys returns a project's anon keys (the publishable frontend/SDK
 // keys). projectID may be empty to use the currently selected project.
 func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclient.AnonKey, error) {
