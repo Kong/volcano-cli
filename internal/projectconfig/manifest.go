@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	clivariable "github.com/Kong/volcano-cli/internal/variable"
 )
 
 const (
@@ -414,11 +416,19 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 	return body, nil
 }
 
-// Validate performs the minimal local checks: the schema version and the
-// removed scheduler regions field. All semantic validation is server-side.
+// Validate performs local checks that can prevent an invalid upload.
 func (m *Manifest) Validate() error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d (expected %d)", m.Version, ManifestVersion)
+	}
+	if m.Variables != nil {
+		names := make([]string, 0, len(*m.Variables))
+		for _, variable := range *m.Variables {
+			names = append(names, variable.Name)
+		}
+		if err := clivariable.ValidateNames(names); err != nil {
+			return err
+		}
 	}
 	if m.Functions == nil {
 		return nil

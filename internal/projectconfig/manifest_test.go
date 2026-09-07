@@ -198,6 +198,11 @@ func TestParseErrors(t *testing.T) {
 			errContains: "field file_size not found",
 		},
 		{
+			name:        "reserved variable rejected",
+			yaml:        "version: 1\nvariables:\n  - name: AWS_REGION\n    value: us-east-1\n",
+			errContains: "reserved variable names cannot be deployed: AWS_REGION",
+		},
+		{
 			name: "scheduler regions rejected",
 			yaml: `version: 1
 functions:
