@@ -166,6 +166,46 @@ func TestExecutionsRefuseANameWhereAnIDIsRequired(t *testing.T) {
 	}
 }
 
+// An execution route answers 404 for an unknown function as readily as for an
+// unknown execution. Those are different mistakes, so the message has to name
+// both the execution asked for and the function it was asked of, and carry the
+// API's own answer about which one was missing.
+func TestExecutionsNameBothSubjectsOnNotFound(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		message string
+		args    []string
+		want    string
+	}{
+		{
+			name:    "unknown function",
+			message: "durable function not found",
+			args:    []string{"get", "order-pipeline", executionID},
+			want:    "durable function not found",
+		},
+		{
+			name:    "unknown execution",
+			message: "durable execution not found",
+			args:    []string{"stop", "order-pipeline", executionID, "--yes"},
+			want:    "durable execution not found",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setExecutionsTestHome(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(t, w, http.StatusNotFound, map[string]any{"error": tc.message})
+			}))
+			defer server.Close()
+
+			_, err := executeCommand(t, newExecutionsCommand(server), tc.args...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), `durable execution "`+executionID+`"`)
+			assert.Contains(t, err.Error(), `durable function "order-pipeline"`)
+			assert.Contains(t, err.Error(), tc.want)
+		})
+	}
+}
+
 func TestExecutionsStopConfirms(t *testing.T) {
 	setExecutionsTestHome(t)
 	stopped := false

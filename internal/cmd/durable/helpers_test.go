@@ -99,14 +99,27 @@ func writeDurableRuntimesResponse(t *testing.T, w http.ResponseWriter, r *http.R
 	writeDurableCommandJSON(t, w, http.StatusOK, map[string]any{
 		"runtimes": []any{
 			map[string]any{
-				"name":     "nodejs24.x",
-				"language": "javascript",
-				"default":  true,
+				"name":            "nodejs24.x",
+				"language":        "javascript",
+				"default":         true,
+				"durable_capable": true,
 				"deployment": map[string]any{
 					"file_extensions":      []string{".js", ".mjs"},
 					"entrypoint":           "index.js",
 					"handler":              "handler",
 					"dependency_manifests": []string{"package.json"},
+				},
+			},
+			map[string]any{
+				"name":            "python3.12",
+				"language":        "python",
+				"default":         true,
+				"durable_capable": false,
+				"deployment": map[string]any{
+					"file_extensions":      []string{".py"},
+					"entrypoint":           "main.py",
+					"handler":              "handler",
+					"dependency_manifests": []string{"requirements.txt"},
 				},
 			},
 		},

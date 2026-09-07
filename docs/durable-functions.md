@@ -28,6 +28,8 @@ separate collection from standard functions:
   --all` skips them and `volcano cloud durable deploy --all` picks them up.
 - Every region the project deploys to has to offer durable execution, or the
   deploy is refused up front.
+- Durable execution needs the durable authoring API, so a source whose runtime
+  does not offer one is refused before anything is uploaded.
 
 ```yaml
 version: 1

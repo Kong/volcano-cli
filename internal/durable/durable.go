@@ -150,7 +150,7 @@ func (s Service) GetExecution(
 
 	execution, err := authenticated.API.GetDurableExecution(ctx, authenticated.ProjectID, identifier, executionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get durable execution %q: %w", executionID.String(), err)
+		return nil, durableExecutionError("get", identifier, executionID, err)
 	}
 	return execution, nil
 }
@@ -168,9 +168,97 @@ func (s Service) StopExecution(
 
 	execution, err := authenticated.API.StopDurableExecution(ctx, authenticated.ProjectID, identifier, executionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to stop durable execution %q: %w", executionID.String(), err)
+		return nil, durableExecutionError("stop", identifier, executionID, err)
 	}
 	return execution, nil
+}
+
+// ListSchedulers returns the schedulers of one durable function.
+func (s Service) ListSchedulers(
+	ctx context.Context,
+	identifier string,
+) (*apiclient.FunctionSchedulerListResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	schedulers, err := authenticated.API.ListDurableFunctionSchedulers(ctx, authenticated.ProjectID, identifier)
+	if err != nil {
+		return nil, durableFunctionError("list schedulers of", identifier, err)
+	}
+	return schedulers, nil
+}
+
+// CreateScheduler adds a scheduler to one durable function. Each tick starts an
+// execution rather than invoking the function.
+func (s Service) CreateScheduler(
+	ctx context.Context,
+	identifier string,
+	input api.FunctionSchedulerInput,
+) (*apiclient.FunctionScheduler, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	scheduler, err := authenticated.API.CreateDurableFunctionScheduler(
+		ctx, authenticated.ProjectID, identifier, input)
+	if err != nil {
+		return nil, durableFunctionError("create a scheduler for", identifier, err)
+	}
+	return scheduler, nil
+}
+
+// EnableScheduler resumes a scheduler's ticks.
+func (s Service) EnableScheduler(
+	ctx context.Context, identifier string, schedulerID uuid.UUID,
+) (*apiclient.FunctionScheduler, error) {
+	return s.setSchedulerEnabled(ctx, identifier, schedulerID, true)
+}
+
+// DisableScheduler stops a scheduler's ticks without deleting it. Executions
+// already started keep running.
+func (s Service) DisableScheduler(
+	ctx context.Context, identifier string, schedulerID uuid.UUID,
+) (*apiclient.FunctionScheduler, error) {
+	return s.setSchedulerEnabled(ctx, identifier, schedulerID, false)
+}
+
+func (s Service) setSchedulerEnabled(
+	ctx context.Context, identifier string, schedulerID uuid.UUID, enabled bool,
+) (*apiclient.FunctionScheduler, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	flag := enabled
+	scheduler, err := authenticated.API.UpdateDurableFunctionScheduler(
+		ctx, authenticated.ProjectID, identifier, schedulerID, api.FunctionSchedulerInput{Enabled: &flag})
+	if err != nil {
+		action := "disable"
+		if enabled {
+			action = "enable"
+		}
+		return nil, durableSchedulerError(action, identifier, schedulerID, err)
+	}
+	return scheduler, nil
+}
+
+// DeleteScheduler removes a scheduler and its run history. Executions it
+// already started keep running.
+func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) error {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return err
+	}
+
+	if err := authenticated.API.DeleteDurableFunctionScheduler(
+		ctx, authenticated.ProjectID, identifier, schedulerID); err != nil {
+		return durableSchedulerError("delete", identifier, schedulerID, err)
+	}
+	return nil
 }
 
 // durableFunctionError names the function the user asked for. The API answers
@@ -181,4 +269,21 @@ func durableFunctionError(action, identifier string, err error) error {
 		return fmt.Errorf("durable function %q not found", identifier)
 	}
 	return fmt.Errorf("failed to %s durable function %q: %w", action, identifier, err)
+}
+
+// durableExecutionError names both the execution and the function it was asked
+// for. An execution route answers 404 for an unknown function as readily as for
+// an unknown execution, and those are different mistakes; the API says which,
+// so naming both leaves its answer meaning something.
+func durableExecutionError(action, identifier string, executionID uuid.UUID, err error) error {
+	return fmt.Errorf("failed to %s durable execution %q of durable function %q: %w",
+		action, executionID.String(), identifier, err)
+}
+
+// durableSchedulerError names both subjects for the same reason
+// durableExecutionError does: a scheduler route answers 404 for an unknown
+// durable function as readily as for an unknown scheduler.
+func durableSchedulerError(action, identifier string, schedulerID uuid.UUID, err error) error {
+	return fmt.Errorf("failed to %s scheduler %q of durable function %q: %w",
+		action, schedulerID.String(), identifier, err)
 }

@@ -1075,6 +1075,24 @@ func (e FunctionDeploymentStatus) Valid() bool {
 	}
 }
 
+// Defines values for FunctionKind.
+const (
+	Durable  FunctionKind = "durable"
+	Standard FunctionKind = "standard"
+)
+
+// Valid indicates whether the value is a known member of the FunctionKind enum.
+func (e FunctionKind) Valid() bool {
+	switch e {
+	case Durable:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionSchedulerScheduleKind.
 const (
 	FunctionSchedulerScheduleKindCron FunctionSchedulerScheduleKind = "cron"
@@ -5111,6 +5129,13 @@ type FunctionInvocationRequest struct {
 // FunctionInvocationResponse Raw function response body returned by the invoked function.
 type FunctionInvocationResponse map[string]interface{}
 
+// FunctionKind Which kind of function this is. `standard` runs once per invocation.
+// `durable` checkpoints its progress and resumes from the last completed
+// step, and is invoked asynchronously through its own executions
+// collection. A function's kind is fixed when it is created and cannot be
+// changed afterwards. Omitting this field means `standard`.
+type FunctionKind string
+
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
 	// Code Region identifier accepted by function APIs.
@@ -5144,6 +5169,9 @@ type FunctionRuntimeOption struct {
 	Default    bool                      `json:"default"`
 	Deployment FunctionRuntimeDeployment `json:"deployment"`
 
+	// DurableCapable Whether a durable function can be authored on this runtime. Only runtimes with a durable authoring API report true, and a durable deploy naming any other runtime is rejected.
+	DurableCapable bool `json:"durable_capable"`
+
 	// Language Runtime language family used by the CLI to choose defaults from source files.
 	Language string `json:"language"`
 
@@ -5158,10 +5186,17 @@ type FunctionRuntimesResponse struct {
 
 // FunctionScheduler defines model for FunctionScheduler.
 type FunctionScheduler struct {
-	CreatedAt       *time.Time              `json:"created_at,omitempty"`
-	CronExpression  *string                 `json:"cron_expression,omitempty"`
-	Enabled         *bool                   `json:"enabled,omitempty"`
-	FunctionId      *openapi_types.UUID     `json:"function_id,omitempty"`
+	CreatedAt      *time.Time          `json:"created_at,omitempty"`
+	CronExpression *string             `json:"cron_expression,omitempty"`
+	Enabled        *bool               `json:"enabled,omitempty"`
+	FunctionId     *openapi_types.UUID `json:"function_id,omitempty"`
+
+	// FunctionKind Which collection the scheduled function belongs to. A project-wide
+	// scheduler list mixes both kinds, and this is what says whether the
+	// function is read back from `/projects/{id}/functions` or
+	// `/projects/{id}/durable-functions` — and whether a tick invokes it
+	// or starts a durable execution.
+	FunctionKind    *FunctionKind           `json:"function_kind,omitempty"`
 	Id              *openapi_types.UUID     `json:"id,omitempty"`
 	LastCompletedAt *time.Time              `json:"last_completed_at,omitempty"`
 	LastError       *string                 `json:"last_error,omitempty"`
@@ -9176,6 +9211,12 @@ type CreateDurableFunctionMultipartRequestBody CreateDurableFunctionMultipartBod
 // StartDurableExecutionJSONRequestBody defines body for StartDurableExecution for application/json ContentType.
 type StartDurableExecutionJSONRequestBody = StartDurableExecutionJSONBody
 
+// CreateDurableFunctionSchedulerJSONRequestBody defines body for CreateDurableFunctionScheduler for application/json ContentType.
+type CreateDurableFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
+
+// UpdateDurableFunctionSchedulerJSONRequestBody defines body for UpdateDurableFunctionScheduler for application/json ContentType.
+type UpdateDurableFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
+
 // CreateEmailTemplateJSONRequestBody defines body for CreateEmailTemplate for application/json ContentType.
 type CreateEmailTemplateJSONRequestBody = CreateEmailTemplateRequest
 
@@ -10574,6 +10615,25 @@ type ClientInterface interface {
 
 	// StopDurableExecution request
 	StopDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableFunctionSchedulers request
+	ListDurableFunctionSchedulers(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDurableFunctionSchedulerWithBody request with any body
+	CreateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDurableFunctionScheduler request
+	DeleteDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDurableFunctionScheduler request
+	GetDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDurableFunctionSchedulerWithBody request with any body
+	UpdateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListEmailTemplates request
 	ListEmailTemplates(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -13110,6 +13170,90 @@ func (c *Client) GetDurableExecution(ctx context.Context, id ProjectId, function
 
 func (c *Client) StopDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStopDurableExecutionRequest(c.Server, id, functionId, executionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableFunctionSchedulers(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableFunctionSchedulersRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDurableFunctionSchedulerRequestWithBody(c.Server, id, functionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDurableFunctionSchedulerRequest(c.Server, id, functionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDurableFunctionSchedulerRequestWithBody(c.Server, id, functionId, schedulerId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21727,6 +21871,258 @@ func NewStopDurableExecutionRequest(server string, id ProjectId, functionId Dura
 	return req, nil
 }
 
+// NewListDurableFunctionSchedulersRequest generates requests for ListDurableFunctionSchedulers
+func NewListDurableFunctionSchedulersRequest(server string, id ProjectId, functionId DurableFunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDurableFunctionSchedulerRequest calls the generic CreateDurableFunctionScheduler builder with application/json body
+func NewCreateDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDurableFunctionSchedulerRequestWithBody(server, id, functionId, "application/json", bodyReader)
+}
+
+// NewCreateDurableFunctionSchedulerRequestWithBody generates requests for CreateDurableFunctionScheduler with any type of body
+func NewCreateDurableFunctionSchedulerRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDurableFunctionSchedulerRequest generates requests for DeleteDurableFunctionScheduler
+func NewDeleteDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDurableFunctionSchedulerRequest generates requests for GetDurableFunctionScheduler
+func NewGetDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDurableFunctionSchedulerRequest calls the generic UpdateDurableFunctionScheduler builder with application/json body
+func NewUpdateDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDurableFunctionSchedulerRequestWithBody(server, id, functionId, schedulerId, "application/json", bodyReader)
+}
+
+// NewUpdateDurableFunctionSchedulerRequestWithBody generates requests for UpdateDurableFunctionScheduler with any type of body
+func NewUpdateDurableFunctionSchedulerRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListEmailTemplatesRequest generates requests for ListEmailTemplates
 func NewListEmailTemplatesRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -27052,6 +27448,25 @@ type ClientWithResponsesInterface interface {
 	// StopDurableExecutionWithResponse request
 	StopDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*StopDurableExecutionClientResponse, error)
 
+	// ListDurableFunctionSchedulersWithResponse request
+	ListDurableFunctionSchedulersWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*ListDurableFunctionSchedulersClientResponse, error)
+
+	// CreateDurableFunctionSchedulerWithBodyWithResponse request with any body
+	CreateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error)
+
+	CreateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error)
+
+	// DeleteDurableFunctionSchedulerWithResponse request
+	DeleteDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionSchedulerClientResponse, error)
+
+	// GetDurableFunctionSchedulerWithResponse request
+	GetDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*GetDurableFunctionSchedulerClientResponse, error)
+
+	// UpdateDurableFunctionSchedulerWithBodyWithResponse request with any body
+	UpdateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error)
+
+	UpdateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error)
+
 	// ListEmailTemplatesWithResponse request
 	ListEmailTemplatesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListEmailTemplatesClientResponse, error)
 
@@ -31897,6 +32312,162 @@ func (r StopDurableExecutionClientResponse) ContentType() string {
 	return ""
 }
 
+type ListDurableFunctionSchedulersClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionSchedulerListResponse
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableFunctionSchedulersClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableFunctionSchedulersClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableFunctionSchedulersClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FunctionScheduler
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionScheduler
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionScheduler
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListEmailTemplatesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36417,6 +36988,67 @@ func (c *ClientWithResponses) StopDurableExecutionWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseStopDurableExecutionClientResponse(rsp)
+}
+
+// ListDurableFunctionSchedulersWithResponse request returning *ListDurableFunctionSchedulersClientResponse
+func (c *ClientWithResponses) ListDurableFunctionSchedulersWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*ListDurableFunctionSchedulersClientResponse, error) {
+	rsp, err := c.ListDurableFunctionSchedulers(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableFunctionSchedulersClientResponse(rsp)
+}
+
+// CreateDurableFunctionSchedulerWithBodyWithResponse request with arbitrary body returning *CreateDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) CreateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.CreateDurableFunctionSchedulerWithBody(ctx, id, functionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.CreateDurableFunctionScheduler(ctx, id, functionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// DeleteDurableFunctionSchedulerWithResponse request returning *DeleteDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) DeleteDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.DeleteDurableFunctionScheduler(ctx, id, functionId, schedulerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// GetDurableFunctionSchedulerWithResponse request returning *GetDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) GetDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*GetDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.GetDurableFunctionScheduler(ctx, id, functionId, schedulerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// UpdateDurableFunctionSchedulerWithBodyWithResponse request with arbitrary body returning *UpdateDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) UpdateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.UpdateDurableFunctionSchedulerWithBody(ctx, id, functionId, schedulerId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.UpdateDurableFunctionScheduler(ctx, id, functionId, schedulerId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDurableFunctionSchedulerClientResponse(rsp)
 }
 
 // ListEmailTemplatesWithResponse request returning *ListEmailTemplatesClientResponse
@@ -43228,6 +43860,178 @@ func ParseStopDurableExecutionClientResponse(rsp *http.Response) (*StopDurableEx
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableFunctionSchedulersClientResponse parses an HTTP response from a ListDurableFunctionSchedulersWithResponse call
+func ParseListDurableFunctionSchedulersClientResponse(rsp *http.Response) (*ListDurableFunctionSchedulersClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableFunctionSchedulersClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionSchedulerListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDurableFunctionSchedulerClientResponse parses an HTTP response from a CreateDurableFunctionSchedulerWithResponse call
+func ParseCreateDurableFunctionSchedulerClientResponse(rsp *http.Response) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDurableFunctionSchedulerClientResponse parses an HTTP response from a DeleteDurableFunctionSchedulerWithResponse call
+func ParseDeleteDurableFunctionSchedulerClientResponse(rsp *http.Response) (*DeleteDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDurableFunctionSchedulerClientResponse parses an HTTP response from a GetDurableFunctionSchedulerWithResponse call
+func ParseGetDurableFunctionSchedulerClientResponse(rsp *http.Response) (*GetDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDurableFunctionSchedulerClientResponse parses an HTTP response from a UpdateDurableFunctionSchedulerWithResponse call
+func ParseUpdateDurableFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

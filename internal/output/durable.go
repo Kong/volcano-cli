@@ -167,6 +167,20 @@ func printDurableExecutionResult(w io.Writer, on bool, execution *apiclient.Dura
 	kv(w, on, "Result", "%s", string(encoded))
 }
 
+// DurableSchedulers renders the schedulers of one durable function. A tick
+// starts an execution, so the run columns say when the scheduler last started
+// one rather than when the function last ran.
+func DurableSchedulers(w io.Writer, functionName string, resp *apiclient.FunctionSchedulerListResponse) {
+	if resp == nil {
+		resp = &apiclient.FunctionSchedulerListResponse{}
+	}
+	if len(resp.Data) == 0 {
+		fmt.Fprintf(w, "No schedulers configured for durable function %q\n", functionName)
+		return
+	}
+	schedulerTable(w, theme.On(w), resp.Data)
+}
+
 func durableFunctionStatus(fn apiclient.DurableFunction) string {
 	status := strings.TrimSpace(string(fn.Status))
 	if status == "" {

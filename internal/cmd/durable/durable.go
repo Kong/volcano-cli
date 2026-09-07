@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	executionscmd "github.com/Kong/volcano-cli/internal/cmd/durable/executions"
+	schedulerscmd "github.com/Kong/volcano-cli/internal/cmd/durable/schedulers"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -29,6 +30,7 @@ collections never accept each other's names or ids.`,
 	cmd.AddCommand(newStart(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(executionscmd.New(deps))
+	cmd.AddCommand(schedulerscmd.New(deps))
 	return cmd
 }
 

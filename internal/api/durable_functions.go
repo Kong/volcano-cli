@@ -150,6 +150,89 @@ func (c *Client) StopDurableExecution(
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON409, resp.JSON503)
 }
 
+// ListDurableFunctionSchedulers lists schedulers for a durable function.
+func (c *Client) ListDurableFunctionSchedulers(
+	ctx context.Context, projectID uuid.UUID, function string,
+) (*apiclient.FunctionSchedulerListResponse, error) {
+	resp, err := c.client.ListDurableFunctionSchedulersWithResponse(ctx, projectID, function)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
+}
+
+// CreateDurableFunctionScheduler creates one scheduler for a durable function.
+// Each tick starts an execution rather than invoking the function.
+func (c *Client) CreateDurableFunctionScheduler(
+	ctx context.Context, projectID uuid.UUID, function string, input FunctionSchedulerInput,
+) (*apiclient.FunctionScheduler, error) {
+	body := apiclient.CreateDurableFunctionSchedulerJSONRequestBody{
+		Name:    input.Name,
+		Enabled: input.Enabled,
+		Schedule: apiclient.ScheduleRequest{
+			CronExpression: input.CronExpression,
+		},
+	}
+	if input.Payload != nil {
+		payload := input.Payload
+		body.Payload = &payload
+	}
+	if input.Regions != nil {
+		regions := input.Regions
+		body.Regions = &regions
+	}
+
+	resp, err := c.client.CreateDurableFunctionSchedulerWithResponse(ctx, projectID, function, body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSON201 != nil {
+		return resp.JSON201, nil
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404)
+}
+
+// UpdateDurableFunctionScheduler updates one scheduler of a durable function.
+func (c *Client) UpdateDurableFunctionScheduler(
+	ctx context.Context, projectID uuid.UUID, function string, schedulerID uuid.UUID, input FunctionSchedulerInput,
+) (*apiclient.FunctionScheduler, error) {
+	body := apiclient.UpdateDurableFunctionSchedulerJSONRequestBody{
+		Enabled: input.Enabled,
+	}
+	if input.Name != "" {
+		name := input.Name
+		body.Name = &name
+	}
+	if input.CronExpression != "" {
+		body.Schedule = &apiclient.ScheduleRequest{CronExpression: input.CronExpression}
+	}
+	if input.Payload != nil {
+		payload := input.Payload
+		body.Payload = &payload
+	}
+	if input.Regions != nil {
+		regions := input.Regions
+		body.Regions = &regions
+	}
+
+	resp, err := c.client.UpdateDurableFunctionSchedulerWithResponse(ctx, projectID, function, schedulerID, body)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON404)
+}
+
+// DeleteDurableFunctionScheduler deletes one scheduler of a durable function.
+func (c *Client) DeleteDurableFunctionScheduler(
+	ctx context.Context, projectID uuid.UUID, function string, schedulerID uuid.UUID,
+) error {
+	resp, err := c.client.DeleteDurableFunctionSchedulerWithResponse(ctx, projectID, function, schedulerID)
+	if err != nil {
+		return err
+	}
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON404)
+}
+
 func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

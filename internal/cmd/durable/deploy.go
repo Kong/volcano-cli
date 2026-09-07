@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
@@ -172,12 +173,12 @@ func durableSources(
 		return nil, "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	runtimeCatalog, err := clifunction.NewService(opts.deps).RuntimeCatalog(ctx)
+	runtimes, err := clifunction.NewService(opts.deps).ListRuntimes(ctx)
 	if err != nil {
 		return nil, "", err
 	}
 	fmt.Fprintln(opts.out, "\nScanning volcano/functions/...")
-	scanned, err := clifunction.ScanSources(baseDir, runtimeCatalog)
+	scanned, err := clifunction.ScanSources(baseDir, clifunction.RuntimeCatalogFromOptions(runtimes))
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to scan functions: %w", err)
 	}
@@ -189,9 +190,30 @@ func durableSources(
 			return nil, "", fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s",
 				target, clifunction.FormatSourceNames(scanned))
 		}
+		if err := checkDurableRuntime(source, runtimes); err != nil {
+			return nil, "", err
+		}
 		sources = append(sources, source)
 	}
 	return sources, baseDir, nil
+}
+
+// checkDurableRuntime refuses a source whose runtime has no durable authoring
+// API before anything is packaged or uploaded. The API rejects it too, but only
+// after the archive has been built and sent, and the message there cannot name
+// the file the runtime was inferred from.
+func checkDurableRuntime(source clifunction.SourceInfo, runtimes []apiclient.FunctionRuntimeOption) error {
+	if source.Runtime.DurableCapable {
+		return nil
+	}
+	var capable []string
+	for _, runtime := range runtimes {
+		if runtime.DurableCapable {
+			capable = append(capable, runtime.Name)
+		}
+	}
+	return fmt.Errorf("durable functions cannot run on %s, which is the runtime for %s\ndurable runtimes: %s",
+		source.Runtime.Name, source.Path, strings.Join(capable, ", "))
 }
 
 func matchSource(sources []clifunction.SourceInfo, target, baseDir string) (clifunction.SourceInfo, bool) {

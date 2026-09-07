@@ -3427,6 +3427,159 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/schedulers:
+    get:
+      tags:
+        - Durable Functions
+      summary: List schedulers for a durable function
+      description: |
+        The durable collection's counterpart to
+        `/projects/{id}/functions/{functionId}/schedulers`. A standard
+        function's id is not accepted here, and a durable function's id is not
+        accepted there.
+      operationId: listDurableFunctionSchedulers
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      responses:
+        '200':
+          description: Durable function schedulers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionSchedulerListResponse'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Durable Functions
+      summary: Create a scheduler for a durable function
+      description: |
+        Each tick starts an execution rather than invoking the function, under
+        an execution name derived from the run, so a retried tick resolves to
+        the execution it already started. Requested regions must be a subset of
+        the function's deployed regions.
+
+        A tick draws on the same invocation allowance and concurrency cap a
+        manual start does, and a tick that would exceed the cap fails that run.
+      operationId: createDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFunctionSchedulerRequest'
+      responses:
+        '201':
+          description: Scheduler created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '400':
+          description: Invalid schedule or geofenced region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/schedulers/{schedulerId}:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get a durable function scheduler
+      operationId: getDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      responses:
+        '200':
+          description: Durable function scheduler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Durable Functions
+      summary: Update a durable function scheduler
+      operationId: updateDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFunctionSchedulerRequest'
+      responses:
+        '200':
+          description: Scheduler updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '400':
+          description: Invalid schedule or geofenced region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Durable Functions
+      summary: Delete a durable function scheduler
+      operationId: deleteDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      responses:
+        '204':
+          description: Scheduler deleted
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-functions/{functionId}:
     get:
       tags:
@@ -14639,12 +14792,25 @@ components:
           type: string
           example: 🇺🇸
           description: Country flag emoji associated with the region's geography.
+    FunctionKind:
+      type: string
+      enum:
+        - standard
+        - durable
+      default: standard
+      description: |
+        Which kind of function this is. `standard` runs once per invocation.
+        `durable` checkpoints its progress and resumes from the last completed
+        step, and is invoked asynchronously through its own executions
+        collection. A function's kind is fixed when it is created and cannot be
+        changed afterwards. Omitting this field means `standard`.
     FunctionRuntimeOption:
       type: object
       required:
         - name
         - language
         - default
+        - durable_capable
         - deployment
       properties:
         name:
@@ -14658,6 +14824,12 @@ components:
         default:
           type: boolean
           description: Whether this runtime is the CLI default for its language.
+        durable_capable:
+          type: boolean
+          description: >-
+            Whether a durable function can be authored on this runtime. Only
+            runtimes with a durable authoring API report true, and a durable
+            deploy naming any other runtime is rejected.
         deployment:
           $ref: '#/components/schemas/FunctionRuntimeDeployment'
     FunctionRuntimesResponse:
@@ -14681,6 +14853,15 @@ components:
         function_id:
           type: string
           format: uuid
+        function_kind:
+          allOf:
+            - $ref: '#/components/schemas/FunctionKind'
+          description: |
+            Which collection the scheduled function belongs to. A project-wide
+            scheduler list mixes both kinds, and this is what says whether the
+            function is read back from `/projects/{id}/functions` or
+            `/projects/{id}/durable-functions` — and whether a tick invokes it
+            or starts a durable execution.
         name:
           type: string
         enabled:

@@ -244,6 +244,67 @@ func TestDurableDeployUploadsSourceAndVisibility(t *testing.T) {
 	assert.Contains(t, out, "1/1 durable function(s) deployment started")
 }
 
+// Durable execution needs the durable authoring API, so only some runtimes
+// qualify. Refusing before the archive is built keeps the message able to name
+// the file the runtime was inferred from, which the API's rejection cannot.
+func TestDurableDeployRefusesARuntimeWithoutDurableSupport(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.py", "def handler(event, context):\n    return {}\n")
+
+	var deployed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost:
+			deployed = true
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "-f", "order-pipeline")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "durable functions cannot run on python3.12")
+	assert.Contains(t, err.Error(), "order-pipeline.py")
+	assert.Contains(t, err.Error(), "durable runtimes: nodejs24.x")
+	assert.False(t, deployed, "nothing should be uploaded once the runtime is refused")
+}
+
+// --private is the way back from public, and a durable function has no update
+// endpoint, so a redeploy that sends nothing instead of false would make the
+// flag unusable.
+func TestDurableDeploySendsPrivateVisibility(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js",
+		`exports.handler = async () => ({ ok: true });`)
+
+	var sentIsPublic string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			sentIsPublic = r.FormValue("is_public")
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeDurableCommand(t, newCloudDurableCommand(server),
+		"deploy", "-f", "order-pipeline", "--private")
+	require.NoError(t, err)
+	assert.Equal(t, "false", sentIsPublic)
+	assert.Contains(t, out, "1/1 durable function(s) deployment started")
+}
+
 // Omitting both visibility flags sends no is_public field, which the API reads
 // as "keep what the function has". A redeploy must not silently make a public
 // function private.

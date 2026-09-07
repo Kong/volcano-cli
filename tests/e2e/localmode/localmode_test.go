@@ -316,6 +316,8 @@ func requireLocalModeRefusesDurableFunctions(t *testing.T, binary string, env []
 		{"durable", "list"},
 		{"durable", "start", "order-pipeline", "--input", "{}"},
 		{"durable", "executions", "list", "order-pipeline"},
+		{"durable", "schedulers", "list", "order-pipeline"},
+		{"durable", "schedulers", "create", "order-pipeline", "--cron", "0 * * * *"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {
