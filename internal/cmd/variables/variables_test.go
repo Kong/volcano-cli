@@ -168,7 +168,7 @@ func TestVariablesDeployRejectsReservedNamesBeforeUpload(t *testing.T) {
 
 	_, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
 	require.ErrorContains(t, err, "reserved variable names cannot be deployed: AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY")
-	assert.ErrorContains(t, err, "https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html")
+	require.ErrorContains(t, err, "https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html")
 	assert.Zero(t, requests)
 }
 
