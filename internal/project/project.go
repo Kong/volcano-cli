@@ -90,10 +90,8 @@ func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient
 	if err != nil {
 		return nil, fmt.Errorf("failed to rename project: %w", err)
 	}
-	if authenticated.Config.CurrentProject != nil && authenticated.Config.CurrentProject.ID == id.String() {
-		if err := saveCurrentProject(authenticated.Config, project); err != nil {
-			return nil, fmt.Errorf("project renamed but failed to update the saved active project: %w", err)
-		}
+	if err := updateCurrentProjectName(project); err != nil {
+		return nil, fmt.Errorf("project renamed but failed to update the saved active project: %w", err)
 	}
 	return project, nil
 }
@@ -158,7 +156,7 @@ func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project
 	if err != nil {
 		return nil, err
 	}
-	return selected, saveCurrentProject(authenticated.Config, selected)
+	return selected, saveCurrentProject(selected)
 }
 
 func resolveProject(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
@@ -203,14 +201,22 @@ func resolveProject(ctx context.Context, client *api.Client, identifier string) 
 	return nil, fmt.Errorf("project not found: %s", identifier)
 }
 
-func saveCurrentProject(cfg *config.Config, project *apiclient.Project) error {
-	cfg.CurrentProject = &config.ProjectConfig{
-		ID:   project.Id.String(),
-		Name: project.Name,
-	}
+func saveCurrentProject(project *apiclient.Project) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.CurrentProject = &config.ProjectConfig{
+			ID:   project.Id.String(),
+			Name: project.Name,
+		}
+		return true, nil
+	})
+}
 
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-	return nil
+func updateCurrentProjectName(project *apiclient.Project) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		if cfg.CurrentProject == nil || cfg.CurrentProject.ID != project.Id.String() {
+			return false, nil
+		}
+		cfg.CurrentProject.Name = project.Name
+		return true, nil
+	})
 }

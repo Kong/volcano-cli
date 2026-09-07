@@ -28,6 +28,9 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	info, err := os.Stat(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(defaultConfigFileMode), info.Mode().Perm())
+	lockInfo, err := os.Stat(configPath + ".lock")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(defaultConfigLockMode), lockInfo.Mode().Perm())
 
 	dirInfo, err := os.Stat(filepath.Dir(configPath))
 	require.NoError(t, err)

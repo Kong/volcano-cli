@@ -83,9 +83,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		}
 	}
 
-	cfg.UserToken = credentials.Token
-	cfg.UserID = credentials.UserID
-	if err := cfg.Save(); err != nil {
+	if err := saveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
@@ -131,15 +129,21 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return fmt.Errorf("signup failed: %w", err)
 	}
 
-	cfg.UserToken = credentials.Token
-	cfg.UserID = credentials.UserID
-	if err := cfg.Save(); err != nil {
+	if err := saveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	output.Success(opts.out, "Signed up and logged in successfully")
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
+}
+
+func saveCredentials(credentials cliauth.Credentials) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.UserToken = credentials.Token
+		cfg.UserID = credentials.UserID
+		return true, nil
+	})
 }
 
 func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.Reader, out io.Writer) (string, error) {

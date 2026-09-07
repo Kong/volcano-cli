@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gofrs/flock"
 )
 
 const (
@@ -22,6 +24,7 @@ const (
 	defaultConfigFileName = "config.json"
 	defaultConfigDirMode  = 0o700
 	defaultConfigFileMode = 0o600
+	defaultConfigLockMode = 0o600
 	defaultCompiledAPIURL = "https://api.volcano.dev"
 	defaultCompiledWebURL = "https://volcano.dev"
 )
@@ -92,6 +95,16 @@ func Path() (string, error) {
 
 // Load reads ~/.volcano/config.json. Missing config is not an error.
 func Load() (*Config, error) {
+	var cfg *Config
+	err := withLock(func() error {
+		var err error
+		cfg, err = load()
+		return err
+	})
+	return cfg, err
+}
+
+func load() (*Config, error) {
 	configPath, err := Path()
 	if err != nil {
 		return nil, err
@@ -114,17 +127,13 @@ func Load() (*Config, error) {
 
 // Save writes the config to ~/.volcano/config.json with owner-only permissions.
 func (c *Config) Save() error {
+	return withLock(c.save)
+}
+
+func (c *Config) save() error {
 	configPath, err := Path()
 	if err != nil {
 		return err
-	}
-
-	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, defaultConfigDirMode); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-	if err := os.Chmod(configDir, defaultConfigDirMode); err != nil {
-		return fmt.Errorf("failed to set config directory permissions: %w", err)
 	}
 
 	data, err := json.MarshalIndent(c, "", "  ")
@@ -152,16 +161,58 @@ func (c *Config) Save() error {
 	return nil
 }
 
+// Update locks, reloads, and conditionally saves the config.
+func Update(mutate func(*Config) (bool, error)) error {
+	return withLock(func() error {
+		cfg, err := load()
+		if err != nil {
+			return err
+		}
+		changed, err := mutate(cfg)
+		if err != nil || !changed {
+			return err
+		}
+		return cfg.save()
+	})
+}
+
 // Delete removes ~/.volcano/config.json. A missing file is considered success.
 func Delete() error {
+	return withLock(func() error {
+		configPath, err := Path()
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to delete config file: %w", err)
+		}
+		return nil
+	})
+}
+
+func withLock(run func() error) (err error) {
 	configPath, err := Path()
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete config file: %w", err)
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, defaultConfigDirMode); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	return nil
+	if err := os.Chmod(configDir, defaultConfigDirMode); err != nil {
+		return fmt.Errorf("failed to set config directory permissions: %w", err)
+	}
+
+	lock := flock.New(configPath+".lock", flock.SetPermissions(defaultConfigLockMode))
+	if err := lock.Lock(); err != nil {
+		return fmt.Errorf("failed to lock config: %w", err)
+	}
+	defer func() {
+		if unlockErr := lock.Unlock(); err == nil && unlockErr != nil {
+			err = fmt.Errorf("failed to unlock config: %w", unlockErr)
+		}
+	}()
+	return run()
 }
 
 // Token returns the configured token, with VOLCANO_TOKEN taking precedence unless env overrides are disabled.
