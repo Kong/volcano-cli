@@ -154,6 +154,32 @@ func TestVariablesListHonorsPaginationFlags(t *testing.T) {
 	assert.NotContains(t, out, secretSentinelDebugValue)
 }
 
+func TestVariablesDeployRejectsReservedNamesBeforeUpload(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.MkdirAll("volcano", 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano.env"), []byte("SAFE=value\nAWS_REGION=us-east-1\nAWS_ACCESS_KEY_ID=id\nAWS_SECRET_ACCESS_KEY=secret\n"), 0o644))
+
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}))
+	defer server.Close()
+
+	_, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+	require.ErrorContains(t, err, "reserved variable names cannot be deployed: AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY")
+	assert.ErrorContains(t, err, "https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html")
+	assert.Zero(t, requests)
+}
+
+func TestVariablesDeployHelpListsReservedNames(t *testing.T) {
+	out, err := executeVariableCommand(t, New(cliruntime.Deps{}), "deploy", "--help")
+	require.NoError(t, err)
+	for _, want := range []string{"AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html"} {
+		assert.Contains(t, out, want)
+	}
+}
+
 func TestVariablesDeployEmptyEnvFile(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())
