@@ -113,7 +113,9 @@ volcano-config.yaml rendered by the server.
 
 Write-only secrets (SMTP password, OAuth client secrets, custom domain TLS
 material) are omitted from the export; set them via ${ENV_VAR} interpolation
-before deploying. Variable values are omitted; shared_variables contains shared names only.
+before deploying. Variable values are omitted; shared_variables contains shared
+names only. Any variable values a server does return are removed before the
+manifest is written.
 
 Without --file the manifest is written to an existing manifest location, or
 volcano/volcano-config.yaml when the volcano directory exists, else
@@ -187,7 +189,7 @@ func runPull(ctx context.Context, opts pullOptions) error {
 		}
 	}
 
-	manifest, err := projectconfig.NewService(opts.deps).Pull(ctx)
+	pulled, err := projectconfig.NewService(opts.deps).Pull(ctx)
 	if err != nil {
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config export; upgrade your local-mode server image and try again")
@@ -200,12 +202,15 @@ func runPull(ctx context.Context, opts pullOptions) error {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	if err := writePulledManifest(targetPath, manifest); err != nil {
+	if err := writePulledManifest(targetPath, pulled.Manifest); err != nil {
 		return err
 	}
 
 	output.Success(opts.out, "Configuration written to %s", targetPath)
-	output.Note(opts.out, "write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
+	output.Note(opts.out, "variable values and write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
+	if pulled.StrippedVariableValues {
+		output.Note(opts.out, "the server returned variable values; the variables section was removed so no values were written to disk")
+	}
 	return nil
 }
 

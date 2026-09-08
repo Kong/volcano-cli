@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -339,15 +340,28 @@ functions:
 	assert.Contains(t, err.Error(), "scheduler placement is managed by the server")
 }
 
+// pulledYAML is a correct server export: variable names and shared membership,
+// no variable values. See oldServerPulledYAML for the value-bearing case.
 const pulledYAML = `# volcano-config.yaml (manifest version 1)
+version: 1
+shared_variables:
+  - LOG_LEVEL
+`
+
+// oldServerPulledYAML is what an older or misbehaving server may return: a
+// top-level variables section carrying values. pull must strip it.
+const oldServerPulledYAML = `# volcano-config.yaml (manifest version 1)
 version: 1
 variables:
   - name: API_KEY
     value: secret-value
+shared_variables:
+  - LOG_LEVEL
 `
 
-// requirePulledYAMLVerbatim asserts byte-for-byte fidelity: pull must save
-// the server-rendered manifest exactly, including comments and ordering.
+// requirePulledYAMLVerbatim asserts byte-for-byte fidelity: pull must save an
+// already value-free server-rendered manifest exactly, including comments and
+// ordering.
 func requirePulledYAMLVerbatim(t *testing.T, path string) {
 	t.Helper()
 	written, err := os.ReadFile(path)
@@ -373,8 +387,70 @@ func TestPullHelpDescribesNamesOnlyExport(t *testing.T) {
 	out, err := executeConfigCommand(t, New(cliruntime.Deps{}), "pull", "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Variable values are omitted")
-	assert.Contains(t, out, "shared_variables contains shared names only")
+	assert.Contains(t, out, "shared_variables contains shared")
+	assert.Contains(t, out, "Any variable values a server does return are removed")
 	assert.NotContains(t, out, "Variable values are included")
+}
+
+// TestPullStripsVariableValuesFromOlderServer covers the promise the help text
+// makes: even when the server exports variable values, none reach disk.
+func TestPullStripsVariableValuesFromOlderServer(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	// Pre-existing world-readable manifest: --force must still land 0600.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, projectConfigURL, r.URL.Path)
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write([]byte(oldServerPulledYAML))
+	}))
+	defer server.Close()
+
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull", "--force")
+	require.NoError(t, err)
+	assert.Contains(t, out, "the server returned variable values")
+
+	path := filepath.Join(dir, "volcano-config.yaml")
+	written, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(written), "secret-value")
+	assert.NotContains(t, string(written), "API_KEY")
+	assert.NotContains(t, string(written), "variables:\n  - name")
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+
+	// What survives must still be a deployable manifest: shared membership is
+	// kept and the stripped variables section is absent, not value-less.
+	var saved map[string]any
+	require.NoError(t, yaml.Unmarshal(written, &saved))
+	assert.NotContains(t, saved, "variables")
+	assert.Equal(t, []any{"LOG_LEVEL"}, saved["shared_variables"])
+	assert.Equal(t, 1, saved["version"])
+}
+
+// TestPullRejectsUnparseableManifest fails closed: bytes the CLI could not
+// inspect are never written, so the value-free promise always holds.
+func TestPullRejectsUnparseableManifest(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write([]byte("version: 1\nvariables: [\n"))
+	}))
+	defer server.Close()
+
+	_, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not valid YAML")
+
+	_, statErr := os.Stat(filepath.Join(dir, "volcano-config.yaml"))
+	assert.True(t, os.IsNotExist(statErr), "no manifest may be written when the response cannot be checked")
 }
 
 func TestPullWritesServerYAMLVerbatim(t *testing.T) {
@@ -388,7 +464,8 @@ func TestPullWritesServerYAMLVerbatim(t *testing.T) {
 	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Configuration written to volcano-config.yaml")
-	assert.Contains(t, out, "write-only secrets")
+	assert.Contains(t, out, "variable values and write-only secrets")
+	assert.NotContains(t, out, "the server returned variable values")
 
 	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
 

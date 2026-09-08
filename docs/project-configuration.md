@@ -101,7 +101,10 @@ Key semantics:
   the entries that failed or still differ are retried.
 - Variable values and write-only secrets, such as SMTP passwords, OAuth client
   secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
-  environment and set them via `${ENV_VAR}` interpolation.
+  environment and set them via `${ENV_VAR}` interpolation. If a server does
+  return variable values, `config pull` removes the whole `variables` section
+  before writing the file, so no values reach disk and the export stays
+  deployable.
 - `functions[].variables` is fully synced when declared: the list replaces the
   function's declared variable names. Omitting it, like omitting
   `variable_scope`, leaves the function's existing declaration untouched. See

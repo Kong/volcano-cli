@@ -40,12 +40,31 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*
 	return authenticated.API.ApplyProjectConfig(ctx, authenticated.ProjectID, body, dryRun)
 }
 
+// PullResult is a downloaded manifest plus whether the CLI had to remove
+// variable values the server should not have exported.
+type PullResult struct {
+	Manifest []byte
+
+	// StrippedVariableValues reports that the response carried a top-level
+	// variables section and it was removed before the manifest was returned.
+	StrippedVariableValues bool
+}
+
 // Pull downloads the project's current configuration as the server-rendered
-// canonical YAML manifest.
-func (s Service) Pull(ctx context.Context) ([]byte, error) {
+// canonical YAML manifest, with variable values removed if the server included
+// any (see sanitizePulledManifest).
+func (s Service) Pull(ctx context.Context) (PullResult, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
-		return nil, err
+		return PullResult{}, err
 	}
-	return authenticated.API.GetProjectConfigYAML(ctx, authenticated.ProjectID)
+	manifest, err := authenticated.API.GetProjectConfigYAML(ctx, authenticated.ProjectID)
+	if err != nil {
+		return PullResult{}, err
+	}
+	sanitized, stripped, err := sanitizePulledManifest(manifest)
+	if err != nil {
+		return PullResult{}, err
+	}
+	return PullResult{Manifest: sanitized, StrippedVariableValues: stripped}, nil
 }
