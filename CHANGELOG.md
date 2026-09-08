@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/Kong/volcano-cli/compare/v0.24.2...v0.25.0) (2026-09-08)
+
+
+### Features
+
+* **projects:** add project rename command ([#187](https://github.com/Kong/volcano-cli/issues/187)) ([5dd242f](https://github.com/Kong/volcano-cli/commit/5dd242f1ef3ac6c0d6a0c254291531e1705cc6c9))
+
 ## [0.24.2](https://github.com/Kong/volcano-cli/compare/v0.24.1...v0.24.2) (2026-09-08)
 
 
