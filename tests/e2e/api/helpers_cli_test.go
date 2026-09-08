@@ -31,7 +31,12 @@ func (e *apiE2E) runCloudCLI(t *testing.T, args ...string) cliResult {
 
 func (e *apiE2E) runCLIWithEnv(t *testing.T, extraEnv []string, args ...string) cliResult {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	return e.runCLIWithin(t, apiE2ECommandTimeout, extraEnv, args...)
+}
+
+func (e *apiE2E) runCLIWithin(t *testing.T, timeout time.Duration, extraEnv []string, args ...string) cliResult {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, e.binary, args...)
@@ -60,6 +65,28 @@ func (e *apiE2E) runCloudCLIWithEnv(t *testing.T, extraEnv []string, args ...str
 	t.Helper()
 	cloudArgs := append([]string{"cloud"}, args...)
 	return e.runCLIWithEnv(t, extraEnv, cloudArgs...)
+}
+
+func (e *apiE2E) runCloudCLIWithin(t *testing.T, timeout time.Duration, args ...string) cliResult {
+	t.Helper()
+	cloudArgs := append([]string{"cloud"}, args...)
+	return e.runCLIWithin(t, timeout, nil, cloudArgs...)
+}
+
+// attemptTimeout keeps a polled command inside the budget its caller is waiting
+// against, so one hung command cannot outlive the whole wait. The floor leaves a
+// final attempt enough room to answer: killing it for a sliver of remaining time
+// would report a cancelled command instead of the state the wait gave up on.
+func attemptTimeout(deadline time.Time) time.Duration {
+	remaining := time.Until(deadline)
+	switch {
+	case remaining > apiE2ECommandTimeout:
+		return apiE2ECommandTimeout
+	case remaining < apiE2EPollInterval:
+		return apiE2EPollInterval
+	default:
+		return remaining
+	}
 }
 
 func (e *apiE2E) commandEnv() []string {
@@ -131,7 +158,7 @@ func (e *apiE2E) waitForCLIContains(t *testing.T, timeout time.Duration, needle 
 	deadline := time.Now().Add(timeout)
 	var last cliResult
 	for time.Now().Before(deadline) {
-		last = e.runCLI(t, args...)
+		last = e.runCLIWithin(t, attemptTimeout(deadline), nil, args...)
 		pendingDeployment := needle == "Status: active" && strings.Contains(last.output, "Pending Deployment:")
 		if last.code == 0 && strings.Contains(last.output, needle) && !pendingDeployment {
 			return last
