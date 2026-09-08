@@ -225,8 +225,8 @@ func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string 
 
 // runLocalModeConfigSmoke exercises `config deploy` + `config pull` against the
 // local-mode server. It is self-contained: it declares SMOKE_MESSAGE (already
-// present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands,
-// then removes CONFIG_SMOKE so the shared cleanup only handles SMOKE_MESSAGE.
+// present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands and
+// the value-free pull, then removes CONFIG_SMOKE.
 //
 // Older local-mode images predate the /projects/{id}/config endpoints; against
 // those the CLI returns an upgrade hint and this smoke is skipped rather than
@@ -263,7 +263,8 @@ functions:
 	configPullOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "pull", "--force")
 	requireContains(t, configPullOutput, "Configuration written to")
 	pulledConfig := readLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"))
-	requireContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireNotContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireNotContains(t, pulledConfig, "from-config-deploy")
 	requireContains(t, pulledConfig, "version: 1")
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
