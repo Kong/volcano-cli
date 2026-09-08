@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.25.0](https://github.com/Kong/volcano-cli/compare/v0.24.2...v0.25.0) (2026-09-08)
+
+
+### Features
+
+* **projects:** add project rename command ([#187](https://github.com/Kong/volcano-cli/issues/187)) ([5dd242f](https://github.com/Kong/volcano-cli/commit/5dd242f1ef3ac6c0d6a0c254291531e1705cc6c9))
+
+## [0.24.2](https://github.com/Kong/volcano-cli/compare/v0.24.1...v0.24.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **tests:** fail the function rollout wait on a failed invocation ([#192](https://github.com/Kong/volcano-cli/issues/192)) ([9972c9a](https://github.com/Kong/volcano-cli/commit/9972c9ab946cf41145cab20671a14dd95c4ce989))
+
+## [0.24.1](https://github.com/Kong/volcano-cli/compare/v0.24.0...v0.24.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **tests:** wait for the invoked function to converge on the newest deploy ([#190](https://github.com/Kong/volcano-cli/issues/190)) ([86c0fd7](https://github.com/Kong/volcano-cli/commit/86c0fd7465e442b7d47446e4f60ad34fe48157e9))
+
 ## [0.24.0](https://github.com/Kong/volcano-cli/compare/v0.23.2...v0.24.0) (2026-09-06)
 
 

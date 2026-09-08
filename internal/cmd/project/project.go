@@ -35,6 +35,13 @@ type getOptions struct {
 	out       io.Writer
 }
 
+type renameOptions struct {
+	deps      cliruntime.Deps
+	projectID string
+	name      string
+	out       io.Writer
+}
+
 type keysOptions struct {
 	deps      cliruntime.Deps
 	projectID string
@@ -62,7 +69,7 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "projects",
 		Short: "Manage projects",
-		Long:  "Create, list, delete, and select Volcano projects.",
+		Long:  "Create, list, rename, delete, and select Volcano projects.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), listOptions{
@@ -78,6 +85,7 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newCreate(deps))
 	cmd.AddCommand(newGet(deps))
+	cmd.AddCommand(newRename(deps))
 	cmd.AddCommand(newKeys(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newUse(deps))
@@ -164,6 +172,32 @@ func runGet(ctx context.Context, opts getOptions) error {
 	}
 
 	output.Project(opts.out, project)
+	return nil
+}
+
+func newRename(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "rename <project-id> <new-name>",
+		Short: "Rename a project",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRename(cmd.Context(), renameOptions{
+				deps:      deps,
+				projectID: strings.TrimSpace(args[0]),
+				name:      strings.TrimSpace(args[1]),
+				out:       cmd.OutOrStdout(),
+			})
+		},
+	}
+}
+
+func runRename(ctx context.Context, opts renameOptions) error {
+	project, err := cliproject.NewService(opts.deps).Rename(ctx, opts.projectID, opts.name)
+	if err != nil {
+		return err
+	}
+
+	output.Success(opts.out, "Project renamed: %s (%s)", project.Name, project.Id.String())
 	return nil
 }
 

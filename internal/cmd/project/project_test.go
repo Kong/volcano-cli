@@ -102,14 +102,16 @@ func TestProjectsListSubcommandFetchesRequestedPage(t *testing.T) {
 	assert.Contains(t, out, "Showing 1 of 21 project(s) (page 3, limit 10)")
 }
 
-func TestUseByNameAndProjectCreateGetDelete(t *testing.T) {
+func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
 	setProjectCommandTestHome(t)
 	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
 	var listRequests int
 	var createRequests int
 	var getRequests int
+	var renameRequests int
 	var deleteRequests int
 	var createPayload map[string]any
+	var renamePayload map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/projects":
@@ -132,6 +134,10 @@ func TestUseByNameAndProjectCreateGetDelete(t *testing.T) {
 			createRequests++
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&createPayload))
 			writeProjectCommandJSON(t, w, http.StatusCreated, projectCommandPayload(projectAlphaID, "Alpha", "provisioning", nil))
+		case r.Method == http.MethodPatch && r.URL.Path == "/projects/"+projectBetaID:
+			renameRequests++
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&renamePayload))
+			writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectBetaID, "Gamma", "active", nil))
 		case r.Method == http.MethodDelete && r.URL.Path == "/projects/"+projectAlphaID:
 			deleteRequests++
 			w.WriteHeader(http.StatusAccepted)
@@ -154,6 +160,15 @@ func TestUseByNameAndProjectCreateGetDelete(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Now using project: Beta")
 	assert.Equal(t, 2, listRequests)
+
+	out, err = executeProjectCommand(t, NewProjects(deps), "rename", projectBetaID, " Gamma ")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Project renamed: Gamma ("+projectBetaID+")")
+	assert.Equal(t, map[string]any{"name": "Gamma"}, renamePayload)
+	assert.Equal(t, 1, renameRequests)
+	cfg = loadProjectCommandTestConfig(t)
+	require.NotNil(t, cfg.CurrentProject)
+	assert.Equal(t, "Gamma", cfg.CurrentProject.Name)
 
 	out, err = executeProjectCommand(t, NewProjects(deps), "create", " Alpha ")
 	require.NoError(t, err)
