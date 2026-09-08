@@ -372,6 +372,87 @@ functions:
 	assert.Contains(t, out, "1/1 durable function(s) deployment started")
 }
 
+// The manifest is the only place a durable function's variable scope can be
+// declared, and the API reads a declaration only from the deploy that sends
+// one. Left out, a durable function the manifest scopes is created with every
+// project variable in its environment — the widest possible reading of an entry
+// that asked for the narrowest.
+func TestDurableDeploySendsTheManifestVariableScope(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDurableProjectFile(t, "volcano-config.yaml", `version: 1
+project:
+  name: beta
+functions:
+  - name: order-pipeline
+    kind: durable
+    variable_scope: scoped
+    variables:
+      - STRIPE_SECRET
+`)
+
+	var fields map[string]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			fields = map[string]string{
+				"variable_scope": r.FormValue("variable_scope"),
+				"variables":      r.FormValue("variables"),
+			}
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "--all")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{
+		"variable_scope": "scoped",
+		"variables":      `["STRIPE_SECRET"]`,
+	}, fields)
+}
+
+// And a manifest that declares no scope sends neither field, which is what
+// leaves an existing function's scope alone on redeploy.
+func TestDurableDeployWithoutADeclarationSendsNoScope(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDurableProjectFile(t, "volcano-config.yaml", `version: 1
+project:
+  name: beta
+functions:
+  - name: order-pipeline
+    kind: durable
+`)
+
+	var form map[string][]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			form = r.MultipartForm.Value
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "--all")
+	require.NoError(t, err)
+	assert.NotContains(t, form, "variable_scope")
+	assert.NotContains(t, form, "variables")
+}
+
 func TestDurableDeployAllWithoutADurableDeclaration(t *testing.T) {
 	setDurableCommandTestHome(t)
 	t.Chdir(t.TempDir())

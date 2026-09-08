@@ -63,6 +63,8 @@ func (s Service) Deploy(ctx context.Context, pkg clifunction.Package, isPublic *
 		Handler:       pkg.Handler,
 		SourceArchive: pkg.ArchiveData,
 		IsPublic:      isPublic,
+		VariableScope: pkg.VariableScope,
+		Variables:     pkg.Variables,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy durable function %q: %w", pkg.Name, err)

@@ -74,6 +74,13 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if err != nil {
 		return err
 	}
+	// The same manifest read the standard deploy does. Without it a durable
+	// function the manifest scopes is created with every project variable, since
+	// the API reads a declaration only from the deploy that sends one.
+	manifest, err := projectconfig.ReadFunctionDeployManifest("")
+	if err != nil {
+		return err
+	}
 
 	service := clidurable.NewService(opts.deps)
 	sources, baseDir, err := durableSources(ctx, opts, targets)
@@ -83,7 +90,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
-		if err := deployOne(ctx, opts.out, service, baseDir, source, visibility); err != nil {
+		if err := deployOne(
+			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
+		); err != nil {
 			return err
 		}
 	}
@@ -100,12 +109,17 @@ func deployOne(
 	baseDir string,
 	source clifunction.SourceInfo,
 	visibility *bool,
+	declarations map[string]projectconfig.FunctionVariableDeclaration,
 ) error {
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
 	pkg, err := clifunction.PackageSource(source, baseDir)
 	if err != nil {
 		return fmt.Errorf("failed to package durable function %s: %w", source.Name, err)
+	}
+	if declaration, ok := declarations[pkg.Name]; ok {
+		pkg.VariableScope = declaration.VariableScope
+		pkg.Variables = declaration.Variables
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 

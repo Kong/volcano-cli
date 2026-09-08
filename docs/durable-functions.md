@@ -41,6 +41,10 @@ functions:
     kind: durable
 ```
 
+A durable entry takes `variable_scope` and `variables` like any other, and
+`durable deploy` sends what the manifest declares. Declaring nothing leaves an
+existing function's scope alone.
+
 ## CLI operations
 
 | Operation | Command |

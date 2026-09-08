@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"strconv"
@@ -20,6 +21,10 @@ type DurableFunctionDeployInput struct {
 	Handler       string
 	SourceArchive []byte
 	IsPublic      *bool
+	// VariableScope and Variables carry the manifest's declaration, nil when it
+	// declared none — which leaves an existing function's scope alone.
+	VariableScope *string
+	Variables     *[]string
 }
 
 // DurableExecutionStartInput contains one durable execution start request. Name
@@ -248,6 +253,21 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 	if fn.IsPublic != nil {
 		if err := writer.WriteField("is_public", strconv.FormatBool(*fn.IsPublic)); err != nil {
 			return nil, "", fmt.Errorf("failed to write is_public field: %w", err)
+		}
+	}
+	if fn.VariableScope != nil {
+		if err := writer.WriteField("variable_scope", *fn.VariableScope); err != nil {
+			return nil, "", fmt.Errorf("failed to write variable_scope field: %w", err)
+		}
+	}
+	if fn.Variables != nil {
+		// A JSON-encoded string, as the standard create takes it.
+		encoded, err := json.Marshal(*fn.Variables)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to encode variables field: %w", err)
+		}
+		if err := writer.WriteField("variables", string(encoded)); err != nil {
+			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
 	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
