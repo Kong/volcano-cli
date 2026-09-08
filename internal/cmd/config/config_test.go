@@ -463,3 +463,59 @@ func TestPullOldServerWithoutConfigEndpoint(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not support declarative config export")
 }
+
+func TestSharedVariablesPullDeployRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name, section string
+		want          any
+	}{
+		{"omitted", "", nil},
+		{"clear", "shared_variables: []\n", []any{}},
+		{"names only", "shared_variables: [LOG_LEVEL, Service_URL]\n", []any{"LOG_LEVEL", "Service_URL"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			exported := "# Variable values omitted\nversion: 1\n" + tc.section
+			puts := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, projectConfigURL, r.URL.Path)
+				if r.Method == http.MethodGet {
+					assert.Equal(t, "yaml", r.URL.Query().Get("format"))
+					w.Header().Set("Content-Type", "application/yaml")
+					_, _ = w.Write([]byte(exported))
+					return
+				}
+				require.Equal(t, http.MethodPut, r.Method)
+				var uploaded map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+				if tc.want == nil {
+					assert.NotContains(t, uploaded, "shared_variables")
+				} else {
+					assert.Equal(t, tc.want, uploaded["shared_variables"])
+				}
+				assert.NotContains(t, uploaded, "variables")
+				if puts == 0 {
+					assert.Equal(t, "true", r.URL.Query().Get("dry_run"))
+				} else {
+					assert.Empty(t, r.URL.RawQuery)
+				}
+				puts++
+				writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+			}))
+			defer server.Close()
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+			_, err := executeConfigCommand(t, New(deps), "pull")
+			require.NoError(t, err)
+			saved, err := os.ReadFile(filepath.Join(dir, "volcano-config.yaml"))
+			require.NoError(t, err)
+			assert.Equal(t, exported, string(saved))
+			_, err = executeConfigCommand(t, New(deps), "deploy", "--dry-run")
+			require.NoError(t, err)
+			_, err = executeConfigCommand(t, New(deps), "deploy")
+			require.NoError(t, err)
+			assert.Equal(t, 2, puts)
+		})
+	}
+}

@@ -6107,6 +6107,9 @@ type ProjectConfig struct {
 	Project  *ProjectConfigProject  `json:"project,omitempty"`
 	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
 
+	// SharedVariables Replace the complete shared function-variable list with existing names, without changing variable values. Omission keeps membership unchanged; an empty list clears it.
+	SharedVariables *[]string `json:"shared_variables,omitempty"`
+
 	// Variables Fully synced when declared - variables absent from this list are deleted.
 	Variables *[]ProjectConfigVariable `json:"variables,omitempty"`
 

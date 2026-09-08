@@ -15665,6 +15665,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProjectConfigDatabase'
+        shared_variables:
+          type: array
+          uniqueItems: true
+          description: Replace the complete shared function-variable list with existing names, without changing variable values. Omission keeps membership unchanged; an empty list clears it.
+          items:
+            type: string
+            pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
         variables:
           type: array
           description: Fully synced when declared - variables absent from this list are deleted.
