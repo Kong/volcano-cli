@@ -26,7 +26,8 @@ func TestSanitizePulledManifestKeepsCleanExportsVerbatim(t *testing.T) {
 }
 
 func TestSanitizePulledManifestDropsVariablesSection(t *testing.T) {
-	got, stripped, err := sanitizePulledManifest([]byte(`version: 1
+	got, stripped, err := sanitizePulledManifest([]byte(`# volcano-config.yaml (manifest version 1)
+version: 1
 variables:
   - name: API_KEY
     value: secret-value
@@ -36,6 +37,14 @@ shared_variables:
 	require.NoError(t, err)
 	assert.True(t, stripped)
 	assert.NotContains(t, string(got), "secret-value")
+
+	// The re-marshaled manifest must still read like a canonical export: head
+	// comment kept, two-space sequence indent, no document-start marker.
+	assert.Equal(t, `# volcano-config.yaml (manifest version 1)
+version: 1
+shared_variables:
+  - LOG_LEVEL
+`, string(got))
 
 	// The section is removed outright, not emptied or left value-less: a
 	// value-less variables list would fail the server's required-field
@@ -50,6 +59,6 @@ shared_variables:
 
 func TestSanitizePulledManifestRejectsUnparseableYAML(t *testing.T) {
 	_, _, err := sanitizePulledManifest([]byte("version: 1\nvariables: [\n"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrUnsafePulledManifest)
 	assert.Contains(t, err.Error(), "not valid YAML")
 }

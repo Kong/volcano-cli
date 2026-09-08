@@ -194,6 +194,11 @@ func runPull(ctx context.Context, opts pullOptions) error {
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config export; upgrade your local-mode server image and try again")
 		}
+		// The download itself succeeded here; nothing was written because the
+		// value-free export contract could not be honored.
+		if errors.Is(err, projectconfig.ErrUnsafePulledManifest) {
+			return err
+		}
 		return fmt.Errorf("failed to download configuration: %w", err)
 	}
 

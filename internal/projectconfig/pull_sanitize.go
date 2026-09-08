@@ -2,10 +2,17 @@ package projectconfig
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
 )
+
+// ErrUnsafePulledManifest reports that a downloaded manifest could not be
+// checked or cleaned of variable values, so nothing was written. The download
+// itself succeeded; callers match it with errors.Is to avoid framing this as a
+// transport failure.
+var ErrUnsafePulledManifest = errors.New("downloaded configuration could not be checked for variable values")
 
 // pulledManifestIndent matches the two-space indentation the server uses in the
 // canonical YAML rendering, so a re-marshaled manifest still reads like a pulled
@@ -35,7 +42,7 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 
 	var doc yaml.Node
 	if err := yaml.Unmarshal(manifest, &doc); err != nil {
-		return nil, false, fmt.Errorf("server returned a configuration manifest that is not valid YAML, so it could not be checked for variable values: %w", err)
+		return nil, false, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
 		// Nothing that could hold a `variables` mapping key; leave it verbatim
@@ -62,10 +69,10 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 	encoder := yaml.NewEncoder(&buf)
 	encoder.SetIndent(pulledManifestIndent)
 	if err := encoder.Encode(&doc); err != nil {
-		return nil, false, fmt.Errorf("failed to remove variable values from the downloaded configuration: %w", err)
+		return nil, false, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
 	}
 	if err := encoder.Close(); err != nil {
-		return nil, false, fmt.Errorf("failed to remove variable values from the downloaded configuration: %w", err)
+		return nil, false, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
 	}
 	return buf.Bytes(), true, nil
 }

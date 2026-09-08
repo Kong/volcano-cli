@@ -447,7 +447,9 @@ func TestPullRejectsUnparseableManifest(t *testing.T) {
 
 	_, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull")
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not be checked for variable values")
 	assert.Contains(t, err.Error(), "not valid YAML")
+	assert.NotContains(t, err.Error(), "failed to download configuration")
 
 	_, statErr := os.Stat(filepath.Join(dir, "volcano-config.yaml"))
 	assert.True(t, os.IsNotExist(statErr), "no manifest may be written when the response cannot be checked")
