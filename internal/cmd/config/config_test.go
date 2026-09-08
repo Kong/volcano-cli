@@ -369,6 +369,14 @@ func newPullTestServer(t *testing.T) *httptest.Server {
 	}))
 }
 
+func TestPullHelpDescribesNamesOnlyExport(t *testing.T) {
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{}), "pull", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Variable values are omitted")
+	assert.Contains(t, out, "shared_variables contains shared names only")
+	assert.NotContains(t, out, "Variable values are included")
+}
+
 func TestPullWritesServerYAMLVerbatim(t *testing.T) {
 	dir := chdirToTemp(t)
 	setConfigCommandTestHome(t)
@@ -429,7 +437,7 @@ func TestPullRefusesToOverwriteWithoutForce(t *testing.T) {
 	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
 
 	// Forcing over a pre-existing 0644 manifest must still restrict it to
-	// owner-only: pulled manifests include variable values.
+	// owner-only to protect the downloaded project configuration.
 	info, err := os.Stat(filepath.Join(dir, "volcano-config.yaml"))
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())

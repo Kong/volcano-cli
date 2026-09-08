@@ -19,8 +19,7 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-// pulledManifestMode keeps pulled manifests owner-only: variable values are
-// included in exports.
+// pulledManifestMode keeps downloaded project configuration owner-only.
 const pulledManifestMode = 0o600
 
 type deployOptions struct {
@@ -114,7 +113,7 @@ volcano-config.yaml rendered by the server.
 
 Write-only secrets (SMTP password, OAuth client secrets, custom domain TLS
 material) are omitted from the export; set them via ${ENV_VAR} interpolation
-before deploying. Variable values are included.
+before deploying. Variable values are omitted; shared_variables contains shared names only.
 
 Without --file the manifest is written to an existing manifest location, or
 volcano/volcano-config.yaml when the volcano directory exists, else
@@ -213,7 +212,7 @@ func runPull(ctx context.Context, opts pullOptions) error {
 // writePulledManifest writes the pulled manifest owner-only (pulledManifestMode)
 // even when overwriting an existing file. os.WriteFile only applies its mode
 // when it creates the file, so a --force overwrite of a pre-existing 0644
-// manifest would keep the looser mode and leave the exported variable values
+// manifest would keep the looser mode and leave the downloaded configuration
 // readable by other local users. Writing a fresh 0600 temp file in the target
 // directory and renaming it into place makes the write atomic and guarantees
 // the owner-only mode regardless of any pre-existing file.
