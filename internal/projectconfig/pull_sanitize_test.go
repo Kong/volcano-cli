@@ -62,3 +62,10 @@ func TestSanitizePulledManifestRejectsUnparseableYAML(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnsafePulledManifest)
 	assert.Contains(t, err.Error(), "not valid YAML")
 }
+
+func TestSanitizePulledManifestRejectsAdditionalDocuments(t *testing.T) {
+	manifest := "version: 1\n---\nvariables:\n  - name: API_KEY\n    value: secret\n"
+	_, _, err := sanitizePulledManifest([]byte(manifest))
+	require.ErrorIs(t, err, ErrUnsafePulledManifest)
+	assert.Contains(t, err.Error(), "multiple YAML documents")
+}

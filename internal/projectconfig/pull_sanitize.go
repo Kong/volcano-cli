@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 
 	"gopkg.in/yaml.v3"
 )
@@ -40,9 +41,17 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 		return manifest, false, nil
 	}
 
+	decoder := yaml.NewDecoder(bytes.NewReader(manifest))
 	var doc yaml.Node
-	if err := yaml.Unmarshal(manifest, &doc); err != nil {
+	if err := decoder.Decode(&doc); err != nil {
 		return nil, false, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
+	}
+	var extra yaml.Node
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return nil, false, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
+		}
+		return nil, false, fmt.Errorf("%w: the server returned multiple YAML documents", ErrUnsafePulledManifest)
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
 		// Nothing that could hold a `variables` mapping key; leave it verbatim
