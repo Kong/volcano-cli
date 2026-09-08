@@ -20,7 +20,11 @@ const (
 	apiE2EFunctionDeploymentTimeout = 20 * time.Minute
 	apiE2EFrontendDeploymentTimeout = 30 * time.Minute
 	apiE2EResourceDeleteTimeout     = 10 * time.Minute
-	apiE2EPollInterval              = 5 * time.Second
+	// An active function still serves the previous code until the platform
+	// finishes rolling the new one out to every region, so invocations converge
+	// on the newest deployment rather than switching to it with the status.
+	apiE2EFunctionConvergenceTimeout = 2 * time.Minute
+	apiE2EPollInterval               = 5 * time.Second
 )
 
 type apiE2E struct {

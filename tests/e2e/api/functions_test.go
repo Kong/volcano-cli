@@ -24,7 +24,7 @@ func TestAPIE2ECloudFunctions(t *testing.T) {
 	writeAPIE2EFunctionVersion(t, env.projectDir, "v3")
 	env.runCloudCLI(t, "functions", "deploy", "-f", filepath.Join("volcano", "functions", "hello.js")).requireSuccess(t, "1/1 functions deployment started")
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
-	env.runCloudCLI(t, "functions", "invoke", "hello", "--json").requireSuccess(t, `"version":"v3"`)
+	env.waitForCloudCLIContains(t, apiE2EFunctionConvergenceTimeout, `"version":"v3"`, "functions", "invoke", "hello", "--json")
 	env.runCloudCLI(t, "functions", "list").requireSuccess(t, "hello")
 	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Name: hello", "Visibility: private")
 	env.runCloudCLI(t, "functions", "update", "hello", "--public").requireSuccess(t, "visibility set to public")
