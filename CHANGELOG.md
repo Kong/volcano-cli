@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.2](https://github.com/Kong/volcano-cli/compare/v0.24.1...v0.24.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **tests:** fail the function rollout wait on a failed invocation ([#192](https://github.com/Kong/volcano-cli/issues/192)) ([9972c9a](https://github.com/Kong/volcano-cli/commit/9972c9ab946cf41145cab20671a14dd95c4ce989))
+
 ## [0.24.1](https://github.com/Kong/volcano-cli/compare/v0.24.0...v0.24.1) (2026-09-08)
 
 
