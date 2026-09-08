@@ -15649,7 +15649,10 @@ components:
         values (patch semantics). Declared collection keys are fully synced to
         the manifest: `variables`, `buckets[].policies`, `auth.providers.oauth`,
         `auth.email.templates`, and `functions[].schedulers` are reconciled to
-        exactly match, deleting resources absent from the manifest. Functions,
+        exactly match, deleting resources absent from the manifest.
+        `shared_variables` is fully synced the same way, but membership only:
+        names absent from a declared list stop being shared and remain as
+        non-shared variables, with their values untouched. Functions,
         frontends, databases, and buckets are never created or deleted through
         this manifest; entries referencing resources that do not exist are
         skipped and reported.
