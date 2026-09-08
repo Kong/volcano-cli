@@ -135,10 +135,11 @@ functions:
 }
 
 // A manifest that cannot be parsed leaves the CLI unable to tell the kinds
-// apart. Deploy says so and carries on, since the server refuses a cross-kind
-// name anyway; failing here would break deploys that have nothing to do with
-// durable functions.
-func TestFunctionsDeployAllWarnsOnAnUnreadableManifest(t *testing.T) {
+// apart, and unable to read the variable declarations. Deploy refuses rather
+// than uploading: creating a durable function's source as a standard function
+// is not reversible, and a dropped `variable_scope` hands it every project
+// variable.
+func TestFunctionsDeployAllRefusesAnUnreadableManifest(t *testing.T) {
 	setFunctionCommandTestHome(t)
 	saveFunctionCommandTestConfig(t)
 	t.Chdir(t.TempDir())
@@ -162,7 +163,7 @@ func TestFunctionsDeployAllWarnsOnAnUnreadableManifest(t *testing.T) {
 
 	out, err := executeFunctionsCommand(t,
 		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Warning: could not read")
-	assert.Contains(t, out, "1/1 functions deployment started")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "volcano-config.yaml")
+	assert.NotContains(t, out, "deployment started")
 }

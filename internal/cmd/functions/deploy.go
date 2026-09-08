@@ -99,7 +99,14 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		return nil
 	}
 
-	durableNames := declaredDurableNames(opts.out)
+	// Read before anything is packaged or uploaded. An existing but unreadable
+	// manifest aborts here rather than deploying with its scope declarations
+	// silently dropped, or its durable functions mistaken for standard ones.
+	manifest, err := projectconfig.ReadFunctionDeployManifest("")
+	if err != nil {
+		return err
+	}
+
 	var sources []clifunction.SourceInfo
 	if !opts.all {
 		for _, source := range allSources {
@@ -111,13 +118,13 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		if len(sources) == 0 {
 			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
 		}
-		if durableNames[sources[0].Name] {
+		if manifest.DurableNames[sources[0].Name] {
 			return fmt.Errorf("%q is declared durable in volcano-config.yaml; deploy it with %q",
 				sources[0].Name, "volcano cloud durable deploy -f "+sources[0].Name)
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
-		sources = excludeDurable(allSources, durableNames, opts.out)
+		sources = excludeDurable(allSources, manifest.DurableNames, opts.out)
 		if len(sources) == 0 {
 			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
 			return nil
@@ -126,34 +133,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	}
 
 	if opts.all {
-		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll)
+		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations)
 	}
-	return runDeployOne(ctx, opts.out, service, baseDir, sources[0])
-}
-
-// declaredDurableNames reads the durable functions the project's manifest
-// declares. Their sources sit in volcano/functions alongside standard ones, and
-// a function's kind is fixed when it is created, so this collection has to leave
-// them to the durable one.
-//
-// Best effort: the server refuses a cross-kind name with a 409 either way, so an
-// unreadable manifest costs a clear local message rather than correctness.
-func declaredDurableNames(out io.Writer) map[string]bool {
-	manifestPath, err := projectconfig.ResolveManifestPath("")
-	if err != nil {
-		return nil
-	}
-	manifest, _, err := projectconfig.Load(manifestPath)
-	if err != nil {
-		fmt.Fprintf(out, "Warning: could not read %s to tell durable functions apart: %v\n", manifestPath, err)
-		return nil
-	}
-
-	names := map[string]bool{}
-	for _, name := range manifest.DurableFunctionNames() {
-		names[name] = true
-	}
-	return names
+	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations)
 }
 
 func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
@@ -178,7 +160,19 @@ func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bo
 	return kept
 }
 
-func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo) error {
+// applyVariableDeclaration attaches the manifest declaration for pkg, if the
+// manifest declared one. Without a matching entry both fields stay nil and
+// deploy sends neither, leaving the function's stored scope unchanged.
+func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]projectconfig.FunctionVariableDeclaration) {
+	declaration, ok := declarations[pkg.Name]
+	if !ok {
+		return
+	}
+	pkg.VariableScope = declaration.VariableScope
+	pkg.Variables = declaration.Variables
+}
+
+func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
 	pkg, err := clifunction.PackageSource(source, baseDir)
@@ -186,6 +180,7 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 		return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
+	applyVariableDeclaration(pkg, declarations)
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -198,7 +193,7 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 	return nil
 }
 
-func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool) error {
+func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
 	for i, source := range sources {
@@ -209,6 +204,7 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 			return fmt.Errorf("failed to package function %s: %w", source.Name, err)
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
+		applyVariableDeclaration(pkg, declarations)
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}
