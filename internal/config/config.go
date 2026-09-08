@@ -95,13 +95,7 @@ func Path() (string, error) {
 
 // Load reads ~/.volcano/config.json. Missing config is not an error.
 func Load() (*Config, error) {
-	var cfg *Config
-	err := withLock(func() error {
-		var err error
-		cfg, err = load()
-		return err
-	})
-	return cfg, err
+	return load()
 }
 
 func load() (*Config, error) {

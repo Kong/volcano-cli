@@ -55,6 +55,16 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	assert.Nil(t, empty.CurrentProject)
 }
 
+func TestLoadMissingConfigDoesNotCreateDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, Default(), cfg)
+	assert.NoDirExists(t, filepath.Join(home, defaultConfigDirName))
+}
+
 func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
