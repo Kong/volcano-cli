@@ -74,6 +74,28 @@ func (s Service) Get(ctx context.Context, projectID string) (*apiclient.Project,
 	return project, nil
 }
 
+// Rename changes a project's name and refreshes the saved active project.
+func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient.Project, error) {
+	authenticated, err := s.sessions.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.Parse(strings.TrimSpace(projectID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to rename project: invalid project ID %q: %w", projectID, err)
+	}
+
+	project, err := authenticated.API.RenameProject(ctx, id, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rename project: %w", err)
+	}
+	if err := updateCurrentProjectName(project); err != nil {
+		return nil, fmt.Errorf("project renamed but failed to update the saved active project: %w", err)
+	}
+	return project, nil
+}
+
 // ListAnonKeys returns a project's anon keys (the publishable frontend/SDK
 // keys). projectID may be empty to use the currently selected project.
 func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclient.AnonKey, error) {
@@ -134,7 +156,7 @@ func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project
 	if err != nil {
 		return nil, err
 	}
-	return selected, saveCurrentProject(authenticated.Config, selected)
+	return selected, saveCurrentProject(selected)
 }
 
 func resolveProject(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
@@ -179,14 +201,22 @@ func resolveProject(ctx context.Context, client *api.Client, identifier string) 
 	return nil, fmt.Errorf("project not found: %s", identifier)
 }
 
-func saveCurrentProject(cfg *config.Config, project *apiclient.Project) error {
-	cfg.CurrentProject = &config.ProjectConfig{
-		ID:   project.Id.String(),
-		Name: project.Name,
-	}
+func saveCurrentProject(project *apiclient.Project) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.CurrentProject = &config.ProjectConfig{
+			ID:   project.Id.String(),
+			Name: project.Name,
+		}
+		return true, nil
+	})
+}
 
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-	return nil
+func updateCurrentProjectName(project *apiclient.Project) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		if cfg.CurrentProject == nil || cfg.CurrentProject.ID != project.Id.String() {
+			return false, nil
+		}
+		cfg.CurrentProject.Name = project.Name
+		return true, nil
+	})
 }

@@ -28,6 +28,9 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	info, err := os.Stat(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(defaultConfigFileMode), info.Mode().Perm())
+	lockInfo, err := os.Stat(configPath + ".lock")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(defaultConfigLockMode), lockInfo.Mode().Perm())
 
 	dirInfo, err := os.Stat(filepath.Dir(configPath))
 	require.NoError(t, err)
@@ -50,6 +53,16 @@ func TestLoadSaveDeleteAndPermissions(t *testing.T) {
 	assert.Empty(t, empty.UserToken)
 	assert.Empty(t, empty.UserID)
 	assert.Nil(t, empty.CurrentProject)
+}
+
+func TestLoadMissingConfigDoesNotCreateDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, Default(), cfg)
+	assert.NoDirExists(t, filepath.Join(home, defaultConfigDirName))
 }
 
 func TestSaveOmitsRuntimeOnlyAPIURL(t *testing.T) {

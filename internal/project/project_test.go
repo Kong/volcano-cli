@@ -64,6 +64,72 @@ func TestCreateReturnsProject(t *testing.T) {
 	assert.Equal(t, map[string]any{"name": "Alpha"}, requestPayload)
 }
 
+func TestRenamePreservesConcurrentConfigChanges(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(t *testing.T)
+		check  func(t *testing.T)
+	}{
+		{
+			name: "project selection",
+			change: func(t *testing.T) {
+				t.Helper()
+				saveProjectTestConfig(t, &config.Config{
+					UserToken:      "token",
+					CurrentProject: &config.ProjectConfig{ID: projectBetaID, Name: "Beta"},
+				})
+			},
+			check: func(t *testing.T) {
+				t.Helper()
+				assertCurrentProject(t, projectBetaID, "Beta")
+			},
+		},
+		{
+			name: "logout",
+			change: func(t *testing.T) {
+				t.Helper()
+				require.NoError(t, config.Delete())
+			},
+			check: func(t *testing.T) {
+				t.Helper()
+				cfg, err := config.Load()
+				require.NoError(t, err)
+				assert.Empty(t, cfg.UserToken)
+				assert.Nil(t, cfg.CurrentProject)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			setProjectTestHome(t)
+			saveProjectTestConfig(t, &config.Config{
+				UserToken:      "token",
+				CurrentProject: &config.ProjectConfig{ID: projectAlphaID, Name: "Alpha"},
+			})
+
+			requestStarted := make(chan struct{})
+			releaseRequest := make(chan struct{})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				close(requestStarted)
+				<-releaseRequest
+				writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectAlphaID, "Renamed", "active"))
+			}))
+			defer server.Close()
+
+			errCh := make(chan error, 1)
+			go func() {
+				_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Rename(context.Background(), projectAlphaID, "Renamed")
+				errCh <- err
+			}()
+
+			<-requestStarted
+			test.change(t)
+			close(releaseRequest)
+			require.NoError(t, <-errCh)
+			test.check(t)
+		})
+	}
+}
+
 func TestCreateWrapsAPIError(t *testing.T) {
 	setProjectTestHome(t)
 	saveProjectTestConfig(t, &config.Config{UserToken: "token"})

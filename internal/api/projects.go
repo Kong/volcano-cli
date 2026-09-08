@@ -58,6 +58,16 @@ func (c *Client) GetProject(ctx context.Context, projectID uuid.UUID) (*apiclien
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
 }
 
+// RenameProject changes a project's name.
+func (c *Client) RenameProject(ctx context.Context, projectID uuid.UUID, name string) (*apiclient.Project, error) {
+	name = strings.TrimSpace(name)
+	resp, err := c.client.UpdateProjectWithResponse(ctx, projectID, apiclient.UpdateProjectJSONRequestBody{Name: &name})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404, resp.JSON409)
+}
+
 // DeleteProject starts project deletion.
 func (c *Client) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
 	resp, err := c.client.DeleteProjectWithResponse(ctx, projectID)

@@ -325,12 +325,10 @@ func (s Service) SetAlias(_ context.Context, alias, functionIDText string) (Alia
 		return Alias{}, fmt.Errorf("invalid function ID %q: %w", functionIDText, err)
 	}
 
-	cfg, err := cliconfig.Load()
-	if err != nil {
-		return Alias{}, err
-	}
-	cfg.SetFunctionAlias(functionAliasScope(authenticated), alias, functionID.String())
-	if err := cfg.Save(); err != nil {
+	if err := cliconfig.Update(func(cfg *cliconfig.Config) (bool, error) {
+		cfg.SetFunctionAlias(functionAliasScope(authenticated), alias, functionID.String())
+		return true, nil
+	}); err != nil {
 		return Alias{}, err
 	}
 	return Alias{Name: alias, FunctionID: functionID.String()}, nil
@@ -348,14 +346,12 @@ func (s Service) DeleteAlias(_ context.Context, alias string) error {
 		return errors.New("function alias cannot be empty")
 	}
 
-	cfg, err := cliconfig.Load()
-	if err != nil {
-		return err
-	}
-	if !cfg.DeleteFunctionAlias(functionAliasScope(authenticated), alias) {
-		return fmt.Errorf("function alias %q not found", alias)
-	}
-	return cfg.Save()
+	return cliconfig.Update(func(cfg *cliconfig.Config) (bool, error) {
+		if !cfg.DeleteFunctionAlias(functionAliasScope(authenticated), alias) {
+			return false, fmt.Errorf("function alias %q not found", alias)
+		}
+		return true, nil
+	})
 }
 
 // ListSchedulers returns schedulers configured for a function.
