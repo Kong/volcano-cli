@@ -69,3 +69,22 @@ func TestSanitizePulledManifestRejectsAdditionalDocuments(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnsafePulledManifest)
 	assert.Contains(t, err.Error(), "multiple YAML documents")
 }
+
+func TestSanitizePulledManifestRejectsUnsupportedRoots(t *testing.T) {
+	for _, manifest := range []string{
+		"- variables: [{name: API_KEY, value: secret}]\n",
+		"secret\n",
+		"null\n",
+	} {
+		_, _, err := sanitizePulledManifest([]byte(manifest))
+		require.ErrorIs(t, err, ErrUnsafePulledManifest)
+		assert.Contains(t, err.Error(), "unsupported YAML root")
+	}
+}
+
+func TestSanitizePulledManifestReportsEmptyVariablesSection(t *testing.T) {
+	got, stripped, err := sanitizePulledManifest([]byte("version: 1\nvariables: []\n"))
+	require.NoError(t, err)
+	assert.True(t, stripped)
+	assert.NotContains(t, string(got), "variables")
+}

@@ -39,6 +39,8 @@ func (c *Client) ApplyProjectConfig(ctx context.Context, projectID uuid.UUID, ma
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON404, resp.JSON409)
 }
 
+const maxProjectConfigYAMLBytes = 4 << 20
+
 // GetProjectConfigYAML downloads the project configuration as the canonical
 // YAML manifest rendered by the server, returned verbatim.
 func (c *Client) GetProjectConfigYAML(ctx context.Context, projectID uuid.UUID) ([]byte, error) {
@@ -49,9 +51,12 @@ func (c *Client) GetProjectConfigYAML(ctx context.Context, projectID uuid.UUID) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxProjectConfigYAMLBytes+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(body) > maxProjectConfigYAMLBytes {
+		return nil, fmt.Errorf("project configuration exceeds %d-byte download limit", maxProjectConfigYAMLBytes)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, apiError(resp.StatusCode, body)

@@ -54,9 +54,7 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("%w: the server returned multiple YAML documents", ErrUnsafePulledManifest)
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
-		// Nothing that could hold a `variables` mapping key; leave it verbatim
-		// and let the normal manifest parsing report the shape problem.
-		return manifest, false, nil
+		return nil, false, fmt.Errorf("%w: the server returned a manifest with an unsupported YAML root", ErrUnsafePulledManifest)
 	}
 
 	root := doc.Content[0]

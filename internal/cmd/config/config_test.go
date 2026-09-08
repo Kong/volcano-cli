@@ -410,7 +410,7 @@ func TestPullStripsVariableValuesFromOlderServer(t *testing.T) {
 
 	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull", "--force")
 	require.NoError(t, err)
-	assert.Contains(t, out, "the server returned variable values")
+	assert.Contains(t, out, "the server returned a variables section")
 
 	path := filepath.Join(dir, "volcano-config.yaml")
 	written, err := os.ReadFile(path)
@@ -467,7 +467,7 @@ func TestPullWritesServerYAMLVerbatim(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Configuration written to volcano-config.yaml")
 	assert.Contains(t, out, "variable values and write-only secrets")
-	assert.NotContains(t, out, "the server returned variable values")
+	assert.NotContains(t, out, "the server returned a variables section")
 
 	requirePulledYAMLVerbatim(t, filepath.Join(dir, "volcano-config.yaml"))
 

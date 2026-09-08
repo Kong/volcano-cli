@@ -213,8 +213,8 @@ func runPull(ctx context.Context, opts pullOptions) error {
 
 	output.Success(opts.out, "Configuration written to %s", targetPath)
 	output.Note(opts.out, "variable values and write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
-	if pulled.StrippedVariableValues {
-		output.Note(opts.out, "the server returned variable values; the variables section was removed so no values were written to disk")
+	if pulled.StrippedVariablesSection {
+		output.Note(opts.out, "the server returned a variables section; it was removed so no variable values were written to disk")
 	}
 	return nil
 }

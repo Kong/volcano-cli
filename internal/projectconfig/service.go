@@ -45,9 +45,9 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*
 type PullResult struct {
 	Manifest []byte
 
-	// StrippedVariableValues reports that the response carried a top-level
+	// StrippedVariablesSection reports that the response carried a top-level
 	// variables section and it was removed before the manifest was returned.
-	StrippedVariableValues bool
+	StrippedVariablesSection bool
 }
 
 // Pull downloads the project's current configuration as the server-rendered
@@ -66,5 +66,5 @@ func (s Service) Pull(ctx context.Context) (PullResult, error) {
 	if err != nil {
 		return PullResult{}, err
 	}
-	return PullResult{Manifest: sanitized, StrippedVariableValues: stripped}, nil
+	return PullResult{Manifest: sanitized, StrippedVariablesSection: stripped}, nil
 }
