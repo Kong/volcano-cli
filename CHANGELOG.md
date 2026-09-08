@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/Kong/volcano-cli/compare/v0.25.0...v0.26.0) (2026-09-08)
+
+
+### Features
+
+* **durable:** volcano cloud durable command group ([#188](https://github.com/Kong/volcano-cli/issues/188)) ([9abf247](https://github.com/Kong/volcano-cli/commit/9abf2474a31dcf1a82a4a48b3886ec9f10235b12))
+
 ## [0.25.0](https://github.com/Kong/volcano-cli/compare/v0.24.2...v0.25.0) (2026-09-08)
 
 
