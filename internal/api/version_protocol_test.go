@@ -195,6 +195,76 @@ func TestVersionProtocolDoer_LaterEmptyResponseDoesNotClearEarlierInstruction(t 
 	assert.Equal(t, "v1.5.0", LastInstructions().LatestVersion, "LatestVersion stays paired with the preserved CLIInstruction")
 }
 
+func TestConsumeCLIInstructionsClearsCreditURLOnceRendered(t *testing.T) {
+	resetInstructions(t)
+
+	header := http.Header{}
+	header.Set(headerCLIInstruction, CLIInstructionNotEnoughCredit)
+	header.Set(headerCreditURL, "https://volcano.dev/billing")
+	recordInstructions(header)
+
+	first := ConsumeCLIInstructions()
+	assert.Equal(t, Instructions{
+		CLIInstruction: CLIInstructionNotEnoughCredit,
+		CreditURL:      "https://volcano.dev/billing",
+	}, first)
+	assert.Equal(t, first, LastInstructions(), "consuming a notice must retain the credit URL for error rendering")
+
+	// Repeated identical headers (e.g. a retried request) must not re-render.
+	recordInstructions(header)
+	assert.Equal(t, Instructions{}, ConsumeCLIInstructions())
+}
+
+func TestVersionProtocolDoer_RecordsCreditURLPairedWithInstruction(t *testing.T) {
+	resetInstructions(t)
+
+	inner := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerCLIInstruction, CLIInstructionLowCreditWarning)
+		rec.Header().Set(headerCreditURL, "https://volcano.dev/billing")
+		rec.WriteHeader(http.StatusOK)
+		return rec.Result(), nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/projects", http.NoBody)
+	_, err := versionProtocolDoer{next: inner}.Do(req)
+	require.NoError(t, err)
+
+	got := LastInstructions()
+	assert.Equal(t, CLIInstructionLowCreditWarning, got.CLIInstruction)
+	assert.Equal(t, "https://volcano.dev/billing", got.CreditURL)
+}
+
+func TestVersionProtocolDoer_LaterEmptyResponseDoesNotClearEarlierCreditURL(t *testing.T) {
+	// Same sticky-pairing guarantee as LatestVersion: a later response that
+	// doesn't repeat the instruction header must not drop an earlier real
+	// credit URL observed in the same command invocation.
+	resetInstructions(t)
+
+	first := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.Header().Set(headerCLIInstruction, CLIInstructionNotEnoughCredit)
+		rec.Header().Set(headerCreditURL, "https://volcano.dev/billing")
+		rec.WriteHeader(http.StatusPaymentRequired)
+		return rec.Result(), nil
+	})
+	second := doerFunc(func(*http.Request) (*http.Response, error) {
+		rec := httptest.NewRecorder()
+		rec.WriteHeader(http.StatusOK)
+		return rec.Result(), nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/projects", http.NoBody)
+	_, err := versionProtocolDoer{next: first}.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, "https://volcano.dev/billing", LastInstructions().CreditURL)
+
+	_, err = versionProtocolDoer{next: second}.Do(req)
+	require.NoError(t, err)
+	assert.Equal(t, CLIInstructionNotEnoughCredit, LastInstructions().CLIInstruction, "a later response with no instruction header must not clear an earlier real one")
+	assert.Equal(t, "https://volcano.dev/billing", LastInstructions().CreditURL, "CreditURL stays paired with the preserved CLIInstruction")
+}
+
 func TestVersionProtocolDoer_LaterNonEmptyResponseUpdatesInstruction(t *testing.T) {
 	// A genuinely different instruction (e.g. the policy changed, or a later
 	// call reports a different version comparison) must still take effect —

@@ -3,11 +3,13 @@ package upgrade
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/theme"
 	"github.com/Kong/volcano-cli/internal/update"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -38,13 +40,10 @@ func updateOptions(deps cliruntime.Deps) update.Options {
 	}
 }
 
-// PrintAPIInstructionNotices prints a non-blocking upgrade suggestion or a
-// deprecation warning based on the most recent VOL-180 instructions observed
-// on this invocation's API responses (api.LastInstructions). This replaces
-// the previous GitHub-release polling notice (VOL-168): the API is now the
-// sole source of truth for whether/how loudly to nudge an upgrade, and the
-// check adds no extra network round-trip — it only reads headers the command
-// already received.
+// PrintAPIInstructionNotices prints non-blocking upgrade and account-credit
+// notices from the instructions observed on this invocation's API responses.
+// ConsumeCLIInstructions makes each notice one-shot. The check adds no network
+// request because it only reads headers the command already received.
 //
 // A command that made no API call (help, version, completion, local-only
 // commands) observes a zero-value Instructions and prints nothing.
@@ -56,9 +55,9 @@ func PrintAPIInstructionNotices(cmd *cobra.Command, deps cliruntime.Deps) {
 	case api.CLIInstructionSuggestionVersionUpgrade:
 		printUpgradeSuggestion(cmd, deps, instructions.LatestVersion)
 	case api.CLIInstructionNotEnoughCredit:
-		printNotEnoughCreditWarning(cmd)
+		printNotEnoughCreditWarning(cmd, instructions.CreditURL)
 	case api.CLIInstructionLowCreditWarning:
-		printLowCreditWarning(cmd)
+		printLowCreditWarning(cmd, instructions.CreditURL)
 	}
 }
 
@@ -86,23 +85,30 @@ func printDeprecationWarning(cmd *cobra.Command, deps cliruntime.Deps, latest st
 	fmt.Fprintf(cmd.ErrOrStderr(), "Volcano CLI %s is no longer supported. Run `%s` to upgrade.\n", version.Version, upgradeCmd)
 }
 
-// printNotEnoughCreditWarning and printLowCreditWarning handle the reserved
-// credit instructions (VOL-180 PR review discussion,
-// api.CLIInstructionNotEnoughCredit / api.CLIInstructionLowCreditWarning).
-// The API never emits
-// these yet — billing integration needs its own design pass — so these paths
-// are unreached today; they exist so that once the server starts sending the
-// header, this is already wired and nothing else needs to change here.
-//
-// The printed notice is a placeholder, not the designed UX: the actual ask is
-// an interactive prompt ("upgrade?" / "purchase extra credits?") that takes
-// an action, which needs a real target (a URL? a command?) that doesn't
-// exist yet. internal/confirm already has the prompt primitive for that once
-// there's something concrete to confirm.
-func printNotEnoughCreditWarning(cmd *cobra.Command) {
-	fmt.Fprintln(cmd.ErrOrStderr(), "Your project does not have enough credit to complete this request.")
+// printNotEnoughCreditWarning and printLowCreditWarning render the credit
+// instructions (VOL-354, api.CLIInstructionNotEnoughCredit /
+// api.CLIInstructionLowCreditWarning). Both are notices only: neither blocks
+// command execution here. For not_enough_credit, the API's own error
+// response is the actual blocker (the account is read-only); this notice
+// just explains why, and adds the billing URL when the API supplied one.
+func printNotEnoughCreditWarning(cmd *cobra.Command, creditURL string) {
+	w := cmd.ErrOrStderr()
+	on := theme.On(w)
+	fmt.Fprintln(w, theme.Error("Your account is read-only:", on), "not enough credit to complete this request.")
+	printCreditURL(w, on, creditURL)
 }
 
-func printLowCreditWarning(cmd *cobra.Command) {
-	fmt.Fprintln(cmd.ErrOrStderr(), "Your project is running low on credit.")
+func printLowCreditWarning(cmd *cobra.Command, creditURL string) {
+	w := cmd.ErrOrStderr()
+	on := theme.On(w)
+	fmt.Fprintln(w, theme.Warn("Warning:", on), "your account is running low on credit.")
+	printCreditURL(w, on, creditURL)
+}
+
+// printCreditURL appends the billing URL the API supplied alongside the
+// credit instruction, when there is one.
+func printCreditURL(w io.Writer, on bool, creditURL string) {
+	if creditURL != "" {
+		fmt.Fprintln(w, theme.Command(creditURL, on))
+	}
 }
