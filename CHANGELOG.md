@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/Kong/volcano-cli/compare/v0.26.0...v0.27.0) (2026-09-08)
+
+
+### Features
+
+* **upgrade:** render credit notices with billing URL (VOL-354) ([#183](https://github.com/Kong/volcano-cli/issues/183)) ([ae0eefe](https://github.com/Kong/volcano-cli/commit/ae0eefe8b665c9fd9ad6b855606aab555df65201))
+
 ## [0.26.0](https://github.com/Kong/volcano-cli/compare/v0.25.0...v0.26.0) (2026-09-08)
 
 
