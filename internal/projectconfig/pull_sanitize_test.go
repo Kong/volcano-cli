@@ -82,6 +82,17 @@ func TestSanitizePulledManifestRejectsUnsupportedRoots(t *testing.T) {
 	}
 }
 
+func TestSanitizePulledManifestRejectsAliasesAndMergeKeys(t *testing.T) {
+	for _, manifest := range []string{
+		"<<: {variables: [{name: API_KEY, value: secret}]}\n",
+		"key: &key variables\n*key: [{name: API_KEY, value: secret}]\n",
+	} {
+		_, _, err := sanitizePulledManifest([]byte(manifest))
+		require.ErrorIs(t, err, ErrUnsafePulledManifest)
+		assert.Contains(t, err.Error(), "aliases or merge keys")
+	}
+}
+
 func TestSanitizePulledManifestReportsEmptyVariablesSection(t *testing.T) {
 	got, stripped, err := sanitizePulledManifest([]byte("version: 1\nvariables: []\n"))
 	require.NoError(t, err)

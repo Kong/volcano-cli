@@ -61,11 +61,15 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 	kept := make([]*yaml.Node, 0, len(root.Content))
 	stripped := false
 	for i := 0; i+1 < len(root.Content); i += 2 {
-		if root.Content[i].Value == "variables" {
+		key := root.Content[i]
+		if key.Kind == yaml.AliasNode || key.Tag == "!!merge" {
+			return nil, false, fmt.Errorf("%w: the server returned unsupported YAML aliases or merge keys", ErrUnsafePulledManifest)
+		}
+		if key.Value == "variables" {
 			stripped = true
 			continue
 		}
-		kept = append(kept, root.Content[i], root.Content[i+1])
+		kept = append(kept, key, root.Content[i+1])
 	}
 	if !stripped {
 		return manifest, false, nil
