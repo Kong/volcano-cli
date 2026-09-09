@@ -1438,7 +1438,8 @@ paths:
                 format: binary
                 description: |
                   Canonical volcano-config.yaml document returned verbatim,
-                  ready to be saved as-is.
+                  ready to be saved as-is. The response body is limited to
+                  4,194,304 bytes, matching the configuration apply limit.
         '401':
           description: Unauthorized - invalid or missing token
           content:
@@ -1447,6 +1448,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Canonical YAML export exceeds 4,194,304 bytes
           content:
             application/json:
               schema:

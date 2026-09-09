@@ -31151,6 +31151,7 @@ type GetProjectConfigClientResponse struct {
 	YAML200      *openapi_types.File
 	JSON401      *Error
 	JSON404      *Error
+	JSON413      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -42196,6 +42197,13 @@ func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigC
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
 		var dest openapi_types.File
