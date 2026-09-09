@@ -58,12 +58,15 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 	}
 
 	root := doc.Content[0]
+	if containsYAMLAlias(root) {
+		return nil, false, fmt.Errorf("%w: the server returned unsupported YAML aliases", ErrUnsafePulledManifest)
+	}
 	kept := make([]*yaml.Node, 0, len(root.Content))
 	stripped := false
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		key := root.Content[i]
-		if key.Kind == yaml.AliasNode || key.Tag == "!!merge" {
-			return nil, false, fmt.Errorf("%w: the server returned unsupported YAML aliases or merge keys", ErrUnsafePulledManifest)
+		if key.Kind != yaml.ScalarNode || key.Tag != "!!str" {
+			return nil, false, fmt.Errorf("%w: the server returned unsupported YAML mapping keys", ErrUnsafePulledManifest)
 		}
 		if key.Value == "variables" {
 			stripped = true
@@ -86,4 +89,16 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
 	}
 	return buf.Bytes(), true, nil
+}
+
+func containsYAMLAlias(node *yaml.Node) bool {
+	if node.Kind == yaml.AliasNode {
+		return true
+	}
+	for _, child := range node.Content {
+		if containsYAMLAlias(child) {
+			return true
+		}
+	}
+	return false
 }
