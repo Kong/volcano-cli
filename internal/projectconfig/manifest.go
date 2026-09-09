@@ -282,6 +282,10 @@ type FunctionManifest struct {
 	Schedulers     *[]SchedulerManifest `yaml:"schedulers,omitempty" json:"schedulers,omitempty"`
 }
 
+func (f FunctionManifest) isDurable() bool {
+	return f.Kind != nil && strings.TrimSpace(*f.Kind) == FunctionKindDurable
+}
+
 // DurableFunctionNames returns the functions the manifest declares durable, in
 // declaration order.
 //
@@ -295,7 +299,24 @@ func (m *Manifest) DurableFunctionNames() []string {
 	}
 	var names []string
 	for _, fn := range *m.Functions {
-		if fn.Kind != nil && strings.TrimSpace(*fn.Kind) == FunctionKindDurable {
+		if fn.isDurable() {
+			names = append(names, fn.Name)
+		}
+	}
+	return names
+}
+
+// StandardFunctionNames returns the functions the manifest declares without a
+// durable kind, in declaration order. The counterpart of DurableFunctionNames:
+// a durable deploy uses it to refuse a name the manifest keeps standard. A name
+// the manifest does not mention at all is in neither list.
+func (m *Manifest) StandardFunctionNames() []string {
+	if m == nil || m.Functions == nil {
+		return nil
+	}
+	var names []string
+	for _, fn := range *m.Functions {
+		if !fn.isDurable() {
 			names = append(names, fn.Name)
 		}
 	}
@@ -533,11 +554,12 @@ func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDe
 }
 
 // FunctionDeployManifest is what a function deploy needs from the manifest:
-// each function's variable declaration, and the names declared durable so the
-// standard collection leaves them to `volcano cloud durable deploy`.
+// each function's variable declaration, and the names each collection is
+// responsible for so neither deploy creates a function of the wrong kind.
 type FunctionDeployManifest struct {
-	Declarations map[string]FunctionVariableDeclaration
-	DurableNames map[string]bool
+	Declarations  map[string]FunctionVariableDeclaration
+	DurableNames  map[string]bool
+	StandardNames map[string]bool
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -545,8 +567,9 @@ type FunctionDeployManifest struct {
 // FunctionVariableDeclarations.
 func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) {
 	read := FunctionDeployManifest{
-		Declarations: map[string]FunctionVariableDeclaration{},
-		DurableNames: map[string]bool{},
+		Declarations:  map[string]FunctionVariableDeclaration{},
+		DurableNames:  map[string]bool{},
+		StandardNames: map[string]bool{},
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
@@ -573,6 +596,9 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 	}
 	for _, name := range manifest.DurableFunctionNames() {
 		read.DurableNames[name] = true
+	}
+	for _, name := range manifest.StandardFunctionNames() {
+		read.StandardNames[name] = true
 	}
 	return read, nil
 }

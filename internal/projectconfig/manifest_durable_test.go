@@ -22,6 +22,7 @@ functions:
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"order-pipeline"}, manifest.DurableFunctionNames())
+	assert.Equal(t, []string{"hello"}, manifest.StandardFunctionNames())
 
 	encoded, err := manifest.uploadBody()
 	require.NoError(t, err)
@@ -42,7 +43,9 @@ func TestDurableFunctionNamesWithoutFunctions(t *testing.T) {
 	manifest, err := Parse([]byte("version: 1\n"), noEnv)
 	require.NoError(t, err)
 	assert.Empty(t, manifest.DurableFunctionNames())
+	assert.Empty(t, manifest.StandardFunctionNames())
 
 	var missing *Manifest
 	assert.Empty(t, missing.DurableFunctionNames())
+	assert.Empty(t, missing.StandardFunctionNames())
 }

@@ -26,6 +26,9 @@ separate collection from standard functions:
 - Its sources live in `volcano/functions/` beside standard ones. Only
   `volcano-config.yaml` says which are durable, so `volcano functions deploy
   --all` skips them and `volcano cloud durable deploy --all` picks them up.
+  `-f` deploys one the manifest does not mention, and refuses a name the
+  manifest declares standard — a kind cannot be changed once the function
+  exists.
 - Every region the project deploys to has to offer durable execution, or the
   deploy is refused up front.
 - Durable execution needs the durable authoring API, so a source whose runtime
