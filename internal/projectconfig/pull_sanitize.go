@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -95,10 +96,5 @@ func containsYAMLAlias(node *yaml.Node) bool {
 	if node.Kind == yaml.AliasNode {
 		return true
 	}
-	for _, child := range node.Content {
-		if containsYAMLAlias(child) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(node.Content, containsYAMLAlias)
 }
