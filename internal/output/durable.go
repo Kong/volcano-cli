@@ -82,7 +82,7 @@ func DurableFunction(w io.Writer, fn *apiclient.DurableFunction) {
 }
 
 // DurableExecutions renders one execution list page for a durable function.
-func DurableExecutions(w io.Writer, functionName string, page *apiclient.PaginatedDurableExecutions, commandPrefix ...string) {
+func DurableExecutions(w io.Writer, functionName, status string, page *apiclient.PaginatedDurableExecutions, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedDurableExecutions{}
 	}
@@ -110,8 +110,12 @@ func DurableExecutions(w io.Writer, functionName string, page *apiclient.Paginat
 	}
 	printDurableExecutionPageSummary(w, on, page)
 	if page.HasMore {
-		nextPage(w, on, fmt.Sprintf("%s durable executions list %s --page %d --limit %d",
-			commandPathPrefix(commandPrefix), functionName, page.Page+1, page.Limit))
+		statusFlag := ""
+		if status != "" {
+			statusFlag = " --status " + status
+		}
+		nextPage(w, on, fmt.Sprintf("%s durable executions list %s%s --page %d --limit %d",
+			commandPathPrefix(commandPrefix), functionName, statusFlag, page.Page+1, page.Limit))
 	}
 }
 
@@ -157,6 +161,9 @@ func printDurableExecutionResult(w io.Writer, on bool, execution *apiclient.Dura
 		return
 	}
 	if execution.Result == nil {
+		if execution.Status == apiclient.DurableExecutionStatusSucceeded {
+			kv(w, on, "Result", "null")
+		}
 		return
 	}
 	encoded, err := json.MarshalIndent(execution.Result, "", "  ")

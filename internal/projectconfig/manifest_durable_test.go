@@ -38,6 +38,11 @@ functions:
 	assert.Equal(t, "durable", durable["kind"])
 }
 
+func TestManifestRejectsUnknownFunctionKind(t *testing.T) {
+	_, err := Parse([]byte("version: 1\nfunctions:\n  - name: hello\n    kind: durabel\n"), noEnv)
+	require.ErrorContains(t, err, `function "hello": unsupported kind "durabel"`)
+}
+
 func TestDurableFunctionNamesWithoutFunctions(t *testing.T) {
 	manifest, err := Parse([]byte("version: 1\n"), noEnv)
 	require.NoError(t, err)

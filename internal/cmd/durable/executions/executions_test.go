@@ -52,18 +52,20 @@ func TestExecutionsListPopulatedAndEmpty(t *testing.T) {
 			},
 		},
 		{
-			name: "filtered and empty",
+			name: "filtered",
 			body: map[string]any{
-				"data":     []any{},
-				"has_more": false,
+				"data": []any{
+					executionPayload(executionID, "order-4417", "succeeded"),
+				},
+				"has_more": true,
 				"page":     1,
 				"limit":    100,
-				"total":    0,
+				"total":    2,
 			},
 			query: "page=1&limit=100&status=succeeded",
 			args:  []string{"list", "order-pipeline", "--status", "succeeded"},
 			want: []string{
-				`No executions started for durable function "order-pipeline"`,
+				"Next page: volcano cloud durable executions list order-pipeline --status succeeded --page 2 --limit 100",
 			},
 		},
 	} {
@@ -103,6 +105,14 @@ func TestExecutionsGetRendersOutcome(t *testing.T) {
 				"result":       map[string]any{"shipped": true},
 			}),
 			want: []string{"Status: succeeded", "Duration: 5m0s", `"shipped": true`},
+		},
+		{
+			name: "succeeded with null result",
+			payload: withFields(executionPayload(executionID, "order-4417", "succeeded"), map[string]any{
+				"completed_at": "2026-05-20T00:05:00Z",
+				"result":       nil,
+			}),
+			want: []string{"Result: null"},
 		},
 		{
 			name: "result no longer retained",

@@ -3187,6 +3187,24 @@ func (e CreateDurableFunctionMultipartBodyRuntime) Valid() bool {
 	}
 }
 
+// Defines values for CreateDurableFunctionMultipartBodyVariableScope.
+const (
+	CreateDurableFunctionMultipartBodyVariableScopeAll    CreateDurableFunctionMultipartBodyVariableScope = "all"
+	CreateDurableFunctionMultipartBodyVariableScopeScoped CreateDurableFunctionMultipartBodyVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyVariableScope enum.
+func (e CreateDurableFunctionMultipartBodyVariableScope) Valid() bool {
+	switch e {
+	case CreateDurableFunctionMultipartBodyVariableScopeAll:
+		return true
+	case CreateDurableFunctionMultipartBodyVariableScopeScoped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteEmailTemplateParamsType.
 const (
 	DeleteEmailTemplateParamsTypeConfirmation    DeleteEmailTemplateParamsType = "confirmation"
@@ -3318,16 +3336,16 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 
 // Defines values for CreateFunctionMultipartBodyVariableScope.
 const (
-	CreateFunctionMultipartBodyVariableScopeAll    CreateFunctionMultipartBodyVariableScope = "all"
-	CreateFunctionMultipartBodyVariableScopeScoped CreateFunctionMultipartBodyVariableScope = "scoped"
+	All    CreateFunctionMultipartBodyVariableScope = "all"
+	Scoped CreateFunctionMultipartBodyVariableScope = "scoped"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyVariableScope enum.
 func (e CreateFunctionMultipartBodyVariableScope) Valid() bool {
 	switch e {
-	case CreateFunctionMultipartBodyVariableScopeAll:
+	case All:
 		return true
-	case CreateFunctionMultipartBodyVariableScopeScoped:
+	case Scoped:
 		return true
 	default:
 		return false
@@ -8601,10 +8619,19 @@ type CreateDurableFunctionMultipartBody struct {
 	// Runtime Runtime environment. Required. Must be a runtime that supports
 	// durable execution; one that does not is rejected with 400.
 	Runtime CreateDurableFunctionMultipartBodyRuntime `json:"runtime"`
+
+	// VariableScope Which project variables this function receives. Omitting this leaves an existing function's scope unchanged.
+	VariableScope *CreateDurableFunctionMultipartBodyVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables JSON-encoded array of project variable names. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+	Variables *string `json:"variables,omitempty"`
 }
 
 // CreateDurableFunctionMultipartBodyRuntime defines parameters for CreateDurableFunction.
 type CreateDurableFunctionMultipartBodyRuntime string
+
+// CreateDurableFunctionMultipartBodyVariableScope defines parameters for CreateDurableFunction.
+type CreateDurableFunctionMultipartBodyVariableScope string
 
 // ListDurableExecutionsParams defines parameters for ListDurableExecutions.
 type ListDurableExecutionsParams struct {

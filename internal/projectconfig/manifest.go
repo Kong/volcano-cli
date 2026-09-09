@@ -424,6 +424,9 @@ func (m *Manifest) Validate() error {
 		return nil
 	}
 	for _, function := range *m.Functions {
+		if function.Kind != nil && strings.TrimSpace(*function.Kind) != FunctionKindDurable {
+			return fmt.Errorf("function %q: unsupported kind %q (expected %q)", function.Name, *function.Kind, FunctionKindDurable)
+		}
 		if function.Schedulers == nil {
 			continue
 		}

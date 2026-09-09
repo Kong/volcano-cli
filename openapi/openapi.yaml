@@ -3343,6 +3343,8 @@ paths:
         the plan.
       operationId: startDurableExecution
       security:
+        - AnonKey: []
+        - ServiceRoleKey: []
         - UserToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
@@ -3756,6 +3758,13 @@ paths:
                   type: boolean
                   default: false
                   description: Whether anon keys with `functions.invoke` may start an execution.
+                variable_scope:
+                  type: string
+                  enum: [all, scoped]
+                  description: Which project variables this function receives. Omitting this leaves an existing function's scope unchanged.
+                variables:
+                  type: string
+                  description: JSON-encoded array of project variable names. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
       responses:
         '200':
           description: Existing durable function updated; its deployment was started or queued
