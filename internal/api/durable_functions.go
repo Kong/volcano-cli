@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -95,13 +97,19 @@ func (c *Client) StartDurableExecution(
 		params.XVolcanoExecutionName = &name
 	}
 	// The body is the execution's input itself rather than a wrapper, so an
-	// absent input has to be sent as JSON null.
-	var body apiclient.StartDurableExecutionJSONRequestBody
+	// absent input has to be sent as no body at all. JSON null is a body the API
+	// reads as an input and hands to the function.
+	var body io.Reader = http.NoBody
 	if input.Input != nil {
-		body = input.Input
+		encoded, err := json.Marshal(input.Input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode execution input: %w", err)
+		}
+		body = bytes.NewReader(encoded)
 	}
 
-	resp, err := c.client.StartDurableExecutionWithResponse(ctx, projectID, function, params, body)
+	resp, err := c.client.StartDurableExecutionWithBodyWithResponse(
+		ctx, projectID, function, params, "application/json", body)
 	if err != nil {
 		return nil, err
 	}
