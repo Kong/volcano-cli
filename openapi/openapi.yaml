@@ -3239,8 +3239,12 @@ paths:
         - Durable Functions
       summary: Stop a durable execution
       description: |
-        Cancels a running execution. Its completed steps are not undone; the
-        execution stops where it is and becomes `stopped`.
+        Requests cancellation of a running execution. The call is accepted
+        rather than awaited: the execution in the response is the one read back
+        after asking, and may still say `running`. Poll the execution to see it
+        settle into `stopped`.
+
+        Completed steps are not undone.
       operationId: stopDurableExecution
       security:
         - UserToken: []
@@ -3345,9 +3349,11 @@ paths:
           required: false
           description: |
             Idempotency key for this execution. Generated when omitted.
+            Letters, digits, `-`, `_` and `.`, up to 255 characters.
           schema:
             type: string
             maxLength: 255
+            pattern: '^[A-Za-z0-9._-]+$'
       requestBody:
         required: false
         content:

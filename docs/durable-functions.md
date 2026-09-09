@@ -135,7 +135,8 @@ as starting with `{}`.
 `--name` is the execution's idempotency key. Starting again under a name that
 already names an execution returns the existing one instead of beginning a
 second, and is not charged again — so a retried start is safe. Omit it and
-Volcano generates one. A name is at most 255 characters.
+Volcano generates one. A name is letters, digits, `-`, `_` and `.`, up to 255
+characters; anything else is refused.
 
 A deploy finishes asynchronously, so a start that follows one straight away can
 be refused while the function is still provisioning. Wait for `get` to report
@@ -154,9 +155,11 @@ new durable function starts private.
 
 ## Stopping and deleting
 
-`executions stop` ends one execution. Steps already completed are not undone:
-it stops where it is and becomes `stopped`. Stopping one that has already
-finished reports the state it is in rather than failing.
+`executions stop` requests the end of one execution. Cancellation happens
+behind the request, so the execution it prints back often still reads `running`;
+`executions get` is how you watch it reach `stopped`. Steps already completed
+are not undone. Stopping one that has already finished reports the state it is
+in rather than failing.
 
 `durable delete` tears down the function and its execution history. It does not
 wait for work in flight, so stop an execution you need ended first.

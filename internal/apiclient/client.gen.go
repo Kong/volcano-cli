@@ -8630,6 +8630,7 @@ type StartDurableExecutionJSONBody = interface{}
 // StartDurableExecutionParams defines parameters for StartDurableExecution.
 type StartDurableExecutionParams struct {
 	// XVolcanoExecutionName Idempotency key for this execution. Generated when omitted.
+	// Letters, digits, `-`, `_` and `.`, up to 255 characters.
 	XVolcanoExecutionName *string `json:"X-Volcano-Execution-Name,omitempty"`
 }
 
