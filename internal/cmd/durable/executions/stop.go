@@ -30,10 +30,9 @@ func newStop(deps cliruntime.Deps) *cobra.Command {
 		Short: "Stop a running durable execution",
 		Long: `Stop one execution of a durable function.
 
-Steps already completed are not undone, and work already in flight is not
-interrupted mid-attempt: the execution stops at its next checkpoint. Stopping
-one that has already finished reports the state it is in rather than failing,
-so a retried stop is safe.
+Steps already completed are not undone: the execution stops where it is and
+becomes stopped. Stopping one that has already finished reports the state it is
+in rather than failing, so a retried stop is safe.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,

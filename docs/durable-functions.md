@@ -50,17 +50,21 @@ existing function's scope alone.
 | Operation | Command |
 |---|---|
 | Deploy all declared, or one | `volcano cloud durable deploy [--all \| -f <name\|path>]` |
-| List | `volcano cloud durable list` |
+| List | `volcano cloud durable list [--page …] [--limit …]` |
 | Get | `volcano cloud durable get <name>` |
-| Delete | `volcano cloud durable delete <name>` |
+| Delete | `volcano cloud durable delete <name> [--yes]` |
 | Start an execution | `volcano cloud durable start <name> [--input …] [--name …]` |
-| List executions | `volcano cloud durable executions list <name> [--status …]` |
+| List executions | `volcano cloud durable executions list <name> [--status …] [--page …] [--limit …]` |
 | Get one execution | `volcano cloud durable executions get <name> <execution-id>` |
-| Stop an execution | `volcano cloud durable executions stop <name> <execution-id>` |
-| Schedule executions | `volcano cloud durable schedulers create <name> --cron "0 * * * *" [--input …] [--regions …]` |
+| Stop an execution | `volcano cloud durable executions stop <name> <execution-id> [--yes]` |
+| Schedule executions | `volcano cloud durable schedulers create <name> --cron "0 * * * *" [--name …] [--input …] [--regions …]` |
 | List schedulers | `volcano cloud durable schedulers list <name>` |
 | Pause or resume one | `volcano cloud durable schedulers disable\|enable <name> <scheduler-id>` |
-| Delete one | `volcano cloud durable schedulers delete <name> <scheduler-id>` |
+| Delete one | `volcano cloud durable schedulers delete <name> <scheduler-id> [--yes]` |
+
+`--yes` skips the confirmation prompt the three destructive commands ask for.
+Schedulers are a Pro capability, capped at 5 per project across standard and
+durable functions together; a create beyond that answers `403`.
 
 There is no top-level `volcano durable …`: the local development environment
 does not run durable executions, and the local server refuses to create a
@@ -128,7 +132,11 @@ as starting with `{}`.
 `--name` is the execution's idempotency key. Starting again under a name that
 already names an execution returns the existing one instead of beginning a
 second, and is not charged again — so a retried start is safe. Omit it and
-Volcano generates one.
+Volcano generates one. A name is at most 255 characters.
+
+A deploy finishes asynchronously, so a start that follows one straight away can
+be refused while the function is still provisioning. Wait for `get` to report
+`active` and start again.
 
 ## Visibility
 
@@ -143,10 +151,9 @@ new durable function starts private.
 
 ## Stopping and deleting
 
-`executions stop` ends one execution at its next checkpoint. Steps already
-completed are not undone, and work already in flight is not interrupted
-mid-attempt. Stopping one that has already finished reports the state it is in
-rather than failing.
+`executions stop` ends one execution. Steps already completed are not undone:
+it stops where it is and becomes `stopped`. Stopping one that has already
+finished reports the state it is in rather than failing.
 
 `durable delete` tears down the function and its execution history. It does not
 wait for work in flight, so stop an execution you need ended first.

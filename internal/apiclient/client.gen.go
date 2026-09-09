@@ -3149,14 +3149,6 @@ func (e SummarizeProjectDeploymentsParamsResourceType) Valid() bool {
 const (
 	CreateDurableFunctionMultipartBodyRuntimeNodejs22X CreateDurableFunctionMultipartBodyRuntime = "nodejs22.x"
 	CreateDurableFunctionMultipartBodyRuntimeNodejs24X CreateDurableFunctionMultipartBodyRuntime = "nodejs24.x"
-	CreateDurableFunctionMultipartBodyRuntimePython310 CreateDurableFunctionMultipartBodyRuntime = "python3.10"
-	CreateDurableFunctionMultipartBodyRuntimePython311 CreateDurableFunctionMultipartBodyRuntime = "python3.11"
-	CreateDurableFunctionMultipartBodyRuntimePython312 CreateDurableFunctionMultipartBodyRuntime = "python3.12"
-	CreateDurableFunctionMultipartBodyRuntimePython313 CreateDurableFunctionMultipartBodyRuntime = "python3.13"
-	CreateDurableFunctionMultipartBodyRuntimePython314 CreateDurableFunctionMultipartBodyRuntime = "python3.14"
-	CreateDurableFunctionMultipartBodyRuntimeRuby33    CreateDurableFunctionMultipartBodyRuntime = "ruby3.3"
-	CreateDurableFunctionMultipartBodyRuntimeRuby34    CreateDurableFunctionMultipartBodyRuntime = "ruby3.4"
-	CreateDurableFunctionMultipartBodyRuntimeRuby40    CreateDurableFunctionMultipartBodyRuntime = "ruby4.0"
 )
 
 // Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyRuntime enum.
@@ -3166,21 +3158,23 @@ func (e CreateDurableFunctionMultipartBodyRuntime) Valid() bool {
 		return true
 	case CreateDurableFunctionMultipartBodyRuntimeNodejs24X:
 		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython310:
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateDurableFunctionMultipartBodyVariableScope.
+const (
+	CreateDurableFunctionMultipartBodyVariableScopeAll    CreateDurableFunctionMultipartBodyVariableScope = "all"
+	CreateDurableFunctionMultipartBodyVariableScopeScoped CreateDurableFunctionMultipartBodyVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyVariableScope enum.
+func (e CreateDurableFunctionMultipartBodyVariableScope) Valid() bool {
+	switch e {
+	case CreateDurableFunctionMultipartBodyVariableScopeAll:
 		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython311:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython312:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython313:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython314:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimeRuby33:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimeRuby34:
-		return true
-	case CreateDurableFunctionMultipartBodyRuntimeRuby40:
+	case CreateDurableFunctionMultipartBodyVariableScopeScoped:
 		return true
 	default:
 		return false
@@ -3318,16 +3312,16 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 
 // Defines values for CreateFunctionMultipartBodyVariableScope.
 const (
-	CreateFunctionMultipartBodyVariableScopeAll    CreateFunctionMultipartBodyVariableScope = "all"
-	CreateFunctionMultipartBodyVariableScopeScoped CreateFunctionMultipartBodyVariableScope = "scoped"
+	All    CreateFunctionMultipartBodyVariableScope = "all"
+	Scoped CreateFunctionMultipartBodyVariableScope = "scoped"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyVariableScope enum.
 func (e CreateFunctionMultipartBodyVariableScope) Valid() bool {
 	switch e {
-	case CreateFunctionMultipartBodyVariableScopeAll:
+	case All:
 		return true
-	case CreateFunctionMultipartBodyVariableScopeScoped:
+	case Scoped:
 		return true
 	default:
 		return false
@@ -8586,19 +8580,33 @@ type CreateDurableFunctionMultipartBody struct {
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
 	Handler *string `json:"handler,omitempty"`
 
-	// IsPublic Whether anon keys with `functions.invoke` may start an execution.
+	// IsPublic Whether anon keys with `functions.invoke` may start an
+	// execution. Redeploying is the only way to change it, since
+	// the collection has no update endpoint; omit it to keep the
+	// current visibility, and a new function starts private.
 	IsPublic *bool `json:"is_public,omitempty"`
 
 	// Name DNS-safe function name (lowercase letters, numbers, hyphens; cannot start or end with hyphen)
 	Name string `json:"name"`
 
-	// Runtime Runtime environment. Required. Must be a runtime that supports
-	// durable execution; one that does not is rejected with 400.
+	// Runtime Runtime environment. Required. Durable execution needs the
+	// durable authoring API, which ships for the Node runtimes;
+	// any other runtime is rejected with 400 and the response
+	// names the ones that work.
 	Runtime CreateDurableFunctionMultipartBodyRuntime `json:"runtime"`
+
+	// VariableScope Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
+	VariableScope *CreateDurableFunctionMultipartBodyVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+	Variables *string `json:"variables,omitempty"`
 }
 
 // CreateDurableFunctionMultipartBodyRuntime defines parameters for CreateDurableFunction.
 type CreateDurableFunctionMultipartBodyRuntime string
+
+// CreateDurableFunctionMultipartBodyVariableScope defines parameters for CreateDurableFunction.
+type CreateDurableFunctionMultipartBodyVariableScope string
 
 // ListDurableExecutionsParams defines parameters for ListDurableExecutions.
 type ListDurableExecutionsParams struct {
@@ -32417,6 +32425,7 @@ type CreateDurableFunctionSchedulerClientResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *FunctionScheduler
 	JSON400      *Error
+	JSON403      *Error
 	JSON404      *Error
 }
 
@@ -43995,6 +44004,13 @@ func ParseCreateDurableFunctionSchedulerClientResponse(rsp *http.Response) (*Cre
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
