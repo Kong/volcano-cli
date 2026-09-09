@@ -3347,6 +3347,7 @@ paths:
             Idempotency key for this execution. Generated when omitted.
           schema:
             type: string
+            maxLength: 255
       requestBody:
         required: false
         content:
@@ -3577,7 +3578,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/FunctionScheduler'
         '400':
-          description: Invalid schedule or geofenced region
+          description: |
+            Invalid schedule, geofenced region, or a scheduler of this name
+            already exists on the function.
           content:
             application/json:
               schema:
@@ -3785,7 +3788,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/DurableFunction'
         '400':
-          description: Bad request (invalid archive, unsupported runtime, invalid name)
+          description: |
+            Bad request (invalid archive, unsupported runtime, invalid name, or a
+            project region that does not offer durable execution — a durable
+            function deploys to every region of its project)
           content:
             application/json:
               schema:
@@ -3803,7 +3809,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Durable functions are unavailable for this project or region
+          description: |
+            Durable deploys are paused platform-wide. The same request succeeds
+            once they are re-enabled; executions already running are unaffected.
           content:
             application/json:
               schema:
