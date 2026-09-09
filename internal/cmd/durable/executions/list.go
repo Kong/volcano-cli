@@ -52,12 +52,13 @@ execution to have its state refreshed.`,
 }
 
 func runList(ctx context.Context, opts listOptions) error {
+	status := strings.TrimSpace(opts.status)
 	executions, err := clidurable.NewService(opts.deps).ListExecutions(
-		ctx, opts.function, strings.TrimSpace(opts.status), opts.page, opts.limit)
+		ctx, opts.function, status, opts.page, opts.limit)
 	if err != nil {
 		return err
 	}
 
-	output.DurableExecutions(opts.out, opts.function, executions, cliruntime.CommandPath(opts.deps, ""))
+	output.DurableExecutions(opts.out, opts.function, status, executions, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }

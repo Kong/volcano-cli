@@ -82,7 +82,9 @@ func DurableFunction(w io.Writer, fn *apiclient.DurableFunction) {
 }
 
 // DurableExecutions renders one execution list page for a durable function.
-func DurableExecutions(w io.Writer, functionName string, page *apiclient.PaginatedDurableExecutions, commandPrefix ...string) {
+// status is the filter the page was fetched under, so the next-page hint keeps
+// paging the same set rather than the unfiltered one.
+func DurableExecutions(w io.Writer, functionName, status string, page *apiclient.PaginatedDurableExecutions, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedDurableExecutions{}
 	}
@@ -110,8 +112,11 @@ func DurableExecutions(w io.Writer, functionName string, page *apiclient.Paginat
 	}
 	printDurableExecutionPageSummary(w, on, page)
 	if page.HasMore {
-		nextPage(w, on, fmt.Sprintf("%s durable executions list %s --page %d --limit %d",
-			commandPathPrefix(commandPrefix), functionName, page.Page+1, page.Limit))
+		next := fmt.Sprintf("%s durable executions list %s", commandPathPrefix(commandPrefix), functionName)
+		if status != "" {
+			next += " --status " + status
+		}
+		nextPage(w, on, fmt.Sprintf("%s --page %d --limit %d", next, page.Page+1, page.Limit))
 	}
 }
 
