@@ -421,14 +421,24 @@ func (m *Manifest) Validate() error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d (expected %d)", m.Version, ManifestVersion)
 	}
+	var variableNames []string
 	if m.Variables != nil {
-		names := make([]string, 0, len(*m.Variables))
 		for _, variable := range *m.Variables {
-			names = append(names, variable.Name)
+			variableNames = append(variableNames, variable.Name)
 		}
-		if err := clivariable.ValidateNames(names); err != nil {
-			return err
+	}
+	if m.SharedVariables != nil {
+		variableNames = append(variableNames, *m.SharedVariables...)
+	}
+	if m.Functions != nil {
+		for _, function := range *m.Functions {
+			if function.Variables != nil {
+				variableNames = append(variableNames, *function.Variables...)
+			}
 		}
+	}
+	if err := clivariable.ValidateNames(variableNames); err != nil {
+		return err
 	}
 	if m.Functions == nil {
 		return nil

@@ -2,6 +2,7 @@ package variable
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -35,7 +36,7 @@ var reservedNames = []string{
 
 // ReservedNames returns the environment variable names reserved by AWS Lambda.
 func ReservedNames() []string {
-	return reservedNames
+	return slices.Clone(reservedNames)
 }
 
 // ValidateNames rejects environment variable names reserved by AWS Lambda.
