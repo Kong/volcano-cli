@@ -6091,7 +6091,10 @@ type ProjectStatus string
 // values (patch semantics). Declared collection keys are fully synced to
 // the manifest: `variables`, `buckets[].policies`, `auth.providers.oauth`,
 // `auth.email.templates`, and `functions[].schedulers` are reconciled to
-// exactly match, deleting resources absent from the manifest. Functions,
+// exactly match, deleting resources absent from the manifest.
+// `shared_variables` is fully synced the same way, but membership only:
+// names absent from a declared list stop being shared and remain as
+// non-shared variables, with their values untouched. Functions,
 // frontends, databases, and buckets are never created or deleted through
 // this manifest; entries referencing resources that do not exist are
 // skipped and reported.
@@ -6106,6 +6109,9 @@ type ProjectConfig struct {
 	// Project Project-level settings. `name` renames the project.
 	Project  *ProjectConfigProject  `json:"project,omitempty"`
 	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
+
+	// SharedVariables Replace the complete shared function-variable list with existing names, without changing variable values. Omission keeps membership unchanged; an empty list clears it.
+	SharedVariables *[]string `json:"shared_variables,omitempty"`
 
 	// Variables Fully synced when declared - variables absent from this list are deleted.
 	Variables *[]ProjectConfigVariable `json:"variables,omitempty"`
@@ -31145,6 +31151,7 @@ type GetProjectConfigClientResponse struct {
 	YAML200      *openapi_types.File
 	JSON401      *Error
 	JSON404      *Error
+	JSON413      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -42190,6 +42197,13 @@ func ParseGetProjectConfigClientResponse(rsp *http.Response) (*GetProjectConfigC
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
 		var dest openapi_types.File
