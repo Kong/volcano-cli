@@ -56,6 +56,7 @@ existing function's scope alone.
 | List | `volcano cloud durable list [--page …] [--limit …]` |
 | Get | `volcano cloud durable get <name>` |
 | Delete | `volcano cloud durable delete <name> [--yes]` |
+| Logs | `volcano cloud durable logs <name> --type build\|runtime [--follow] [--limit …]` |
 | Start an execution | `volcano cloud durable start <name> [--input …] [--name …]` |
 | List executions | `volcano cloud durable executions list <name> [--status …] [--page …] [--limit …]` |
 | Get one execution | `volcano cloud durable executions get <name> <execution-id>` |
@@ -92,6 +93,31 @@ volcano cloud durable executions list order-pipeline --status running
 # End one where it is
 volcano cloud durable executions stop order-pipeline 66666666-6666-4666-8666-666666666666
 ```
+
+`--status` takes the status as the API spells it: `pending`, `running`,
+`succeeded`, `failed`, `timed_out` or `stopped`. The dashboard labels those for
+reading, so a `pending` execution appears there as "Starting".
+
+## Logs
+
+`durable logs` reads the same two log streams the standard collection has, on a
+durable function:
+
+```bash
+# Why the deploy ended in "failed"
+volcano cloud durable logs order-pipeline --type build
+
+# What the function logged while its executions ran
+volcano cloud durable logs order-pipeline --type runtime --follow
+```
+
+`--type build` reads the deployment the function is on, which is the one that
+just failed. `--type runtime` spans every execution, including every resume: the
+code between context operations runs again each time, so a line logged there
+appears once per resume while a line inside a completed `step` does not.
+
+`volcano cloud functions logs` does not accept a durable function's name: the
+two collections never accept each other's names or ids.
 
 ## Scheduling executions
 

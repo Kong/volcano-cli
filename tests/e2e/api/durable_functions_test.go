@@ -89,6 +89,7 @@ func TestAPIE2ECloudDurableFunctions(t *testing.T) {
 	requireAPIE2EDurableExecutionPages(t, env)
 	requireAPIE2EDurableSchedulers(t, env)
 	requireAPIE2EDurableStop(t, env)
+	requireAPIE2EDurableLogs(t, env)
 	requireAPIE2EDurableVisibility(t, env)
 
 	env.runCloudCLI(t, "durable", "delete", "order-pipeline", "--yes").
@@ -282,6 +283,45 @@ func requireAPIE2EDurableStop(t *testing.T, env *apiE2E) {
 		requireSuccess(t, "Status: stopped")
 	env.runCloudCLI(t, "durable", "executions", "list", "sleeper", "--status", "stopped").
 		requireSuccess(t, executionID)
+}
+
+// requireAPIE2EDurableLogs covers `durable logs`, the only way to see inside a
+// durable function: build logs are where a deploy that ended in `failed` says
+// why, and runtime logs are what its executions wrote.
+//
+// Both are read by function id through the project log routes, so what has to be
+// proved here is that the command reaches them for a durable function at all —
+// the standard `functions logs` cannot, because it resolves in the standard
+// collection.
+func requireAPIE2EDurableLogs(t *testing.T, env *apiE2E) {
+	t.Helper()
+
+	// The deployment the function is on is the one a failed deploy left behind,
+	// which is why the default needs no deployment id.
+	env.runCloudCLI(t, "durable", "logs", "order-pipeline", "--type", "build").
+		requireSuccess(t, "Fetching build logs for durable function order-pipeline deployment")
+
+	// --follow on a function that is no longer provisioning has to end: the
+	// function's status is what tells the follow loop the deploy is over, and a
+	// wrong reading there is a command that never returns.
+	env.runCloudCLI(t, "durable", "logs", "order-pipeline", "--type", "build", "--follow").
+		requireSuccess(t, "Following build logs for durable function order-pipeline deployment")
+
+	// Runtime logs span every execution of the function rather than a deployment,
+	// so this is the same search with no deployment scope. The executions above
+	// logged nothing of their own, so what is asserted is that the search
+	// resolves and answers for a durable function id.
+	env.runCloudCLI(t, "durable", "logs", "order-pipeline", "--type", "runtime", "--limit", "5").
+		requireSuccess(t, "Fetching runtime logs for durable function order-pipeline")
+
+	env.runCloudCLI(t, "durable", "logs", "order-pipeline").
+		requireFailure(t, `required flag(s) "type" not set`)
+
+	// The two collections never accept each other's names, which is the whole
+	// reason this command exists next to the standard one.
+	standard := env.runCloudCLI(t, "functions", "logs", "order-pipeline", "--type", "build")
+	standard.requireFailure(t)
+	standard.requireNotContains(t, "Fetching build logs")
 }
 
 // requireAPIE2EDurableVisibility covers `deploy -f` and the two visibility

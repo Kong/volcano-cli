@@ -105,6 +105,42 @@ func TestExecutionsListPopulatedAndEmpty(t *testing.T) {
 	}
 }
 
+// The dashboard labels these statuses for reading — pending is shown as
+// "Starting" — so a user filtering by what they saw there has to be told what
+// the flag takes, not handed the API's refusal of a value it never accepts.
+func TestExecutionsListRefusesAStatusThatIsNotAWireValue(t *testing.T) {
+	setExecutionsTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("an unknown status must not reach the API")
+		http.NotFound(w, nil)
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newExecutionsCommand(server), "list", "order-pipeline", "--status", "Starting")
+	require.ErrorContains(t, err, `unknown execution status "Starting"`)
+	require.ErrorContains(t, err, "pending, running, succeeded, failed, timed_out, stopped")
+}
+
+// Casing is not a different status, and the API takes only lowercase.
+func TestExecutionsListNormalizesStatusCase(t *testing.T) {
+	setExecutionsTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "running", r.URL.Query().Get("status"))
+		writeJSON(t, w, http.StatusOK, map[string]any{
+			"data":     []any{executionPayload(executionID, "order-4417", "running")},
+			"has_more": false,
+			"page":     1,
+			"limit":    100,
+			"total":    1,
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeCommand(t, newExecutionsCommand(server), "list", "order-pipeline", "--status", "RUNNING")
+	require.NoError(t, err)
+	assert.Contains(t, out, "order-4417")
+}
+
 // Reading an execution is what refreshes its status, and a result that is past
 // retention has to read as gone rather than as an execution that produced
 // nothing.
