@@ -3336,16 +3336,16 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 
 // Defines values for CreateFunctionMultipartBodyVariableScope.
 const (
-	All    CreateFunctionMultipartBodyVariableScope = "all"
-	Scoped CreateFunctionMultipartBodyVariableScope = "scoped"
+	CreateFunctionMultipartBodyVariableScopeAll    CreateFunctionMultipartBodyVariableScope = "all"
+	CreateFunctionMultipartBodyVariableScopeScoped CreateFunctionMultipartBodyVariableScope = "scoped"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyVariableScope enum.
 func (e CreateFunctionMultipartBodyVariableScope) Valid() bool {
 	switch e {
-	case All:
+	case CreateFunctionMultipartBodyVariableScopeAll:
 		return true
-	case Scoped:
+	case CreateFunctionMultipartBodyVariableScopeScoped:
 		return true
 	default:
 		return false
@@ -8620,10 +8620,10 @@ type CreateDurableFunctionMultipartBody struct {
 	// durable execution; one that does not is rejected with 400.
 	Runtime CreateDurableFunctionMultipartBodyRuntime `json:"runtime"`
 
-	// VariableScope Which project variables this function receives. Omitting this leaves an existing function's scope unchanged.
+	// VariableScope Which project variables this function receives. `all` gives it every project variable; `scoped` gives it only the variables it selects. Omitting this uses `all` for a new function and leaves an existing function's scope unchanged.
 	VariableScope *CreateDurableFunctionMultipartBodyVariableScope `json:"variable_scope,omitempty"`
 
-	// Variables JSON-encoded array of project variable names. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+	// Variables JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
 	Variables *string `json:"variables,omitempty"`
 }
 

@@ -2468,6 +2468,7 @@ paths:
                 variable_scope:
                   type: string
                   enum: [all, scoped]
+                  x-enum-varnames: [CreateFunctionMultipartBodyVariableScopeAll, CreateFunctionMultipartBodyVariableScopeScoped]
                   description: |
                     Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
                 variables:
@@ -3343,8 +3344,6 @@ paths:
         the plan.
       operationId: startDurableExecution
       security:
-        - AnonKey: []
-        - ServiceRoleKey: []
         - UserToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
@@ -3761,10 +3760,13 @@ paths:
                 variable_scope:
                   type: string
                   enum: [all, scoped]
-                  description: Which project variables this function receives. Omitting this leaves an existing function's scope unchanged.
+                  x-enum-varnames: [CreateDurableFunctionMultipartBodyVariableScopeAll, CreateDurableFunctionMultipartBodyVariableScopeScoped]
+                  description: |
+                    Which project variables this function receives. `all` gives it every project variable; `scoped` gives it only the variables it selects. Omitting this uses `all` for a new function and leaves an existing function's scope unchanged.
                 variables:
                   type: string
-                  description: JSON-encoded array of project variable names. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+                  description: |
+                    JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
       responses:
         '200':
           description: Existing durable function updated; its deployment was started or queued
@@ -16204,6 +16206,7 @@ components:
         variable_scope:
           type: string
           enum: [all, scoped]
+          x-enum-varnames: [ProjectConfigFunctionVariableScopeAll, ProjectConfigFunctionVariableScopeScoped]
           description: |
             Which project variables this function receives. `all` (the default)
             gives it every project variable. `scoped` gives it only the variables

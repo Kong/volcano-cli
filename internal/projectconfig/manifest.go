@@ -414,8 +414,9 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 	return body, nil
 }
 
-// Validate performs the minimal local checks: the schema version and the
-// removed scheduler regions field. All semantic validation is server-side.
+// Validate performs the minimal local checks: the schema version, function
+// kind, and removed scheduler regions field. Other semantic validation is
+// server-side.
 func (m *Manifest) Validate() error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d (expected %d)", m.Version, ManifestVersion)
