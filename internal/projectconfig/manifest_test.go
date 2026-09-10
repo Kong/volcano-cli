@@ -203,6 +203,16 @@ func TestParseErrors(t *testing.T) {
 			errContains: "reserved variable names cannot be deployed: AWS_REGION",
 		},
 		{
+			name:        "reserved shared variable rejected",
+			yaml:        "version: 1\nshared_variables: [AWS_REGION]\n",
+			errContains: "reserved variable names cannot be deployed: AWS_REGION",
+		},
+		{
+			name:        "reserved function variable rejected",
+			yaml:        "version: 1\nfunctions:\n  - name: hello\n    variable_scope: scoped\n    variables: [AWS_REGION]\n",
+			errContains: "reserved variable names cannot be deployed: AWS_REGION",
+		},
+		{
 			name: "scheduler regions rejected",
 			yaml: `version: 1
 functions:
