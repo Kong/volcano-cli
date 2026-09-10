@@ -51,7 +51,10 @@ The CLI can operate against two targets:
 
 Top-level resource commands (`volcano functions …`, `volcano databases …`, etc.)
 act on your **active context**: the local environment when running, otherwise
-the cloud project.
+the cloud project. [Durable functions](durable-functions.md) are the exception:
+the local environment does not run durable executions, so they live under
+`volcano cloud durable …` and a top-level `volcano durable …` says so rather
+than running.
 
 ## Output styling
 

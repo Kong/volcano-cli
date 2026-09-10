@@ -52,27 +52,30 @@ existing function's scope alone.
 
 | Operation | Command |
 |---|---|
-| Deploy all declared, or one | `volcano cloud durable deploy [--all \| -f <name\|path>]` |
-| List | `volcano cloud durable list [--page …] [--limit …]` |
-| Get | `volcano cloud durable get <name>` |
-| Delete | `volcano cloud durable delete <name> [--yes]` |
-| Logs | `volcano cloud durable logs <name> --type build\|runtime [--follow] [--limit …]` |
-| Start an execution | `volcano cloud durable start <name> [--input …] [--name …]` |
-| List executions | `volcano cloud durable executions list <name> [--status …] [--page …] [--limit …]` |
-| Get one execution | `volcano cloud durable executions get <name> <execution-id>` |
-| Stop an execution | `volcano cloud durable executions stop <name> <execution-id> [--yes]` |
-| Schedule executions | `volcano cloud durable schedulers create <name> --cron "0 * * * *" [--name …] [--input …] [--regions …]` |
-| List schedulers | `volcano cloud durable schedulers list <name>` |
-| Pause or resume one | `volcano cloud durable schedulers disable\|enable <name> <scheduler-id>` |
-| Delete one | `volcano cloud durable schedulers delete <name> <scheduler-id> [--yes]` |
+| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path> [--public \| --private]` |
+| List | `volcano cloud durable list [--page 1] [--limit 100]` |
+| Get | `volcano cloud durable get <name-or-id>` |
+| Delete | `volcano cloud durable delete <name-or-id> [--yes]` |
+| Logs | `volcano cloud durable logs <name-or-id> --type build\|runtime [--follow] [--limit 100]` |
+| Start an execution | `volcano cloud durable start <function> [--input …] [--name …]` |
+| List executions | `volcano cloud durable executions list <function> [--status …] [--page 1] [--limit 100]` |
+| Get one execution | `volcano cloud durable executions get <function> <execution-id>` |
+| Stop an execution | `volcano cloud durable executions stop <function> <execution-id> [--yes]` |
+| Schedule executions | `volcano cloud durable schedulers create <function> --cron "0 * * * *" [--name …] [--input …] [--regions …]` |
+| List schedulers | `volcano cloud durable schedulers list <function>` |
+| Pause or resume one | `volcano cloud durable schedulers disable\|enable <function> <scheduler-id>` |
+| Delete one | `volcano cloud durable schedulers delete <function> <scheduler-id> [--yes]` |
 
-`--yes` skips the confirmation prompt the three destructive commands ask for.
-Schedulers are a Pro capability, capped at 5 per project across standard and
-durable functions together; a create beyond that answers `403`.
+Wherever a command takes a function, it takes the name or the id. `deploy` needs
+exactly one of `--all` and `-f`. `--yes` skips the confirmation prompt the three
+destructive commands ask for. Schedulers are a Pro capability, capped at 5 per
+project across standard and durable functions together; a create beyond that
+answers `403`.
 
-There is no top-level `volcano durable …`: the local development environment
-does not run durable executions, and the local server refuses to create a
-durable function rather than pretending to.
+All of them run under `volcano cloud`. Local development does not run durable
+executions and the local server refuses to create a durable function rather than
+pretending to, so a bare `volcano durable …` answers with that refusal rather
+than running anything.
 
 ## Examples
 
@@ -115,6 +118,11 @@ volcano cloud durable logs order-pipeline --type runtime --follow
 just failed. `--type runtime` spans every execution, including every resume: the
 code between context operations runs again each time, so a line logged there
 appears once per resume while a line inside a completed `step` does not.
+
+`--follow` works on both, and stops at a different point for each: following
+build logs ends when the deploy does, following runtime logs runs until you
+interrupt it. A function that has never deployed has no build logs, and
+`--type build` says so rather than printing nothing.
 
 `volcano cloud functions logs` does not accept a durable function's name: the
 two collections never accept each other's names or ids.
