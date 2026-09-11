@@ -95,8 +95,8 @@ functions:
 	variables.requireNotContains(t, "SMOKE_MESSAGE")
 
 	// Item 19: pull refuses to overwrite, --force succeeds, the export carries
-	// the interpolated value (variable values are included) but no write-only
-	// secrets, and re-deploying the pulled file unchanged is a no-op.
+	// variable names and shared membership but no values or write-only secrets,
+	// and re-deploying the pulled file unchanged is a no-op.
 	env.runCloudCLI(t, "config", "pull").requireFailure(t, "refusing to overwrite", "--force")
 	env.runCloudCLI(t, "config", "pull", "--force").requireSuccess(t, "Configuration written to", "write-only secrets")
 
@@ -105,10 +105,13 @@ functions:
 		t.Fatalf("failed to read pulled manifest: %v", err)
 	}
 	pulledText := string(pulled)
-	for _, needle := range []string{"version: 1", "CONFIG_SECRET", interpolatedValue, "config-read", "Write-only secrets are omitted"} {
+	for _, needle := range []string{"version: 1", "CONFIG_SECRET", "config-read", "Write-only secrets are omitted"} {
 		if !strings.Contains(pulledText, needle) {
 			t.Fatalf("pulled manifest missing %q:\n%s", needle, pulledText)
 		}
+	}
+	if strings.Contains(pulledText, interpolatedValue) {
+		t.Fatalf("pulled manifest contains variable value %q:\n%s", interpolatedValue, pulledText)
 	}
 
 	redeploy := env.runCloudCLI(t, "config", "deploy")
