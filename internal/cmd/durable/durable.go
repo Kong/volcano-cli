@@ -28,6 +28,7 @@ collections never accept each other's names or ids.`,
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newStart(deps))
+	cmd.AddCommand(newLogs(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(executionscmd.New(deps))
 	cmd.AddCommand(schedulerscmd.New(deps))

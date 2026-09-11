@@ -2,6 +2,7 @@ package durable
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,25 +17,29 @@ import (
 
 func TestDurableListPopulatedAndEmpty(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		body map[string]any
-		want []string
+		name  string
+		body  map[string]any
+		args  []string
+		query string
+		want  []string
 	}{
 		{
 			name: "populated",
 			body: map[string]any{
 				"data":     []any{durableFunctionPayload("order-pipeline", false)},
 				"has_more": true,
-				"page":     1,
-				"limit":    100,
-				"total":    2,
+				"page":     3,
+				"limit":    25,
+				"total":    61,
 			},
+			args:  []string{"list", "--page", "3", "--limit", "25"},
+			query: "page=3&limit=25",
 			want: []string{
 				"order-pipeline",
 				"nodejs24.x",
 				"active",
-				"Showing 1 of 2 durable function(s) (page 1, limit 100)",
-				"Next page: volcano cloud durable list --page 2 --limit 100",
+				"Showing 1 of 61 durable function(s) (page 3, limit 25)",
+				"Next page: volcano cloud durable list --page 4 --limit 25",
 			},
 		},
 		{
@@ -46,6 +51,8 @@ func TestDurableListPopulatedAndEmpty(t *testing.T) {
 				"limit":    100,
 				"total":    0,
 			},
+			args:  []string{"list"},
+			query: "page=1&limit=100",
 			want: []string{
 				"No durable functions deployed",
 				"Showing 0 of 0 durable function(s) (page 1, limit 100)",
@@ -58,12 +65,12 @@ func TestDurableListPopulatedAndEmpty(t *testing.T) {
 				assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 				assert.Equal(t, http.MethodGet, r.Method)
 				assert.Equal(t, "/projects/"+durableProjectID+"/durable-functions", r.URL.Path)
-				assert.Equal(t, "page=1&limit=100", r.URL.RawQuery)
+				assert.Equal(t, tc.query, r.URL.RawQuery)
 				writeDurableCommandJSON(t, w, http.StatusOK, tc.body)
 			}))
 			defer server.Close()
 
-			out, err := executeDurableCommand(t, newCloudDurableCommand(server), "list")
+			out, err := executeDurableCommand(t, newCloudDurableCommand(server), tc.args...)
 			require.NoError(t, err)
 			for _, want := range tc.want {
 				assert.Contains(t, out, want)
@@ -157,6 +164,26 @@ func TestDurableStartReadsInputFromFile(t *testing.T) {
 	assert.Equal(t, map[string]any{"order_id": float64(99)}, body)
 }
 
+// An omitted --input starts the execution with no input at all. A JSON null
+// body is not that: the API reads it as valid JSON and hands it to the function
+// as its payload, so only an empty body carries "no input".
+func TestDurableStartWithoutInputSendsNoBody(t *testing.T) {
+	setDurableCommandTestHome(t)
+	var raw []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		raw, err = io.ReadAll(r.Body)
+		require.NoError(t, err)
+		writeDurableCommandJSON(t, w, http.StatusAccepted,
+			durableExecutionPayload(durableExecutionA, "generated", "pending"))
+	}))
+	defer server.Close()
+
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server), "start", "order-pipeline")
+	require.NoError(t, err)
+	assert.Empty(t, raw)
+}
+
 func TestDurableStartRejectsInputThatIsNotAJSONObject(t *testing.T) {
 	setDurableCommandTestHome(t)
 	_, err := executeDurableCommand(t, newCloudDurableCommand(nil),
@@ -177,7 +204,7 @@ func TestDurableDeleteConfirmsAgainstTheResolvedFunction(t *testing.T) {
 			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
 		case r.Method == http.MethodDelete && r.URL.Path == path+durableFunctionID:
 			deleted = true
-			w.WriteHeader(http.StatusNoContent)
+			w.WriteHeader(http.StatusAccepted)
 		default:
 			http.NotFound(w, r)
 		}
@@ -370,6 +397,80 @@ functions:
 	require.NoError(t, err)
 	assert.Equal(t, []string{"order-pipeline"}, deployed, "a standard function must not be deployed as durable")
 	assert.Contains(t, out, "1/1 durable function(s) deployment started")
+}
+
+// --file has to honour the manifest too. A function's kind is fixed when it is
+// created, so creating a name the manifest declares standard as durable strands
+// it: every later `functions deploy` and `config deploy` of that name fails.
+func TestDurableDeployRefusesAFileTargetTheManifestDeclaresStandard(t *testing.T) {
+	for _, target := range []string{"hello", "volcano/functions/hello.js"} {
+		t.Run(target, func(t *testing.T) {
+			setDurableCommandTestHome(t)
+			t.Chdir(t.TempDir())
+			writeDurableProjectFile(t, "volcano/functions/hello.js", `exports.handler = async () => ({});`)
+			writeDurableProjectFile(t, "volcano-config.yaml", `version: 1
+project:
+  name: beta
+functions:
+  - name: hello
+  - name: order-pipeline
+    kind: durable
+`)
+
+			var deployed bool
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case writeDurableRuntimesResponse(t, w, r):
+					return
+				case r.Method == http.MethodPost:
+					deployed = true
+					writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("hello", false))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			_, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "-f", target)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), `"hello" is declared a standard function in volcano-config.yaml`)
+			assert.Contains(t, err.Error(), "volcano cloud functions deploy -f hello")
+			assert.False(t, deployed, "nothing should be uploaded once the kind is refused")
+		})
+	}
+}
+
+// A name the manifest does not mention is what --file exists for, so the guard
+// has to key on an explicit standard declaration rather than on absence.
+func TestDurableDeployAcceptsAFileTargetTheManifestDoesNotDeclare(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDurableProjectFile(t, "volcano-config.yaml", `version: 1
+project:
+  name: beta
+functions:
+  - name: hello
+`)
+
+	var deployed []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			deployed = append(deployed, r.FormValue("name"))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "-f", "order-pipeline")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"order-pipeline"}, deployed)
 }
 
 // The manifest is the only place a durable function's variable scope can be

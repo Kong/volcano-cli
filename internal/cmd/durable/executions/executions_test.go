@@ -37,18 +37,37 @@ func TestExecutionsListPopulatedAndEmpty(t *testing.T) {
 					executionPayload(executionID, "order-4417", "running"),
 				},
 				"has_more": true,
-				"page":     1,
-				"limit":    100,
-				"total":    2,
+				"page":     2,
+				"limit":    5,
+				"total":    12,
 			},
-			query: "page=1&limit=100",
-			args:  []string{"list", "order-pipeline"},
+			query: "page=2&limit=5",
+			args:  []string{"list", "order-pipeline", "--page", "2", "--limit", "5"},
 			want: []string{
 				executionID,
 				"order-4417",
 				"running",
-				"Showing 1 of 2 execution(s) (page 1, limit 100)",
-				"Next page: volcano cloud durable executions list order-pipeline --page 2 --limit 100",
+				"Showing 1 of 12 execution(s) (page 2, limit 5)",
+				"Next page: volcano cloud durable executions list order-pipeline --page 3 --limit 5",
+			},
+		},
+		// Offset 3 of the unfiltered set is not offset 3 of the filtered one, so
+		// a hint that dropped --status would page past rows the user asked for.
+		{
+			name: "filtered with more pages",
+			body: map[string]any{
+				"data": []any{
+					executionPayload(executionID, "order-4417", "running"),
+				},
+				"has_more": true,
+				"page":     2,
+				"limit":    1,
+				"total":    4,
+			},
+			query: "page=2&limit=1&status=running",
+			args:  []string{"list", "order-pipeline", "--status", "running", "--page", "2", "--limit", "1"},
+			want: []string{
+				"Next page: volcano cloud durable executions list order-pipeline --status running --page 3 --limit 1",
 			},
 		},
 		{
@@ -84,6 +103,42 @@ func TestExecutionsListPopulatedAndEmpty(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The dashboard labels these statuses for reading — pending is shown as
+// "Starting" — so a user filtering by what they saw there has to be told what
+// the flag takes, not handed the API's refusal of a value it never accepts.
+func TestExecutionsListRefusesAStatusThatIsNotAWireValue(t *testing.T) {
+	setExecutionsTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("an unknown status must not reach the API")
+		http.NotFound(w, nil)
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newExecutionsCommand(server), "list", "order-pipeline", "--status", "Starting")
+	require.ErrorContains(t, err, `unknown execution status "Starting"`)
+	require.ErrorContains(t, err, "pending, running, succeeded, failed, timed_out, stopped")
+}
+
+// Casing is not a different status, and the API takes only lowercase.
+func TestExecutionsListNormalizesStatusCase(t *testing.T) {
+	setExecutionsTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "running", r.URL.Query().Get("status"))
+		writeJSON(t, w, http.StatusOK, map[string]any{
+			"data":     []any{executionPayload(executionID, "order-4417", "running")},
+			"has_more": false,
+			"page":     1,
+			"limit":    100,
+			"total":    1,
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeCommand(t, newExecutionsCommand(server), "list", "order-pipeline", "--status", "RUNNING")
+	require.NoError(t, err)
+	assert.Contains(t, out, "order-4417")
 }
 
 // Reading an execution is what refreshes its status, and a result that is past

@@ -52,12 +52,32 @@ execution to have its state refreshed.`,
 }
 
 func runList(ctx context.Context, opts listOptions) error {
+	status, err := normalizeStatusFilter(opts.status)
+	if err != nil {
+		return err
+	}
 	executions, err := clidurable.NewService(opts.deps).ListExecutions(
-		ctx, opts.function, strings.TrimSpace(opts.status), opts.page, opts.limit)
+		ctx, opts.function, status, opts.page, opts.limit)
 	if err != nil {
 		return err
 	}
 
-	output.DurableExecutions(opts.out, opts.function, executions, cliruntime.CommandPath(opts.deps, ""))
+	output.DurableExecutions(opts.out, opts.function, status, executions, cliruntime.CommandPath(opts.deps, ""))
 	return nil
+}
+
+// normalizeStatusFilter checks the filter here rather than letting the API
+// refuse it, so the answer names what the flag takes. The dashboard labels these
+// statuses for reading — pending shows as "Starting" — and a label is not a
+// filter value.
+func normalizeStatusFilter(value string) (string, error) {
+	status := strings.ToLower(strings.TrimSpace(value))
+	switch status {
+	case "", "pending", "running", "succeeded", "failed", "timed_out", "stopped":
+		return status, nil
+	default:
+		return "", fmt.Errorf(
+			"unknown execution status %q: --status takes one of pending, running, succeeded, failed, timed_out, stopped",
+			strings.TrimSpace(value))
+	}
 }

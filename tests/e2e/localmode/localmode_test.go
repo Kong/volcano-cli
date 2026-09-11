@@ -316,6 +316,7 @@ func requireLocalModeRefusesDurableFunctions(t *testing.T, binary string, env []
 		{"durable", "deploy", "--all"},
 		{"durable", "list"},
 		{"durable", "start", "order-pipeline", "--input", "{}"},
+		{"durable", "logs", "order-pipeline", "--type", "build"},
 		{"durable", "executions", "list", "order-pipeline"},
 		{"durable", "schedulers", "list", "order-pipeline"},
 		{"durable", "schedulers", "create", "order-pipeline", "--cron", "0 * * * *"},

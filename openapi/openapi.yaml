@@ -3246,8 +3246,12 @@ paths:
         - Durable Functions
       summary: Stop a durable execution
       description: |
-        Cancels a running execution. Its completed steps are not undone; the
-        execution stops where it is and becomes `stopped`.
+        Requests cancellation of a running execution. The call is accepted
+        rather than awaited: the execution in the response is the one read back
+        after asking, and may still say `running`. Poll the execution to see it
+        settle into `stopped`.
+
+        Completed steps are not undone.
       operationId: stopDurableExecution
       security:
         - UserToken: []
@@ -3352,8 +3356,11 @@ paths:
           required: false
           description: |
             Idempotency key for this execution. Generated when omitted.
+            Letters, digits, `-`, `_` and `.`, up to 255 characters.
           schema:
             type: string
+            maxLength: 255
+            pattern: '^[A-Za-z0-9._-]+$'
       requestBody:
         required: false
         content:
@@ -3380,7 +3387,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Function is not deployed yet, or has no deployed region
+          description: |
+            Function is not deployed yet, or has no deployed region. Also
+            returned when two starts under the same execution name raced and
+            both released it, which is retryable as it stands.
           content:
             application/json:
               schema:
@@ -3392,7 +3402,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many executions already in flight for this project
+          description: |
+            Too many executions already in flight for this project, or the
+            account is out of its billing-cycle function invocation allowance.
           content:
             application/json:
               schema:
@@ -3507,7 +3519,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/FunctionScheduler'
         '400':
-          description: Invalid schedule or geofenced region
+          description: |
+            Invalid schedule, geofenced region, a scheduler of this name
+            already exists on the function, or the function is not active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Schedulers are not available on this plan, or the project already
+            holds as many as the plan allows. The cap counts standard and
+            durable function schedulers together.
           content:
             application/json:
               schema:
@@ -3568,7 +3591,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/FunctionScheduler'
         '400':
-          description: Invalid schedule or geofenced region
+          description: |
+            Invalid schedule, geofenced region, or a scheduler of this name
+            already exists on the function.
           content:
             application/json:
               schema:
@@ -3735,17 +3760,11 @@ paths:
                   enum:
                     - nodejs22.x
                     - nodejs24.x
-                    - python3.10
-                    - python3.11
-                    - python3.12
-                    - python3.13
-                    - python3.14
-                    - ruby3.3
-                    - ruby3.4
-                    - ruby4.0
                   description: |
-                    Runtime environment. Required. Must be a runtime that supports
-                    durable execution; one that does not is rejected with 400.
+                    Runtime environment. Required. Durable execution needs the
+                    durable authoring API, which ships for the Node runtimes;
+                    any other runtime is rejected with 400 and the response
+                    names the ones that work.
                   example: nodejs24.x
                 handler:
                   type: string
@@ -3754,8 +3773,20 @@ paths:
                   example: handler
                 is_public:
                   type: boolean
-                  default: false
-                  description: Whether anon keys with `functions.invoke` may start an execution.
+                  description: |
+                    Whether anon keys with `functions.invoke` may start an
+                    execution. Redeploying is the only way to change it, since
+                    the collection has no update endpoint; omit it to keep the
+                    current visibility, and a new function starts private.
+                variable_scope:
+                  type: string
+                  enum: [all, scoped]
+                  description: |
+                    Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
+                variables:
+                  type: string
+                  description: |
+                    JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
       responses:
         '200':
           description: Existing durable function updated; its deployment was started or queued
@@ -3770,7 +3801,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/DurableFunction'
         '400':
-          description: Bad request (invalid archive, unsupported runtime, invalid name)
+          description: |
+            Bad request (invalid archive, unsupported runtime, invalid name, or a
+            project region that does not offer durable execution — a durable
+            function deploys to every region of its project)
           content:
             application/json:
               schema:
@@ -3788,7 +3822,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Durable functions are unavailable for this project or region
+          description: |
+            Durable deploys are paused platform-wide. The same request succeeds
+            once they are re-enabled; executions already running are unaffected.
           content:
             application/json:
               schema:

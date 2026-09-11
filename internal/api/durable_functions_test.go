@@ -47,7 +47,9 @@ func TestStartDurableExecutionSendsInputAsTheBody(t *testing.T) {
 }
 
 // No input at all is a different thing from an empty object, and no name means
-// the platform generates one, so neither may be sent as a made-up value.
+// the platform generates one, so neither may be sent as a made-up value. Only
+// an empty body carries "no input": the API reads a JSON null body as an input
+// and hands it to the function.
 func TestStartDurableExecutionWithoutInputOrName(t *testing.T) {
 	var raw []byte
 	var hasNameHeader bool
@@ -66,7 +68,7 @@ func TestStartDurableExecutionWithoutInputOrName(t *testing.T) {
 	_, err = client.StartDurableExecution(context.Background(), durableTestProjectID, "order-pipeline",
 		DurableExecutionStartInput{})
 	require.NoError(t, err)
-	assert.JSONEq(t, "null", string(raw))
+	assert.Empty(t, raw)
 	assert.False(t, hasNameHeader)
 }
 

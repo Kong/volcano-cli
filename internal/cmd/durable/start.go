@@ -36,7 +36,8 @@ this returns a handle rather than a result. Read the execution to follow it.
 --name is the execution's idempotency key. Repeating a start under a name that
 already names an execution returns that one instead of beginning a second, and
 is not charged again, which is what makes retrying a start safe. Omit it and
-Volcano generates one.
+Volcano generates one. A name is letters, digits, '-', '_' and '.', up to 255
+characters.
 
 --input accepts inline JSON or a path to a JSON file, and is the function's
 input verbatim.`,

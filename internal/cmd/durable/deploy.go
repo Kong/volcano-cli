@@ -44,7 +44,8 @@ changed once the function exists:
       kind: durable
 
 %s deploys every function the manifest declares durable. %s deploys
-one by name or path, whether or not the manifest mentions it.
+one by name or path, including one the manifest does not mention. A name the
+manifest declares standard is refused: deploy that one with functions deploy.
 
 Deploying over an existing durable function redeploys it. Executions already
 running continue on the version they started on.`,
@@ -86,6 +87,10 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	sources, baseDir, err := durableSources(ctx, opts, targets)
 	if err != nil {
 		return err
+	}
+	if opts.file != "" && manifest.StandardNames[sources[0].Name] {
+		return fmt.Errorf("%q is declared a standard function in volcano-config.yaml; deploy it with %q",
+			sources[0].Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
 	for i, source := range sources {

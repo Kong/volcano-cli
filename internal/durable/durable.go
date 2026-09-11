@@ -99,6 +99,79 @@ func (s Service) Delete(ctx context.Context, identifier string) error {
 	return nil
 }
 
+// RuntimeLogs returns one runtime log search page for a durable function.
+//
+// The log routes are project-scoped and take a function id whatever collection
+// it came from, so these four read a durable function's logs through the same
+// endpoints a standard function's do.
+func (s Service) RuntimeLogs(
+	ctx context.Context, functionID uuid.UUID, limit int, cursor string,
+) (*apiclient.LogSearchResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := authenticated.API.GetFunctionLogs(ctx, authenticated.ProjectID, functionID, limit, cursor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch runtime logs: %w", err)
+	}
+	return logs, nil
+}
+
+// StreamRuntimeLogs opens a runtime log stream for a durable function, resuming
+// after lastEventID when it is set.
+func (s Service) StreamRuntimeLogs(
+	ctx context.Context, functionID uuid.UUID, limit int, lastEventID string,
+) (*api.ProjectLogStream, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := authenticated.API.StreamFunctionLogs(ctx, authenticated.ProjectID, functionID, limit, lastEventID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stream runtime logs: %w", err)
+	}
+	return stream, nil
+}
+
+// DeploymentLogs returns one build log search page for a durable function's
+// deployment.
+func (s Service) DeploymentLogs(
+	ctx context.Context, functionID, deploymentID uuid.UUID, limit int, cursor string,
+) (*apiclient.LogSearchResponse, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := authenticated.API.GetFunctionDeploymentLogs(
+		ctx, authenticated.ProjectID, functionID, deploymentID, limit, cursor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch deployment logs: %w", err)
+	}
+	return logs, nil
+}
+
+// StreamDeploymentLogs opens a build log stream for a durable function's
+// deployment.
+func (s Service) StreamDeploymentLogs(
+	ctx context.Context, functionID, deploymentID uuid.UUID, limit int,
+) (*api.ProjectLogStream, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	stream, err := authenticated.API.StreamFunctionDeploymentLogs(
+		ctx, authenticated.ProjectID, functionID, deploymentID, limit, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to stream deployment logs: %w", err)
+	}
+	return stream, nil
+}
+
 // StartExecution starts one execution and returns its handle. Starting is
 // asynchronous by construction, so this never carries a result.
 func (s Service) StartExecution(
