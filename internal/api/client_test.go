@@ -638,6 +638,68 @@ func TestInvokeFunctionErrorsNormalize(t *testing.T) {
 	require.ErrorContains(t, err, "HTTP 429: rate limited")
 }
 
+func TestInvokeFunctionSuccessWithNonObjectBody(t *testing.T) {
+	functionID := mustProjectID(t, "22222222-2222-4222-8222-222222222222")
+
+	testCases := []struct {
+		name        string
+		contentType string
+		status      int
+		body        string
+		want        map[string]any
+	}{
+		{
+			name:        "plain text body",
+			contentType: "text/plain; charset=utf-8",
+			status:      http.StatusOK,
+			body:        "plain text ok",
+			want:        map[string]any{"body": "plain text ok"},
+		},
+		{
+			name:        "no content type",
+			contentType: "",
+			status:      http.StatusOK,
+			body:        `{"ok":true}`,
+			want:        map[string]any{"ok": true},
+		},
+		{
+			name:        "json array body",
+			contentType: "application/json",
+			status:      http.StatusOK,
+			body:        `["a","b"]`,
+			want:        map[string]any{"body": []any{"a", "b"}},
+		},
+		{
+			name:        "empty body",
+			contentType: "",
+			status:      http.StatusNoContent,
+			body:        "",
+			want:        map[string]any{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if tc.contentType != "" {
+					w.Header().Set("Content-Type", tc.contentType)
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+
+			client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+			require.NoError(t, err)
+
+			resp, err := client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{})
+			require.NoError(t, err, "a genuine 2xx response must not be reported as an error")
+			require.NotNil(t, resp)
+			assert.Equal(t, tc.want, map[string]any(*resp))
+		})
+	}
+}
+
 func mustProjectID(t *testing.T, value string) uuid.UUID {
 	t.Helper()
 	id, err := uuid.Parse(value)
