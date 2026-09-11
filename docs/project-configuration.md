@@ -9,7 +9,7 @@ validates and applies the full project configuration:
 
 - Project settings
 - Database requirements
-- Variables
+- Variables and shared variable names
 - Buckets and policies
 - Realtime
 - Auth configuration, including providers, email, templates, and managed pages
@@ -99,13 +99,41 @@ Key semantics:
   changes are not rolled back. Re-running `config deploy` with the same file
   is always safe: entries that already landed report `unchanged`, and only
   the entries that failed or still differ are retried.
-- Write-only secrets, such as SMTP passwords, OAuth client secrets, and TLS
-  material, are omitted from `config pull` exports. Keep them in your
-  environment and set them via `${ENV_VAR}` interpolation.
+- Variable values and write-only secrets, such as SMTP passwords, OAuth client
+  secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
+  environment and set them via `${ENV_VAR}` interpolation. If a server does
+  return variable values, `config pull` removes the whole `variables` section
+  before writing the file, so no values reach disk and the export stays
+  deployable.
 - `functions[].variables` is fully synced when declared: the list replaces the
   function's declared variable names. Omitting it, like omitting
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
+
+## Shared variable names
+
+Use `shared_variables` to select the complete list of existing project variables
+shared with functions, without changing their values:
+
+```yaml
+version: 1
+shared_variables:
+  - LOG_LEVEL
+  - SERVICE_URL
+```
+
+Names are case-sensitive, must be unique, and must already exist. Each name must
+start with a letter or underscore and contain only letters, digits, or
+underscores. Supply names only, not objects containing values.
+
+Omitting `shared_variables` leaves membership unchanged. Declaring
+`shared_variables: []` clears the shared list. Names left out of a declared list
+remain stored as non-shared variables; this does not delete their values.
+The separate `variables` section still has its own full-sync semantics.
+
+`config pull` exports shared names only and omits variable values. The exported
+list can be deployed back to the same project without supplying those values.
+Use `config deploy --dry-run` to preview a membership change.
 
 ## Function variable scope
 

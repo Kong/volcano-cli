@@ -1438,7 +1438,8 @@ paths:
                 format: binary
                 description: |
                   Canonical volcano-config.yaml document returned verbatim,
-                  ready to be saved as-is.
+                  ready to be saved as-is. The response body is limited to
+                  4,194,304 bytes, matching the configuration apply limit.
         '401':
           description: Unauthorized - invalid or missing token
           content:
@@ -1447,6 +1448,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Canonical YAML export exceeds 4,194,304 bytes
           content:
             application/json:
               schema:
@@ -15685,7 +15692,10 @@ components:
         values (patch semantics). Declared collection keys are fully synced to
         the manifest: `variables`, `buckets[].policies`, `auth.providers.oauth`,
         `auth.email.templates`, and `functions[].schedulers` are reconciled to
-        exactly match, deleting resources absent from the manifest. Functions,
+        exactly match, deleting resources absent from the manifest.
+        `shared_variables` is fully synced the same way, but membership only:
+        names absent from a declared list stop being shared and remain as
+        non-shared variables, with their values untouched. Functions,
         frontends, databases, and buckets are never created or deleted through
         this manifest; entries referencing resources that do not exist are
         skipped and reported.
@@ -15701,6 +15711,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProjectConfigDatabase'
+        shared_variables:
+          type: array
+          uniqueItems: true
+          description: Replace the complete shared function-variable list with existing names, without changing variable values. Omission keeps membership unchanged; an empty list clears it.
+          items:
+            type: string
+            pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
         variables:
           type: array
           description: Fully synced when declared - variables absent from this list are deleted.

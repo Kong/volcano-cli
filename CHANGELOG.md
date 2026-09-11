@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.28.1](https://github.com/Kong/volcano-cli/compare/v0.28.0...v0.28.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **ci:** expect value-free cloud exports ([e03bfdb](https://github.com/Kong/volcano-cli/commit/e03bfdb5fc9584d94059bb42fcfeb0e2b72128ec))
+
+## [0.28.0](https://github.com/Kong/volcano-cli/compare/v0.27.0...v0.28.0) (2026-09-10)
+
+
+### Features
+
+* **config:** support curated shared variable names ([#189](https://github.com/Kong/volcano-cli/issues/189)) ([8929e7d](https://github.com/Kong/volcano-cli/commit/8929e7d08b5daf899ec4a6889ec684acbb8c3ece))
+
 ## [0.27.0](https://github.com/Kong/volcano-cli/compare/v0.26.0...v0.27.0) (2026-09-08)
 
 

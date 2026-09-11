@@ -19,8 +19,7 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-// pulledManifestMode keeps pulled manifests owner-only: variable values are
-// included in exports.
+// pulledManifestMode keeps downloaded project configuration owner-only.
 const pulledManifestMode = 0o600
 
 type deployOptions struct {
@@ -114,7 +113,9 @@ volcano-config.yaml rendered by the server.
 
 Write-only secrets (SMTP password, OAuth client secrets, custom domain TLS
 material) are omitted from the export; set them via ${ENV_VAR} interpolation
-before deploying. Variable values are included.
+before deploying. Variable values are omitted; shared_variables contains shared
+names only. Any variable values a server does return are removed before the
+manifest is written.
 
 Without --file the manifest is written to an existing manifest location, or
 volcano/volcano-config.yaml when the volcano directory exists, else
@@ -188,10 +189,15 @@ func runPull(ctx context.Context, opts pullOptions) error {
 		}
 	}
 
-	manifest, err := projectconfig.NewService(opts.deps).Pull(ctx)
+	pulled, err := projectconfig.NewService(opts.deps).Pull(ctx)
 	if err != nil {
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config export; upgrade your local-mode server image and try again")
+		}
+		// The download itself succeeded here; nothing was written because the
+		// value-free export contract could not be honored.
+		if errors.Is(err, projectconfig.ErrUnsafePulledManifest) {
+			return err
 		}
 		return fmt.Errorf("failed to download configuration: %w", err)
 	}
@@ -201,19 +207,22 @@ func runPull(ctx context.Context, opts pullOptions) error {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	if err := writePulledManifest(targetPath, manifest); err != nil {
+	if err := writePulledManifest(targetPath, pulled.Manifest); err != nil {
 		return err
 	}
 
 	output.Success(opts.out, "Configuration written to %s", targetPath)
-	output.Note(opts.out, "write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
+	output.Note(opts.out, "variable values and write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
+	if pulled.StrippedVariablesSection {
+		output.Note(opts.out, "the server returned a variables section; it was removed so no variable values were written to disk")
+	}
 	return nil
 }
 
 // writePulledManifest writes the pulled manifest owner-only (pulledManifestMode)
 // even when overwriting an existing file. os.WriteFile only applies its mode
 // when it creates the file, so a --force overwrite of a pre-existing 0644
-// manifest would keep the looser mode and leave the exported variable values
+// manifest would keep the looser mode and leave the downloaded configuration
 // readable by other local users. Writing a fresh 0600 temp file in the target
 // directory and renaming it into place makes the write atomic and guarantees
 // the owner-only mode regardless of any pre-existing file.

@@ -50,6 +50,9 @@ type Manifest struct {
 	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
 	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
 
+	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
+	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
+
 	// upload is the interpolated manifest decoded into a generic shape; it is the
 	// source of the apply request body (see uploadBody). Populated by Parse.
 	upload map[string]any
