@@ -143,8 +143,9 @@ volcano cloud durable executions list order-pipeline
 
 Each tick names its execution after the run, so a tick Volcano has to retry
 resolves to the execution it already started rather than beginning a second one.
-Ticks draw on the same invocation allowance and concurrency cap a manual start
-does; a tick that would exceed the cap fails that run rather than queueing.
+Ticks draw on the same durable execution and operation allowances and the same
+concurrency cap a manual start does; a tick that would exceed the cap fails that
+run rather than queueing.
 
 `schedulers disable` stops the ticks and leaves the scheduler in place;
 executions it already started keep running. `schedulers delete` removes the
