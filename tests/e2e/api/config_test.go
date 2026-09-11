@@ -105,13 +105,15 @@ functions:
 		t.Fatalf("failed to read pulled manifest: %v", err)
 	}
 	pulledText := string(pulled)
-	for _, needle := range []string{"version: 1", "CONFIG_SECRET", "config-read", "Write-only secrets are omitted"} {
+	for _, needle := range []string{"version: 1", "CONFIG_SECRET", "CONFIG_PLAIN", "config-read", "Write-only secrets are omitted"} {
 		if !strings.Contains(pulledText, needle) {
 			t.Fatalf("pulled manifest missing %q:\n%s", needle, pulledText)
 		}
 	}
-	if strings.Contains(pulledText, interpolatedValue) {
-		t.Fatalf("pulled manifest contains variable value %q:\n%s", interpolatedValue, pulledText)
+	for _, value := range []string{interpolatedValue, "plain-value"} {
+		if strings.Contains(pulledText, value) {
+			t.Fatalf("pulled manifest contains variable value %q:\n%s", value, pulledText)
+		}
 	}
 
 	redeploy := env.runCloudCLI(t, "config", "deploy")
