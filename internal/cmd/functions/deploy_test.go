@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -239,6 +240,149 @@ func TestFunctionsDeployAllChunksLargeBatches(t *testing.T) {
 	assert.Contains(t, out, "Uploading batch 1-100 of 105")
 	assert.Contains(t, out, "Uploading batch 101-105 of 105")
 	assert.Contains(t, out, "105/105 functions deployment started across 2 batch(es)")
+}
+
+func TestFunctionsDeployWaitUsesSubmittedDeploymentID(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	projectDir := t.TempDir()
+	t.Chdir(projectDir)
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+
+	const submittedDeploymentID = "33333333-3333-4333-8333-333333333333"
+	const externalDeploymentID = "44444444-4444-4444-8444-444444444444"
+	deploymentReads := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions/batch":
+			function := functionCommandPayload(functionID, "hello")
+			function["pending_deployment_id"] = submittedDeploymentID
+			writeFunctionCommandJSON(t, w, http.StatusAccepted, map[string]any{
+				"batch_id": "77777777-7777-4777-8777-777777777777",
+				"data":     []any{function},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/deployments":
+			deploymentReads++
+			status := "queued"
+			if deploymentReads > 1 {
+				status = "active"
+			}
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{
+					functionDeploymentCommandPayload(externalDeploymentID, functionID, "failed"),
+					functionDeploymentCommandPayload(submittedDeploymentID, functionID, status),
+				},
+				"has_more": false,
+				"page":     1,
+				"total":    2,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ticker := &functionDeployTicker{ch: make(chan time.Time, 1)}
+	ticker.ch <- time.Now()
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(), APIBaseURL: server.URL,
+		NewTicker: func(time.Duration) cliruntime.Ticker { return ticker },
+	}
+	out, err := executeFunctionsCommand(t, New(deps), "deploy", "--all", "--wait")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Function 'hello' deployment "+submittedDeploymentID+" is active")
+}
+
+type functionDeployTicker struct {
+	ch chan time.Time
+}
+
+func (t *functionDeployTicker) C() <-chan time.Time { return t.ch }
+func (t *functionDeployTicker) Reset(time.Duration) {}
+func (t *functionDeployTicker) Stop()               {}
+
+func TestFunctionsDeployWaitRejectsRolledBackDeployment(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	projectDir := t.TempDir()
+	t.Chdir(projectDir)
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+
+	const submittedDeploymentID = "33333333-3333-4333-8333-333333333333"
+	const previousDeploymentID = "44444444-4444-4444-8444-444444444444"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions/batch":
+			function := functionCommandPayload(functionID, "hello")
+			function["current_deployment_id"] = submittedDeploymentID
+			writeFunctionCommandJSON(t, w, http.StatusAccepted, map[string]any{
+				"batch_id": "77777777-7777-4777-8777-777777777777",
+				"data":     []any{function},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/deployments":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{
+					functionDeploymentCommandPayload(previousDeploymentID, functionID, "active"),
+					functionDeploymentCommandPayload(submittedDeploymentID, functionID, "failed"),
+				},
+				"has_more": false,
+				"page":     1,
+				"total":    2,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all", "--wait")
+	require.ErrorContains(t, err, "deployment "+submittedDeploymentID+" finished with status failed")
+}
+
+func TestFunctionsDeployWaitStopsAfterPersistentReadErrors(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	projectDir := t.TempDir()
+	t.Chdir(projectDir)
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+
+	const submittedDeploymentID = "33333333-3333-4333-8333-333333333333"
+	deploymentReads := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions/batch":
+			function := functionCommandPayload(functionID, "hello")
+			function["current_deployment_id"] = submittedDeploymentID
+			writeFunctionCommandJSON(t, w, http.StatusAccepted, map[string]any{
+				"batch_id": "77777777-7777-4777-8777-777777777777",
+				"data":     []any{function},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID+"/deployments":
+			deploymentReads++
+			http.Error(w, "temporary failure", http.StatusServiceUnavailable)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ticker := &functionDeployTicker{ch: make(chan time.Time, maxDeploymentReadFailures-1)}
+	for range maxDeploymentReadFailures - 1 {
+		ticker.ch <- time.Now()
+	}
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(), APIBaseURL: server.URL,
+		NewTicker: func(time.Duration) cliruntime.Ticker { return ticker },
+	}
+	_, err := executeFunctionsCommand(t, New(deps), "deploy", "--all", "--wait")
+	require.ErrorContains(t, err, "failed to read function \"hello\" deployment "+submittedDeploymentID+" after 3 attempts")
+	assert.Equal(t, maxDeploymentReadFailures, deploymentReads)
 }
 
 func TestLocalFunctionsDeployAllUsesSingleFunctionUploads(t *testing.T) {

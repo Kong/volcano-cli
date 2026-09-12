@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -19,19 +20,25 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-const deployBatchSize = 100
+const (
+	deployBatchSize           = 100
+	deployPollInterval        = 2 * time.Second
+	maxDeploymentReadFailures = 3
+)
 
 type deployOptions struct {
 	deps     cliruntime.Deps
 	file     string
 	all      bool
 	batchAll bool
+	wait     bool
 	out      io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps, batchAll bool) *cobra.Command {
 	var file string
 	var all bool
+	var wait bool
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy functions",
@@ -46,7 +53,8 @@ Usage:
 The CLI scans volcano/functions, detects the runtime from source file extensions,
 packages source with dependency manifests and shared libraries, and uploads the
 archive to Volcano. Cloud deploy-all uploads are split into batches of up to
-100 functions; local deploy-all uploads each function individually.`,
+100 functions; local deploy-all uploads each function individually. Use --wait
+to return only after every submitted deployment becomes active or one fails.`,
 			cliruntime.CommandPath(deps, "functions deploy --all"),
 			cliruntime.CommandPath(deps, "functions deploy -a"),
 			cliruntime.CommandPath(deps, "functions deploy -f get-notes"),
@@ -58,12 +66,14 @@ archive to Volcano. Cloud deploy-all uploads are split into batches of up to
 				file:     strings.TrimSpace(file),
 				all:      all,
 				batchAll: batchAll,
+				wait:     wait,
 				out:      cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Deploy a specific function by name or path")
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Deploy all functions")
+	cmd.Flags().BoolVar(&wait, "wait", false, "Wait for each submitted deployment to become active")
 	return cmd
 }
 
@@ -133,9 +143,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	}
 
 	if opts.all {
-		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations)
+		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, opts.wait, opts.deps)
 	}
-	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations)
+	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, opts.wait, opts.deps)
 }
 
 func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
@@ -172,7 +182,7 @@ func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]
 	pkg.Variables = declaration.Variables
 }
 
-func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
+func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo, declarations map[string]projectconfig.FunctionVariableDeclaration, wait bool, deps cliruntime.Deps) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
 	pkg, err := clifunction.PackageSource(source, baseDir)
@@ -190,10 +200,10 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 	fmt.Fprintf(out, "  Deployed %s\n", deployed.Name)
 	fmt.Fprintln(out)
 	output.Success(out, "1/1 functions deployment started")
-	return nil
+	return waitForSubmittedDeployments(ctx, deps, out, service, []apiclient.Function{*deployed}, wait)
 }
 
-func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
+func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, wait bool, deps cliruntime.Deps) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
 	for i, source := range sources {
@@ -211,12 +221,13 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 
 	fmt.Fprintf(out, "\nTotal upload size: %s\n", archive.FormatSize(totalSize))
 	if !batch {
-		return runDeployAllIndividually(ctx, out, service, packages)
+		return runDeployAllIndividually(ctx, out, service, packages, wait, deps)
 	}
 
 	totalStarted := 0
 	totalFailed := 0
 	batchCount := 0
+	var submitted []apiclient.Function
 	for start := 0; start < len(packages); start += deployBatchSize {
 		end := min(start+deployBatchSize, len(packages))
 		fmt.Fprintf(out, "\nUploading batch %d-%d of %d...\n", start+1, end, len(packages))
@@ -228,6 +239,7 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 		for _, fn := range resp.Data {
 			fmt.Fprintf(out, "  Deployed %s\n", fn.Name)
 		}
+		submitted = append(submitted, resp.Data...)
 		failures := batchFailures(resp)
 		for _, failure := range failures {
 			fmt.Fprintf(out, "  ✗ Failed %s: %s\n", failure.Name, failure.Error)
@@ -245,11 +257,12 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 		return errors.New(message)
 	}
 	output.Success(out, "%d/%d functions deployment started across %d batch(es)", totalStarted, len(sources), batchCount)
-	return nil
+	return waitForSubmittedDeployments(ctx, deps, out, service, submitted, wait)
 }
 
-func runDeployAllIndividually(ctx context.Context, out io.Writer, service clifunction.Service, packages []clifunction.Package) error {
+func runDeployAllIndividually(ctx context.Context, out io.Writer, service clifunction.Service, packages []clifunction.Package, wait bool, deps cliruntime.Deps) error {
 	totalStarted := 0
+	var submitted []apiclient.Function
 	for i, pkg := range packages {
 		fmt.Fprintf(out, "\nUploading %s (%d/%d)...\n", pkg.Name, i+1, len(packages))
 		deployed, err := service.DeployPackage(ctx, pkg)
@@ -257,12 +270,63 @@ func runDeployAllIndividually(ctx context.Context, out io.Writer, service clifun
 			return fmt.Errorf("failed to deploy function %s: %w", pkg.Name, err)
 		}
 		fmt.Fprintf(out, "  Deployed %s\n", deployed.Name)
+		submitted = append(submitted, *deployed)
 		totalStarted++
 	}
 
 	fmt.Fprintln(out)
 	output.Success(out, "%d/%d functions deployment started", totalStarted, len(packages))
+	return waitForSubmittedDeployments(ctx, deps, out, service, submitted, wait)
+}
+
+func waitForSubmittedDeployments(ctx context.Context, deps cliruntime.Deps, out io.Writer, service clifunction.Service, functions []apiclient.Function, wait bool) error {
+	if !wait {
+		return nil
+	}
+	for _, fn := range functions {
+		deploymentID := fn.CurrentDeploymentId
+		if fn.PendingDeploymentId != nil {
+			deploymentID = fn.PendingDeploymentId
+		}
+		if deploymentID == nil {
+			return fmt.Errorf("function %q response did not identify its submitted deployment", fn.Name)
+		}
+		if err := waitForSubmittedDeployment(ctx, deps, out, service, fn, deploymentID.String()); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func waitForSubmittedDeployment(ctx context.Context, deps cliruntime.Deps, out io.Writer, service clifunction.Service, fn apiclient.Function, deploymentID string) error {
+	ticker := cliruntime.NewTicker(deps, deployPollInterval)
+	defer ticker.Stop()
+	readFailures := 0
+	for {
+		deployment, err := service.ResolveDeployment(ctx, fn.Id, deploymentID)
+		if err != nil {
+			readFailures++
+			if readFailures >= maxDeploymentReadFailures {
+				return fmt.Errorf("failed to read function %q deployment %s after %d attempts: %w", fn.Name, deploymentID, readFailures, err)
+			}
+		} else {
+			readFailures = 0
+			switch deployment.Status {
+			case apiclient.FunctionDeploymentStatusActive:
+				output.Success(out, "Function '%s' deployment %s is active", fn.Name, deploymentID)
+				return nil
+			case apiclient.FunctionDeploymentStatusProvisioning,
+				apiclient.FunctionDeploymentStatusQueued:
+			default:
+				return fmt.Errorf("function %q deployment %s finished with status %s", fn.Name, deploymentID, deployment.Status)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C():
+		}
+	}
 }
 
 func printSourceSummary(out io.Writer, source clifunction.SourceInfo) {

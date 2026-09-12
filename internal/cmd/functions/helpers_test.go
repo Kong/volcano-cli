@@ -109,6 +109,19 @@ func functionCommandPayload(id, name string) map[string]any {
 	}
 }
 
+func functionDeploymentCommandPayload(id, functionID, status string) map[string]any {
+	return map[string]any{
+		"created_at":    "2026-05-20T00:00:00Z",
+		"deploy_source": "request",
+		"function_id":   functionID,
+		"id":            id,
+		"operation":     "update",
+		"project_id":    functionProjectID,
+		"status":        status,
+		"updated_at":    "2026-05-20T00:00:00Z",
+	}
+}
+
 func functionRuntimeCommandPayload(name, language string, isDefault bool, fileExtensions []string, entrypoint, handler string, dependencyManifests []string) map[string]any {
 	return map[string]any{
 		"name":     name,

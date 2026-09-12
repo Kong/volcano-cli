@@ -61,13 +61,16 @@ target instead of the active context.
 
 Cloud deploys use latest-wins queueing. If the function is already deploying,
 the new source replaces any older queued deploy and runs next. Delete supersedes
-queued deploys; later deploys are rejected until deletion finishes.
+queued deploys; later deploys are rejected until deletion finishes. Add `--wait`
+to return only after each deployment submitted by the command becomes active or
+one ends without becoming active.
 
 ## Examples
 
 ```bash
 # Deploy everything, or a single function by name or path
 volcano functions deploy --all
+volcano functions deploy --all --wait
 volcano functions deploy -f get-notes
 volcano functions deploy -f volcano/functions/get-notes.js
 
