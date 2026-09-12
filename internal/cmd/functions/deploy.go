@@ -99,65 +99,35 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		return nil
 	}
 
-	// Read before anything is packaged or uploaded. An existing but unreadable
-	// manifest aborts here rather than deploying with its scope declarations
-	// silently dropped, or its durable functions mistaken for standard ones.
-	manifest, err := projectconfig.ReadFunctionDeployManifest("")
-	if err != nil {
-		return err
-	}
-
-	var sources []clifunction.SourceInfo
+	sources := allSources
 	if !opts.all {
+		sources = nil
 		for _, source := range allSources {
-			if clifunction.MatchesTarget(source, opts.file, baseDir) {
+			if sourceMatchesTarget(source, opts.file, baseDir) {
 				sources = append(sources, source)
 				break
 			}
 		}
 		if len(sources) == 0 {
-			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
-		}
-		if manifest.DurableNames[sources[0].Name] {
-			return fmt.Errorf("%q is declared durable in volcano-config.yaml; deploy it with %q",
-				sources[0].Name, "volcano cloud durable deploy -f "+sources[0].Name)
+			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, formatSourceNames(allSources))
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
-		sources = excludeDurable(allSources, manifest.DurableNames, opts.out)
-		if len(sources) == 0 {
-			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
-			return nil
-		}
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
+	// Read the manifest before anything is uploaded. An existing but unreadable
+	// manifest aborts here rather than deploying with its scope declarations
+	// silently dropped.
+	declarations, err := projectconfig.FunctionVariableDeclarations("")
+	if err != nil {
+		return err
+	}
+
 	if opts.all {
-		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations)
+		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, declarations)
 	}
-	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations)
-}
-
-func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
-	if len(durableNames) == 0 {
-		return sources
-	}
-
-	kept := make([]clifunction.SourceInfo, 0, len(sources))
-	var skipped []string
-	for _, source := range sources {
-		if durableNames[source.Name] {
-			skipped = append(skipped, source.Name)
-			continue
-		}
-		kept = append(kept, source)
-	}
-	if len(skipped) > 0 {
-		fmt.Fprintf(out, "Skipping %d durable function(s) declared in volcano-config.yaml: %s\n",
-			len(skipped), strings.Join(skipped, ", "))
-		fmt.Fprintln(out, "Deploy them with \"volcano cloud durable deploy --all\"")
-	}
-	return kept
+	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], declarations)
 }
 
 // applyVariableDeclaration attaches the manifest declaration for pkg, if the
@@ -272,6 +242,43 @@ func printSourceSummary(out io.Writer, source clifunction.SourceInfo) {
 	}
 	fmt.Fprintf(out, "  Runtime: %s (detected from %s)\n", source.Runtime.Name, detectedFrom)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
+}
+
+func normalizeSourceTarget(target string) string {
+	name := filepath.Base(strings.TrimSpace(target))
+	if ext := filepath.Ext(name); ext != "" {
+		name = strings.TrimSuffix(name, ext)
+	}
+	return name
+}
+
+func sourceMatchesTarget(source clifunction.SourceInfo, target, baseDir string) bool {
+	target = strings.TrimSpace(target)
+	if source.Name == normalizeSourceTarget(target) {
+		return true
+	}
+
+	sourcePath, err := filepath.Abs(source.Path)
+	if err != nil {
+		return false
+	}
+	targetPath := target
+	if !filepath.IsAbs(targetPath) {
+		targetPath = filepath.Join(baseDir, targetPath)
+	}
+	targetPath, err = filepath.Abs(targetPath)
+	if err != nil {
+		return false
+	}
+	return filepath.Clean(sourcePath) == filepath.Clean(targetPath)
+}
+
+func formatSourceNames(sources []clifunction.SourceInfo) string {
+	names := make([]string, len(sources))
+	for i, source := range sources {
+		names[i] = source.Name
+	}
+	return strings.Join(names, ", ")
 }
 
 func batchFailures(resp *apiclient.BatchFunctionDeployResponse) []apiclient.BatchFunctionDeployFailure {

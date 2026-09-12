@@ -54,8 +54,6 @@ functions:
         cron: "*/5 * * * *"
         enabled: true
         payload: { job: refresh }
-  - name: order-pipeline
-    kind: durable              # asserted, not applied: a kind is fixed at creation
 ```
 
 Cloud example — export the current cloud project's configuration to a file,
@@ -72,14 +70,6 @@ volcano cloud config deploy -f volcano-config.yaml             # apply
 
 Key semantics:
 
-- `functions[].kind` declares which entries are
-  [durable functions](durable-functions.md). It is asserted rather than applied,
-  since a function's kind is fixed when it is created. It is also what tells the
-  deploy commands apart: `volcano functions deploy --all` skips these entries and
-  `volcano cloud durable deploy --all` deploys exactly them. Leave it out for a
-  standard function, and leave the invocation settings out of a durable one —
-  they describe synchronous HTTP invocation, which a durable function does not
-  have.
 - Declared config sections are the source of truth. Variables, bucket policies,
   OAuth providers, email templates, and function schedulers are fully synced
   when declared: entries absent from the manifest are deleted. Omitted sections
