@@ -634,6 +634,60 @@ func (e DeploymentProgressCurrentPhase) Valid() bool {
 	}
 }
 
+// Defines values for DurableExecutionStatus.
+const (
+	DurableExecutionStatusFailed    DurableExecutionStatus = "failed"
+	DurableExecutionStatusPending   DurableExecutionStatus = "pending"
+	DurableExecutionStatusRunning   DurableExecutionStatus = "running"
+	DurableExecutionStatusStopped   DurableExecutionStatus = "stopped"
+	DurableExecutionStatusSucceeded DurableExecutionStatus = "succeeded"
+	DurableExecutionStatusTimedOut  DurableExecutionStatus = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the DurableExecutionStatus enum.
+func (e DurableExecutionStatus) Valid() bool {
+	switch e {
+	case DurableExecutionStatusFailed:
+		return true
+	case DurableExecutionStatusPending:
+		return true
+	case DurableExecutionStatusRunning:
+		return true
+	case DurableExecutionStatusStopped:
+		return true
+	case DurableExecutionStatusSucceeded:
+		return true
+	case DurableExecutionStatusTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DurableFunctionStatus.
+const (
+	DurableFunctionStatusActive       DurableFunctionStatus = "active"
+	DurableFunctionStatusDeleting     DurableFunctionStatus = "deleting"
+	DurableFunctionStatusFailed       DurableFunctionStatus = "failed"
+	DurableFunctionStatusProvisioning DurableFunctionStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the DurableFunctionStatus enum.
+func (e DurableFunctionStatus) Valid() bool {
+	switch e {
+	case DurableFunctionStatusActive:
+		return true
+	case DurableFunctionStatusDeleting:
+		return true
+	case DurableFunctionStatusFailed:
+		return true
+	case DurableFunctionStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EmailTemplateTemplateType.
 const (
 	EmailTemplateTemplateTypeConfirmation    EmailTemplateTemplateType = "confirmation"
@@ -1015,6 +1069,24 @@ func (e FunctionDeploymentStatus) Valid() bool {
 	case FunctionDeploymentStatusQueued:
 		return true
 	case FunctionDeploymentStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionKind.
+const (
+	Durable  FunctionKind = "durable"
+	Standard FunctionKind = "standard"
+)
+
+// Valid indicates whether the value is a known member of the FunctionKind enum.
+func (e FunctionKind) Valid() bool {
+	switch e {
+	case Durable:
+		return true
+	case Standard:
 		return true
 	default:
 		return false
@@ -3073,6 +3145,48 @@ func (e SummarizeProjectDeploymentsParamsResourceType) Valid() bool {
 	}
 }
 
+// Defines values for CreateDurableFunctionMultipartBodyRuntime.
+const (
+	CreateDurableFunctionMultipartBodyRuntimeNodejs22X CreateDurableFunctionMultipartBodyRuntime = "nodejs22.x"
+	CreateDurableFunctionMultipartBodyRuntimeNodejs24X CreateDurableFunctionMultipartBodyRuntime = "nodejs24.x"
+	CreateDurableFunctionMultipartBodyRuntimePython310 CreateDurableFunctionMultipartBodyRuntime = "python3.10"
+	CreateDurableFunctionMultipartBodyRuntimePython311 CreateDurableFunctionMultipartBodyRuntime = "python3.11"
+	CreateDurableFunctionMultipartBodyRuntimePython312 CreateDurableFunctionMultipartBodyRuntime = "python3.12"
+	CreateDurableFunctionMultipartBodyRuntimePython313 CreateDurableFunctionMultipartBodyRuntime = "python3.13"
+	CreateDurableFunctionMultipartBodyRuntimePython314 CreateDurableFunctionMultipartBodyRuntime = "python3.14"
+	CreateDurableFunctionMultipartBodyRuntimeRuby33    CreateDurableFunctionMultipartBodyRuntime = "ruby3.3"
+	CreateDurableFunctionMultipartBodyRuntimeRuby34    CreateDurableFunctionMultipartBodyRuntime = "ruby3.4"
+	CreateDurableFunctionMultipartBodyRuntimeRuby40    CreateDurableFunctionMultipartBodyRuntime = "ruby4.0"
+)
+
+// Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyRuntime enum.
+func (e CreateDurableFunctionMultipartBodyRuntime) Valid() bool {
+	switch e {
+	case CreateDurableFunctionMultipartBodyRuntimeNodejs22X:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimeNodejs24X:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython310:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython311:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython312:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython313:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython314:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimeRuby33:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimeRuby34:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimeRuby40:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeleteEmailTemplateParamsType.
 const (
 	DeleteEmailTemplateParamsTypeConfirmation    DeleteEmailTemplateParamsType = "confirmation"
@@ -3162,40 +3276,40 @@ func (e CreateFrontendMultipartBodyFramework) Valid() bool {
 
 // Defines values for CreateFunctionMultipartBodyRuntime.
 const (
-	Nodejs22X CreateFunctionMultipartBodyRuntime = "nodejs22.x"
-	Nodejs24X CreateFunctionMultipartBodyRuntime = "nodejs24.x"
-	Python310 CreateFunctionMultipartBodyRuntime = "python3.10"
-	Python311 CreateFunctionMultipartBodyRuntime = "python3.11"
-	Python312 CreateFunctionMultipartBodyRuntime = "python3.12"
-	Python313 CreateFunctionMultipartBodyRuntime = "python3.13"
-	Python314 CreateFunctionMultipartBodyRuntime = "python3.14"
-	Ruby33    CreateFunctionMultipartBodyRuntime = "ruby3.3"
-	Ruby34    CreateFunctionMultipartBodyRuntime = "ruby3.4"
-	Ruby40    CreateFunctionMultipartBodyRuntime = "ruby4.0"
+	CreateFunctionMultipartBodyRuntimeNodejs22X CreateFunctionMultipartBodyRuntime = "nodejs22.x"
+	CreateFunctionMultipartBodyRuntimeNodejs24X CreateFunctionMultipartBodyRuntime = "nodejs24.x"
+	CreateFunctionMultipartBodyRuntimePython310 CreateFunctionMultipartBodyRuntime = "python3.10"
+	CreateFunctionMultipartBodyRuntimePython311 CreateFunctionMultipartBodyRuntime = "python3.11"
+	CreateFunctionMultipartBodyRuntimePython312 CreateFunctionMultipartBodyRuntime = "python3.12"
+	CreateFunctionMultipartBodyRuntimePython313 CreateFunctionMultipartBodyRuntime = "python3.13"
+	CreateFunctionMultipartBodyRuntimePython314 CreateFunctionMultipartBodyRuntime = "python3.14"
+	CreateFunctionMultipartBodyRuntimeRuby33    CreateFunctionMultipartBodyRuntime = "ruby3.3"
+	CreateFunctionMultipartBodyRuntimeRuby34    CreateFunctionMultipartBodyRuntime = "ruby3.4"
+	CreateFunctionMultipartBodyRuntimeRuby40    CreateFunctionMultipartBodyRuntime = "ruby4.0"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyRuntime enum.
 func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 	switch e {
-	case Nodejs22X:
+	case CreateFunctionMultipartBodyRuntimeNodejs22X:
 		return true
-	case Nodejs24X:
+	case CreateFunctionMultipartBodyRuntimeNodejs24X:
 		return true
-	case Python310:
+	case CreateFunctionMultipartBodyRuntimePython310:
 		return true
-	case Python311:
+	case CreateFunctionMultipartBodyRuntimePython311:
 		return true
-	case Python312:
+	case CreateFunctionMultipartBodyRuntimePython312:
 		return true
-	case Python313:
+	case CreateFunctionMultipartBodyRuntimePython313:
 		return true
-	case Python314:
+	case CreateFunctionMultipartBodyRuntimePython314:
 		return true
-	case Ruby33:
+	case CreateFunctionMultipartBodyRuntimeRuby33:
 		return true
-	case Ruby34:
+	case CreateFunctionMultipartBodyRuntimeRuby34:
 		return true
-	case Ruby40:
+	case CreateFunctionMultipartBodyRuntimeRuby40:
 		return true
 	default:
 		return false
@@ -4611,6 +4725,118 @@ type DeviceAuthorizationResponse struct {
 	VerificationUriComplete string `json:"verification_uri_complete"`
 }
 
+// DurableExecution defines model for DurableExecution.
+type DurableExecution struct {
+	// CompletedAt Present once the execution has reached a terminal status.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+
+	// Error Why a failed or timed-out execution ended.
+	Error      *DurableExecutionError `json:"error,omitempty"`
+	FunctionId openapi_types.UUID     `json:"function_id"`
+	Id         openapi_types.UUID     `json:"id"`
+
+	// Name Idempotency key for the execution. Supplied by the client through
+	// `X-Volcano-Execution-Name`, otherwise generated.
+	Name string `json:"name"`
+
+	// Region Region the execution runs in. An execution is pinned to one region
+	// for its whole life because its checkpoints live there.
+	Region string `json:"region"`
+
+	// Result Whatever the function returned, verbatim. Absent while the execution
+	// is still running, and absent once its retention period has lapsed.
+	Result interface{} `json:"result,omitempty"`
+
+	// ResultExpired `true` when the execution is terminal but its result is no longer
+	// retained, which distinguishes a discarded result from an empty one.
+	ResultExpired *bool `json:"result_expired,omitempty"`
+
+	// Status Lifecycle state of an execution. `pending` covers the window between the
+	// platform reserving the execution name and the function accepting the
+	// start, and has no counterpart once the execution is under way.
+	// `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+	Status DurableExecutionStatus `json:"status"`
+}
+
+// DurableExecutionError Why a failed or timed-out execution ended.
+type DurableExecutionError struct {
+	Message *string `json:"message,omitempty"`
+	Type    *string `json:"type,omitempty"`
+}
+
+// DurableExecutionStatus Lifecycle state of an execution. `pending` covers the window between the
+// platform reserving the execution name and the function accepting the
+// start, and has no counterpart once the execution is under way.
+// `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+type DurableExecutionStatus string
+
+// DurableFunction A durable function. Separate from `Function` because a durable function
+// is invoked only through its own execution endpoints, so it has no
+// invocation mode, HTTP auth mode, OpenAPI document or invoke URL, and it
+// carries a `durable` configuration that a standard function has no field
+// for.
+type DurableFunction struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// CurrentDeploymentId Identifier of the latest deployment operation
+	CurrentDeploymentId *openapi_types.UUID `json:"current_deployment_id,omitempty"`
+
+	// DeployedRegions Regions where this function is currently deployed
+	DeployedRegions []string `json:"deployed_regions"`
+
+	// Durable Execution limits the function was created with, derived from the
+	// project's plan. Fixed for the life of the function: changing them means
+	// creating a new one.
+	Durable DurableFunctionConfig `json:"durable"`
+	Handler *string               `json:"handler,omitempty"`
+	Id      openapi_types.UUID    `json:"id"`
+
+	// IsPublic Whether anon keys may start executions of this function through
+	// `POST /durable-functions/{functionId}/executions`.
+	//
+	// When `true`, an anon key holding `functions.invoke` can start an
+	// execution. When `false` (the default) only service keys and auth
+	// user tokens can. Reading and stopping an execution always require
+	// the project owner's token, whatever this is set to.
+	//
+	// Set it when the function is created. Durable functions have no
+	// update endpoint, so changing visibility later means redeploying.
+	//
+	// A public durable function is startable, never invocable: it is not
+	// reachable through `POST /functions/{functionId}/invoke` or a
+	// function URL, which answer `404` for either visibility.
+	IsPublic bool `json:"is_public"`
+
+	// LastInvokedAt Most recent successful invocation timestamp
+	LastInvokedAt *time.Time `json:"last_invoked_at,omitempty"`
+	Name          string     `json:"name"`
+
+	// PendingDeploymentId Newest queued deployment that will run after the current operation
+	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
+	ProjectId           openapi_types.UUID  `json:"project_id"`
+
+	// ProvisioningStartedAt Timestamp when the current provisioning phase started
+	ProvisioningStartedAt *time.Time            `json:"provisioning_started_at,omitempty"`
+	Runtime               *string               `json:"runtime,omitempty"`
+	Status                DurableFunctionStatus `json:"status"`
+	UpdatedAt             time.Time             `json:"updated_at"`
+}
+
+// DurableFunctionStatus defines model for DurableFunction.Status.
+type DurableFunctionStatus string
+
+// DurableFunctionConfig Execution limits the function was created with, derived from the
+// project's plan. Fixed for the life of the function: changing them means
+// creating a new one.
+type DurableFunctionConfig struct {
+	// ExecutionTimeoutSeconds How long a single execution may run before it is timed out.
+	ExecutionTimeoutSeconds int64 `json:"execution_timeout_seconds"`
+
+	// RetentionDays How long a finished execution's result and history are retained.
+	RetentionDays int64 `json:"retention_days"`
+}
+
 // EmailTemplate Custom email template
 type EmailTemplate struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
@@ -4939,6 +5165,13 @@ type FunctionInvocationRequest struct {
 // FunctionInvocationResponse Raw function response body returned by the invoked function.
 type FunctionInvocationResponse map[string]interface{}
 
+// FunctionKind Which kind of function this is. `standard` runs once per invocation.
+// `durable` checkpoints its progress and resumes from the last completed
+// step, and is invoked asynchronously through its own executions
+// collection. A function's kind is fixed when it is created and cannot be
+// changed afterwards. Omitting this field means `standard`.
+type FunctionKind string
+
 // FunctionRegion defines model for FunctionRegion.
 type FunctionRegion struct {
 	// Code Region identifier accepted by function APIs.
@@ -4972,6 +5205,9 @@ type FunctionRuntimeOption struct {
 	Default    bool                      `json:"default"`
 	Deployment FunctionRuntimeDeployment `json:"deployment"`
 
+	// DurableCapable Whether a durable function can be authored on this runtime. Only runtimes with a durable authoring API report true, and a durable deploy naming any other runtime is rejected.
+	DurableCapable bool `json:"durable_capable"`
+
 	// Language Runtime language family used by the CLI to choose defaults from source files.
 	Language string `json:"language"`
 
@@ -4986,10 +5222,17 @@ type FunctionRuntimesResponse struct {
 
 // FunctionScheduler defines model for FunctionScheduler.
 type FunctionScheduler struct {
-	CreatedAt       *time.Time              `json:"created_at,omitempty"`
-	CronExpression  *string                 `json:"cron_expression,omitempty"`
-	Enabled         *bool                   `json:"enabled,omitempty"`
-	FunctionId      *openapi_types.UUID     `json:"function_id,omitempty"`
+	CreatedAt      *time.Time          `json:"created_at,omitempty"`
+	CronExpression *string             `json:"cron_expression,omitempty"`
+	Enabled        *bool               `json:"enabled,omitempty"`
+	FunctionId     *openapi_types.UUID `json:"function_id,omitempty"`
+
+	// FunctionKind Which collection the scheduled function belongs to. A project-wide
+	// scheduler list mixes both kinds, and this is what says whether the
+	// function is read back from `/projects/{id}/functions` or
+	// `/projects/{id}/durable-functions` — and whether a tick invokes it
+	// or starts a durable execution.
+	FunctionKind    *FunctionKind           `json:"function_kind,omitempty"`
 	Id              *openapi_types.UUID     `json:"id,omitempty"`
 	LastCompletedAt *time.Time              `json:"last_completed_at,omitempty"`
 	LastError       *string                 `json:"last_error,omitempty"`
@@ -5510,6 +5753,40 @@ type PaginatedDatabases struct {
 
 	// PrevCursor Opaque cursor for the previous page (cursor pagination only; present when a previous page exists). Send as `ending_before`.
 	PrevCursor *string `json:"prev_cursor,omitempty"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
+// PaginatedDurableExecutions defines model for PaginatedDurableExecutions.
+type PaginatedDurableExecutions struct {
+	Data []DurableExecution `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
+// PaginatedDurableFunctions defines model for PaginatedDurableFunctions.
+type PaginatedDurableFunctions struct {
+	Data []DurableFunction `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
 
 	// Total Total number of items across all pages
 	Total int `json:"total"`
@@ -7375,6 +7652,12 @@ type DeploymentResourceType string
 // DeploymentStatus defines model for DeploymentStatus.
 type DeploymentStatus string
 
+// DurableExecutionId defines model for DurableExecutionId.
+type DurableExecutionId = openapi_types.UUID
+
+// DurableFunctionId defines model for DurableFunctionId.
+type DurableFunctionId = string
+
 // EndingBefore defines model for EndingBefore.
 type EndingBefore = string
 
@@ -8284,6 +8567,70 @@ type ListProjectCustomDomainsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListDurableFunctionsParams defines parameters for ListDurableFunctions.
+type ListDurableFunctionsParams struct {
+	// Page Page number (1-indexed) for offset pagination. Declares no schema
+	// default so the request validator does not inject one: handlers that omit
+	// `page` see it unset (nil) and default to 1 in code, while cursor-first
+	// endpoints (e.g. the project deployments feed) can detect its absence to
+	// stay in keyset/search mode. Supplying `page` selects offset pagination.
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Search Case-insensitive substring match on the resource `name`. See the
+	// endpoint description for supported pagination modes.
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// CreateDurableFunctionMultipartBody defines parameters for CreateDurableFunction.
+type CreateDurableFunctionMultipartBody struct {
+	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles.
+	Code openapi_types.File `json:"code"`
+
+	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
+	Handler *string `json:"handler,omitempty"`
+
+	// IsPublic Whether anon keys with `functions.invoke` may start an execution.
+	IsPublic *bool `json:"is_public,omitempty"`
+
+	// Name DNS-safe function name (lowercase letters, numbers, hyphens; cannot start or end with hyphen)
+	Name string `json:"name"`
+
+	// Runtime Runtime environment. Required. Must be a runtime that supports
+	// durable execution; one that does not is rejected with 400.
+	Runtime CreateDurableFunctionMultipartBodyRuntime `json:"runtime"`
+}
+
+// CreateDurableFunctionMultipartBodyRuntime defines parameters for CreateDurableFunction.
+type CreateDurableFunctionMultipartBodyRuntime string
+
+// ListDurableExecutionsParams defines parameters for ListDurableExecutions.
+type ListDurableExecutionsParams struct {
+	// Page Page number (1-indexed) for offset pagination. Declares no schema
+	// default so the request validator does not inject one: handlers that omit
+	// `page` see it unset (nil) and default to 1 in code, while cursor-first
+	// endpoints (e.g. the project deployments feed) can detect its absence to
+	// stay in keyset/search mode. Supplying `page` selects offset pagination.
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Status Return only executions in this status.
+	Status *DurableExecutionStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// StartDurableExecutionJSONBody defines parameters for StartDurableExecution.
+type StartDurableExecutionJSONBody = interface{}
+
+// StartDurableExecutionParams defines parameters for StartDurableExecution.
+type StartDurableExecutionParams struct {
+	// XVolcanoExecutionName Idempotency key for this execution. Generated when omitted.
+	XVolcanoExecutionName *string `json:"X-Volcano-Execution-Name,omitempty"`
+}
+
 // DeleteEmailTemplateParamsType defines parameters for DeleteEmailTemplate.
 type DeleteEmailTemplateParamsType string
 
@@ -8932,6 +9279,18 @@ type CreateDatabaseRestoreJSONRequestBody = CreateDatabaseRestoreRequest
 
 // UpdateDatabaseTypeJSONRequestBody defines body for UpdateDatabaseType for application/json ContentType.
 type UpdateDatabaseTypeJSONRequestBody = UpdateDatabaseTypeRequest
+
+// CreateDurableFunctionMultipartRequestBody defines body for CreateDurableFunction for multipart/form-data ContentType.
+type CreateDurableFunctionMultipartRequestBody CreateDurableFunctionMultipartBody
+
+// StartDurableExecutionJSONRequestBody defines body for StartDurableExecution for application/json ContentType.
+type StartDurableExecutionJSONRequestBody = StartDurableExecutionJSONBody
+
+// CreateDurableFunctionSchedulerJSONRequestBody defines body for CreateDurableFunctionScheduler for application/json ContentType.
+type CreateDurableFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
+
+// UpdateDurableFunctionSchedulerJSONRequestBody defines body for UpdateDurableFunctionScheduler for application/json ContentType.
+type UpdateDurableFunctionSchedulerJSONRequestBody = UpdateFunctionSchedulerRequest
 
 // CreateEmailTemplateJSONRequestBody defines body for CreateEmailTemplate for application/json ContentType.
 type CreateEmailTemplateJSONRequestBody = CreateEmailTemplateRequest
@@ -10305,6 +10664,51 @@ type ClientInterface interface {
 
 	// ListProjectCustomDomains request
 	ListProjectCustomDomains(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableFunctions request
+	ListDurableFunctions(ctx context.Context, id ProjectId, params *ListDurableFunctionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDurableFunctionWithBody request with any body
+	CreateDurableFunctionWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDurableFunction request
+	DeleteDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDurableFunction request
+	GetDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableExecutions request
+	ListDurableExecutions(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartDurableExecutionWithBody request with any body
+	StartDurableExecutionWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, body StartDurableExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDurableExecution request
+	GetDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopDurableExecution request
+	StopDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableFunctionSchedulers request
+	ListDurableFunctionSchedulers(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDurableFunctionSchedulerWithBody request with any body
+	CreateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDurableFunctionScheduler request
+	DeleteDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDurableFunctionScheduler request
+	GetDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDurableFunctionSchedulerWithBody request with any body
+	UpdateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListEmailTemplates request
 	ListEmailTemplates(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12733,6 +13137,198 @@ func (c *Client) SummarizeProjectDeployments(ctx context.Context, id ProjectId, 
 
 func (c *Client) ListProjectCustomDomains(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectCustomDomainsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableFunctions(ctx context.Context, id ProjectId, params *ListDurableFunctionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableFunctionsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDurableFunctionWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDurableFunctionRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDurableFunctionRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDurableFunctionRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableExecutions(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableExecutionsRequest(c.Server, id, functionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartDurableExecutionWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDurableExecutionRequestWithBody(c.Server, id, functionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, body StartDurableExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartDurableExecutionRequest(c.Server, id, functionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDurableExecutionRequest(c.Server, id, functionId, executionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopDurableExecutionRequest(c.Server, id, functionId, executionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableFunctionSchedulers(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableFunctionSchedulersRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDurableFunctionSchedulerRequestWithBody(c.Server, id, functionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDurableFunctionSchedulerRequest(c.Server, id, functionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDurableFunctionSchedulerWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDurableFunctionSchedulerRequestWithBody(c.Server, id, functionId, schedulerId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDurableFunctionScheduler(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDurableFunctionSchedulerRequest(c.Server, id, functionId, schedulerId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20890,6 +21486,718 @@ func NewListProjectCustomDomainsRequest(server string, id ProjectId, params *Lis
 	return req, nil
 }
 
+// NewListDurableFunctionsRequest generates requests for ListDurableFunctions
+func NewListDurableFunctionsRequest(server string, id ProjectId, params *ListDurableFunctionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDurableFunctionRequestWithBody generates requests for CreateDurableFunction with any type of body
+func NewCreateDurableFunctionRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDurableFunctionRequest generates requests for DeleteDurableFunction
+func NewDeleteDurableFunctionRequest(server string, id ProjectId, functionId DurableFunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDurableFunctionRequest generates requests for GetDurableFunction
+func NewGetDurableFunctionRequest(server string, id ProjectId, functionId DurableFunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDurableExecutionsRequest generates requests for ListDurableExecutions
+func NewListDurableExecutionsRequest(server string, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartDurableExecutionRequest calls the generic StartDurableExecution builder with application/json body
+func NewStartDurableExecutionRequest(server string, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, body StartDurableExecutionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartDurableExecutionRequestWithBody(server, id, functionId, params, "application/json", bodyReader)
+}
+
+// NewStartDurableExecutionRequestWithBody generates requests for StartDurableExecution with any type of body
+func NewStartDurableExecutionRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XVolcanoExecutionName != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Execution-Name", *params.XVolcanoExecutionName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Execution-Name", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetDurableExecutionRequest generates requests for GetDurableExecution
+func NewGetDurableExecutionRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStopDurableExecutionRequest generates requests for StopDurableExecution
+func NewStopDurableExecutionRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions/%s/stop", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDurableFunctionSchedulersRequest generates requests for ListDurableFunctionSchedulers
+func NewListDurableFunctionSchedulersRequest(server string, id ProjectId, functionId DurableFunctionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDurableFunctionSchedulerRequest calls the generic CreateDurableFunctionScheduler builder with application/json body
+func NewCreateDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDurableFunctionSchedulerRequestWithBody(server, id, functionId, "application/json", bodyReader)
+}
+
+// NewCreateDurableFunctionSchedulerRequestWithBody generates requests for CreateDurableFunctionScheduler with any type of body
+func NewCreateDurableFunctionSchedulerRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDurableFunctionSchedulerRequest generates requests for DeleteDurableFunctionScheduler
+func NewDeleteDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDurableFunctionSchedulerRequest generates requests for GetDurableFunctionScheduler
+func NewGetDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDurableFunctionSchedulerRequest calls the generic UpdateDurableFunctionScheduler builder with application/json body
+func NewUpdateDurableFunctionSchedulerRequest(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDurableFunctionSchedulerRequestWithBody(server, id, functionId, schedulerId, "application/json", bodyReader)
+}
+
+// NewUpdateDurableFunctionSchedulerRequestWithBody generates requests for UpdateDurableFunctionScheduler with any type of body
+func NewUpdateDurableFunctionSchedulerRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "schedulerId", schedulerId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/schedulers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListEmailTemplatesRequest generates requests for ListEmailTemplates
 func NewListEmailTemplatesRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -26189,6 +27497,51 @@ type ClientWithResponsesInterface interface {
 	// ListProjectCustomDomainsWithResponse request
 	ListProjectCustomDomainsWithResponse(ctx context.Context, id ProjectId, params *ListProjectCustomDomainsParams, reqEditors ...RequestEditorFn) (*ListProjectCustomDomainsClientResponse, error)
 
+	// ListDurableFunctionsWithResponse request
+	ListDurableFunctionsWithResponse(ctx context.Context, id ProjectId, params *ListDurableFunctionsParams, reqEditors ...RequestEditorFn) (*ListDurableFunctionsClientResponse, error)
+
+	// CreateDurableFunctionWithBodyWithResponse request with any body
+	CreateDurableFunctionWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionClientResponse, error)
+
+	// DeleteDurableFunctionWithResponse request
+	DeleteDurableFunctionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionClientResponse, error)
+
+	// GetDurableFunctionWithResponse request
+	GetDurableFunctionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*GetDurableFunctionClientResponse, error)
+
+	// ListDurableExecutionsWithResponse request
+	ListDurableExecutionsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*ListDurableExecutionsClientResponse, error)
+
+	// StartDurableExecutionWithBodyWithResponse request with any body
+	StartDurableExecutionWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDurableExecutionClientResponse, error)
+
+	StartDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, body StartDurableExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDurableExecutionClientResponse, error)
+
+	// GetDurableExecutionWithResponse request
+	GetDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*GetDurableExecutionClientResponse, error)
+
+	// StopDurableExecutionWithResponse request
+	StopDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*StopDurableExecutionClientResponse, error)
+
+	// ListDurableFunctionSchedulersWithResponse request
+	ListDurableFunctionSchedulersWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*ListDurableFunctionSchedulersClientResponse, error)
+
+	// CreateDurableFunctionSchedulerWithBodyWithResponse request with any body
+	CreateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error)
+
+	CreateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error)
+
+	// DeleteDurableFunctionSchedulerWithResponse request
+	DeleteDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionSchedulerClientResponse, error)
+
+	// GetDurableFunctionSchedulerWithResponse request
+	GetDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*GetDurableFunctionSchedulerClientResponse, error)
+
+	// UpdateDurableFunctionSchedulerWithBodyWithResponse request with any body
+	UpdateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error)
+
+	UpdateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error)
+
 	// ListEmailTemplatesWithResponse request
 	ListEmailTemplatesWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListEmailTemplatesClientResponse, error)
 
@@ -30774,6 +32127,423 @@ func (r ListProjectCustomDomainsClientResponse) ContentType() string {
 	return ""
 }
 
+type ListDurableFunctionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedDurableFunctions
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableFunctionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableFunctionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableFunctionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDurableFunctionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableFunction
+	JSON201      *DurableFunction
+	JSON400      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDurableFunctionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDurableFunctionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDurableFunctionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteDurableFunctionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDurableFunctionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDurableFunctionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDurableFunctionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDurableFunctionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableFunction
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDurableFunctionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDurableFunctionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDurableFunctionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDurableExecutionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedDurableExecutions
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableExecutionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableExecutionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableExecutionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartDurableExecutionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *DurableExecution
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartDurableExecutionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartDurableExecutionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartDurableExecutionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDurableExecutionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableExecution
+	JSON404      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDurableExecutionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDurableExecutionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDurableExecutionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StopDurableExecutionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableExecution
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StopDurableExecutionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopDurableExecutionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StopDurableExecutionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDurableFunctionSchedulersClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionSchedulerListResponse
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableFunctionSchedulersClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableFunctionSchedulersClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableFunctionSchedulersClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FunctionScheduler
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionScheduler
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateDurableFunctionSchedulerClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FunctionScheduler
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDurableFunctionSchedulerClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDurableFunctionSchedulerClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateDurableFunctionSchedulerClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListEmailTemplatesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -35214,6 +36984,147 @@ func (c *ClientWithResponses) ListProjectCustomDomainsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListProjectCustomDomainsClientResponse(rsp)
+}
+
+// ListDurableFunctionsWithResponse request returning *ListDurableFunctionsClientResponse
+func (c *ClientWithResponses) ListDurableFunctionsWithResponse(ctx context.Context, id ProjectId, params *ListDurableFunctionsParams, reqEditors ...RequestEditorFn) (*ListDurableFunctionsClientResponse, error) {
+	rsp, err := c.ListDurableFunctions(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableFunctionsClientResponse(rsp)
+}
+
+// CreateDurableFunctionWithBodyWithResponse request with arbitrary body returning *CreateDurableFunctionClientResponse
+func (c *ClientWithResponses) CreateDurableFunctionWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionClientResponse, error) {
+	rsp, err := c.CreateDurableFunctionWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDurableFunctionClientResponse(rsp)
+}
+
+// DeleteDurableFunctionWithResponse request returning *DeleteDurableFunctionClientResponse
+func (c *ClientWithResponses) DeleteDurableFunctionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionClientResponse, error) {
+	rsp, err := c.DeleteDurableFunction(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDurableFunctionClientResponse(rsp)
+}
+
+// GetDurableFunctionWithResponse request returning *GetDurableFunctionClientResponse
+func (c *ClientWithResponses) GetDurableFunctionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*GetDurableFunctionClientResponse, error) {
+	rsp, err := c.GetDurableFunction(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDurableFunctionClientResponse(rsp)
+}
+
+// ListDurableExecutionsWithResponse request returning *ListDurableExecutionsClientResponse
+func (c *ClientWithResponses) ListDurableExecutionsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*ListDurableExecutionsClientResponse, error) {
+	rsp, err := c.ListDurableExecutions(ctx, id, functionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableExecutionsClientResponse(rsp)
+}
+
+// StartDurableExecutionWithBodyWithResponse request with arbitrary body returning *StartDurableExecutionClientResponse
+func (c *ClientWithResponses) StartDurableExecutionWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDurableExecutionClientResponse, error) {
+	rsp, err := c.StartDurableExecutionWithBody(ctx, id, functionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDurableExecutionClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *StartDurableExecutionParams, body StartDurableExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDurableExecutionClientResponse, error) {
+	rsp, err := c.StartDurableExecution(ctx, id, functionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartDurableExecutionClientResponse(rsp)
+}
+
+// GetDurableExecutionWithResponse request returning *GetDurableExecutionClientResponse
+func (c *ClientWithResponses) GetDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*GetDurableExecutionClientResponse, error) {
+	rsp, err := c.GetDurableExecution(ctx, id, functionId, executionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDurableExecutionClientResponse(rsp)
+}
+
+// StopDurableExecutionWithResponse request returning *StopDurableExecutionClientResponse
+func (c *ClientWithResponses) StopDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*StopDurableExecutionClientResponse, error) {
+	rsp, err := c.StopDurableExecution(ctx, id, functionId, executionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopDurableExecutionClientResponse(rsp)
+}
+
+// ListDurableFunctionSchedulersWithResponse request returning *ListDurableFunctionSchedulersClientResponse
+func (c *ClientWithResponses) ListDurableFunctionSchedulersWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*ListDurableFunctionSchedulersClientResponse, error) {
+	rsp, err := c.ListDurableFunctionSchedulers(ctx, id, functionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableFunctionSchedulersClientResponse(rsp)
+}
+
+// CreateDurableFunctionSchedulerWithBodyWithResponse request with arbitrary body returning *CreateDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) CreateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.CreateDurableFunctionSchedulerWithBody(ctx, id, functionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, body CreateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.CreateDurableFunctionScheduler(ctx, id, functionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// DeleteDurableFunctionSchedulerWithResponse request returning *DeleteDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) DeleteDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*DeleteDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.DeleteDurableFunctionScheduler(ctx, id, functionId, schedulerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// GetDurableFunctionSchedulerWithResponse request returning *GetDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) GetDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, reqEditors ...RequestEditorFn) (*GetDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.GetDurableFunctionScheduler(ctx, id, functionId, schedulerId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDurableFunctionSchedulerClientResponse(rsp)
+}
+
+// UpdateDurableFunctionSchedulerWithBodyWithResponse request with arbitrary body returning *UpdateDurableFunctionSchedulerClientResponse
+func (c *ClientWithResponses) UpdateDurableFunctionSchedulerWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.UpdateDurableFunctionSchedulerWithBody(ctx, id, functionId, schedulerId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDurableFunctionSchedulerClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDurableFunctionSchedulerWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, schedulerId SchedulerId, body UpdateDurableFunctionSchedulerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	rsp, err := c.UpdateDurableFunctionScheduler(ctx, id, functionId, schedulerId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDurableFunctionSchedulerClientResponse(rsp)
 }
 
 // ListEmailTemplatesWithResponse request returning *ListEmailTemplatesClientResponse
@@ -41677,6 +43588,533 @@ func ParseListProjectCustomDomainsClientResponse(rsp *http.Response) (*ListProje
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableFunctionsClientResponse parses an HTTP response from a ListDurableFunctionsWithResponse call
+func ParseListDurableFunctionsClientResponse(rsp *http.Response) (*ListDurableFunctionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableFunctionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedDurableFunctions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDurableFunctionClientResponse parses an HTTP response from a CreateDurableFunctionWithResponse call
+func ParseCreateDurableFunctionClientResponse(rsp *http.Response) (*CreateDurableFunctionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDurableFunctionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableFunction
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableFunction
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDurableFunctionClientResponse parses an HTTP response from a DeleteDurableFunctionWithResponse call
+func ParseDeleteDurableFunctionClientResponse(rsp *http.Response) (*DeleteDurableFunctionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDurableFunctionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDurableFunctionClientResponse parses an HTTP response from a GetDurableFunctionWithResponse call
+func ParseGetDurableFunctionClientResponse(rsp *http.Response) (*GetDurableFunctionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDurableFunctionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableFunction
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableExecutionsClientResponse parses an HTTP response from a ListDurableExecutionsWithResponse call
+func ParseListDurableExecutionsClientResponse(rsp *http.Response) (*ListDurableExecutionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableExecutionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedDurableExecutions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartDurableExecutionClientResponse parses an HTTP response from a StartDurableExecutionWithResponse call
+func ParseStartDurableExecutionClientResponse(rsp *http.Response) (*StartDurableExecutionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartDurableExecutionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DurableExecution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDurableExecutionClientResponse parses an HTTP response from a GetDurableExecutionWithResponse call
+func ParseGetDurableExecutionClientResponse(rsp *http.Response) (*GetDurableExecutionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDurableExecutionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableExecution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopDurableExecutionClientResponse parses an HTTP response from a StopDurableExecutionWithResponse call
+func ParseStopDurableExecutionClientResponse(rsp *http.Response) (*StopDurableExecutionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopDurableExecutionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableExecution
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableFunctionSchedulersClientResponse parses an HTTP response from a ListDurableFunctionSchedulersWithResponse call
+func ParseListDurableFunctionSchedulersClientResponse(rsp *http.Response) (*ListDurableFunctionSchedulersClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableFunctionSchedulersClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionSchedulerListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDurableFunctionSchedulerClientResponse parses an HTTP response from a CreateDurableFunctionSchedulerWithResponse call
+func ParseCreateDurableFunctionSchedulerClientResponse(rsp *http.Response) (*CreateDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDurableFunctionSchedulerClientResponse parses an HTTP response from a DeleteDurableFunctionSchedulerWithResponse call
+func ParseDeleteDurableFunctionSchedulerClientResponse(rsp *http.Response) (*DeleteDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDurableFunctionSchedulerClientResponse parses an HTTP response from a GetDurableFunctionSchedulerWithResponse call
+func ParseGetDurableFunctionSchedulerClientResponse(rsp *http.Response) (*GetDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDurableFunctionSchedulerClientResponse parses an HTTP response from a UpdateDurableFunctionSchedulerWithResponse call
+func ParseUpdateDurableFunctionSchedulerClientResponse(rsp *http.Response) (*UpdateDurableFunctionSchedulerClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDurableFunctionSchedulerClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FunctionScheduler
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

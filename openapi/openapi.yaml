@@ -3240,6 +3240,559 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/executions/{executionId}/stop:
+    post:
+      tags:
+        - Durable Functions
+      summary: Stop a durable execution
+      description: |
+        Cancels a running execution. Its completed steps are not undone; the
+        execution stops where it is and becomes `stopped`.
+      operationId: stopDurableExecution
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+      responses:
+        '200':
+          description: Execution stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableExecution'
+        '404':
+          description: Durable function or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Execution has not started yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            Durable execution is not available in this environment. Returned by
+            a deployment that has no durable execution engine, such as a local
+            one; the request is not retryable there.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/executions/{executionId}:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get a durable execution
+      description: |
+        Returns the execution's current state, including its `result` once it has
+        succeeded. Poll this to wait for an execution to finish.
+      operationId: getDurableExecution
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableExecution'
+        '404':
+          description: Durable function or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            Durable execution is not available in this environment. Returned by
+            a deployment that has no durable execution engine, such as a local
+            one; the request is not retryable there.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/executions:
+    post:
+      tags:
+        - Durable Functions
+      summary: Start a durable execution
+      description: |
+        Starts an execution and returns its handle. Never returns a result: an
+        execution can outlive any request a client could hold open, so the
+        result is read back from
+        `GET /projects/{id}/durable-functions/{functionId}/executions/{executionId}`.
+
+        The request body is the execution's input and must be valid JSON if
+        present. An empty body starts the execution with no input.
+
+        Send `X-Volcano-Execution-Name` to make the start idempotent: repeating a
+        start with the same name returns the existing execution instead of
+        beginning a second one.
+
+        Each execution counts against the project's function invocation
+        allowance, and the number of executions in flight at once is capped by
+        the plan.
+      operationId: startDurableExecution
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - name: X-Volcano-Execution-Name
+          in: header
+          required: false
+          description: |
+            Idempotency key for this execution. Generated when omitted.
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              description: Input passed to the function, up to 256 KiB.
+      responses:
+        '202':
+          description: Execution accepted and started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableExecution'
+        '400':
+          description: Payload is not valid JSON, or the execution name is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Function is not deployed yet, or has no deployed region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload exceeds the maximum execution input size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many executions already in flight for this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            Durable execution is not available in this environment. Returned by
+            a deployment that has no durable execution engine, such as a local
+            one; the request is not retryable there.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Durable Functions
+      summary: List a durable function's executions
+      description: |
+        Returns the platform's last observed status for each execution; listing
+        does not poll each one. Fetch a single execution for its live state.
+      operationId: listDurableExecutions
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          description: Return only executions in this status.
+          schema:
+            $ref: '#/components/schemas/DurableExecutionStatus'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDurableExecutions'
+        '400':
+          description: Unsupported status filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/schedulers:
+    get:
+      tags:
+        - Durable Functions
+      summary: List schedulers for a durable function
+      description: |
+        The durable collection's counterpart to
+        `/projects/{id}/functions/{functionId}/schedulers`. A standard
+        function's id is not accepted here, and a durable function's id is not
+        accepted there.
+      operationId: listDurableFunctionSchedulers
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      responses:
+        '200':
+          description: Durable function schedulers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionSchedulerListResponse'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Durable Functions
+      summary: Create a scheduler for a durable function
+      description: |
+        Each tick starts an execution rather than invoking the function, under
+        an execution name derived from the run, so a retried tick resolves to
+        the execution it already started. Requested regions must be a subset of
+        the function's deployed regions.
+
+        A tick draws on the same invocation allowance and concurrency cap a
+        manual start does, and a tick that would exceed the cap fails that run.
+      operationId: createDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFunctionSchedulerRequest'
+      responses:
+        '201':
+          description: Scheduler created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '400':
+          description: Invalid schedule or geofenced region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/schedulers/{schedulerId}:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get a durable function scheduler
+      operationId: getDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      responses:
+        '200':
+          description: Durable function scheduler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Durable Functions
+      summary: Update a durable function scheduler
+      operationId: updateDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFunctionSchedulerRequest'
+      responses:
+        '200':
+          description: Scheduler updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionScheduler'
+        '400':
+          description: Invalid schedule or geofenced region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Durable Functions
+      summary: Delete a durable function scheduler
+      operationId: deleteDurableFunctionScheduler
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/SchedulerId'
+      responses:
+        '204':
+          description: Scheduler deleted
+        '404':
+          description: Durable function or scheduler not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get durable function by ID or name
+      operationId: getDurableFunction
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableFunction'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Durable Functions
+      summary: Delete a durable function
+      description: |
+        Accepted for asynchronous teardown; the work continues after the
+        response. Executions still running do not survive the function. History
+        already retained is governed by the function's `retention_days`, which
+        this does not shorten.
+      operationId: deleteDurableFunction
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+      responses:
+        '202':
+          description: Deletion accepted and teardown started
+        '404':
+          description: |
+            Durable function not found. Also returned for an id that names a
+            durable function in another project, so the response cannot be used
+            to tell the two apart.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions:
+    get:
+      tags:
+        - Durable Functions
+      summary: List all durable functions in a project
+      description: |
+        Standard functions never appear here, and durable functions never appear
+        under `/projects/{id}/functions`. The two are separate collections.
+      operationId: listDurableFunctions
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDurableFunctions'
+        '400':
+          description: Bad request - invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Durable Functions
+      summary: Create or update a durable function
+      description: |
+        Upload a durable function source bundle. Creates the function on the
+        first call for a name and redeploys it on every call after that, the
+        same create-or-update contract `POST /projects/{id}/functions` has.
+
+        Volcano builds and deploys asynchronously. A deployment that starts
+        immediately returns `status: provisioning`, then transitions to `active`
+        or `failed`; a deployment that has to wait for a running one is exposed
+        through `pending_deployment_id`. Existing executions keep running
+        against the runtime they started on.
+
+        The `durable` configuration is derived from the project's plan rather
+        than supplied here, and is fixed once the function exists. A name
+        already held by a standard function is rejected with 409: a function
+        cannot change kind.
+      operationId: createDurableFunction
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - code
+                - runtime
+              properties:
+                name:
+                  type: string
+                  description: DNS-safe function name (lowercase letters, numbers, hyphens; cannot start or end with hyphen)
+                  maxLength: 63
+                  pattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+                  example: order-pipeline
+                code:
+                  type: string
+                  format: binary
+                  description: ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles.
+                runtime:
+                  type: string
+                  enum:
+                    - nodejs22.x
+                    - nodejs24.x
+                    - python3.10
+                    - python3.11
+                    - python3.12
+                    - python3.13
+                    - python3.14
+                    - ruby3.3
+                    - ruby3.4
+                    - ruby4.0
+                  description: |
+                    Runtime environment. Required. Must be a runtime that supports
+                    durable execution; one that does not is rejected with 400.
+                  example: nodejs24.x
+                handler:
+                  type: string
+                  description: The name of the function to invoke. Defaults to "handler" if not specified.
+                  default: handler
+                  example: handler
+                is_public:
+                  type: boolean
+                  default: false
+                  description: Whether anon keys with `functions.invoke` may start an execution.
+      responses:
+        '200':
+          description: Existing durable function updated; its deployment was started or queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableFunction'
+        '201':
+          description: Durable function created and deployment workflow started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableFunction'
+        '400':
+          description: Bad request (invalid archive, unsupported runtime, invalid name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Durable function limit exceeded for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Name is held by a standard function, or a deletion is queued or running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Durable functions are unavailable for this project or region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/frontends:
     get:
       tags:
@@ -10623,6 +11176,21 @@ components:
         type: string
         format: uuid
       description: Function ID
+    DurableFunctionId:
+      name: functionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Durable function ID, or its name within the project
+    DurableExecutionId:
+      name: executionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Durable execution ID
     Limit:
       name: limit
       in: query
@@ -13773,6 +14341,178 @@ components:
         - deployed_regions
         - created_at
         - updated_at
+    DurableFunctionConfig:
+      type: object
+      description: |
+        Execution limits the function was created with, derived from the
+        project's plan. Fixed for the life of the function: changing them means
+        creating a new one.
+      properties:
+        execution_timeout_seconds:
+          type: integer
+          format: int64
+          description: How long a single execution may run before it is timed out.
+        retention_days:
+          type: integer
+          format: int64
+          description: How long a finished execution's result and history are retained.
+      required:
+        - execution_timeout_seconds
+        - retention_days
+    DurableFunction:
+      type: object
+      description: |
+        A durable function. Separate from `Function` because a durable function
+        is invoked only through its own execution endpoints, so it has no
+        invocation mode, HTTP auth mode, OpenAPI document or invoke URL, and it
+        carries a `durable` configuration that a standard function has no field
+        for.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 63
+          pattern: ^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
+        status:
+          type: string
+          enum:
+            - provisioning
+            - active
+            - failed
+            - deleting
+        provisioning_started_at:
+          type: string
+          format: date-time
+          description: Timestamp when the current provisioning phase started
+        is_public:
+          type: boolean
+          description: |
+            Whether anon keys may start executions of this function through
+            `POST /durable-functions/{functionId}/executions`.
+
+            When `true`, an anon key holding `functions.invoke` can start an
+            execution. When `false` (the default) only service keys and auth
+            user tokens can. Reading and stopping an execution always require
+            the project owner's token, whatever this is set to.
+
+            Set it when the function is created. Durable functions have no
+            update endpoint, so changing visibility later means redeploying.
+
+            A public durable function is startable, never invocable: it is not
+            reachable through `POST /functions/{functionId}/invoke` or a
+            function URL, which answer `404` for either visibility.
+        durable:
+          $ref: '#/components/schemas/DurableFunctionConfig'
+        deployed_regions:
+          type: array
+          items:
+            type: string
+          description: Regions where this function is currently deployed
+        runtime:
+          type: string
+        handler:
+          type: string
+        current_deployment_id:
+          type: string
+          format: uuid
+          description: Identifier of the latest deployment operation
+        pending_deployment_id:
+          type: string
+          format: uuid
+          description: Newest queued deployment that will run after the current operation
+        last_invoked_at:
+          type: string
+          format: date-time
+          description: Most recent successful invocation timestamp
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - status
+        - is_public
+        - durable
+        - deployed_regions
+        - created_at
+        - updated_at
+    DurableExecutionStatus:
+      type: string
+      enum:
+        - pending
+        - running
+        - succeeded
+        - failed
+        - timed_out
+        - stopped
+      description: |
+        Lifecycle state of an execution. `pending` covers the window between the
+        platform reserving the execution name and the function accepting the
+        start, and has no counterpart once the execution is under way.
+        `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+    DurableExecutionError:
+      type: object
+      description: Why a failed or timed-out execution ended.
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+    DurableExecution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        function_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: |
+            Idempotency key for the execution. Supplied by the client through
+            `X-Volcano-Execution-Name`, otherwise generated.
+        status:
+          $ref: '#/components/schemas/DurableExecutionStatus'
+        region:
+          type: string
+          description: |
+            Region the execution runs in. An execution is pinned to one region
+            for its whole life because its checkpoints live there.
+        result:
+          description: |
+            Whatever the function returned, verbatim. Absent while the execution
+            is still running, and absent once its retention period has lapsed.
+        result_expired:
+          type: boolean
+          description: |
+            `true` when the execution is terminal but its result is no longer
+            retained, which distinguishes a discarded result from an empty one.
+        error:
+          $ref: '#/components/schemas/DurableExecutionError'
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          description: Present once the execution has reached a terminal status.
+      required:
+        - id
+        - function_id
+        - name
+        - status
+        - region
+        - created_at
     FunctionDeployment:
       type: object
       properties:
@@ -14071,12 +14811,25 @@ components:
           type: string
           example: 🇺🇸
           description: Country flag emoji associated with the region's geography.
+    FunctionKind:
+      type: string
+      enum:
+        - standard
+        - durable
+      default: standard
+      description: |
+        Which kind of function this is. `standard` runs once per invocation.
+        `durable` checkpoints its progress and resumes from the last completed
+        step, and is invoked asynchronously through its own executions
+        collection. A function's kind is fixed when it is created and cannot be
+        changed afterwards. Omitting this field means `standard`.
     FunctionRuntimeOption:
       type: object
       required:
         - name
         - language
         - default
+        - durable_capable
         - deployment
       properties:
         name:
@@ -14090,6 +14843,12 @@ components:
         default:
           type: boolean
           description: Whether this runtime is the CLI default for its language.
+        durable_capable:
+          type: boolean
+          description: >-
+            Whether a durable function can be authored on this runtime. Only
+            runtimes with a durable authoring API report true, and a durable
+            deploy naming any other runtime is rejected.
         deployment:
           $ref: '#/components/schemas/FunctionRuntimeDeployment'
     FunctionRuntimesResponse:
@@ -14113,6 +14872,15 @@ components:
         function_id:
           type: string
           format: uuid
+        function_kind:
+          allOf:
+            - $ref: '#/components/schemas/FunctionKind'
+          description: |
+            Which collection the scheduled function belongs to. A project-wide
+            scheduler list mixes both kinds, and this is what says whether the
+            function is read back from `/projects/{id}/functions` or
+            `/projects/{id}/durable-functions` — and whether a tick invokes it
+            or starts a durable execution.
         name:
           type: string
         enabled:
@@ -14535,6 +15303,56 @@ components:
         prev_cursor:
           type: string
           description: Opaque cursor for the previous page (cursor pagination only; present when a previous page exists). Send as `ending_before`.
+      required:
+        - data
+        - page
+        - limit
+        - total
+        - has_more
+    PaginatedDurableFunctions:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DurableFunction'
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        limit:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items across all pages
+        has_more:
+          type: boolean
+          description: Whether there are more pages available
+      required:
+        - data
+        - page
+        - limit
+        - total
+        - has_more
+    PaginatedDurableExecutions:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DurableExecution'
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        limit:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items across all pages
+        has_more:
+          type: boolean
+          description: Whether there are more pages available
       required:
         - data
         - page
