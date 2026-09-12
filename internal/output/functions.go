@@ -172,7 +172,6 @@ func Schedulers(w io.Writer, fn *apiclient.Function, resp *apiclient.FunctionSch
 	if resp == nil {
 		resp = &apiclient.FunctionSchedulerListResponse{}
 	}
-	on := theme.On(w)
 	if len(resp.Data) == 0 {
 		if fn != nil {
 			fmt.Fprintf(w, "No schedulers configured for function %q\n", fn.Name)
@@ -181,9 +180,12 @@ func Schedulers(w io.Writer, fn *apiclient.Function, resp *apiclient.FunctionSch
 		}
 		return
 	}
+	schedulerTable(w, theme.On(w), resp.Data)
+}
 
+func schedulerTable(w io.Writer, on bool, schedulers []apiclient.FunctionScheduler) {
 	tableHead(w, on, true, 130, "%-36s  %-24s  %-9s  %-15s  %-20s  %-15s", "ID", "Name", "State", "Cron", "Next Run", "Last Run")
-	for _, scheduler := range resp.Data {
+	for _, scheduler := range schedulers {
 		fmt.Fprintf(w, "%-36s  %-24s  %s  %-15s  %-20s  %-15s\n",
 			schedulerID(scheduler),
 			Truncate(blankString(stringPtrValue(scheduler.Name)), 24),

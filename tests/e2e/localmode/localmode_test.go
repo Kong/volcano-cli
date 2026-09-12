@@ -49,6 +49,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeRefusesDurableFunctions(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -299,6 +300,63 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
 		}
 		requireContains(t, output, "is a cloud command")
+	}
+}
+
+// Local development runs no durable engine: the local server refuses to create
+// a durable function rather than pretending to run one. The command has to say
+// that rather than print help and exit 0, which is what cobra does with an
+// unknown subcommand and what a developer would read as success.
+func requireLocalModeRefusesDurableFunctions(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
+	requireNotContains(t, help, "durable")
+
+	for _, args := range [][]string{
+		{"durable", "deploy", "--all"},
+		{"durable", "list"},
+		{"durable", "start", "order-pipeline", "--input", "{}"},
+		{"durable", "executions", "list", "order-pipeline"},
+		{"durable", "schedulers", "list", "order-pipeline"},
+		{"durable", "schedulers", "create", "order-pipeline", "--cron", "0 * * * *"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, `"durable" is a cloud command`)
+		requireContains(t, output, "volcano cloud durable")
+	}
+
+	// A durable function declared in the manifest must not be deployed as a
+	// standard one by the local deploy-all, which is the mistake that would be
+	// permanent: a function's kind is fixed when it is created.
+	writeLocalModeE2EFile(t, dir, "volcano-config.yaml", `
+version: 1
+functions:
+  - name: hello
+  - name: order-pipeline
+    kind: durable
+`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "order-pipeline.js"), `
+exports.handler = async () => ({ statusCode: 200, body: "{}" });
+`)
+
+	skipOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
+	requireContains(t, skipOutput, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
+	requireNotContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "list"), "order-pipeline")
+
+	// Removed here rather than in a cleanup: the config smoke later in this test
+	// writes volcano/volcano-config.yaml, and two manifests in one project is
+	// ambiguous by design.
+	removeLocalModeE2EFile(t, dir, "volcano-config.yaml")
+	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "order-pipeline.js"))
+}
+
+func removeLocalModeE2EFile(t *testing.T, projectDir, relativePath string) {
+	t.Helper()
+	if err := os.Remove(filepath.Join(projectDir, relativePath)); err != nil {
+		t.Fatalf("failed to remove %s: %v", relativePath, err)
 	}
 }
 
