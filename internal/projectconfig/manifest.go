@@ -21,10 +21,6 @@ const (
 	// ManifestVersion is the only currently supported manifest schema version.
 	ManifestVersion = 1
 
-	// FunctionKindDurable is the manifest value that declares a durable
-	// function.
-	FunctionKindDurable = "durable"
-
 	manifestDir        = "volcano"
 	nestedManifestPath = "volcano/volcano-config.yaml"
 	rootManifestPath   = "volcano-config.yaml"
@@ -268,41 +264,14 @@ type HostedPageManifest struct {
 
 // FunctionManifest declares configuration for one deployed function.
 type FunctionManifest struct {
-	Name string `yaml:"name" json:"name"`
-	// Kind is asserted rather than applied: a function's kind is fixed when it
-	// is created, so the server compares this against the deployed function.
-	// Empty means standard, which is what every manifest written before durable
-	// functions existed declares.
-	Kind          *string   `yaml:"kind,omitempty" json:"kind,omitempty"`
-	Public        *bool     `yaml:"public,omitempty" json:"public,omitempty"`
-	VariableScope *string   `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
-	Variables     *[]string `yaml:"variables,omitempty" json:"variables,omitempty"`
-	// The invocation settings describe synchronous HTTP invocation, which a
-	// durable function does not have; the server rejects them on one.
+	Name           string               `yaml:"name" json:"name"`
+	Public         *bool                `yaml:"public,omitempty" json:"public,omitempty"`
+	VariableScope  *string              `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
+	Variables      *[]string            `yaml:"variables,omitempty" json:"variables,omitempty"`
 	InvocationMode *string              `yaml:"invocation_mode,omitempty" json:"invocation_mode,omitempty"`
 	HTTPAuthMode   *string              `yaml:"http_auth_mode,omitempty" json:"http_auth_mode,omitempty"`
 	OpenAPISpec    any                  `yaml:"openapi_spec,omitempty" json:"openapi_spec,omitempty"`
 	Schedulers     *[]SchedulerManifest `yaml:"schedulers,omitempty" json:"schedulers,omitempty"`
-}
-
-// DurableFunctionNames returns the functions the manifest declares durable, in
-// declaration order.
-//
-// A kind cannot be changed once a function exists, so deploying one of these
-// through the standard collection would create the wrong kind of function
-// permanently. The deploy commands use this to keep each name with its own
-// collection.
-func (m *Manifest) DurableFunctionNames() []string {
-	if m == nil || m.Functions == nil {
-		return nil
-	}
-	var names []string
-	for _, fn := range *m.Functions {
-		if fn.Kind != nil && strings.TrimSpace(*fn.Kind) == FunctionKindDurable {
-			names = append(names, fn.Name)
-		}
-	}
-	return names
 }
 
 // SchedulerManifest declares one scheduler attached to a function. Regions is
@@ -528,54 +497,33 @@ type FunctionVariableDeclaration struct {
 // `value: ${API_KEY}` elsewhere in the manifest is unset in the deploying
 // shell — and hand the function every project variable instead.
 func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDeclaration, error) {
-	read, err := ReadFunctionDeployManifest(fileArg)
+	path, err := ResolveManifestPath(fileArg)
+	if errors.Is(err, ErrManifestNotFound) {
+		return map[string]FunctionVariableDeclaration{}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	return read.Declarations, nil
-}
-
-// FunctionDeployManifest is what a function deploy needs from the manifest:
-// each function's variable declaration, and the names declared durable so the
-// standard collection leaves them to `volcano cloud durable deploy`.
-type FunctionDeployManifest struct {
-	Declarations map[string]FunctionVariableDeclaration
-	DurableNames map[string]bool
-}
-
-// ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
-// pass, with the absence-versus-invalidity rule described on
-// FunctionVariableDeclarations.
-func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) {
-	read := FunctionDeployManifest{
-		Declarations: map[string]FunctionVariableDeclaration{},
-		DurableNames: map[string]bool{},
-	}
-	path, err := ResolveManifestPath(fileArg)
-	if errors.Is(err, ErrManifestNotFound) {
-		return read, nil
-	}
-	if err != nil {
-		return FunctionDeployManifest{}, err
-	}
 	manifest, _, err := Load(path)
 	if err != nil {
-		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from volcano-config.yaml: %w\nfix the manifest (or export the environment variables it references) and deploy again", err)
+		return nil, fmt.Errorf("failed to read function variable scope from volcano-config.yaml: %w\nfix the manifest (or export the environment variables it references) and deploy again", err)
 	}
 	if manifest.Functions == nil {
-		return read, nil
+		return map[string]FunctionVariableDeclaration{}, nil
 	}
 
+	declarations := make(map[string]FunctionVariableDeclaration)
 	for _, function := range *manifest.Functions {
-		if function.VariableScope != nil || function.Variables != nil {
-			read.Declarations[function.Name] = FunctionVariableDeclaration{
-				VariableScope: function.VariableScope,
-				Variables:     function.Variables,
-			}
+		if function.VariableScope == nil && function.Variables == nil {
+			continue
+		}
+		declarations[function.Name] = FunctionVariableDeclaration{
+			VariableScope: function.VariableScope,
+			Variables:     function.Variables,
 		}
 	}
-	for _, name := range manifest.DurableFunctionNames() {
-		read.DurableNames[name] = true
+	if len(declarations) == 0 {
+		return declarations, nil
 	}
-	return read, nil
+	return declarations, nil
 }

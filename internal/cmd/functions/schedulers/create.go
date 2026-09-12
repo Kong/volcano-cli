@@ -3,14 +3,15 @@ package schedulers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
-	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -64,7 +65,7 @@ The --payload flag accepts either inline JSON or a path to a JSON file.`,
 func runCreate(ctx context.Context, opts createOptions) error {
 	var payload map[string]any
 	if rawPayload := strings.TrimSpace(opts.payload); rawPayload != "" {
-		parsed, err := cmdutil.ParseJSONObject("payload", rawPayload)
+		parsed, err := loadSchedulerPayload(rawPayload)
 		if err != nil {
 			return err
 		}
@@ -99,4 +100,23 @@ func runCreate(ctx context.Context, opts createOptions) error {
 	output.Scheduler(opts.out, scheduler)
 	output.Success(opts.out, "Created scheduler for function %q", fn.Name)
 	return nil
+}
+
+// loadSchedulerPayload parses the --payload value as inline JSON or as a path
+// to a JSON file. The caller is responsible for not invoking it on empty input.
+func loadSchedulerPayload(value string) (map[string]any, error) {
+	data := []byte(value)
+	if info, statErr := os.Stat(value); statErr == nil && !info.IsDir() {
+		fileBytes, err := os.ReadFile(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read payload file %q: %w", value, err)
+		}
+		data = fileBytes
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("payload must be a JSON object: %w", err)
+	}
+	return payload, nil
 }
