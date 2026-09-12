@@ -13,6 +13,7 @@ DEFAULT_WEB_URL ?= https://volcano.dev
 # Local-mode server image baked into `make build`; override with DEFAULT_LOCAL_IMAGE.
 DEFAULT_LOCAL_IMAGE ?= kong/volcano:local-nightly
 FIRST_PARTY_DEVICE_CLIENT_ID ?=
+HOSTING_OPENAPI ?= openapi/openapi.yaml
 
 LDFLAGS := -s -w \
 	-X $(VERSION_PKG).Version=$(VERSION) \
@@ -72,7 +73,9 @@ api-e2e-smoke: ## Run CLI API smoke tests against VOLCANO_API_URL and VOLCANO_MG
 	VOLCANO_API_E2E=1 go test ./tests/e2e/api -run '^TestAPIE2ESmoke' -count=1 -timeout 45m
 
 api-e2e-cloud: ## Run provisioning CLI API E2E tests against VOLCANO_API_URL and VOLCANO_MGMT_URL
-	VOLCANO_API_E2E=1 go test ./tests/e2e/api -run '^TestAPIE2E(Smoke|Cloud)' -count=1 -timeout 240m
+	@set -euo pipefail; \
+	run="$$(go run ./tests/e2e/api/select -hosting-openapi "$(HOSTING_OPENAPI)")"; \
+	VOLCANO_API_E2E=1 go test ./tests/e2e/api -run "$$run" -count=1 -timeout 240m
 
 localmode-e2e: ## Run destructive local-mode Docker smoke tests
 	VOLCANO_LOCALMODE_E2E=1 go test ./tests/e2e/localmode -run TestLocalModeE2ESmoke -count=1 -timeout 20m
