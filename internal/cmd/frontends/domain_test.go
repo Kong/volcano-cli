@@ -192,7 +192,7 @@ func frontendDomainCommandResponse(domain, status string) map[string]any {
 		"created_at":          "2026-05-20T00:00:00Z",
 		"domain":              domain,
 		"domain_status":       status,
-		"effective_urls":      []string{"https://web.frontends.volcano.dev/", "https://" + domain + "/"},
+		"effective_urls":      []string{"https://web.frontends.volcano.run/", "https://" + domain + "/"},
 		"tls_mode":            "byoc",
 		"updated_at":          "2026-05-20T00:00:00Z",
 		"verification_status": "verified",

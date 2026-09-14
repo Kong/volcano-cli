@@ -42,7 +42,7 @@ func TestFrontendsGetAcceptsNameOrID(t *testing.T) {
 			assert.Contains(t, out, "Framework: nextjs")
 			assert.Contains(t, out, "Status: ready")
 			assert.Contains(t, out, "App Root: apps/web")
-			assert.Contains(t, out, "Site URL: https://web.frontends.volcano.dev/")
+			assert.Contains(t, out, "Site URL: https://web.frontends.volcano.run/")
 			assert.Contains(t, out, "Current Deployment: "+frontendDeploymentID)
 		})
 	}
