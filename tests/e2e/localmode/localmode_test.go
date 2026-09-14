@@ -262,7 +262,7 @@ functions:
 	configPullOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "pull", "--force")
 	requireContains(t, configPullOutput, "Configuration written to")
 	pulledConfig := readLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"))
-	requireNotContains(t, pulledConfig, "CONFIG_SMOKE")
+	requireContains(t, pulledConfig, "CONFIG_SMOKE")
 	requireNotContains(t, pulledConfig, "from-config-deploy")
 	requireContains(t, pulledConfig, "version: 1")
 
