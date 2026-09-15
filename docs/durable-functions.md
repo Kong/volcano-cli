@@ -163,9 +163,10 @@ volcano cloud durable start order-pipeline --input order.json --name order-4417
 volcano cloud durable executions get order-pipeline <execution-id>
 ```
 
-`--input` takes inline JSON or the path to a JSON file, and is handed to the
-function verbatim. Omit it to start with no input at all, which is not the same
-as starting with `{}`.
+`--input` takes an inline JSON object or the path to a file holding one, and is
+handed to the function verbatim. Omit it to start with no input at all, which is
+not the same as starting with `{}` — and not the same as `--input null`, which
+is refused, because it would arrive as neither.
 
 `--name` is the execution's idempotency key. Starting again under a name that
 already names an execution returns the existing one instead of beginning a

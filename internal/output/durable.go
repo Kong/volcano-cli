@@ -162,6 +162,13 @@ func printDurableExecutionResult(w io.Writer, on bool, execution *apiclient.Dura
 		return
 	}
 	if execution.Result == nil {
+		// A succeeded execution that returned `null` is reported with a result of
+		// null, which decodes to the same nil as no result at all. Printing
+		// nothing there reads as "finished with nothing", and the difference is
+		// the whole reason a caller is looking.
+		if execution.Status == apiclient.DurableExecutionStatusSucceeded {
+			kv(w, on, "Result", "null")
+		}
 		return
 	}
 	encoded, err := json.MarshalIndent(execution.Result, "", "  ")

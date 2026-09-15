@@ -3312,16 +3312,16 @@ func (e CreateFunctionMultipartBodyRuntime) Valid() bool {
 
 // Defines values for CreateFunctionMultipartBodyVariableScope.
 const (
-	All    CreateFunctionMultipartBodyVariableScope = "all"
-	Scoped CreateFunctionMultipartBodyVariableScope = "scoped"
+	CreateFunctionMultipartBodyVariableScopeAll    CreateFunctionMultipartBodyVariableScope = "all"
+	CreateFunctionMultipartBodyVariableScopeScoped CreateFunctionMultipartBodyVariableScope = "scoped"
 )
 
 // Valid indicates whether the value is a known member of the CreateFunctionMultipartBodyVariableScope enum.
 func (e CreateFunctionMultipartBodyVariableScope) Valid() bool {
 	switch e {
-	case All:
+	case CreateFunctionMultipartBodyVariableScopeAll:
 		return true
-	case Scoped:
+	case CreateFunctionMultipartBodyVariableScopeScoped:
 		return true
 	default:
 		return false

@@ -25,6 +25,10 @@ const (
 	// function.
 	FunctionKindDurable = "durable"
 
+	// FunctionKindStandard is the kind a function has when the manifest omits
+	// one, and the only other value it may carry.
+	FunctionKindStandard = "standard"
+
 	manifestDir        = "volcano"
 	nestedManifestPath = "volcano/volcano-config.yaml"
 	rootManifestPath   = "volcano-config.yaml"
@@ -435,8 +439,9 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 	return body, nil
 }
 
-// Validate performs the minimal local checks: the schema version and the
-// removed scheduler regions field. All semantic validation is server-side.
+// Validate performs the minimal local checks: the schema version, the function
+// kind, and the removed scheduler regions field. Other semantic validation is
+// server-side.
 func (m *Manifest) Validate() error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d (expected %d)", m.Version, ManifestVersion)
@@ -445,6 +450,9 @@ func (m *Manifest) Validate() error {
 		return nil
 	}
 	for _, function := range *m.Functions {
+		if err := validateFunctionKind(function); err != nil {
+			return err
+		}
 		if function.Schedulers == nil {
 			continue
 		}
@@ -455,6 +463,26 @@ func (m *Manifest) Validate() error {
 		}
 	}
 	return nil
+}
+
+// validateFunctionKind refuses a kind the CLI does not know.
+//
+// Everything downstream asks `isDurable()`, so an unknown value reads as a
+// standard function: a typo like `kind: durabl` would deploy through the
+// standard collection, and because a kind is fixed at creation the name is then
+// the wrong kind of function for good. An omitted kind still means standard,
+// which is what the manifest documents.
+func validateFunctionKind(function FunctionManifest) error {
+	if function.Kind == nil {
+		return nil
+	}
+	switch kind := strings.TrimSpace(*function.Kind); kind {
+	case FunctionKindDurable, FunctionKindStandard, "":
+		return nil
+	default:
+		return fmt.Errorf("function %q: unsupported kind %q (expected %q or %q)",
+			function.Name, kind, FunctionKindStandard, FunctionKindDurable)
+	}
 }
 
 // ErrManifestNotFound reports that no volcano-config.yaml exists at any of the

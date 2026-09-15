@@ -2468,6 +2468,7 @@ paths:
                 variable_scope:
                   type: string
                   enum: [all, scoped]
+                  x-enum-varnames: [CreateFunctionMultipartBodyVariableScopeAll, CreateFunctionMultipartBodyVariableScopeScoped]
                   description: |
                     Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
                 variables:
@@ -3781,6 +3782,7 @@ paths:
                 variable_scope:
                   type: string
                   enum: [all, scoped]
+                  x-enum-varnames: [CreateDurableFunctionMultipartBodyVariableScopeAll, CreateDurableFunctionMultipartBodyVariableScopeScoped]
                   description: |
                     Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
                 variables:
@@ -16231,6 +16233,7 @@ components:
         variable_scope:
           type: string
           enum: [all, scoped]
+          x-enum-varnames: [ProjectConfigFunctionVariableScopeAll, ProjectConfigFunctionVariableScopeScoped]
           description: |
             Which project variables this function receives. `all` (the default)
             gives it every project variable. `scoped` gives it only the variables

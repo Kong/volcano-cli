@@ -160,6 +160,18 @@ func TestExecutionsGetRendersOutcome(t *testing.T) {
 			want: []string{"Status: succeeded", "Duration: 5m0s", `"shipped": true`},
 		},
 		{
+			// A function that returns nothing succeeds with a result of null, which
+			// decodes to the same nil as no result at all. Printing nothing there
+			// reads as an execution that produced no result, and the difference is
+			// what the caller came to find out.
+			name: "succeeded returning null",
+			payload: withFields(executionPayload(executionID, "order-4417", "succeeded"), map[string]any{
+				"completed_at": "2026-05-20T00:05:00Z",
+				"result":       nil,
+			}),
+			want: []string{"Status: succeeded", "Result: null"},
+		},
+		{
 			name: "result no longer retained",
 			payload: withFields(executionPayload(executionID, "order-4417", "succeeded"), map[string]any{
 				"completed_at":   "2026-05-20T00:05:00Z",

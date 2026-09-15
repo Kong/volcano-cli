@@ -39,6 +39,25 @@ functions:
 	assert.Equal(t, "durable", durable["kind"])
 }
 
+// A kind the CLI does not know reads as a standard function everywhere
+// downstream, so `kind: durabel` would deploy through the standard collection —
+// and a kind is fixed at creation, which makes that name the wrong kind of
+// function permanently. `standard` is a real value the API's enum carries, so
+// it is accepted rather than lumped in with the typos.
+func TestManifestRejectsUnknownFunctionKind(t *testing.T) {
+	_, err := Parse([]byte("version: 1\nfunctions:\n  - name: hello\n    kind: durabel\n"), noEnv)
+
+	require.ErrorContains(t, err, `function "hello": unsupported kind "durabel"`)
+}
+
+func TestManifestAcceptsAnExplicitStandardKind(t *testing.T) {
+	manifest, err := Parse([]byte("version: 1\nfunctions:\n  - name: hello\n    kind: standard\n"), noEnv)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hello"}, manifest.StandardFunctionNames())
+	assert.Empty(t, manifest.DurableFunctionNames())
+}
+
 func TestDurableFunctionNamesWithoutFunctions(t *testing.T) {
 	manifest, err := Parse([]byte("version: 1\n"), noEnv)
 	require.NoError(t, err)

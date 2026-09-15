@@ -55,7 +55,7 @@ functions:
         enabled: true
         payload: { job: refresh }
   - name: order-pipeline
-    kind: durable              # asserted, not applied: a kind is fixed at creation
+    kind: durable              # standard or durable; asserted, not applied, since a kind is fixed at creation
 ```
 
 Cloud example — export the current cloud project's configuration to a file,
