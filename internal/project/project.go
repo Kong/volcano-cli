@@ -161,6 +161,7 @@ func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project
 
 func resolveProject(ctx context.Context, authenticated *clisession.Session, identifier string) (*apiclient.Project, error) {
 	client := authenticated.API
+	idNotFound := false
 	if id, err := uuid.Parse(identifier); err == nil {
 		selected, err := client.GetProject(ctx, id)
 		if err == nil {
@@ -169,11 +170,19 @@ func resolveProject(ctx context.Context, authenticated *clisession.Session, iden
 		if api.Status(err) != http.StatusNotFound {
 			return nil, fmt.Errorf("failed to get project: %w", err)
 		}
+		idNotFound = true
 	}
 
 	// Anything the project ID did not answer is resolved by scanning every
 	// project the credential can see, which a project access token cannot do.
 	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		// The scan is the only thing that could still match a UUID-shaped name,
+		// and a credential that cannot run it has already had its answer: the
+		// project with that ID is not there. Reporting the missing account token
+		// instead sends the user to log in again over a mistyped ID.
+		if idNotFound {
+			return nil, fmt.Errorf("project not found: %s", identifier)
+		}
 		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
 	}
 

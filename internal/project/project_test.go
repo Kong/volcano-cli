@@ -350,6 +350,24 @@ func TestAccountWideCommandsRejectAProjectToken(t *testing.T) {
 	}
 }
 
+// A project token cannot scan projects by name, but a UUID that answered 404
+// already has its answer. Reporting the missing account token instead sent the
+// user off to log in again over a mistyped ID.
+func TestUseReportsAMissingIDForAProjectToken(t *testing.T) {
+	setProjectTestHome(t)
+	saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+	missingID := "44444444-4444-4444-8444-444444444444"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+missingID, r.URL.Path)
+		writeProjectJSON(t, w, http.StatusNotFound, map[string]string{"error": "project not found"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), missingID)
+	require.ErrorContains(t, err, "project not found: "+missingID)
+	assert.NotErrorIs(t, err, config.ErrAccountTokenRequired)
+}
+
 func TestUseByIDWorksWithAProjectToken(t *testing.T) {
 	setProjectTestHome(t)
 	saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
