@@ -39,6 +39,10 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	env.runCLIWithEnv(t, projectTokenEnv, "use", env.project).requireFailure(t, "needs an account token")
 	// Nor can it mint or revoke credentials of its own.
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "access-tokens", "list").requireFailure(t, "needs an account token")
+	// Usage is the exception the API makes, so a CI job can report what it
+	// consumed with nothing but the credential it runs with.
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "access-tokens", "usage", "--days", "7").
+		requireSuccess(t, "request(s) across", "over 7 day(s)")
 
 	// Logging in with it needs the project named, then binds the CLI to it.
 	loginHome := t.TempDir()

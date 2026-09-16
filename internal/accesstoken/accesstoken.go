@@ -77,7 +77,7 @@ func ValidateScope(scope string) error {
 
 // Create mints one access token in the current project.
 func (s Service) Create(ctx context.Context, input api.AccessTokenCreateInput) (*apiclient.CreatedProjectAccessToken, error) {
-	authenticated, err := s.session()
+	authenticated, err := s.accountSession()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s Service) Create(ctx context.Context, input api.AccessTokenCreateInput) (
 
 // ListPage returns one access token page in the current project.
 func (s Service) ListPage(ctx context.Context, input api.AccessTokenListInput) (*apiclient.PaginatedProjectAccessTokens, error) {
-	authenticated, err := s.session()
+	authenticated, err := s.accountSession()
 	if err != nil {
 		return nil, err
 	}
@@ -105,36 +105,41 @@ func (s Service) ListPage(ctx context.Context, input api.AccessTokenListInput) (
 
 // Get returns one access token by name or ID.
 func (s Service) Get(ctx context.Context, identifier string) (*apiclient.ProjectAccessToken, error) {
-	authenticated, err := s.session()
+	authenticated, err := s.accountSession()
 	if err != nil {
 		return nil, err
 	}
 	return resolve(ctx, authenticated, identifier)
 }
 
-// Usage returns the daily request counts for one access token by name or ID.
-func (s Service) Usage(ctx context.Context, identifier string, days int) (*apiclient.ProjectAccessTokenUsage, error) {
-	authenticated, err := s.session()
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := resolve(ctx, authenticated, identifier)
+// Usage returns the daily request counts for a token the caller already
+// resolved.
+//
+// It takes the token rather than the name the user typed because Get has
+// resolved that by the time usage is wanted: resolving it again costs a second
+// paginated walk, and a transient failure there would report a token that does
+// not exist moments after reading it.
+func (s Service) Usage(ctx context.Context, token *apiclient.ProjectAccessToken, days int) (*apiclient.ProjectAccessTokenUsage, error) {
+	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
 	usage, err := authenticated.API.GetAccessTokenUsage(ctx, authenticated.ProjectID, token.Id, days)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get usage for access token %q: %w", identifier, err)
+		return nil, fmt.Errorf("failed to get usage for access token %q: %w", token.Name, err)
 	}
 	return usage, nil
 }
 
 // ProjectUsage returns the daily request counts for every access token in the
 // current project, revoked tokens included.
+//
+// The API admits a project access token on the usage reads, so this one is not
+// account-scoped: a CI job holding nothing but the pt- token it runs with can
+// still report its own consumption.
 func (s Service) ProjectUsage(ctx context.Context, days int) ([]apiclient.ProjectAccessTokenUsage, error) {
-	authenticated, err := s.session()
+	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
@@ -146,28 +151,25 @@ func (s Service) ProjectUsage(ctx context.Context, days int) ([]apiclient.Projec
 	return usage, nil
 }
 
-// Revoke revokes one access token by name or ID and returns the revoked token.
-func (s Service) Revoke(ctx context.Context, identifier string) (*apiclient.ProjectAccessToken, error) {
-	authenticated, err := s.session()
+// Revoke revokes a token the caller already resolved, so the token that was
+// confirmed is the token that is revoked.
+func (s Service) Revoke(ctx context.Context, token *apiclient.ProjectAccessToken) error {
+	authenticated, err := s.accountSession()
 	if err != nil {
-		return nil, err
-	}
-
-	token, err := resolve(ctx, authenticated, identifier)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := authenticated.API.RevokeAccessToken(ctx, authenticated.ProjectID, token.Id); err != nil {
-		return nil, fmt.Errorf("failed to revoke access token %q: %w", identifier, err)
+		return fmt.Errorf("failed to revoke access token %q: %w", token.Name, err)
 	}
-	return token, nil
+	return nil
 }
 
-// session resolves the current project and rejects a project access token:
-// minting and revoking credentials is an account operation, so a pt- token
-// would only earn a 403 from the API.
-func (s Service) session() (*clisession.ProjectSession, error) {
+// accountSession resolves the current project and rejects a project access
+// token. Minting, revoking, and reading a credential's record are account
+// operations, so a pt- token would only earn a 403 from the API. The usage
+// reads are not among them and use the session directly.
+func (s Service) accountSession() (*clisession.ProjectSession, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err

@@ -17,8 +17,11 @@ every project you own. Only an account token can manage access tokens.
 
 - Belongs to a **project**, and authenticates that project's commands:
   functions, frontends, variables, databases, logs, and deploys.
-- Cannot create, list, or revoke tokens, and cannot run account-wide commands
-  such as `volcano projects list` or `volcano projects create`.
+- Cannot create, inspect, or revoke tokens, and cannot run account-wide
+  commands such as `volcano projects list`, `volcano projects create`, or
+  `volcano cloud git connect`. `volcano cloud access-tokens usage` is the
+  exception: a token can report its own project's consumption, so a CI job
+  needs nothing but the credential it already runs with.
 - Carries one of two scopes: `full` matches your own access to that project;
   `read_only` rejects writes.
 
@@ -120,6 +123,21 @@ volcano cloud access-tokens get ci-deploy --usage --days 7
 volcano cloud access-tokens revoke ci-deploy
 ```
 
+`list` shows the tokens that can still authenticate. A token that stopped —
+revoked, or past its `--expires-at` — is hidden until you ask for it, and then
+reports which it was in the `Status` column:
+
+```bash
+volcano cloud access-tokens list --include-revoked
+```
+
+```text
+Name                      Prefix            Scope       Status     Last used        Requests
+ci-deploy                 pt-Wq9l2m4X       full        active     3h ago           42
+ci-audit                  pt-4bN7sK1p       read_only   expired    20d ago          3
+ci-old                    pt-Zx8c5Vt2       full        revoked    41d ago          77
+```
+
 `--usage` adds the token's daily request counts, zero-filled and oldest first,
 so every day in the window is present:
 
@@ -150,6 +168,16 @@ ci-audit                  3
 ```
 
 Both take `--days`, up to 60, defaulting to 30.
+
+`usage` is the one of these a project access token can run for itself, so a CI
+job can report what it consumed with nothing but the credential it already
+holds:
+
+```bash
+export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano cloud access-tokens usage --days 7
+```
 
 Revoking takes effect immediately and breaks every pipeline still using the
 token. The record is kept with status `revoked`, so the token keeps its history

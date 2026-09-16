@@ -70,7 +70,7 @@ func runGet(ctx context.Context, opts getOptions) error {
 
 	var usage *apiclient.ProjectAccessTokenUsage
 	if opts.usage {
-		usage, err = service.Usage(ctx, opts.identifier, opts.days)
+		usage, err = service.Usage(ctx, token, opts.days)
 		if err != nil {
 			return err
 		}

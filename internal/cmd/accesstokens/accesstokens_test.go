@@ -165,6 +165,49 @@ func TestAccessTokenGetWithUsage(t *testing.T) {
 	require.ErrorContains(t, err, "--days applies to --usage")
 }
 
+// --usage used to resolve the identifier a second time to fetch the counts.
+// For a name that is another paginated walk, and a transient failure on it
+// reports a token as missing moments after the same lookup found it.
+func TestAccessTokenGetWithUsageResolvesTheNameOnce(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+
+	var listRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		basePath := "/projects/" + accessTokenProjectID + "/access-tokens"
+		switch r.URL.Path {
+		case basePath:
+			listRequests++
+			writeAccessTokenCommandJSON(t, w, http.StatusOK,
+				accessTokenCommandPage(accessTokenCommandPayload(accessTokenID, "ci-deploy")))
+		case basePath + "/" + accessTokenID + "/usage":
+			writeAccessTokenCommandJSON(t, w, http.StatusOK,
+				accessTokenCommandUsagePayload(accessTokenID, "ci-deploy", 3, 0))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeAccessTokenCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"get", "ci-deploy", "--usage", "--days", "7")
+	require.NoError(t, err)
+	assert.Equal(t, 1, listRequests, "the name must be resolved once, not once per request")
+	assert.Contains(t, out, "Name: ci-deploy")
+	assert.Contains(t, out, "3 request(s) over 2 day(s)")
+}
+
+// The filter is a liveness test: it hides every token that can no longer
+// authenticate, expired ones as well as revoked. Help that names only revoked
+// ones describes a narrower flag than the one the user gets — and leaves the
+// "expired" status the list can print unexplained.
+func TestAccessTokenListHelpNamesExpiredTokensToo(t *testing.T) {
+	out, err := executeAccessTokenCommand(t, New(cliruntime.Deps{}), "list", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Include revoked and expired tokens")
+	assert.Contains(t, out, "revoked and expired alike")
+}
+
 func TestAccessTokenProjectUsage(t *testing.T) {
 	setAccessTokenCommandTestHome(t)
 	saveAccessTokenCommandTestConfig(t, "token")
@@ -276,8 +319,13 @@ func TestAccessTokenRevokePromptAndYes(t *testing.T) {
 	t.Run("cancel", func(t *testing.T) {
 		setAccessTokenCommandTestHome(t)
 		saveAccessTokenCommandTestConfig(t, "token")
-		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-			assert.Fail(t, "unexpected request after a cancelled prompt", r.URL.Path)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodDelete {
+				assert.Fail(t, "unexpected revoke after a cancelled prompt", r.URL.Path)
+				return
+			}
+			writeAccessTokenCommandJSON(t, w, http.StatusOK,
+				accessTokenCommandPage(accessTokenCommandPayload(accessTokenID, "ci-deploy")))
 		}))
 		defer server.Close()
 
@@ -286,7 +334,7 @@ func TestAccessTokenRevokePromptAndYes(t *testing.T) {
 		out, err := executeAccessTokenCommand(t, cmd, "revoke", "ci-deploy")
 		require.NoError(t, err)
 		assert.Contains(t, out, "Revoking a token immediately breaks")
-		assert.Contains(t, out, "Revoke access token 'ci-deploy'?")
+		assert.Contains(t, out, "Revoke access token 'ci-deploy' (pt-Wq9l2m4X)?")
 		assert.Contains(t, out, "Cancelled.")
 	})
 
@@ -309,8 +357,35 @@ func TestAccessTokenRevokePromptAndYes(t *testing.T) {
 		out, err := executeAccessTokenCommand(t, cmd, "revoke", accessTokenID)
 		require.NoError(t, err)
 		assert.True(t, sawRevoke)
+		// A UUID says nothing about which credential it is, so the prompt names
+		// the token it resolved to rather than echoing the argument back.
+		assert.Contains(t, out, "Revoke access token 'ci-deploy' (pt-Wq9l2m4X)?")
+		assert.NotContains(t, out, "Revoke access token '"+accessTokenID+"'")
 		assert.Contains(t, out, "Access token 'ci-deploy' revoked")
 	})
+}
+
+// Asking about a token that does not exist is a question the user cannot
+// answer: a typo'd name has to fail as missing, not after they have confirmed
+// revoking it.
+func TestAccessTokenRevokeResolvesBeforeAsking(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			assert.Fail(t, "unexpected revoke of a token that was never found", r.URL.Path)
+			return
+		}
+		writeAccessTokenCommandJSON(t, w, http.StatusOK, accessTokenCommandPage())
+	}))
+	defer server.Close()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(strings.NewReader("y\n"))
+	out, err := executeAccessTokenCommand(t, cmd, "revoke", "ci-deplyo")
+
+	require.ErrorContains(t, err, `access token "ci-deplyo" not found`)
+	assert.NotContains(t, out, "Revoke access token", "the prompt must not run before the token is resolved")
 }
 
 func TestAccessTokenCreateRejectsBadInput(t *testing.T) {
@@ -409,8 +484,9 @@ func TestAccessTokenUsageRejectsAWindowTheAPIWouldNot(t *testing.T) {
 	}
 }
 
-// Minting and revoking credentials is an account operation. A pt- token would
-// only earn a 403, so the CLI has to say what is missing before the request.
+// Minting, revoking, and reading a credential's record are account operations.
+// A pt- token would only earn a 403, so the CLI has to say what is missing
+// before the request.
 func TestAccessTokenCommandsRejectAProjectToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		assert.Fail(t, "unexpected request with a project access token", r.URL.Path)
@@ -422,7 +498,6 @@ func TestAccessTokenCommandsRejectAProjectToken(t *testing.T) {
 		{"create", "ci-deploy"},
 		{"list"},
 		{"get", accessTokenID},
-		{"usage"},
 		{"revoke", accessTokenID, "--yes"},
 	} {
 		setAccessTokenCommandTestHome(t)
@@ -432,6 +507,33 @@ func TestAccessTokenCommandsRejectAProjectToken(t *testing.T) {
 		require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "%v", args)
 		require.ErrorContains(t, err, "failed to manage access tokens", "%v", args)
 	}
+}
+
+// Usage is not one of those: the API answers it for a project access token, so
+// a CI job holding nothing but the credential it runs with can report its own
+// consumption. Refusing it here denied a request the server would have served.
+func TestAccessTokenUsageAcceptsAProjectToken(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, cliconfig.ProjectTokenPrefix+"token")
+
+	var authorization string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/projects/"+accessTokenProjectID+"/access-tokens/usage" {
+			http.NotFound(w, r)
+			return
+		}
+		authorization = r.Header.Get("Authorization")
+		writeAccessTokenCommandJSON(t, w, http.StatusOK, []any{
+			accessTokenCommandUsagePayload(accessTokenID, "ci-deploy", 18, 24),
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeAccessTokenCommand(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "usage", "--days", "7")
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer "+cliconfig.ProjectTokenPrefix+"token", authorization)
+	assert.Contains(t, out, "ci-deploy                 42")
 }
 
 func TestAccessTokenCommandsRequireProject(t *testing.T) {

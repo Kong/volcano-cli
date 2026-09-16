@@ -48,10 +48,20 @@ Use --yes to skip the prompt.`,
 }
 
 func runRevoke(ctx context.Context, opts revokeOptions) error {
+	service := cliaccesstoken.NewService(opts.deps)
+	// Resolved before the prompt so the question names the token that will be
+	// revoked: a mistyped name is reported as missing instead of after the user
+	// has confirmed it, and a UUID argument is confirmed by name and prefix
+	// rather than by the UUID the user already typed.
+	token, err := service.Get(ctx, opts.identifier)
+	if err != nil {
+		return err
+	}
+
 	if !opts.yes {
 		confirmed, err := confirm.Action(opts.in, opts.out,
 			"Revoking a token immediately breaks every deployment, pipeline, and script still using it.",
-			fmt.Sprintf("Revoke access token '%s'?", opts.identifier))
+			fmt.Sprintf("Revoke access token '%s' (%s)?", token.Name, token.TokenPrefix))
 		if err != nil {
 			return err
 		}
@@ -60,8 +70,7 @@ func runRevoke(ctx context.Context, opts revokeOptions) error {
 		}
 	}
 
-	token, err := cliaccesstoken.NewService(opts.deps).Revoke(ctx, opts.identifier)
-	if err != nil {
+	if err := service.Revoke(ctx, token); err != nil {
 		return err
 	}
 

@@ -27,7 +27,8 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List access tokens",
-		Long:  "List the current project's access tokens. Revoked tokens are hidden unless --include-revoked is set.",
+		Long: "List the current project's access tokens. Tokens that can no longer authenticate, " +
+			"revoked and expired alike, are hidden unless --include-revoked is set.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
 			opts.out = cmd.OutOrStdout()
@@ -37,7 +38,7 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 	cmd.Flags().IntVar(&opts.page, "page", api.DefaultPage, "Page number to fetch")
 	cmd.Flags().IntVar(&opts.limit, "limit", api.DefaultLimit, "Number of access tokens per page")
 	cmd.Flags().StringVar(&opts.search, "search", "", "Filter by a substring of the token name")
-	cmd.Flags().BoolVar(&opts.includeRevoked, "include-revoked", false, "Include revoked tokens")
+	cmd.Flags().BoolVar(&opts.includeRevoked, "include-revoked", false, "Include revoked and expired tokens")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
