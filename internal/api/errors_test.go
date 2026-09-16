@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,4 +31,13 @@ func TestApiErrorUsesPlainTextBody(t *testing.T) {
 func TestApiErrorPrefersJSONErrorFields(t *testing.T) {
 	err := apiError(http.StatusUnauthorized, []byte(`{"error_description":"token expired"}`))
 	assert.Equal(t, "HTTP 401: token expired", err.Error())
+}
+
+// A caller that acts on which refusal a status stands for needs the body, and
+// gets it through the same wrapping Status sees through.
+func TestMessageReadsAWrappedError(t *testing.T) {
+	err := apiError(http.StatusForbidden, []byte(`{"error":"project access token is read-only"}`))
+	assert.Equal(t, "project access token is read-only", Message(fmt.Errorf("failed to do a thing: %w", err)))
+	assert.Empty(t, Message(errors.New("boom")))
+	assert.Empty(t, Message(nil))
 }

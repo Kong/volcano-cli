@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -81,6 +82,10 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	printProjectTokenMismatchHint(w, err)
 }
 
+// wrongProjectRefusal is how the platform names a project access token used
+// against a project other than its own — the one 403 this hint explains.
+const wrongProjectRefusal = "project access token is not valid for this project"
+
 // printProjectTokenMismatchHint explains the likeliest cause of a 403 when the
 // credential is a project access token.
 //
@@ -92,6 +97,9 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 // trip, so this names the possibility rather than asserting it.
 func printProjectTokenMismatchHint(w io.Writer, err error) {
 	if api.Status(err) != http.StatusForbidden {
+		return
+	}
+	if !mismatchCouldExplain(api.Message(err)) {
 		return
 	}
 	cfg, cfgErr := config.Load()
@@ -106,4 +114,21 @@ func printProjectTokenMismatchHint(w io.Writer, err error) {
 		"This ran against project %s. A project access token only works on the project it was created in — "+
 			"check that is the right one, or run `volcano use <project-id>` to switch.\n",
 		projectID)
+}
+
+// mismatchCouldExplain reports whether a 403 body leaves room for the mismatch
+// hint.
+//
+// The platform refuses a pt- credential for reasons a project switch does not
+// fix — a read-only scope, an account-scoped route, token management — and each
+// says so in the body. Those refusals are their own answer, and advising the
+// user to switch project on top of one sends them to change the thing that was
+// already right. A body that does not mention the credential at all says
+// nothing about which refusal this is, so the mismatch remains the likeliest.
+func mismatchCouldExplain(message string) bool {
+	message = strings.ToLower(message)
+	if strings.Contains(message, wrongProjectRefusal) {
+		return true
+	}
+	return !strings.Contains(message, "project access token")
 }

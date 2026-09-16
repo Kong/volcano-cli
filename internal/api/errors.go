@@ -30,6 +30,17 @@ func Status(err error) int {
 	return 0
 }
 
+// Message returns the API's own message for the *Error wrapped in err, or ""
+// if err is nil, does not wrap an *Error, or carries no message. Callers that
+// act on which refusal a status stands for need the body, not just the code.
+func Message(err error) string {
+	var apiErr *Error
+	if errors.As(err, &apiErr) {
+		return apiErr.Message
+	}
+	return ""
+}
+
 func (e *Error) Error() string {
 	if e.StatusCode == 0 {
 		return e.Message

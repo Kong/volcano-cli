@@ -125,6 +125,48 @@ func TestPrintError_ProjectTokenMismatchHint(t *testing.T) {
 	assert.Contains(t, out.String(), "only works on the project it was created in")
 }
 
+// The platform refuses a pt- credential for four reasons besides the project
+// being wrong, and names each in the body. Advising a project switch on top of
+// one of those tells the user to change the one thing that was right — a
+// read-only token on the correct project was being sent to look for another.
+func TestPrintError_NoProjectTokenHintWhenTheBodyNamesAnotherRefusal(t *testing.T) {
+	for _, message := range []string{
+		"project access token is read-only",
+		"project access token is read-only; reading this project's credentials needs a full-scope token",
+		"project access tokens cannot be used on account-scoped endpoints; use an account token (pk-)",
+		"project access tokens cannot manage project access tokens; use an account token (pk-)",
+	} {
+		t.Run(message, func(t *testing.T) {
+			resetInstructions(t)
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+			t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+			var out bytes.Buffer
+
+			printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: message}, cliruntime.Deps{})
+
+			assert.Contains(t, out.String(), "Error: HTTP 403: "+message)
+			assert.NotContains(t, out.String(), "only works on the project it was created in")
+		})
+	}
+}
+
+// The wrong-project refusal is the one the hint is about, and the one that
+// needs it: the message names neither the project the token belongs to nor the
+// project this ran against.
+func TestPrintError_ProjectTokenHintOnTheWrongProjectRefusal(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped-to-another-project")
+	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: wrongProjectRefusal}, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "project-alpha")
+	assert.Contains(t, out.String(), "only works on the project it was created in")
+}
+
 func TestPrintError_NoProjectTokenHintForAnAccountToken(t *testing.T) {
 	resetInstructions(t)
 	t.Setenv("HOME", t.TempDir())
