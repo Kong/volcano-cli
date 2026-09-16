@@ -1402,9 +1402,16 @@ paths:
         - Project Access Tokens
       summary: List a project's access tokens
       description: |
-        Returns the project's access tokens, newest first. Revoked tokens are
-        omitted unless `include_revoked` is set. The token secret is returned
-        only by the create call and never appears here.
+        Lists the project's access tokens, newest first. Secrets are never
+        returned: only a hash is stored, so a token's value exists solely in the
+        response to the create call.
+
+        Only tokens that can still authenticate are returned by default, so
+        revoked and expired ones are hidden. Pass `include_revoked=true` to see
+        them, which is how you find out what a key did before it stopped working.
+
+        Requires a platform token. A project access token cannot manage project
+        access tokens, so a leaked credential cannot enumerate or replace itself.
       operationId: listProjectAccessTokens
       security:
         - UserToken: []
@@ -1416,10 +1423,12 @@ paths:
         - name: include_revoked
           in: query
           required: false
+          description: |
+            Include tokens that can no longer authenticate — both revoked and
+            expired ones.
           schema:
             type: boolean
             default: false
-          description: Include revoked tokens in the response.
       responses:
         '200':
           description: Successful response
@@ -1427,11 +1436,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedProjectAccessTokens'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner, or a project access token was used
           content:
             application/json:
               schema:
@@ -1447,9 +1459,17 @@ paths:
         - Project Access Tokens
       summary: Create a project access token
       description: |
-        Mints an opaque, project-scoped control-plane credential (prefix `pt-`).
-        The plaintext secret is returned in this response only and cannot be
-        retrieved again.
+        Creates a project access token and returns its secret.
+
+        The secret is in this response and nowhere else. Only its hash is
+        stored, so it cannot be retrieved, displayed, or recovered later — save
+        it when you create it.
+
+        The name must be unique within the project, which also makes this call
+        safe to retry: a duplicate is rejected rather than quietly minting a
+        second credential whose secret you never saw.
+
+        Requires a platform token.
       operationId: createProjectAccessToken
       security:
         - UserToken: []
@@ -1463,16 +1483,25 @@ paths:
               $ref: '#/components/schemas/CreateProjectAccessTokenRequest'
       responses:
         '201':
-          description: Token created
+          description: Token created - save the secret now, it cannot be retrieved again
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CreatedProjectAccessToken'
+        '400':
+          description: Bad request - invalid name, scope, or expiry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner, or a project access token was used
           content:
             application/json:
               schema:
@@ -1485,14 +1514,10 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: |
-            A token with that name already exists in the project, or the
-            project is being deleted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Too many token requests. Retry after the `Retry-After` interval.
+            Duplicate name, token limit reached, or the project is being
+            deleted. Tell them apart with `code`, which is one of
+            `access_token_name_exists`, `access_token_limit_reached`, or
+            `project_deleting` — the message text is not a contract.
           content:
             application/json:
               schema:
@@ -1501,16 +1526,32 @@ paths:
     get:
       tags:
         - Project Access Tokens
-      summary: Get every access token's daily request counts
+      summary: Per-day request counts for every access token in a project
       description: |
-        Returns one usage series per token in the project, revoked tokens
-        included, so a token's history survives its revocation.
-      operationId: getProjectAccessTokensUsage
+        Returns a zero-filled daily series of request counts for each of the
+        project's access tokens, oldest first. Every day in the window is
+        present, so a gap reads as zero rather than missing.
+
+        Revoked tokens are included, because the traffic they made before
+        revocation is usually the reason you are looking.
+
+        `days` defaults to 30 and is capped at 60, which is also how long per-day
+        counts are retained — a longer window cannot be answered.
+      operationId: listProjectAccessTokensUsage
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/AccessTokenUsageDays'
+        - name: days
+          in: query
+          required: false
+          description: Number of trailing days to return (1-60, default 30).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 30
       responses:
         '200':
           description: Successful response
@@ -1520,11 +1561,20 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProjectAccessTokenUsage'
+        '400':
+          description: Bad request - invalid window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner
           content:
             application/json:
               schema:
@@ -1540,12 +1590,17 @@ paths:
       tags:
         - Project Access Tokens
       summary: Get a project access token
+      description: |
+        Returns one token's metadata. Never its secret, which is not stored in a
+        recoverable form.
+
+        Requires a platform token.
       operationId: getProjectAccessToken
       security:
         - UserToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/AccessTokenId'
+        - $ref: '#/components/parameters/TokenId'
       responses:
         '200':
           description: Successful response
@@ -1553,17 +1608,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProjectAccessToken'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner, or a project access token was used
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or token not found
+          description: Token not found
           content:
             application/json:
               schema:
@@ -1573,34 +1631,47 @@ paths:
         - Project Access Tokens
       summary: Revoke a project access token
       description: |
-        Revokes the token immediately. The record is kept with status `revoked`
-        so its usage history stays auditable.
+        Revokes the token. It stops authenticating immediately in the region
+        handling this call and within seconds across Volcano's other regions.
+
+        The record is kept rather than deleted, so the token's name, prefix, last
+        use, and request history stay available — which is what you need if you
+        are revoking because a secret leaked. Revoking an already-revoked token
+        succeeds.
+
+        Revoking does not undo anything the token already did. Treat whatever it
+        could reach as exposed and rotate accordingly.
+
+        Requires a platform token.
       operationId: revokeProjectAccessToken
       security:
         - UserToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/AccessTokenId'
+        - $ref: '#/components/parameters/TokenId'
       responses:
         '204':
           description: Token revoked
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner, or a project access token was used
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or token not found
+          description: Token not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: The project is being deleted
+          description: Conflict - the project is being deleted
           content:
             application/json:
               schema:
@@ -1609,17 +1680,29 @@ paths:
     get:
       tags:
         - Project Access Tokens
-      summary: Get a project access token's daily request counts
+      summary: Per-day request counts for one access token
       description: |
-        Returns one entry per day, zero-filled and oldest first, so a caller can
-        plot the series without reconciling gaps.
+        Returns a zero-filled daily series of request counts for a single token,
+        oldest first, so the response always has exactly `days` entries.
+
+        `days` defaults to 30 and is capped at 60, matching how long per-day
+        counts are retained.
       operationId: getProjectAccessTokenUsage
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
-        - $ref: '#/components/parameters/AccessTokenId'
-        - $ref: '#/components/parameters/AccessTokenUsageDays'
+        - $ref: '#/components/parameters/TokenId'
+        - name: days
+          in: query
+          required: false
+          description: Number of trailing days to return (1-60, default 30).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 30
       responses:
         '200':
           description: Successful response
@@ -1627,17 +1710,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProjectAccessTokenUsage'
+        '400':
+          description: Bad request - invalid window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: |
-            The caller may not manage this project's access tokens. Token
-            management requires an account platform token; a project access
-            token cannot mint or revoke credentials.
+          description: Forbidden - not the project owner
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or token not found
+          description: Token not found
           content:
             application/json:
               schema:
@@ -10780,6 +10872,21 @@ components:
         Platform user token from the Management API.
         Required for project management operations.
         Obtain via POST /tokens in Management API (port 8001).
+    ProjectAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        Project access token, scoped to a single project. Starts with `pt-`.
+
+        Accepted on that project's control-plane routes and refused
+        everywhere else, including account-wide endpoints and any other
+        project. A `read_only` token additionally refuses mutations.
+
+        Create one with POST /projects/{id}/access-tokens using a platform
+        token. The secret is returned once and is not recoverable, so a
+        project access token cannot create, list, read, or revoke project
+        access tokens.
   parameters:
     AccessTokenId:
       name: tokenId
@@ -11028,6 +11135,14 @@ components:
         type: string
         format: uuid
       description: Project ID
+    TokenId:
+      name: tokenId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Project access token ID
     Search:
       name: search
       in: query
@@ -12034,22 +12149,18 @@ components:
           description: Optional for non-device providers, uses provider defaults if omitted. Not used for `provider=device`.
     CreateProjectAccessTokenRequest:
       type: object
-      description: Request to mint a project access token
       properties:
         name:
           type: string
-          description: Token name, unique within the project
           minLength: 1
-          maxLength: 255
-          example: ci-deploy
+          maxLength: 100
+          description: Unique within the project. Creating a duplicate returns 409.
         scope:
           $ref: '#/components/schemas/ProjectAccessTokenScope'
         expires_at:
           type: string
           format: date-time
-          description: |
-            Optional expiry. Omit for a token that never expires.
-          example: '2027-01-01T00:00:00Z'
+          description: Omit for a token that does not expire.
       required:
         - name
         - scope
@@ -13602,9 +13713,6 @@ components:
       required:
         - production_branch
     CreatedProjectAccessToken:
-      description: |
-        A newly minted project access token, including the plaintext secret.
-        The secret is returned by this response only.
       allOf:
         - $ref: '#/components/schemas/ProjectAccessToken'
         - type: object
@@ -13612,9 +13720,8 @@ components:
             token:
               type: string
               description: |
-                The plaintext token secret (prefix `pt-`). Store it now; it
-                cannot be retrieved again.
-              example: pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+                The secret. Returned only here, and not recoverable afterwards:
+                the server stores a hash rather than the value. Save it now.
           required:
             - token
     CreatedProjectGitConnection:
@@ -14853,19 +14960,14 @@ components:
             $ref: '#/components/schemas/ProjectAccessToken'
         page:
           type: integer
-          description: Current page number (1-indexed)
         limit:
           type: integer
-          description: Number of items per page
         total:
           type: integer
-          description: Total number of items across all pages
         has_more:
           type: boolean
-          description: Whether there are more pages available
         next:
           type: string
-          description: URL path to next page (only present if has_more is true)
       required:
         - data
         - page
@@ -15162,9 +15264,12 @@ components:
     ProjectAccessToken:
       type: object
       description: |
-        An opaque, project-scoped control-plane credential. It authenticates the
-        same project-scoped routes as an account platform token, but only for
-        the project it was minted in, and it cannot manage tokens.
+        A project access token: a control-plane credential bound to a single
+        project. Unlike a platform token, which acts on every project its owner
+        has, this one is limited to the project it was created in.
+
+        The secret itself is never returned here. Only its hash is stored, so
+        the plaintext exists solely in the response to the create call.
       properties:
         id:
           type: string
@@ -15174,63 +15279,98 @@ components:
           format: uuid
         name:
           type: string
-          description: Token name, unique within the project
+          description: Unique per project.
         token_prefix:
           type: string
-          description: Leading characters of the secret, for identification
-          example: pt-Wq9l2m4X
+          description: First 12 characters of the secret, for recognising a token in a list.
         scope:
           $ref: '#/components/schemas/ProjectAccessTokenScope'
         status:
-          $ref: '#/components/schemas/ProjectAccessTokenStatus'
+          type: string
+          enum:
+            - active
+            - revoked
+            - expired
+          description: |
+            `revoked` means the token was deliberately revoked, by you or by the
+            deletion of its project. `expired` means it simply reached
+            `expires_at`; nothing was taken away. Both are refused, and both keep
+            their record so a token's name, prefix, last use, and request history
+            remain available after a leak.
+
+            A token revoked before its expiry passed stays `revoked`, because
+            that is the fact worth keeping.
         token_source:
           type: string
-          description: How the token was minted (for example `cli` or `dashboard`)
+          enum:
+            - api
+            - cli
+            - dashboard
+          description: What created the token.
         expires_at:
           type: string
           format: date-time
-          description: Absent when the token never expires
+          nullable: true
+          description: Absent for a token that does not expire.
         last_used_at:
           type: string
           format: date-time
-          description: Absent until the token authenticates a request
+          nullable: true
+          description: Updated at most once every few minutes, so it may lag slightly.
         created_at:
           type: string
           format: date-time
         all_time_requests:
           type: integer
           format: int64
-          description: Requests authenticated with this token since it was created
+          description: Requests authenticated with this token since it was created.
       required:
         - id
+        - project_id
         - name
         - token_prefix
         - scope
         - status
+        - token_source
         - created_at
         - all_time_requests
     ProjectAccessTokenScope:
       type: string
       description: |
-        What the token may do in its project. `full` matches an account token's
-        access to that project; `read_only` rejects writes.
+        What a project access token may do within its project.
+
+        `full` is everything you can do to that one project, up to and including
+        deleting it. It cannot manage access tokens, so a leaked token cannot
+        mint a replacement or erase the record of its own use, but for a CI or
+        agent credential that only deploys, prefer `read_only` where the job
+        allows it.
+
+        `read_only` refuses mutations. It is enforced by route classification
+        rather than HTTP method, so the log and metrics query endpoints remain
+        available even though they are POST requests that carry body filters.
+
+        `read_only` also refuses the reads that return a credential — service
+        keys, variable values, and database connection strings. A service key
+        grants read and write over the project's data and keeps working after
+        the token that fetched it is revoked, so returning one to a read-only
+        credential would make the scope a formality.
       enum:
         - full
         - read_only
       x-enum-varnames:
         - ProjectAccessTokenScopeFull
         - ProjectAccessTokenScopeReadOnly
-    ProjectAccessTokenStatus:
-      type: string
-      enum:
-        - active
-        - revoked
-        - expired
     ProjectAccessTokenUsage:
       type: object
       description: |
         Zero-filled daily request counts for a single token, oldest first. Every
         day in the window is present, so a gap reads as zero rather than missing.
+
+        Counts every request the token authenticated, including ones then
+        refused — a read-only token attempting a write, or a token presented on
+        another project's route. That is deliberate: after a leak, the probing
+        is the part you want to see, and a counter that hid it would make a
+        token look idle while it was being tried.
       properties:
         token_id:
           type: string

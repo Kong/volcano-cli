@@ -24,6 +24,7 @@ import (
 const (
 	AnonKeyScopes             anonKeyContextKey             = "AnonKey.Scopes"
 	AuthUserAccessTokenScopes authUserAccessTokenContextKey = "AuthUserAccessToken.Scopes"
+	ProjectAccessTokenScopes  projectAccessTokenContextKey  = "ProjectAccessToken.Scopes"
 	ServiceRoleKeyScopes      serviceRoleKeyContextKey      = "ServiceRoleKey.Scopes"
 	UserTokenScopes           userTokenContextKey           = "UserToken.Scopes"
 )
@@ -307,6 +308,48 @@ func (e CreateStoragePolicyRequestOperation) Valid() bool {
 	case CreateStoragePolicyRequestOperationSELECT:
 		return true
 	case CreateStoragePolicyRequestOperationUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreatedProjectAccessTokenStatus.
+const (
+	CreatedProjectAccessTokenStatusActive  CreatedProjectAccessTokenStatus = "active"
+	CreatedProjectAccessTokenStatusExpired CreatedProjectAccessTokenStatus = "expired"
+	CreatedProjectAccessTokenStatusRevoked CreatedProjectAccessTokenStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the CreatedProjectAccessTokenStatus enum.
+func (e CreatedProjectAccessTokenStatus) Valid() bool {
+	switch e {
+	case CreatedProjectAccessTokenStatusActive:
+		return true
+	case CreatedProjectAccessTokenStatusExpired:
+		return true
+	case CreatedProjectAccessTokenStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreatedProjectAccessTokenTokenSource.
+const (
+	CreatedProjectAccessTokenTokenSourceApi       CreatedProjectAccessTokenTokenSource = "api"
+	CreatedProjectAccessTokenTokenSourceCli       CreatedProjectAccessTokenTokenSource = "cli"
+	CreatedProjectAccessTokenTokenSourceDashboard CreatedProjectAccessTokenTokenSource = "dashboard"
+)
+
+// Valid indicates whether the value is a known member of the CreatedProjectAccessTokenTokenSource enum.
+func (e CreatedProjectAccessTokenTokenSource) Valid() bool {
+	switch e {
+	case CreatedProjectAccessTokenTokenSourceApi:
+		return true
+	case CreatedProjectAccessTokenTokenSourceCli:
+		return true
+	case CreatedProjectAccessTokenTokenSourceDashboard:
 		return true
 	default:
 		return false
@@ -1285,24 +1328,6 @@ func (e ProjectStatus) Valid() bool {
 	}
 }
 
-// Defines values for ProjectAccessTokenScope.
-const (
-	ProjectAccessTokenScopeFull     ProjectAccessTokenScope = "full"
-	ProjectAccessTokenScopeReadOnly ProjectAccessTokenScope = "read_only"
-)
-
-// Valid indicates whether the value is a known member of the ProjectAccessTokenScope enum.
-func (e ProjectAccessTokenScope) Valid() bool {
-	switch e {
-	case ProjectAccessTokenScopeFull:
-		return true
-	case ProjectAccessTokenScopeReadOnly:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ProjectAccessTokenStatus.
 const (
 	ProjectAccessTokenStatusActive  ProjectAccessTokenStatus = "active"
@@ -1318,6 +1343,45 @@ func (e ProjectAccessTokenStatus) Valid() bool {
 	case ProjectAccessTokenStatusExpired:
 		return true
 	case ProjectAccessTokenStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectAccessTokenTokenSource.
+const (
+	ProjectAccessTokenTokenSourceApi       ProjectAccessTokenTokenSource = "api"
+	ProjectAccessTokenTokenSourceCli       ProjectAccessTokenTokenSource = "cli"
+	ProjectAccessTokenTokenSourceDashboard ProjectAccessTokenTokenSource = "dashboard"
+)
+
+// Valid indicates whether the value is a known member of the ProjectAccessTokenTokenSource enum.
+func (e ProjectAccessTokenTokenSource) Valid() bool {
+	switch e {
+	case ProjectAccessTokenTokenSourceApi:
+		return true
+	case ProjectAccessTokenTokenSourceCli:
+		return true
+	case ProjectAccessTokenTokenSourceDashboard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectAccessTokenScope.
+const (
+	ProjectAccessTokenScopeFull     ProjectAccessTokenScope = "full"
+	ProjectAccessTokenScopeReadOnly ProjectAccessTokenScope = "read_only"
+)
+
+// Valid indicates whether the value is a known member of the ProjectAccessTokenScope enum.
+func (e ProjectAccessTokenScope) Valid() bool {
+	switch e {
+	case ProjectAccessTokenScopeFull:
+		return true
+	case ProjectAccessTokenScopeReadOnly:
 		return true
 	default:
 		return false
@@ -3021,16 +3085,16 @@ func (e ListUserSessionsParamsSort) Valid() bool {
 
 // Defines values for ListUserSessionsParamsStatus.
 const (
-	ListUserSessionsParamsStatusActive  ListUserSessionsParamsStatus = "active"
-	ListUserSessionsParamsStatusExpired ListUserSessionsParamsStatus = "expired"
+	Active  ListUserSessionsParamsStatus = "active"
+	Expired ListUserSessionsParamsStatus = "expired"
 )
 
 // Valid indicates whether the value is a known member of the ListUserSessionsParamsStatus enum.
 func (e ListUserSessionsParamsStatus) Valid() bool {
 	switch e {
-	case ListUserSessionsParamsStatusActive:
+	case Active:
 		return true
-	case ListUserSessionsParamsStatusExpired:
+	case Expired:
 		return true
 	default:
 		return false
@@ -3982,16 +4046,31 @@ type CreateOAuthConfigRequest struct {
 // CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
 type CreateOAuthConfigRequestProvider string
 
-// CreateProjectAccessTokenRequest Request to mint a project access token
+// CreateProjectAccessTokenRequest defines model for CreateProjectAccessTokenRequest.
 type CreateProjectAccessTokenRequest struct {
-	// ExpiresAt Optional expiry. Omit for a token that never expires.
+	// ExpiresAt Omit for a token that does not expire.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
-	// Name Token name, unique within the project
+	// Name Unique within the project. Creating a duplicate returns 409.
 	Name string `json:"name"`
 
-	// Scope What the token may do in its project. `full` matches an account token's
-	// access to that project; `read_only` rejects writes.
+	// Scope What a project access token may do within its project.
+	//
+	// `full` is everything you can do to that one project, up to and including
+	// deleting it. It cannot manage access tokens, so a leaked token cannot
+	// mint a replacement or erase the record of its own use, but for a CI or
+	// agent credential that only deploys, prefer `read_only` where the job
+	// allows it.
+	//
+	// `read_only` refuses mutations. It is enforced by route classification
+	// rather than HTTP method, so the log and metrics query endpoints remain
+	// available even though they are POST requests that carry body filters.
+	//
+	// `read_only` also refuses the reads that return a credential — service
+	// keys, variable values, and database connection strings. A service key
+	// grants read and write over the project's data and keeps working after
+	// the token that fetched it is revoked, so returning one to a read-only
+	// credential would make the scope a formality.
 	Scope ProjectAccessTokenScope `json:"scope"`
 }
 
@@ -4097,36 +4176,73 @@ type CreateVariableRequest struct {
 
 // CreatedProjectAccessToken defines model for CreatedProjectAccessToken.
 type CreatedProjectAccessToken struct {
-	// AllTimeRequests Requests authenticated with this token since it was created
+	// AllTimeRequests Requests authenticated with this token since it was created.
 	AllTimeRequests int64     `json:"all_time_requests"`
 	CreatedAt       time.Time `json:"created_at"`
 
-	// ExpiresAt Absent when the token never expires
+	// ExpiresAt Absent for a token that does not expire.
 	ExpiresAt *time.Time         `json:"expires_at,omitempty"`
 	Id        openapi_types.UUID `json:"id"`
 
-	// LastUsedAt Absent until the token authenticates a request
+	// LastUsedAt Updated at most once every few minutes, so it may lag slightly.
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 
-	// Name Token name, unique within the project
-	Name      string              `json:"name"`
-	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	// Name Unique per project.
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
 
-	// Scope What the token may do in its project. `full` matches an account token's
-	// access to that project; `read_only` rejects writes.
-	Scope  ProjectAccessTokenScope  `json:"scope"`
-	Status ProjectAccessTokenStatus `json:"status"`
+	// Scope What a project access token may do within its project.
+	//
+	// `full` is everything you can do to that one project, up to and including
+	// deleting it. It cannot manage access tokens, so a leaked token cannot
+	// mint a replacement or erase the record of its own use, but for a CI or
+	// agent credential that only deploys, prefer `read_only` where the job
+	// allows it.
+	//
+	// `read_only` refuses mutations. It is enforced by route classification
+	// rather than HTTP method, so the log and metrics query endpoints remain
+	// available even though they are POST requests that carry body filters.
+	//
+	// `read_only` also refuses the reads that return a credential — service
+	// keys, variable values, and database connection strings. A service key
+	// grants read and write over the project's data and keeps working after
+	// the token that fetched it is revoked, so returning one to a read-only
+	// credential would make the scope a formality.
+	Scope ProjectAccessTokenScope `json:"scope"`
 
-	// Token The plaintext token secret (prefix `pt-`). Store it now; it
-	// cannot be retrieved again.
+	// Status `revoked` means the token was deliberately revoked, by you or by the
+	// deletion of its project. `expired` means it simply reached
+	// `expires_at`; nothing was taken away. Both are refused, and both keep
+	// their record so a token's name, prefix, last use, and request history
+	// remain available after a leak.
+	//
+	// A token revoked before its expiry passed stays `revoked`, because
+	// that is the fact worth keeping.
+	Status CreatedProjectAccessTokenStatus `json:"status"`
+
+	// Token The secret. Returned only here, and not recoverable afterwards:
+	// the server stores a hash rather than the value. Save it now.
 	Token string `json:"token"`
 
-	// TokenPrefix Leading characters of the secret, for identification
+	// TokenPrefix First 12 characters of the secret, for recognising a token in a list.
 	TokenPrefix string `json:"token_prefix"`
 
-	// TokenSource How the token was minted (for example `cli` or `dashboard`)
-	TokenSource *string `json:"token_source,omitempty"`
+	// TokenSource What created the token.
+	TokenSource CreatedProjectAccessTokenTokenSource `json:"token_source"`
 }
+
+// CreatedProjectAccessTokenStatus `revoked` means the token was deliberately revoked, by you or by the
+// deletion of its project. `expired` means it simply reached
+// `expires_at`; nothing was taken away. Both are refused, and both keep
+// their record so a token's name, prefix, last use, and request history
+// remain available after a leak.
+//
+// A token revoked before its expiry passed stays `revoked`, because
+// that is the fact worth keeping.
+type CreatedProjectAccessTokenStatus string
+
+// CreatedProjectAccessTokenTokenSource What created the token.
+type CreatedProjectAccessTokenTokenSource string
 
 // CreatedProjectGitConnection A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
 type CreatedProjectGitConnection struct {
@@ -5694,22 +5810,12 @@ type PaginatedFunctions struct {
 
 // PaginatedProjectAccessTokens defines model for PaginatedProjectAccessTokens.
 type PaginatedProjectAccessTokens struct {
-	Data []ProjectAccessToken `json:"data"`
-
-	// HasMore Whether there are more pages available
-	HasMore bool `json:"has_more"`
-
-	// Limit Number of items per page
-	Limit int `json:"limit"`
-
-	// Next URL path to next page (only present if has_more is true)
-	Next *string `json:"next,omitempty"`
-
-	// Page Current page number (1-indexed)
-	Page int `json:"page"`
-
-	// Total Total number of items across all pages
-	Total int `json:"total"`
+	Data    []ProjectAccessToken `json:"data"`
+	HasMore bool                 `json:"has_more"`
+	Limit   int                  `json:"limit"`
+	Next    *string              `json:"next,omitempty"`
+	Page    int                  `json:"page"`
+	Total   int                  `json:"total"`
 }
 
 // PaginatedProjectCustomDomains defines model for PaginatedProjectCustomDomains.
@@ -5913,46 +6019,104 @@ type ProjectPlan string
 // ProjectStatus defines model for Project.Status.
 type ProjectStatus string
 
-// ProjectAccessToken An opaque, project-scoped control-plane credential. It authenticates the
-// same project-scoped routes as an account platform token, but only for
-// the project it was minted in, and it cannot manage tokens.
+// ProjectAccessToken A project access token: a control-plane credential bound to a single
+// project. Unlike a platform token, which acts on every project its owner
+// has, this one is limited to the project it was created in.
+//
+// The secret itself is never returned here. Only its hash is stored, so
+// the plaintext exists solely in the response to the create call.
 type ProjectAccessToken struct {
-	// AllTimeRequests Requests authenticated with this token since it was created
+	// AllTimeRequests Requests authenticated with this token since it was created.
 	AllTimeRequests int64     `json:"all_time_requests"`
 	CreatedAt       time.Time `json:"created_at"`
 
-	// ExpiresAt Absent when the token never expires
+	// ExpiresAt Absent for a token that does not expire.
 	ExpiresAt *time.Time         `json:"expires_at,omitempty"`
 	Id        openapi_types.UUID `json:"id"`
 
-	// LastUsedAt Absent until the token authenticates a request
+	// LastUsedAt Updated at most once every few minutes, so it may lag slightly.
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 
-	// Name Token name, unique within the project
-	Name      string              `json:"name"`
-	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	// Name Unique per project.
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
 
-	// Scope What the token may do in its project. `full` matches an account token's
-	// access to that project; `read_only` rejects writes.
-	Scope  ProjectAccessTokenScope  `json:"scope"`
+	// Scope What a project access token may do within its project.
+	//
+	// `full` is everything you can do to that one project, up to and including
+	// deleting it. It cannot manage access tokens, so a leaked token cannot
+	// mint a replacement or erase the record of its own use, but for a CI or
+	// agent credential that only deploys, prefer `read_only` where the job
+	// allows it.
+	//
+	// `read_only` refuses mutations. It is enforced by route classification
+	// rather than HTTP method, so the log and metrics query endpoints remain
+	// available even though they are POST requests that carry body filters.
+	//
+	// `read_only` also refuses the reads that return a credential — service
+	// keys, variable values, and database connection strings. A service key
+	// grants read and write over the project's data and keeps working after
+	// the token that fetched it is revoked, so returning one to a read-only
+	// credential would make the scope a formality.
+	Scope ProjectAccessTokenScope `json:"scope"`
+
+	// Status `revoked` means the token was deliberately revoked, by you or by the
+	// deletion of its project. `expired` means it simply reached
+	// `expires_at`; nothing was taken away. Both are refused, and both keep
+	// their record so a token's name, prefix, last use, and request history
+	// remain available after a leak.
+	//
+	// A token revoked before its expiry passed stays `revoked`, because
+	// that is the fact worth keeping.
 	Status ProjectAccessTokenStatus `json:"status"`
 
-	// TokenPrefix Leading characters of the secret, for identification
+	// TokenPrefix First 12 characters of the secret, for recognising a token in a list.
 	TokenPrefix string `json:"token_prefix"`
 
-	// TokenSource How the token was minted (for example `cli` or `dashboard`)
-	TokenSource *string `json:"token_source,omitempty"`
+	// TokenSource What created the token.
+	TokenSource ProjectAccessTokenTokenSource `json:"token_source"`
 }
 
-// ProjectAccessTokenScope What the token may do in its project. `full` matches an account token's
-// access to that project; `read_only` rejects writes.
-type ProjectAccessTokenScope string
-
-// ProjectAccessTokenStatus defines model for ProjectAccessTokenStatus.
+// ProjectAccessTokenStatus `revoked` means the token was deliberately revoked, by you or by the
+// deletion of its project. `expired` means it simply reached
+// `expires_at`; nothing was taken away. Both are refused, and both keep
+// their record so a token's name, prefix, last use, and request history
+// remain available after a leak.
+//
+// A token revoked before its expiry passed stays `revoked`, because
+// that is the fact worth keeping.
 type ProjectAccessTokenStatus string
+
+// ProjectAccessTokenTokenSource What created the token.
+type ProjectAccessTokenTokenSource string
+
+// ProjectAccessTokenScope What a project access token may do within its project.
+//
+// `full` is everything you can do to that one project, up to and including
+// deleting it. It cannot manage access tokens, so a leaked token cannot
+// mint a replacement or erase the record of its own use, but for a CI or
+// agent credential that only deploys, prefer `read_only` where the job
+// allows it.
+//
+// `read_only` refuses mutations. It is enforced by route classification
+// rather than HTTP method, so the log and metrics query endpoints remain
+// available even though they are POST requests that carry body filters.
+//
+// `read_only` also refuses the reads that return a credential — service
+// keys, variable values, and database connection strings. A service key
+// grants read and write over the project's data and keeps working after
+// the token that fetched it is revoked, so returning one to a read-only
+// credential would make the scope a formality.
+type ProjectAccessTokenScope string
 
 // ProjectAccessTokenUsage Zero-filled daily request counts for a single token, oldest first. Every
 // day in the window is present, so a gap reads as zero rather than missing.
+//
+// Counts every request the token authenticated, including ones then
+// refused — a read-only token attempting a write, or a token presented on
+// another project's route. That is deliberate: after a leak, the probing
+// is the part you want to see, and a counter that hid it would make a
+// token look idle while it was being tried.
 type ProjectAccessTokenUsage struct {
 	Daily []ProjectAccessTokenUsageDailyEntry `json:"daily"`
 
@@ -7582,6 +7746,9 @@ type SchedulerId = openapi_types.UUID
 // Search defines model for Search.
 type Search = string
 
+// TokenId defines model for TokenId.
+type TokenId = openapi_types.UUID
+
 // VariableName defines model for VariableName.
 type VariableName = string
 
@@ -7596,6 +7763,9 @@ type anonKeyContextKey string
 
 // authUserAccessTokenContextKey is the context key for AuthUserAccessToken security scheme
 type authUserAccessTokenContextKey string
+
+// projectAccessTokenContextKey is the context key for ProjectAccessToken security scheme
+type projectAccessTokenContextKey string
 
 // serviceRoleKeyContextKey is the context key for ServiceRoleKey security scheme
 type serviceRoleKeyContextKey string
@@ -8098,20 +8268,21 @@ type ListProjectAccessTokensParams struct {
 	// endpoint description for supported pagination modes.
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 
-	// IncludeRevoked Include revoked tokens in the response.
+	// IncludeRevoked Include tokens that can no longer authenticate — both revoked and
+	// expired ones.
 	IncludeRevoked *bool `form:"include_revoked,omitempty" json:"include_revoked,omitempty"`
 }
 
-// GetProjectAccessTokensUsageParams defines parameters for GetProjectAccessTokensUsage.
-type GetProjectAccessTokensUsageParams struct {
-	// Days Number of days to return, counting back from today.
-	Days *AccessTokenUsageDays `form:"days,omitempty" json:"days,omitempty"`
+// ListProjectAccessTokensUsageParams defines parameters for ListProjectAccessTokensUsage.
+type ListProjectAccessTokensUsageParams struct {
+	// Days Number of trailing days to return (1-60, default 30).
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // GetProjectAccessTokenUsageParams defines parameters for GetProjectAccessTokenUsage.
 type GetProjectAccessTokenUsageParams struct {
-	// Days Number of days to return, counting back from today.
-	Days *AccessTokenUsageDays `form:"days,omitempty" json:"days,omitempty"`
+	// Days Number of trailing days to return (1-60, default 30).
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListAnonKeysParams defines parameters for ListAnonKeys.
@@ -10322,17 +10493,17 @@ type ClientInterface interface {
 
 	CreateProjectAccessToken(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetProjectAccessTokensUsage request
-	GetProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProjectAccessTokensUsage request
+	ListProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *ListProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeProjectAccessToken request
-	RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectAccessToken request
-	GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectAccessTokenUsage request
-	GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId TokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAnonKeys request
 	ListAnonKeys(ctx context.Context, id ProjectId, params *ListAnonKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12162,8 +12333,8 @@ func (c *Client) CreateProjectAccessToken(ctx context.Context, id ProjectId, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetProjectAccessTokensUsageRequest(c.Server, id, params)
+func (c *Client) ListProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *ListProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectAccessTokensUsageRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12174,7 +12345,7 @@ func (c *Client) GetProjectAccessTokensUsage(ctx context.Context, id ProjectId, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRevokeProjectAccessTokenRequest(c.Server, id, tokenId)
 	if err != nil {
 		return nil, err
@@ -12186,7 +12357,7 @@ func (c *Client) RevokeProjectAccessToken(ctx context.Context, id ProjectId, tok
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectAccessTokenRequest(c.Server, id, tokenId)
 	if err != nil {
 		return nil, err
@@ -12198,7 +12369,7 @@ func (c *Client) GetProjectAccessToken(ctx context.Context, id ProjectId, tokenI
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId TokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectAccessTokenUsageRequest(c.Server, id, tokenId, params)
 	if err != nil {
 		return nil, err
@@ -18062,8 +18233,8 @@ func NewCreateProjectAccessTokenRequestWithBody(server string, id ProjectId, con
 	return req, nil
 }
 
-// NewGetProjectAccessTokensUsageRequest generates requests for GetProjectAccessTokensUsage
-func NewGetProjectAccessTokensUsageRequest(server string, id ProjectId, params *GetProjectAccessTokensUsageParams) (*http.Request, error) {
+// NewListProjectAccessTokensUsageRequest generates requests for ListProjectAccessTokensUsage
+func NewListProjectAccessTokensUsageRequest(server string, id ProjectId, params *ListProjectAccessTokensUsageParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -18124,7 +18295,7 @@ func NewGetProjectAccessTokensUsageRequest(server string, id ProjectId, params *
 }
 
 // NewRevokeProjectAccessTokenRequest generates requests for RevokeProjectAccessToken
-func NewRevokeProjectAccessTokenRequest(server string, id ProjectId, tokenId AccessTokenId) (*http.Request, error) {
+func NewRevokeProjectAccessTokenRequest(server string, id ProjectId, tokenId TokenId) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -18165,7 +18336,7 @@ func NewRevokeProjectAccessTokenRequest(server string, id ProjectId, tokenId Acc
 }
 
 // NewGetProjectAccessTokenRequest generates requests for GetProjectAccessToken
-func NewGetProjectAccessTokenRequest(server string, id ProjectId, tokenId AccessTokenId) (*http.Request, error) {
+func NewGetProjectAccessTokenRequest(server string, id ProjectId, tokenId TokenId) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -18206,7 +18377,7 @@ func NewGetProjectAccessTokenRequest(server string, id ProjectId, tokenId Access
 }
 
 // NewGetProjectAccessTokenUsageRequest generates requests for GetProjectAccessTokenUsage
-func NewGetProjectAccessTokenUsageRequest(server string, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams) (*http.Request, error) {
+func NewGetProjectAccessTokenUsageRequest(server string, id ProjectId, tokenId TokenId, params *GetProjectAccessTokenUsageParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -26664,17 +26835,17 @@ type ClientWithResponsesInterface interface {
 
 	CreateProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectAccessTokenClientResponse, error)
 
-	// GetProjectAccessTokensUsageWithResponse request
-	GetProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokensUsageClientResponse, error)
+	// ListProjectAccessTokensUsageWithResponse request
+	ListProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *ListProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*ListProjectAccessTokensUsageClientResponse, error)
 
 	// RevokeProjectAccessTokenWithResponse request
-	RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error)
+	RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error)
 
 	// GetProjectAccessTokenWithResponse request
-	GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error)
+	GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error)
 
 	// GetProjectAccessTokenUsageWithResponse request
-	GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error)
+	GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error)
 
 	// ListAnonKeysWithResponse request
 	ListAnonKeysWithResponse(ctx context.Context, id ProjectId, params *ListAnonKeysParams, reqEditors ...RequestEditorFn) (*ListAnonKeysClientResponse, error)
@@ -29632,6 +29803,7 @@ type ListProjectAccessTokensClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PaginatedProjectAccessTokens
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 }
@@ -29664,10 +29836,11 @@ type CreateProjectAccessTokenClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *CreatedProjectAccessToken
+	JSON400      *Error
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
-	JSON429      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -29694,16 +29867,18 @@ func (r CreateProjectAccessTokenClientResponse) ContentType() string {
 	return ""
 }
 
-type GetProjectAccessTokensUsageClientResponse struct {
+type ListProjectAccessTokensUsageClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]ProjectAccessTokenUsage
+	JSON400      *Error
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetProjectAccessTokensUsageClientResponse) Status() string {
+func (r ListProjectAccessTokensUsageClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -29711,7 +29886,7 @@ func (r GetProjectAccessTokensUsageClientResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetProjectAccessTokensUsageClientResponse) StatusCode() int {
+func (r ListProjectAccessTokensUsageClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -29719,7 +29894,7 @@ func (r GetProjectAccessTokensUsageClientResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetProjectAccessTokensUsageClientResponse) ContentType() string {
+func (r ListProjectAccessTokensUsageClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -29729,6 +29904,7 @@ func (r GetProjectAccessTokensUsageClientResponse) ContentType() string {
 type RevokeProjectAccessTokenClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
@@ -29762,6 +29938,7 @@ type GetProjectAccessTokenClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectAccessToken
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 }
@@ -29794,6 +29971,8 @@ type GetProjectAccessTokenUsageClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectAccessTokenUsage
+	JSON400      *Error
+	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
 }
@@ -35503,17 +35682,17 @@ func (c *ClientWithResponses) CreateProjectAccessTokenWithResponse(ctx context.C
 	return ParseCreateProjectAccessTokenClientResponse(rsp)
 }
 
-// GetProjectAccessTokensUsageWithResponse request returning *GetProjectAccessTokensUsageClientResponse
-func (c *ClientWithResponses) GetProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokensUsageClientResponse, error) {
-	rsp, err := c.GetProjectAccessTokensUsage(ctx, id, params, reqEditors...)
+// ListProjectAccessTokensUsageWithResponse request returning *ListProjectAccessTokensUsageClientResponse
+func (c *ClientWithResponses) ListProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *ListProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*ListProjectAccessTokensUsageClientResponse, error) {
+	rsp, err := c.ListProjectAccessTokensUsage(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetProjectAccessTokensUsageClientResponse(rsp)
+	return ParseListProjectAccessTokensUsageClientResponse(rsp)
 }
 
 // RevokeProjectAccessTokenWithResponse request returning *RevokeProjectAccessTokenClientResponse
-func (c *ClientWithResponses) RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error) {
+func (c *ClientWithResponses) RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error) {
 	rsp, err := c.RevokeProjectAccessToken(ctx, id, tokenId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -35522,7 +35701,7 @@ func (c *ClientWithResponses) RevokeProjectAccessTokenWithResponse(ctx context.C
 }
 
 // GetProjectAccessTokenWithResponse request returning *GetProjectAccessTokenClientResponse
-func (c *ClientWithResponses) GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error) {
+func (c *ClientWithResponses) GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error) {
 	rsp, err := c.GetProjectAccessToken(ctx, id, tokenId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -35531,7 +35710,7 @@ func (c *ClientWithResponses) GetProjectAccessTokenWithResponse(ctx context.Cont
 }
 
 // GetProjectAccessTokenUsageWithResponse request returning *GetProjectAccessTokenUsageClientResponse
-func (c *ClientWithResponses) GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error) {
+func (c *ClientWithResponses) GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId TokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error) {
 	rsp, err := c.GetProjectAccessTokenUsage(ctx, id, tokenId, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -40452,6 +40631,13 @@ func ParseListProjectAccessTokensClientResponse(rsp *http.Response) (*ListProjec
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40492,6 +40678,20 @@ func ParseCreateProjectAccessTokenClientResponse(rsp *http.Response) (*CreatePro
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40513,27 +40713,20 @@ func ParseCreateProjectAccessTokenClientResponse(rsp *http.Response) (*CreatePro
 		}
 		response.JSON409 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON429 = &dest
-
 	}
 
 	return response, nil
 }
 
-// ParseGetProjectAccessTokensUsageClientResponse parses an HTTP response from a GetProjectAccessTokensUsageWithResponse call
-func ParseGetProjectAccessTokensUsageClientResponse(rsp *http.Response) (*GetProjectAccessTokensUsageClientResponse, error) {
+// ParseListProjectAccessTokensUsageClientResponse parses an HTTP response from a ListProjectAccessTokensUsageWithResponse call
+func ParseListProjectAccessTokensUsageClientResponse(rsp *http.Response) (*ListProjectAccessTokensUsageClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetProjectAccessTokensUsageClientResponse{
+	response := &ListProjectAccessTokensUsageClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -40545,6 +40738,20 @@ func ParseGetProjectAccessTokensUsageClientResponse(rsp *http.Response) (*GetPro
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
@@ -40579,6 +40786,13 @@ func ParseRevokeProjectAccessTokenClientResponse(rsp *http.Response) (*RevokePro
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40626,6 +40840,13 @@ func ParseGetProjectAccessTokenClientResponse(rsp *http.Response) (*GetProjectAc
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -40665,6 +40886,20 @@ func ParseGetProjectAccessTokenUsageClientResponse(rsp *http.Response) (*GetProj
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Error

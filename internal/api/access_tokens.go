@@ -58,7 +58,7 @@ func (c *Client) CreateAccessToken(ctx context.Context, projectID uuid.UUID, inp
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201, resp.JSON403, resp.JSON404, resp.JSON409)
 }
 
 // GetAccessToken returns one project access token by ID.
@@ -87,12 +87,12 @@ func (c *Client) GetAccessTokenUsage(ctx context.Context, projectID, tokenID uui
 // ListAccessTokensUsage returns the daily request counts for every access token
 // in a project, revoked tokens included.
 func (c *Client) ListAccessTokensUsage(ctx context.Context, projectID uuid.UUID, days int) ([]apiclient.ProjectAccessTokenUsage, error) {
-	params := &apiclient.GetProjectAccessTokensUsageParams{}
+	params := &apiclient.ListProjectAccessTokensUsageParams{}
 	if days > 0 {
 		params.Days = &days
 	}
 
-	resp, err := c.client.GetProjectAccessTokensUsageWithResponse(ctx, projectID, params)
+	resp, err := c.client.ListProjectAccessTokensUsageWithResponse(ctx, projectID, params)
 	if err != nil {
 		return nil, err
 	}

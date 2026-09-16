@@ -69,9 +69,7 @@ func AccessToken(w io.Writer, token *apiclient.ProjectAccessToken) {
 	kv(w, on, "Prefix", "%s", token.TokenPrefix)
 	kv(w, on, "Scope", "%s", string(token.Scope))
 	kv(w, on, "Status", "%s", theme.Status(string(token.Status), on))
-	if source := stringPtrValue(token.TokenSource); source != "" {
-		kv(w, on, "Created by", "%s", source)
-	}
+	kv(w, on, "Created by", "%s", string(token.TokenSource))
 	kv(w, on, "Expires", "%s", accessTokenExpiry(token.ExpiresAt))
 	kv(w, on, "Last used", "%s", accessTokenLastUsed(token.LastUsedAt))
 	kv(w, on, "Requests", "%d", token.AllTimeRequests)
