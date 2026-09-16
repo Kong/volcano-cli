@@ -227,7 +227,12 @@ func withLock(run func() error) (err error) {
 
 // Token returns the configured token, with VOLCANO_TOKEN taking precedence unless env overrides are disabled.
 func (c *Config) Token() string {
-	if token := os.Getenv(envToken); !c.IgnoreEnv && token != "" {
+	// Trimmed because this is the documented CI path, where
+	// `export VOLCANO_TOKEN=$(cat secret)` readily carries a trailing newline.
+	// Untrimmed, that reaches the Authorization header and net/http refuses to
+	// send the request at all, reporting an invalid header field rather than
+	// anything the user can act on.
+	if token := strings.TrimSpace(os.Getenv(envToken)); !c.IgnoreEnv && token != "" {
 		return token
 	}
 	return c.UserToken
@@ -447,8 +452,13 @@ func (c *Config) RequireAccountToken() error {
 }
 
 // IsProjectToken reports whether token is a project access token.
+//
+// Case-insensitive on purpose. The unknown-prefix default is deliberately
+// fail-open, for credentials minted before the prefixes existed, but "PT-" is
+// not one of those — it is a mangled pt- token, and matching case-sensitively
+// let it past every guard here and fail as an opaque server error instead.
 func IsProjectToken(token string) bool {
-	return strings.HasPrefix(strings.TrimSpace(token), ProjectTokenPrefix)
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), ProjectTokenPrefix)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.

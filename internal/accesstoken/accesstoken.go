@@ -27,6 +27,10 @@ const (
 // DefaultUsageDays matches the API default for the usage series.
 const DefaultUsageDays = 30
 
+// MaxUsageDays matches the API's ceiling, which is also how long per-day
+// counts are retained.
+const MaxUsageDays = 60
+
 // maxResolvePages caps the pagination walk in resolveToken so a server that
 // keeps reporting HasMore=true cannot hang the CLI indefinitely.
 const maxResolvePages = 1000
@@ -45,6 +49,19 @@ func NewService(deps cliruntime.Deps) Service {
 // flag validation.
 func Scopes() []string {
 	return []string{ScopeFull, ScopeReadOnly}
+}
+
+// ValidateUsageDays rejects a window the API does not accept.
+//
+// The lower bound matters more than the upper one: a non-positive value used to
+// be dropped from the request entirely, so asking for -5 days quietly returned
+// the 30-day default with a success exit code — a plausible answer to a
+// different question.
+func ValidateUsageDays(days int) error {
+	if days < 1 || days > MaxUsageDays {
+		return fmt.Errorf("invalid --days %d: expected 1 to %d", days, MaxUsageDays)
+	}
+	return nil
 }
 
 // ValidateScope rejects a scope the API does not define, so a typo fails

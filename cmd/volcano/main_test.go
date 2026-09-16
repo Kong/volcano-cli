@@ -105,6 +105,52 @@ func TestPrintError_NoReauthHintWithoutSignal(t *testing.T) {
 	assert.NotContains(t, out.String(), "re-authenticate")
 }
 
+// A pt- token is bound to one project, but the token and the project resolve
+// independently: exporting VOLCANO_TOKEN on a machine that has already logged
+// in leaves the project as whatever `volcano use` selected last. The request
+// then carries one project's credential to another project's URL and the server
+// can only answer 403, which on its own is indistinguishable from a real
+// permission problem.
+func TestPrintError_ProjectTokenMismatchHint(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped-to-another-project")
+	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), "Error: HTTP 403: forbidden")
+	assert.Contains(t, out.String(), "project-alpha")
+	assert.Contains(t, out.String(), "only works on the project it was created in")
+}
+
+func TestPrintError_NoProjectTokenHintForAnAccountToken(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.AccountTokenPrefix+"account-wide")
+	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
+
+	assert.NotContains(t, out.String(), "only works on the project it was created in")
+}
+
+// The hint is about a mismatch, so it has nothing to say when the credential
+// was accepted and something else was refused.
+func TestPrintError_NoProjectTokenHintOnOtherStatuses(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusNotFound, Message: "not found"}, cliruntime.Deps{})
+
+	assert.NotContains(t, out.String(), "only works on the project it was created in")
+}
+
 func TestPrintError_ReauthHintUsesCommandPathPrefix(t *testing.T) {
 	withInstructions(t, "", "reauth")
 	var out bytes.Buffer

@@ -26,9 +26,9 @@ every project you own. Only an account token can manage access tokens.
 
 | Operation | Command |
 |---|---|
-| Create | `volcano cloud access-tokens create <name> [--scope <scope>] [--expires-at <timestamp>]` |
+| Create | `volcano cloud access-tokens create <name> [--scope <scope>] [--expires-at <timestamp>] [--json]` |
 | List | `volcano cloud access-tokens list [--search <text>] [--include-revoked] [--json]` |
-| Get | `volcano cloud access-tokens get <name-or-id> [--usage] [--days <n>]` |
+| Get | `volcano cloud access-tokens get <name-or-id> [--usage] [--days <n>] [--json]` |
 | Usage | `volcano cloud access-tokens usage [--days <n>] [--json]` |
 | Revoke | `volcano cloud access-tokens revoke <name-or-id> [--yes]` |
 
@@ -64,6 +64,22 @@ volcano cloud access-tokens create ci-audit \
 
 `--expires-at` takes an RFC3339 timestamp. Without it the token never expires.
 
+The secret is printed once and never again. For a script, take it from `--json`
+rather than parsing the human output:
+
+```bash
+secret=$(volcano cloud access-tokens create ci-deploy --json | jq -r .token)
+```
+
+## Set the right project
+
+A project access token only works on the project it was created in, and the
+token and the project are resolved separately: setting `VOLCANO_TOKEN` on a
+machine that has already logged in leaves the project as whatever
+`volcano use` selected last. If that is a different project, every command
+returns a permission error — the CLI names the project it ran against so you
+can tell that apart from a genuine permission problem.
+
 ## Use a token
 
 Set it as `VOLCANO_TOKEN` along with the project it belongs to:
@@ -91,9 +107,9 @@ volcano projects list
 ```
 
 ```text
-Error: failed to list projects: this command needs an account token (pk-) but the
-current credential is a project access token (pt-), which only reaches the project
-it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token
+Error: this command needs an account token (pk-) but the current credential is a
+project access token (pt-), which only reaches the project it was minted in. Run
+'volcano login', or set VOLCANO_TOKEN to an account token
 ```
 
 ## Inspect and revoke

@@ -12,6 +12,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
@@ -77,4 +78,32 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
+	printProjectTokenMismatchHint(w, err)
+}
+
+// printProjectTokenMismatchHint explains the likeliest cause of a 403 when the
+// credential is a project access token.
+//
+// A pt- token is bound to one project, but the token and the project resolve
+// independently: setting VOLCANO_TOKEN on a machine that has already logged in
+// leaves the project as whatever `volcano use` selected last. The request then
+// carries one project's credential to another project's URL, and the server can
+// only answer 403. Whether they match is not knowable here without a round
+// trip, so this names the possibility rather than asserting it.
+func printProjectTokenMismatchHint(w io.Writer, err error) {
+	if api.Status(err) != http.StatusForbidden {
+		return
+	}
+	cfg, cfgErr := config.Load()
+	if cfgErr != nil || !config.IsProjectToken(cfg.Token()) {
+		return
+	}
+	projectID := cfg.ProjectID()
+	if projectID == "" {
+		return
+	}
+	fmt.Fprintf(w,
+		"This ran against project %s. A project access token only works on the project it was created in — "+
+			"check that is the right one, or run `volcano use <project-id>` to switch.\n",
+		projectID)
 }

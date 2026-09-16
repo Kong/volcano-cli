@@ -48,6 +48,9 @@ Examples:
 }
 
 func runUsage(ctx context.Context, opts usageOptions) error {
+	if err := cliaccesstoken.ValidateUsageDays(opts.days); err != nil {
+		return err
+	}
 	usage, err := cliaccesstoken.NewService(opts.deps).ProjectUsage(ctx, opts.days)
 	if err != nil {
 		return err

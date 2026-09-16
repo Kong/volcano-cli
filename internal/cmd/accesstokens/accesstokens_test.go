@@ -356,6 +356,59 @@ func TestAccessTokenCreateAcceptsTheNameFlag(t *testing.T) {
 	assert.Equal(t, map[string]any{"name": "ci-deploy", "scope": "full"}, body)
 }
 
+// A secret shown once is the one thing automation must not have to scrape out
+// of human-readable output, which is exactly what this repo's own E2E was doing
+// before --json existed.
+func TestAccessTokenCreateEmitsJSONIncludingTheSecret(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	const secret = "pt-9f3c1a8b2d47e0c5a1b8f36d92e4c7a0"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		payload := accessTokenCommandPayload(accessTokenID, "ci-deploy")
+		payload["token"] = secret
+		writeAccessTokenCommandJSON(t, w, http.StatusCreated, payload)
+	}))
+	defer server.Close()
+
+	out, err := executeAccessTokenCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"create", "ci-deploy", "--json")
+	require.NoError(t, err)
+
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded), "output should parse as JSON: %s", out)
+	assert.Equal(t, secret, decoded["token"])
+	assert.Equal(t, "ci-deploy", decoded["name"])
+}
+
+// A window the API rejects should fail here, not there. The lower bound is the
+// one that mattered: a non-positive value was dropped from the request, so the
+// caller got the 30-day default and a success exit code — a plausible answer to
+// a question they did not ask.
+func TestAccessTokenUsageRejectsAWindowTheAPIWouldNot(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request for an invalid window", r.URL.String())
+	}))
+	defer server.Close()
+
+	for _, args := range [][]string{
+		{"usage", "--days", "0"},
+		{"usage", "--days", "-5"},
+		{"usage", "--days", "61"},
+		{"get", "ci-deploy", "--usage", "--days", "0"},
+		{"get", "ci-deploy", "--usage", "--days", "900"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			_, err := executeAccessTokenCommand(t,
+				New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), args...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "--days")
+			assert.Contains(t, err.Error(), "1 to 60")
+		})
+	}
+}
+
 // Minting and revoking credentials is an account operation. A pt- token would
 // only earn a 403, so the CLI has to say what is missing before the request.
 func TestAccessTokenCommandsRejectAProjectToken(t *testing.T) {

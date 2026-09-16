@@ -427,6 +427,17 @@ func TestRequireAccountToken(t *testing.T) {
 	require.NoError(t, cfg.RequireAccountToken())
 }
 
+// A trailing newline is what `export VOLCANO_TOKEN=$(cat secret)` produces, and
+// untrimmed it reaches the Authorization header, where net/http refuses to send
+// the request at all rather than returning anything the user can act on.
+func TestTokenTrimsTheEnvironmentValue(t *testing.T) {
+	cfg := &Config{}
+	t.Setenv(envToken, ProjectTokenPrefix+"abc\n")
+
+	assert.Equal(t, ProjectTokenPrefix+"abc", cfg.Token())
+	assert.True(t, IsProjectToken(cfg.Token()))
+}
+
 func TestIsProjectToken(t *testing.T) {
 	for token, want := range map[string]bool{
 		ProjectTokenPrefix + "abc":       true,
@@ -435,6 +446,11 @@ func TestIsProjectToken(t *testing.T) {
 		"legacy-token":                   false,
 		"":                               false,
 		"prefixed-" + ProjectTokenPrefix: false,
+		// A mangled pt- token, not a legacy credential. The fail-open default for
+		// unknown prefixes exists for tokens minted before the prefixes did, and
+		// letting case slip through it meant every guard here was bypassable.
+		"PT-abc": true,
+		"Pt-abc": true,
 	} {
 		t.Run(token, func(t *testing.T) {
 			assert.Equal(t, want, IsProjectToken(token))

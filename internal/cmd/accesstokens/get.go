@@ -56,6 +56,11 @@ func runGet(ctx context.Context, opts getOptions) error {
 	if opts.daysSet && !opts.usage {
 		return errors.New("--days applies to --usage; pass --usage to fetch the request counts")
 	}
+	if opts.usage {
+		if err := cliaccesstoken.ValidateUsageDays(opts.days); err != nil {
+			return err
+		}
+	}
 
 	service := cliaccesstoken.NewService(opts.deps)
 	token, err := service.Get(ctx, opts.identifier)

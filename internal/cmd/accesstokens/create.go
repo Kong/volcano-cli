@@ -16,12 +16,13 @@ import (
 )
 
 type createOptions struct {
-	deps      cliruntime.Deps
-	name      string
-	nameFlag  string
-	scope     string
-	expiresAt string
-	out       io.Writer
+	deps       cliruntime.Deps
+	name       string
+	nameFlag   string
+	scope      string
+	expiresAt  string
+	jsonOutput bool
+	out        io.Writer
 }
 
 func newCreate(deps cliruntime.Deps) *cobra.Command {
@@ -52,6 +53,10 @@ Examples:
 	cmd.Flags().StringVar(&opts.scope, "scope", cliaccesstoken.ScopeFull,
 		fmt.Sprintf("Token scope (%s)", strings.Join(cliaccesstoken.Scopes(), " or ")))
 	cmd.Flags().StringVar(&opts.expiresAt, "expires-at", "", "Expiry as an RFC3339 timestamp (default: never expires)")
+	// The one command in this group automation has to script, for a secret it
+	// only gets once. Without this the caller has to scrape the "Token:" line
+	// out of the human output, which is what the E2E here was itself doing.
+	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON, including the token secret")
 	return cmd
 }
 
@@ -82,6 +87,10 @@ func runCreate(ctx context.Context, opts createOptions) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	if opts.jsonOutput {
+		return writeJSON(opts.out, token)
 	}
 
 	output.AccessTokenCreated(opts.out, token)
