@@ -1,7 +1,9 @@
 package cmdutil
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -26,8 +28,8 @@ func ParseJSONObject(subject, value string) (map[string]any, error) {
 		data = fileBytes
 	}
 
-	var object map[string]any
-	if err := json.Unmarshal(data, &object); err != nil {
+	object, err := decodeJSONObject(data)
+	if err != nil {
 		return nil, fmt.Errorf("%s must be a JSON object: %w", subject, err)
 	}
 	// `null` decodes into a nil map without an error, so it reaches the caller as
@@ -38,3 +40,28 @@ func ParseJSONObject(subject, value string) (map[string]any, error) {
 	}
 	return object, nil
 }
+
+// decodeJSONObject decodes the object with its numbers left as they were
+// written.
+//
+// Plain decoding turns every JSON number into a float64, and this value is
+// re-encoded before it is sent: an id past 2^53 comes out as a different id, and
+// the execution runs against something the caller never asked for. json.Number
+// keeps the literal, so what is sent is what was typed.
+//
+// A decoder reads one value and stops, unlike json.Unmarshal, so trailing JSON
+// has to be refused here or `{} {}` would quietly parse as the first object.
+func decodeJSONObject(data []byte) (map[string]any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var object map[string]any
+	if err := decoder.Decode(&object); err != nil {
+		return nil, err
+	}
+	if decoder.More() {
+		return nil, errTrailingJSON
+	}
+	return object, nil
+}
+
+var errTrailingJSON = errors.New("unexpected data after the JSON object")

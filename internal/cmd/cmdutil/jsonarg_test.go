@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,12 +35,43 @@ func TestParseJSONObjectRejectsAPathThatIsNotAFile(t *testing.T) {
 func TestParseJSONObjectReadsInlineAndFileObjects(t *testing.T) {
 	inline, err := ParseJSONObject("input", `{"order_id":4417}`)
 	require.NoError(t, err)
-	assert.EqualValues(t, 4417, inline["order_id"])
+	assert.JSONEq(t, `{"order_id":4417}`, remarshal(t, inline))
 
 	path := filepath.Join(t.TempDir(), "input.json")
 	require.NoError(t, os.WriteFile(path, []byte(`{"order_id":4418}`), 0o600))
 
 	fromFile, err := ParseJSONObject("input", path)
 	require.NoError(t, err)
-	assert.EqualValues(t, 4418, fromFile["order_id"])
+	assert.JSONEq(t, `{"order_id":4418}`, remarshal(t, fromFile))
+}
+
+// A durable start forwards the input as it was given, and the parsed value is
+// re-encoded on the way. Decoded as float64, an id past 2^53 arrives as a
+// different id and the execution runs for the wrong thing.
+func TestParseJSONObjectKeepsLargeIntegersExact(t *testing.T) {
+	input, err := ParseJSONObject("input",
+		`{"order_id":9007199254740993,"total":1.5,"ref":"abc"}`)
+	require.NoError(t, err)
+
+	assert.JSONEq(t,
+		`{"order_id":9007199254740993,"total":1.5,"ref":"abc"}`,
+		remarshal(t, input),
+		"what is sent has to be what was typed")
+}
+
+// A decoder reads one value and stops, so refusing what follows is explicit
+// rather than inherited from json.Unmarshal.
+func TestParseJSONObjectRejectsTrailingJSON(t *testing.T) {
+	_, err := ParseJSONObject("input", `{"order_id":1} {"order_id":2}`)
+
+	require.ErrorContains(t, err, "unexpected data after the JSON object")
+}
+
+// remarshal is the trip the value takes on its way to the API.
+func remarshal(t *testing.T, object map[string]any) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(object)
+	require.NoError(t, err)
+	return string(encoded)
 }
