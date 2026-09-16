@@ -88,6 +88,22 @@ func (s Service) current() (*clisession.ProjectSession, error) {
 	return s.pinned.session, s.pinned.err
 }
 
+// accountScoped returns the pinned session for a call to the caller's own
+// GitHub connections, which hang off the account rather than the project. The
+// platform does not admit a project access token there, and its 403 would be
+// read as the project being wrong — so the missing credential is named here
+// instead.
+func (s Service) accountScoped() (*clisession.ProjectSession, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		return nil, err
+	}
+	return authenticated, nil
+}
+
 // Target is a resolved repository, and the connection and installation it was
 // reached through. It is everything the bind call needs.
 //
@@ -185,7 +201,7 @@ func (s Service) explainNotFound(ctx context.Context) error {
 // caller's GitHub connection can reach, so the caller can confirm the binding
 // before it is made.
 func (s Service) Resolve(ctx context.Context, repository localgit.Repository) (*Target, error) {
-	authenticated, err := s.current()
+	authenticated, err := s.accountScoped()
 	if err != nil {
 		return nil, err
 	}

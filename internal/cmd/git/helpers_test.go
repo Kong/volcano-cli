@@ -43,8 +43,15 @@ func setGitCommandTestHome(t *testing.T) {
 	t.Setenv("VOLCANO_WEB_URL", "https://volcano.test")
 	t.Setenv("VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID", "")
 
+	setGitCommandTestToken(t, "token")
+}
+
+// setGitCommandTestToken saves a credential for the selected project, so a test
+// can run the same commands with an account token or a project access token.
+func setGitCommandTestToken(t *testing.T, token string) {
+	t.Helper()
 	cfg := &cliconfig.Config{
-		UserToken:      "token",
+		UserToken:      token,
 		CurrentProject: &cliconfig.ProjectConfig{ID: gitProjectID, Name: "Storefront"},
 	}
 	require.NoError(t, cfg.Save())
@@ -187,6 +194,9 @@ type gitAPI struct {
 	connectBody     map[string]any
 	deleted         bool
 	connectionReads int
+	// accountReads counts the calls to the caller's own GitHub routes, which
+	// hang off the account rather than the project.
+	accountReads int
 }
 
 func newGitAPI(t *testing.T) *gitAPI {
@@ -214,6 +224,11 @@ func (a *gitAPI) serve() *httptest.Server {
 }
 
 func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/user/git/") {
+		a.mu.Lock()
+		a.accountReads++
+		a.mu.Unlock()
+	}
 	if a.providerStatus != 0 && strings.HasPrefix(r.URL.Path, "/user/git/") {
 		writeGitJSON(a.t, w, a.providerStatus, map[string]any{"error": "git provider integration is not configured"})
 		return
@@ -426,6 +441,12 @@ func (a *gitAPI) sentConnectBody() map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.connectBody
+}
+
+func (a *gitAPI) accountRouteReads() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.accountReads
 }
 
 func (a *gitAPI) disconnectCalled() bool {
