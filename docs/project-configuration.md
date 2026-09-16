@@ -217,3 +217,26 @@ Behavior changes from older CLI releases:
 - Schedulers are now deleted by omission within a declared `schedulers` list.
 - The scheduler `regions` field is no longer supported. Placement is managed by
   Volcano.
+
+## Frontend variable scope
+
+An existing frontend can select exactly which project variables its build and
+runtime receive:
+
+```yaml
+version: 1
+frontends:
+  - name: web
+    variable_scope: scoped
+    variables:
+      - NEXT_PUBLIC_API_URL
+      - SESSION_SECRET
+```
+
+Apply with `volcano config deploy` (local) or `volcano cloud config deploy`.
+The server must support frontend variable scopes. Missing declared variables
+reject apply. Omitting a field preserves it; `variables: []` clears the selection.
+`all` keeps the legacy frontend behavior of reading all project variables, not
+just the function shared list. `NEXT_PUBLIC_*` variables are used during build
+and excluded from runtime. Keep any existing custom-domain declaration in the
+entry. Rebuild the frontend to change values embedded in browser assets.

@@ -286,8 +286,10 @@ type SchedulerManifest struct {
 
 // FrontendManifest declares configuration for one deployed frontend.
 type FrontendManifest struct {
-	Name         string                `yaml:"name" json:"name"`
-	CustomDomain *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	VariableScope *string               `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
+	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
+	Name          string                `yaml:"name" json:"name"`
+	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.
