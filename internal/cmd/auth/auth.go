@@ -20,9 +20,10 @@ import (
 )
 
 type loginOptions struct {
-	deps  cliruntime.Deps
-	token string
-	out   io.Writer
+	deps      cliruntime.Deps
+	token     string
+	projectID string
+	out       io.Writer
 }
 
 type signupOptions struct {
@@ -34,6 +35,7 @@ type signupOptions struct {
 // NewLogin returns the login command.
 func NewLogin(deps cliruntime.Deps) *cobra.Command {
 	var tokenFlag string
+	var projectFlag string
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with Volcano",
@@ -45,18 +47,23 @@ Browser-based login (default):
 Token-based login (for CI/CD):
   volcano login --token pk-xxxxxxxxxx
 
+Project access tokens (pt-) reach one project only, so name it:
+  volcano login --token pt-xxxxxxxxxx --project <project-id>
+
 Environment variable (no login needed):
   export VOLCANO_TOKEN=pk-xxxxxxxxxx
   volcano cloud functions deploy --all`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runLogin(cmd.Context(), loginOptions{
-				deps:  deps,
-				token: tokenFlag,
-				out:   cmd.OutOrStdout(),
+				deps:      deps,
+				token:     tokenFlag,
+				projectID: projectFlag,
+				out:       cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().StringVar(&tokenFlag, "token", "", "User token for authentication")
+	cmd.Flags().StringVar(&projectFlag, "project", "", "Project ID to validate the token against and select (required for a pt- token)")
 	return cmd
 }
 
@@ -70,13 +77,16 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	var credentials cliauth.Credentials
 	token := strings.TrimSpace(opts.token)
 	if token != "" {
-		credentials, err = service.LoginWithToken(ctx, cfg, token)
+		credentials, err = service.LoginWithToken(ctx, cfg, token, opts.projectID)
 		if err != nil {
 			return fmt.Errorf("token authentication failed: %w", err)
 		}
 		fmt.Fprintln(opts.out)
 		output.Success(opts.out, "Token validated")
 	} else {
+		if strings.TrimSpace(opts.projectID) != "" {
+			return errors.New("--project applies to --token login; run 'volcano use <project-id>' after a browser login")
+		}
 		credentials, err = service.LoginWithBrowser(ctx, cfg, opts.out)
 		if err != nil {
 			return fmt.Errorf("browser authentication failed: %w", err)
@@ -88,6 +98,9 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	}
 
 	output.Success(opts.out, "Logged in successfully")
+	if credentials.Project != nil {
+		output.Success(opts.out, "Now using project: %s (%s)", credentials.Project.Name, credentials.Project.ID)
+	}
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }
@@ -142,6 +155,9 @@ func saveCredentials(credentials cliauth.Credentials) error {
 	return config.Update(func(cfg *config.Config) (bool, error) {
 		cfg.UserToken = credentials.Token
 		cfg.UserID = credentials.UserID
+		if credentials.Project != nil {
+			cfg.CurrentProject = credentials.Project
+		}
 		return true, nil
 	})
 }

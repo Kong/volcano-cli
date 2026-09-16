@@ -43,10 +43,80 @@ func TestLoginWithTokenSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "  valid-token\n")
+	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "  valid-token\n", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer valid-token", sawAuth)
 	assert.Equal(t, Credentials{Token: "valid-token"}, credentials)
+}
+
+func TestLoginWithProjectTokenValidatesAgainstTheProject(t *testing.T) {
+	cfg := testAuthConfig(t)
+	var sawPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawPath = r.URL.Path
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"id":         authAlphaProjectID,
+			"name":       "Alpha",
+			"status":     "active",
+			"created_at": "2026-05-20T00:00:00Z",
+			"updated_at": "2026-05-20T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", authAlphaProjectID)
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+authAlphaProjectID, sawPath)
+	require.NotNil(t, credentials.Project)
+	assert.Equal(t, authAlphaProjectID, credentials.Project.ID)
+	assert.Equal(t, "Alpha", credentials.Project.Name)
+}
+
+func TestLoginWithProjectTokenFallsBackToTheSelectedProject(t *testing.T) {
+	cfg := testAuthConfig(t)
+	cfg.CurrentProject = &config.ProjectConfig{ID: authAlphaProjectID, Name: "Alpha"}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+authAlphaProjectID, r.URL.Path)
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"id":         authAlphaProjectID,
+			"name":       "Alpha",
+			"status":     "active",
+			"created_at": "2026-05-20T00:00:00Z",
+			"updated_at": "2026-05-20T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
+	require.NoError(t, err)
+	require.NotNil(t, credentials.Project)
+	assert.Equal(t, authAlphaProjectID, credentials.Project.ID)
+}
+
+func TestLoginWithProjectTokenRequiresAProject(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request", r.URL.Path)
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
+	require.ErrorContains(t, err, "--project <project-id>")
+}
+
+func TestLoginWithProjectTokenForTheWrongProject(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(t, w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", authAlphaProjectID)
+	require.ErrorContains(t, err, "token is not valid for project "+authAlphaProjectID)
 }
 
 func TestLoginWithTokenInvalid(t *testing.T) {
@@ -56,7 +126,7 @@ func TestLoginWithTokenInvalid(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "bad-token")
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "bad-token", "")
 	require.ErrorContains(t, err, "invalid token")
 }
 

@@ -29,7 +29,7 @@ func NewService(deps cliruntime.Deps) Service {
 
 // List returns the authenticated config and one visible project page.
 func (s Service) List(ctx context.Context, page, limit int) (*config.Config, *apiclient.PaginatedProjects, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -43,7 +43,7 @@ func (s Service) List(ctx context.Context, page, limit int) (*config.Config, *ap
 
 // Create creates a project for the authenticated user.
 func (s Service) Create(ctx context.Context, name string) (*apiclient.Project, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
@@ -152,14 +152,15 @@ func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project
 		return nil, err
 	}
 
-	selected, err := resolveProject(ctx, authenticated.API, identifier)
+	selected, err := resolveProject(ctx, authenticated, identifier)
 	if err != nil {
 		return nil, err
 	}
 	return selected, saveCurrentProject(selected)
 }
 
-func resolveProject(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
+func resolveProject(ctx context.Context, authenticated *clisession.Session, identifier string) (*apiclient.Project, error) {
+	client := authenticated.API
 	if id, err := uuid.Parse(identifier); err == nil {
 		selected, err := client.GetProject(ctx, id)
 		if err == nil {
@@ -168,6 +169,12 @@ func resolveProject(ctx context.Context, client *api.Client, identifier string) 
 		if api.Status(err) != http.StatusNotFound {
 			return nil, fmt.Errorf("failed to get project: %w", err)
 		}
+	}
+
+	// Anything the project ID did not answer is resolved by scanning every
+	// project the credential can see, which a project access token cannot do.
+	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
 	}
 
 	page := api.DefaultPage

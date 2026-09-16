@@ -81,6 +81,57 @@ func TestLoginTokenInvalidFailsWithoutSavingConfig(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "config should not be saved after invalid token, stat err: %v", err)
 }
 
+func TestLoginProjectTokenSelectsTheProject(t *testing.T) {
+	setAuthTestHome(t)
+	var sawPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawPath = r.URL.Path
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"id":         authProjectID,
+			"name":       "Alpha",
+			"status":     "active",
+			"created_at": "2026-05-20T00:00:00Z",
+			"updated_at": "2026-05-20T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"--token", "pt-project-token", "--project", authProjectID)
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+authProjectID, sawPath)
+	assert.Contains(t, out, "Token validated")
+	assert.Contains(t, out, "Now using project: Alpha ("+authProjectID+")")
+
+	cfg := loadAuthTestConfig(t)
+	assert.Equal(t, "pt-project-token", cfg.UserToken)
+	require.NotNil(t, cfg.CurrentProject)
+	assert.Equal(t, authProjectID, cfg.CurrentProject.ID)
+	assert.Equal(t, "Alpha", cfg.CurrentProject.Name)
+}
+
+// Nothing can discover which project a pt- token belongs to: listing projects
+// is exactly what it cannot do. Saying so beats saving a credential that then
+// fails on every command.
+func TestLoginProjectTokenWithoutAProjectFails(t *testing.T) {
+	setAuthTestHome(t)
+
+	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--token", "pt-project-token")
+	require.ErrorContains(t, err, "--project <project-id>")
+
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "config should not be saved, stat err: %v", err)
+}
+
+func TestLoginProjectFlagNeedsAToken(t *testing.T) {
+	setAuthTestHome(t)
+
+	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--project", authProjectID)
+	require.ErrorContains(t, err, "--project applies to --token login")
+}
+
 func TestLogoutDeletesConfig(t *testing.T) {
 	setAuthTestHome(t)
 	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "token"})

@@ -1,0 +1,140 @@
+---
+title: "Access tokens"
+description: "Project-scoped credentials for CI and automation, minted and revoked from the CLI."
+---
+
+## What it is
+
+A project access token (prefix `pt-`) is a credential that authenticates the
+CLI against one project. It is the credential to put in CI: it reaches the
+project it was minted in and nothing else, it carries a scope, and you can
+revoke it without touching the rest of your account.
+
+Your own account token (prefix `pk-`), the one `volcano login` saves, reaches
+every project you own. Only an account token can manage access tokens.
+
+## How it relates
+
+- Belongs to a **project**, and authenticates that project's commands:
+  functions, frontends, variables, databases, logs, and deploys.
+- Cannot create, list, or revoke tokens, and cannot run account-wide commands
+  such as `volcano projects list` or `volcano projects create`.
+- Carries one of two scopes: `full` matches your own access to that project;
+  `read_only` rejects writes.
+
+## CLI operations
+
+| Operation | Command |
+|---|---|
+| Create | `volcano cloud access-tokens create <name> [--scope <scope>] [--expires-at <timestamp>]` |
+| List | `volcano cloud access-tokens list [--search <text>] [--include-revoked] [--json]` |
+| Get | `volcano cloud access-tokens get <name-or-id> [--usage] [--days <n>]` |
+| Usage | `volcano cloud access-tokens usage [--days <n>] [--json]` |
+| Revoke | `volcano cloud access-tokens revoke <name-or-id> [--yes]` |
+
+`tokens` is an alias for `access-tokens`. These are cloud commands: local
+development issues no credentials.
+
+## Create a token
+
+```bash
+volcano cloud access-tokens create ci-deploy
+```
+
+```text
+✓ Access token 'ci-deploy' created
+ID: 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77
+Scope: full
+Expires: never
+
+Token: pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+Warning: Copy this token now. It is shown once and cannot be retrieved again.
+```
+
+The secret is returned only by `create`. Read commands show the token's prefix,
+never the secret, so store it when you create it.
+
+Scope the token down and give it an expiry when you can:
+
+```bash
+volcano cloud access-tokens create ci-audit \
+  --scope read_only \
+  --expires-at 2027-01-31T00:00:00Z
+```
+
+`--expires-at` takes an RFC3339 timestamp. Without it the token never expires.
+
+## Use a token
+
+Set it as `VOLCANO_TOKEN` along with the project it belongs to:
+
+```bash
+export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano cloud functions deploy --all
+```
+
+Or log in with it, naming the project once:
+
+```bash
+volcano login --token pt-Wq9l2m4XcR7tFv1sN8bK3hJ0 --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+```
+
+A project access token cannot list projects, so nothing can work out which
+project it belongs to — name it with `--project` or `VOLCANO_PROJECT_ID`.
+
+Run an account-wide command with one and the CLI says what is missing rather
+than failing with a permission error:
+
+```bash
+volcano projects list
+```
+
+```text
+Error: failed to list projects: this command needs an account token (pk-) but the
+current credential is a project access token (pt-), which only reaches the project
+it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token
+```
+
+## Inspect and revoke
+
+```bash
+volcano cloud access-tokens list
+volcano cloud access-tokens get ci-deploy --usage --days 7
+volcano cloud access-tokens revoke ci-deploy
+```
+
+`--usage` adds the token's daily request counts, zero-filled and oldest first,
+so every day in the window is present:
+
+```text
+Day           Requests
+------------------------
+2026-09-14    18
+2026-09-15    0
+2026-09-16    24
+
+42 request(s) over 3 day(s)
+```
+
+To compare tokens instead of days, `usage` totals the window for each one,
+revoked tokens included:
+
+```bash
+volcano cloud access-tokens usage --days 7
+```
+
+```text
+Name                      Requests
+--------------------------------------
+ci-deploy                 42
+ci-audit                  3
+
+45 request(s) across 2 token(s) over 7 day(s)
+```
+
+Both take `--days`, up to 60, defaulting to 30.
+
+Revoking takes effect immediately and breaks every pipeline still using the
+token. The record is kept with status `revoked`, so the token keeps its history
+and still appears under `--include-revoked` and in `usage`.

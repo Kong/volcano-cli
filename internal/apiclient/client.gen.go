@@ -1285,6 +1285,45 @@ func (e ProjectStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectAccessTokenScope.
+const (
+	ProjectAccessTokenScopeFull     ProjectAccessTokenScope = "full"
+	ProjectAccessTokenScopeReadOnly ProjectAccessTokenScope = "read_only"
+)
+
+// Valid indicates whether the value is a known member of the ProjectAccessTokenScope enum.
+func (e ProjectAccessTokenScope) Valid() bool {
+	switch e {
+	case ProjectAccessTokenScopeFull:
+		return true
+	case ProjectAccessTokenScopeReadOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectAccessTokenStatus.
+const (
+	ProjectAccessTokenStatusActive  ProjectAccessTokenStatus = "active"
+	ProjectAccessTokenStatusExpired ProjectAccessTokenStatus = "expired"
+	ProjectAccessTokenStatusRevoked ProjectAccessTokenStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the ProjectAccessTokenStatus enum.
+func (e ProjectAccessTokenStatus) Valid() bool {
+	switch e {
+	case ProjectAccessTokenStatusActive:
+		return true
+	case ProjectAccessTokenStatusExpired:
+		return true
+	case ProjectAccessTokenStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectConfigVersion.
 const (
 	N1 ProjectConfigVersion = 1
@@ -2982,16 +3021,16 @@ func (e ListUserSessionsParamsSort) Valid() bool {
 
 // Defines values for ListUserSessionsParamsStatus.
 const (
-	Active  ListUserSessionsParamsStatus = "active"
-	Expired ListUserSessionsParamsStatus = "expired"
+	ListUserSessionsParamsStatusActive  ListUserSessionsParamsStatus = "active"
+	ListUserSessionsParamsStatusExpired ListUserSessionsParamsStatus = "expired"
 )
 
 // Valid indicates whether the value is a known member of the ListUserSessionsParamsStatus enum.
 func (e ListUserSessionsParamsStatus) Valid() bool {
 	switch e {
-	case Active:
+	case ListUserSessionsParamsStatusActive:
 		return true
-	case Expired:
+	case ListUserSessionsParamsStatusExpired:
 		return true
 	default:
 		return false
@@ -3943,6 +3982,19 @@ type CreateOAuthConfigRequest struct {
 // CreateOAuthConfigRequestProvider defines model for CreateOAuthConfigRequest.Provider.
 type CreateOAuthConfigRequestProvider string
 
+// CreateProjectAccessTokenRequest Request to mint a project access token
+type CreateProjectAccessTokenRequest struct {
+	// ExpiresAt Optional expiry. Omit for a token that never expires.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// Name Token name, unique within the project
+	Name string `json:"name"`
+
+	// Scope What the token may do in its project. `full` matches an account token's
+	// access to that project; `read_only` rejects writes.
+	Scope ProjectAccessTokenScope `json:"scope"`
+}
+
 // CreateProjectGitRepositoryRequest defines model for CreateProjectGitRepositoryRequest.
 type CreateProjectGitRepositoryRequest struct {
 	// Description Repository description shown on GitHub.
@@ -4041,6 +4093,39 @@ type CreateUploadSessionResponse struct {
 type CreateVariableRequest struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+// CreatedProjectAccessToken defines model for CreatedProjectAccessToken.
+type CreatedProjectAccessToken struct {
+	// AllTimeRequests Requests authenticated with this token since it was created
+	AllTimeRequests int64     `json:"all_time_requests"`
+	CreatedAt       time.Time `json:"created_at"`
+
+	// ExpiresAt Absent when the token never expires
+	ExpiresAt *time.Time         `json:"expires_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// LastUsedAt Absent until the token authenticates a request
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
+	// Name Token name, unique within the project
+	Name      string              `json:"name"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Scope What the token may do in its project. `full` matches an account token's
+	// access to that project; `read_only` rejects writes.
+	Scope  ProjectAccessTokenScope  `json:"scope"`
+	Status ProjectAccessTokenStatus `json:"status"`
+
+	// Token The plaintext token secret (prefix `pt-`). Store it now; it
+	// cannot be retrieved again.
+	Token string `json:"token"`
+
+	// TokenPrefix Leading characters of the secret, for identification
+	TokenPrefix string `json:"token_prefix"`
+
+	// TokenSource How the token was minted (for example `cli` or `dashboard`)
+	TokenSource *string `json:"token_source,omitempty"`
 }
 
 // CreatedProjectGitConnection A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
@@ -5607,6 +5692,26 @@ type PaginatedFunctions struct {
 	Total int `json:"total"`
 }
 
+// PaginatedProjectAccessTokens defines model for PaginatedProjectAccessTokens.
+type PaginatedProjectAccessTokens struct {
+	Data []ProjectAccessToken `json:"data"`
+
+	// HasMore Whether there are more pages available
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// Next URL path to next page (only present if has_more is true)
+	Next *string `json:"next,omitempty"`
+
+	// Page Current page number (1-indexed)
+	Page int `json:"page"`
+
+	// Total Total number of items across all pages
+	Total int `json:"total"`
+}
+
 // PaginatedProjectCustomDomains defines model for PaginatedProjectCustomDomains.
 type PaginatedProjectCustomDomains struct {
 	Data []ProjectFrontendCustomDomain `json:"data"`
@@ -5807,6 +5912,63 @@ type ProjectPlan string
 
 // ProjectStatus defines model for Project.Status.
 type ProjectStatus string
+
+// ProjectAccessToken An opaque, project-scoped control-plane credential. It authenticates the
+// same project-scoped routes as an account platform token, but only for
+// the project it was minted in, and it cannot manage tokens.
+type ProjectAccessToken struct {
+	// AllTimeRequests Requests authenticated with this token since it was created
+	AllTimeRequests int64     `json:"all_time_requests"`
+	CreatedAt       time.Time `json:"created_at"`
+
+	// ExpiresAt Absent when the token never expires
+	ExpiresAt *time.Time         `json:"expires_at,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// LastUsedAt Absent until the token authenticates a request
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
+	// Name Token name, unique within the project
+	Name      string              `json:"name"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// Scope What the token may do in its project. `full` matches an account token's
+	// access to that project; `read_only` rejects writes.
+	Scope  ProjectAccessTokenScope  `json:"scope"`
+	Status ProjectAccessTokenStatus `json:"status"`
+
+	// TokenPrefix Leading characters of the secret, for identification
+	TokenPrefix string `json:"token_prefix"`
+
+	// TokenSource How the token was minted (for example `cli` or `dashboard`)
+	TokenSource *string `json:"token_source,omitempty"`
+}
+
+// ProjectAccessTokenScope What the token may do in its project. `full` matches an account token's
+// access to that project; `read_only` rejects writes.
+type ProjectAccessTokenScope string
+
+// ProjectAccessTokenStatus defines model for ProjectAccessTokenStatus.
+type ProjectAccessTokenStatus string
+
+// ProjectAccessTokenUsage Zero-filled daily request counts for a single token, oldest first. Every
+// day in the window is present, so a gap reads as zero rather than missing.
+type ProjectAccessTokenUsage struct {
+	Daily []ProjectAccessTokenUsageDailyEntry `json:"daily"`
+
+	// Days Number of daily entries returned, always equal to the requested window.
+	Days          int                `json:"days"`
+	Name          string             `json:"name"`
+	TokenId       openapi_types.UUID `json:"token_id"`
+	TotalRequests int64              `json:"total_requests"`
+}
+
+// ProjectAccessTokenUsageDailyEntry defines model for ProjectAccessTokenUsageDailyEntry.
+type ProjectAccessTokenUsageDailyEntry struct {
+	// Day UTC day.
+	Day      openapi_types.Date `json:"day"`
+	Requests int64              `json:"requests"`
+}
 
 // ProjectConfig Declarative project configuration manifest (the JSON form of
 // volcano-config.yaml). Omitted sections are left untouched. Within
@@ -7342,6 +7504,12 @@ type VariableDeploySource string
 // VariableStatus Latest project variable propagation status, when a sync has run.
 type VariableStatus string
 
+// AccessTokenId defines model for AccessTokenId.
+type AccessTokenId = openapi_types.UUID
+
+// AccessTokenUsageDays defines model for AccessTokenUsageDays.
+type AccessTokenUsageDays = int
+
 // BackupName defines model for BackupName.
 type BackupName = string
 
@@ -7912,6 +8080,38 @@ type ListProjectsParams struct {
 	// Search Case-insensitive substring match on the resource `name`. See the
 	// endpoint description for supported pagination modes.
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListProjectAccessTokensParams defines parameters for ListProjectAccessTokens.
+type ListProjectAccessTokensParams struct {
+	// Page Page number (1-indexed) for offset pagination. Declares no schema
+	// default so the request validator does not inject one: handlers that omit
+	// `page` see it unset (nil) and default to 1 in code, while cursor-first
+	// endpoints (e.g. the project deployments feed) can detect its absence to
+	// stay in keyset/search mode. Supplying `page` selects offset pagination.
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Search Case-insensitive substring match on the resource `name`. See the
+	// endpoint description for supported pagination modes.
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// IncludeRevoked Include revoked tokens in the response.
+	IncludeRevoked *bool `form:"include_revoked,omitempty" json:"include_revoked,omitempty"`
+}
+
+// GetProjectAccessTokensUsageParams defines parameters for GetProjectAccessTokensUsage.
+type GetProjectAccessTokensUsageParams struct {
+	// Days Number of days to return, counting back from today.
+	Days *AccessTokenUsageDays `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// GetProjectAccessTokenUsageParams defines parameters for GetProjectAccessTokenUsage.
+type GetProjectAccessTokenUsageParams struct {
+	// Days Number of days to return, counting back from today.
+	Days *AccessTokenUsageDays `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListAnonKeysParams defines parameters for ListAnonKeys.
@@ -8887,6 +9087,9 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProjectRequest
+
+// CreateProjectAccessTokenJSONRequestBody defines body for CreateProjectAccessToken for application/json ContentType.
+type CreateProjectAccessTokenJSONRequestBody = CreateProjectAccessTokenRequest
 
 // CreateAnonKeyJSONRequestBody defines body for CreateAnonKey for application/json ContentType.
 type CreateAnonKeyJSONRequestBody CreateAnonKeyJSONBody
@@ -10110,6 +10313,26 @@ type ClientInterface interface {
 	UpdateProjectWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProject(ctx context.Context, id ProjectId, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProjectAccessTokens request
+	ListProjectAccessTokens(ctx context.Context, id ProjectId, params *ListProjectAccessTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectAccessTokenWithBody request with any body
+	CreateProjectAccessTokenWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProjectAccessToken(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAccessTokensUsage request
+	GetProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeProjectAccessToken request
+	RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAccessToken request
+	GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAccessTokenUsage request
+	GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAnonKeys request
 	ListAnonKeys(ctx context.Context, id ProjectId, params *ListAnonKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -11893,6 +12116,90 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, id ProjectId, conten
 
 func (c *Client) UpdateProject(ctx context.Context, id ProjectId, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectAccessTokens(ctx context.Context, id ProjectId, params *ListProjectAccessTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectAccessTokensRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectAccessTokenWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectAccessTokenRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectAccessToken(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectAccessTokenRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectAccessTokensUsage(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAccessTokensUsageRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeProjectAccessTokenRequest(c.Server, id, tokenId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectAccessToken(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAccessTokenRequest(c.Server, id, tokenId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectAccessTokenUsage(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAccessTokenUsageRequest(c.Server, id, tokenId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17607,6 +17914,361 @@ func NewUpdateProjectRequestWithBody(server string, id ProjectId, contentType st
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListProjectAccessTokensRequest generates requests for ListProjectAccessTokens
+func NewListProjectAccessTokensRequest(server string, id ProjectId, params *ListProjectAccessTokensParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeRevoked != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_revoked", *params.IncludeRevoked, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProjectAccessTokenRequest calls the generic CreateProjectAccessToken builder with application/json body
+func NewCreateProjectAccessTokenRequest(server string, id ProjectId, body CreateProjectAccessTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectAccessTokenRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateProjectAccessTokenRequestWithBody generates requests for CreateProjectAccessToken with any type of body
+func NewCreateProjectAccessTokenRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProjectAccessTokensUsageRequest generates requests for GetProjectAccessTokensUsage
+func NewGetProjectAccessTokensUsageRequest(server string, id ProjectId, params *GetProjectAccessTokensUsageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens/usage", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeProjectAccessTokenRequest generates requests for RevokeProjectAccessToken
+func NewRevokeProjectAccessTokenRequest(server string, id ProjectId, tokenId AccessTokenId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tokenId", tokenId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectAccessTokenRequest generates requests for GetProjectAccessToken
+func NewGetProjectAccessTokenRequest(server string, id ProjectId, tokenId AccessTokenId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tokenId", tokenId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectAccessTokenUsageRequest generates requests for GetProjectAccessTokenUsage
+func NewGetProjectAccessTokenUsageRequest(server string, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tokenId", tokenId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/access-tokens/%s/usage", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -25994,6 +26656,26 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectWithResponse(ctx context.Context, id ProjectId, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectClientResponse, error)
 
+	// ListProjectAccessTokensWithResponse request
+	ListProjectAccessTokensWithResponse(ctx context.Context, id ProjectId, params *ListProjectAccessTokensParams, reqEditors ...RequestEditorFn) (*ListProjectAccessTokensClientResponse, error)
+
+	// CreateProjectAccessTokenWithBodyWithResponse request with any body
+	CreateProjectAccessTokenWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectAccessTokenClientResponse, error)
+
+	CreateProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectAccessTokenClientResponse, error)
+
+	// GetProjectAccessTokensUsageWithResponse request
+	GetProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokensUsageClientResponse, error)
+
+	// RevokeProjectAccessTokenWithResponse request
+	RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error)
+
+	// GetProjectAccessTokenWithResponse request
+	GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error)
+
+	// GetProjectAccessTokenUsageWithResponse request
+	GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error)
+
 	// ListAnonKeysWithResponse request
 	ListAnonKeysWithResponse(ctx context.Context, id ProjectId, params *ListAnonKeysParams, reqEditors ...RequestEditorFn) (*ListAnonKeysClientResponse, error)
 
@@ -28940,6 +29622,200 @@ func (r UpdateProjectClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListProjectAccessTokensClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedProjectAccessTokens
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectAccessTokensClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectAccessTokensClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListProjectAccessTokensClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateProjectAccessTokenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *CreatedProjectAccessToken
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectAccessTokenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectAccessTokenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateProjectAccessTokenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectAccessTokensUsageClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]ProjectAccessTokenUsage
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAccessTokensUsageClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAccessTokensUsageClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectAccessTokensUsageClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeProjectAccessTokenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeProjectAccessTokenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeProjectAccessTokenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeProjectAccessTokenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectAccessTokenClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectAccessToken
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAccessTokenClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAccessTokenClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectAccessTokenClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectAccessTokenUsageClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectAccessTokenUsage
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAccessTokenUsageClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAccessTokenUsageClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectAccessTokenUsageClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -34601,6 +35477,68 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, id 
 	return ParseUpdateProjectClientResponse(rsp)
 }
 
+// ListProjectAccessTokensWithResponse request returning *ListProjectAccessTokensClientResponse
+func (c *ClientWithResponses) ListProjectAccessTokensWithResponse(ctx context.Context, id ProjectId, params *ListProjectAccessTokensParams, reqEditors ...RequestEditorFn) (*ListProjectAccessTokensClientResponse, error) {
+	rsp, err := c.ListProjectAccessTokens(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectAccessTokensClientResponse(rsp)
+}
+
+// CreateProjectAccessTokenWithBodyWithResponse request with arbitrary body returning *CreateProjectAccessTokenClientResponse
+func (c *ClientWithResponses) CreateProjectAccessTokenWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectAccessTokenClientResponse, error) {
+	rsp, err := c.CreateProjectAccessTokenWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectAccessTokenClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, body CreateProjectAccessTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectAccessTokenClientResponse, error) {
+	rsp, err := c.CreateProjectAccessToken(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectAccessTokenClientResponse(rsp)
+}
+
+// GetProjectAccessTokensUsageWithResponse request returning *GetProjectAccessTokensUsageClientResponse
+func (c *ClientWithResponses) GetProjectAccessTokensUsageWithResponse(ctx context.Context, id ProjectId, params *GetProjectAccessTokensUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokensUsageClientResponse, error) {
+	rsp, err := c.GetProjectAccessTokensUsage(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAccessTokensUsageClientResponse(rsp)
+}
+
+// RevokeProjectAccessTokenWithResponse request returning *RevokeProjectAccessTokenClientResponse
+func (c *ClientWithResponses) RevokeProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*RevokeProjectAccessTokenClientResponse, error) {
+	rsp, err := c.RevokeProjectAccessToken(ctx, id, tokenId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeProjectAccessTokenClientResponse(rsp)
+}
+
+// GetProjectAccessTokenWithResponse request returning *GetProjectAccessTokenClientResponse
+func (c *ClientWithResponses) GetProjectAccessTokenWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenClientResponse, error) {
+	rsp, err := c.GetProjectAccessToken(ctx, id, tokenId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAccessTokenClientResponse(rsp)
+}
+
+// GetProjectAccessTokenUsageWithResponse request returning *GetProjectAccessTokenUsageClientResponse
+func (c *ClientWithResponses) GetProjectAccessTokenUsageWithResponse(ctx context.Context, id ProjectId, tokenId AccessTokenId, params *GetProjectAccessTokenUsageParams, reqEditors ...RequestEditorFn) (*GetProjectAccessTokenUsageClientResponse, error) {
+	rsp, err := c.GetProjectAccessTokenUsage(ctx, id, tokenId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAccessTokenUsageClientResponse(rsp)
+}
+
 // ListAnonKeysWithResponse request returning *ListAnonKeysClientResponse
 func (c *ClientWithResponses) ListAnonKeysWithResponse(ctx context.Context, id ProjectId, params *ListAnonKeysParams, reqEditors ...RequestEditorFn) (*ListAnonKeysClientResponse, error) {
 	rsp, err := c.ListAnonKeys(ctx, id, params, reqEditors...)
@@ -39487,6 +40425,260 @@ func ParseUpdateProjectClientResponse(rsp *http.Response) (*UpdateProjectClientR
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectAccessTokensClientResponse parses an HTTP response from a ListProjectAccessTokensWithResponse call
+func ParseListProjectAccessTokensClientResponse(rsp *http.Response) (*ListProjectAccessTokensClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectAccessTokensClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedProjectAccessTokens
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectAccessTokenClientResponse parses an HTTP response from a CreateProjectAccessTokenWithResponse call
+func ParseCreateProjectAccessTokenClientResponse(rsp *http.Response) (*CreateProjectAccessTokenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectAccessTokenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CreatedProjectAccessToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAccessTokensUsageClientResponse parses an HTTP response from a GetProjectAccessTokensUsageWithResponse call
+func ParseGetProjectAccessTokensUsageClientResponse(rsp *http.Response) (*GetProjectAccessTokensUsageClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAccessTokensUsageClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ProjectAccessTokenUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeProjectAccessTokenClientResponse parses an HTTP response from a RevokeProjectAccessTokenWithResponse call
+func ParseRevokeProjectAccessTokenClientResponse(rsp *http.Response) (*RevokeProjectAccessTokenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeProjectAccessTokenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAccessTokenClientResponse parses an HTTP response from a GetProjectAccessTokenWithResponse call
+func ParseGetProjectAccessTokenClientResponse(rsp *http.Response) (*GetProjectAccessTokenClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAccessTokenClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectAccessToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAccessTokenUsageClientResponse parses an HTTP response from a GetProjectAccessTokenUsageWithResponse call
+func ParseGetProjectAccessTokenUsageClientResponse(rsp *http.Response) (*GetProjectAccessTokenUsageClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAccessTokenUsageClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectAccessTokenUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

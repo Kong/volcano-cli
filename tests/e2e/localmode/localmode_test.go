@@ -49,6 +49,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -299,6 +300,30 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
 		}
 		requireContains(t, output, "is a cloud command")
+	}
+}
+
+// requireLocalModeOmitsAccessTokenCommands checks against the running stack
+// what the unit tests check against the command tree: local development is a
+// single-tenant sandbox that issues no credentials, so there is nothing to mint
+// or revoke. The command has to name the cloud path rather than read as a
+// command that ran and did nothing.
+func requireLocalModeOmitsAccessTokenCommands(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
+	requireNotContains(t, help, "access-tokens")
+
+	for _, args := range [][]string{
+		{"access-tokens", "list"},
+		{"access-tokens", "create", "local-smoke"},
+		{"tokens", "list"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, "is a cloud command")
+		requireContains(t, output, "volcano cloud access-tokens")
 	}
 }
 

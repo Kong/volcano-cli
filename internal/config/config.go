@@ -27,6 +27,13 @@ const (
 	defaultConfigLockMode = 0o600
 	defaultCompiledAPIURL = "https://api.volcano.dev"
 	defaultCompiledWebURL = "https://volcano.dev"
+
+	// AccountTokenPrefix marks an account platform token, which reaches every
+	// project the account owns.
+	AccountTokenPrefix = "pk-"
+	// ProjectTokenPrefix marks a project access token, which reaches only the
+	// project it was minted in.
+	ProjectTokenPrefix = "pt-"
 )
 
 var (
@@ -34,6 +41,15 @@ var (
 	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
 	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
+	// access token, which cannot look a project up by name.
+	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
+		") is scoped to one project: set VOLCANO_PROJECT_ID to that project's ID, or run 'volcano use <project-id>'")
+	// ErrAccountTokenRequired indicates a command needs account-wide access but
+	// the configured credential only reaches a single project.
+	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
+		") but the current credential is a project access token (" + ProjectTokenPrefix +
+		"), which only reaches the project it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token")
 )
 
 // These variables are intentionally settable with -ldflags -X.
@@ -410,10 +426,29 @@ func (c *Config) RequireAuth() error {
 
 // RequireProject returns an old-CLI-compatible error when no project is selected.
 func (c *Config) RequireProject() error {
-	if strings.TrimSpace(c.ProjectID()) == "" {
-		return ErrNoProjectSelected
+	if strings.TrimSpace(c.ProjectID()) != "" {
+		return nil
+	}
+	if IsProjectToken(c.Token()) {
+		return ErrNoProjectSelectedForProjectToken
+	}
+	return ErrNoProjectSelected
+}
+
+// RequireAccountToken rejects a project access token on a command that needs
+// account-wide access. Any other credential is treated as an account token: the
+// server is the authority on what a token may do, and tokens minted before the
+// prefixes existed carry neither.
+func (c *Config) RequireAccountToken() error {
+	if IsProjectToken(c.Token()) {
+		return ErrAccountTokenRequired
 	}
 	return nil
+}
+
+// IsProjectToken reports whether token is a project access token.
+func IsProjectToken(token string) bool {
+	return strings.HasPrefix(strings.TrimSpace(token), ProjectTokenPrefix)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.

@@ -392,3 +392,52 @@ func TestRequireProject(t *testing.T) {
 	cfg.CurrentProject = nil
 	require.NoError(t, cfg.RequireProject())
 }
+
+func TestRequireProjectWithProjectToken(t *testing.T) {
+	t.Setenv(envToken, "")
+	t.Setenv(envProjectID, "")
+
+	// A project access token cannot resolve a project by name, so the prompt to
+	// run `volcano use <project-name>` would send the user nowhere.
+	cfg := &Config{UserToken: ProjectTokenPrefix + "file-token"}
+	require.ErrorIs(t, cfg.RequireProject(), ErrNoProjectSelectedForProjectToken)
+
+	cfg.CurrentProject = &ProjectConfig{ID: "file-project", Name: "File Project"}
+	require.NoError(t, cfg.RequireProject())
+}
+
+func TestRequireAccountToken(t *testing.T) {
+	t.Setenv(envToken, "")
+
+	for name, token := range map[string]string{
+		"account token":  AccountTokenPrefix + "file-token",
+		"unknown prefix": "legacy-token",
+		"no token":       "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, (&Config{UserToken: token}).RequireAccountToken())
+		})
+	}
+
+	cfg := &Config{UserToken: ProjectTokenPrefix + "file-token"}
+	require.ErrorIs(t, cfg.RequireAccountToken(), ErrAccountTokenRequired)
+
+	// The environment token wins over the saved one, here too.
+	t.Setenv(envToken, AccountTokenPrefix+"env-token")
+	require.NoError(t, cfg.RequireAccountToken())
+}
+
+func TestIsProjectToken(t *testing.T) {
+	for token, want := range map[string]bool{
+		ProjectTokenPrefix + "abc":       true,
+		"  " + ProjectTokenPrefix:        true,
+		AccountTokenPrefix + "abc":       false,
+		"legacy-token":                   false,
+		"":                               false,
+		"prefixed-" + ProjectTokenPrefix: false,
+	} {
+		t.Run(token, func(t *testing.T) {
+			assert.Equal(t, want, IsProjectToken(token))
+		})
+	}
+}

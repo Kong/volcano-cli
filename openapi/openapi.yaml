@@ -25,6 +25,8 @@ tags:
     description: Frontend deployment and management. Supports Next.js 15.x and 16.x with Node.js 22.x or 24.x inferred from package.json engines.node when the selected Node.js family satisfies the installed Next.js package engines.node constraint.
   - name: Tokens
     description: Service keys for function invocation and database admin access
+  - name: Project Access Tokens
+    description: Project-scoped control-plane credentials for CLI and CI use
   - name: Variables
     description: Environment variable management
   - name: Databases
@@ -1390,6 +1392,252 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/access-tokens:
+    get:
+      tags:
+        - Project Access Tokens
+      summary: List a project's access tokens
+      description: |
+        Returns the project's access tokens, newest first. Revoked tokens are
+        omitted unless `include_revoked` is set. The token secret is returned
+        only by the create call and never appears here.
+      operationId: listProjectAccessTokens
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Search'
+        - name: include_revoked
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include revoked tokens in the response.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjectAccessTokens'
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Project Access Tokens
+      summary: Create a project access token
+      description: |
+        Mints an opaque, project-scoped control-plane credential (prefix `pt-`).
+        The plaintext secret is returned in this response only and cannot be
+        retrieved again.
+      operationId: createProjectAccessToken
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectAccessTokenRequest'
+      responses:
+        '201':
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedProjectAccessToken'
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A token with that name already exists in the project, or the
+            project is being deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many token requests. Retry after the `Retry-After` interval.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/access-tokens/usage:
+    get:
+      tags:
+        - Project Access Tokens
+      summary: Get every access token's daily request counts
+      description: |
+        Returns one usage series per token in the project, revoked tokens
+        included, so a token's history survives its revocation.
+      operationId: getProjectAccessTokensUsage
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AccessTokenUsageDays'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectAccessTokenUsage'
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/access-tokens/{tokenId}:
+    get:
+      tags:
+        - Project Access Tokens
+      summary: Get a project access token
+      operationId: getProjectAccessToken
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AccessTokenId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAccessToken'
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Project Access Tokens
+      summary: Revoke a project access token
+      description: |
+        Revokes the token immediately. The record is kept with status `revoked`
+        so its usage history stays auditable.
+      operationId: revokeProjectAccessToken
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AccessTokenId'
+      responses:
+        '204':
+          description: Token revoked
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The project is being deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/access-tokens/{tokenId}/usage:
+    get:
+      tags:
+        - Project Access Tokens
+      summary: Get a project access token's daily request counts
+      description: |
+        Returns one entry per day, zero-filled and oldest first, so a caller can
+        plot the series without reconciling gaps.
+      operationId: getProjectAccessTokenUsage
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AccessTokenId'
+        - $ref: '#/components/parameters/AccessTokenUsageDays'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAccessTokenUsage'
+        '403':
+          description: |
+            The caller may not manage this project's access tokens. Token
+            management requires an account platform token; a project access
+            token cannot mint or revoke credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or token not found
           content:
             application/json:
               schema:
@@ -10533,6 +10781,24 @@ components:
         Required for project management operations.
         Obtain via POST /tokens in Management API (port 8001).
   parameters:
+    AccessTokenId:
+      name: tokenId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Project access token ID
+    AccessTokenUsageDays:
+      name: days
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 60
+        default: 30
+      description: Number of days to return, counting back from today.
     BackupName:
       name: backupName
       in: path
@@ -11766,6 +12032,27 @@ components:
             - email
             - profile
           description: Optional for non-device providers, uses provider defaults if omitted. Not used for `provider=device`.
+    CreateProjectAccessTokenRequest:
+      type: object
+      description: Request to mint a project access token
+      properties:
+        name:
+          type: string
+          description: Token name, unique within the project
+          minLength: 1
+          maxLength: 255
+          example: ci-deploy
+        scope:
+          $ref: '#/components/schemas/ProjectAccessTokenScope'
+        expires_at:
+          type: string
+          format: date-time
+          description: |
+            Optional expiry. Omit for a token that never expires.
+          example: '2027-01-01T00:00:00Z'
+      required:
+        - name
+        - scope
     CreateProjectRequest:
       type: object
       description: Request to create a new project
@@ -13314,6 +13601,22 @@ components:
           description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
       required:
         - production_branch
+    CreatedProjectAccessToken:
+      description: |
+        A newly minted project access token, including the plaintext secret.
+        The secret is returned by this response only.
+      allOf:
+        - $ref: '#/components/schemas/ProjectAccessToken'
+        - type: object
+          properties:
+            token:
+              type: string
+              description: |
+                The plaintext token secret (prefix `pt-`). Store it now; it
+                cannot be retrieved again.
+              example: pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+          required:
+            - token
     CreatedProjectGitConnection:
       type: object
       description: A newly created repository's project binding, plus whether the Volcano GitHub App can actually see it.
@@ -14541,6 +14844,34 @@ components:
         - limit
         - total
         - has_more
+    PaginatedProjectAccessTokens:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectAccessToken'
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        limit:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items across all pages
+        has_more:
+          type: boolean
+          description: Whether there are more pages available
+        next:
+          type: string
+          description: URL path to next page (only present if has_more is true)
+      required:
+        - data
+        - page
+        - limit
+        - total
+        - has_more
     PaginatedProjectCustomDomains:
       type: object
       properties:
@@ -14828,6 +15159,113 @@ components:
         - selected_regions
         - created_at
         - updated_at
+    ProjectAccessToken:
+      type: object
+      description: |
+        An opaque, project-scoped control-plane credential. It authenticates the
+        same project-scoped routes as an account platform token, but only for
+        the project it was minted in, and it cannot manage tokens.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Token name, unique within the project
+        token_prefix:
+          type: string
+          description: Leading characters of the secret, for identification
+          example: pt-Wq9l2m4X
+        scope:
+          $ref: '#/components/schemas/ProjectAccessTokenScope'
+        status:
+          $ref: '#/components/schemas/ProjectAccessTokenStatus'
+        token_source:
+          type: string
+          description: How the token was minted (for example `cli` or `dashboard`)
+        expires_at:
+          type: string
+          format: date-time
+          description: Absent when the token never expires
+        last_used_at:
+          type: string
+          format: date-time
+          description: Absent until the token authenticates a request
+        created_at:
+          type: string
+          format: date-time
+        all_time_requests:
+          type: integer
+          format: int64
+          description: Requests authenticated with this token since it was created
+      required:
+        - id
+        - name
+        - token_prefix
+        - scope
+        - status
+        - created_at
+        - all_time_requests
+    ProjectAccessTokenScope:
+      type: string
+      description: |
+        What the token may do in its project. `full` matches an account token's
+        access to that project; `read_only` rejects writes.
+      enum:
+        - full
+        - read_only
+      x-enum-varnames:
+        - ProjectAccessTokenScopeFull
+        - ProjectAccessTokenScopeReadOnly
+    ProjectAccessTokenStatus:
+      type: string
+      enum:
+        - active
+        - revoked
+        - expired
+    ProjectAccessTokenUsage:
+      type: object
+      description: |
+        Zero-filled daily request counts for a single token, oldest first. Every
+        day in the window is present, so a gap reads as zero rather than missing.
+      properties:
+        token_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        days:
+          type: integer
+          description: Number of daily entries returned, always equal to the requested window.
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectAccessTokenUsageDailyEntry'
+        total_requests:
+          type: integer
+          format: int64
+      required:
+        - token_id
+        - name
+        - days
+        - daily
+        - total_requests
+    ProjectAccessTokenUsageDailyEntry:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+          description: UTC day.
+        requests:
+          type: integer
+          format: int64
+      required:
+        - day
+        - requests
     ProjectConfig:
       type: object
       additionalProperties: false

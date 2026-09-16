@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
@@ -25,6 +27,9 @@ const maxConsecutiveDevicePollFailures = 3
 type Credentials struct {
 	Token  string
 	UserID string
+	// Project is the project login validated the token against, to be saved as
+	// the active project. Nil when login resolved no project.
+	Project *config.ProjectConfig
 }
 
 // Service performs Volcano authentication workflows.
@@ -38,22 +43,61 @@ func NewService(deps cliruntime.Deps) Service {
 	return Service{deps: deps, sessions: clisession.NewFactory(deps)}
 }
 
-// LoginWithToken validates token and returns credentials to persist.
-func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token string) (Credentials, error) {
+// LoginWithToken validates token and returns credentials to persist. projectID
+// names the project to validate against and select; it is optional for an
+// account token and required for a project access token, which cannot list
+// projects and so cannot tell the CLI which project it belongs to.
+func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, projectID string) (Credentials, error) {
 	token = strings.TrimSpace(token)
+	projectID = strings.TrimSpace(projectID)
 	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
 	if err != nil {
 		return Credentials{}, err
 	}
 
-	if err := client.ValidateToken(ctx); err != nil {
-		if api.Status(err) == http.StatusUnauthorized {
-			return Credentials{}, errors.New("invalid token")
+	if projectID == "" && config.IsProjectToken(token) {
+		projectID = strings.TrimSpace(cfg.ProjectID())
+		if projectID == "" {
+			return Credentials{}, fmt.Errorf("a project access token (%s) is scoped to one project: pass --project <project-id> "+
+				"with the project it was minted in, or set VOLCANO_PROJECT_ID", config.ProjectTokenPrefix)
 		}
-		return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
+	}
+	if projectID == "" {
+		if err := client.ValidateToken(ctx); err != nil {
+			if api.Status(err) == http.StatusUnauthorized {
+				return Credentials{}, errors.New("invalid token")
+			}
+			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
+		}
+		return Credentials{Token: token}, nil
 	}
 
-	return Credentials{Token: token}, nil
+	id, err := uuid.Parse(projectID)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("invalid project ID %q: %w", projectID, err)
+	}
+	project, err := client.GetProject(ctx, id)
+	if err != nil {
+		return Credentials{}, projectTokenValidationError(projectID, err)
+	}
+	return Credentials{
+		Token:   token,
+		Project: &config.ProjectConfig{ID: project.Id.String(), Name: project.Name},
+	}, nil
+}
+
+// projectTokenValidationError separates a token the API rejects outright from
+// one that is simply not this project's, which is the likely mistake when a
+// project access token is paired with the wrong --project.
+func projectTokenValidationError(projectID string, err error) error {
+	switch api.Status(err) {
+	case http.StatusUnauthorized:
+		return errors.New("invalid token")
+	case http.StatusForbidden, http.StatusNotFound:
+		return fmt.Errorf("token is not valid for project %s: %w", projectID, err)
+	default:
+		return fmt.Errorf("failed to validate token: %w", err)
+	}
 }
 
 // Signup routes the browser through Volcano Web's own signup page (account

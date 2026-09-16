@@ -319,6 +319,52 @@ func TestUsePrefersIDOverSameStringName(t *testing.T) {
 	assertCurrentProject(t, projectAlphaID, "Alpha")
 }
 
+func TestAccountWideCommandsRejectAProjectToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request with a project access token", r.URL.Path)
+	}))
+	defer server.Close()
+
+	for name, call := range map[string]func(Service) error{
+		"list": func(s Service) error {
+			_, _, err := s.List(context.Background(), 1, 100)
+			return err
+		},
+		"create": func(s Service) error {
+			_, err := s.Create(context.Background(), "Alpha")
+			return err
+		},
+		"use by name": func(s Service) error {
+			_, err := s.Use(context.Background(), "Alpha")
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setProjectTestHome(t)
+			saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+
+			err := call(NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}))
+			require.ErrorIs(t, err, config.ErrAccountTokenRequired)
+			assert.ErrorContains(t, err, "project access token")
+		})
+	}
+}
+
+func TestUseByIDWorksWithAProjectToken(t *testing.T) {
+	setProjectTestHome(t)
+	saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+projectAlphaID, r.URL.Path)
+		writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectAlphaID, "Alpha", "active"))
+	}))
+	defer server.Close()
+
+	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
+	require.NoError(t, err)
+	assert.Equal(t, projectAlphaID, selected.Id.String())
+	assertCurrentProject(t, projectAlphaID, "Alpha")
+}
+
 func setProjectTestHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())

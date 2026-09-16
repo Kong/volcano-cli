@@ -128,6 +128,21 @@ func (f Factory) Authenticated() (*Session, error) {
 	}, nil
 }
 
+// AccountScoped loads config and builds an API client for a workflow that
+// reaches beyond one project, rejecting a project access token before it can
+// produce a 403 the caller cannot act on.
+func (f Factory) AccountScoped() (*Session, error) {
+	authenticated, err := f.Authenticated()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		return nil, err
+	}
+	return authenticated, nil
+}
+
 // CurrentProject builds an authenticated API client for the current project.
 func (f Factory) CurrentProject() (*ProjectSession, error) {
 	authenticated, err := f.Authenticated()
