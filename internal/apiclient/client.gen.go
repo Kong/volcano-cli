@@ -642,6 +642,7 @@ const (
 	DurableExecutionStatusStopped   DurableExecutionStatus = "stopped"
 	DurableExecutionStatusSucceeded DurableExecutionStatus = "succeeded"
 	DurableExecutionStatusTimedOut  DurableExecutionStatus = "timed_out"
+	DurableExecutionStatusUnknown   DurableExecutionStatus = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the DurableExecutionStatus enum.
@@ -658,6 +659,8 @@ func (e DurableExecutionStatus) Valid() bool {
 	case DurableExecutionStatusSucceeded:
 		return true
 	case DurableExecutionStatusTimedOut:
+		return true
+	case DurableExecutionStatusUnknown:
 		return true
 	default:
 		return false
@@ -4749,7 +4752,21 @@ type DurableExecution struct {
 	// Status Lifecycle state of an execution. `pending` covers the window between the
 	// platform reserving the execution name and the function accepting the
 	// start, and has no counterpart once the execution is under way.
-	// `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+	// `succeeded`, `failed`, `timed_out`, `stopped` and `unknown` are
+	// terminal.
+	//
+	// `unknown` means the execution's outcome cannot be established, so no
+	// result or error can be given for it. Either it was under way and was
+	// never seen to finish, or its start failed with a `500` without the
+	// platform establishing whether the execution began — which is why a
+	// name whose start returned an error can later read as `unknown` rather
+	// than not being found. It is terminal because nothing can settle it
+	// later, and it is rare — treat it as an outcome to retry rather than a
+	// state to wait on. A retry under the same name picks this execution back
+	// up instead of starting a second one, and needs a free concurrency slot
+	// because an `unknown` execution has given its own up. `completed_at` on
+	// an `unknown` execution is when the platform gave up, not when the work
+	// ended.
 	Status DurableExecutionStatus `json:"status"`
 }
 
@@ -4762,7 +4779,21 @@ type DurableExecutionError struct {
 // DurableExecutionStatus Lifecycle state of an execution. `pending` covers the window between the
 // platform reserving the execution name and the function accepting the
 // start, and has no counterpart once the execution is under way.
-// `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+// `succeeded`, `failed`, `timed_out`, `stopped` and `unknown` are
+// terminal.
+//
+// `unknown` means the execution's outcome cannot be established, so no
+// result or error can be given for it. Either it was under way and was
+// never seen to finish, or its start failed with a `500` without the
+// platform establishing whether the execution began — which is why a
+// name whose start returned an error can later read as `unknown` rather
+// than not being found. It is terminal because nothing can settle it
+// later, and it is rare — treat it as an outcome to retry rather than a
+// state to wait on. A retry under the same name picks this execution back
+// up instead of starting a second one, and needs a free concurrency slot
+// because an `unknown` execution has given its own up. `completed_at` on
+// an `unknown` execution is when the platform gave up, not when the work
+// ended.
 type DurableExecutionStatus string
 
 // DurableFunction A durable function. Separate from `Function` because a durable function
@@ -8614,6 +8645,19 @@ type CreateDurableFunctionMultipartBodyRuntime string
 // CreateDurableFunctionMultipartBodyVariableScope defines parameters for CreateDurableFunction.
 type CreateDurableFunctionMultipartBodyVariableScope string
 
+// ListDurableFunctionDeploymentsParams defines parameters for ListDurableFunctionDeployments.
+type ListDurableFunctionDeploymentsParams struct {
+	// Page Page number (1-indexed) for offset pagination. Declares no schema
+	// default so the request validator does not inject one: handlers that omit
+	// `page` see it unset (nil) and default to 1 in code, while cursor-first
+	// endpoints (e.g. the project deployments feed) can detect its absence to
+	// stay in keyset/search mode. Supplying `page` selects offset pagination.
+	Page *Page `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListDurableExecutionsParams defines parameters for ListDurableExecutions.
 type ListDurableExecutionsParams struct {
 	// Page Page number (1-indexed) for offset pagination. Declares no schema
@@ -10685,6 +10729,9 @@ type ClientInterface interface {
 
 	// GetDurableFunction request
 	GetDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableFunctionDeployments request
+	ListDurableFunctionDeployments(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDurableExecutions request
 	ListDurableExecutions(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -13194,6 +13241,18 @@ func (c *Client) DeleteDurableFunction(ctx context.Context, id ProjectId, functi
 
 func (c *Client) GetDurableFunction(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDurableFunctionRequest(c.Server, id, functionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableFunctionDeployments(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableFunctionDeploymentsRequest(c.Server, id, functionId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -21698,6 +21757,86 @@ func NewGetDurableFunctionRequest(server string, id ProjectId, functionId Durabl
 	return req, nil
 }
 
+// NewListDurableFunctionDeploymentsRequest generates requests for ListDurableFunctionDeployments
+func NewListDurableFunctionDeploymentsRequest(server string, id ProjectId, functionId DurableFunctionId, params *ListDurableFunctionDeploymentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/deployments", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListDurableExecutionsRequest generates requests for ListDurableExecutions
 func NewListDurableExecutionsRequest(server string, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams) (*http.Request, error) {
 	var err error
@@ -27518,6 +27657,9 @@ type ClientWithResponsesInterface interface {
 	// GetDurableFunctionWithResponse request
 	GetDurableFunctionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, reqEditors ...RequestEditorFn) (*GetDurableFunctionClientResponse, error)
 
+	// ListDurableFunctionDeploymentsWithResponse request
+	ListDurableFunctionDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDurableFunctionDeploymentsClientResponse, error)
+
 	// ListDurableExecutionsWithResponse request
 	ListDurableExecutionsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableExecutionsParams, reqEditors ...RequestEditorFn) (*ListDurableExecutionsClientResponse, error)
 
@@ -32258,6 +32400,37 @@ func (r GetDurableFunctionClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetDurableFunctionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDurableFunctionDeploymentsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedFunctionDeployments
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableFunctionDeploymentsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableFunctionDeploymentsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableFunctionDeploymentsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -37030,6 +37203,15 @@ func (c *ClientWithResponses) GetDurableFunctionWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetDurableFunctionClientResponse(rsp)
+}
+
+// ListDurableFunctionDeploymentsWithResponse request returning *ListDurableFunctionDeploymentsClientResponse
+func (c *ClientWithResponses) ListDurableFunctionDeploymentsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, params *ListDurableFunctionDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDurableFunctionDeploymentsClientResponse, error) {
+	rsp, err := c.ListDurableFunctionDeployments(ctx, id, functionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableFunctionDeploymentsClientResponse(rsp)
 }
 
 // ListDurableExecutionsWithResponse request returning *ListDurableExecutionsClientResponse
@@ -43747,6 +43929,39 @@ func ParseGetDurableFunctionClientResponse(rsp *http.Response) (*GetDurableFunct
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DurableFunction
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableFunctionDeploymentsClientResponse parses an HTTP response from a ListDurableFunctionDeploymentsWithResponse call
+func ParseListDurableFunctionDeploymentsClientResponse(rsp *http.Response) (*ListDurableFunctionDeploymentsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableFunctionDeploymentsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedFunctionDeployments
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

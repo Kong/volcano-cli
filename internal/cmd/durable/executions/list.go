@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -45,7 +46,7 @@ execution to have its state refreshed.`,
 		},
 	}
 	cmd.Flags().StringVar(&opts.status, "status", "",
-		"Only executions in this status (pending, running, succeeded, failed, timed_out, stopped)")
+		"Only executions in this status ("+durableExecutionStatuses()+")")
 	cmd.Flags().IntVar(&opts.page, "page", api.DefaultPage, "Page number to fetch")
 	cmd.Flags().IntVar(&opts.limit, "limit", api.DefaultLimit, "Number of executions per page")
 	return cmd
@@ -70,14 +71,38 @@ func runList(ctx context.Context, opts listOptions) error {
 // refuse it, so the answer names what the flag takes. The dashboard labels these
 // statuses for reading — pending shows as "Starting" — and a label is not a
 // filter value.
+//
+// What counts as a status comes from the generated enum rather than a list
+// written out here, because the API adds one before the CLI hears about it: a
+// hand-written list refused `unknown` locally on a request the platform would
+// have answered.
 func normalizeStatusFilter(value string) (string, error) {
 	status := strings.ToLower(strings.TrimSpace(value))
-	switch status {
-	case "", "pending", "running", "succeeded", "failed", "timed_out", "stopped":
+	if status == "" {
 		return status, nil
-	default:
-		return "", fmt.Errorf(
-			"unknown execution status %q: --status takes one of pending, running, succeeded, failed, timed_out, stopped",
-			strings.TrimSpace(value))
 	}
+	if apiclient.DurableExecutionStatus(status).Valid() {
+		return status, nil
+	}
+	return "", fmt.Errorf("unknown execution status %q: --status takes one of %s",
+		strings.TrimSpace(value), durableExecutionStatuses())
+}
+
+// durableExecutionStatuses lists the filter's accepted values for a message or
+// a flag's help, in the order the contract declares them.
+func durableExecutionStatuses() string {
+	statuses := []apiclient.DurableExecutionStatus{
+		apiclient.DurableExecutionStatusPending,
+		apiclient.DurableExecutionStatusRunning,
+		apiclient.DurableExecutionStatusSucceeded,
+		apiclient.DurableExecutionStatusFailed,
+		apiclient.DurableExecutionStatusTimedOut,
+		apiclient.DurableExecutionStatusStopped,
+		apiclient.DurableExecutionStatusUnknown,
+	}
+	names := make([]string, len(statuses))
+	for i, status := range statuses {
+		names[i] = string(status)
+	}
+	return strings.Join(names, ", ")
 }

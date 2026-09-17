@@ -118,7 +118,36 @@ func TestExecutionsListRefusesAStatusThatIsNotAWireValue(t *testing.T) {
 
 	_, err := executeCommand(t, newExecutionsCommand(server), "list", "order-pipeline", "--status", "Starting")
 	require.ErrorContains(t, err, `unknown execution status "Starting"`)
-	require.ErrorContains(t, err, "pending, running, succeeded, failed, timed_out, stopped")
+	require.ErrorContains(t, err, "pending, running, succeeded, failed, timed_out, stopped, unknown")
+}
+
+// Every status the contract declares is a filter the API answers, so the local
+// check has to accept all of them. It is derived from the generated enum for
+// this reason: a list written out here refused `unknown` on a request the
+// platform would have served, and would refuse the next status the same way.
+func TestExecutionsListAcceptsEveryStatusTheContractDeclares(t *testing.T) {
+	for _, status := range []string{
+		"pending", "running", "succeeded", "failed", "timed_out", "stopped", "unknown",
+	} {
+		t.Run(status, func(t *testing.T) {
+			setExecutionsTestHome(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, status, r.URL.Query().Get("status"))
+				writeJSON(t, w, http.StatusOK, map[string]any{
+					"data":     []any{},
+					"page":     1,
+					"limit":    20,
+					"total":    0,
+					"has_more": false,
+				})
+			}))
+			defer server.Close()
+
+			_, err := executeCommand(t,
+				newExecutionsCommand(server), "list", "order-pipeline", "--status", status)
+			require.NoError(t, err)
+		})
+	}
 }
 
 // Casing is not a different status, and the API takes only lowercase.

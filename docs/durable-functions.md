@@ -10,8 +10,9 @@ step, so one execution can run for hours instead of the seconds a normal
 invocation allows. Use one for work that has to survive a restart: a multi-step
 order pipeline, a long agent run, a nightly batch that calls out to a slow API.
 
-Durable functions are cloud-only and JavaScript/TypeScript-only, and they are a
-separate collection from standard functions:
+Durable functions are cloud-only, run on the runtimes that ship the durable
+authoring API (JavaScript, TypeScript and Python), and are a separate collection
+from standard functions:
 
 - You **start** an execution instead of invoking a function. The start returns a
   handle immediately; the result arrives later.
@@ -31,8 +32,11 @@ separate collection from standard functions:
   exists.
 - Every region the project deploys to has to offer durable execution, or the
   deploy is refused up front.
-- Durable execution needs the durable authoring API, so a source whose runtime
-  does not offer one is refused before anything is uploaded.
+- Durable execution needs the durable authoring API. A source is deployed on the
+  newest runtime for its language that ships one, which is not always that
+  language's default — a Python durable function needs a newer runtime than a
+  standard one gets. A language that has no such runtime at all is refused
+  before anything is uploaded.
 
 ```yaml
 version: 1
@@ -98,8 +102,13 @@ volcano cloud durable executions stop order-pipeline 66666666-6666-4666-8666-666
 ```
 
 `--status` takes the status as the API spells it: `pending`, `running`,
-`succeeded`, `failed`, `timed_out` or `stopped`. The dashboard labels those for
-reading, so a `pending` execution appears there as "Starting".
+`succeeded`, `failed`, `timed_out`, `stopped` or `unknown`. The dashboard labels
+those for reading, so a `pending` execution appears there as "Starting".
+
+`unknown` is terminal, like the four outcomes before it: the platform could not
+establish how the execution ended, so it carries no result and nothing will
+settle it later. Retry it under the same name, which picks that execution back
+up rather than starting a second one.
 
 ## Logs
 

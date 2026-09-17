@@ -3459,6 +3459,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/deployments:
+    get:
+      tags:
+        - Durable Functions
+      summary: List durable function deployments
+      operationId: listDurableFunctionDeployments
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFunctionDeployments'
+        '404':
+          description: Durable function not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-functions/{functionId}/schedulers:
     get:
       tags:
@@ -14492,11 +14518,26 @@ components:
         - failed
         - timed_out
         - stopped
+        - unknown
       description: |
         Lifecycle state of an execution. `pending` covers the window between the
         platform reserving the execution name and the function accepting the
         start, and has no counterpart once the execution is under way.
-        `succeeded`, `failed`, `timed_out` and `stopped` are terminal.
+        `succeeded`, `failed`, `timed_out`, `stopped` and `unknown` are
+        terminal.
+
+        `unknown` means the execution's outcome cannot be established, so no
+        result or error can be given for it. Either it was under way and was
+        never seen to finish, or its start failed with a `500` without the
+        platform establishing whether the execution began — which is why a
+        name whose start returned an error can later read as `unknown` rather
+        than not being found. It is terminal because nothing can settle it
+        later, and it is rare — treat it as an outcome to retry rather than a
+        state to wait on. A retry under the same name picks this execution back
+        up instead of starting a second one, and needs a free concurrency slot
+        because an `unknown` execution has given its own up. `completed_at` on
+        an `unknown` execution is when the platform gave up, not when the work
+        ended.
     DurableExecutionError:
       type: object
       description: Why a failed or timed-out execution ended.

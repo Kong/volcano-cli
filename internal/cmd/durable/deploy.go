@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -219,7 +220,8 @@ func durableSources(
 			return nil, "", fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s",
 				target, clifunction.FormatSourceNames(scanned))
 		}
-		if err := checkDurableRuntime(source, runtimes); err != nil {
+		source, err = durableRuntimeFor(source, runtimes)
+		if err != nil {
 			return nil, "", err
 		}
 		sources = append(sources, source)
@@ -227,22 +229,98 @@ func durableSources(
 	return sources, baseDir, nil
 }
 
-// checkDurableRuntime refuses a source whose runtime has no durable authoring
-// API before anything is packaged or uploaded. The API rejects it too, but only
-// after the archive has been built and sent, and the message there cannot name
-// the file the runtime was inferred from.
-func checkDurableRuntime(source clifunction.SourceInfo, runtimes []apiclient.FunctionRuntimeOption) error {
+// durableRuntimeFor settles which runtime a durable source deploys on, before
+// anything is packaged or uploaded.
+//
+// Detection gives a source its language's default runtime, and a language's
+// default is not always one that can run durable code: Python's durable support
+// starts above the version a standard function gets. Picking the newest durable
+// runtime for the same language is what a user would otherwise have to say by
+// hand, and there is nowhere to say it — the durable deploy takes no runtime
+// flag, and the manifest's runtime is not read on this path.
+//
+// A language with no durable runtime at all is still refused here rather than by
+// the API, which only answers after the archive has been built and sent, and
+// cannot name the file the runtime came from.
+func durableRuntimeFor(
+	source clifunction.SourceInfo,
+	runtimes []apiclient.FunctionRuntimeOption,
+) (clifunction.SourceInfo, error) {
 	if source.Runtime.DurableCapable {
-		return nil
+		return source, nil
 	}
+	if upgraded, ok := newestDurableRuntime(source.Runtime, runtimes); ok {
+		source.Runtime = upgraded
+		return source, nil
+	}
+
 	var capable []string
 	for _, runtime := range runtimes {
 		if runtime.DurableCapable {
 			capable = append(capable, runtime.Name)
 		}
 	}
-	return fmt.Errorf("durable functions cannot run on %s, which is the runtime for %s\ndurable runtimes: %s",
+	return source, fmt.Errorf("durable functions cannot run on %s, which is the runtime for %s\ndurable runtimes: %s",
 		source.Runtime.Name, source.Path, strings.Join(capable, ", "))
+}
+
+// newestDurableRuntime finds the highest durable-capable runtime for the same
+// language as the detected one, matched on the source extensions they share so
+// a Python file cannot be upgraded onto a Node runtime.
+func newestDurableRuntime(
+	detected apiclient.FunctionRuntimeOption,
+	runtimes []apiclient.FunctionRuntimeOption,
+) (apiclient.FunctionRuntimeOption, bool) {
+	extensions := make(map[string]struct{}, len(detected.Deployment.FileExtensions))
+	for _, extension := range detected.Deployment.FileExtensions {
+		extensions[extension] = struct{}{}
+	}
+
+	var best apiclient.FunctionRuntimeOption
+	found := false
+	for _, runtime := range runtimes {
+		if !runtime.DurableCapable || !sharesExtension(runtime, extensions) {
+			continue
+		}
+		if !found || runtimeVersionLess(best.Name, runtime.Name) {
+			best, found = runtime, true
+		}
+	}
+	return best, found
+}
+
+func sharesExtension(runtime apiclient.FunctionRuntimeOption, extensions map[string]struct{}) bool {
+	for _, extension := range runtime.Deployment.FileExtensions {
+		if _, ok := extensions[extension]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// runtimeVersionLess orders two runtime names of the same language by version.
+// Compared number by number rather than as text, because the names carry
+// multi-digit versions: python3.9 sorts after python3.13 as a string.
+func runtimeVersionLess(left, right string) bool {
+	leftParts, rightParts := runtimeVersionParts(left), runtimeVersionParts(right)
+	for i := 0; i < len(leftParts) && i < len(rightParts); i++ {
+		if leftParts[i] != rightParts[i] {
+			return leftParts[i] < rightParts[i]
+		}
+	}
+	return len(leftParts) < len(rightParts)
+}
+
+func runtimeVersionParts(name string) []int {
+	var parts []int
+	for _, field := range strings.FieldsFunc(name, func(r rune) bool { return r < '0' || r > '9' }) {
+		number, err := strconv.Atoi(field)
+		if err != nil {
+			continue
+		}
+		parts = append(parts, number)
+	}
+	return parts
 }
 
 func matchSource(sources []clifunction.SourceInfo, target, baseDir string) (clifunction.SourceInfo, bool) {
