@@ -58,7 +58,8 @@ func (c *Client) CreateAccessToken(ctx context.Context, projectID uuid.UUID, inp
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201, resp.JSON403, resp.JSON404, resp.JSON409)
+	// Never the body: a created token carries its plaintext secret.
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON201, resp.JSON403, resp.JSON404, resp.JSON409)
 }
 
 // GetAccessToken returns one project access token by ID.

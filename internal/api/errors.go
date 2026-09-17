@@ -70,6 +70,21 @@ func apiResult[T any](statusCode int, body []byte, result *T, generatedErrors ..
 	return nil, apiErrorFromGeneratedErrors(statusCode, body, generatedErrors...)
 }
 
+// apiResultWithoutBody is apiResult for a response that carries a secret.
+//
+// The generated parser fills the success field only for an exact status and a
+// JSON content type, so anything else — a 200 where a 201 was expected, a
+// stripped Content-Type from something in the path — falls through to the error
+// builder, which surfaces the raw body. For these endpoints that body is the
+// plaintext credential, so it would land on stderr and in the CI log while the
+// user is told the call failed and has no reason to revoke it.
+//
+// Dropping the body costs a little diagnostic detail on an unexpected status.
+// A redaction invariant that depends on the peer behaving is not an invariant.
+func apiResultWithoutBody[T any](statusCode int, result *T, generatedErrors ...*apiclient.Error) (*T, error) {
+	return apiResult(statusCode, nil, result, generatedErrors...)
+}
+
 func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	if statusCode >= 200 && statusCode < 300 {
 		return nil
