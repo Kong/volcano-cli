@@ -217,6 +217,35 @@ func TestProjectDeletePromptsAndCancels(t *testing.T) {
 	assert.Contains(t, out, "Delete cancelled.")
 }
 
+// Deleting and renaming a project are account operations the platform refuses a
+// pt- token on. Delete asked for confirmation first, so the user agreed to a
+// destructive action the CLI already knew would fail.
+func TestProjectsDeleteAndRenameRejectAProjectToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request with a project access token", r.URL.Path)
+	}))
+	defer server.Close()
+
+	for _, args := range [][]string{
+		{"delete", projectAlphaID},
+		{"delete", projectAlphaID, "--yes"},
+		{"rename", projectAlphaID, "Renamed"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			setProjectCommandTestHome(t)
+			saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: cliconfig.ProjectTokenPrefix + "token"})
+
+			cmd := NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+			cmd.SetIn(strings.NewReader("y\n"))
+			out, err := executeProjectCommand(t, cmd, args...)
+
+			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
+			assert.NotContains(t, out, "You are about to delete a resource permanently",
+				"the refusal must come before the confirmation prompt")
+		})
+	}
+}
+
 func executeProjectCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var out bytes.Buffer

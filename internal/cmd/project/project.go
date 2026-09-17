@@ -258,6 +258,14 @@ Use --yes to skip the prompt.`,
 }
 
 func runDelete(ctx context.Context, opts deleteOptions) error {
+	service := cliproject.NewService(opts.deps)
+	// Asked before the prompt: a credential that cannot delete a project makes
+	// the confirmation a question the user cannot act on, and answering it yes
+	// has them agree to something that was never going to happen.
+	if err := service.RequireAccountToken(); err != nil {
+		return err
+	}
+
 	if !opts.yes {
 		confirmed, err := confirm.Delete(opts.in, opts.out, "project", opts.projectID)
 		if err != nil {
@@ -268,7 +276,7 @@ func runDelete(ctx context.Context, opts deleteOptions) error {
 		}
 	}
 
-	if err := cliproject.NewService(opts.deps).Delete(ctx, opts.projectID); err != nil {
+	if err := service.Delete(ctx, opts.projectID); err != nil {
 		return err
 	}
 

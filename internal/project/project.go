@@ -76,7 +76,7 @@ func (s Service) Get(ctx context.Context, projectID string) (*apiclient.Project,
 
 // Rename changes a project's name and refreshes the saved active project.
 func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient.Project, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclien
 
 // Delete starts asynchronous project deletion by ID.
 func (s Service) Delete(ctx context.Context, projectID string) error {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return err
 	}
@@ -142,6 +142,15 @@ func (s Service) Delete(ctx context.Context, projectID string) error {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 	return nil
+}
+
+// RequireAccountToken reports whether the configured credential can run the
+// account-scoped project commands. Renaming and deleting a project are pk-only
+// server-side, and a destructive command has to refuse before it asks the user
+// to confirm something the CLI already knows cannot happen.
+func (s Service) RequireAccountToken() error {
+	_, err := s.sessions.AccountScoped()
+	return err
 }
 
 // Use sets the active project by exact ID or exact name.

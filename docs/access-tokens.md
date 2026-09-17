@@ -18,7 +18,8 @@ every project you own. Only an account token can manage access tokens.
 - Belongs to a **project**, and authenticates that project's commands:
   functions, frontends, variables, databases, logs, and deploys.
 - Cannot create, inspect, or revoke tokens, and cannot run account-wide
-  commands such as `volcano projects list`, `volcano projects create`, or
+  commands: `volcano projects list`, `volcano projects create`, `volcano
+  projects rename`, `volcano projects delete`, selecting a project by name, or
   `volcano git connect`. `volcano cloud access-tokens usage` is the exception:
   a token can report its own project's consumption, so a CI job needs nothing
   but the credential it already runs with. `get --usage` is not, because

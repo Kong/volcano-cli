@@ -59,8 +59,9 @@ volcano login --token pk-xxxxxxxxxx --project my-app
 ```
 
 Commands that reach past one project — `volcano projects list`, `volcano
-projects create`, selecting a project by name — need an account token, and say
-so when run with a project access token. See
+projects create`, `volcano projects rename`, `volcano projects delete`,
+selecting a project by name — need an account token, and say so when run with a
+project access token. See
 [access-tokens.md](access-tokens.md).
 
 Log out at any time:
