@@ -208,6 +208,16 @@ func TestAccessTokenListHelpNamesExpiredTokensToo(t *testing.T) {
 	assert.Contains(t, out, "revoked and expired alike")
 }
 
+// Only the project-wide usage admits a pt- token. 'get --usage' reads one
+// token's record first, which the CLI refuses and the API denies — so help
+// that says "usage is the exception" promises a command that does not work.
+func TestAccessTokenHelpLimitsTheUsageExceptionToTheProjectView(t *testing.T) {
+	out, err := executeAccessTokenCommand(t, New(cliruntime.Deps{}), "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "The project-wide 'usage' is the one exception")
+	assert.Contains(t, out, "'get --usage' is not")
+}
+
 func TestAccessTokenProjectUsage(t *testing.T) {
 	setAccessTokenCommandTestHome(t)
 	saveAccessTokenCommandTestConfig(t, "token")

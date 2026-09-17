@@ -19,9 +19,10 @@ every project you own. Only an account token can manage access tokens.
   functions, frontends, variables, databases, logs, and deploys.
 - Cannot create, inspect, or revoke tokens, and cannot run account-wide
   commands such as `volcano projects list`, `volcano projects create`, or
-  `volcano cloud git connect`. `volcano cloud access-tokens usage` is the
-  exception: a token can report its own project's consumption, so a CI job
-  needs nothing but the credential it already runs with.
+  `volcano git connect`. `volcano cloud access-tokens usage` is the exception:
+  a token can report its own project's consumption, so a CI job needs nothing
+  but the credential it already runs with. `get --usage` is not, because
+  reading one token's record is itself a token operation.
 - Carries one of two scopes: `full` matches your own access to that project;
   `read_only` rejects writes.
 
@@ -169,9 +170,11 @@ ci-audit                  3
 
 Both take `--days`, up to 60, defaulting to 30.
 
-`usage` is the one of these a project access token can run for itself, so a CI
-job can report what it consumed with nothing but the credential it already
-holds:
+The project-wide `usage` is the one of these a project access token can run for
+itself, so a CI job can report what it consumed with nothing but the credential
+it already holds. `get --usage` reads one token's record, which is an account
+operation, so it needs an account token even for the running token's own
+counts:
 
 ```bash
 export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
