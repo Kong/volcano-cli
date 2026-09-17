@@ -53,6 +53,53 @@ func TestResolveByNameWalksPages(t *testing.T) {
 // A server that keeps saying HasMore while handing back the same page would
 // otherwise be walked until the page cap, one request at a time. Nothing new
 // arrived, so there is nothing left to find.
+// After a rotation a project holds two tokens with the same name: the live one
+// and the revoked one it replaced, since revoking frees the name. Resolving must
+// pick the live one, and must not depend on the API returning it first.
+//
+// The revoked token is served ahead of the active one here for exactly that
+// reason — the API orders newest first today, so a test that mirrored the real
+// ordering would pass whether or not the code chose deliberately. Getting this
+// wrong means `revoke ci-deploy` revokes the already-dead token, reports
+// success, and leaves the live credential working.
+func TestResolveByNamePrefersTheUsableToken(t *testing.T) {
+	setAccessTokenTestHome(t)
+	saveAccessTokenTestConfig(t)
+
+	revoked := accessTokenTestPayload("55555555-5555-4555-8555-555555555555", "ci-deploy")
+	revoked["status"] = "revoked"
+	active := accessTokenTestPayload("66666666-6666-4666-8666-666666666666", "ci-deploy")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAccessTokenTestJSON(t, w, accessTokenTestPage(false, revoked, active))
+	}))
+	defer server.Close()
+
+	token, err := accessTokenTestService(server).Get(context.Background(), "ci-deploy")
+	require.NoError(t, err)
+	assert.Equal(t, "66666666-6666-4666-8666-666666666666", token.Id.String(),
+		"resolving a reused name must pick the token that still works")
+}
+
+// With no usable match left, the revoked one is still the answer: revoking a
+// token twice should report the token rather than deny it exists.
+func TestResolveByNameFallsBackToARevokedToken(t *testing.T) {
+	setAccessTokenTestHome(t)
+	saveAccessTokenTestConfig(t)
+
+	revoked := accessTokenTestPayload("77777777-7777-4777-8777-777777777777", "ci-deploy")
+	revoked["status"] = "revoked"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAccessTokenTestJSON(t, w, accessTokenTestPage(false, revoked))
+	}))
+	defer server.Close()
+
+	token, err := accessTokenTestService(server).Get(context.Background(), "ci-deploy")
+	require.NoError(t, err)
+	assert.Equal(t, "77777777-7777-4777-8777-777777777777", token.Id.String())
+}
+
 func TestResolveByNameStopsWhenAPageRepeats(t *testing.T) {
 	setAccessTokenTestHome(t)
 	saveAccessTokenTestConfig(t)

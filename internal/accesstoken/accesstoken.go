@@ -215,6 +215,14 @@ func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession,
 		return token, nil
 	}
 
+	// A name can be held by more than one token: revoking frees it for reuse, so
+	// after a rotation the project has a live `ci-deploy` and the revoked one it
+	// replaced. Prefer the usable token explicitly rather than relying on the
+	// API returning it first — it does today, newest first, but a silent
+	// dependency on that ordering means `revoke ci-deploy` could one day revoke
+	// the already-dead token, report success, and leave the live one working.
+	var fallback *apiclient.ProjectAccessToken
+
 	seen := make(map[uuid.UUID]struct{})
 	for page := api.DefaultPage; page < api.DefaultPage+maxResolvePages; page++ {
 		if err := ctx.Err(); err != nil {
@@ -240,14 +248,30 @@ func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession,
 			seen[tokens.Data[i].Id] = struct{}{}
 			progressed = true
 			// search is a substring match, so only an exact name is a hit.
-			if tokens.Data[i].Name == target {
+			if tokens.Data[i].Name != target {
+				continue
+			}
+			if tokens.Data[i].Status == apiclient.ProjectAccessTokenStatusActive {
 				return &tokens.Data[i], nil
+			}
+			if fallback == nil {
+				fallback = &tokens.Data[i]
 			}
 		}
 		if !tokens.HasMore || len(tokens.Data) == 0 || !progressed {
+			// Walked the whole project: an unusable match is still a match, so a
+			// repeated revoke reports the token rather than denying it exists.
+			if fallback != nil {
+				return fallback, nil
+			}
 			return nil, api.ErrNotFound
 		}
 	}
+	if fallback != nil {
+		return fallback, nil
+	}
+	// Ran out of pages rather than out of tokens, which is a different problem
+	// from the name not existing and worth saying so.
 	return nil, fmt.Errorf("gave up looking for access token after %d pages", maxResolvePages)
 }
 
