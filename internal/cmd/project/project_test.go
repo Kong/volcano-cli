@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -215,6 +216,29 @@ func TestProjectDeletePromptsAndCancels(t *testing.T) {
 	assert.Contains(t, out, "You are about to delete a resource permanently")
 	assert.Contains(t, out, "Delete project '"+projectAlphaID+"'?")
 	assert.Contains(t, out, "Delete cancelled.")
+}
+
+// `volcano projects delete <id> </dev/null` used to print "Delete cancelled."
+// and exit 0 with the project intact, which a script cannot tell apart from a
+// deletion that happened.
+func TestProjectDeleteRefusesWhenStdinCannotAnswer(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request without confirmation", r.URL.Path)
+	}))
+	defer server.Close()
+
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	cmd := NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(closed)
+	out, err := executeProjectCommand(t, cmd, "delete", projectAlphaID)
+
+	require.ErrorContains(t, err, "confirmation required; pass --yes")
+	assert.NotContains(t, out, "Delete cancelled.", "a prompt nobody can answer is not a cancellation")
 }
 
 // Deleting and renaming a project are account operations the platform refuses a
