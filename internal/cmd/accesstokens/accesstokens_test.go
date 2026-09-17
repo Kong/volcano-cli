@@ -546,6 +546,34 @@ func TestAccessTokenUsageRejectsAWindowTheAPIWouldNot(t *testing.T) {
 	}
 }
 
+// The pagination flags carry the same contract as --days, and a value outside
+// it is a question the API cannot answer either — so it fails here, naming the
+// flag, rather than as whatever the API makes of it.
+func TestAccessTokenListRejectsAWindowTheAPIWouldNot(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request for an invalid window", r.URL.String())
+	}))
+	defer server.Close()
+
+	for _, test := range []struct {
+		args    []string
+		message string
+	}{
+		{args: []string{"list", "--page", "0"}, message: "invalid --page 0: expected 1 or more"},
+		{args: []string{"list", "--page", "-5"}, message: "invalid --page -5: expected 1 or more"},
+		{args: []string{"list", "--limit", "0"}, message: "invalid --limit 0: expected 1 to 100"},
+		{args: []string{"list", "--limit", "101"}, message: "invalid --limit 101: expected 1 to 100"},
+	} {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			_, err := executeAccessTokenCommand(t,
+				New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), test.args...)
+			require.ErrorContains(t, err, test.message)
+		})
+	}
+}
+
 // Minting, revoking, and reading a credential's record are account operations.
 // A pt- token would only earn a 403, so the CLI has to say what is missing
 // before the request.

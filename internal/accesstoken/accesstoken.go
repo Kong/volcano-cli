@@ -65,6 +65,23 @@ func ValidateUsageDays(days int) error {
 	return nil
 }
 
+// MaxListLimit matches the API's ceiling on a page size.
+const MaxListLimit = 100
+
+// ValidateListWindow rejects a page or page size outside what the contract
+// allows, so a typo fails naming the flag the user typed rather than as
+// whatever the API makes of it. Same reason as ValidateUsageDays, though unlike
+// --days these values do at least reach the request.
+func ValidateListWindow(page, limit int) error {
+	if page < 1 {
+		return fmt.Errorf("invalid --page %d: expected 1 or more", page)
+	}
+	if limit < 1 || limit > MaxListLimit {
+		return fmt.Errorf("invalid --limit %d: expected 1 to %d", limit, MaxListLimit)
+	}
+	return nil
+}
+
 // ValidateScope rejects a scope the API does not define, so a typo fails
 // before the request instead of as an opaque 400.
 func ValidateScope(scope string) error {

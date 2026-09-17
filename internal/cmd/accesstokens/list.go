@@ -44,6 +44,10 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts listOptions) error {
+	if err := cliaccesstoken.ValidateListWindow(opts.page, opts.limit); err != nil {
+		return err
+	}
+
 	tokens, err := cliaccesstoken.NewService(opts.deps).ListPage(ctx, api.AccessTokenListInput{
 		Page:           opts.page,
 		Limit:          opts.limit,
