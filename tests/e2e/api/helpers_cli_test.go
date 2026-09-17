@@ -15,6 +15,9 @@ import (
 
 type cliResult struct {
 	output string
+	// stdout alone, for --json output: notices and errors go to stderr, which
+	// output merges in and a decoder would choke on.
+	stdout string
 	code   int
 	err    error
 }
@@ -58,7 +61,7 @@ func (e *apiE2E) runCLIWithin(t *testing.T, timeout time.Duration, extraEnv []st
 			t.Fatalf("failed to run volcano %s: %v", strings.Join(args, " "), err)
 		}
 	}
-	return cliResult{output: stdout.String() + stderr.String(), code: code, err: err}
+	return cliResult{output: stdout.String() + stderr.String(), stdout: stdout.String(), code: code, err: err}
 }
 
 func (e *apiE2E) runCloudCLIWithEnv(t *testing.T, extraEnv []string, args ...string) cliResult {

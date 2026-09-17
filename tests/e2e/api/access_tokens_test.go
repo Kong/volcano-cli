@@ -1,7 +1,7 @@
 package api
 
 import (
-	"strings"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -12,9 +12,11 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 
 	name := "cli-e2e-" + apiE2ESuffix(t)
 	expiresAt := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
-	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--expires-at", expiresAt)
-	created.requireSuccess(t, "Access token '"+name+"' created", "cannot be retrieved again")
-	secret := apiE2EAccessTokenSecret(t, created.output)
+	// --json is how automation is meant to take a secret that is shown once, so
+	// that is the path this exercises. The human rendering has its own test.
+	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--expires-at", expiresAt, "--json")
+	created.requireSuccess(t, `"name": "`+name+`"`, `"scope": "full"`)
+	secret := apiE2EAccessTokenSecret(t, created)
 
 	env.runCloudCLI(t, "access-tokens", "list").requireSuccess(t, name, "full", "active")
 	env.runCloudCLI(t, "access-tokens", "get", name, "--usage", "--days", "7").
@@ -61,19 +63,18 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	env.runCloudCLI(t, "access-tokens", "usage").requireSuccess(t, name)
 }
 
-// apiE2EAccessTokenSecret pulls the plaintext secret out of `access-tokens
-// create` output, which prints it on its own "Token:" line and nowhere else.
-func apiE2EAccessTokenSecret(t *testing.T, output string) string {
+// apiE2EAccessTokenSecret takes the plaintext secret out of `access-tokens
+// create --json`, which is the only place a caller ever gets one.
+func apiE2EAccessTokenSecret(t *testing.T, created cliResult) string {
 	t.Helper()
-	for line := range strings.SplitSeq(output, "\n") {
-		secret, ok := strings.CutPrefix(strings.TrimSpace(line), "Token:")
-		if !ok {
-			continue
-		}
-		if secret = strings.TrimSpace(secret); secret != "" {
-			return secret
-		}
+	var payload struct {
+		Token string `json:"token"`
 	}
-	t.Fatalf("create output did not print a token secret:\n%s", output)
-	return ""
+	if err := json.Unmarshal([]byte(created.stdout), &payload); err != nil {
+		t.Fatalf("create --json did not emit JSON: %v\n%s", err, created.output)
+	}
+	if payload.Token == "" {
+		t.Fatalf("create --json carried no token secret:\n%s", created.output)
+	}
+	return payload.Token
 }
