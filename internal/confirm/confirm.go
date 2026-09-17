@@ -6,10 +6,30 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+
+	"github.com/charmbracelet/x/term"
 )
 
 const destructiveDeleteMessage = "You are about to delete a resource permanently, this may cause loss of data and/or service interruptions. Are you sure?"
+
+// CanPrompt reports whether there is a human on the other end of r.
+//
+// A prompt read from a closed or piped stdin comes back as a decline, so a
+// command that only checks the answer exits 0 having done nothing — which is
+// what an agent or CI job cannot tell apart from success. Callers that must
+// not do that ask here first and refuse outright instead.
+//
+// A reader that is not the process's stdin at all — an injected one, as in
+// tests — is promptable, since something is deliberately feeding it answers.
+func CanPrompt(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return true
+	}
+	return term.IsTerminal(f.Fd())
+}
 
 // Delete prompts for delete confirmation for one or more named resources.
 func Delete(r io.Reader, w io.Writer, resource string, names ...string) (bool, error) {

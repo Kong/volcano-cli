@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -373,6 +374,56 @@ func TestAccessTokenRevokePromptAndYes(t *testing.T) {
 		assert.NotContains(t, out, "Revoke access token '"+accessTokenID+"'")
 		assert.Contains(t, out, "Access token 'ci-deploy' revoked")
 	})
+}
+
+// A prompt read from a closed stdin comes back as a decline, so the command
+// would exit 0 with the token still live. The caller likeliest to hit that is
+// an incident script revoking a leaked credential, which reads a green exit as
+// the credential being dead.
+func TestAccessTokenRevokeRefusesWhenStdinCannotAnswer(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			assert.Fail(t, "unexpected revoke without confirmation", r.URL.Path)
+			return
+		}
+		writeAccessTokenCommandJSON(t, w, http.StatusOK, accessTokenCommandPayload(accessTokenID, "ci-deploy"))
+	}))
+	defer server.Close()
+
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(closed)
+	out, err := executeAccessTokenCommand(t, cmd, "revoke", accessTokenID)
+
+	require.ErrorContains(t, err, "confirmation required; pass --yes")
+	assert.NotContains(t, out, "Cancelled.", "a prompt nobody can answer is not a cancellation")
+}
+
+// A human who answers "no" still cancels quietly, exit 0, as everywhere else
+// in the CLI.
+func TestAccessTokenRevokeCancelsQuietlyWhenAnswered(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			assert.Fail(t, "unexpected revoke after a cancelled prompt", r.URL.Path)
+			return
+		}
+		writeAccessTokenCommandJSON(t, w, http.StatusOK, accessTokenCommandPayload(accessTokenID, "ci-deploy"))
+	}))
+	defer server.Close()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(strings.NewReader("n\n"))
+	out, err := executeAccessTokenCommand(t, cmd, "revoke", accessTokenID)
+
+	require.NoError(t, err)
+	assert.Contains(t, out, "Cancelled.")
 }
 
 // Asking about a token that does not exist is a question the user cannot

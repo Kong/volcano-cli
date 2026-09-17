@@ -59,8 +59,15 @@ func runRevoke(ctx context.Context, opts revokeOptions) error {
 	}
 
 	if !opts.yes {
-		confirmed, err := confirm.Action(opts.in, opts.out,
-			"Revoking a token immediately breaks every deployment, pipeline, and script still using it.",
+		const warning = "Revoking a token immediately breaks every deployment, pipeline, and script still using it."
+		// A prompt nobody can answer reads as a decline, so without this the
+		// command exits 0 with the token still live — and the caller most likely
+		// to hit it is the incident script revoking a leaked credential, which
+		// has no way to tell that apart from a revocation that worked.
+		if !confirm.CanPrompt(opts.in) {
+			return fmt.Errorf("%s\n\nstdin is not a terminal: confirmation required; pass --yes", warning)
+		}
+		confirmed, err := confirm.Action(opts.in, opts.out, warning,
 			fmt.Sprintf("Revoke access token '%s' (%s)?", token.Name, token.TokenPrefix))
 		if err != nil {
 			return err
