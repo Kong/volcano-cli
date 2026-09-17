@@ -9,7 +9,7 @@ validates and applies the full project configuration:
 
 - Project settings
 - Database requirements
-- Variables and shared variable names
+- Variables and function or frontend shared variable names
 - Buckets and policies
 - Realtime
 - Auth configuration, including providers, email, templates, and managed pages
@@ -124,6 +124,39 @@ The separate `variables` section still has its own full-sync semantics.
 `config pull` exports shared names only and omits variable values. The exported
 list can be deployed back to the same project without supplying those values.
 Use `config deploy --dry-run` to preview a membership change.
+
+## Frontend variable scope
+
+Use `frontend_shared_variables` to select the complete list of existing project
+variables shared with frontends:
+
+```yaml
+version: 1
+frontend_shared_variables:
+  - NEXT_PUBLIC_VOLCANO_API_URL
+  - NEXT_PUBLIC_VOLCANO_ANON_KEY
+frontends:
+  - name: web
+    variable_scope: shared
+```
+
+Declaring `frontend_shared_variables` replaces the complete frontend shared
+list. Omitting it preserves the current membership, and declaring
+`frontend_shared_variables: []` clears the list. Each name must already exist
+as a project variable.
+
+For a frontend, `variable_scope` accepts:
+
+- `all` to use all project variables.
+- `shared` to use `frontend_shared_variables`.
+- `scoped` to use the names in that frontend's `variables` list.
+
+Hosting rejects a frontend environment over 4,096 bytes before changing state.
+`NEXT_PUBLIC_*` variables are build-only. Rebuild each frontend when changed
+values must be embedded in browser assets.
+
+Run `volcano config pull` before editing the manifest. Preserve each frontend's
+`custom_domain` in the file when you deploy it back.
 
 ## Function variable scope
 
