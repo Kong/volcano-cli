@@ -13360,6 +13360,19 @@ components:
     Frontend:
       type: object
       properties:
+        variable_scope:
+          type: string
+          enum:
+            - all
+            - scoped
+          description: All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+        declared_variables:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+          description: Names selected when variable_scope is scoped. Missing declared values reject deployment. Omission preserves the stored list; an empty list clears it.
         id:
           type: string
           format: uuid
@@ -15350,6 +15363,19 @@ components:
         created or deleted through the manifest. A declared frontend entry
         without `custom_domain` deletes an existing custom domain.
       properties:
+        variable_scope:
+          type: string
+          enum:
+            - all
+            - scoped
+          description: All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+        variables:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+          description: Names selected when variable_scope is scoped. Missing declared values reject deployment. Omission preserves the stored list; an empty list clears it.
         name:
           type: string
           minLength: 1

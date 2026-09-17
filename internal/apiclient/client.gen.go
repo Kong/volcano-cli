@@ -730,6 +730,24 @@ func (e FrontendStatus) Valid() bool {
 	}
 }
 
+// Defines values for FrontendVariableScope.
+const (
+	FrontendVariableScopeAll    FrontendVariableScope = "all"
+	FrontendVariableScopeScoped FrontendVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the FrontendVariableScope enum.
+func (e FrontendVariableScope) Valid() bool {
+	switch e {
+	case FrontendVariableScopeAll:
+		return true
+	case FrontendVariableScopeScoped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FrontendCustomDomainResponseDomainStatus.
 const (
 	FrontendCustomDomainResponseDomainStatusActive              FrontendCustomDomainResponseDomainStatus = "active"
@@ -1414,6 +1432,24 @@ func (e ProjectConfigDatabasePgVersion) Valid() bool {
 	case ProjectConfigDatabasePgVersionN15:
 		return true
 	case ProjectConfigDatabasePgVersionN16:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigFrontendVariableScope.
+const (
+	ProjectConfigFrontendVariableScopeAll    ProjectConfigFrontendVariableScope = "all"
+	ProjectConfigFrontendVariableScopeScoped ProjectConfigFrontendVariableScope = "scoped"
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigFrontendVariableScope enum.
+func (e ProjectConfigFrontendVariableScope) Valid() bool {
+	switch e {
+	case ProjectConfigFrontendVariableScopeAll:
+		return true
+	case ProjectConfigFrontendVariableScopeScoped:
 		return true
 	default:
 		return false
@@ -4651,11 +4687,14 @@ type Frontend struct {
 
 	// CustomDomainStatus Current custom domain lifecycle status
 	CustomDomainStatus *FrontendCustomDomainStatus `json:"custom_domain_status,omitempty"`
-	DeployedRegions    []string                    `json:"deployed_regions"`
-	Framework          FrontendFramework           `json:"framework"`
-	Id                 openapi_types.UUID          `json:"id"`
-	LastInvokedAt      *time.Time                  `json:"last_invoked_at,omitempty"`
-	Name               string                      `json:"name"`
+
+	// DeclaredVariables Names selected when variable_scope is scoped. Missing declared values reject deployment. Omission preserves the stored list; an empty list clears it.
+	DeclaredVariables *[]string          `json:"declared_variables,omitempty"`
+	DeployedRegions   []string           `json:"deployed_regions"`
+	Framework         FrontendFramework  `json:"framework"`
+	Id                openapi_types.UUID `json:"id"`
+	LastInvokedAt     *time.Time         `json:"last_invoked_at,omitempty"`
+	Name              string             `json:"name"`
 
 	// PendingDeploymentId Newest queued deployment that will run after the current operation
 	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
@@ -4674,6 +4713,9 @@ type Frontend struct {
 	// deployment is serving.
 	Status    FrontendStatus `json:"status"`
 	UpdatedAt time.Time      `json:"updated_at"`
+
+	// VariableScope All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+	VariableScope *FrontendVariableScope `json:"variable_scope,omitempty"`
 }
 
 // FrontendCustomDomainStatus Current custom domain lifecycle status
@@ -4690,6 +4732,9 @@ type FrontendFramework string
 // frontend stays `active` on the previous deployment, so `failed` means no
 // deployment is serving.
 type FrontendStatus string
+
+// FrontendVariableScope All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+type FrontendVariableScope string
 
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse struct {
@@ -6166,7 +6211,16 @@ type ProjectConfigFrontend struct {
 	// write-only and omitted from config export.
 	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
 	Name         string                     `json:"name"`
+
+	// VariableScope All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+	VariableScope *ProjectConfigFrontendVariableScope `json:"variable_scope,omitempty"`
+
+	// Variables Names selected when variable_scope is scoped. Missing declared values reject deployment. Omission preserves the stored list; an empty list clears it.
+	Variables *[]string `json:"variables,omitempty"`
 }
+
+// ProjectConfigFrontendVariableScope All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
+type ProjectConfigFrontendVariableScope string
 
 // ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
 // created or deleted through the manifest. When `schedulers` is declared
