@@ -395,3 +395,23 @@ func TestProjectsKeysHonorsEnvProjectPrecedence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 }
+
+// `export VOLCANO_PROJECT_ID=$(cat project-id)` carries a trailing newline, the
+// way the CI docs have users set it. Untrimmed it reached uuid.Parse and failed
+// as "invalid UUID length: 37".
+func TestProjectsKeysTrimsTheEnvProject(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	t.Setenv("VOLCANO_PROJECT_ID", projectAlphaID+"\n")
+
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+	}))
+	defer server.Close()
+
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
+}

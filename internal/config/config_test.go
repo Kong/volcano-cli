@@ -438,6 +438,18 @@ func TestTokenTrimsTheEnvironmentValue(t *testing.T) {
 	assert.True(t, IsProjectToken(cfg.Token()))
 }
 
+// The docs tell CI users to set VOLCANO_PROJECT_ID the same way as
+// VOLCANO_TOKEN, so it arrives with the same trailing newline. Untrimmed it
+// parsed as a UUID nowhere: `access-tokens list` worked, while `projects keys`
+// failed as "invalid UUID length: 37".
+func TestProjectIDTrimsTheEnvironmentValue(t *testing.T) {
+	cfg := &Config{CurrentProject: &ProjectConfig{ID: "saved-project"}}
+	t.Setenv(envProjectID, " 22222222-2222-4222-8222-222222222222\n")
+
+	assert.Equal(t, "22222222-2222-4222-8222-222222222222", cfg.ProjectIDFromEnv())
+	assert.Equal(t, "22222222-2222-4222-8222-222222222222", cfg.ProjectID())
+}
+
 func TestIsProjectToken(t *testing.T) {
 	for token, want := range map[string]bool{
 		ProjectTokenPrefix + "abc":       true,

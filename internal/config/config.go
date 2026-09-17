@@ -267,11 +267,15 @@ func (c *Config) ProjectID() string {
 // ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a
 // previous 'volcano use' saved. Callers that have to tell the two apart — a
 // failure that names the project it ran against — need the distinction.
+//
+// Trimmed for the same reason as Token: this is the documented CI path, where
+// the value is as likely to arrive with a trailing newline, and untrimmed it
+// failed UUID parsing as "invalid UUID length: 37".
 func (c *Config) ProjectIDFromEnv() string {
 	if c.IgnoreEnv {
 		return ""
 	}
-	return os.Getenv(envProjectID)
+	return strings.TrimSpace(os.Getenv(envProjectID))
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
