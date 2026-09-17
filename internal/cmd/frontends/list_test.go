@@ -30,7 +30,7 @@ func TestFrontendsListPopulatedAndEmpty(t *testing.T) {
 			want: []string{
 				"web",
 				"ready",
-				"site: https://web.frontends.volcano.dev/",
+				"site: https://web.frontends.volcano.run/",
 				"Showing 1 of 2 frontend(s) (page 1, limit 100)",
 				"Next page: volcano cloud frontends list --page 2 --limit 100",
 			},

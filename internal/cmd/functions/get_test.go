@@ -47,7 +47,7 @@ func TestFunctionsGetAcceptsNamePathOrID(t *testing.T) {
 			assert.Contains(t, out, "Runtime: nodejs24.x")
 			assert.Contains(t, out, "Handler: handler")
 			assert.Contains(t, out, "Visibility: public")
-			assert.Contains(t, out, "Invoke URL: https://"+functionID+".functions.volcano.dev/")
+			assert.Contains(t, out, "Invoke URL: https://"+functionID+".functions.volcano.run/")
 		})
 	}
 }

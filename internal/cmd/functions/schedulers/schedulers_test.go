@@ -412,7 +412,7 @@ func functionPayload(id, name string) map[string]any {
 		"deployed_regions": []string{"aws-us-east-1"},
 		"handler":          "handler",
 		"id":               id,
-		"invoke_url":       "https://" + id + ".functions.volcano.dev/",
+		"invoke_url":       "https://" + id + ".functions.volcano.run/",
 		"is_public":        true,
 		"name":             name,
 		"project_id":       testProjectID,

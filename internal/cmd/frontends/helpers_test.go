@@ -103,7 +103,7 @@ func frontendCommandPayload(id, name string) map[string]any {
 		"id":                    id,
 		"name":                  name,
 		"project_id":            frontendProjectID,
-		"site_url":              "https://" + name + ".frontends.volcano.dev/",
+		"site_url":              "https://" + name + ".frontends.volcano.run/",
 		"status":                "ready",
 		"updated_at":            "2026-05-20T00:00:00Z",
 	}
