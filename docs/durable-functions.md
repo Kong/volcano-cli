@@ -52,7 +52,7 @@ existing function's scope alone.
 
 | Operation | Command |
 |---|---|
-| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path> [--public \| --private]` |
+| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path>`; `--public`/`--private` take `-f` |
 | List | `volcano cloud durable list [--page 1] [--limit 100]` |
 | Get | `volcano cloud durable get <name-or-id>` |
 | Delete | `volcano cloud durable delete <name-or-id> [--yes]` |
@@ -188,6 +188,11 @@ project-scoped credential.
 
 Omit both flags and a redeploy keeps the visibility the function already has. A
 new durable function starts private.
+
+Neither flag is accepted with `--all`. Visibility is a per-function decision and
+a durable function has no update endpoint, so one flag applied to a whole
+manifest would take a redeploy of every function to undo. Deploy the one you
+want to change with `-f`.
 
 ## Stopping and deleting
 

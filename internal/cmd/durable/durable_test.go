@@ -225,6 +225,20 @@ func TestDurableDeployRefusesConflictingVisibilityFlags(t *testing.T) {
 	require.ErrorContains(t, err, "cannot use --public and --private together")
 }
 
+// Visibility is one value applied to every function a run deploys, and a durable
+// function has no update endpoint: undoing an accidental flip is a redeploy of
+// each one. So `--all --public` would quietly make every function the manifest
+// declares durable startable by the anon key, while the flag help says "this
+// function".
+func TestDurableDeployRefusesVisibilityFlagsWithAll(t *testing.T) {
+	setDurableCommandTestHome(t)
+
+	for _, flag := range []string{"--public", "--private"} {
+		_, err := executeDurableCommand(t, newCloudDurableCommand(nil), "deploy", "--all", flag)
+		require.ErrorContains(t, err, "cannot use --public or --private with --all")
+	}
+}
+
 func TestDurableDeployRequiresATarget(t *testing.T) {
 	setDurableCommandTestHome(t)
 	_, err := executeDurableCommand(t, newCloudDurableCommand(nil), "deploy")

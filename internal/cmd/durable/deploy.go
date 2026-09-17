@@ -61,14 +61,24 @@ running continue on the version they started on.`,
 	}
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Deploy a specific durable function by name or path")
 	cmd.Flags().BoolVarP(&opts.all, "all", "a", false, "Deploy every function volcano-config.yaml declares durable")
-	cmd.Flags().BoolVar(&opts.public, "public", false, "Let anon keys start executions of this function")
-	cmd.Flags().BoolVar(&opts.private, "private", false, "Stop anon keys from starting executions of this function")
+	cmd.Flags().BoolVar(&opts.public, "public", false,
+		"Let anon keys start executions of this function (not valid with --all)")
+	cmd.Flags().BoolVar(&opts.private, "private", false,
+		"Stop anon keys from starting executions of this function (not valid with --all)")
 	return cmd
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
 	if opts.public && opts.private {
 		return errors.New("cannot use --public and --private together")
+	}
+	// Visibility is one value applied to every function the run deploys, and a
+	// durable function has no update endpoint -- undoing a flip is a redeploy of
+	// each one. So it is a per-function decision only, the way the flag help
+	// describes it, and --all has to be told visibility per function through the
+	// manifest rather than for all of them at once.
+	if opts.all && (opts.public || opts.private) {
+		return errors.New("cannot use --public or --private with --all: deploy one function at a time to set its visibility")
 	}
 	visibility := deployVisibility(opts)
 	targets, err := deployTargets(opts)
