@@ -685,3 +685,26 @@ func TestLocalTreeSendsAccessTokensToCloud(t *testing.T) {
 	assert.True(t, stub.Hidden, "local help must not advertise a command local mode cannot run")
 	assert.Equal(t, New(cliruntime.Deps{}).Aliases, stub.Aliases, "the stub must answer to every spelling of the real command")
 }
+
+// Asking what a command is must not fail. Flag parsing is off on the stub so
+// the flags of a cloud command reach the refusal instead of failing as unknown,
+// which also stopped cobra answering --help — so `volcano access-tokens --help`
+// exited 1 saying the command was cloud-only, and `volcano help access-tokens`
+// had no description to print.
+func TestLocalTreeExplainsAccessTokensWhenAskedForHelp(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"-h"}} {
+		out, err := executeAccessTokenCommand(t, NewCloudOnly(), args...)
+		require.NoError(t, err, "%v", args)
+		assert.Contains(t, out, "A project access token (prefix pt-)", "%v", args)
+		assert.Contains(t, out, "this command is cloud-only", "%v", args)
+	}
+
+	stub := NewCloudOnly()
+	real := New(cliruntime.Deps{})
+	assert.Equal(t, real.Short, stub.Short, "`volcano help` must describe the command, not just refuse it")
+	assert.Contains(t, stub.Long, real.Long)
+
+	// A flag that belongs to a cloud subcommand still reaches the refusal.
+	_, err := executeAccessTokenCommand(t, NewCloudOnly(), "list", "--json")
+	require.ErrorContains(t, err, "is a cloud command")
+}
