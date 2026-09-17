@@ -15,8 +15,16 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	// --json is how automation is meant to take a secret that is shown once, so
 	// that is the path this exercises. The human rendering has its own test.
 	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--expires-at", expiresAt, "--json")
-	created.requireSuccess(t, `"name": "`+name+`"`, `"scope": "full"`)
 	secret := apiE2EAccessTokenSecret(t, created)
+	// Registered before the first assertion on the created token: the revoke
+	// below is the one this test is about, but a failure before reaching it
+	// would otherwise leave a live credential for its whole 24-hour expiry.
+	t.Cleanup(func() {
+		if revoked := env.runCloudCLI(t, "access-tokens", "revoke", name, "--yes"); revoked.code != 0 {
+			t.Errorf("failed to revoke the access token this test minted:\n%s", redactCredentials(revoked.output))
+		}
+	})
+	created.requireSuccess(t, `"name": "`+name+`"`, `"scope": "full"`)
 
 	env.runCloudCLI(t, "access-tokens", "list").requireSuccess(t, name, "full", "active")
 	env.runCloudCLI(t, "access-tokens", "get", name, "--usage", "--days", "7").
@@ -71,10 +79,10 @@ func apiE2EAccessTokenSecret(t *testing.T, created cliResult) string {
 		Token string `json:"token"`
 	}
 	if err := json.Unmarshal([]byte(created.stdout), &payload); err != nil {
-		t.Fatalf("create --json did not emit JSON: %v\n%s", err, created.output)
+		t.Fatalf("create --json did not emit JSON: %v\n%s", err, redactCredentials(created.output))
 	}
 	if payload.Token == "" {
-		t.Fatalf("create --json carried no token secret:\n%s", created.output)
+		t.Fatalf("create --json carried no token secret:\n%s", redactCredentials(created.output))
 	}
 	return payload.Token
 }
