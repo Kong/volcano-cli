@@ -80,7 +80,7 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
-	printProjectTokenMismatchHint(w, err)
+	printProjectTokenMismatchHint(w, err, deps)
 }
 
 // wrongProjectRefusal is how the platform names a project access token used
@@ -96,25 +96,50 @@ const wrongProjectRefusal = "project access token is not valid for this project"
 // carries one project's credential to another project's URL, and the server can
 // only answer 403. Whether they match is not knowable here without a round
 // trip, so this names the possibility rather than asserting it.
-func printProjectTokenMismatchHint(w io.Writer, err error) {
+//
+// Both the project and the credential come from the refused request rather than
+// from the configuration: a command that takes a project ID as an argument ran
+// against a project the configuration never selected, and naming the configured
+// one instead would state a project the request never addressed as fact.
+func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps) {
 	if api.Status(err) != http.StatusForbidden {
 		return
 	}
 	if !mismatchCouldExplain(api.Message(err)) {
 		return
 	}
-	cfg, cfgErr := config.Load()
-	if cfgErr != nil || !config.IsProjectToken(cfg.Token()) {
+	refusal := api.LastRefusal()
+	if !refusal.ProjectAccessToken || refusal.ProjectID == "" {
 		return
 	}
-	projectID := cfg.ProjectID()
-	if projectID == "" {
+
+	const scope = "A project access token only works on the project it was created in"
+	if refusal.ProjectID == selectedProjectID(deps) {
+		fmt.Fprintf(w, "This ran against project %s, the one this CLI is pointed at. %s — check that is the "+
+			"right one, or run `%s` to switch.\n",
+			refusal.ProjectID, scope, cliruntime.CommandPath(deps, "use <project-id>"))
 		return
 	}
-	fmt.Fprintf(w,
-		"This ran against project %s. A project access token only works on the project it was created in — "+
-			"check that is the right one, or run `volcano use <project-id>` to switch.\n",
-		projectID)
+	// The project was named on the command line, so switching the CLI's current
+	// project would not change what this command addresses.
+	fmt.Fprintf(w, "This ran against project %s, which is not the project this CLI is pointed at. %s — check "+
+		"that is the one the token belongs to.\n", refusal.ProjectID, scope)
+}
+
+// selectedProjectID returns the project the configuration would select for the
+// command that just failed, or "" when it cannot be resolved. It goes through
+// the runtime's loader so a command tree with its own configuration is answered
+// from that rather than from the user's cloud config.
+func selectedProjectID(deps cliruntime.Deps) string {
+	loadConfig := config.Load
+	if deps.ConfigLoader != nil {
+		loadConfig = deps.ConfigLoader
+	}
+	cfg, err := loadConfig()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.ProjectID())
 }
 
 // unexplainedRefusals are the 403 bodies that give no reason of their own: the

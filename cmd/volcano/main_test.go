@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -105,6 +106,32 @@ func TestPrintError_NoReauthHintWithoutSignal(t *testing.T) {
 	assert.NotContains(t, out.String(), "re-authenticate")
 }
 
+const (
+	mainTestProjectAlpha = "11111111-1111-4111-8111-111111111111"
+	mainTestProjectBeta  = "22222222-2222-4222-8222-222222222222"
+)
+
+// withRefusedRequest drives api.LastRefusal() through a real api.Client call
+// that the API refuses, mirroring how production records what the refused
+// request carried: the project in its path and whether its credential was a
+// project access token.
+func withRefusedRequest(t *testing.T, token, projectID string) {
+	t.Helper()
+	api.ResetLastRefusalForTest()
+	t.Cleanup(api.ResetLastRefusalForTest)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := api.NewClient(server.URL, token, api.WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	_, err = client.GetProject(context.Background(), uuid.MustParse(projectID))
+	require.Error(t, err)
+}
+
 // A pt- token is bound to one project, but the token and the project resolve
 // independently: exporting VOLCANO_TOKEN on a machine that has already logged
 // in leaves the project as whatever `volcano use` selected last. The request
@@ -115,14 +142,54 @@ func TestPrintError_ProjectTokenMismatchHint(t *testing.T) {
 	resetInstructions(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped-to-another-project")
-	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped-to-another-project", mainTestProjectAlpha)
 	var out bytes.Buffer
 
 	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
 
 	assert.Contains(t, out.String(), "Error: HTTP 403: forbidden")
-	assert.Contains(t, out.String(), "project-alpha")
+	assert.Contains(t, out.String(), mainTestProjectAlpha)
 	assert.Contains(t, out.String(), "only works on the project it was created in")
+	assert.Contains(t, out.String(), "run `volcano use <project-id>` to switch")
+}
+
+// A command that takes a project ID as an argument ran against a project the
+// configuration never selected. Naming the configured one told the user this
+// ran somewhere it did not, and sent them to switch a selection that had no
+// bearing on the failure.
+func TestPrintError_ProjectTokenHintNamesTheProjectTheRequestUsed(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped", mainTestProjectBeta)
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
+
+	assert.Contains(t, out.String(), mainTestProjectBeta)
+	assert.NotContains(t, out.String(), mainTestProjectAlpha,
+		"the hint must not name a project the request never addressed")
+	assert.NotContains(t, out.String(), "to switch",
+		"switching the current project does not change what an argument addresses")
+}
+
+// Local mode sends no credential at all (see session.Factory.APIClient), so
+// VOLCANO_TOKEN being a pt- token in the environment says nothing about what
+// was refused — the hint would offer advice about a credential the request
+// never carried.
+func TestPrintError_NoProjectTokenHintWhenNoCredentialWasSent(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, "", mainTestProjectAlpha)
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
+
+	assert.NotContains(t, out.String(), "only works on the project it was created in")
 }
 
 // A 403 that says why it refused is its own answer. Advising a project switch
@@ -143,7 +210,8 @@ func TestPrintError_NoProjectTokenHintWhenTheBodyNamesAnotherRefusal(t *testing.
 			resetInstructions(t)
 			t.Setenv("HOME", t.TempDir())
 			t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
-			t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+			t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+			withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped", mainTestProjectAlpha)
 			var out bytes.Buffer
 
 			printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: message}, cliruntime.Deps{})
@@ -161,12 +229,13 @@ func TestPrintError_ProjectTokenHintOnTheWrongProjectRefusal(t *testing.T) {
 	resetInstructions(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped-to-another-project")
-	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped-to-another-project", mainTestProjectAlpha)
 	var out bytes.Buffer
 
 	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: wrongProjectRefusal}, cliruntime.Deps{})
 
-	assert.Contains(t, out.String(), "project-alpha")
+	assert.Contains(t, out.String(), mainTestProjectAlpha)
 	assert.Contains(t, out.String(), "only works on the project it was created in")
 }
 
@@ -174,7 +243,8 @@ func TestPrintError_NoProjectTokenHintForAnAccountToken(t *testing.T) {
 	resetInstructions(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", cliconfig.AccountTokenPrefix+"account-wide")
-	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.AccountTokenPrefix+"account-wide", mainTestProjectAlpha)
 	var out bytes.Buffer
 
 	printError(&out, &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}, cliruntime.Deps{})
@@ -188,7 +258,8 @@ func TestPrintError_NoProjectTokenHintOnOtherStatuses(t *testing.T) {
 	resetInstructions(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
-	t.Setenv("VOLCANO_PROJECT_ID", "project-alpha")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped", mainTestProjectAlpha)
 	var out bytes.Buffer
 
 	printError(&out, &api.Error{StatusCode: http.StatusNotFound, Message: "not found"}, cliruntime.Deps{})
@@ -443,6 +514,58 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 	require.Contains(t, text, "Run `volcano login` to re-authenticate.")
 	assert.Less(t, strings.Index(text, "Error:"), strings.Index(text, "Run `volcano login`"),
 		"the error line must come before the reauth hint: %q", text)
+}
+
+// The commands that take a project ID as an argument address a project the
+// configuration never selected. Reproduced end to end because the project the
+// hint names travels from the request through the api client to printError,
+// and every link has to carry the argument rather than the selection.
+func TestRun_ProjectTokenHintNamesTheArgumentProject(t *testing.T) {
+	for _, args := range [][]string{
+		{"projects", "keys", mainTestProjectBeta},
+		{"projects", "get", mainTestProjectBeta},
+		{"use", mainTestProjectBeta},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			resetInstructions(t)
+			api.ResetLastRefusalForTest()
+			t.Cleanup(api.ResetLastRefusalForTest)
+			t.Setenv("HOME", t.TempDir())
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"error":"forbidden"}`))
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{
+				HTTPClient: server.Client(),
+				ConfigLoader: func() (*cliconfig.Config, error) {
+					return &cliconfig.Config{
+						APIBaseURL: server.URL,
+						UserToken:  cliconfig.ProjectTokenPrefix + "scoped",
+						CurrentProject: &cliconfig.ProjectConfig{
+							ID:   mainTestProjectAlpha,
+							Name: "Alpha",
+						},
+						IgnoreEnv: true,
+					}, nil
+				},
+			}
+			root := rootcmd.New(deps)
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs(args)
+
+			code := run(root, deps)
+
+			assert.Equal(t, 1, code)
+			assert.Contains(t, stderr.String(), "This ran against project "+mainTestProjectBeta)
+			assert.NotContains(t, stderr.String(), mainTestProjectAlpha,
+				"the hint must not name the selected project over the one the command was given: %q", stderr.String())
+		})
+	}
 }
 
 type mainTestTicker struct {
