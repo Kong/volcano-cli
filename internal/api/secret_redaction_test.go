@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -111,5 +110,5 @@ func TestRedactedErrorsStillCarryTheStatus(t *testing.T) {
 	var apiErr *Error
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusOK, apiErr.StatusCode)
-	assert.True(t, strings.Contains(err.Error(), "200"), "the status should still be reported: %v", err)
+	assert.Contains(t, err.Error(), "200", "the status should still be reported")
 }
