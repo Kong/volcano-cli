@@ -209,13 +209,14 @@ func TestAccessTokenListHelpNamesExpiredTokensToo(t *testing.T) {
 	assert.Contains(t, out, "revoked and expired alike")
 }
 
-// Only the project-wide usage admits a pt- token. 'get --usage' reads one
-// token's record first, which the CLI refuses and the API denies — so help
-// that says "usage is the exception" promises a command that does not work.
-func TestAccessTokenHelpLimitsTheUsageExceptionToTheProjectView(t *testing.T) {
+// The usage reads are what a pt- token can run. 'get --usage' is not one of
+// them: it reads the token's record first, which the CLI refuses and the API
+// denies — so help that says "usage is the exception" without qualifying it
+// promises a command that does not work.
+func TestAccessTokenHelpLimitsTheUsageExceptionToTheUsageReads(t *testing.T) {
 	out, err := executeAccessTokenCommand(t, New(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "The project-wide 'usage' is the one exception")
+	assert.Contains(t, out, "The 'usage' reads are the exception")
 	assert.Contains(t, out, "'get --usage' is not")
 }
 
@@ -595,6 +596,66 @@ func TestAccessTokenUsageAcceptsAProjectToken(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer "+cliconfig.ProjectTokenPrefix+"token", authorization)
 	assert.Contains(t, out, "ci-deploy                 42")
+}
+
+// The API serves a token its own day-by-day series, but the only route to it
+// was 'get --usage', which resolves the token's record first and so needs an
+// account token. A CI job holding just its pt- credential could not read the
+// series the platform was willing to give it.
+func TestAccessTokenUsageByIDAcceptsAProjectToken(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, cliconfig.ProjectTokenPrefix+"token")
+
+	var paths []string
+	var query string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if r.URL.Path != "/projects/"+accessTokenProjectID+"/access-tokens/"+accessTokenID+"/usage" {
+			http.NotFound(w, r)
+			return
+		}
+		query = r.URL.RawQuery
+		writeAccessTokenCommandJSON(t, w, http.StatusOK,
+			accessTokenCommandUsagePayload(accessTokenID, "ci-deploy", 18, 0, 24))
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	out, err := executeAccessTokenCommand(t, New(deps), "usage", accessTokenID, "--days", "3")
+	require.NoError(t, err)
+	assert.Equal(t, "days=3", query)
+	// No metadata read: the record behind the ID is what a pt- token cannot see.
+	assert.Equal(t, []string{"/projects/" + accessTokenProjectID + "/access-tokens/" + accessTokenID + "/usage"}, paths)
+	assert.Contains(t, out, "2026-09-15    0")
+	assert.Contains(t, out, "42 request(s) over 3 day(s)")
+
+	out, err = executeAccessTokenCommand(t, New(deps), "usage", accessTokenID, "--json")
+	require.NoError(t, err)
+	var payload struct {
+		TokenID       string `json:"token_id"`
+		TotalRequests int    `json:"total_requests"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &payload))
+	assert.Equal(t, accessTokenID, payload.TokenID)
+	assert.Equal(t, 42, payload.TotalRequests)
+}
+
+// A name cannot be turned into an ID without the account-only list endpoint, so
+// the argument says what it needs instead of failing as a 403 from a lookup the
+// credential was never going to be allowed to make.
+func TestAccessTokenUsageRejectsANameArgument(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, cliconfig.ProjectTokenPrefix+"token")
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request for a name that cannot be resolved", r.URL.Path)
+	}))
+	defer server.Close()
+
+	_, err := executeAccessTokenCommand(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "usage", "ci-deploy")
+
+	require.ErrorContains(t, err, `invalid token ID "ci-deploy"`)
+	assert.ErrorContains(t, err, "volcano access-tokens get ci-deploy --usage")
 }
 
 func TestAccessTokenCommandsRequireProject(t *testing.T) {

@@ -24,9 +24,9 @@ commands as your account token, but only for the project it was minted in, and
 it cannot manage tokens. Use one for CI and other automation.
 
 Managing tokens needs an account token, so run these commands logged in with
-'volcano login'. The project-wide 'usage' is the one exception: a project
-access token can read its own project's request counts. 'get --usage' is not,
-because it reads one token's record first.`,
+'volcano login'. The 'usage' reads are the exception: a project access token
+can read its own project's request counts, and one token's day-by-day series
+by ID. 'get --usage' is not, because it reads the token's record first.`,
 	}
 	cmd.AddCommand(newCreate(deps))
 	cmd.AddCommand(newList(deps))

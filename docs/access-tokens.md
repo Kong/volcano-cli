@@ -21,9 +21,10 @@ every project you own. Only an account token can manage access tokens.
   commands: `volcano projects list`, `volcano projects create`, `volcano
   projects rename`, `volcano projects delete`, selecting a project by name, or
   `volcano git connect`. `volcano cloud access-tokens usage` is the exception:
-  a token can report its own project's consumption, so a CI job needs nothing
-  but the credential it already runs with. `get --usage` is not, because
-  reading one token's record is itself a token operation.
+  a token can report its own project's consumption, and its own day-by-day
+  series by ID, so a CI job needs nothing but the credential it already runs
+  with. `get --usage` is not, because reading one token's record is itself a
+  token operation.
 - Carries one of two scopes: `full` matches your own access to that project;
   `read_only` rejects writes.
 
@@ -34,7 +35,7 @@ every project you own. Only an account token can manage access tokens.
 | Create | `volcano cloud access-tokens create <name> [--scope <scope>] [--expires-at <timestamp>] [--json]` |
 | List | `volcano cloud access-tokens list [--search <text>] [--include-revoked] [--json]` |
 | Get | `volcano cloud access-tokens get <name-or-id> [--usage] [--days <n>] [--json]` |
-| Usage | `volcano cloud access-tokens usage [--days <n>] [--json]` |
+| Usage | `volcano cloud access-tokens usage [<token-id>] [--days <n>] [--json]` |
 | Revoke | `volcano cloud access-tokens revoke <name-or-id> [--yes]` |
 
 `tokens` is an alias for `access-tokens`. These are cloud commands: local
@@ -176,17 +177,21 @@ ci-audit                  3
 
 Both take `--days`, up to 60, defaulting to 30.
 
-The project-wide `usage` is the one of these a project access token can run for
-itself, so a CI job can report what it consumed with nothing but the credential
-it already holds. `get --usage` reads one token's record, which is an account
-operation, so it needs an account token even for the running token's own
-counts:
+The `usage` reads are the ones a project access token can run for itself, so a
+CI job can report what it consumed with nothing but the credential it already
+holds — the whole project, or one token's day-by-day series:
 
 ```bash
 export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
 export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 volcano cloud access-tokens usage --days 7
+volcano cloud access-tokens usage 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77 --days 7
 ```
+
+The series is addressed by token ID, the one `create` printed, because turning
+a name into an ID needs the token list — an account operation. `get --usage`
+reads the token's record first for the same reason, so it needs an account
+token even for the running token's own counts.
 
 Revoking takes effect immediately and breaks every pipeline still using the
 token. The record is kept with status `revoked`, so the token keeps its history

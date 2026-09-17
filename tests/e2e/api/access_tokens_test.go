@@ -15,7 +15,7 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	// --json is how automation is meant to take a secret that is shown once, so
 	// that is the path this exercises. The human rendering has its own test.
 	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--expires-at", expiresAt, "--json")
-	secret := apiE2EAccessTokenSecret(t, created)
+	tokenID, secret := apiE2ECreatedAccessToken(t, created)
 	// Registered before the first assertion on the created token: the revoke
 	// below is the one this test is about, but a failure before reaching it
 	// would otherwise leave a live credential for its whole 24-hour expiry.
@@ -50,9 +50,12 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	// Nor can it mint or revoke credentials of its own.
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "access-tokens", "list").requireFailure(t, "needs an account token")
 	// Usage is the exception the API makes, so a CI job can report what it
-	// consumed with nothing but the credential it runs with.
+	// consumed with nothing but the credential it runs with — the project's
+	// tokens side by side, or its own day-by-day series addressed by ID.
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "access-tokens", "usage", "--days", "7").
 		requireSuccess(t, "request(s) across", "over 7 day(s)")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "access-tokens", "usage", tokenID, "--days", "7").
+		requireSuccess(t, "Day", "Requests", "request(s) over 7 day(s)")
 
 	// Logging in with it needs the project named, then binds the CLI to it.
 	loginHome := t.TempDir()
@@ -71,18 +74,21 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	env.runCloudCLI(t, "access-tokens", "usage").requireSuccess(t, name)
 }
 
-// apiE2EAccessTokenSecret takes the plaintext secret out of `access-tokens
-// create --json`, which is the only place a caller ever gets one.
-func apiE2EAccessTokenSecret(t *testing.T, created cliResult) string {
+// apiE2ECreatedAccessToken takes the ID and the plaintext secret out of
+// `access-tokens create --json`, the only place a caller ever gets the secret.
+// The ID matters as much for a project access token: it is the only way it can
+// address its own record, since resolving its name needs an account token.
+func apiE2ECreatedAccessToken(t *testing.T, created cliResult) (string, string) {
 	t.Helper()
 	var payload struct {
+		ID    string `json:"id"`
 		Token string `json:"token"`
 	}
 	if err := json.Unmarshal([]byte(created.stdout), &payload); err != nil {
 		t.Fatalf("create --json did not emit JSON: %v\n%s", err, redactCredentials(created.output))
 	}
-	if payload.Token == "" {
-		t.Fatalf("create --json carried no token secret:\n%s", redactCredentials(created.output))
+	if payload.ID == "" || payload.Token == "" {
+		t.Fatalf("create --json carried no token id or secret:\n%s", redactCredentials(created.output))
 	}
-	return payload.Token
+	return payload.ID, payload.Token
 }

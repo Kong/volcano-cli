@@ -121,16 +121,35 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Project
 // paginated walk, and a transient failure there would report a token that does
 // not exist moments after reading it.
 func (s Service) Usage(ctx context.Context, token *apiclient.ProjectAccessToken, days int) (*apiclient.ProjectAccessTokenUsage, error) {
-	authenticated, err := s.sessions.CurrentProject()
-	if err != nil {
-		return nil, err
-	}
-
-	usage, err := authenticated.API.GetAccessTokenUsage(ctx, authenticated.ProjectID, token.Id, days)
+	usage, err := s.tokenUsage(ctx, token.Id, days)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get usage for access token %q: %w", token.Name, err)
 	}
 	return usage, nil
+}
+
+// TokenUsage returns the daily request counts for one access token by ID,
+// reading no metadata first.
+//
+// That is what makes it reachable with a project access token: the API admits
+// one on the usage routes but not on the token records, so the only route to a
+// token's own day-by-day series is to address it by ID. Resolving a name needs
+// the account-only list endpoint, so a CI job reporting its own consumption
+// has to name the ID it was given when the token was minted.
+func (s Service) TokenUsage(ctx context.Context, tokenID uuid.UUID, days int) (*apiclient.ProjectAccessTokenUsage, error) {
+	usage, err := s.tokenUsage(ctx, tokenID, days)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get usage for access token %s: %w", tokenID, err)
+	}
+	return usage, nil
+}
+
+func (s Service) tokenUsage(ctx context.Context, tokenID uuid.UUID, days int) (*apiclient.ProjectAccessTokenUsage, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+	return authenticated.API.GetAccessTokenUsage(ctx, authenticated.ProjectID, tokenID, days)
 }
 
 // ProjectUsage returns the daily request counts for every access token in the
