@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/Kong/volcano-cli/compare/v0.28.1...v0.29.0) (2026-09-17)
+
+
+### Features
+
+* **config:** support frontend variable scopes ([#209](https://github.com/Kong/volcano-cli/issues/209)) ([7c88163](https://github.com/Kong/volcano-cli/commit/7c8816325800b0f2978355fd83696a1147d71f6c))
+
 ## [0.28.1](https://github.com/Kong/volcano-cli/compare/v0.28.0...v0.28.1) (2026-09-11)
 
 
