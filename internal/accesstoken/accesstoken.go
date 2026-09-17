@@ -14,6 +14,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -169,13 +170,16 @@ func (s Service) Revoke(ctx context.Context, token *apiclient.ProjectAccessToken
 // token. Minting, revoking, and reading a credential's record are account
 // operations, so a pt- token would only earn a 403 from the API. The usage
 // reads are not among them and use the session directly.
+//
+// Only the missing credential is named for this group; anything else that went
+// wrong resolving the session says enough on its own.
 func (s Service) accountSession() (*clisession.ProjectSession, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.sessions.AccountScopedProject()
+	if errors.Is(err, config.ErrAccountTokenRequired) {
+		return nil, fmt.Errorf("failed to manage access tokens: %w", err)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if err := authenticated.Config.RequireAccountToken(); err != nil {
-		return nil, fmt.Errorf("failed to manage access tokens: %w", err)
 	}
 	return authenticated, nil
 }

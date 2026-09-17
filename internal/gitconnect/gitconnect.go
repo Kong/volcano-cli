@@ -93,6 +93,10 @@ func (s Service) current() (*clisession.ProjectSession, error) {
 // platform does not admit a project access token there, and its 403 would be
 // read as the project being wrong — so the missing credential is named here
 // instead.
+//
+// This checks the pinned session rather than calling the factory's
+// AccountScopedProject, which would resolve a second one: the whole point of
+// the pin is that every call in a command acts on the same project.
 func (s Service) accountScoped() (*clisession.ProjectSession, error) {
 	authenticated, err := s.current()
 	if err != nil {
