@@ -125,16 +125,19 @@ func TestPrintError_ProjectTokenMismatchHint(t *testing.T) {
 	assert.Contains(t, out.String(), "only works on the project it was created in")
 }
 
-// The platform refuses a pt- credential for four reasons besides the project
-// being wrong, and names each in the body. Advising a project switch on top of
-// one of those tells the user to change the one thing that was right — a
-// read-only token on the correct project was being sent to look for another.
+// A 403 that says why it refused is its own answer. Advising a project switch
+// on top of one tells the user to change the one thing that was right — a
+// read-only token on the correct project was being sent to look for another,
+// and a token on a plan-gated route was being sent to look for a project that
+// would have refused it just the same.
 func TestPrintError_NoProjectTokenHintWhenTheBodyNamesAnotherRefusal(t *testing.T) {
 	for _, message := range []string{
 		"project access token is read-only",
 		"project access token is read-only; reading this project's credentials needs a full-scope token",
 		"project access tokens cannot be used on account-scoped endpoints; use an account token (pk-)",
 		"project access tokens cannot manage project access tokens; use an account token (pk-)",
+		// The platform's plan gate, which never mentions the credential.
+		"feature is not available on this plan",
 	} {
 		t.Run(message, func(t *testing.T) {
 			resetInstructions(t)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -116,19 +117,28 @@ func printProjectTokenMismatchHint(w io.Writer, err error) {
 		projectID)
 }
 
+// unexplainedRefusals are the 403 bodies that give no reason of their own: the
+// platform's generic denials, and an empty body from something in front of it.
+var unexplainedRefusals = []string{"", "forbidden", "access denied"}
+
 // mismatchCouldExplain reports whether a 403 body leaves room for the mismatch
 // hint.
 //
-// The platform refuses a pt- credential for reasons a project switch does not
-// fix — a read-only scope, an account-scoped route, token management — and each
-// says so in the body. Those refusals are their own answer, and advising the
-// user to switch project on top of one sends them to change the thing that was
-// already right. A body that does not mention the credential at all says
-// nothing about which refusal this is, so the mismatch remains the likeliest.
+// Two kinds do. The wrong-project refusal is the one this hint exists for, and
+// a body that gives no reason at all leaves the mismatch the likeliest
+// reading. Every other refusal already carries its own reason —
+// a read-only scope, an account-scoped route, a plan-gated feature — and
+// advising a project switch on top of one sends the user to change the thing
+// that was already right.
+//
+// This is an allowlist because the alternative cannot hold: the platform grows
+// new 403s, and each one that happens not to mention the credential would
+// inherit the hint. The plan gate ("feature is not available on this plan") is
+// exactly that case.
 func mismatchCouldExplain(message string) bool {
-	message = strings.ToLower(message)
+	message = strings.ToLower(strings.TrimSpace(message))
 	if strings.Contains(message, wrongProjectRefusal) {
 		return true
 	}
-	return !strings.Contains(message, "project access token")
+	return slices.Contains(unexplainedRefusals, message)
 }
