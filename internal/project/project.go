@@ -186,6 +186,13 @@ func resolveProject(ctx context.Context, authenticated *clisession.Session, iden
 		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
 	}
 
+	return Find(ctx, client, identifier)
+}
+
+// Find scans every project the credential can see for an exact ID or name
+// match. Only an account token can list projects, so callers establish that
+// before calling; a project access token earns a 403 here.
+func Find(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
 	page := api.DefaultPage
 	seen := 0
 	for {

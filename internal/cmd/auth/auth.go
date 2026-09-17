@@ -47,7 +47,7 @@ Browser-based login (default):
 Token-based login (for CI/CD):
   volcano login --token pk-xxxxxxxxxx
 
-Project access tokens (pt-) reach one project only, so name it:
+Project access tokens (pt-) reach one project only, so name it by ID:
   volcano login --token pt-xxxxxxxxxx --project <project-id>
 
 Environment variable (no login needed):
@@ -63,7 +63,8 @@ Environment variable (no login needed):
 		},
 	}
 	cmd.Flags().StringVar(&tokenFlag, "token", "", "User token for authentication")
-	cmd.Flags().StringVar(&projectFlag, "project", "", "Project ID to validate the token against and select (required for a pt- token)")
+	cmd.Flags().StringVar(&projectFlag, "project", "",
+		"Project ID or name to validate the token against and select (required for a pt- token, which must use the ID)")
 	return cmd
 }
 

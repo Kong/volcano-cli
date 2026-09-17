@@ -125,6 +125,45 @@ func TestLoginProjectTokenWithoutAProjectFails(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "config should not be saved, stat err: %v", err)
 }
 
+// `volcano use` takes a project name, so --project takes one too rather than
+// failing on the uuid parser.
+func TestLoginAccountTokenSelectsTheProjectByName(t *testing.T) {
+	setAuthTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/projects", r.URL.Path)
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"data": []any{map[string]any{
+				"id":         authProjectID,
+				"name":       "my-app",
+				"status":     "active",
+				"created_at": "2026-05-20T00:00:00Z",
+				"updated_at": "2026-05-20T00:00:00Z",
+			}},
+			"has_more": false,
+			"page":     1,
+			"limit":    100,
+			"total":    1,
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"--token", cliconfig.AccountTokenPrefix+"account-token", "--project", "my-app")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Now using project: my-app ("+authProjectID+")")
+
+	cfg := loadAuthTestConfig(t)
+	require.NotNil(t, cfg.CurrentProject)
+	assert.Equal(t, authProjectID, cfg.CurrentProject.ID)
+}
+
+func TestLoginProjectFlagHelpNamesWhatItTakes(t *testing.T) {
+	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Project ID or name")
+	assert.Contains(t, out, "which must use the ID")
+}
+
 func TestLoginProjectFlagNeedsAToken(t *testing.T) {
 	setAuthTestHome(t)
 

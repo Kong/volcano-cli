@@ -101,7 +101,12 @@ volcano login --token pt-Wq9l2m4XcR7tFv1sN8bK3hJ0 --project eac37d5a-5f6f-42d8-a
 ```
 
 A project access token cannot list projects, so nothing can work out which
-project it belongs to — name it with `--project` or `VOLCANO_PROJECT_ID`.
+project it belongs to, and nothing can turn a project name into an ID — name it
+by ID, with `--project` or `VOLCANO_PROJECT_ID`.
+
+Without either, `login` falls back to the project `volcano use` last selected,
+which belongs to whatever credential was logged in before. If that is not the
+token's project, the failure says where the project came from.
 
 Run an account-wide command with one and the CLI says what is missing rather
 than failing with a permission error:

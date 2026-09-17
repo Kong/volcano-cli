@@ -255,13 +255,23 @@ func (c *Config) FunctionInvokeToken() string {
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
 func (c *Config) ProjectID() string {
-	if projectID := os.Getenv(envProjectID); !c.IgnoreEnv && projectID != "" {
+	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
 	if c.CurrentProject != nil {
 		return c.CurrentProject.ID
 	}
 	return ""
+}
+
+// ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a
+// previous 'volcano use' saved. Callers that have to tell the two apart — a
+// failure that names the project it ran against — need the distinction.
+func (c *Config) ProjectIDFromEnv() string {
+	if c.IgnoreEnv {
+		return ""
+	}
+	return os.Getenv(envProjectID)
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.

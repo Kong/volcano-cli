@@ -117,6 +117,101 @@ func TestLoginWithProjectTokenForTheWrongProject(t *testing.T) {
 	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
 		LoginWithToken(context.Background(), cfg, "pt-project-token", authAlphaProjectID)
 	require.ErrorContains(t, err, "token is not valid for project "+authAlphaProjectID)
+	assert.NotContains(t, err.Error(), "taken from", "the user named this project, so there is nothing to explain")
+}
+
+// The fallback reaches the project a previous `volcano use` saved, which a
+// user logging in with a new credential never mentioned. Reporting it as
+// "not valid for project <id>" names a project out of nowhere, and reads as
+// the token being wrong rather than the selection being stale.
+func TestLoginWithProjectTokenNamesWhereAnUnmentionedProjectCameFrom(t *testing.T) {
+	cfg := testAuthConfig(t)
+	cfg.CurrentProject = &config.ProjectConfig{ID: authAlphaProjectID, Name: "Alpha"}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(t, w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
+	require.ErrorContains(t, err, "token is not valid for project "+authAlphaProjectID)
+	require.ErrorContains(t, err, "taken from the project 'volcano use' last selected")
+	require.ErrorContains(t, err, "pass --project")
+}
+
+func TestLoginWithProjectTokenNamesTheEnvironmentProject(t *testing.T) {
+	cfg := testAuthConfig(t)
+	t.Setenv("VOLCANO_PROJECT_ID", authAlphaProjectID)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(t, w, http.StatusNotFound, map[string]string{"error": "not found"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
+	require.ErrorContains(t, err, "taken from VOLCANO_PROJECT_ID")
+}
+
+// `volcano use` takes a name, so --project has to mean the same thing. An
+// account token can list projects, which is what resolving a name needs.
+func TestLoginWithAccountTokenResolvesTheProjectByName(t *testing.T) {
+	cfg := testAuthConfig(t)
+	var listed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/projects", r.URL.Path)
+		listed = true
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"data": []any{map[string]any{
+				"id":         authAlphaProjectID,
+				"name":       "my-app",
+				"status":     "active",
+				"created_at": "2026-05-20T00:00:00Z",
+				"updated_at": "2026-05-20T00:00:00Z",
+			}},
+			"has_more": false,
+			"page":     1,
+			"limit":    100,
+			"total":    1,
+		})
+	}))
+	defer server.Close()
+
+	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, config.AccountTokenPrefix+"account-token", "my-app")
+	require.NoError(t, err)
+	assert.True(t, listed)
+	require.NotNil(t, credentials.Project)
+	assert.Equal(t, authAlphaProjectID, credentials.Project.ID)
+	assert.Equal(t, "my-app", credentials.Project.Name)
+}
+
+func TestLoginWithAccountTokenReportsAnUnknownProjectName(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+		})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, config.AccountTokenPrefix+"account-token", "my-app")
+	require.ErrorContains(t, err, "project not found: my-app")
+}
+
+// A project access token cannot list projects, so there is nothing to resolve
+// a name against. Saying that beats the uuid parser's "invalid UUID length: 6".
+func TestLoginWithProjectTokenRejectsAProjectName(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request for a name a project token cannot resolve", r.URL.Path)
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "my-app")
+	require.ErrorContains(t, err, "cannot look up a project by name")
+	assert.NotContains(t, err.Error(), "invalid UUID length")
 }
 
 func TestLoginWithTokenInvalid(t *testing.T) {
