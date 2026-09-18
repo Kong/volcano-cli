@@ -74,7 +74,15 @@ By default, looks for volcano.env in these locations (in order):
 
 Use --file to specify a custom path.
 
-Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, "variables list")),
+Creates new variables and updates existing ones.
+
+Reserved variable names cannot be deployed:
+  %s
+
+See %s for the AWS Lambda reserved environment variable list.`,
+			cliruntime.CommandPath(deps, "variables list"),
+			strings.Join(clivariable.ReservedNames(), "\n  "),
+			clivariable.LambdaReservedNamesURL),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{
 				deps: deps,
@@ -98,6 +106,14 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if len(vars) == 0 {
 		fmt.Fprintf(opts.out, "No variables found in %s\n", envFile.Path)
 		return nil
+	}
+
+	names := make([]string, 0, len(vars))
+	for name := range vars {
+		names = append(names, name)
+	}
+	if err := clivariable.ValidateNames(names); err != nil {
+		return err
 	}
 
 	fmt.Fprintf(opts.out, "Found %d variable(s)\n", len(vars))
