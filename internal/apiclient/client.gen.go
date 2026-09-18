@@ -3152,6 +3152,8 @@ func (e SummarizeProjectDeploymentsParamsResourceType) Valid() bool {
 const (
 	CreateDurableFunctionMultipartBodyRuntimeNodejs22X CreateDurableFunctionMultipartBodyRuntime = "nodejs22.x"
 	CreateDurableFunctionMultipartBodyRuntimeNodejs24X CreateDurableFunctionMultipartBodyRuntime = "nodejs24.x"
+	CreateDurableFunctionMultipartBodyRuntimePython313 CreateDurableFunctionMultipartBodyRuntime = "python3.13"
+	CreateDurableFunctionMultipartBodyRuntimePython314 CreateDurableFunctionMultipartBodyRuntime = "python3.14"
 )
 
 // Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyRuntime enum.
@@ -3160,6 +3162,10 @@ func (e CreateDurableFunctionMultipartBodyRuntime) Valid() bool {
 	case CreateDurableFunctionMultipartBodyRuntimeNodejs22X:
 		return true
 	case CreateDurableFunctionMultipartBodyRuntimeNodejs24X:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython313:
+		return true
+	case CreateDurableFunctionMultipartBodyRuntimePython314:
 		return true
 	default:
 		return false
@@ -8627,9 +8633,12 @@ type CreateDurableFunctionMultipartBody struct {
 	Name string `json:"name"`
 
 	// Runtime Runtime environment. Required. Durable execution needs the
-	// durable authoring API, which ships for the Node runtimes;
+	// durable authoring API, which ships for these runtimes only;
 	// any other runtime is rejected with 400 and the response
-	// names the ones that work.
+	// names the ones that work. Note that a durable Python
+	// function needs a newer runtime than a standard one defaults
+	// to. `GET /functions/runtimes` reports `durable_capable` per
+	// runtime.
 	Runtime CreateDurableFunctionMultipartBodyRuntime `json:"runtime"`
 
 	// VariableScope Which project variables this function receives. `all` (the default) gives it every project variable; `scoped` gives it only the variables it selects. Omitting this leaves an existing function's scope unchanged.
