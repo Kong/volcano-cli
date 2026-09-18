@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	accessTokenProjectID = "22222222-2222-4222-8222-222222222222"
-	accessTokenID        = "77777777-7777-4777-8777-777777777777"
+	accessTokenProjectID      = "22222222-2222-4222-8222-222222222222"
+	accessTokenOtherProjectID = "33333333-3333-4333-8333-333333333333"
+	accessTokenID             = "77777777-7777-4777-8777-777777777777"
 )
 
 func executeAccessTokenCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
@@ -39,10 +40,15 @@ func setAccessTokenCommandTestHome(t *testing.T) {
 
 func saveAccessTokenCommandTestConfig(t *testing.T, token string) {
 	t.Helper()
+	saveAccessTokenCommandTestConfigFor(t, token, accessTokenProjectID)
+}
+
+func saveAccessTokenCommandTestConfigFor(t *testing.T, token, projectID string) {
+	t.Helper()
 	cfg := &cliconfig.Config{
 		UserToken: token,
 		CurrentProject: &cliconfig.ProjectConfig{
-			ID:   accessTokenProjectID,
+			ID:   projectID,
 			Name: "Beta",
 		},
 	}

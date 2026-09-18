@@ -94,9 +94,9 @@ func (s Service) current() (*clisession.ProjectSession, error) {
 // read as the project being wrong — so the missing credential is named here
 // instead.
 //
-// This checks the pinned session rather than calling the factory's
-// AccountScopedProject, which would resolve a second one: the whole point of
-// the pin is that every call in a command acts on the same project.
+// This checks the pinned session rather than asking the factory to resolve an
+// account-scoped one, which would resolve a second project: the whole point of
+// the pin is that every call in a command acts on the same one.
 func (s Service) accountScoped() (*clisession.ProjectSession, error) {
 	authenticated, err := s.current()
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
-	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -39,11 +39,31 @@ const maxResolvePages = 1000
 // Service performs authenticated Volcano project access token workflows.
 type Service struct {
 	sessions clisession.Factory
+	pinned   *pinnedProject
+}
+
+// pinnedProject resolves the project once per service. Every call would
+// otherwise re-read the configuration from disk, so revoke — which resolves the
+// token, asks the user about it, and then deletes it — could confirm a token in
+// one project and send the delete to another, if a `volcano use` in a second
+// shell landed in between.
+type pinnedProject struct {
+	once    sync.Once
+	session *clisession.ProjectSession
+	err     error
 }
 
 // NewService returns a project access token service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+// current returns the project session this service is pinned to.
+func (s Service) current() (*clisession.ProjectSession, error) {
+	s.pinned.once.Do(func() {
+		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+	})
+	return s.pinned.session, s.pinned.err
 }
 
 // Scopes returns the scopes a token can be minted with, for help text and
@@ -162,7 +182,7 @@ func (s Service) TokenUsage(ctx context.Context, tokenID uuid.UUID, days int) (*
 }
 
 func (s Service) tokenUsage(ctx context.Context, tokenID uuid.UUID, days int) (*apiclient.ProjectAccessTokenUsage, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +196,7 @@ func (s Service) tokenUsage(ctx context.Context, tokenID uuid.UUID, days int) (*
 // account-scoped: a CI job holding nothing but the pt- token it runs with can
 // still report its own consumption.
 func (s Service) ProjectUsage(ctx context.Context, days int) ([]apiclient.ProjectAccessTokenUsage, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -202,20 +222,24 @@ func (s Service) Revoke(ctx context.Context, token *apiclient.ProjectAccessToken
 	return nil
 }
 
-// accountSession resolves the current project and rejects a project access
-// token. Minting, revoking, and reading a credential's record are account
-// operations, so a pt- token would only earn a 403 from the API. The usage
-// reads are not among them and use the session directly.
+// accountSession returns the pinned session for a call that a project access
+// token cannot make. Minting, revoking, and reading a credential's record are
+// account operations, so a pt- token would only earn a 403 from the API. The
+// usage reads are not among them and use the session directly.
+//
+// This checks the pinned session rather than asking the factory for an
+// account-scoped one, which would resolve a second project: the whole point of
+// the pin is that every call in a command acts on the same one.
 //
 // Only the missing credential is named for this group; anything else that went
 // wrong resolving the session says enough on its own.
 func (s Service) accountSession() (*clisession.ProjectSession, error) {
-	authenticated, err := s.sessions.AccountScopedProject()
-	if errors.Is(err, config.ErrAccountTokenRequired) {
-		return nil, fmt.Errorf("failed to manage access tokens: %w", err)
-	}
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
+	}
+	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		return nil, fmt.Errorf("failed to manage access tokens: %w", err)
 	}
 	return authenticated, nil
 }

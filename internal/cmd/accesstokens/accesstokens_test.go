@@ -2,10 +2,12 @@ package accesstokens
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -403,6 +405,49 @@ func TestAccessTokenRevokeRefusesWhenStdinCannotAnswer(t *testing.T) {
 
 	require.ErrorContains(t, err, "confirmation required; pass --yes")
 	assert.NotContains(t, out, "Cancelled.", "a prompt nobody can answer is not a cancellation")
+}
+
+// revoke resolves the token, asks the user about it, and then deletes it. Each
+// call resolved the project from the configuration again, so a `volcano use` in
+// another shell while the prompt waited moved the delete to a project the user
+// was never shown — and, since the token ID means nothing there, to whatever
+// that ID happens to name.
+func TestAccessTokenRevokeActsOnTheProjectItResolved(t *testing.T) {
+	setAccessTokenCommandTestHome(t)
+	saveAccessTokenCommandTestConfig(t, "token")
+
+	var revokedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			revokedPath = r.URL.Path
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeAccessTokenCommandJSON(t, w, http.StatusOK, accessTokenCommandPayload(accessTokenID, "ci-deploy"))
+	}))
+	defer server.Close()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(&switchProjectReader{t: t, answer: strings.NewReader("y\n")})
+	_, err := executeAccessTokenCommand(t, cmd, "revoke", accessTokenID)
+
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+accessTokenProjectID+"/access-tokens/"+accessTokenID, revokedPath)
+}
+
+// switchProjectReader selects a different project before answering the prompt,
+// standing in for a `volcano use` in another shell while the question waits.
+type switchProjectReader struct {
+	t      *testing.T
+	answer io.Reader
+	once   sync.Once
+}
+
+func (r *switchProjectReader) Read(p []byte) (int, error) {
+	r.once.Do(func() {
+		saveAccessTokenCommandTestConfigFor(r.t, "token", accessTokenOtherProjectID)
+	})
+	return r.answer.Read(p)
 }
 
 // A human who answers "no" still cancels quietly, exit 0, as everywhere else

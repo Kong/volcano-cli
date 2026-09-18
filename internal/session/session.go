@@ -170,20 +170,3 @@ func (f Factory) CurrentProject() (*ProjectSession, error) {
 		},
 	}, nil
 }
-
-// AccountScopedProject builds the current project's session for a workflow
-// that acts on the project but needs account-wide reach to do it — minting a
-// credential, reading the caller's own provider connections. The platform does
-// not admit a project access token on either, and its 403 would read as the
-// project being wrong, so the missing credential is named before the request.
-func (f Factory) AccountScopedProject() (*ProjectSession, error) {
-	authenticated, err := f.CurrentProject()
-	if err != nil {
-		return nil, err
-	}
-
-	if err := authenticated.Config.RequireAccountToken(); err != nil {
-		return nil, err
-	}
-	return authenticated, nil
-}
