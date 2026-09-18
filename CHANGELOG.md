@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/Kong/volcano-cli/compare/v0.30.0...v0.31.0) (2026-09-18)
+
+
+### Features
+
+* **access-tokens:** manage project access tokens from the CLI ([#208](https://github.com/Kong/volcano-cli/issues/208)) ([835a61b](https://github.com/Kong/volcano-cli/commit/835a61b73722a6ba2861bc0c782292502fab730a))
+
 ## [0.30.0](https://github.com/Kong/volcano-cli/compare/v0.29.0...v0.30.0) (2026-09-18)
 
 
