@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/Kong/volcano-cli/compare/v0.29.0...v0.30.0) (2026-09-18)
+
+
+### Features
+
+* **config:** support frontend shared variables ([#211](https://github.com/Kong/volcano-cli/issues/211)) ([6918dff](https://github.com/Kong/volcano-cli/commit/6918dff4f044acc0a0118964665a55a2631b2db2))
+
 ## [0.29.0](https://github.com/Kong/volcano-cli/compare/v0.28.1...v0.29.0) (2026-09-17)
 
 
