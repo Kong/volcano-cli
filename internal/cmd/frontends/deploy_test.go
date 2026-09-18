@@ -34,10 +34,12 @@ func TestFrontendsDeployUploadsArchive(t *testing.T) {
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
 			fields = map[string]string{
-				"name":      r.FormValue("name"),
-				"framework": r.FormValue("framework"),
-				"app_root":  r.FormValue("app_root"),
+				"name":           r.FormValue("name"),
+				"framework":      r.FormValue("framework"),
+				"app_root":       r.FormValue("app_root"),
+				"variable_scope": r.FormValue("variable_scope"),
 			}
+			assert.NotContains(t, r.MultipartForm.Value, "variables")
 			files := r.MultipartForm.File["archive"]
 			require.Len(t, files, 1)
 			filename = files[0].Filename
@@ -49,9 +51,12 @@ func TestFrontendsDeployUploadsArchive(t *testing.T) {
 	}))
 	defer server.Close()
 
-	out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--name", "web", "--path", projectDir)
+	out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"deploy", "--name", "web", "--path", projectDir, "--variable-scope", "scoped")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]string{"name": "web", "framework": "nextjs", "app_root": ""}, fields)
+	assert.Equal(t, map[string]string{
+		"name": "web", "framework": "nextjs", "app_root": "", "variable_scope": "scoped",
+	}, fields)
 	assert.Equal(t, "web.tar.gz", filename)
 	assert.Contains(t, archiveNames, "page.tsx")
 	assert.Contains(t, archiveNames, "package.json")
@@ -110,6 +115,25 @@ func TestFrontendsDeployRejectsUnsupportedFramework(t *testing.T) {
 		"deploy", "--name", "web", "--path", projectDir, "--framework", "svelte")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported framework")
+}
+
+func TestFrontendsDeployValidatesVariableSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "invalid scope", args: []string{"--variable-scope", "shared"}, want: "--variable-scope must be all or scoped"},
+		{name: "variable without scope", args: []string{"--variable", "API_KEY"}, want: "--variable requires --variable-scope scoped"},
+		{name: "variable with all scope", args: []string{"--variable-scope", "all", "--variable", "API_KEY"}, want: "--variable requires --variable-scope scoped"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"deploy", "--name", "web"}, tc.args...)
+			_, err := executeFrontendsCommand(t, New(cliruntime.Deps{}), args...)
+			require.Error(t, err)
+			assert.Equal(t, tc.want, err.Error())
+		})
+	}
 }
 
 func multipartArchiveNames(t *testing.T, fileHeader *multipart.FileHeader) []string {

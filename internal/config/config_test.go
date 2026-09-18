@@ -392,3 +392,80 @@ func TestRequireProject(t *testing.T) {
 	cfg.CurrentProject = nil
 	require.NoError(t, cfg.RequireProject())
 }
+
+func TestRequireProjectWithProjectToken(t *testing.T) {
+	t.Setenv(envToken, "")
+	t.Setenv(envProjectID, "")
+
+	// A project access token cannot resolve a project by name, so the prompt to
+	// run `volcano use <project-name>` would send the user nowhere.
+	cfg := &Config{UserToken: ProjectTokenPrefix + "file-token"}
+	require.ErrorIs(t, cfg.RequireProject(), ErrNoProjectSelectedForProjectToken)
+
+	cfg.CurrentProject = &ProjectConfig{ID: "file-project", Name: "File Project"}
+	require.NoError(t, cfg.RequireProject())
+}
+
+func TestRequireAccountToken(t *testing.T) {
+	t.Setenv(envToken, "")
+
+	for name, token := range map[string]string{
+		"account token":  AccountTokenPrefix + "file-token",
+		"unknown prefix": "legacy-token",
+		"no token":       "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, (&Config{UserToken: token}).RequireAccountToken())
+		})
+	}
+
+	cfg := &Config{UserToken: ProjectTokenPrefix + "file-token"}
+	require.ErrorIs(t, cfg.RequireAccountToken(), ErrAccountTokenRequired)
+
+	// The environment token wins over the saved one, here too.
+	t.Setenv(envToken, AccountTokenPrefix+"env-token")
+	require.NoError(t, cfg.RequireAccountToken())
+}
+
+// A trailing newline is what `export VOLCANO_TOKEN=$(cat secret)` produces, and
+// untrimmed it reaches the Authorization header, where net/http refuses to send
+// the request at all rather than returning anything the user can act on.
+func TestTokenTrimsTheEnvironmentValue(t *testing.T) {
+	cfg := &Config{}
+	t.Setenv(envToken, ProjectTokenPrefix+"abc\n")
+
+	assert.Equal(t, ProjectTokenPrefix+"abc", cfg.Token())
+	assert.True(t, IsProjectToken(cfg.Token()))
+}
+
+// The docs tell CI users to set VOLCANO_PROJECT_ID the same way as
+// VOLCANO_TOKEN, so it arrives with the same trailing newline. Untrimmed it
+// parsed as a UUID nowhere: `access-tokens list` worked, while `projects keys`
+// failed as "invalid UUID length: 37".
+func TestProjectIDTrimsTheEnvironmentValue(t *testing.T) {
+	cfg := &Config{CurrentProject: &ProjectConfig{ID: "saved-project"}}
+	t.Setenv(envProjectID, " 22222222-2222-4222-8222-222222222222\n")
+
+	assert.Equal(t, "22222222-2222-4222-8222-222222222222", cfg.ProjectIDFromEnv())
+	assert.Equal(t, "22222222-2222-4222-8222-222222222222", cfg.ProjectID())
+}
+
+func TestIsProjectToken(t *testing.T) {
+	for token, want := range map[string]bool{
+		ProjectTokenPrefix + "abc":       true,
+		"  " + ProjectTokenPrefix:        true,
+		AccountTokenPrefix + "abc":       false,
+		"legacy-token":                   false,
+		"":                               false,
+		"prefixed-" + ProjectTokenPrefix: false,
+		// A mangled pt- token, not a legacy credential. The fail-open default for
+		// unknown prefixes exists for tokens minted before the prefixes did, and
+		// letting case slip through it meant every guard here was bypassable.
+		"PT-abc": true,
+		"Pt-abc": true,
+	} {
+		t.Run(token, func(t *testing.T) {
+			assert.Equal(t, want, IsProjectToken(token))
+		})
+	}
+}

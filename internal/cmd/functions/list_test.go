@@ -29,7 +29,7 @@ func TestFunctionsListPopulatedAndEmpty(t *testing.T) {
 			want: []string{
 				"hello",
 				"nodejs24.x",
-				"invoke: https://" + functionID + ".functions.volcano.dev/",
+				"invoke: https://" + functionID + ".functions.volcano.run/",
 				"Showing 1 of 2 function(s) (page 1, limit 100)",
 				"Next page: volcano functions list --page 2 --limit 100",
 			},

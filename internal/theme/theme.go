@@ -106,12 +106,15 @@ func Status(s string, on bool) string {
 		return s
 	}
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "active", "ready", "running", "enabled", "healthy", "deployed", "verified", "completed", "yes", "public":
+	case "active", "ready", "running", "enabled", "healthy", "deployed", "verified", "completed", "yes", "public",
+		// Durable execution outcomes and the allowance words the durable
+		// commands print.
+		"succeeded", "allowed":
 		return activeStyle.Render(s)
 	case "pending", "queued", "provisioning", "creating", "deploying", "building", "updating",
 		"deleting", "detaching", "restoring", "pending_verification", "degraded":
 		return warnStyle.Render(s)
-	case "failed", "error", "errored", "exhausted", "unhealthy":
+	case "failed", "error", "errored", "exhausted", "unhealthy", "timed_out", "denied":
 		return failStyle.Render(s)
 	default: // deleted, superseded, cancelled, disabled, inactive, unknown, "-", no, private, ...
 		return dimStyle.Render(s)

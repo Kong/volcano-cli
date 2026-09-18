@@ -56,6 +56,9 @@ type Manifest struct {
 
 	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
 	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
+	// FrontendSharedVariables replaces frontend membership by name;
+	// nil preserves it and [] clears it.
+	FrontendSharedVariables *[]string `yaml:"frontend_shared_variables,omitempty" json:"frontend_shared_variables,omitempty"`
 
 	// upload is the interpolated manifest decoded into a generic shape; it is the
 	// source of the apply request body (see uploadBody). Populated by Parse.
@@ -342,8 +345,10 @@ type SchedulerManifest struct {
 
 // FrontendManifest declares configuration for one deployed frontend.
 type FrontendManifest struct {
-	Name         string                `yaml:"name" json:"name"`
-	CustomDomain *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	VariableScope *string               `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
+	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
+	Name          string                `yaml:"name" json:"name"`
+	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.

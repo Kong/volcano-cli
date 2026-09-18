@@ -81,6 +81,12 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 	cfg.httpClient = versionProtocolDoer{next: debugDoer{next: cfg.httpClient}}
 	cfg.streamHTTPClient = versionProtocolDoer{next: debugDoer{next: cfg.streamHTTPClient}}
 
+	// Record what a refused request carried, so a caller explaining a 403 can
+	// describe the request rather than re-derive it from configuration that may
+	// have chosen a different project (see Refusal).
+	cfg.httpClient = refusalDoer{next: cfg.httpClient}
+	cfg.streamHTTPClient = refusalDoer{next: cfg.streamHTTPClient}
+
 	// Outermost wrapper: rewrite opaque transport failures (connection refused,
 	// DNS, timeout) into an actionable message naming the API URL. Wraps the
 	// whole chain so it sees the final transport error from any request.

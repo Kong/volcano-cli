@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
-	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/confirm"
@@ -44,21 +42,10 @@ func ask(in io.Reader, out io.Writer, yes bool, warning, question string) (bool,
 	if yes {
 		return true, nil
 	}
-	if !canPrompt(in) {
+	if !confirm.CanPrompt(in) {
 		return false, fmt.Errorf("%s\n\nThis needs confirmation and stdin is not a terminal. Pass --yes to proceed", warning)
 	}
 	return confirm.Action(in, out, warning, question)
-}
-
-// canPrompt reports whether there is a human on the other end of in. A reader
-// that is not the process's stdin at all — an injected one, as in tests — is
-// treated as promptable, since something is deliberately feeding it answers.
-func canPrompt(in io.Reader) bool {
-	f, ok := in.(*os.File)
-	if !ok {
-		return true
-	}
-	return term.IsTerminal(f.Fd())
 }
 
 // guide rewrites the failures a user can act on into errors that say what to do

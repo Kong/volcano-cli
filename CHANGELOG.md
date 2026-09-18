@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.31.0](https://github.com/Kong/volcano-cli/compare/v0.30.0...v0.31.0) (2026-09-18)
+
+
+### Features
+
+* **access-tokens:** manage project access tokens from the CLI ([#208](https://github.com/Kong/volcano-cli/issues/208)) ([835a61b](https://github.com/Kong/volcano-cli/commit/835a61b73722a6ba2861bc0c782292502fab730a))
+
+## [0.30.0](https://github.com/Kong/volcano-cli/compare/v0.29.0...v0.30.0) (2026-09-18)
+
+
+### Features
+
+* **config:** support frontend shared variables ([#211](https://github.com/Kong/volcano-cli/issues/211)) ([6918dff](https://github.com/Kong/volcano-cli/commit/6918dff4f044acc0a0118964665a55a2631b2db2))
+
+## [0.29.0](https://github.com/Kong/volcano-cli/compare/v0.28.1...v0.29.0) (2026-09-17)
+
+
+### Features
+
+* **config:** support frontend variable scopes ([#209](https://github.com/Kong/volcano-cli/issues/209)) ([7c88163](https://github.com/Kong/volcano-cli/commit/7c8816325800b0f2978355fd83696a1147d71f6c))
+
 ## [0.28.1](https://github.com/Kong/volcano-cli/compare/v0.28.0...v0.28.1) (2026-09-11)
 
 

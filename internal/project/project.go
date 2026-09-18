@@ -29,7 +29,7 @@ func NewService(deps cliruntime.Deps) Service {
 
 // List returns the authenticated config and one visible project page.
 func (s Service) List(ctx context.Context, page, limit int) (*config.Config, *apiclient.PaginatedProjects, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -43,7 +43,7 @@ func (s Service) List(ctx context.Context, page, limit int) (*config.Config, *ap
 
 // Create creates a project for the authenticated user.
 func (s Service) Create(ctx context.Context, name string) (*apiclient.Project, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (s Service) Get(ctx context.Context, projectID string) (*apiclient.Project,
 
 // Rename changes a project's name and refreshes the saved active project.
 func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient.Project, error) {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclien
 
 // Delete starts asynchronous project deletion by ID.
 func (s Service) Delete(ctx context.Context, projectID string) error {
-	authenticated, err := s.sessions.Authenticated()
+	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return err
 	}
@@ -144,6 +144,15 @@ func (s Service) Delete(ctx context.Context, projectID string) error {
 	return nil
 }
 
+// RequireAccountToken reports whether the configured credential can run the
+// account-scoped project commands. Renaming and deleting a project are pk-only
+// server-side, and a destructive command has to refuse before it asks the user
+// to confirm something the CLI already knows cannot happen.
+func (s Service) RequireAccountToken() error {
+	_, err := s.sessions.AccountScoped()
+	return err
+}
+
 // Use sets the active project by exact ID or exact name.
 func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project, error) {
 	identifier = strings.TrimSpace(identifier)
@@ -152,14 +161,16 @@ func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project
 		return nil, err
 	}
 
-	selected, err := resolveProject(ctx, authenticated.API, identifier)
+	selected, err := resolveProject(ctx, authenticated, identifier)
 	if err != nil {
 		return nil, err
 	}
 	return selected, saveCurrentProject(selected)
 }
 
-func resolveProject(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
+func resolveProject(ctx context.Context, authenticated *clisession.Session, identifier string) (*apiclient.Project, error) {
+	client := authenticated.API
+	idNotFound := false
 	if id, err := uuid.Parse(identifier); err == nil {
 		selected, err := client.GetProject(ctx, id)
 		if err == nil {
@@ -168,8 +179,29 @@ func resolveProject(ctx context.Context, client *api.Client, identifier string) 
 		if api.Status(err) != http.StatusNotFound {
 			return nil, fmt.Errorf("failed to get project: %w", err)
 		}
+		idNotFound = true
 	}
 
+	// Anything the project ID did not answer is resolved by scanning every
+	// project the credential can see, which a project access token cannot do.
+	if err := authenticated.Config.RequireAccountToken(); err != nil {
+		// The scan is the only thing that could still match a UUID-shaped name,
+		// and a credential that cannot run it has already had its answer: the
+		// project with that ID is not there. Reporting the missing account token
+		// instead sends the user to log in again over a mistyped ID.
+		if idNotFound {
+			return nil, fmt.Errorf("project not found: %s", identifier)
+		}
+		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
+	}
+
+	return Find(ctx, client, identifier)
+}
+
+// Find scans every project the credential can see for an exact ID or name
+// match. Only an account token can list projects, so callers establish that
+// before calling; a project access token earns a 403 here.
+func Find(ctx context.Context, client *api.Client, identifier string) (*apiclient.Project, error) {
 	page := api.DefaultPage
 	seen := 0
 	for {

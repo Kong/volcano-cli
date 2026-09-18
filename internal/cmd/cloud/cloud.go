@@ -4,6 +4,7 @@ package cloud
 import (
 	"github.com/spf13/cobra"
 
+	accesstokenscmd "github.com/Kong/volcano-cli/internal/cmd/accesstokens"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
@@ -37,6 +38,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	deps.CommandPathPrefix = "volcano cloud"
 	dataPlaneKeys := dataplane.NewService(deps)
 	return []*cobra.Command{
+		accesstokenscmd.New(deps),
 		configcmd.New(deps),
 		databasescmd.New(deps),
 		durablecmd.New(deps),

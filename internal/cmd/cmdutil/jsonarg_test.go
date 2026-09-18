@@ -68,6 +68,19 @@ func TestParseJSONObjectRejectsTrailingJSON(t *testing.T) {
 }
 
 // remarshal is the trip the value takes on its way to the API.
+// A stray closing delimiter is malformed too, and it is the case Decoder.More()
+// cannot see: it reports whether the next byte is something other than `]` or
+// `}`, so both of these used to parse as the object in front of them.
+func TestParseJSONObjectRejectsAStrayClosingDelimiter(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{`{"order_id":1}}`, `{"order_id":1}]`} {
+		_, err := ParseJSONObject("input", input)
+		require.Errorf(t, err, "input %q is malformed", input)
+		assert.Contains(t, err.Error(), "unexpected data after the JSON object")
+	}
+}
+
 func remarshal(t *testing.T, object map[string]any) string {
 	t.Helper()
 

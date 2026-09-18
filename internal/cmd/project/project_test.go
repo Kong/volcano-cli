@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -217,6 +218,58 @@ func TestProjectDeletePromptsAndCancels(t *testing.T) {
 	assert.Contains(t, out, "Delete cancelled.")
 }
 
+// `volcano projects delete <id> </dev/null` used to print "Delete cancelled."
+// and exit 0 with the project intact, which a script cannot tell apart from a
+// deletion that happened.
+func TestProjectDeleteRefusesWhenStdinCannotAnswer(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request without confirmation", r.URL.Path)
+	}))
+	defer server.Close()
+
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	cmd := NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetIn(closed)
+	out, err := executeProjectCommand(t, cmd, "delete", projectAlphaID)
+
+	require.ErrorContains(t, err, "confirmation required; pass --yes")
+	assert.NotContains(t, out, "Delete cancelled.", "a prompt nobody can answer is not a cancellation")
+}
+
+// Deleting and renaming a project are account operations the platform refuses a
+// pt- token on. Delete asked for confirmation first, so the user agreed to a
+// destructive action the CLI already knew would fail.
+func TestProjectsDeleteAndRenameRejectAProjectToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request with a project access token", r.URL.Path)
+	}))
+	defer server.Close()
+
+	for _, args := range [][]string{
+		{"delete", projectAlphaID},
+		{"delete", projectAlphaID, "--yes"},
+		{"rename", projectAlphaID, "Renamed"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			setProjectCommandTestHome(t)
+			saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: cliconfig.ProjectTokenPrefix + "token"})
+
+			cmd := NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+			cmd.SetIn(strings.NewReader("y\n"))
+			out, err := executeProjectCommand(t, cmd, args...)
+
+			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
+			assert.NotContains(t, out, "You are about to delete a resource permanently",
+				"the refusal must come before the confirmation prompt")
+		})
+	}
+}
+
 func executeProjectCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var out bytes.Buffer
@@ -330,6 +383,26 @@ func TestProjectsKeysHonorsEnvProjectPrecedence(t *testing.T) {
 		CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID, Name: "Beta"},
 	})
 	t.Setenv("VOLCANO_PROJECT_ID", projectAlphaID)
+
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+	}))
+	defer server.Close()
+
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	require.NoError(t, err)
+	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
+}
+
+// `export VOLCANO_PROJECT_ID=$(cat project-id)` carries a trailing newline, the
+// way the CI docs have users set it. Untrimmed it reached uuid.Parse and failed
+// as "invalid UUID length: 37".
+func TestProjectsKeysTrimsTheEnvProject(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	t.Setenv("VOLCANO_PROJECT_ID", projectAlphaID+"\n")
 
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

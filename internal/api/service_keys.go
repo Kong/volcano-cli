@@ -17,7 +17,8 @@ func (c *Client) ListServiceKeys(ctx context.Context, projectID uuid.UUID, page,
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+	// Never the body: this response carries the key's plaintext value.
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON200)
 }
 
 // CreateServiceKey creates one service key in a project. When permissions is
@@ -32,7 +33,8 @@ func (c *Client) CreateServiceKey(ctx context.Context, projectID uuid.UUID, name
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201)
+	// Never the body: a created service key carries its plaintext value.
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON201)
 }
 
 // GetServiceKey returns one service key by ID.
@@ -41,5 +43,6 @@ func (c *Client) GetServiceKey(ctx context.Context, projectID, keyID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+	// Never the body: this response carries the key's plaintext value.
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON200)
 }

@@ -87,6 +87,8 @@ functions:
 // and re-upload unchanged, carrying only the declarations hosting sent.
 func TestConfigExportRoundTrip(t *testing.T) {
 	exported := []byte(`version: 1
+frontend_shared_variables:
+  - NEXT_PUBLIC_VOLCANO_API_URL
 functions:
   - name: scoped-fn
     public: false
@@ -95,14 +97,25 @@ functions:
       - API_KEY
   - name: default-fn
     public: true
+frontends:
+  - name: web
+    variable_scope: shared
 `)
 	manifest, err := Parse(exported, noEnv)
 	require.NoError(t, err)
+	require.NotNil(t, manifest.FrontendSharedVariables)
+	assert.Equal(t, []string{"NEXT_PUBLIC_VOLCANO_API_URL"}, *manifest.FrontendSharedVariables)
+	require.NotNil(t, manifest.Frontends)
+	require.NotNil(t, (*manifest.Frontends)[0].VariableScope)
+	assert.Equal(t, "shared", *(*manifest.Frontends)[0].VariableScope)
 
 	body, err := manifest.uploadBody()
 	require.NoError(t, err)
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal(body, &decoded))
+	assert.Equal(t, []any{"NEXT_PUBLIC_VOLCANO_API_URL"}, decoded["frontend_shared_variables"])
+	frontends := decoded["frontends"].([]any)
+	assert.Equal(t, "shared", frontends[0].(map[string]any)["variable_scope"])
 	functions := decoded["functions"].([]any)
 
 	scoped := functions[0].(map[string]any)

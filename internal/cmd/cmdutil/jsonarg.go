@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -51,6 +52,11 @@ func ParseJSONObject(subject, value string) (map[string]any, error) {
 //
 // A decoder reads one value and stops, unlike json.Unmarshal, so trailing JSON
 // has to be refused here or `{} {}` would quietly parse as the first object.
+//
+// Refused by requiring the stream to end rather than by asking More(), which
+// reports "the next byte is not ] or }" and so answers false for a stray
+// closing delimiter: `{"a":1}}` and `{"a":1}]` are both malformed and both
+// used to parse as the object in front.
 func decodeJSONObject(data []byte) (map[string]any, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
@@ -58,7 +64,8 @@ func decodeJSONObject(data []byte) (map[string]any, error) {
 	if err := decoder.Decode(&object); err != nil {
 		return nil, err
 	}
-	if decoder.More() {
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, errTrailingJSON
 	}
 	return object, nil

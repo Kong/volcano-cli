@@ -30,6 +30,17 @@ func Status(err error) int {
 	return 0
 }
 
+// Message returns the API's own message for the *Error wrapped in err, or ""
+// if err is nil, does not wrap an *Error, or carries no message. Callers that
+// act on which refusal a status stands for need the body, not just the code.
+func Message(err error) string {
+	var apiErr *Error
+	if errors.As(err, &apiErr) {
+		return apiErr.Message
+	}
+	return ""
+}
+
 func (e *Error) Error() string {
 	if e.StatusCode == 0 {
 		return e.Message
@@ -57,6 +68,21 @@ func apiResult[T any](statusCode int, body []byte, result *T, generatedErrors ..
 		return result, nil
 	}
 	return nil, apiErrorFromGeneratedErrors(statusCode, body, generatedErrors...)
+}
+
+// apiResultWithoutBody is apiResult for a response that carries a secret.
+//
+// The generated parser fills the success field only for an exact status and a
+// JSON content type, so anything else — a 200 where a 201 was expected, a
+// stripped Content-Type from something in the path — falls through to the error
+// builder, which surfaces the raw body. For these endpoints that body is the
+// plaintext credential, so it would land on stderr and in the CI log while the
+// user is told the call failed and has no reason to revoke it.
+//
+// Dropping the body costs a little diagnostic detail on an unexpected status.
+// A redaction invariant that depends on the peer behaving is not an invariant.
+func apiResultWithoutBody[T any](statusCode int, result *T, generatedErrors ...*apiclient.Error) (*T, error) {
+	return apiResult(statusCode, nil, result, generatedErrors...)
 }
 
 func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {

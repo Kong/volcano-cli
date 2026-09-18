@@ -27,6 +27,13 @@ const (
 	defaultConfigLockMode = 0o600
 	defaultCompiledAPIURL = "https://api.volcano.dev"
 	defaultCompiledWebURL = "https://volcano.dev"
+
+	// AccountTokenPrefix marks an account platform token, which reaches every
+	// project the account owns.
+	AccountTokenPrefix = "pk-"
+	// ProjectTokenPrefix marks a project access token, which reaches only the
+	// project it was minted in.
+	ProjectTokenPrefix = "pt-"
 )
 
 var (
@@ -34,6 +41,15 @@ var (
 	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
 	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
+	// access token, which cannot look a project up by name.
+	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
+		") is scoped to one project: set VOLCANO_PROJECT_ID to that project's ID, or run 'volcano use <project-id>'")
+	// ErrAccountTokenRequired indicates a command needs account-wide access but
+	// the configured credential only reaches a single project.
+	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
+		") but the current credential is a project access token (" + ProjectTokenPrefix +
+		"), which only reaches the project it was minted in. Run 'volcano login', or set VOLCANO_TOKEN to an account token")
 )
 
 // These variables are intentionally settable with -ldflags -X.
@@ -211,7 +227,12 @@ func withLock(run func() error) (err error) {
 
 // Token returns the configured token, with VOLCANO_TOKEN taking precedence unless env overrides are disabled.
 func (c *Config) Token() string {
-	if token := os.Getenv(envToken); !c.IgnoreEnv && token != "" {
+	// Trimmed because this is the documented CI path, where
+	// `export VOLCANO_TOKEN=$(cat secret)` readily carries a trailing newline.
+	// Untrimmed, that reaches the Authorization header and net/http refuses to
+	// send the request at all, reporting an invalid header field rather than
+	// anything the user can act on.
+	if token := strings.TrimSpace(os.Getenv(envToken)); !c.IgnoreEnv && token != "" {
 		return token
 	}
 	return c.UserToken
@@ -234,13 +255,27 @@ func (c *Config) FunctionInvokeToken() string {
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
 func (c *Config) ProjectID() string {
-	if projectID := os.Getenv(envProjectID); !c.IgnoreEnv && projectID != "" {
+	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
 	if c.CurrentProject != nil {
 		return c.CurrentProject.ID
 	}
 	return ""
+}
+
+// ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a
+// previous 'volcano use' saved. Callers that have to tell the two apart — a
+// failure that names the project it ran against — need the distinction.
+//
+// Trimmed for the same reason as Token: this is the documented CI path, where
+// the value is as likely to arrive with a trailing newline, and untrimmed it
+// failed UUID parsing as "invalid UUID length: 37".
+func (c *Config) ProjectIDFromEnv() string {
+	if c.IgnoreEnv {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(envProjectID))
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
@@ -410,10 +445,34 @@ func (c *Config) RequireAuth() error {
 
 // RequireProject returns an old-CLI-compatible error when no project is selected.
 func (c *Config) RequireProject() error {
-	if strings.TrimSpace(c.ProjectID()) == "" {
-		return ErrNoProjectSelected
+	if strings.TrimSpace(c.ProjectID()) != "" {
+		return nil
+	}
+	if IsProjectToken(c.Token()) {
+		return ErrNoProjectSelectedForProjectToken
+	}
+	return ErrNoProjectSelected
+}
+
+// RequireAccountToken rejects a project access token on a command that needs
+// account-wide access. Any other credential is treated as an account token: the
+// server is the authority on what a token may do, and tokens minted before the
+// prefixes existed carry neither.
+func (c *Config) RequireAccountToken() error {
+	if IsProjectToken(c.Token()) {
+		return ErrAccountTokenRequired
 	}
 	return nil
+}
+
+// IsProjectToken reports whether token is a project access token.
+//
+// Case-insensitive on purpose. The unknown-prefix default is deliberately
+// fail-open, for credentials minted before the prefixes existed, but "PT-" is
+// not one of those — it is a mangled pt- token, and matching case-sensitively
+// let it past every guard here and fail as an opaque server error instead.
+func IsProjectToken(token string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), ProjectTokenPrefix)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.

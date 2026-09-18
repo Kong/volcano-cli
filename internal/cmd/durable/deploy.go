@@ -177,6 +177,14 @@ func deployTargets(opts deployOptions) ([]string, error) {
 	}
 
 	manifestPath, err := projectconfig.ResolveManifestPath("")
+	if errors.Is(err, projectconfig.ErrManifestNotFound) {
+		// The shared message ends by offering --file to point at a manifest,
+		// which is not what --file means here: on this command it names a
+		// function source, and --all and --file exclude each other anyway.
+		return nil, errors.New(
+			"no volcano-config.yaml file found.\ncreate volcano/volcano-config.yaml or ./volcano-config.yaml, " +
+				"or deploy one function with --file/-f <name|path>")
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,8 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 - Requires a **GitHub account connected to your Volcano account**, and the
   Volcano GitHub App installed with access to the repository. Both are set up in
   the dashboard, not from the CLI.
+- `connect` reads that account-wide GitHub connection, so it needs an account
+  token (`pk-`) and says so when run with a project access token.
 - What a push actually deploys is governed by the project's Git deploy settings,
   reported after a successful connect.
 

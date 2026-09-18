@@ -34,11 +34,18 @@ Cloud frontend deploys and redeploys use latest-wins queueing. A new request rep
 older queued work while the current deployment finishes. Delete supersedes
 queued deploys and blocks later deploys until deletion finishes.
 
+Use `--variable-scope all` to expose all project variables. Use
+`--variable-scope scoped` with a repeatable `--variable NAME` flag to expose
+selected variables. A scoped deploy with no `--variable` flags exposes no
+project variables. Omitting both flags preserves the current selection when the
+frontend exists.
+
 ## Examples
 
 ```bash
 # Deploy / redeploy a frontend
 volcano cloud frontends deploy
+volcano cloud frontends deploy --variable-scope scoped --variable API_URL --variable API_KEY
 volcano cloud frontends redeploy my-site
 
 # Inspect
