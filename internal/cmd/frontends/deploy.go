@@ -21,12 +21,14 @@ import (
 const defaultFrontendFramework = "nextjs"
 
 type deployOptions struct {
-	deps      cliruntime.Deps
-	path      string
-	name      string
-	framework string
-	appRoot   string
-	out       io.Writer
+	deps          cliruntime.Deps
+	path          string
+	name          string
+	framework     string
+	appRoot       string
+	variableScope string
+	variables     []string
+	out           io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -60,6 +62,8 @@ Usage:
 	cmd.Flags().StringVar(&opts.name, "name", "", "Frontend name (defaults to the lowercased directory name)")
 	cmd.Flags().StringVar(&opts.framework, "framework", defaultFrontendFramework, "Frontend framework (nextjs)")
 	cmd.Flags().StringVar(&opts.appRoot, "app-root", "", "Relative path inside the archive to the app to build (for monorepos)")
+	cmd.Flags().StringVar(&opts.variableScope, "variable-scope", "", "Project variable selection: all or scoped")
+	cmd.Flags().StringArrayVar(&opts.variables, "variable", nil, "Project variable name to include when --variable-scope is scoped (repeatable)")
 	return cmd
 }
 
@@ -87,6 +91,14 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	}
 	if framework != defaultFrontendFramework {
 		return fmt.Errorf("unsupported framework %q (only %s is currently supported)", framework, defaultFrontendFramework)
+	}
+
+	variableScope := strings.TrimSpace(opts.variableScope)
+	if variableScope != "" && variableScope != "all" && variableScope != "scoped" {
+		return errors.New("--variable-scope must be all or scoped")
+	}
+	if len(opts.variables) > 0 && variableScope != "scoped" {
+		return errors.New("--variable requires --variable-scope scoped")
 	}
 
 	appRoot, err := clifrontend.NormalizeAppRoot(opts.appRoot)
@@ -135,10 +147,12 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	fmt.Fprintln(opts.out, "Uploading archive...")
 
 	deployed, err := clifrontend.NewService(opts.deps).Deploy(ctx, api.FrontendDeployInput{
-		Name:      name,
-		Framework: framework,
-		AppRoot:   appRoot,
-		Archive:   pkg.Archive,
+		Name:          name,
+		Framework:     framework,
+		AppRoot:       appRoot,
+		VariableScope: variableScope,
+		Variables:     opts.variables,
+		Archive:       pkg.Archive,
 	})
 	if err != nil {
 		return err

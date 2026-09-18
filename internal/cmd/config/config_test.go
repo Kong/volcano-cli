@@ -606,3 +606,60 @@ func TestSharedVariablesPullDeployRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestFrontendSharedVariablesPullDeployRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name, section string
+		want          any
+	}{
+		{"omitted", "", nil},
+		{"clear", "frontend_shared_variables: []\n", []any{}},
+		{"names only", "frontend_shared_variables: [NEXT_PUBLIC_VOLCANO_API_URL]\n", []any{"NEXT_PUBLIC_VOLCANO_API_URL"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			exported := "version: 1\n" + tc.section + "frontends:\n  - name: web\n    variable_scope: shared\n"
+			var uploads []map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, projectConfigURL, r.URL.Path)
+				if r.Method == http.MethodGet {
+					assert.Equal(t, "yaml", r.URL.Query().Get("format"))
+					w.Header().Set("Content-Type", "application/yaml")
+					_, _ = w.Write([]byte(exported))
+					return
+				}
+				require.Equal(t, http.MethodPut, r.Method)
+				var uploaded map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+				if tc.want == nil {
+					assert.NotContains(t, uploaded, "frontend_shared_variables")
+				} else {
+					assert.Equal(t, tc.want, uploaded["frontend_shared_variables"])
+				}
+				assert.Equal(t, []any{map[string]any{"name": "web", "variable_scope": "shared"}}, uploaded["frontends"])
+				if len(uploads) == 0 {
+					assert.Equal(t, "true", r.URL.Query().Get("dry_run"))
+				} else {
+					assert.Empty(t, r.URL.RawQuery)
+				}
+				uploads = append(uploads, uploaded)
+				writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+			}))
+			defer server.Close()
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+			_, err := executeConfigCommand(t, New(deps), "pull")
+			require.NoError(t, err)
+			saved, err := os.ReadFile(filepath.Join(dir, "volcano-config.yaml"))
+			require.NoError(t, err)
+			assert.Equal(t, exported, string(saved))
+			_, err = executeConfigCommand(t, New(deps), "deploy", "--dry-run")
+			require.NoError(t, err)
+			_, err = executeConfigCommand(t, New(deps), "deploy")
+			require.NoError(t, err)
+			require.Len(t, uploads, 2)
+			assert.Equal(t, uploads[0], uploads[1])
+		})
+	}
+}
