@@ -40,6 +40,10 @@ const maxResolvePages = 1000
 type Service struct {
 	sessions clisession.Factory
 	pinned   *pinnedProject
+	// resolvePageCap overrides maxResolvePages, so the tests for the cap can
+	// prove where it is without driving a thousand round trips to reach it.
+	// Zero, as NewService leaves it, means the constant.
+	resolvePageCap int
 }
 
 // pinnedProject resolves the project once per service. Every call would
@@ -56,6 +60,14 @@ type pinnedProject struct {
 // NewService returns a project access token service.
 func NewService(deps cliruntime.Deps) Service {
 	return Service{sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+// pageCap returns the pagination walk limit this service resolves names with.
+func (s Service) pageCap() int {
+	if s.resolvePageCap > 0 {
+		return s.resolvePageCap
+	}
+	return maxResolvePages
 }
 
 // current returns the project session this service is pinned to.
@@ -147,7 +159,7 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Project
 	if err != nil {
 		return nil, err
 	}
-	return resolve(ctx, authenticated, identifier)
+	return resolve(ctx, authenticated, identifier, s.pageCap())
 }
 
 // Usage returns the daily request counts for a token the caller already
@@ -244,8 +256,8 @@ func (s Service) accountSession() (*clisession.ProjectSession, error) {
 	return authenticated, nil
 }
 
-func resolve(ctx context.Context, authenticated *clisession.ProjectSession, identifier string) (*apiclient.ProjectAccessToken, error) {
-	token, err := resolveToken(ctx, authenticated, identifier)
+func resolve(ctx context.Context, authenticated *clisession.ProjectSession, identifier string, maxPages int) (*apiclient.ProjectAccessToken, error) {
+	token, err := resolveToken(ctx, authenticated, identifier, maxPages)
 	if errors.Is(err, api.ErrNotFound) {
 		return nil, fmt.Errorf("access token %q not found", identifier)
 	}
@@ -258,7 +270,7 @@ func resolve(ctx context.Context, authenticated *clisession.ProjectSession, iden
 // resolveToken looks a token up by ID, else by exact name. Revoked tokens are
 // included: revoking one twice should report the token, not deny it exists,
 // and its usage history outlives the revocation.
-func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession, identifier string) (*apiclient.ProjectAccessToken, error) {
+func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession, identifier string, maxPages int) (*apiclient.ProjectAccessToken, error) {
 	target := strings.TrimSpace(identifier)
 	if target == "" {
 		return nil, errors.New("access token identifier cannot be empty")
@@ -284,7 +296,7 @@ func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession,
 	var fallback *apiclient.ProjectAccessToken
 
 	seen := make(map[uuid.UUID]struct{})
-	for page := api.DefaultPage; page < api.DefaultPage+maxResolvePages; page++ {
+	for page := api.DefaultPage; page < api.DefaultPage+maxPages; page++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -332,7 +344,7 @@ func resolveToken(ctx context.Context, authenticated *clisession.ProjectSession,
 	}
 	// Ran out of pages rather than out of tokens, which is a different problem
 	// from the name not existing and worth saying so.
-	return nil, fmt.Errorf("gave up looking for access token after %d pages", maxResolvePages)
+	return nil, fmt.Errorf("gave up looking for access token after %d pages", maxPages)
 }
 
 // ParseExpiry converts an RFC3339 expiry flag into the API's optional

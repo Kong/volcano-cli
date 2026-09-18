@@ -55,11 +55,16 @@ func saveAccessTokenCommandTestConfigFor(t *testing.T, token, projectID string) 
 	require.NoError(t, cfg.Save())
 }
 
+// writeAccessTokenCommandJSON answers a request from the server's own
+// goroutine, where t.FailNow — and so every require helper — is not valid. A
+// failed encode is reported instead, and the test fails on its own goroutine.
 func writeAccessTokenCommandJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	require.NoError(t, json.NewEncoder(w).Encode(value))
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		t.Errorf("failed to encode the access token response: %v", err)
+	}
 }
 
 func accessTokenCommandPayload(id, name string) map[string]any {

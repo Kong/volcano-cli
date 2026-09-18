@@ -734,8 +734,16 @@ func TestAccessTokenUsageRejectsANameArgument(t *testing.T) {
 func TestAccessTokenCommandsRequireProject(t *testing.T) {
 	setAccessTokenCommandTestHome(t)
 	require.NoError(t, (&cliconfig.Config{UserToken: "token"}).Save())
+	// Pointed at a server that fails the test rather than left to the compiled
+	// default: if the guard this covers ever stops holding, the request goes to
+	// api.volcano.dev with whatever credential the machine running it has.
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request without a project", r.URL.Path)
+	}))
+	defer server.Close()
 
-	_, err := executeAccessTokenCommand(t, New(cliruntime.Deps{}), "list")
+	_, err := executeAccessTokenCommand(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "list")
 	require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
 }
 
@@ -773,9 +781,9 @@ func TestLocalTreeExplainsAccessTokensWhenAskedForHelp(t *testing.T) {
 	}
 
 	stub := NewCloudOnly()
-	real := New(cliruntime.Deps{})
-	assert.Equal(t, real.Short, stub.Short, "`volcano help` must describe the command, not just refuse it")
-	assert.Contains(t, stub.Long, real.Long)
+	cloud := New(cliruntime.Deps{})
+	assert.Equal(t, cloud.Short, stub.Short, "`volcano help` must describe the command, not just refuse it")
+	assert.Contains(t, stub.Long, cloud.Long)
 
 	// A flag that belongs to a cloud subcommand still reaches the refusal.
 	_, err := executeAccessTokenCommand(t, NewCloudOnly(), "list", "--json")

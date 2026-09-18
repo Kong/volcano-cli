@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,9 +27,9 @@ func TestResolveByNameWalksPages(t *testing.T) {
 	setAccessTokenTestHome(t)
 	saveAccessTokenTestConfig(t)
 
-	var queries []string
+	var seen accessTokenTestRequests
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queries = append(queries, r.URL.RawQuery)
+		seen.record(r.URL.RawQuery)
 		switch r.URL.Query().Get("page") {
 		case "1":
 			writeAccessTokenTestJSON(t, w, accessTokenTestPage(true,
@@ -47,12 +49,9 @@ func TestResolveByNameWalksPages(t *testing.T) {
 	assert.Equal(t, []string{
 		"page=1&limit=100&search=ci-deploy&include_revoked=true",
 		"page=2&limit=100&search=ci-deploy&include_revoked=true",
-	}, queries)
+	}, seen.queries())
 }
 
-// A server that keeps saying HasMore while handing back the same page would
-// otherwise be walked until the page cap, one request at a time. Nothing new
-// arrived, so there is nothing left to find.
 // After a rotation a project holds two tokens with the same name: the live one
 // and the revoked one it replaced, since revoking frees the name. Resolving must
 // pick the live one, and must not depend on the API returning it first.
@@ -100,13 +99,16 @@ func TestResolveByNameFallsBackToARevokedToken(t *testing.T) {
 	assert.Equal(t, "77777777-7777-4777-8777-777777777777", token.Id.String())
 }
 
+// A server that keeps saying HasMore while handing back the same page would
+// otherwise be walked until the page cap, one request at a time. Nothing new
+// arrived, so there is nothing left to find.
 func TestResolveByNameStopsWhenAPageRepeats(t *testing.T) {
 	setAccessTokenTestHome(t)
 	saveAccessTokenTestConfig(t)
 
-	var requests int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
+	var seen accessTokenTestRequests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen.record(r.URL.RawQuery)
 		writeAccessTokenTestJSON(t, w, accessTokenTestPage(true,
 			accessTokenTestPayload("33333333-3333-4333-8333-333333333333", "ci-deploy-staging")))
 	}))
@@ -114,26 +116,38 @@ func TestResolveByNameStopsWhenAPageRepeats(t *testing.T) {
 
 	_, err := accessTokenTestService(server).Get(context.Background(), "ci-deploy")
 	require.ErrorContains(t, err, `access token "ci-deploy" not found`)
-	assert.Equal(t, 2, requests, "the repeated page must end the walk, not extend it")
+	assert.Len(t, seen.queries(), 2, "the repeated page must end the walk, not extend it")
 }
 
 // A server that keeps reporting more, with something new on every page, has no
 // natural end. The cap is what stops the CLI hanging on it.
+//
+// The cap under test is the injected one: proving the walk stops where it is
+// told does not need the production thousand round trips.
 func TestResolveByNameGivesUpAtThePageCap(t *testing.T) {
 	setAccessTokenTestHome(t)
 	saveAccessTokenTestConfig(t)
 
-	var requests int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		requests++
+	var seen accessTokenTestRequests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Something new on every page, so nothing but the cap can end the walk.
 		writeAccessTokenTestJSON(t, w, accessTokenTestPage(true,
-			accessTokenTestPayload(fmt.Sprintf("33333333-3333-4333-8333-%012d", requests), "ci-deploy-staging")))
+			accessTokenTestPayload(fmt.Sprintf("33333333-3333-4333-8333-%012d", seen.record(r.URL.RawQuery)), "ci-deploy-staging")))
 	}))
 	defer server.Close()
 
-	_, err := accessTokenTestService(server).Get(context.Background(), "ci-deploy")
-	require.ErrorContains(t, err, fmt.Sprintf("gave up looking for access token after %d pages", maxResolvePages))
-	assert.Equal(t, maxResolvePages, requests)
+	service := accessTokenTestService(server)
+	service.resolvePageCap = 2
+
+	_, err := service.Get(context.Background(), "ci-deploy")
+	require.ErrorContains(t, err, "gave up looking for access token after 2 pages")
+	assert.Len(t, seen.queries(), 2)
+}
+
+// The default is the production cap, so an injected one cannot quietly become
+// the CLI's own limit.
+func TestResolvePageCapDefaultsToTheConstant(t *testing.T) {
+	assert.Equal(t, maxResolvePages, NewService(cliruntime.Deps{}).pageCap())
 }
 
 func accessTokenTestService(server *httptest.Server) Service {
@@ -158,11 +172,39 @@ func saveAccessTokenTestConfig(t *testing.T) {
 	require.NoError(t, cfg.Save())
 }
 
+// accessTokenTestRequests collects what the server was asked for. The handler
+// runs on net/http's goroutine and the assertions on the test's, so nothing
+// here is read without the lock.
+type accessTokenTestRequests struct {
+	mu       sync.Mutex
+	recorded []string
+}
+
+// record stores one query and returns how many have arrived, which a handler
+// needs to vary its answer per page.
+func (r *accessTokenTestRequests) record(query string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.recorded = append(r.recorded, query)
+	return len(r.recorded)
+}
+
+func (r *accessTokenTestRequests) queries() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.recorded)
+}
+
+// writeAccessTokenTestJSON answers a request from the server's own goroutine,
+// where t.FailNow — and so every require helper — is not valid. A failed encode
+// is reported instead, and the test fails on its own goroutine.
 func writeAccessTokenTestJSON(t *testing.T, w http.ResponseWriter, value any) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	require.NoError(t, json.NewEncoder(w).Encode(value))
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		t.Errorf("failed to encode the access token response: %v", err)
+	}
 }
 
 func accessTokenTestPage(hasMore bool, tokens ...map[string]any) map[string]any {
