@@ -19,6 +19,9 @@ is invoked over HTTP, by name/alias, or on a schedule.
 - Its **visibility** (public/private) and **schedulers** can be declared in the
   [declarative config](project-configuration.md) or managed with the CLI.
 - Can be given an **alias** so you can invoke it by a friendly name.
+- Work that has to run for hours belongs in a
+  [durable function](durable-functions.md) instead, which is a separate
+  collection with its own commands.
 
 The CLI discovers functions in the `volcano/functions` directory, detects the
 runtime from source file extensions, and uploads a packaged archive.

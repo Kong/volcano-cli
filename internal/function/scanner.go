@@ -101,6 +101,47 @@ func ScanSources(baseDir string, catalog RuntimeCatalog) ([]SourceInfo, error) {
 	return functions, nil
 }
 
+// MatchesTarget reports whether a scanned source is the one a --file value
+// names, by function name or by path to its source.
+func MatchesTarget(source SourceInfo, target, baseDir string) bool {
+	target = strings.TrimSpace(target)
+	if source.Name == normalizeTarget(target) {
+		return true
+	}
+
+	sourcePath, err := filepath.Abs(source.Path)
+	if err != nil {
+		return false
+	}
+	targetPath := target
+	if !filepath.IsAbs(targetPath) {
+		targetPath = filepath.Join(baseDir, targetPath)
+	}
+	targetPath, err = filepath.Abs(targetPath)
+	if err != nil {
+		return false
+	}
+	return filepath.Clean(sourcePath) == filepath.Clean(targetPath)
+}
+
+// FormatSourceNames lists scanned source names for an error that has to say
+// what was available.
+func FormatSourceNames(sources []SourceInfo) string {
+	names := make([]string, len(sources))
+	for i, source := range sources {
+		names[i] = source.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+func normalizeTarget(target string) string {
+	name := filepath.Base(strings.TrimSpace(target))
+	if extension := filepath.Ext(name); extension != "" {
+		name = strings.TrimSuffix(name, extension)
+	}
+	return name
+}
+
 func detectDirectoryRuntime(dirPath string, catalog RuntimeCatalog) (apiclient.FunctionRuntimeOption, string, bool) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
