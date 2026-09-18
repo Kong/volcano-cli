@@ -43,11 +43,29 @@ func TestRootHelp(t *testing.T) {
 func TestCloudHelpIncludesCloudResources(t *testing.T) {
 	out, err := executeRootCommand(t, "cloud", "--help")
 	require.NoError(t, err)
+	assert.Contains(t, out, "access-tokens")
 	assert.Contains(t, out, "databases")
 	assert.Contains(t, out, "frontends")
 	assert.Contains(t, out, "functions")
 	assert.Contains(t, out, "storage")
 	assert.Contains(t, out, "variables")
+}
+
+// Access tokens are credentials for the cloud API, so the local tree only
+// carries a stub that says where the command lives.
+func TestAccessTokensAreCloudOnly(t *testing.T) {
+	out, err := executeRootCommand(t, "--help")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "access-tokens")
+
+	for _, args := range [][]string{
+		{"access-tokens", "list"},
+		{"tokens", "list"},
+	} {
+		_, err := executeRootCommand(t, args...)
+		require.ErrorContains(t, err, "is a cloud command", "%v", args)
+		require.ErrorContains(t, err, "volcano cloud access-tokens", "%v", args)
+	}
 }
 
 func TestInitCommandPath(t *testing.T) {

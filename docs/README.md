@@ -27,6 +27,7 @@ account (auth)
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
     ├── git connection ........ push-to-deploy from GitHub     → git.md
+    ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 
@@ -79,6 +80,7 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
+| Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get anon keys | `projects …`, `use` | below |
 | Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |

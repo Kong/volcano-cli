@@ -319,6 +319,108 @@ func TestUsePrefersIDOverSameStringName(t *testing.T) {
 	assertCurrentProject(t, projectAlphaID, "Alpha")
 }
 
+func TestAccountWideCommandsRejectAProjectToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request with a project access token", r.URL.Path)
+	}))
+	defer server.Close()
+
+	for name, call := range map[string]func(Service) error{
+		"list": func(s Service) error {
+			_, _, err := s.List(context.Background(), 1, 100)
+			return err
+		},
+		"create": func(s Service) error {
+			_, err := s.Create(context.Background(), "Alpha")
+			return err
+		},
+		"use by name": func(s Service) error {
+			_, err := s.Use(context.Background(), "Alpha")
+			return err
+		},
+		"rename": func(s Service) error {
+			_, err := s.Rename(context.Background(), projectAlphaID, "Renamed")
+			return err
+		},
+		"delete": func(s Service) error {
+			return s.Delete(context.Background(), projectAlphaID)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setProjectTestHome(t)
+			saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+
+			err := call(NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}))
+			require.ErrorIs(t, err, config.ErrAccountTokenRequired)
+			assert.ErrorContains(t, err, "project access token")
+		})
+	}
+}
+
+// A project token cannot scan projects by name, but a UUID that answered 404
+// already has its answer. Reporting the missing account token instead sent the
+// user off to log in again over a mistyped ID.
+func TestUseReportsAMissingIDForAProjectToken(t *testing.T) {
+	setProjectTestHome(t)
+	saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+	missingID := "44444444-4444-4444-8444-444444444444"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+missingID, r.URL.Path)
+		writeProjectJSON(t, w, http.StatusNotFound, map[string]string{"error": "project not found"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), missingID)
+	require.ErrorContains(t, err, "project not found: "+missingID)
+	assert.NotErrorIs(t, err, config.ErrAccountTokenRequired)
+}
+
+// Reading one project and its anon keys is project-scoped work the API admits a
+// pt- token on, and a token in CI needs both — so the account-token guard must
+// not spread to them.
+func TestProjectScopedReadsWorkWithAProjectToken(t *testing.T) {
+	for name, call := range map[string]func(Service) error{
+		"get": func(s Service) error {
+			_, err := s.Get(context.Background(), projectAlphaID)
+			return err
+		},
+		"keys": func(s Service) error {
+			_, err := s.ListAnonKeys(context.Background(), projectAlphaID)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setProjectTestHome(t)
+			saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/projects/"+projectAlphaID+"/anon-keys" {
+					writeProjectJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+					return
+				}
+				writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectAlphaID, "Alpha", "active"))
+			}))
+			defer server.Close()
+
+			require.NoError(t, call(NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})))
+		})
+	}
+}
+
+func TestUseByIDWorksWithAProjectToken(t *testing.T) {
+	setProjectTestHome(t)
+	saveProjectTestConfig(t, &config.Config{UserToken: config.ProjectTokenPrefix + "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+projectAlphaID, r.URL.Path)
+		writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectAlphaID, "Alpha", "active"))
+	}))
+	defer server.Close()
+
+	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
+	require.NoError(t, err)
+	assert.Equal(t, projectAlphaID, selected.Id.String())
+	assertCurrentProject(t, projectAlphaID, "Alpha")
+}
+
 func setProjectTestHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())

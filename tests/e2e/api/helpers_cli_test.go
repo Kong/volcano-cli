@@ -8,15 +8,61 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 )
 
+// credentialPattern matches the platform and project access token secrets these
+// tests hold. Both are shown once and stay live until revoked, so neither may
+// reach a CI log — which is what a failing assertion that dumps a command's
+// output or its argv does.
+//
+// Only what gets printed is redacted. The assertions that a read never returns
+// a secret have to compare against the real one.
+var credentialPattern = regexp.MustCompile(`p([kt])-[A-Za-z0-9_-]{4,}`)
+
+func redactCredentials(text string) string {
+	return credentialPattern.ReplaceAllString(text, "p$1-[redacted]")
+}
+
 type cliResult struct {
 	output string
+	// stdout alone, for --json output: notices and errors go to stderr, which
+	// output merges in and a decoder would choke on.
+	stdout string
 	code   int
 	err    error
+}
+
+// The helpers below print a command's output and its argv on failure, and the
+// argv of a `login --token <secret>` carries the secret just as the output of
+// `create --json` does. This runs without the E2E gate because it tests the
+// redaction, not the platform.
+func TestAPIE2ERedactsMintedCredentials(t *testing.T) {
+	const secret = "pt-Wq9l2m4XcR7tFv1sN8bK3hJ0"
+
+	for name, text := range map[string]string{
+		"create --json output": `{"name":"ci-deploy","token":"` + secret + `"}`,
+		"login argv":           "login --token " + secret,
+		"platform token":       "login --token pk-4bN7sK1pZx8c5Vt2",
+	} {
+		t.Run(name, func(t *testing.T) {
+			redacted := redactCredentials(text)
+			if strings.Contains(redacted, secret) || strings.Contains(redacted, "pk-4bN7sK1pZx8c5Vt2") {
+				t.Fatalf("redaction left a credential in %q", redacted)
+			}
+			if !strings.Contains(redacted, "-[redacted]") {
+				t.Fatalf("redaction did not mark what it removed: %q", redacted)
+			}
+		})
+	}
+
+	// A message that merely names the prefixes is not a credential.
+	if got := redactCredentials("needs an account token (pk-) but this is a project access token (pt-)"); strings.Contains(got, "redacted") {
+		t.Fatalf("redaction swallowed prose: %q", got)
+	}
 }
 
 func (e *apiE2E) runCLI(t *testing.T, args ...string) cliResult {
@@ -55,10 +101,10 @@ func (e *apiE2E) runCLIWithin(t *testing.T, timeout time.Duration, extraEnv []st
 		if errors.As(err, &exitErr) {
 			code = exitErr.ExitCode()
 		} else {
-			t.Fatalf("failed to run volcano %s: %v", strings.Join(args, " "), err)
+			t.Fatalf("failed to run volcano %s: %v", redactCredentials(strings.Join(args, " ")), err)
 		}
 	}
-	return cliResult{output: stdout.String() + stderr.String(), code: code, err: err}
+	return cliResult{output: stdout.String() + stderr.String(), stdout: stdout.String(), code: code, err: err}
 }
 
 func (e *apiE2E) runCloudCLIWithEnv(t *testing.T, extraEnv []string, args ...string) cliResult {
@@ -107,11 +153,11 @@ func (e *apiE2E) commandEnv() []string {
 func (r cliResult) requireSuccess(t *testing.T, needles ...string) {
 	t.Helper()
 	if r.code != 0 {
-		t.Fatalf("command failed with exit code %d:\n%s", r.code, r.output)
+		t.Fatalf("command failed with exit code %d:\n%s", r.code, redactCredentials(r.output))
 	}
 	for _, needle := range needles {
 		if !strings.Contains(r.output, needle) {
-			t.Fatalf("command output missing %q:\n%s", needle, r.output)
+			t.Fatalf("command output missing %q:\n%s", redactCredentials(needle), redactCredentials(r.output))
 		}
 	}
 }
@@ -119,11 +165,11 @@ func (r cliResult) requireSuccess(t *testing.T, needles ...string) {
 func (r cliResult) requireFailure(t *testing.T, needles ...string) {
 	t.Helper()
 	if r.code == 0 {
-		t.Fatalf("command unexpectedly succeeded:\n%s", r.output)
+		t.Fatalf("command unexpectedly succeeded:\n%s", redactCredentials(r.output))
 	}
 	for _, needle := range needles {
 		if !strings.Contains(r.output, needle) {
-			t.Fatalf("command output missing %q:\n%s", needle, r.output)
+			t.Fatalf("command output missing %q:\n%s", redactCredentials(needle), redactCredentials(r.output))
 		}
 	}
 }
@@ -132,7 +178,7 @@ func (r cliResult) requireNotContains(t *testing.T, needles ...string) {
 	t.Helper()
 	for _, needle := range needles {
 		if strings.Contains(r.output, needle) {
-			t.Fatalf("command output unexpectedly contained %q:\n%s", needle, r.output)
+			t.Fatalf("command output unexpectedly contained %q:\n%s", redactCredentials(needle), redactCredentials(r.output))
 		}
 	}
 }
@@ -166,12 +212,14 @@ func (e *apiE2E) waitForCLIContains(t *testing.T, timeout time.Duration, needle 
 		if needle == "Status: active" && last.code == 0 {
 			output := strings.ToLower(last.output)
 			if strings.Contains(output, "status: failed") || strings.Contains(output, "status: error") {
-				t.Fatalf("volcano %s reached a failed status while waiting for active:\n%s", strings.Join(args, " "), last.output)
+				t.Fatalf("volcano %s reached a failed status while waiting for active:\n%s",
+					redactCredentials(strings.Join(args, " ")), redactCredentials(last.output))
 			}
 		}
 		time.Sleep(apiE2EPollInterval)
 	}
-	t.Fatalf("volcano %s did not return output containing %q before %s:\n%s", strings.Join(args, " "), needle, timeout, last.output)
+	t.Fatalf("volcano %s did not return output containing %q before %s:\n%s",
+		redactCredentials(strings.Join(args, " ")), redactCredentials(needle), timeout, redactCredentials(last.output))
 	return last
 }
 

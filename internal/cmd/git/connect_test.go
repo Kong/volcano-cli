@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -1365,6 +1366,22 @@ func TestConnectHonoursRemoteDespiteABrokenPushRemote(t *testing.T) {
 	out, err := executeGitCommand(t, api.serve(), runner, "", "connect", "--remote", "origin")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Connected octo/storefront")
+}
+
+// Connecting reads the caller's GitHub connections, which belong to the
+// account rather than to the project. The platform does not admit a project
+// access token there, and answering its 403 with "check you selected the right
+// project" sends the user after a project that was never the problem.
+func TestConnectRejectsAProjectToken(t *testing.T) {
+	setGitCommandTestHome(t)
+	setGitCommandTestToken(t, cliconfig.ProjectTokenPrefix+"token")
+	api := newGitAPI(t)
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+
+	require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
+	assert.Zero(t, api.accountRouteReads(), "the account's GitHub routes must not be called at all")
+	assert.Nil(t, api.sentConnectBody())
 }
 
 // A real git failure reading the configuration is not "nothing is configured".

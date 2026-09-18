@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,6 +67,35 @@ func TestDeleteAcceptsWrappedEOF(t *testing.T) {
 	confirmed, err := Delete(&reader, io.Discard, "database", "app")
 	require.NoError(t, err)
 	assert.True(t, confirmed)
+}
+
+// A prompt read from a closed stdin comes back as a decline, so a command that
+// only checks the answer exits 0 with the resource intact — which is what a CI
+// job or an agent cannot tell apart from a deletion that happened. Checked here
+// rather than at each call site so no caller can forget it.
+func TestPromptsRefuseWhenNothingCanAnswer(t *testing.T) {
+	closed, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closed.Close() })
+
+	for name, prompt := range map[string]func(io.Reader, io.Writer) (bool, error){
+		"delete": func(r io.Reader, w io.Writer) (bool, error) {
+			return Delete(r, w, "project", "app")
+		},
+		"action": func(r io.Reader, w io.Writer) (bool, error) {
+			return Action(r, w, "This breaks things.", "Proceed?")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var out bytes.Buffer
+
+			confirmed, err := prompt(closed, &out)
+
+			require.ErrorIs(t, err, ErrCannotPrompt)
+			assert.False(t, confirmed)
+			assert.Empty(t, out.String(), "a prompt nobody can answer must not be asked")
+		})
+	}
 }
 
 type errReader struct{}

@@ -11,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -25,6 +28,9 @@ const maxConsecutiveDevicePollFailures = 3
 type Credentials struct {
 	Token  string
 	UserID string
+	// Project is the project login validated the token against, to be saved as
+	// the active project. Nil when login resolved no project.
+	Project *config.ProjectConfig
 }
 
 // Service performs Volcano authentication workflows.
@@ -38,22 +44,111 @@ func NewService(deps cliruntime.Deps) Service {
 	return Service{deps: deps, sessions: clisession.NewFactory(deps)}
 }
 
-// LoginWithToken validates token and returns credentials to persist.
-func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token string) (Credentials, error) {
+// projectOrigin names where the project came from when the user did not pass
+// --project, so a failure can say which project it ran against and why.
+type projectOrigin string
+
+const (
+	// projectNamed is --project, which the user typed and does not need naming.
+	projectNamed projectOrigin = ""
+	// projectFromEnvironment is VOLCANO_PROJECT_ID.
+	projectFromEnvironment projectOrigin = "VOLCANO_PROJECT_ID"
+	// projectFromSelection is the project a previous `volcano use` saved, which
+	// belongs to whatever credential was logged in before this one.
+	projectFromSelection projectOrigin = "the project 'volcano use' last selected"
+)
+
+// LoginWithToken validates token and returns credentials to persist. project
+// names the project to validate against and select, by ID or by name; it is
+// optional for an account token and required for a project access token, which
+// cannot list projects and so cannot tell the CLI which project it belongs to.
+func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
 	token = strings.TrimSpace(token)
+	project = strings.TrimSpace(project)
 	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
 	if err != nil {
 		return Credentials{}, err
 	}
 
-	if err := client.ValidateToken(ctx); err != nil {
-		if api.Status(err) == http.StatusUnauthorized {
-			return Credentials{}, errors.New("invalid token")
+	origin := projectNamed
+	if project == "" && config.IsProjectToken(token) {
+		project, origin = unnamedProject(cfg)
+		if project == "" {
+			return Credentials{}, fmt.Errorf("a project access token (%s) is scoped to one project: pass --project <project-id> "+
+				"with the project it was minted in, or set VOLCANO_PROJECT_ID", config.ProjectTokenPrefix)
 		}
-		return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
+	}
+	if project == "" {
+		if err := client.ValidateToken(ctx); err != nil {
+			if api.Status(err) == http.StatusUnauthorized {
+				return Credentials{}, errors.New("invalid token")
+			}
+			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
+		}
+		return Credentials{Token: token}, nil
 	}
 
-	return Credentials{Token: token}, nil
+	selected, err := resolveLoginProject(ctx, client, token, project, origin)
+	if err != nil {
+		return Credentials{}, err
+	}
+	return Credentials{
+		Token:   token,
+		Project: &config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name},
+	}, nil
+}
+
+// unnamedProject falls back to the project the CLI already has for a project
+// access token logged in without --project, and reports where it came from.
+func unnamedProject(cfg *config.Config) (string, projectOrigin) {
+	if fromEnv := strings.TrimSpace(cfg.ProjectIDFromEnv()); fromEnv != "" {
+		return fromEnv, projectFromEnvironment
+	}
+	return strings.TrimSpace(cfg.ProjectID()), projectFromSelection
+}
+
+// resolveLoginProject finds the project to validate the token against.
+//
+// A name is resolved the way `volcano use` resolves one, so `--project my-app`
+// means the same thing in both. Only an account token can do that: the scan
+// lists every project, which a project access token cannot, so it has to be
+// given the ID.
+func resolveLoginProject(
+	ctx context.Context, client *api.Client, token, identifier string, origin projectOrigin,
+) (*apiclient.Project, error) {
+	if id, err := uuid.Parse(identifier); err == nil {
+		selected, err := client.GetProject(ctx, id)
+		if err != nil {
+			return nil, projectTokenValidationError(identifier, origin, err)
+		}
+		return selected, nil
+	}
+
+	if config.IsProjectToken(token) {
+		return nil, fmt.Errorf("invalid project %q: a project access token (%s) cannot look up a project by name, "+
+			"so name the project it was minted in by ID", identifier, config.ProjectTokenPrefix)
+	}
+	return cliproject.Find(ctx, client, identifier)
+}
+
+// projectTokenValidationError separates a token the API rejects outright from
+// one that is simply not this project's, which is the likely mistake when a
+// project access token is paired with the wrong --project.
+func projectTokenValidationError(projectID string, origin projectOrigin, err error) error {
+	switch api.Status(err) {
+	case http.StatusUnauthorized:
+		return errors.New("invalid token")
+	case http.StatusForbidden, http.StatusNotFound:
+		if origin == projectNamed {
+			return fmt.Errorf("token is not valid for project %s: %w", projectID, err)
+		}
+		// Nothing the user typed names this project, so the failure has to say
+		// where it came from before "not valid for project <id>" means anything.
+		return fmt.Errorf("token is not valid for project %s, taken from %s: pass --project with the project "+
+			"the token was minted in: %w", projectID, origin, err)
+	default:
+		return fmt.Errorf("failed to validate token: %w", err)
+	}
 }
 
 // Signup routes the browser through Volcano Web's own signup page (account
