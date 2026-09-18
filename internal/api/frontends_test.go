@@ -45,6 +45,31 @@ func TestDeployFrontendAcceptsEmptyCreatedBody(t *testing.T) {
 // the OpenAPI contract by returning 200 OK with no body on redeploy, we
 // treat the request as a successful redeploy instead of surfacing
 // "HTTP 200: OK" as an error.
+func TestBuildFrontendDeployMultipartVariableSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		variableScope string
+		variables     []string
+		wantScope     []string
+	}{
+		{name: "omitted"},
+		{name: "empty scoped selection", variableScope: "scoped", wantScope: []string{"scoped"}},
+		{name: "selected names", variableScope: "scoped", variables: []string{"API_KEY", "PUBLIC_URL"}, wantScope: []string{"scoped"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body, contentType, err := buildFrontendDeployMultipart(FrontendDeployInput{
+				Name: "web", VariableScope: tc.variableScope, Variables: tc.variables, Archive: []byte("archive"),
+			})
+			require.NoError(t, err)
+			req := httptest.NewRequest(http.MethodPost, "/", body)
+			req.Header.Set("Content-Type", contentType)
+			require.NoError(t, req.ParseMultipartForm(1024))
+			assert.Equal(t, tc.wantScope, req.MultipartForm.Value["variable_scope"])
+			assert.Equal(t, tc.variables, req.MultipartForm.Value["variables"])
+		})
+	}
+}
+
 func TestRedeployFrontendAcceptsEmptyBody(t *testing.T) {
 	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	frontendID := uuid.MustParse("22222222-2222-4222-8222-222222222222")

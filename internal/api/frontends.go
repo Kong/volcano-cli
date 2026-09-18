@@ -15,10 +15,12 @@ import (
 
 // FrontendDeployInput contains one packaged frontend source archive.
 type FrontendDeployInput struct {
-	Name      string
-	Framework string
-	AppRoot   string
-	Archive   []byte
+	Name          string
+	Framework     string
+	AppRoot       string
+	VariableScope string
+	Variables     []string
+	Archive       []byte
 }
 
 // FrontendCustomDomainInput contains one custom domain attach request.
@@ -225,6 +227,16 @@ func buildFrontendDeployMultipart(fn FrontendDeployInput) (*bytes.Buffer, string
 	if fn.AppRoot != "" {
 		if err := writer.WriteField("app_root", fn.AppRoot); err != nil {
 			return nil, "", fmt.Errorf("failed to write app_root field: %w", err)
+		}
+	}
+	if fn.VariableScope != "" {
+		if err := writer.WriteField("variable_scope", fn.VariableScope); err != nil {
+			return nil, "", fmt.Errorf("failed to write variable_scope field: %w", err)
+		}
+	}
+	for _, variable := range fn.Variables {
+		if err := writer.WriteField("variables", variable); err != nil {
+			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
 	}
 	if err := archive.WriteArchivePart(writer, "archive", fn.Name, fn.Archive); err != nil {
