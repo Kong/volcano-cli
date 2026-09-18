@@ -41,10 +41,6 @@ func TestDeployFrontendAcceptsEmptyCreatedBody(t *testing.T) {
 	assert.Equal(t, "web", deployed.Name)
 }
 
-// TestRedeployFrontendAcceptsEmptyBody ensures that if the server breaks
-// the OpenAPI contract by returning 200 OK with no body on redeploy, we
-// treat the request as a successful redeploy instead of surfacing
-// "HTTP 200: OK" as an error.
 func TestBuildFrontendDeployMultipartVariableSelection(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
@@ -70,6 +66,10 @@ func TestBuildFrontendDeployMultipartVariableSelection(t *testing.T) {
 	}
 }
 
+// TestRedeployFrontendAcceptsEmptyBody ensures that if the server breaks
+// the OpenAPI contract by returning 200 OK with no body on redeploy, we
+// treat the request as a successful redeploy instead of surfacing
+// "HTTP 200: OK" as an error.
 func TestRedeployFrontendAcceptsEmptyBody(t *testing.T) {
 	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	frontendID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
