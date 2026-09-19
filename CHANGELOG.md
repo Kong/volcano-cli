@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/Kong/volcano-cli/compare/v0.31.0...v0.32.0) (2026-09-19)
+
+
+### Features
+
+* **durable:** add durable logs, and correct the vendored contract ([#198](https://github.com/Kong/volcano-cli/issues/198)) ([a69803b](https://github.com/Kong/volcano-cli/commit/a69803b04d6a15984c4d45eec5803e3958d75063))
+
 ## [0.31.0](https://github.com/Kong/volcano-cli/compare/v0.30.0...v0.31.0) (2026-09-18)
 
 
