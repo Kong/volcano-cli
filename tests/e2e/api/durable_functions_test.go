@@ -165,16 +165,16 @@ func requireAPIE2EDurableStarts(t *testing.T, env *apiE2E) {
 	env.runCloudCLI(t, "durable", "executions", "get", "order-pipeline", fileExecutionID).
 		requireSuccess(t, "8231", "file")
 
-	// The shortest start there is: no input, and a name Volcano generates. No
-	// input reaches the function as no input, which the fixture reports as a
-	// null echo rather than an empty object.
+	// The shortest start there is: no input, and a name Volcano generates. The
+	// CLI sends no request body; the durable provider represents that as an empty
+	// object in its raw protocol envelope.
 	bare := env.runCloudCLI(t, "durable", "start", "order-pipeline")
 	bare.requireSuccess(t, "started")
 	bareExecutionID := apiE2EDurableExecutionID(t, bare.output)
 	env.waitForCloudCLIContains(t, apiE2EDurableExecutionTimeout, "Status: succeeded",
 		"durable", "executions", "get", "order-pipeline", bareExecutionID)
 	env.runCloudCLI(t, "durable", "executions", "get", "order-pipeline", bareExecutionID).
-		requireSuccess(t, `"echoed": null`)
+		requireSuccess(t, `"echoed": "{}"`)
 }
 
 // requireAPIE2EDurableExecutionPages covers --page and --limit on the execution
