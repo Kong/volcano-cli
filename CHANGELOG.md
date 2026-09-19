@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/Kong/volcano-cli/compare/v0.32.0...v0.32.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **test:** expect provider empty durable input ([#216](https://github.com/Kong/volcano-cli/issues/216)) ([38df432](https://github.com/Kong/volcano-cli/commit/38df4327fbb56da1b924e353e2ccc2d28d84bd78))
+
 ## [0.32.0](https://github.com/Kong/volcano-cli/compare/v0.31.0...v0.32.0) (2026-09-19)
 
 
