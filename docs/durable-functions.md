@@ -1,6 +1,6 @@
 ---
 title: "Durable functions"
-description: "A durable function checkpoints its progress and resumes from the last completed step, so one execution can run for hours instead of the seconds a normal invocation allows."
+description: "Deploy functions that checkpoint progress and resume from the last completed step, so one execution can run for hours."
 ---
 
 ## What it is
