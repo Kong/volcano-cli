@@ -156,7 +156,7 @@ func formatErrorDetails(message string, details []apiclient.ErrorDetail) string 
 			formatted.WriteString(detail.Message)
 		}
 		if detail.Value != nil {
-			formatted.WriteString(fmt.Sprintf(" (value: %g)", *detail.Value))
+			fmt.Fprintf(&formatted, " (value: %g)", *detail.Value)
 		}
 	}
 	return formatted.String()
