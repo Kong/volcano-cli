@@ -18,6 +18,7 @@ var ErrNotFound = errors.New("not found")
 type Error struct {
 	StatusCode int
 	Message    string
+	Details    []apiclient.ErrorDetail
 }
 
 // Status returns the HTTP status code carried by an *Error wrapped in err, or
@@ -42,13 +43,16 @@ func Message(err error) string {
 }
 
 func (e *Error) Error() string {
+	message := e.Message
 	if e.StatusCode == 0 {
-		return e.Message
+		return formatErrorDetails(message, e.Details)
 	}
-	if e.Message == "" {
-		return fmt.Sprintf("HTTP %d", e.StatusCode)
+	if message == "" {
+		message = fmt.Sprintf("HTTP %d", e.StatusCode)
+	} else {
+		message = fmt.Sprintf("HTTP %d: %s", e.StatusCode, message)
 	}
-	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
+	return formatErrorDetails(message, e.Details)
 }
 
 func oauthError(statusCode int, resp *apiclient.OAuthErrorResponse) error {
@@ -61,6 +65,14 @@ func oauthError(statusCode int, resp *apiclient.OAuthErrorResponse) error {
 
 func apiErrorWithMessage(statusCode int, message string) error {
 	return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message)}
+}
+
+func apiErrorWithDetails(statusCode int, message string, details *[]apiclient.ErrorDetail) error {
+	var copied []apiclient.ErrorDetail
+	if details != nil {
+		copied = append(copied, (*details)...)
+	}
+	return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Details: copied}
 }
 
 func apiResult[T any](statusCode int, body []byte, result *T, generatedErrors ...*apiclient.Error) (*T, error) {
@@ -95,7 +107,7 @@ func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) err
 func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	for _, generatedError := range generatedErrors {
 		if generatedError != nil {
-			return apiErrorWithMessage(statusCode, generatedError.Error)
+			return apiErrorWithDetails(statusCode, generatedError.Error, generatedError.Details)
 		}
 	}
 	return apiError(statusCode, body)
@@ -103,18 +115,19 @@ func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ..
 
 func apiError(statusCode int, body []byte) error {
 	var payload struct {
-		Error            string `json:"error"`
-		ErrorDescription string `json:"error_description"`
-		Message          string `json:"message"`
+		Error            string                  `json:"error"`
+		ErrorDescription string                  `json:"error_description"`
+		Message          string                  `json:"message"`
+		Details          []apiclient.ErrorDetail `json:"details"`
 	}
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
 		switch {
 		case payload.ErrorDescription != "":
-			return apiErrorWithMessage(statusCode, payload.ErrorDescription)
+			return apiErrorWithDetails(statusCode, payload.ErrorDescription, &payload.Details)
 		case payload.Error != "":
-			return apiErrorWithMessage(statusCode, payload.Error)
+			return apiErrorWithDetails(statusCode, payload.Error, &payload.Details)
 		case payload.Message != "":
-			return apiErrorWithMessage(statusCode, payload.Message)
+			return apiErrorWithDetails(statusCode, payload.Message, &payload.Details)
 		}
 	}
 	message := cleanBody(body)
@@ -122,6 +135,31 @@ func apiError(statusCode int, body []byte) error {
 		message = http.StatusText(statusCode)
 	}
 	return apiErrorWithMessage(statusCode, message)
+}
+
+func formatErrorDetails(message string, details []apiclient.ErrorDetail) string {
+	if len(details) == 0 {
+		return message
+	}
+	var formatted strings.Builder
+	formatted.WriteString(message)
+	for _, detail := range details {
+		formatted.WriteString("\n  - ")
+		formatted.WriteString(detail.Path)
+		if detail.Constraint != "" {
+			formatted.WriteString(" (")
+			formatted.WriteString(detail.Constraint)
+			formatted.WriteString(")")
+		}
+		if detail.Message != "" {
+			formatted.WriteString(": ")
+			formatted.WriteString(detail.Message)
+		}
+		if detail.Value != nil {
+			formatted.WriteString(fmt.Sprintf(" (value: %g)", *detail.Value))
+		}
+	}
+	return formatted.String()
 }
 
 // maxBodyMessageLen caps how much of a non-JSON body we'll surface as an
