@@ -199,6 +199,54 @@ func TestDeployValidationFailureRendersErrorListAndExitsNonZero(t *testing.T) {
 	assert.NotContains(t, out, "Configuration deployed from")
 }
 
+func TestDeployStructuredRequestValidationFailureRendersDetails(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte("version: 1\nauth:\n  password:\n    min_length: 3\n"), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{
+			"error": "invalid request",
+			"details": []any{
+				map[string]any{
+					"path":       "/auth/password/min_length",
+					"constraint": "minimum",
+					"message":    "must be greater than or equal to 8",
+					"value":      3,
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+	require.Error(t, err)
+	assert.Contains(t, out, "/auth/password/min_length")
+	assert.Contains(t, out, "minimum")
+	assert.Contains(t, out, "must be greater than or equal to 8")
+	assert.Contains(t, out, "3")
+	assert.NotContains(t, out, "Configuration deployed from")
+}
+
+func TestDeployRequestValidationWithoutDetailsKeepsGenericError(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+	}))
+	defer server.Close()
+
+	_, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+	require.Error(t, err)
+	assert.Equal(t, "failed to deploy configuration from volcano-config.yaml: HTTP 400: invalid request", err.Error())
+}
+
 func TestDeployApplyErrorsExitNonZero(t *testing.T) {
 	dir := chdirToTemp(t)
 	setConfigCommandTestHome(t)
