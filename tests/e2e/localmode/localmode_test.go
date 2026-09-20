@@ -49,7 +49,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, databasesAfterCreate, "app")
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
-	requireLocalModeRefusesDurableFunctions(t, volcanoBin, env, projectDir)
+	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
@@ -304,35 +304,21 @@ func requireLocalModeOmitsProviderOnlyDatabaseCommands(t *testing.T, binary stri
 	}
 }
 
-// Local development runs no durable engine: the local server refuses to create
-// a durable function rather than pretending to run one. The command has to say
-// that rather than print help and exit 0, which is what cobra does with an
-// unknown subcommand and what a developer would read as success.
-func requireLocalModeRefusesDurableFunctions(t *testing.T, binary string, env []string, dir string) {
+// Durable functions run under local development on the platform's own engine,
+// so the local tree offers the same commands the cloud tree does. This is the
+// round trip a developer performs before deploying one: declare it, deploy it,
+// start an execution, and read what it returned.
+//
+// The handler requires the durable runtime without declaring it. That is the
+// platform's job — it installs the runtime into a function deployed as durable
+// — and a fixture that declared it would not notice if that stopped happening.
+// The authoring API a user actually writes against is covered by hosting's own
+// local-mode E2E; what this one covers is the CLI reaching it.
+func requireLocalModeRunsDurableFunctions(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
-	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
-	requireNotContains(t, help, "durable")
 
-	for _, args := range [][]string{
-		{"durable", "deploy", "--all"},
-		{"durable", "list"},
-		{"durable", "start", "order-pipeline", "--input", "{}"},
-		{"durable", "logs", "order-pipeline", "--type", "build"},
-		{"durable", "executions", "list", "order-pipeline"},
-		{"durable", "schedulers", "list", "order-pipeline"},
-		{"durable", "schedulers", "create", "order-pipeline", "--cron", "0 * * * *"},
-	} {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
-		if err == nil {
-			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
-		}
-		requireContains(t, output, `"durable" is a cloud command`)
-		requireContains(t, output, "volcano cloud durable")
-	}
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "--help"), "durable")
 
-	// A durable function declared in the manifest must not be deployed as a
-	// standard one by the local deploy-all, which is the mistake that would be
-	// permanent: a function's kind is fixed when it is created.
 	writeLocalModeE2EFile(t, dir, "volcano-config.yaml", `
 version: 1
 functions:
@@ -341,18 +327,92 @@ functions:
     kind: durable
 `)
 	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "order-pipeline.js"), `
-exports.handler = async () => ({ statusCode: 200, body: "{}" });
+const { withDurableExecution } = require('@aws/durable-execution-sdk-js');
+
+exports.handler = withDurableExecution(async (input, ctx) => {
+  const doubled = await ctx.step('double', () => input.n * 2);
+  await ctx.wait('settle', { seconds: 3600 });
+  return { doubled };
+});
 `)
 
+	deployOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "deploy", "--all")
+	requireContains(t, deployOutput, "order-pipeline")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "list"), "order-pipeline")
+
+	// A durable function is started rather than invoked, and the start answers
+	// with a handle rather than a result: the execution can outlive any request
+	// the caller could hold open.
+	startOutput := runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "start", "order-pipeline", "--input", `{"n":21}`)
+	executionID := localModeE2EFieldValue(t, startOutput, "ID")
+
+	execution := awaitLocalModeE2EDurableExecution(t, binary, env, dir, executionID)
+	requireContains(t, execution, "Status: succeeded")
+	requireContains(t, execution, `"doubled": 42`)
+
+	// The wait is an hour long and the execution still finished, because local
+	// mode resolves a wait as soon as it is checkpointed. The function cannot
+	// tell -- it suspended and resumed -- but a developer does not sit through
+	// it.
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "executions", "list", "order-pipeline"), executionID)
+
+	// A durable function is a separate collection: the standard deploy must not
+	// pick it up, because a function's kind is fixed when it is created and
+	// deploying it as standard would be permanent.
 	skipOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
 	requireContains(t, skipOutput, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
 	requireNotContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "list"), "order-pipeline")
+
+	runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "delete", "order-pipeline", "--yes")
 
 	// Removed here rather than in a cleanup: the config smoke later in this test
 	// writes volcano/volcano-config.yaml, and two manifests in one project is
 	// ambiguous by design.
 	removeLocalModeE2EFile(t, dir, "volcano-config.yaml")
 	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "order-pipeline.js"))
+}
+
+// localModeE2EFieldValue reads one value out of the CLI's key/value output.
+func localModeE2EFieldValue(t *testing.T, output, field string) string {
+	t.Helper()
+
+	for line := range strings.SplitSeq(output, "\n") {
+		name, value, found := strings.Cut(line, ":")
+		if found && strings.TrimSpace(name) == field {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	t.Fatalf("no %q in output:\n%s", field, output)
+	return ""
+}
+
+// awaitLocalModeE2EDurableExecution polls until the execution is over.
+//
+// Long enough for several suspensions: each one is a separate invocation, and
+// the resume loop picks the execution up on its own interval rather than the
+// moment it suspends.
+func awaitLocalModeE2EDurableExecution(t *testing.T, binary string, env []string, dir, executionID string) string {
+	t.Helper()
+
+	deadline := time.Now().Add(3 * time.Minute)
+	var last string
+	for time.Now().Before(deadline) {
+		last = runVolcanoLocalModeE2E(t, binary, env, dir,
+			"durable", "executions", "get", "order-pipeline", executionID)
+		for _, terminal := range []string{"succeeded", "failed", "timed_out", "stopped"} {
+			if strings.Contains(last, "Status: "+terminal) {
+				return last
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Fatalf("execution %s never finished:\n%s", executionID, last)
+	return ""
 }
 
 func removeLocalModeE2EFile(t *testing.T, projectDir, relativePath string) {

@@ -44,7 +44,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		storagecmd.New(localDeps),
 		configcmd.New(localDeps),
 		functionscmd.NewLocal(localDeps),
-		durablecmd.NewCloudOnly(),
+		durablecmd.NewLocal(localDeps),
 		variablescmd.New(localDeps),
 		accesstokenscmd.NewCloudOnly(),
 		newReset(deps),
