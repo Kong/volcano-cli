@@ -87,6 +87,8 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newRename(deps))
 	cmd.AddCommand(newKeys(deps))
+	cmd.AddCommand(newServiceKeys(deps))
+	cmd.AddCommand(newUsage(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newUse(deps))
 	return cmd
