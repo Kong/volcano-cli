@@ -19,6 +19,13 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: go.mod
+      - name: Resolve release build settings
+        env:
+          PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
+          STAGING_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING }}
+        run: |
+          version="$(jq -er .version package.json)"
+          REF="refs/tags/v$version" REF_NAME="v$version" scripts/ci/resolve-cli-build-env.sh
       - name: Build candidate binaries
         run: |
           set -euo pipefail
@@ -30,13 +37,15 @@ jobs:
             suffix=''
             if [[ "$os" == macos ]]; then os=darwin; fi
             if [[ "$os" == windows ]]; then suffix=.exe; fi
-            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" make build BINARY="candidate/volcano-$target$suffix" VERSION="v$version"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" make build BINARY="candidate/volcano-$target$suffix" VERSION="v$version" \
+              DEFAULT_API_URL="$CLI_DEFAULT_API_URL" DEFAULT_WEB_URL="$CLI_DEFAULT_WEB_URL" \
+              DEFAULT_LOCAL_IMAGE="$CLI_DEFAULT_LOCAL_IMAGE" FIRST_PARTY_DEVICE_CLIENT_ID="$CLI_FIRST_PARTY_DEVICE_CLIENT_ID"
           done
           candidate/volcano-linux-amd64 --version
       - name: Verify external-binary acceptance entry points
         env:
           VOLCANO_TEST_CLI_BINARY: ${{ github.workspace }}/candidate/volcano-linux-amd64
-        run: go test ./tests/e2e/... -run 'Test(APIE2EUsesSuppliedBinary|APIE2ECommandUsesExplicitAPI|LocalModeUsesSuppliedBinary|Resolve)$'
+        run: go test ./tests/e2e/... -run 'Test(APIE2EUsesSuppliedBinary|APIE2ECommandUsesExplicitAPI|APIE2EInstalledBinaryUsesTestServer|LocalModeUsesSuppliedBinary|Resolve)$'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: client-acceptance
@@ -60,3 +69,22 @@ jobs:
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: candidate/*
+
+  consume:
+    if: github.event_name != 'pull_request'
+    needs: attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: client-acceptance
+          path: candidate
+      - name: Authenticate and restore the downloaded executable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify candidate/volcano-linux-amd64 --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/acceptance.yml" --source-ref "$GITHUB_REF" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners
+          # GitHub artifact ZIP downloads do not preserve executable permissions.
+          chmod +x candidate/volcano-linux-amd64
+          candidate/volcano-linux-amd64 --version

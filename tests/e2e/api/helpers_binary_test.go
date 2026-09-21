@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,4 +66,19 @@ func TestAPIE2ECommandUsesExplicitAPI(t *testing.T) {
 	if len(urls) != 1 || urls[0] != "VOLCANO_API_URL="+test.apiURL {
 		t.Fatalf("API environment = %v", urls)
 	}
+}
+
+func TestAPIE2EInstalledBinaryUsesTestServer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/functions/runtimes" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"runtimes":[{"name":"acceptance-test-runtime","language":"nodejs","default":true,"deployment":{"file_extensions":[".js"],"entrypoint":"index.js","handler":"handler","dependency_manifests":["package.json"]}}]}`))
+	}))
+	defer server.Close()
+	env := &apiE2E{binary: buildAPIE2EBinary(t, server.URL), apiURL: server.URL, homeDir: t.TempDir(), projectDir: t.TempDir()}
+	env.runCloudCLI(t, "functions", "runtimes").requireSuccess(t, "acceptance-test-runtime")
 }
