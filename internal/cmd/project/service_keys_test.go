@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -129,7 +128,7 @@ func TestProjectServiceKeysRejectsMissingCreateName(t *testing.T) {
 func TestProjectServiceKeysNeverPrintsSecretOnError(t *testing.T) {
 	setProjectCommandTestHome(t)
 	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"id":"` + serviceKeyID + `","name":"admin","key_value":"` + serviceKeyValue + `"}`))
@@ -141,7 +140,7 @@ func TestProjectServiceKeysNeverPrintsSecretOnError(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), serviceKeyValue)
 	assert.NotContains(t, out, serviceKeyValue)
-	assert.NotContains(t, strings.Join([]string{err.Error(), out}, "\n"), "sk-live-secret")
+	assert.NotContains(t, err.Error()+"\n"+out, "sk-live-secret")
 }
 
 func serviceKeyPayload() map[string]any {

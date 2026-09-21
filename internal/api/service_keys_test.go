@@ -43,7 +43,7 @@ func TestServiceKeyRequests(t *testing.T) {
 	require.NoError(t, err)
 	page, err := client.ListServiceKeys(context.Background(), projectID, 2, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(page.Data))
+	assert.Len(t, page.Data, 1)
 	assert.Equal(t, "sk-value", *page.Data[0].KeyValue)
 	created, err := client.CreateServiceKey(context.Background(), projectID, "admin", []string{"functions.invoke"})
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestServiceKeyRequests(t *testing.T) {
 func TestServiceKeyReadErrorsRedactResponseBody(t *testing.T) {
 	projectID := uuid.MustParse("eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550")
 	keyID := uuid.MustParse("33333333-3333-4333-8333-333333333333")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"id":"33333333-3333-4333-8333-333333333333","key_value":"sk-do-not-leak"}`))
