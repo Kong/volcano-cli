@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"debug/buildinfo"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,13 +9,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kong/volcano-cli/tests/e2e/testbinary"
 )
 
 func buildAPIE2EBinary(t *testing.T, apiURL string) string {
 	t.Helper()
 	if override := strings.TrimSpace(os.Getenv("VOLCANO_TEST_CLI_BINARY")); override != "" {
-		binary := resolveAPIE2EPrebuiltBinary(t, override)
-		requireAPIE2EPrebuiltBinary(t, binary, apiURL)
+		binary, err := testbinary.Resolve(override)
+		if err != nil {
+			t.Fatal(err)
+		}
 		return binary
 	}
 
@@ -38,120 +41,27 @@ func buildAPIE2EBinary(t *testing.T, apiURL string) string {
 	return binary
 }
 
-func resolveAPIE2EPrebuiltBinary(t *testing.T, binary string) string {
-	t.Helper()
-	resolved, err := filepath.Abs(binary)
-	if err != nil {
-		t.Fatalf("failed to resolve VOLCANO_TEST_CLI_BINARY: %s (%v)", binary, err)
+func TestAPIE2EUsesSuppliedBinary(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "volcano")
+	if err := os.WriteFile(binary, []byte("supplied release artifact"), 0o700); err != nil {
+		t.Fatal(err)
 	}
-	return resolved
-}
-
-func requireAPIE2EPrebuiltBinary(t *testing.T, binary, apiURL string) {
-	t.Helper()
-	info, err := os.Stat(binary)
-	if err != nil {
-		t.Fatalf("VOLCANO_TEST_CLI_BINARY does not exist: %s (%v)", binary, err)
-	}
-	if info.IsDir() {
-		t.Fatalf("VOLCANO_TEST_CLI_BINARY is a directory: %s", binary)
-	}
-
-	compiledAPIURL, ok, err := apiE2ECompiledAPIURL(binary)
-	if err != nil {
-		t.Fatalf("failed to inspect VOLCANO_TEST_CLI_BINARY build info: %s (%v)", binary, err)
-	}
-	if !ok {
-		t.Fatalf("VOLCANO_TEST_CLI_BINARY must be built with -ldflags \"-X %s=<url>\" matching VOLCANO_API_URL=%q", apiE2ECompiledAPIURLVar, apiURL)
-	}
-	if normalizeAPIE2EURL(compiledAPIURL) != normalizeAPIE2EURL(apiURL) {
-		t.Fatalf("VOLCANO_TEST_CLI_BINARY targets API URL %q, but VOLCANO_API_URL is %q", compiledAPIURL, apiURL)
+	t.Setenv("VOLCANO_TEST_CLI_BINARY", binary)
+	if got := buildAPIE2EBinary(t, "http://127.0.0.1:8000"); got != binary {
+		t.Fatalf("binary = %q, want %q", got, binary)
 	}
 }
 
-func apiE2ECompiledAPIURL(binary string) (string, bool, error) {
-	info, err := buildinfo.ReadFile(binary)
-	if err != nil {
-		return "", false, err
-	}
-	for _, setting := range info.Settings {
-		if setting.Key == "-ldflags" {
-			value, ok := apiE2ECompiledAPIURLFromLDFlags(setting.Value)
-			return value, ok, nil
+func TestAPIE2ECommandUsesExplicitAPI(t *testing.T) {
+	t.Setenv("VOLCANO_API_URL", "https://api.volcano.dev")
+	test := &apiE2E{apiURL: "http://127.0.0.1:8000", homeDir: t.TempDir()}
+	var urls []string
+	for _, entry := range test.commandEnv() {
+		if strings.HasPrefix(entry, "VOLCANO_API_URL=") {
+			urls = append(urls, entry)
 		}
 	}
-	return "", false, nil
-}
-
-func apiE2ECompiledAPIURLFromLDFlags(ldflags string) (string, bool) {
-	fields := strings.Fields(ldflags)
-	for i, field := range fields {
-		if field == "-X" {
-			if i+1 >= len(fields) {
-				continue
-			}
-			if value, ok := strings.CutPrefix(fields[i+1], apiE2ECompiledAPIURLVar+"="); ok {
-				return value, true
-			}
-			continue
-		}
-		if value, ok := strings.CutPrefix(field, "-X="+apiE2ECompiledAPIURLVar+"="); ok {
-			return value, true
-		}
-	}
-	return "", false
-}
-
-func TestResolveAPIE2EPrebuiltBinary(t *testing.T) {
-	projectDir := t.TempDir()
-	t.Chdir(projectDir)
-
-	got := resolveAPIE2EPrebuiltBinary(t, "."+string(filepath.Separator)+"volcano")
-	want := filepath.Join(projectDir, "volcano")
-	if got != want {
-		t.Fatalf("binary = %q, want %q", got, want)
-	}
-}
-
-func normalizeAPIE2EURL(raw string) string {
-	return strings.TrimRight(strings.TrimSpace(raw), "/")
-}
-
-func TestAPIE2ECompiledAPIURLFromLDFlags(t *testing.T) {
-	tests := []struct {
-		name    string
-		ldflags string
-		want    string
-		wantOK  bool
-	}{
-		{
-			name:    "separate X flag",
-			ldflags: "-s -w -X github.com/Kong/volcano-cli/internal/config.compiledDefaultAPIURL=https://api.example.test",
-			want:    "https://api.example.test",
-			wantOK:  true,
-		},
-		{
-			name:    "equals X flag",
-			ldflags: "-s -w -X=github.com/Kong/volcano-cli/internal/config.compiledDefaultAPIURL=https://api.example.test",
-			want:    "https://api.example.test",
-			wantOK:  true,
-		},
-		{
-			name:    "missing API URL flag",
-			ldflags: "-s -w -X github.com/Kong/volcano-cli/internal/version.Version=dev",
-			wantOK:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, gotOK := apiE2ECompiledAPIURLFromLDFlags(tt.ldflags)
-			if gotOK != tt.wantOK {
-				t.Fatalf("ok = %v, want %v", gotOK, tt.wantOK)
-			}
-			if got != tt.want {
-				t.Fatalf("url = %q, want %q", got, tt.want)
-			}
-		})
+	if len(urls) != 1 || urls[0] != "VOLCANO_API_URL="+test.apiURL {
+		t.Fatalf("API environment = %v", urls)
 	}
 }

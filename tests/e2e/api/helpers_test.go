@@ -12,10 +12,9 @@ import (
 )
 
 const (
-	apiE2EEnabledEnv        = "VOLCANO_API_E2E"
-	apiE2EDefaultRegion     = "aws-us-east-1"
-	apiE2EDefaultPGVersion  = "16"
-	apiE2ECompiledAPIURLVar = "github.com/Kong/volcano-cli/internal/config.compiledDefaultAPIURL"
+	apiE2EEnabledEnv       = "VOLCANO_API_E2E"
+	apiE2EDefaultRegion    = "aws-us-east-1"
+	apiE2EDefaultPGVersion = "16"
 
 	apiE2EFunctionDeploymentTimeout = 20 * time.Minute
 	apiE2EFrontendDeploymentTimeout = 30 * time.Minute

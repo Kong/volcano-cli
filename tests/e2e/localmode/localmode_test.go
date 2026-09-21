@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Kong/volcano-cli/tests/e2e/testbinary"
 )
 
 func TestLocalModeE2ESmoke(t *testing.T) {
@@ -142,6 +144,13 @@ func requireDocker(t *testing.T) {
 
 func buildLocalModeE2EBinary(t *testing.T) string {
 	t.Helper()
+	if override := strings.TrimSpace(os.Getenv("VOLCANO_TEST_CLI_BINARY")); override != "" {
+		binary, err := testbinary.Resolve(override)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return binary
+	}
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("failed to resolve current test file path")
