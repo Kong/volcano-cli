@@ -56,6 +56,7 @@ const apiE2EDurableSuspendedSource = `exports.handler = async () => ({ Status: "
 // provisioning.
 func TestAPIE2ECloudDurableFunctions(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-durable")
+	env.setUserPlan(t, "PRO")
 	writeAPIE2EDurableProject(t, env.projectDir)
 
 	env.loginAndUse(t)
