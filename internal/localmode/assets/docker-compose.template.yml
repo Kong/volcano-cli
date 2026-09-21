@@ -38,7 +38,7 @@ services:
       retries: 5
 
   dynamodb:
-    image: ${VOLCANO_DYNAMODB_IMAGE:-amazon/dynamodb-local:latest}
+    image: ${VOLCANO_DYNAMODB_IMAGE:-mirror.gcr.io/amazon/dynamodb-local:latest}
     container_name: volcano-dynamodb
     user: root
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
@@ -55,13 +55,31 @@ services:
   # password reset emails, etc. land in Mailpit's inbox at http://localhost:8025
   # instead of being discarded.
   mailpit:
-    image: ${VOLCANO_MAILPIT_IMAGE:-axllent/mailpit:v1.30}
+    image: ${VOLCANO_MAILPIT_IMAGE:-mirror.gcr.io/axllent/mailpit:v1.30}
     container_name: volcano-mailpit
     ports:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI — view captured emails here
     networks:
       - volcano-internal
+
+  appconfig-agent:
+    image: public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x@sha256:003b53280d6a65b56882a502b03cd8bd2f1a8187e9d731dd44fb576b69b83b83
+    environment:
+      LOCAL_DEVELOPMENT_DIRECTORY: /local-config
+    expose:
+      - "2772"
+    configs:
+      - source: appconfig-feature-flags-development
+        target: /local-config/volcano-hosting:development:feature-flags.json
+    networks:
+      - volcano-internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:2772/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   server:
     image: ${VOLCANO_IMAGE:-kong/volcano:local-nightly}
@@ -73,11 +91,17 @@ services:
         condition: service_healthy
       dynamodb:
         condition: service_started
+      appconfig-agent:
+        condition: service_healthy
     environment:
       # Core settings
       LOCAL_MODE: "true"
       LOCAL_MODE_GIT_DEPLOY_WORKER: ${LOCAL_MODE_GIT_DEPLOY_WORKER:-false}
       LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
+      # Off by default: a durable function that waits a day is normal to write
+      # and unusable to sit through. Turning it on is how you check a long wait
+      # at its real length before relying on one.
+      LOCAL_DURABLE_REAL_TIME: ${LOCAL_DURABLE_REAL_TIME:-false}
       DATABASE_URL: postgres://volcano:volcano@postgres:5432/volcano?sslmode=disable
       REDIS_URL: redis://redis:6379
       DYNAMODB_ENDPOINT: http://dynamodb:8000
@@ -95,6 +119,10 @@ services:
       MANAGEMENT_PORT: "8001"
       PGPROXY_PORT: "8002"
       ENVIRONMENT: development
+      APPCONFIG_AGENT_URL: http://appconfig-agent:2772
+      APPCONFIG_APPLICATION: volcano-hosting
+      APPCONFIG_ENVIRONMENT: development
+      APPCONFIG_CONFIGURATION_PROFILE: feature-flags
       LOG_LEVEL: ${VOLCANO_LOG_LEVEL:-info}
       API_BASE_URL: "http://localhost:8000"
       WEB_BASE_URL: "http://localhost:3000"
@@ -157,3 +185,7 @@ volumes:
   volcano-redis:
   volcano-dynamodb:
   volcano-storage:
+
+configs:
+  appconfig-feature-flags-development:
+    content: '{}'

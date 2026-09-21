@@ -1,11 +1,9 @@
 package durable
 
 import (
-	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -591,36 +589,25 @@ func newCloudDurableCommand(server *httptest.Server) *cobra.Command {
 	return New(deps)
 }
 
-// Local mode has no durable engine behind the command. Cobra answers an unknown
-// subcommand by printing help and exiting 0, so the stub is what makes the
-// refusal legible — and it stays hidden, or local help would advertise a
-// capability local mode does not have.
-func TestDurableIsRefusedInTheLocalTree(t *testing.T) {
-	for _, args := range [][]string{
-		{"durable", "deploy", "--all"},
-		{"durable", "list"},
-		{"durable", "start", "order-pipeline", "--input", "{}"},
-		{"durable", "executions", "list", "order-pipeline"},
-	} {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			root := &cobra.Command{Use: "volcano"}
-			root.AddCommand(NewCloudOnly())
-			var out bytes.Buffer
-			root.SetOut(&out)
-			root.SetErr(&out)
-			root.SetArgs(args)
+// Local development runs durable executions on its own engine, so the local
+// tree gets the same command the cloud tree does rather than a stub that
+// refuses. This is what stops the two drifting: a subcommand added to one and
+// not the other would show up here as a tree that is missing it.
+func TestLocalTreeOffersTheSameDurableCommands(t *testing.T) {
+	t.Parallel()
 
-			err := root.Execute()
-			require.ErrorContains(t, err, `"durable" is a cloud command`)
-			require.ErrorContains(t, err, "volcano cloud durable")
-		})
+	cloud := New(cliruntime.Deps{CommandPathPrefix: "volcano cloud"})
+	local := NewLocal(cliruntime.Deps{})
+
+	assert.False(t, local.Hidden, "durable is a local capability now, so local help lists it")
+	assert.ElementsMatch(t, subcommandNames(cloud), subcommandNames(local),
+		"the local tree offers the same durable subcommands as the cloud tree")
+}
+
+func subcommandNames(cmd *cobra.Command) []string {
+	names := make([]string, 0, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		names = append(names, sub.Name())
 	}
-
-	root := &cobra.Command{Use: "volcano"}
-	root.AddCommand(NewCloudOnly())
-	var help bytes.Buffer
-	root.SetOut(&help)
-	root.SetArgs([]string{"--help"})
-	require.NoError(t, root.Execute())
-	assert.NotContains(t, help.String(), "durable")
+	return names
 }
