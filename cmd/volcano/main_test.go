@@ -10,14 +10,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
+	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
+
+func TestRunPreservesRemoteSandboxExitCode(t *testing.T) {
+	resetInstructions(t)
+	var output bytes.Buffer
+	root := &cobra.Command{Use: "test", SilenceUsage: true, SilenceErrors: true, RunE: func(_ *cobra.Command, _ []string) error {
+		return &sandboxescmd.ExitError{Code: 42}
+	}}
+	root.SetArgs([]string{})
+	root.SetErr(&output)
+	assert.Equal(t, 42, run(root, cliruntime.Deps{}))
+	assert.Empty(t, output.String())
+}
 
 func resetInstructions(t *testing.T) {
 	t.Helper()
