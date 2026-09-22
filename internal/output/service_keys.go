@@ -12,7 +12,7 @@ import (
 // ServiceKeys renders one service-key page, including key values returned by a
 // successful API response. The API wrapper deliberately strips response bodies
 // from errors, so this renderer only receives a secret on the success path.
-func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, commandPrefix ...string) {
+func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, projectID string, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedServiceKeys{}
 	}
@@ -34,7 +34,11 @@ func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, commandPrefi
 	}
 	summary(w, theme.On(w), "Showing %d of %d service key(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 	if page.HasMore {
-		nextPage(w, theme.On(w), fmt.Sprintf("%s projects service-keys list --page %d --limit %d", commandPathPrefix(commandPrefix), page.Page+1, page.Limit))
+		command := commandPathPrefix(commandPrefix) + " projects service-keys list"
+		if projectID != "" {
+			command += " " + projectID
+		}
+		nextPage(w, theme.On(w), fmt.Sprintf("%s --page %d --limit %d", command, page.Page+1, page.Limit))
 	}
 }
 

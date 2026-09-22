@@ -82,12 +82,13 @@ func runServiceKeyList(ctx context.Context, opts serviceKeyListOptions) error {
 	if err != nil {
 		return err
 	}
-	output.ServiceKeys(opts.out, page, cliruntime.CommandPath(opts.deps, ""))
+	output.ServiceKeys(opts.out, page, opts.projectID, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }
 
 func newServiceKeyCreate(deps cliruntime.Deps) *cobra.Command {
 	var permissions []string
+	var permissionAliases []string
 	cmd := &cobra.Command{
 		Use:   "create <name> [project-id]",
 		Short: "Create a project service key",
@@ -98,23 +99,34 @@ func newServiceKeyCreate(deps cliruntime.Deps) *cobra.Command {
 			if len(args) == 2 {
 				projectID = strings.TrimSpace(args[1])
 			}
+			if cmd.Flags().Changed("permission") && len(permissions) == 0 ||
+				cmd.Flags().Changed("permissions") && len(permissionAliases) == 0 {
+				return errors.New("service key permission cannot be empty")
+			}
+			allPermissions := append([]string(nil), permissions...)
+			allPermissions = append(allPermissions, permissionAliases...)
 			return runServiceKeyCreate(cmd.Context(), serviceKeyCreateOptions{
 				deps:        deps,
 				projectID:   projectID,
 				name:        strings.TrimSpace(args[0]),
-				permissions: permissions,
+				permissions: allPermissions,
 				out:         cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().StringSliceVar(&permissions, "permission", nil, "Permission to grant (repeatable; omitted means full access)")
-	cmd.Flags().StringSliceVar(&permissions, "permissions", nil, "Alias for --permission")
+	cmd.Flags().StringSliceVar(&permissionAliases, "permissions", nil, "Alias for --permission")
 	return cmd
 }
 
 func runServiceKeyCreate(ctx context.Context, opts serviceKeyCreateOptions) error {
 	if strings.TrimSpace(opts.name) == "" {
 		return errors.New("service key name cannot be empty")
+	}
+	for _, permission := range opts.permissions {
+		if strings.TrimSpace(permission) == "" {
+			return errors.New("service key permission cannot be empty")
+		}
 	}
 	key, err := cliproject.NewService(opts.deps).CreateServiceKey(ctx, opts.projectID, opts.name, opts.permissions)
 	if err != nil {

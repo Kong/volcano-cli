@@ -56,7 +56,9 @@ func TestProjectServiceKeysExplicitProjectOverridesEnvironment(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "page": 1, "limit": 100, "total": 0})
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{
+			"data": []any{serviceKeyPayload()}, "has_more": true, "page": 1, "limit": 100, "total": 101,
+		})
 	}))
 	defer server.Close()
 
@@ -64,7 +66,8 @@ func TestProjectServiceKeysExplicitProjectOverridesEnvironment(t *testing.T) {
 		"service-keys", "list", projectGammaID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectGammaID+"/service-keys", gotPath)
-	assert.Contains(t, out, "No service keys created")
+	assert.Contains(t, out, "projects service-keys list "+projectGammaID+" --page 2 --limit 100")
+	assert.NotContains(t, out, "projects service-keys list --page")
 }
 
 func TestProjectServiceKeysCreatePreservesOmittedPermissions(t *testing.T) {
@@ -99,6 +102,40 @@ func TestProjectServiceKeysCreateSendsPermissions(t *testing.T) {
 		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permission", "storage.read")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"name": "scoped", "permissions": []any{"functions.invoke", "storage.read"}}, body)
+}
+
+func TestProjectServiceKeysCreateMergesPermissionAliases(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		writeProjectCommandJSON(t, w, http.StatusCreated, serviceKeyPayload())
+	}))
+	defer server.Close()
+
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permissions", "storage.read")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"name": "scoped", "permissions": []any{"functions.invoke", "storage.read"}}, body)
+}
+
+func TestProjectServiceKeysCreateRejectsEmptyPermission(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		writeProjectCommandJSON(t, w, http.StatusCreated, serviceKeyPayload())
+	}))
+	defer server.Close()
+
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permissions", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "service key permission cannot be empty")
+	assert.False(t, called)
+	assert.NotContains(t, out, serviceKeyValue)
 }
 
 func TestProjectServiceKeysGetUsesExplicitProject(t *testing.T) {
