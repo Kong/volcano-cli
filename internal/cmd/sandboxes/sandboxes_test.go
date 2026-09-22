@@ -194,6 +194,36 @@ func TestInputAndCapabilityFailuresDoNotDispatch(t *testing.T) {
 	require.ErrorContains(t, err, "capability_disabled")
 }
 
+func TestUsagePreservesFractionalBoundsAcrossPages(t *testing.T) {
+	for _, tc := range []struct {
+		name, from, to, wantFrom, wantTo string
+	}{
+		{"milliseconds within one second", "2026-09-01T00:00:00.500Z", "2026-09-01T00:00:00.750Z", "2026-09-01T00:00:00.5Z", "2026-09-01T00:00:00.75Z"},
+		{"one nanosecond interval", "2026-09-01T00:00:00.123456788Z", "2026-09-01T00:00:00.123456789Z", "2026-09-01T00:00:00.123456788Z", "2026-09-01T00:00:00.123456789Z"},
+		{"positive offset", "2026-09-01T00:00:00.125+05:30", "2026-09-01T00:00:00.875+05:30", "2026-08-31T18:30:00.125Z", "2026-08-31T18:30:00.875Z"},
+		{"negative offset", "2026-09-01T00:00:00.999999999-07:00", "2026-09-01T00:00:01.000000001-07:00", "2026-09-01T07:00:00.999999999Z", "2026-09-01T07:00:01.000000001Z"},
+		{"whole seconds", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z", "2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, cursor := range []string{"", "next-page"} {
+				t.Run("cursor="+cursor, func(t *testing.T) {
+					deps := fixture(t, func(w http.ResponseWriter, r *http.Request) {
+						assert.Equal(t, "/v1/projects/"+projectID+"/usage", r.URL.Path)
+						query := r.URL.Query()
+						assert.Equal(t, tc.wantFrom, query.Get("from"))
+						assert.Equal(t, tc.wantTo, query.Get("to"))
+						assert.Equal(t, cursor, query.Get("cursor"))
+						_, _ = io.WriteString(w, `{"items":[]}`)
+					})
+					out, _, err := execute(t, New(deps), "usage", "--from", tc.from, "--to", tc.to, "--cursor", cursor, "--json")
+					require.NoError(t, err)
+					assert.JSONEq(t, `{"items":[]}`, out)
+				})
+			}
+		})
+	}
+}
+
 func TestMissingAuthenticationAndCancellation(t *testing.T) {
 	deps := cliruntime.Deps{ConfigLoader: func() (*config.Config, error) { return &config.Config{IgnoreEnv: true}, nil }}
 	_, _, err := execute(t, New(deps), "list")

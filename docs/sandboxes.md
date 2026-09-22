@@ -97,6 +97,9 @@ volcano cloud sandboxes deployments list
 
 Lists and usage support `--limit` and `--cursor`. Usage quantities stay decimal
 strings or `null`; raw correction history is not a billing total.
+The RFC3339 `--from` and `--to` bounds are normalized to UTC while preserving
+fractional seconds up to nanosecond precision. Reuse the same bounds with each
+pagination cursor.
 
 Custom templates require the service's `custom_templates` capability. Deployment
 JSON includes `template_version`, `dc`, `source_artifact_id` and `source_digest`

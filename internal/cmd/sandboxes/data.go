@@ -157,7 +157,7 @@ func (o *options) usage() *cobra.Command {
 			return errors.New("invalid usage interval, limit or sandbox ID")
 		}
 		return o.run(cmd, func(ctx context.Context, client *sandbox.Client, _ string) error {
-			response, err := client.Do(ctx, sandbox.Request{Method: http.MethodGet, Path: "/usage", Query: url.Values{"from": {start.UTC().Format(time.RFC3339)}, "to": {end.UTC().Format(time.RFC3339)}, "sandbox_id": {id}, "cursor": {cursor}, "limit": {strconv.Itoa(limit)}}})
+			response, err := client.Do(ctx, sandbox.Request{Method: http.MethodGet, Path: "/usage", Query: url.Values{"from": {start.UTC().Format(time.RFC3339Nano)}, "to": {end.UTC().Format(time.RFC3339Nano)}, "sandbox_id": {id}, "cursor": {cursor}, "limit": {strconv.Itoa(limit)}}})
 			if err != nil {
 				return err
 			}
