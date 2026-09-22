@@ -56,7 +56,9 @@ volcano cloud sandboxes executions cancel <sandbox-id> <execution-id> --generati
 ```
 
 Platform errors and unknown/pending command outcomes exit 1. Ctrl-C or the overall
-`--timeout` stops the client request, not necessarily the server command. The
+`--timeout` stops the client request, not necessarily the server command. It
+defaults to 10 minutes and accepts positive durations up to 24 hours. It controls
+the overall command request or log stream, including response-body reads. The
 request key is printed to stderr before mutations; retain it alongside operation
 IDs when investigating a disconnect. The CLI never retries writes. Do not create
 a new request key and replay an uncertain command. Use an existing key only with

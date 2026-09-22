@@ -88,10 +88,14 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("sandbox %s (HTTP %d, operation %s)", e.Code, e.Status, e.OperationID)
 }
 
-// Do performs a bounded request without replaying unknown outcomes.
+// Do honors the caller's deadline without replaying unknown outcomes. Calls
+// without a deadline use a bounded fallback; CLI commands set their own timeout.
 func (c *Client) Do(ctx context.Context, input Request) (Response, error) {
-	ctx, cancel := context.WithTimeout(ctx, 65*time.Second)
-	defer cancel()
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 65*time.Second)
+		defer cancel()
+	}
 	response, err := c.send(ctx, input)
 	if err != nil {
 		return Response{}, err

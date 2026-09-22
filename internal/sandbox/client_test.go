@@ -14,6 +14,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type requestDoer func(*http.Request) (*http.Response, error)
+
+func (d requestDoer) Do(r *http.Request) (*http.Response, error) { return d(r) }
+
+func TestRequestHonorsCallerDeadline(t *testing.T) {
+	for _, duration := range []time.Duration{30 * time.Second, 5 * time.Minute, 10 * time.Minute} {
+		t.Run(duration.String(), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), duration)
+			defer cancel()
+			want, _ := ctx.Deadline()
+			hits := 0
+			client, err := New("https://sandbox.example", "secret", "p1", requestDoer(func(r *http.Request) (*http.Response, error) {
+				hits++
+				got, ok := r.Context().Deadline()
+				assert.True(t, ok)
+				assert.Equal(t, want, got)
+				cancel()
+				return nil, r.Context().Err()
+			}))
+			require.NoError(t, err)
+			_, err = client.Do(ctx, Request{Method: http.MethodPost, Path: "/one-shot"})
+			require.ErrorIs(t, err, context.Canceled)
+			assert.Equal(t, 1, hits)
+		})
+	}
+}
+
+func TestRequestWithoutDeadlineRetainsBoundedFallback(t *testing.T) {
+	var requestDone <-chan struct{}
+	start := time.Now()
+	client, err := New("https://sandbox.example", "secret", "p1", requestDoer(func(r *http.Request) (*http.Response, error) {
+		requestDone = r.Context().Done()
+		deadline, ok := r.Context().Deadline()
+		assert.True(t, ok)
+		assert.WithinDuration(t, start.Add(65*time.Second), deadline, time.Second)
+		return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{"X-Volcano-Sandbox-Version": []string{Version}}, Body: http.NoBody}, nil
+	}))
+	require.NoError(t, err)
+	_, err = client.Do(context.Background(), Request{Method: http.MethodGet, Path: "/capabilities"})
+	require.NoError(t, err)
+	require.NotNil(t, requestDone)
+	select {
+	case <-requestDone:
+	default:
+		t.Fatal("fallback deadline was not released after the response")
+	}
+}
+
 func TestRequestPinsContractIdentityAndNeverReplays(t *testing.T) {
 	for _, status := range []int{200, 401, 403, 409, 429, 501, 503} {
 		t.Run(http.StatusText(status), func(t *testing.T) {

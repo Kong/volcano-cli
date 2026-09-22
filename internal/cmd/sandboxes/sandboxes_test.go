@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,39 @@ import (
 )
 
 const projectID = "22222222-2222-4222-8222-222222222222"
+
+type deadlineDoer func(*http.Request) (*http.Response, error)
+
+func (d deadlineDoer) Do(r *http.Request) (*http.Response, error) { return d(r) }
+
+func TestOverallTimeoutReachesRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want time.Duration
+	}{
+		{"default", []string{"list"}, 10 * time.Minute},
+		{"longer than transport fallback", []string{"list", "--timeout", "5m"}, 5 * time.Minute},
+		{"shorter than transport fallback", []string{"list", "--timeout", "30s"}, 30 * time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hits := 0
+			deps := cliruntime.Deps{ConfigLoader: func() (*config.Config, error) {
+				return &config.Config{UserToken: "platform-token", IgnoreEnv: true, CurrentProject: &config.ProjectConfig{ID: projectID}}, nil
+			}, HTTPClient: deadlineDoer(func(r *http.Request) (*http.Response, error) {
+				hits++
+				deadline, ok := r.Context().Deadline()
+				assert.True(t, ok)
+				assert.WithinDuration(t, time.Now().Add(tc.want), deadline, time.Second)
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"X-Volcano-Sandbox-Version": []string{sandbox.Version}}, Body: io.NopCloser(bytes.NewBufferString(`{"items":[]}`))}, nil
+			})}
+			t.Setenv("VOLCANO_SANDBOX_URL", "https://sandbox.example")
+			_, _, err := execute(t, New(deps), tc.args...)
+			require.NoError(t, err)
+			assert.Equal(t, 1, hits)
+		})
+	}
+}
 
 func fixture(t *testing.T, handler http.HandlerFunc) cliruntime.Deps {
 	t.Helper()
