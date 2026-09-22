@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +33,21 @@ func TestRunPreservesRemoteSandboxExitCode(t *testing.T) {
 	root.SetErr(&output)
 	assert.Equal(t, 42, run(root, cliruntime.Deps{}))
 	assert.Empty(t, output.String())
+}
+
+func TestRunPreservesDiagnosticsForNonSandboxProcessErrors(t *testing.T) {
+	resetInstructions(t)
+	// The concrete subprocess error implements ExitCode too. Existing local
+	// commands wrap it with actionable Docker output that must still be shown.
+	processError := &exec.ExitError{}
+	var output bytes.Buffer
+	root := &cobra.Command{Use: "test", SilenceUsage: true, SilenceErrors: true, RunE: func(_ *cobra.Command, _ []string) error {
+		return fmt.Errorf("Docker failed: check that Docker is running: %w", processError)
+	}}
+	root.SetArgs([]string{})
+	root.SetErr(&output)
+	assert.Equal(t, 1, run(root, cliruntime.Deps{}))
+	assert.Contains(t, output.String(), "Docker failed: check that Docker is running")
 }
 
 func resetInstructions(t *testing.T) {

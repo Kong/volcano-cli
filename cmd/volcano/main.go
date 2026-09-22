@@ -14,6 +14,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
+	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -34,7 +35,7 @@ func main() {
 func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
 	stderr := root.ErrOrStderr()
-	var remoteExit interface{ ExitCode() int }
+	var remoteExit *sandboxescmd.ExitError
 	if errors.As(err, &remoteExit) {
 		return remoteExit.ExitCode()
 	}
