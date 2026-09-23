@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,34 @@ func TestProjectServiceKeysListUsesPageAndSelectedProject(t *testing.T) {
 	assert.Equal(t, "page=2&limit=25", gotQuery)
 	for _, want := range []string{"ID: " + serviceKeyID, "Name: admin", "Prefix: sk-prefix", "Permissions: functions.invoke, storage.read", "Key value: " + serviceKeyValue, "Created:", "Updated:", "Showing 1 of 51 service key(s)", "projects service-keys list --page 3 --limit 25"} {
 		assert.Contains(t, out, want)
+	}
+}
+
+func TestProjectServiceKeysListRejectsAWindowTheAPIWouldNot(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID, Name: "Beta"},
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		assert.Fail(t, "unexpected request for an invalid window", r.URL.String())
+	}))
+	defer server.Close()
+
+	for _, test := range []struct {
+		args    []string
+		message string
+	}{
+		{args: []string{"service-keys", "list", "--page", "0"}, message: "invalid --page 0: expected 1 or more"},
+		{args: []string{"service-keys", "list", "--page", "-5"}, message: "invalid --page -5: expected 1 or more"},
+		{args: []string{"service-keys", "list", "--limit", "0"}, message: "invalid --limit 0: expected 1 to 100"},
+		{args: []string{"service-keys", "list", "--limit", "101"}, message: "invalid --limit 101: expected 1 to 100"},
+	} {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			_, err := executeProjectCommand(t,
+				NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), test.args...)
+			require.ErrorContains(t, err, test.message)
+		})
 	}
 }
 

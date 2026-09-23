@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -13,6 +14,22 @@ import (
 	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
+
+// maxServiceKeyListLimit matches the API's ceiling on a service-key page size.
+const maxServiceKeyListLimit = 100
+
+// validateServiceKeyListWindow rejects a page or page size outside what the
+// contract allows, so a typo fails naming the flag the user typed rather than
+// as whatever the API makes of it. Mirrors accesstoken.ValidateListWindow.
+func validateServiceKeyListWindow(page, limit int) error {
+	if page < 1 {
+		return fmt.Errorf("invalid --page %d: expected 1 or more", page)
+	}
+	if limit < 1 || limit > maxServiceKeyListLimit {
+		return fmt.Errorf("invalid --limit %d: expected 1 to %d", limit, maxServiceKeyListLimit)
+	}
+	return nil
+}
 
 type serviceKeyListOptions struct {
 	deps      cliruntime.Deps
@@ -78,6 +95,10 @@ func newServiceKeyList(deps cliruntime.Deps) *cobra.Command {
 }
 
 func runServiceKeyList(ctx context.Context, opts serviceKeyListOptions) error {
+	if err := validateServiceKeyListWindow(opts.page, opts.limit); err != nil {
+		return err
+	}
+
 	page, err := cliproject.NewService(opts.deps).ListServiceKeys(ctx, opts.projectID, opts.page, opts.limit)
 	if err != nil {
 		return err
