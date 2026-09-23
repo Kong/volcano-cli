@@ -1,17 +1,18 @@
 ---
 title: "Durable functions"
-description: "Deploy functions that checkpoint progress and resume from the last completed step, so one execution can run for hours."
+description: "Deploy functions that checkpoint progress and resume from the last completed step for up to 366 days."
 ---
 
 ## What it is
 
 A durable function checkpoints its progress and resumes from the last completed
-step, so one execution can run for hours instead of the seconds a normal
-invocation allows. Use one for work that has to survive a restart: a multi-step
-order pipeline, a long agent run, a nightly batch that calls out to a slow API.
+step, so one execution can run for up to 366 days instead of the seconds a
+normal invocation allows. Use one for work that has to survive a restart: a
+multi-step order pipeline, a long agent run, a nightly batch that calls out to a
+slow API.
 
-Durable functions are cloud-only, run on the runtimes that ship the durable
-authoring API (JavaScript, TypeScript and Python), and are a separate collection
+Durable functions run locally and in the cloud on runtimes that ship the durable
+authoring API (JavaScript, TypeScript and Python). They are a separate collection
 from standard functions:
 
 - You **start** an execution instead of invoking a function. The start returns a
@@ -76,10 +77,11 @@ destructive commands ask for. Schedulers are a Pro capability, capped at 5 per
 project across standard and durable functions together; a create beyond that
 answers `403`.
 
-All of them run under `volcano cloud`. Local development does not run durable
-executions and the local server refuses to create a durable function rather than
-pretending to, so a bare `volcano durable …` answers with that refusal rather
-than running anything.
+The table shows cloud commands. Remove `cloud` to use the same commands against
+the local environment, for example `volcano durable deploy --all`. Local waits
+resolve immediately by default while preserving checkpoint and replay behavior.
+Set `LOCAL_DURABLE_REAL_TIME=true` before `volcano start` when wait timing must
+match the deployed function.
 
 ## Examples
 
