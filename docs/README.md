@@ -128,3 +128,5 @@ already exist locally, since the CLI never pulls an unpublished local-mode image
 volcano start --image kong/volcano:local-nightly
 VOLCANO_IMAGE=kong/volcano:local-nightly volcano start
 ```
+
+- [Sandboxes](sandboxes.md): isolated commands, sessions, files, and templates.

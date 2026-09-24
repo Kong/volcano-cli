@@ -290,6 +290,78 @@ func (e CreateOAuthConfigRequestProvider) Valid() bool {
 	}
 }
 
+// Defines values for CreateSandboxSessionRequestMemoryMb.
+const (
+	CreateSandboxSessionRequestMemoryMbN1024 CreateSandboxSessionRequestMemoryMb = 1024
+	CreateSandboxSessionRequestMemoryMbN2048 CreateSandboxSessionRequestMemoryMb = 2048
+)
+
+// Valid indicates whether the value is a known member of the CreateSandboxSessionRequestMemoryMb enum.
+func (e CreateSandboxSessionRequestMemoryMb) Valid() bool {
+	switch e {
+	case CreateSandboxSessionRequestMemoryMbN1024:
+		return true
+	case CreateSandboxSessionRequestMemoryMbN2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateSandboxSessionRequestPreset.
+const (
+	CreateSandboxSessionRequestPresetNode22    CreateSandboxSessionRequestPreset = "node22"
+	CreateSandboxSessionRequestPresetPython312 CreateSandboxSessionRequestPreset = "python3.12"
+)
+
+// Valid indicates whether the value is a known member of the CreateSandboxSessionRequestPreset enum.
+func (e CreateSandboxSessionRequestPreset) Valid() bool {
+	switch e {
+	case CreateSandboxSessionRequestPresetNode22:
+		return true
+	case CreateSandboxSessionRequestPresetPython312:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateSandboxTemplateRequestMemoryMb.
+const (
+	CreateSandboxTemplateRequestMemoryMbN1024 CreateSandboxTemplateRequestMemoryMb = 1024
+	CreateSandboxTemplateRequestMemoryMbN2048 CreateSandboxTemplateRequestMemoryMb = 2048
+)
+
+// Valid indicates whether the value is a known member of the CreateSandboxTemplateRequestMemoryMb enum.
+func (e CreateSandboxTemplateRequestMemoryMb) Valid() bool {
+	switch e {
+	case CreateSandboxTemplateRequestMemoryMbN1024:
+		return true
+	case CreateSandboxTemplateRequestMemoryMbN2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateSandboxTemplateRequestPreset.
+const (
+	CreateSandboxTemplateRequestPresetNode22    CreateSandboxTemplateRequestPreset = "node22"
+	CreateSandboxTemplateRequestPresetPython312 CreateSandboxTemplateRequestPreset = "python3.12"
+)
+
+// Valid indicates whether the value is a known member of the CreateSandboxTemplateRequestPreset enum.
+func (e CreateSandboxTemplateRequestPreset) Valid() bool {
+	switch e {
+	case CreateSandboxTemplateRequestPresetNode22:
+		return true
+	case CreateSandboxTemplateRequestPresetPython312:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateStoragePolicyRequestOperation.
 const (
 	CreateStoragePolicyRequestOperationDELETE CreateStoragePolicyRequestOperation = "DELETE"
@@ -2306,6 +2378,42 @@ func (e ProjectMetricsUnit) Valid() bool {
 	}
 }
 
+// Defines values for PublishSandboxPresetRequestMemoryMb.
+const (
+	PublishSandboxPresetRequestMemoryMbN1024 PublishSandboxPresetRequestMemoryMb = 1024
+	PublishSandboxPresetRequestMemoryMbN2048 PublishSandboxPresetRequestMemoryMb = 2048
+)
+
+// Valid indicates whether the value is a known member of the PublishSandboxPresetRequestMemoryMb enum.
+func (e PublishSandboxPresetRequestMemoryMb) Valid() bool {
+	switch e {
+	case PublishSandboxPresetRequestMemoryMbN1024:
+		return true
+	case PublishSandboxPresetRequestMemoryMbN2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublishSandboxPresetRequestPreset.
+const (
+	PublishSandboxPresetRequestPresetNode22    PublishSandboxPresetRequestPreset = "node22"
+	PublishSandboxPresetRequestPresetPython312 PublishSandboxPresetRequestPreset = "python3.12"
+)
+
+// Valid indicates whether the value is a known member of the PublishSandboxPresetRequestPreset enum.
+func (e PublishSandboxPresetRequestPreset) Valid() bool {
+	switch e {
+	case PublishSandboxPresetRequestPresetNode22:
+		return true
+	case PublishSandboxPresetRequestPresetPython312:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceReferenceType.
 const (
 	ResourceReferenceTypeDatabase ResourceReferenceType = "database"
@@ -2324,6 +2432,138 @@ func (e ResourceReferenceType) Valid() bool {
 	case ResourceReferenceTypeFunction:
 		return true
 	case ResourceReferenceTypeProject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxExecutionRequestMemoryMb.
+const (
+	SandboxExecutionRequestMemoryMbN1024 SandboxExecutionRequestMemoryMb = 1024
+	SandboxExecutionRequestMemoryMbN2048 SandboxExecutionRequestMemoryMb = 2048
+)
+
+// Valid indicates whether the value is a known member of the SandboxExecutionRequestMemoryMb enum.
+func (e SandboxExecutionRequestMemoryMb) Valid() bool {
+	switch e {
+	case SandboxExecutionRequestMemoryMbN1024:
+		return true
+	case SandboxExecutionRequestMemoryMbN2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxExecutionRequestPreset.
+const (
+	SandboxExecutionRequestPresetNode22    SandboxExecutionRequestPreset = "node22"
+	SandboxExecutionRequestPresetPython312 SandboxExecutionRequestPreset = "python3.12"
+)
+
+// Valid indicates whether the value is a known member of the SandboxExecutionRequestPreset enum.
+func (e SandboxExecutionRequestPreset) Valid() bool {
+	switch e {
+	case SandboxExecutionRequestPresetNode22:
+		return true
+	case SandboxExecutionRequestPresetPython312:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxPresetMemoryMb.
+const (
+	N1024 SandboxPresetMemoryMb = 1024
+	N2048 SandboxPresetMemoryMb = 2048
+)
+
+// Valid indicates whether the value is a known member of the SandboxPresetMemoryMb enum.
+func (e SandboxPresetMemoryMb) Valid() bool {
+	switch e {
+	case N1024:
+		return true
+	case N2048:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionDesiredState.
+const (
+	SandboxSessionDesiredStateRunning    SandboxSessionDesiredState = "running"
+	SandboxSessionDesiredStateSuspended  SandboxSessionDesiredState = "suspended"
+	SandboxSessionDesiredStateTerminated SandboxSessionDesiredState = "terminated"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionDesiredState enum.
+func (e SandboxSessionDesiredState) Valid() bool {
+	switch e {
+	case SandboxSessionDesiredStateRunning:
+		return true
+	case SandboxSessionDesiredStateSuspended:
+		return true
+	case SandboxSessionDesiredStateTerminated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxSessionState.
+const (
+	SandboxSessionStateResuming    SandboxSessionState = "resuming"
+	SandboxSessionStateRunning     SandboxSessionState = "running"
+	SandboxSessionStateStarting    SandboxSessionState = "starting"
+	SandboxSessionStateSuspended   SandboxSessionState = "suspended"
+	SandboxSessionStateSuspending  SandboxSessionState = "suspending"
+	SandboxSessionStateTerminated  SandboxSessionState = "terminated"
+	SandboxSessionStateTerminating SandboxSessionState = "terminating"
+	SandboxSessionStateUnknown     SandboxSessionState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the SandboxSessionState enum.
+func (e SandboxSessionState) Valid() bool {
+	switch e {
+	case SandboxSessionStateResuming:
+		return true
+	case SandboxSessionStateRunning:
+		return true
+	case SandboxSessionStateStarting:
+		return true
+	case SandboxSessionStateSuspended:
+		return true
+	case SandboxSessionStateSuspending:
+		return true
+	case SandboxSessionStateTerminated:
+		return true
+	case SandboxSessionStateTerminating:
+		return true
+	case SandboxSessionStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SandboxTemplateStatus.
+const (
+	SandboxTemplateStatusDeleting    SandboxTemplateStatus = "deleting"
+	SandboxTemplateStatusReady       SandboxTemplateStatus = "ready"
+	SandboxTemplateStatusUnavailable SandboxTemplateStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the SandboxTemplateStatus enum.
+func (e SandboxTemplateStatus) Valid() bool {
+	switch e {
+	case SandboxTemplateStatusDeleting:
+		return true
+	case SandboxTemplateStatusReady:
+		return true
+	case SandboxTemplateStatusUnavailable:
 		return true
 	default:
 		return false
@@ -3196,16 +3436,16 @@ func (e ListUserSessionsParamsSort) Valid() bool {
 
 // Defines values for ListUserSessionsParamsStatus.
 const (
-	Active  ListUserSessionsParamsStatus = "active"
-	Expired ListUserSessionsParamsStatus = "expired"
+	ListUserSessionsParamsStatusActive  ListUserSessionsParamsStatus = "active"
+	ListUserSessionsParamsStatusExpired ListUserSessionsParamsStatus = "expired"
 )
 
 // Valid indicates whether the value is a known member of the ListUserSessionsParamsStatus enum.
 func (e ListUserSessionsParamsStatus) Valid() bool {
 	switch e {
-	case Active:
+	case ListUserSessionsParamsStatusActive:
 		return true
-	case Expired:
+	case ListUserSessionsParamsStatusExpired:
 		return true
 	default:
 		return false
@@ -4263,6 +4503,42 @@ type CreateProjectRequest struct {
 	// Region names must be a subset of platform `AWS_REGIONS`.
 	SelectedRegions *[]string `json:"selected_regions,omitempty"`
 }
+
+// CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
+type CreateSandboxSessionRequest struct {
+	IdleTimeoutSeconds *int                                 `json:"idle_timeout_seconds,omitempty"`
+	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
+	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
+	Preset             *CreateSandboxSessionRequestPreset   `json:"preset,omitempty"`
+	Region             string                               `json:"region"`
+	SandboxId          *openapi_types.UUID                  `json:"sandbox_id,omitempty"`
+	union              json.RawMessage
+}
+
+// CreateSandboxSessionRequestMemoryMb defines model for CreateSandboxSessionRequest.MemoryMb.
+type CreateSandboxSessionRequestMemoryMb int
+
+// CreateSandboxSessionRequestPreset defines model for CreateSandboxSessionRequest.Preset.
+type CreateSandboxSessionRequestPreset string
+
+// CreateSandboxSessionRequest0 defines model for .
+type CreateSandboxSessionRequest0 = interface{}
+
+// CreateSandboxSessionRequest1 defines model for .
+type CreateSandboxSessionRequest1 = interface{}
+
+// CreateSandboxTemplateRequest defines model for CreateSandboxTemplateRequest.
+type CreateSandboxTemplateRequest struct {
+	MemoryMb *CreateSandboxTemplateRequestMemoryMb `json:"memory_mb,omitempty"`
+	Name     string                                `json:"name"`
+	Preset   CreateSandboxTemplateRequestPreset    `json:"preset"`
+}
+
+// CreateSandboxTemplateRequestMemoryMb defines model for CreateSandboxTemplateRequest.MemoryMb.
+type CreateSandboxTemplateRequestMemoryMb int
+
+// CreateSandboxTemplateRequestPreset defines model for CreateSandboxTemplateRequest.Preset.
+type CreateSandboxTemplateRequestPreset string
 
 // CreateStorageBucketRequest defines model for CreateStorageBucketRequest.
 type CreateStorageBucketRequest struct {
@@ -7419,6 +7695,20 @@ type ProjectUsageResponse struct {
 	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
+// PublishSandboxPresetRequest defines model for PublishSandboxPresetRequest.
+type PublishSandboxPresetRequest struct {
+	DeploymentId openapi_types.UUID                  `json:"deployment_id"`
+	Id           openapi_types.UUID                  `json:"id"`
+	MemoryMb     PublishSandboxPresetRequestMemoryMb `json:"memory_mb"`
+	Preset       PublishSandboxPresetRequestPreset   `json:"preset"`
+}
+
+// PublishSandboxPresetRequestMemoryMb defines model for PublishSandboxPresetRequest.MemoryMb.
+type PublishSandboxPresetRequestMemoryMb int
+
+// PublishSandboxPresetRequestPreset defines model for PublishSandboxPresetRequest.Preset.
+type PublishSandboxPresetRequestPreset string
+
 // RealtimeConfig Realtime configuration for a project.
 // Note: Message size and channels per connection are plan-based (not configurable).
 type RealtimeConfig struct {
@@ -7498,6 +7788,189 @@ type ResourceReference struct {
 
 // ResourceReferenceType defines model for ResourceReference.Type.
 type ResourceReferenceType string
+
+// SandboxAccess defines model for SandboxAccess.
+type SandboxAccess struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token"`
+	Url       string    `json:"url"`
+}
+
+// SandboxAccessRequest defines model for SandboxAccessRequest.
+type SandboxAccessRequest struct {
+	ExpiresInSeconds *int `json:"expires_in_seconds,omitempty"`
+	Port             int  `json:"port"`
+}
+
+// SandboxCapacity defines model for SandboxCapacity.
+type SandboxCapacity struct {
+	AllocatedMemoryMb int64  `json:"allocated_memory_mb"`
+	Region            string `json:"region"`
+}
+
+// SandboxCapacityList defines model for SandboxCapacityList.
+type SandboxCapacityList struct {
+	Data []SandboxCapacity `json:"data"`
+}
+
+// SandboxCommandRequest defines model for SandboxCommandRequest.
+type SandboxCommandRequest struct {
+	Command        string             `json:"command"`
+	Environment    *map[string]string `json:"environment,omitempty"`
+	TimeoutSeconds *int               `json:"timeout_seconds,omitempty"`
+}
+
+// SandboxCommandResult defines model for SandboxCommandResult.
+type SandboxCommandResult struct {
+	ExitCode        int    `json:"exit_code"`
+	Stderr          string `json:"stderr"`
+	StderrTruncated bool   `json:"stderr_truncated"`
+	Stdout          string `json:"stdout"`
+	StdoutTruncated bool   `json:"stdout_truncated"`
+	TimedOut        bool   `json:"timed_out"`
+}
+
+// SandboxDeployment defines model for SandboxDeployment.
+type SandboxDeployment struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Status    string             `json:"status"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
+// SandboxDeploymentPage defines model for SandboxDeploymentPage.
+type SandboxDeploymentPage struct {
+	Data       []SandboxDeployment `json:"data"`
+	Pagination SandboxPagination   `json:"pagination"`
+}
+
+// SandboxExecutionRequest defines model for SandboxExecutionRequest.
+type SandboxExecutionRequest struct {
+	Command        string                           `json:"command"`
+	Environment    *map[string]string               `json:"environment,omitempty"`
+	MemoryMb       *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
+	Preset         *SandboxExecutionRequestPreset   `json:"preset,omitempty"`
+	Region         string                           `json:"region"`
+	SandboxId      *openapi_types.UUID              `json:"sandbox_id,omitempty"`
+	TimeoutSeconds *int                             `json:"timeout_seconds,omitempty"`
+	union          json.RawMessage
+}
+
+// SandboxExecutionRequestMemoryMb defines model for SandboxExecutionRequest.MemoryMb.
+type SandboxExecutionRequestMemoryMb int
+
+// SandboxExecutionRequestPreset defines model for SandboxExecutionRequest.Preset.
+type SandboxExecutionRequestPreset string
+
+// SandboxExecutionRequest0 defines model for .
+type SandboxExecutionRequest0 = interface{}
+
+// SandboxExecutionRequest1 defines model for .
+type SandboxExecutionRequest1 = interface{}
+
+// SandboxExecutionResult defines model for SandboxExecutionResult.
+type SandboxExecutionResult struct {
+	DurationMs      int64              `json:"duration_ms"`
+	ExitCode        int                `json:"exit_code"`
+	Region          string             `json:"region"`
+	SessionId       openapi_types.UUID `json:"session_id"`
+	Stderr          string             `json:"stderr"`
+	StderrTruncated bool               `json:"stderr_truncated"`
+	Stdout          string             `json:"stdout"`
+	StdoutTruncated bool               `json:"stdout_truncated"`
+	TimedOut        bool               `json:"timed_out"`
+}
+
+// SandboxFileReadRequest defines model for SandboxFileReadRequest.
+type SandboxFileReadRequest struct {
+	Path string `json:"path"`
+}
+
+// SandboxFileResult defines model for SandboxFileResult.
+type SandboxFileResult struct {
+	Data []byte `json:"data"`
+}
+
+// SandboxFileWriteRequest defines model for SandboxFileWriteRequest.
+type SandboxFileWriteRequest struct {
+	Data []byte `json:"data"`
+	Path string `json:"path"`
+}
+
+// SandboxPagination defines model for SandboxPagination.
+type SandboxPagination struct {
+	HasMore    bool    `json:"has_more"`
+	Limit      int     `json:"limit"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// SandboxPreset defines model for SandboxPreset.
+type SandboxPreset struct {
+	Id       string                `json:"id"`
+	MemoryMb SandboxPresetMemoryMb `json:"memory_mb"`
+	Regions  []string              `json:"regions"`
+	Runtime  string                `json:"runtime"`
+	Version  string                `json:"version"`
+}
+
+// SandboxPresetMemoryMb defines model for SandboxPreset.MemoryMb.
+type SandboxPresetMemoryMb int
+
+// SandboxPresetList defines model for SandboxPresetList.
+type SandboxPresetList struct {
+	Data []SandboxPreset `json:"data"`
+}
+
+// SandboxSession defines model for SandboxSession.
+type SandboxSession struct {
+	CreatedAt    time.Time                  `json:"created_at"`
+	DesiredState SandboxSessionDesiredState `json:"desired_state"`
+	ExpiresAt    time.Time                  `json:"expires_at"`
+	Id           openapi_types.UUID         `json:"id"`
+	MemoryMb     int                        `json:"memory_mb"`
+	ProjectId    openapi_types.UUID         `json:"project_id"`
+	Region       string                     `json:"region"`
+	SandboxId    openapi_types.UUID         `json:"sandbox_id"`
+	StartedAt    *time.Time                 `json:"started_at,omitempty"`
+	State        SandboxSessionState        `json:"state"`
+}
+
+// SandboxSessionDesiredState defines model for SandboxSession.DesiredState.
+type SandboxSessionDesiredState string
+
+// SandboxSessionState defines model for SandboxSession.State.
+type SandboxSessionState string
+
+// SandboxSessionPage defines model for SandboxSessionPage.
+type SandboxSessionPage struct {
+	Data       []SandboxSession  `json:"data"`
+	Pagination SandboxPagination `json:"pagination"`
+}
+
+// SandboxSubjectGrantRequest defines model for SandboxSubjectGrantRequest.
+type SandboxSubjectGrantRequest struct {
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// SandboxTemplate defines model for SandboxTemplate.
+type SandboxTemplate struct {
+	CreatedAt time.Time             `json:"created_at"`
+	Id        openapi_types.UUID    `json:"id"`
+	MemoryMb  *int                  `json:"memory_mb,omitempty"`
+	Name      string                `json:"name"`
+	Preset    *string               `json:"preset,omitempty"`
+	ProjectId openapi_types.UUID    `json:"project_id"`
+	Status    SandboxTemplateStatus `json:"status"`
+}
+
+// SandboxTemplateStatus defines model for SandboxTemplate.Status.
+type SandboxTemplateStatus string
+
+// SandboxTemplatePage defines model for SandboxTemplatePage.
+type SandboxTemplatePage struct {
+	Data       []SandboxTemplate `json:"data"`
+	Pagination SandboxPagination `json:"pagination"`
+}
 
 // ScheduleRequest defines model for ScheduleRequest.
 type ScheduleRequest struct {
@@ -7926,6 +8399,11 @@ type UpdateRealtimeConfigRequest struct {
 
 	// PresenceEnabled Whether presence tracking is enabled
 	PresenceEnabled *bool `json:"presence_enabled,omitempty"`
+}
+
+// UpdateSandboxTemplateRequest defines model for UpdateSandboxTemplateRequest.
+type UpdateSandboxTemplateRequest struct {
+	Name string `json:"name"`
 }
 
 // UpdateStorageBucketRequest defines model for UpdateStorageBucketRequest.
@@ -9338,6 +9816,57 @@ type UpdateOAuthConfigParams struct {
 // UpdateOAuthConfigParamsProvider defines parameters for UpdateOAuthConfig.
 type UpdateOAuthConfigParamsProvider string
 
+// ExecuteSandboxParams defines parameters for ExecuteSandbox.
+type ExecuteSandboxParams struct {
+	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
+}
+
+// ListSandboxSessionsParams defines parameters for ListSandboxSessions.
+type ListSandboxSessionsParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque keyset pagination cursor from a previous response's `next_cursor`
+	// — pages forward. Mutually exclusive with `page` and `ending_before`;
+	// combining them returns 400. When supplied, the request's `search` and
+	// `limit` must match the values bound to the cursor or the request returns 400.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// CreateSandboxSessionParams defines parameters for CreateSandboxSession.
+type CreateSandboxSessionParams struct {
+	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
+}
+
+// ListSandboxesParams defines parameters for ListSandboxes.
+type ListSandboxesParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque keyset pagination cursor from a previous response's `next_cursor`
+	// — pages forward. Mutually exclusive with `page` and `ending_before`;
+	// combining them returns 400. When supplied, the request's `search` and
+	// `limit` must match the values bound to the cursor or the request returns 400.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// CreateSandboxParams defines parameters for CreateSandbox.
+type CreateSandboxParams struct {
+	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
+}
+
+// ListSandboxDeploymentsParams defines parameters for ListSandboxDeployments.
+type ListSandboxDeploymentsParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque keyset pagination cursor from a previous response's `next_cursor`
+	// — pages forward. Mutually exclusive with `page` and `ending_before`;
+	// combining them returns 400. When supplied, the request's `search` and
+	// `limit` must match the values bound to the cursor or the request returns 400.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListProjectSchedulersParams defines parameters for ListProjectSchedulers.
 type ListProjectSchedulersParams struct {
 	// Page Page number (1-indexed) for offset pagination. Declares no schema
@@ -9536,6 +10065,11 @@ type ListVariablesParams struct {
 	// Search Case-insensitive substring match on the resource `name`. See the
 	// endpoint description for supported pagination modes.
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ExecuteSandboxSessionParams defines parameters for ExecuteSandboxSession.
+type ExecuteSandboxSessionParams struct {
+	IdempotencyKey openapi_types.UUID `json:"Idempotency-Key"`
 }
 
 // ListStorageObjectsParams defines parameters for ListStorageObjects.
@@ -9845,6 +10379,18 @@ type UpdateOAuthConfigJSONRequestBody = UpdateOAuthConfigRequest
 // UpdateRealtimeConfigJSONRequestBody defines body for UpdateRealtimeConfig for application/json ContentType.
 type UpdateRealtimeConfigJSONRequestBody = UpdateRealtimeConfigRequest
 
+// ExecuteSandboxJSONRequestBody defines body for ExecuteSandbox for application/json ContentType.
+type ExecuteSandboxJSONRequestBody = SandboxExecutionRequest
+
+// CreateSandboxSessionJSONRequestBody defines body for CreateSandboxSession for application/json ContentType.
+type CreateSandboxSessionJSONRequestBody = CreateSandboxSessionRequest
+
+// CreateSandboxJSONRequestBody defines body for CreateSandbox for application/json ContentType.
+type CreateSandboxJSONRequestBody = CreateSandboxTemplateRequest
+
+// UpdateSandboxJSONRequestBody defines body for UpdateSandbox for application/json ContentType.
+type UpdateSandboxJSONRequestBody = UpdateSandboxTemplateRequest
+
 // CreateServiceKeyJSONRequestBody defines body for CreateServiceKey for application/json ContentType.
 type CreateServiceKeyJSONRequestBody CreateServiceKeyJSONBody
 
@@ -9863,6 +10409,21 @@ type CreateVariableJSONRequestBody = CreateVariableRequest
 // UpdateVariableJSONRequestBody defines body for UpdateVariable for application/json ContentType.
 type UpdateVariableJSONRequestBody = UpdateVariableRequest
 
+// CreateSandboxSessionAccessJSONRequestBody defines body for CreateSandboxSessionAccess for application/json ContentType.
+type CreateSandboxSessionAccessJSONRequestBody = SandboxAccessRequest
+
+// ExecuteSandboxSessionJSONRequestBody defines body for ExecuteSandboxSession for application/json ContentType.
+type ExecuteSandboxSessionJSONRequestBody = SandboxCommandRequest
+
+// ReadSandboxSessionFileJSONRequestBody defines body for ReadSandboxSessionFile for application/json ContentType.
+type ReadSandboxSessionFileJSONRequestBody = SandboxFileReadRequest
+
+// WriteSandboxSessionFileJSONRequestBody defines body for WriteSandboxSessionFile for application/json ContentType.
+type WriteSandboxSessionFileJSONRequestBody = SandboxFileWriteRequest
+
+// GrantSandboxSessionJSONRequestBody defines body for GrantSandboxSession for application/json ContentType.
+type GrantSandboxSessionJSONRequestBody = SandboxSubjectGrantRequest
+
 // CopyStorageObjectJSONRequestBody defines body for CopyStorageObject for application/json ContentType.
 type CopyStorageObjectJSONRequestBody = StorageCopyRequest
 
@@ -9877,6 +10438,170 @@ type UploadStorageObjectMultipartRequestBody UploadStorageObjectMultipartBody
 
 // UpdateStorageObjectVisibilityJSONRequestBody defines body for UpdateStorageObjectVisibility for application/json ContentType.
 type UpdateStorageObjectVisibilityJSONRequestBody = StorageVisibilityRequest
+
+// AsCreateSandboxSessionRequest0 returns the union data inside the CreateSandboxSessionRequest as a CreateSandboxSessionRequest0
+func (t CreateSandboxSessionRequest) AsCreateSandboxSessionRequest0() (CreateSandboxSessionRequest0, error) {
+	var body CreateSandboxSessionRequest0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateSandboxSessionRequest0 overwrites any union data inside the CreateSandboxSessionRequest as the provided CreateSandboxSessionRequest0
+func (t *CreateSandboxSessionRequest) FromCreateSandboxSessionRequest0(v CreateSandboxSessionRequest0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateSandboxSessionRequest0 performs a merge with any union data inside the CreateSandboxSessionRequest, using the provided CreateSandboxSessionRequest0
+func (t *CreateSandboxSessionRequest) MergeCreateSandboxSessionRequest0(v CreateSandboxSessionRequest0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateSandboxSessionRequest1 returns the union data inside the CreateSandboxSessionRequest as a CreateSandboxSessionRequest1
+func (t CreateSandboxSessionRequest) AsCreateSandboxSessionRequest1() (CreateSandboxSessionRequest1, error) {
+	var body CreateSandboxSessionRequest1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateSandboxSessionRequest1 overwrites any union data inside the CreateSandboxSessionRequest as the provided CreateSandboxSessionRequest1
+func (t *CreateSandboxSessionRequest) FromCreateSandboxSessionRequest1(v CreateSandboxSessionRequest1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateSandboxSessionRequest1 performs a merge with any union data inside the CreateSandboxSessionRequest, using the provided CreateSandboxSessionRequest1
+func (t *CreateSandboxSessionRequest) MergeCreateSandboxSessionRequest1(v CreateSandboxSessionRequest1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.IdleTimeoutSeconds != nil {
+		object["idle_timeout_seconds"], err = json.Marshal(t.IdleTimeoutSeconds)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'idle_timeout_seconds': %w", err)
+		}
+	}
+
+	if t.MaxDurationSeconds != nil {
+		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'max_duration_seconds': %w", err)
+		}
+	}
+
+	if t.MemoryMb != nil {
+		object["memory_mb"], err = json.Marshal(t.MemoryMb)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'memory_mb': %w", err)
+		}
+	}
+
+	if t.Preset != nil {
+		object["preset"], err = json.Marshal(t.Preset)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'preset': %w", err)
+		}
+	}
+
+	object["region"], err = json.Marshal(t.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'region': %w", err)
+	}
+
+	if t.SandboxId != nil {
+		object["sandbox_id"], err = json.Marshal(t.SandboxId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sandbox_id': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["idle_timeout_seconds"]; found {
+		err = json.Unmarshal(raw, &t.IdleTimeoutSeconds)
+		if err != nil {
+			return fmt.Errorf("error reading 'idle_timeout_seconds': %w", err)
+		}
+	}
+
+	if raw, found := object["max_duration_seconds"]; found {
+		err = json.Unmarshal(raw, &t.MaxDurationSeconds)
+		if err != nil {
+			return fmt.Errorf("error reading 'max_duration_seconds': %w", err)
+		}
+	}
+
+	if raw, found := object["memory_mb"]; found {
+		err = json.Unmarshal(raw, &t.MemoryMb)
+		if err != nil {
+			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["preset"]; found {
+		err = json.Unmarshal(raw, &t.Preset)
+		if err != nil {
+			return fmt.Errorf("error reading 'preset': %w", err)
+		}
+	}
+
+	if raw, found := object["region"]; found {
+		err = json.Unmarshal(raw, &t.Region)
+		if err != nil {
+			return fmt.Errorf("error reading 'region': %w", err)
+		}
+	}
+
+	if raw, found := object["sandbox_id"]; found {
+		err = json.Unmarshal(raw, &t.SandboxId)
+		if err != nil {
+			return fmt.Errorf("error reading 'sandbox_id': %w", err)
+		}
+	}
+
+	return err
+}
 
 // AsDatabaseQueryFilterValue30 returns the union data inside the DatabaseQueryFilter_Value_3_Item as a DatabaseQueryFilterValue30
 func (t DatabaseQueryFilter_Value_3_Item) AsDatabaseQueryFilterValue30() (DatabaseQueryFilterValue30, error) {
@@ -10476,6 +11201,182 @@ func (t LogSearchEvent_Body) MarshalJSON() ([]byte, error) {
 
 func (t *LogSearchEvent_Body) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsSandboxExecutionRequest0 returns the union data inside the SandboxExecutionRequest as a SandboxExecutionRequest0
+func (t SandboxExecutionRequest) AsSandboxExecutionRequest0() (SandboxExecutionRequest0, error) {
+	var body SandboxExecutionRequest0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSandboxExecutionRequest0 overwrites any union data inside the SandboxExecutionRequest as the provided SandboxExecutionRequest0
+func (t *SandboxExecutionRequest) FromSandboxExecutionRequest0(v SandboxExecutionRequest0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSandboxExecutionRequest0 performs a merge with any union data inside the SandboxExecutionRequest, using the provided SandboxExecutionRequest0
+func (t *SandboxExecutionRequest) MergeSandboxExecutionRequest0(v SandboxExecutionRequest0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSandboxExecutionRequest1 returns the union data inside the SandboxExecutionRequest as a SandboxExecutionRequest1
+func (t SandboxExecutionRequest) AsSandboxExecutionRequest1() (SandboxExecutionRequest1, error) {
+	var body SandboxExecutionRequest1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSandboxExecutionRequest1 overwrites any union data inside the SandboxExecutionRequest as the provided SandboxExecutionRequest1
+func (t *SandboxExecutionRequest) FromSandboxExecutionRequest1(v SandboxExecutionRequest1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSandboxExecutionRequest1 performs a merge with any union data inside the SandboxExecutionRequest, using the provided SandboxExecutionRequest1
+func (t *SandboxExecutionRequest) MergeSandboxExecutionRequest1(v SandboxExecutionRequest1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	object["command"], err = json.Marshal(t.Command)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'command': %w", err)
+	}
+
+	if t.Environment != nil {
+		object["environment"], err = json.Marshal(t.Environment)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'environment': %w", err)
+		}
+	}
+
+	if t.MemoryMb != nil {
+		object["memory_mb"], err = json.Marshal(t.MemoryMb)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'memory_mb': %w", err)
+		}
+	}
+
+	if t.Preset != nil {
+		object["preset"], err = json.Marshal(t.Preset)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'preset': %w", err)
+		}
+	}
+
+	object["region"], err = json.Marshal(t.Region)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'region': %w", err)
+	}
+
+	if t.SandboxId != nil {
+		object["sandbox_id"], err = json.Marshal(t.SandboxId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sandbox_id': %w", err)
+		}
+	}
+
+	if t.TimeoutSeconds != nil {
+		object["timeout_seconds"], err = json.Marshal(t.TimeoutSeconds)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'timeout_seconds': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["command"]; found {
+		err = json.Unmarshal(raw, &t.Command)
+		if err != nil {
+			return fmt.Errorf("error reading 'command': %w", err)
+		}
+	}
+
+	if raw, found := object["environment"]; found {
+		err = json.Unmarshal(raw, &t.Environment)
+		if err != nil {
+			return fmt.Errorf("error reading 'environment': %w", err)
+		}
+	}
+
+	if raw, found := object["memory_mb"]; found {
+		err = json.Unmarshal(raw, &t.MemoryMb)
+		if err != nil {
+			return fmt.Errorf("error reading 'memory_mb': %w", err)
+		}
+	}
+
+	if raw, found := object["preset"]; found {
+		err = json.Unmarshal(raw, &t.Preset)
+		if err != nil {
+			return fmt.Errorf("error reading 'preset': %w", err)
+		}
+	}
+
+	if raw, found := object["region"]; found {
+		err = json.Unmarshal(raw, &t.Region)
+		if err != nil {
+			return fmt.Errorf("error reading 'region': %w", err)
+		}
+	}
+
+	if raw, found := object["sandbox_id"]; found {
+		err = json.Unmarshal(raw, &t.SandboxId)
+		if err != nil {
+			return fmt.Errorf("error reading 'sandbox_id': %w", err)
+		}
+	}
+
+	if raw, found := object["timeout_seconds"]; found {
+		err = json.Unmarshal(raw, &t.TimeoutSeconds)
+		if err != nil {
+			return fmt.Errorf("error reading 'timeout_seconds': %w", err)
+		}
+	}
+
 	return err
 }
 
@@ -11410,6 +12311,41 @@ type ClientInterface interface {
 	// GetRealtimeStats request
 	GetRealtimeStats(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ExecuteSandboxWithBody request with any body
+	ExecuteSandboxWithBody(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ExecuteSandbox(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, body ExecuteSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxSessions request
+	ListSandboxSessions(ctx context.Context, id openapi_types.UUID, params *ListSandboxSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxSessionWithBody request with any body
+	CreateSandboxSessionWithBody(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxSession(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, body CreateSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxes request
+	ListSandboxes(ctx context.Context, id openapi_types.UUID, params *ListSandboxesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxWithBody request with any body
+	CreateSandboxWithBody(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandbox(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSandbox request
+	DeleteSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSandbox request
+	GetSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSandboxWithBody request with any body
+	UpdateSandboxWithBody(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxDeployments request
+	ListSandboxDeployments(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, params *ListSandboxDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProjectSchedulers request
 	ListProjectSchedulers(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -11490,6 +12426,49 @@ type ClientInterface interface {
 
 	// DownloadPublicFile request
 	DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TerminateSandboxSession request
+	TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSandboxSession request
+	GetSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxSessionAccessWithBody request with any body
+	CreateSandboxSessionAccessWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxSessionAccess(ctx context.Context, sessionId openapi_types.UUID, body CreateSandboxSessionAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExecuteSandboxSessionWithBody request with any body
+	ExecuteSandboxSessionWithBody(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ExecuteSandboxSession(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReadSandboxSessionFileWithBody request with any body
+	ReadSandboxSessionFileWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReadSandboxSessionFile(ctx context.Context, sessionId openapi_types.UUID, body ReadSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WriteSandboxSessionFileWithBody request with any body
+	WriteSandboxSessionFileWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	WriteSandboxSessionFile(ctx context.Context, sessionId openapi_types.UUID, body WriteSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeSandboxSession request
+	RevokeSandboxSession(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GrantSandboxSessionWithBody request with any body
+	GrantSandboxSessionWithBody(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	GrantSandboxSession(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, body GrantSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResumeSandboxSession request
+	ResumeSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SuspendSandboxSession request
+	SuspendSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxPresets request
+	ListSandboxPresets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStorageObjects request
 	ListStorageObjects(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -14764,6 +15743,162 @@ func (c *Client) GetRealtimeStats(ctx context.Context, id ProjectId, reqEditors 
 	return c.Client.Do(req)
 }
 
+func (c *Client) ExecuteSandboxWithBody(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExecuteSandboxRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExecuteSandbox(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, body ExecuteSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExecuteSandboxRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxSessions(ctx context.Context, id openapi_types.UUID, params *ListSandboxSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxSessionsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxSessionWithBody(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxSessionRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxSession(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, body CreateSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxSessionRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxes(ctx context.Context, id openapi_types.UUID, params *ListSandboxesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxWithBody(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandbox(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSandboxRequest(c.Server, id, sandboxId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSandboxRequest(c.Server, id, sandboxId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandboxWithBody(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxRequestWithBody(c.Server, id, sandboxId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandbox(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxRequest(c.Server, id, sandboxId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxDeployments(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, params *ListSandboxDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxDeploymentsRequest(c.Server, id, sandboxId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListProjectSchedulers(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectSchedulersRequest(c.Server, id, params)
 	if err != nil {
@@ -15102,6 +16237,198 @@ func (c *Client) UpdateVariable(ctx context.Context, id ProjectId, name Variable
 
 func (c *Client) DownloadPublicFile(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDownloadPublicFileRequest(c.Server, projectId, bucketName, path)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TerminateSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTerminateSandboxSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSandboxSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxSessionAccessWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxSessionAccessRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxSessionAccess(ctx context.Context, sessionId openapi_types.UUID, body CreateSandboxSessionAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxSessionAccessRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExecuteSandboxSessionWithBody(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExecuteSandboxSessionRequestWithBody(c.Server, sessionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ExecuteSandboxSession(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExecuteSandboxSessionRequest(c.Server, sessionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadSandboxSessionFileWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadSandboxSessionFileRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadSandboxSessionFile(ctx context.Context, sessionId openapi_types.UUID, body ReadSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadSandboxSessionFileRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WriteSandboxSessionFileWithBody(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteSandboxSessionFileRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WriteSandboxSessionFile(ctx context.Context, sessionId openapi_types.UUID, body WriteSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWriteSandboxSessionFileRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeSandboxSession(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeSandboxSessionRequest(c.Server, sessionId, subjectId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GrantSandboxSessionWithBody(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGrantSandboxSessionRequestWithBody(c.Server, sessionId, subjectId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GrantSandboxSession(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, body GrantSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGrantSandboxSessionRequest(c.Server, sessionId, subjectId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ResumeSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResumeSandboxSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SuspendSandboxSession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSuspendSandboxSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxPresets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxPresetsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -25789,6 +27116,548 @@ func NewGetRealtimeStatsRequest(server string, id ProjectId) (*http.Request, err
 	return req, nil
 }
 
+// NewExecuteSandboxRequest calls the generic ExecuteSandbox builder with application/json body
+func NewExecuteSandboxRequest(server string, id openapi_types.UUID, params *ExecuteSandboxParams, body ExecuteSandboxJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExecuteSandboxRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewExecuteSandboxRequestWithBody generates requests for ExecuteSandbox with any type of body
+func NewExecuteSandboxRequestWithBody(server string, id openapi_types.UUID, params *ExecuteSandboxParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandbox-executions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: "uuid"})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListSandboxSessionsRequest generates requests for ListSandboxSessions
+func NewListSandboxSessionsRequest(server string, id openapi_types.UUID, params *ListSandboxSessionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandbox-sessions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxSessionRequest calls the generic CreateSandboxSession builder with application/json body
+func NewCreateSandboxSessionRequest(server string, id openapi_types.UUID, params *CreateSandboxSessionParams, body CreateSandboxSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxSessionRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCreateSandboxSessionRequestWithBody generates requests for CreateSandboxSession with any type of body
+func NewCreateSandboxSessionRequestWithBody(server string, id openapi_types.UUID, params *CreateSandboxSessionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandbox-sessions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: "uuid"})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListSandboxesRequest generates requests for ListSandboxes
+func NewListSandboxesRequest(server string, id openapi_types.UUID, params *ListSandboxesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxRequest calls the generic CreateSandbox builder with application/json body
+func NewCreateSandboxRequest(server string, id openapi_types.UUID, params *CreateSandboxParams, body CreateSandboxJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCreateSandboxRequestWithBody generates requests for CreateSandbox with any type of body
+func NewCreateSandboxRequestWithBody(server string, id openapi_types.UUID, params *CreateSandboxParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: "uuid"})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteSandboxRequest generates requests for DeleteSandbox
+func NewDeleteSandboxRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sandboxId", sandboxId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSandboxRequest generates requests for GetSandbox
+func NewGetSandboxRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sandboxId", sandboxId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSandboxRequest calls the generic UpdateSandbox builder with application/json body
+func NewUpdateSandboxRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID, body UpdateSandboxJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSandboxRequestWithBody(server, id, sandboxId, "application/json", bodyReader)
+}
+
+// NewUpdateSandboxRequestWithBody generates requests for UpdateSandbox with any type of body
+func NewUpdateSandboxRequestWithBody(server string, id openapi_types.UUID, sandboxId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sandboxId", sandboxId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSandboxDeploymentsRequest generates requests for ListSandboxDeployments
+func NewListSandboxDeploymentsRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID, params *ListSandboxDeploymentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sandboxId", sandboxId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes/%s/deployments", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectSchedulersRequest generates requests for ListProjectSchedulers
 func NewListProjectSchedulersRequest(server string, id ProjectId, params *ListProjectSchedulersParams) (*http.Request, error) {
 	var err error
@@ -27172,6 +29041,465 @@ func NewDownloadPublicFileRequest(server string, projectId openapi_types.UUID, b
 	}
 
 	operationPath := fmt.Sprintf("/public/%s/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTerminateSandboxSessionRequest generates requests for TerminateSandboxSession
+func NewTerminateSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSandboxSessionRequest generates requests for GetSandboxSession
+func NewGetSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxSessionAccessRequest calls the generic CreateSandboxSessionAccess builder with application/json body
+func NewCreateSandboxSessionAccessRequest(server string, sessionId openapi_types.UUID, body CreateSandboxSessionAccessJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxSessionAccessRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewCreateSandboxSessionAccessRequestWithBody generates requests for CreateSandboxSessionAccess with any type of body
+func NewCreateSandboxSessionAccessRequestWithBody(server string, sessionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/access", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewExecuteSandboxSessionRequest calls the generic ExecuteSandboxSession builder with application/json body
+func NewExecuteSandboxSessionRequest(server string, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExecuteSandboxSessionRequestWithBody(server, sessionId, params, "application/json", bodyReader)
+}
+
+// NewExecuteSandboxSessionRequestWithBody generates requests for ExecuteSandboxSession with any type of body
+func NewExecuteSandboxSessionRequestWithBody(server string, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/exec", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: "uuid"})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewReadSandboxSessionFileRequest calls the generic ReadSandboxSessionFile builder with application/json body
+func NewReadSandboxSessionFileRequest(server string, sessionId openapi_types.UUID, body ReadSandboxSessionFileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReadSandboxSessionFileRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewReadSandboxSessionFileRequestWithBody generates requests for ReadSandboxSessionFile with any type of body
+func NewReadSandboxSessionFileRequestWithBody(server string, sessionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/files/read", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewWriteSandboxSessionFileRequest calls the generic WriteSandboxSessionFile builder with application/json body
+func NewWriteSandboxSessionFileRequest(server string, sessionId openapi_types.UUID, body WriteSandboxSessionFileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewWriteSandboxSessionFileRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewWriteSandboxSessionFileRequestWithBody generates requests for WriteSandboxSessionFile with any type of body
+func NewWriteSandboxSessionFileRequestWithBody(server string, sessionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/files/write", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRevokeSandboxSessionRequest generates requests for RevokeSandboxSession
+func NewRevokeSandboxSessionRequest(server string, sessionId openapi_types.UUID, subjectId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "subjectId", subjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/grants/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGrantSandboxSessionRequest calls the generic GrantSandboxSession builder with application/json body
+func NewGrantSandboxSessionRequest(server string, sessionId openapi_types.UUID, subjectId openapi_types.UUID, body GrantSandboxSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewGrantSandboxSessionRequestWithBody(server, sessionId, subjectId, "application/json", bodyReader)
+}
+
+// NewGrantSandboxSessionRequestWithBody generates requests for GrantSandboxSession with any type of body
+func NewGrantSandboxSessionRequestWithBody(server string, sessionId openapi_types.UUID, subjectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "subjectId", subjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/grants/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewResumeSandboxSessionRequest generates requests for ResumeSandboxSession
+func NewResumeSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/resume", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSuspendSandboxSessionRequest generates requests for SuspendSandboxSession
+func NewSuspendSandboxSessionRequest(server string, sessionId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox-sessions/%s/suspend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSandboxPresetsRequest generates requests for ListSandboxPresets
+func NewListSandboxPresetsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/presets")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -28796,6 +31124,41 @@ type ClientWithResponsesInterface interface {
 	// GetRealtimeStatsWithResponse request
 	GetRealtimeStatsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetRealtimeStatsClientResponse, error)
 
+	// ExecuteSandboxWithBodyWithResponse request with any body
+	ExecuteSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExecuteSandboxClientResponse, error)
+
+	ExecuteSandboxWithResponse(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, body ExecuteSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*ExecuteSandboxClientResponse, error)
+
+	// ListSandboxSessionsWithResponse request
+	ListSandboxSessionsWithResponse(ctx context.Context, id openapi_types.UUID, params *ListSandboxSessionsParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionsClientResponse, error)
+
+	// CreateSandboxSessionWithBodyWithResponse request with any body
+	CreateSandboxSessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxSessionClientResponse, error)
+
+	CreateSandboxSessionWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, body CreateSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxSessionClientResponse, error)
+
+	// ListSandboxesWithResponse request
+	ListSandboxesWithResponse(ctx context.Context, id openapi_types.UUID, params *ListSandboxesParams, reqEditors ...RequestEditorFn) (*ListSandboxesClientResponse, error)
+
+	// CreateSandboxWithBodyWithResponse request with any body
+	CreateSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxClientResponse, error)
+
+	CreateSandboxWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxClientResponse, error)
+
+	// DeleteSandboxWithResponse request
+	DeleteSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSandboxClientResponse, error)
+
+	// GetSandboxWithResponse request
+	GetSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxClientResponse, error)
+
+	// UpdateSandboxWithBodyWithResponse request with any body
+	UpdateSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxClientResponse, error)
+
+	UpdateSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxClientResponse, error)
+
+	// ListSandboxDeploymentsWithResponse request
+	ListSandboxDeploymentsWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, params *ListSandboxDeploymentsParams, reqEditors ...RequestEditorFn) (*ListSandboxDeploymentsClientResponse, error)
+
 	// ListProjectSchedulersWithResponse request
 	ListProjectSchedulersWithResponse(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*ListProjectSchedulersClientResponse, error)
 
@@ -28876,6 +31239,49 @@ type ClientWithResponsesInterface interface {
 
 	// DownloadPublicFileWithResponse request
 	DownloadPublicFileWithResponse(ctx context.Context, projectId openapi_types.UUID, bucketName BucketName, path string, reqEditors ...RequestEditorFn) (*DownloadPublicFileClientResponse, error)
+
+	// TerminateSandboxSessionWithResponse request
+	TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error)
+
+	// GetSandboxSessionWithResponse request
+	GetSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxSessionClientResponse, error)
+
+	// CreateSandboxSessionAccessWithBodyWithResponse request with any body
+	CreateSandboxSessionAccessWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxSessionAccessClientResponse, error)
+
+	CreateSandboxSessionAccessWithResponse(ctx context.Context, sessionId openapi_types.UUID, body CreateSandboxSessionAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxSessionAccessClientResponse, error)
+
+	// ExecuteSandboxSessionWithBodyWithResponse request with any body
+	ExecuteSandboxSessionWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error)
+
+	ExecuteSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error)
+
+	// ReadSandboxSessionFileWithBodyWithResponse request with any body
+	ReadSandboxSessionFileWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadSandboxSessionFileClientResponse, error)
+
+	ReadSandboxSessionFileWithResponse(ctx context.Context, sessionId openapi_types.UUID, body ReadSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadSandboxSessionFileClientResponse, error)
+
+	// WriteSandboxSessionFileWithBodyWithResponse request with any body
+	WriteSandboxSessionFileWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteSandboxSessionFileClientResponse, error)
+
+	WriteSandboxSessionFileWithResponse(ctx context.Context, sessionId openapi_types.UUID, body WriteSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteSandboxSessionFileClientResponse, error)
+
+	// RevokeSandboxSessionWithResponse request
+	RevokeSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeSandboxSessionClientResponse, error)
+
+	// GrantSandboxSessionWithBodyWithResponse request with any body
+	GrantSandboxSessionWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GrantSandboxSessionClientResponse, error)
+
+	GrantSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, body GrantSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*GrantSandboxSessionClientResponse, error)
+
+	// ResumeSandboxSessionWithResponse request
+	ResumeSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ResumeSandboxSessionClientResponse, error)
+
+	// SuspendSandboxSessionWithResponse request
+	SuspendSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SuspendSandboxSessionClientResponse, error)
+
+	// ListSandboxPresetsWithResponse request
+	ListSandboxPresetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxPresetsClientResponse, error)
 
 	// ListStorageObjectsWithResponse request
 	ListStorageObjectsWithResponse(ctx context.Context, bucketName BucketName, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsClientResponse, error)
@@ -35529,6 +37935,284 @@ func (r GetRealtimeStatsClientResponse) ContentType() string {
 	return ""
 }
 
+type ExecuteSandboxClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxExecutionResult
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ExecuteSandboxClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExecuteSandboxClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExecuteSandboxClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSandboxSessionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxSessionPage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxSessionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxSessionsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxSessionsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxSession
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSandboxesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxTemplatePage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SandboxTemplate
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteSandboxClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSandboxClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSandboxClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteSandboxClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSandboxClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxTemplate
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSandboxClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSandboxClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSandboxClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateSandboxClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxTemplate
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSandboxClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSandboxClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateSandboxClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSandboxDeploymentsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxDeploymentPage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxDeploymentsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxDeploymentsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxDeploymentsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectSchedulersClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -36228,6 +38912,344 @@ func (r DownloadPublicFileClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DownloadPublicFileClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type TerminateSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *SandboxSession
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r TerminateSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TerminateSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r TerminateSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxSession
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSandboxSessionAccessClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxAccess
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxSessionAccessClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxSessionAccessClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSandboxSessionAccessClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ExecuteSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxCommandResult
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ExecuteSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExecuteSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ExecuteSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReadSandboxSessionFileClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxFileResult
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ReadSandboxSessionFileClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReadSandboxSessionFileClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReadSandboxSessionFileClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type WriteSandboxSessionFileClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r WriteSandboxSessionFileClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WriteSandboxSessionFileClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WriteSandboxSessionFileClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GrantSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GrantSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GrantSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GrantSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ResumeSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *SandboxSession
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ResumeSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResumeSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResumeSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SuspendSandboxSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *SandboxSession
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SuspendSandboxSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SuspendSandboxSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SuspendSandboxSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListSandboxPresetsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxPresetList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxPresetsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxPresetsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSandboxPresetsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -39094,6 +42116,119 @@ func (c *ClientWithResponses) GetRealtimeStatsWithResponse(ctx context.Context, 
 	return ParseGetRealtimeStatsClientResponse(rsp)
 }
 
+// ExecuteSandboxWithBodyWithResponse request with arbitrary body returning *ExecuteSandboxClientResponse
+func (c *ClientWithResponses) ExecuteSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExecuteSandboxClientResponse, error) {
+	rsp, err := c.ExecuteSandboxWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExecuteSandboxClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) ExecuteSandboxWithResponse(ctx context.Context, id openapi_types.UUID, params *ExecuteSandboxParams, body ExecuteSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*ExecuteSandboxClientResponse, error) {
+	rsp, err := c.ExecuteSandbox(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExecuteSandboxClientResponse(rsp)
+}
+
+// ListSandboxSessionsWithResponse request returning *ListSandboxSessionsClientResponse
+func (c *ClientWithResponses) ListSandboxSessionsWithResponse(ctx context.Context, id openapi_types.UUID, params *ListSandboxSessionsParams, reqEditors ...RequestEditorFn) (*ListSandboxSessionsClientResponse, error) {
+	rsp, err := c.ListSandboxSessions(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxSessionsClientResponse(rsp)
+}
+
+// CreateSandboxSessionWithBodyWithResponse request with arbitrary body returning *CreateSandboxSessionClientResponse
+func (c *ClientWithResponses) CreateSandboxSessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxSessionClientResponse, error) {
+	rsp, err := c.CreateSandboxSessionWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxSessionClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxSessionWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxSessionParams, body CreateSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxSessionClientResponse, error) {
+	rsp, err := c.CreateSandboxSession(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxSessionClientResponse(rsp)
+}
+
+// ListSandboxesWithResponse request returning *ListSandboxesClientResponse
+func (c *ClientWithResponses) ListSandboxesWithResponse(ctx context.Context, id openapi_types.UUID, params *ListSandboxesParams, reqEditors ...RequestEditorFn) (*ListSandboxesClientResponse, error) {
+	rsp, err := c.ListSandboxes(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxesClientResponse(rsp)
+}
+
+// CreateSandboxWithBodyWithResponse request with arbitrary body returning *CreateSandboxClientResponse
+func (c *ClientWithResponses) CreateSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxClientResponse, error) {
+	rsp, err := c.CreateSandboxWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxWithResponse(ctx context.Context, id openapi_types.UUID, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxClientResponse, error) {
+	rsp, err := c.CreateSandbox(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxClientResponse(rsp)
+}
+
+// DeleteSandboxWithResponse request returning *DeleteSandboxClientResponse
+func (c *ClientWithResponses) DeleteSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSandboxClientResponse, error) {
+	rsp, err := c.DeleteSandbox(ctx, id, sandboxId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSandboxClientResponse(rsp)
+}
+
+// GetSandboxWithResponse request returning *GetSandboxClientResponse
+func (c *ClientWithResponses) GetSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxClientResponse, error) {
+	rsp, err := c.GetSandbox(ctx, id, sandboxId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSandboxClientResponse(rsp)
+}
+
+// UpdateSandboxWithBodyWithResponse request with arbitrary body returning *UpdateSandboxClientResponse
+func (c *ClientWithResponses) UpdateSandboxWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxClientResponse, error) {
+	rsp, err := c.UpdateSandboxWithBody(ctx, id, sandboxId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSandboxWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxClientResponse, error) {
+	rsp, err := c.UpdateSandbox(ctx, id, sandboxId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxClientResponse(rsp)
+}
+
+// ListSandboxDeploymentsWithResponse request returning *ListSandboxDeploymentsClientResponse
+func (c *ClientWithResponses) ListSandboxDeploymentsWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, params *ListSandboxDeploymentsParams, reqEditors ...RequestEditorFn) (*ListSandboxDeploymentsClientResponse, error) {
+	rsp, err := c.ListSandboxDeployments(ctx, id, sandboxId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxDeploymentsClientResponse(rsp)
+}
+
 // ListProjectSchedulersWithResponse request returning *ListProjectSchedulersClientResponse
 func (c *ClientWithResponses) ListProjectSchedulersWithResponse(ctx context.Context, id ProjectId, params *ListProjectSchedulersParams, reqEditors ...RequestEditorFn) (*ListProjectSchedulersClientResponse, error) {
 	rsp, err := c.ListProjectSchedulers(ctx, id, params, reqEditors...)
@@ -39347,6 +42482,145 @@ func (c *ClientWithResponses) DownloadPublicFileWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDownloadPublicFileClientResponse(rsp)
+}
+
+// TerminateSandboxSessionWithResponse request returning *TerminateSandboxSessionClientResponse
+func (c *ClientWithResponses) TerminateSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*TerminateSandboxSessionClientResponse, error) {
+	rsp, err := c.TerminateSandboxSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTerminateSandboxSessionClientResponse(rsp)
+}
+
+// GetSandboxSessionWithResponse request returning *GetSandboxSessionClientResponse
+func (c *ClientWithResponses) GetSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxSessionClientResponse, error) {
+	rsp, err := c.GetSandboxSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSandboxSessionClientResponse(rsp)
+}
+
+// CreateSandboxSessionAccessWithBodyWithResponse request with arbitrary body returning *CreateSandboxSessionAccessClientResponse
+func (c *ClientWithResponses) CreateSandboxSessionAccessWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxSessionAccessClientResponse, error) {
+	rsp, err := c.CreateSandboxSessionAccessWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxSessionAccessClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxSessionAccessWithResponse(ctx context.Context, sessionId openapi_types.UUID, body CreateSandboxSessionAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxSessionAccessClientResponse, error) {
+	rsp, err := c.CreateSandboxSessionAccess(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxSessionAccessClientResponse(rsp)
+}
+
+// ExecuteSandboxSessionWithBodyWithResponse request with arbitrary body returning *ExecuteSandboxSessionClientResponse
+func (c *ClientWithResponses) ExecuteSandboxSessionWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error) {
+	rsp, err := c.ExecuteSandboxSessionWithBody(ctx, sessionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExecuteSandboxSessionClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) ExecuteSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, params *ExecuteSandboxSessionParams, body ExecuteSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*ExecuteSandboxSessionClientResponse, error) {
+	rsp, err := c.ExecuteSandboxSession(ctx, sessionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExecuteSandboxSessionClientResponse(rsp)
+}
+
+// ReadSandboxSessionFileWithBodyWithResponse request with arbitrary body returning *ReadSandboxSessionFileClientResponse
+func (c *ClientWithResponses) ReadSandboxSessionFileWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReadSandboxSessionFileClientResponse, error) {
+	rsp, err := c.ReadSandboxSessionFileWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadSandboxSessionFileClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReadSandboxSessionFileWithResponse(ctx context.Context, sessionId openapi_types.UUID, body ReadSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*ReadSandboxSessionFileClientResponse, error) {
+	rsp, err := c.ReadSandboxSessionFile(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadSandboxSessionFileClientResponse(rsp)
+}
+
+// WriteSandboxSessionFileWithBodyWithResponse request with arbitrary body returning *WriteSandboxSessionFileClientResponse
+func (c *ClientWithResponses) WriteSandboxSessionFileWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WriteSandboxSessionFileClientResponse, error) {
+	rsp, err := c.WriteSandboxSessionFileWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWriteSandboxSessionFileClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) WriteSandboxSessionFileWithResponse(ctx context.Context, sessionId openapi_types.UUID, body WriteSandboxSessionFileJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteSandboxSessionFileClientResponse, error) {
+	rsp, err := c.WriteSandboxSessionFile(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWriteSandboxSessionFileClientResponse(rsp)
+}
+
+// RevokeSandboxSessionWithResponse request returning *RevokeSandboxSessionClientResponse
+func (c *ClientWithResponses) RevokeSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeSandboxSessionClientResponse, error) {
+	rsp, err := c.RevokeSandboxSession(ctx, sessionId, subjectId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeSandboxSessionClientResponse(rsp)
+}
+
+// GrantSandboxSessionWithBodyWithResponse request with arbitrary body returning *GrantSandboxSessionClientResponse
+func (c *ClientWithResponses) GrantSandboxSessionWithBodyWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GrantSandboxSessionClientResponse, error) {
+	rsp, err := c.GrantSandboxSessionWithBody(ctx, sessionId, subjectId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGrantSandboxSessionClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) GrantSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, subjectId openapi_types.UUID, body GrantSandboxSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*GrantSandboxSessionClientResponse, error) {
+	rsp, err := c.GrantSandboxSession(ctx, sessionId, subjectId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGrantSandboxSessionClientResponse(rsp)
+}
+
+// ResumeSandboxSessionWithResponse request returning *ResumeSandboxSessionClientResponse
+func (c *ClientWithResponses) ResumeSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ResumeSandboxSessionClientResponse, error) {
+	rsp, err := c.ResumeSandboxSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResumeSandboxSessionClientResponse(rsp)
+}
+
+// SuspendSandboxSessionWithResponse request returning *SuspendSandboxSessionClientResponse
+func (c *ClientWithResponses) SuspendSandboxSessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*SuspendSandboxSessionClientResponse, error) {
+	rsp, err := c.SuspendSandboxSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSuspendSandboxSessionClientResponse(rsp)
+}
+
+// ListSandboxPresetsWithResponse request returning *ListSandboxPresetsClientResponse
+func (c *ClientWithResponses) ListSandboxPresetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxPresetsClientResponse, error) {
+	rsp, err := c.ListSandboxPresets(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxPresetsClientResponse(rsp)
 }
 
 // ListStorageObjectsWithResponse request returning *ListStorageObjectsClientResponse
@@ -48181,6 +51455,296 @@ func ParseGetRealtimeStatsClientResponse(rsp *http.Response) (*GetRealtimeStatsC
 	return response, nil
 }
 
+// ParseExecuteSandboxClientResponse parses an HTTP response from a ExecuteSandboxWithResponse call
+func ParseExecuteSandboxClientResponse(rsp *http.Response) (*ExecuteSandboxClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExecuteSandboxClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxExecutionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxSessionsClientResponse parses an HTTP response from a ListSandboxSessionsWithResponse call
+func ParseListSandboxSessionsClientResponse(rsp *http.Response) (*ListSandboxSessionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxSessionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxSessionPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxSessionClientResponse parses an HTTP response from a CreateSandboxSessionWithResponse call
+func ParseCreateSandboxSessionClientResponse(rsp *http.Response) (*CreateSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxesClientResponse parses an HTTP response from a ListSandboxesWithResponse call
+func ParseListSandboxesClientResponse(rsp *http.Response) (*ListSandboxesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxTemplatePage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxClientResponse parses an HTTP response from a CreateSandboxWithResponse call
+func ParseCreateSandboxClientResponse(rsp *http.Response) (*CreateSandboxClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SandboxTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSandboxClientResponse parses an HTTP response from a DeleteSandboxWithResponse call
+func ParseDeleteSandboxClientResponse(rsp *http.Response) (*DeleteSandboxClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSandboxClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSandboxClientResponse parses an HTTP response from a GetSandboxWithResponse call
+func ParseGetSandboxClientResponse(rsp *http.Response) (*GetSandboxClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSandboxClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSandboxClientResponse parses an HTTP response from a UpdateSandboxWithResponse call
+func ParseUpdateSandboxClientResponse(rsp *http.Response) (*UpdateSandboxClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSandboxClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxDeploymentsClientResponse parses an HTTP response from a ListSandboxDeploymentsWithResponse call
+func ParseListSandboxDeploymentsClientResponse(rsp *http.Response) (*ListSandboxDeploymentsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxDeploymentsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxDeploymentPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListProjectSchedulersClientResponse parses an HTTP response from a ListProjectSchedulersWithResponse call
 func ParseListProjectSchedulersClientResponse(rsp *http.Response) (*ListProjectSchedulersClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -48797,6 +52361,348 @@ func ParseDownloadPublicFileClientResponse(rsp *http.Response) (*DownloadPublicF
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTerminateSandboxSessionClientResponse parses an HTTP response from a TerminateSandboxSessionWithResponse call
+func ParseTerminateSandboxSessionClientResponse(rsp *http.Response) (*TerminateSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TerminateSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SandboxSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSandboxSessionClientResponse parses an HTTP response from a GetSandboxSessionWithResponse call
+func ParseGetSandboxSessionClientResponse(rsp *http.Response) (*GetSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxSessionAccessClientResponse parses an HTTP response from a CreateSandboxSessionAccessWithResponse call
+func ParseCreateSandboxSessionAccessClientResponse(rsp *http.Response) (*CreateSandboxSessionAccessClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxSessionAccessClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxAccess
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExecuteSandboxSessionClientResponse parses an HTTP response from a ExecuteSandboxSessionWithResponse call
+func ParseExecuteSandboxSessionClientResponse(rsp *http.Response) (*ExecuteSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExecuteSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxCommandResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReadSandboxSessionFileClientResponse parses an HTTP response from a ReadSandboxSessionFileWithResponse call
+func ParseReadSandboxSessionFileClientResponse(rsp *http.Response) (*ReadSandboxSessionFileClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReadSandboxSessionFileClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxFileResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWriteSandboxSessionFileClientResponse parses an HTTP response from a WriteSandboxSessionFileWithResponse call
+func ParseWriteSandboxSessionFileClientResponse(rsp *http.Response) (*WriteSandboxSessionFileClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WriteSandboxSessionFileClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeSandboxSessionClientResponse parses an HTTP response from a RevokeSandboxSessionWithResponse call
+func ParseRevokeSandboxSessionClientResponse(rsp *http.Response) (*RevokeSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGrantSandboxSessionClientResponse parses an HTTP response from a GrantSandboxSessionWithResponse call
+func ParseGrantSandboxSessionClientResponse(rsp *http.Response) (*GrantSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GrantSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResumeSandboxSessionClientResponse parses an HTTP response from a ResumeSandboxSessionWithResponse call
+func ParseResumeSandboxSessionClientResponse(rsp *http.Response) (*ResumeSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResumeSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SandboxSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSuspendSandboxSessionClientResponse parses an HTTP response from a SuspendSandboxSessionWithResponse call
+func ParseSuspendSandboxSessionClientResponse(rsp *http.Response) (*SuspendSandboxSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SuspendSandboxSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest SandboxSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxPresetsClientResponse parses an HTTP response from a ListSandboxPresetsWithResponse call
+func ParseListSandboxPresetsClientResponse(rsp *http.Response) (*ListSandboxPresetsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxPresetsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxPresetList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

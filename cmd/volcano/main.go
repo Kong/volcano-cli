@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,11 @@ func main() {
 func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
 	stderr := root.ErrOrStderr()
+	var commandExit interface{ ExitCode() int }
+	if errors.As(err, &commandExit) {
+		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		return commandExit.ExitCode()
+	}
 
 	if err != nil && api.Status(err) == http.StatusUpgradeRequired {
 		// The 426 body's message already reads "cli version no longer

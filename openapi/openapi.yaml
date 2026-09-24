@@ -11457,6 +11457,680 @@ paths:
               schema:
                 type: string
                 example: OK
+  /sandboxes/presets:
+    get:
+      tags:
+        - Sandboxes
+      summary: List available sandbox presets
+      operationId: listSandboxPresets
+      security: []
+      responses:
+        "200":
+          description: List available sandbox presets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxPresetList"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sandboxes:
+    get:
+      tags:
+        - Sandboxes
+      summary: List sandbox templates
+      operationId: listSandboxes
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: List sandbox templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxTemplatePage"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - Sandboxes
+      summary: Create a sandbox template from a verified preset
+      operationId: createSandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSandboxTemplateRequest"
+      responses:
+        "201":
+          description: Create a sandbox template from a verified preset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxTemplate"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sandboxes/{sandboxId}:
+    get:
+      tags:
+        - Sandboxes
+      summary: Get a sandbox template
+      operationId: getSandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Get a sandbox template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxTemplate"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags:
+        - Sandboxes
+      summary: Rename a sandbox template
+      operationId: updateSandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSandboxTemplateRequest"
+      responses:
+        "200":
+          description: Rename a sandbox template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxTemplate"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - Sandboxes
+      summary: Retire a template and terminate its sessions
+      operationId: deleteSandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Retire a template and terminate its sessions
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sandboxes/{sandboxId}/deployments:
+    get:
+      tags:
+        - Sandboxes
+      summary: List sandbox deployment history
+      operationId: listSandboxDeployments
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: List sandbox deployment history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxDeploymentPage"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sandbox-sessions:
+    get:
+      tags:
+        - Sandboxes
+      summary: List project sandbox sessions
+      operationId: listSandboxSessions
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: List project sandbox sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSessionPage"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - Sandboxes
+      summary: Start a sandbox session
+      operationId: createSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSandboxSessionRequest"
+      responses:
+        "201":
+          description: Start a sandbox session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSession"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /projects/{id}/sandbox-executions:
+    post:
+      tags:
+        - Sandboxes
+      summary: Execute once and return after confirmed termination
+      operationId: executeSandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxExecutionRequest"
+      responses:
+        "200":
+          description: Execute once and return after confirmed termination
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxExecutionResult"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}:
+    get:
+      tags:
+        - Sandboxes
+      summary: Get a sandbox session
+      operationId: getSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Get a sandbox session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSession"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - Sandboxes
+      summary: Request sandbox termination
+      operationId: terminateSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Request sandbox termination
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSession"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/suspend:
+    post:
+      tags:
+        - Sandboxes
+      summary: Suspend a sandbox session
+      operationId: suspendSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Suspend a sandbox session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSession"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/resume:
+    post:
+      tags:
+        - Sandboxes
+      summary: Resume a sandbox session
+      operationId: resumeSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Resume a sandbox session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxSession"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/exec:
+    post:
+      tags:
+        - Sandboxes
+      summary: Execute a command within a session
+      operationId: executeSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxCommandRequest"
+      responses:
+        "200":
+          description: Execute a command within a session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxCommandResult"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/files/read:
+    post:
+      tags:
+        - Sandboxes
+      summary: Read a workspace file
+      operationId: readSandboxSessionFile
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxFileReadRequest"
+      responses:
+        "200":
+          description: Read a workspace file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxFileResult"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/files/write:
+    post:
+      tags:
+        - Sandboxes
+      summary: Write a workspace file
+      operationId: writeSandboxSessionFile
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxFileWriteRequest"
+      responses:
+        "204":
+          description: Write a workspace file
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/grants/{subjectId}:
+    put:
+      tags:
+        - Sandboxes
+      summary: Authorize an authenticated project user for this session
+      operationId: grantSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxSubjectGrantRequest"
+      responses:
+        "204":
+          description: Authorize an authenticated project user for this session
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - Sandboxes
+      summary: Revoke a project user session grant
+      operationId: revokeSandboxSession
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Revoke a project user session grant
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /sandbox-sessions/{sessionId}/access:
+    post:
+      tags:
+        - Sandboxes
+      summary: Issue a short-lived port-scoped access credential
+      operationId: createSandboxSessionAccess
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SandboxAccessRequest"
+      responses:
+        "200":
+          description: Issue a short-lived port-scoped access credential
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SandboxAccess"
+        default:
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   securitySchemes:
     AnonKey:
@@ -18817,3 +19491,516 @@ components:
         mock_prelude:
           type: string
           description: Preview harness that supplies request params and stubs the hosted-auth API. Never served on a real page.
+    SandboxPreset:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        runtime:
+          type: string
+        version:
+          type: string
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+        regions:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - runtime
+        - version
+        - memory_mb
+        - regions
+    SandboxTemplate:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,62}$
+        preset:
+          type: string
+        memory_mb:
+          type: integer
+        status:
+          type: string
+          enum:
+            - ready
+            - unavailable
+            - deleting
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - status
+        - created_at
+    CreateSandboxTemplateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,62}$
+        preset:
+          type: string
+          enum:
+            - python3.12
+            - node22
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+          default: 1024
+      required:
+        - name
+        - preset
+    UpdateSandboxTemplateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,62}$
+      required:
+        - name
+    SandboxSession:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        sandbox_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+            - starting
+            - running
+            - suspending
+            - suspended
+            - resuming
+            - terminating
+            - terminated
+            - unknown
+        desired_state:
+          type: string
+          enum:
+            - running
+            - suspended
+            - terminated
+        region:
+          type: string
+        memory_mb:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - sandbox_id
+        - state
+        - desired_state
+        - region
+        - memory_mb
+        - created_at
+        - expires_at
+    CreateSandboxSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        preset:
+          type: string
+          enum:
+            - python3.12
+            - node22
+        sandbox_id:
+          type: string
+          format: uuid
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+        region:
+          type: string
+          pattern: ^aws-[a-z0-9-]+$
+        max_duration_seconds:
+          type: integer
+          minimum: 30
+          maximum: 28800
+          default: 3600
+        idle_timeout_seconds:
+          type: integer
+          minimum: 0
+          maximum: 28800
+          default: 0
+      required:
+        - region
+      oneOf:
+        - required:
+            - preset
+          not:
+            required:
+              - sandbox_id
+        - required:
+            - sandbox_id
+          not:
+            required:
+              - preset
+    SandboxCommandRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        command:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
+          default: 60
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+          maxProperties: 64
+      required:
+        - command
+    SandboxExecutionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        preset:
+          type: string
+          enum:
+            - python3.12
+            - node22
+        sandbox_id:
+          type: string
+          format: uuid
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+        region:
+          type: string
+          pattern: ^aws-[a-z0-9-]+$
+        command:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        timeout_seconds:
+          type: integer
+          minimum: 1
+          maximum: 60
+          default: 60
+        environment:
+          type: object
+          additionalProperties:
+            type: string
+          maxProperties: 64
+      required:
+        - region
+        - command
+      oneOf:
+        - required:
+            - preset
+          not:
+            required:
+              - sandbox_id
+        - required:
+            - sandbox_id
+          not:
+            required:
+              - preset
+    SandboxCommandResult:
+      type: object
+      additionalProperties: false
+      properties:
+        stdout:
+          type: string
+        stderr:
+          type: string
+        exit_code:
+          type: integer
+        stdout_truncated:
+          type: boolean
+        stderr_truncated:
+          type: boolean
+        timed_out:
+          type: boolean
+      required:
+        - stdout
+        - stderr
+        - exit_code
+        - stdout_truncated
+        - stderr_truncated
+        - timed_out
+    SandboxExecutionResult:
+      type: object
+      additionalProperties: false
+      properties:
+        stdout:
+          type: string
+        stderr:
+          type: string
+        exit_code:
+          type: integer
+        stdout_truncated:
+          type: boolean
+        stderr_truncated:
+          type: boolean
+        timed_out:
+          type: boolean
+        session_id:
+          type: string
+          format: uuid
+        region:
+          type: string
+        duration_ms:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - stdout
+        - stderr
+        - exit_code
+        - stdout_truncated
+        - stderr_truncated
+        - timed_out
+        - session_id
+        - region
+        - duration_ms
+    SandboxFileWriteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        data:
+          type: string
+          format: byte
+          maxLength: 11184812
+      required:
+        - path
+        - data
+    SandboxFileReadRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+      required:
+        - path
+    SandboxFileResult:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: string
+          format: byte
+      required:
+        - data
+    SandboxSubjectGrantRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - expires_at
+    SandboxAccessRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65532
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 300
+      required:
+        - port
+    SandboxAccess:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - url
+        - token
+        - expires_at
+    SandboxDeployment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - created_at
+        - updated_at
+    SandboxPagination:
+      type: object
+      additionalProperties: false
+      properties:
+        limit:
+          type: integer
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+      required:
+        - limit
+        - has_more
+    SandboxTemplatePage:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxTemplate"
+        pagination:
+          $ref: "#/components/schemas/SandboxPagination"
+      required:
+        - data
+        - pagination
+    SandboxSessionPage:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxSession"
+        pagination:
+          $ref: "#/components/schemas/SandboxPagination"
+      required:
+        - data
+        - pagination
+    SandboxDeploymentPage:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxDeployment"
+        pagination:
+          $ref: "#/components/schemas/SandboxPagination"
+      required:
+        - data
+        - pagination
+    SandboxPresetList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxPreset"
+      required:
+        - data
+    SandboxCapacity:
+      type: object
+      additionalProperties: false
+      properties:
+        region:
+          type: string
+        allocated_memory_mb:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - region
+        - allocated_memory_mb
+    SandboxCapacityList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxCapacity"
+      required:
+        - data
+    PublishSandboxPresetRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        preset:
+          type: string
+          enum:
+            - python3.12
+            - node22
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+        deployment_id:
+          type: string
+          format: uuid
+      required:
+        - id
+        - preset
+        - memory_mb
+        - deployment_id
