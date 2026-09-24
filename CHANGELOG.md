@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/Kong/volcano-cli/compare/v0.32.1...v0.33.0) (2026-09-24)
+
+
+### Features
+
+* **durable:** run durable functions in local mode ([#219](https://github.com/Kong/volcano-cli/issues/219)) ([2f646ee](https://github.com/Kong/volcano-cli/commit/2f646ee7760cb9430b3f75f466357c20a2fb5612))
+
 ## [0.32.1](https://github.com/Kong/volcano-cli/compare/v0.32.0...v0.32.1) (2026-09-19)
 
 
