@@ -41,9 +41,9 @@ Every branch expires — the default lifetime is 7 days, and `--ttl` accepts
 anything between `1h` and `720h`. Only the data a branch has diverged by counts
 against the parent database's storage allowance, so a fresh branch is free.
 
-Every plan includes branching: a database may hold 10 branches on Free and 25 on
-Pro, counting branches in every state. Local development projects have no
-branching backend, so unlike the commands above these live under the `cloud`
+Every plan includes branching: a database may hold 10 branches on `HOBBY` and
+25 on `SUPERAGENT`, counting branches in every state. Local development projects
+have no branching backend, so unlike the commands above these live under the `cloud`
 group and the prefix is required rather than optional.
 
 | Operation | Command |
@@ -83,8 +83,8 @@ to it, counting from now.
 A backup is a point-in-time copy of a database, kept by the platform and
 restorable in place. Backups cover the database itself, not its branches.
 
-Backups are a Pro capability. On the Free plan every command below fails with
-`403`, reads included:
+Backups require `SUPERAGENT`. On `HOBBY`, every command below fails with `403`,
+reads included:
 
 ```console
 $ volcano cloud databases backups list app
