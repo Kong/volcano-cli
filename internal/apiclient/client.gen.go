@@ -6357,7 +6357,7 @@ type Project struct {
 	LogoUrl *string `json:"logo_url,omitempty"`
 	Name    string  `json:"name"`
 
-	// Plan Platform plan applied to the project when available
+	// Plan Platform plan applied to the project when available. API values FREE and PRO are named HOBBY and SUPERAGENT on product pages.
 	Plan *ProjectPlan `json:"plan,omitempty"`
 
 	// SelectedRegions Effective region set for this project (normalized and deduplicated)
@@ -6366,7 +6366,7 @@ type Project struct {
 	UpdatedAt       time.Time     `json:"updated_at"`
 }
 
-// ProjectPlan Platform plan applied to the project when available
+// ProjectPlan Platform plan applied to the project when available. API values FREE and PRO are named HOBBY and SUPERAGENT on product pages.
 type ProjectPlan string
 
 // ProjectStatus defines model for Project.Status.
