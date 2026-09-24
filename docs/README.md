@@ -8,9 +8,6 @@ how they relate, and where the CLI can act on each. Each element has its own
 page with concrete command examples. For exact, always-current flags, run
 `volcano <command> --help`.
 
-The API and CLI use the plan names `FREE` and `PRO`. Product pages call these
-plans `HOBBY` and `SUPERAGENT`, respectively.
-
 ## The model
 
 A **project** is the container for everything else. You authenticate, select an

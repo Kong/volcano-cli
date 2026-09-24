@@ -73,10 +73,9 @@ existing function's scope alone.
 
 Wherever a command takes a function, it takes the name or the id. `deploy` needs
 exactly one of `--all` and `-f`. `--yes` skips the confirmation prompt the three
-destructive commands ask for. Schedulers require `PRO` (`SUPERAGENT` on product
-pages) and are capped at 5 per
-project across standard and durable functions together; a create beyond that
-answers `403`.
+destructive commands ask for. Schedulers require `SUPERAGENT` and are capped at
+5 per project across standard and durable functions together; a create beyond
+that answers `403`.
 
 The table shows cloud commands. Remove `cloud` to use the same commands against
 the local environment, for example `volcano durable deploy --all`. Local waits

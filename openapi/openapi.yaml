@@ -16136,7 +16136,7 @@ components:
           enum:
             - FREE
             - PRO
-          description: Platform plan applied to the project when available. API values FREE and PRO are named HOBBY and SUPERAGENT on product pages.
+          description: Platform plan applied to the project when available
         all_regions:
           type: boolean
           description: |
