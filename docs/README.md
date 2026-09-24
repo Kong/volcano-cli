@@ -45,14 +45,14 @@ Cross-cutting concerns:
 The CLI can operate against two targets:
 
 - **Local** development environment (`volcano start` / `stop` / `restart` /
-  `status` / `reset`), used by the top-level resource commands when it is
-  running.
-- **Cloud** project — forced with the `cloud` prefix (e.g. `volcano cloud
+  `status` / `reset`), targeted by top-level resource commands.
+- **Cloud** project — targeted with the `cloud` prefix (e.g. `volcano cloud
   functions list`).
 
 Top-level resource commands (`volcano functions …`, `volcano durable …`,
-`volcano databases …`, etc.) act on your **active context**: the local
-environment when running, otherwise the cloud project.
+`volcano databases …`, etc.) always target local development. They fail if the
+local environment is not running; they do not fall back to cloud. Use the
+explicit `volcano cloud …` prefix for cloud operations.
 
 ## Output styling
 

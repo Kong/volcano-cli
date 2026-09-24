@@ -56,8 +56,8 @@ normally.
 | Aliases | `volcano functions alias set\|list\|delete …` |
 | Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |
 
-Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to force the cloud
-target instead of the active context.
+Prefix with `cloud` (e.g. `volcano cloud functions deploy`) to target cloud.
+Without the prefix, function commands always target local development.
 
 Cloud deploys use latest-wins queueing. If the function is already deploying,
 the new source replaces any older queued deploy and runs next. Delete supersedes
