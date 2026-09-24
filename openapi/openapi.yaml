@@ -13697,10 +13697,6 @@ components:
         message:
           type: string
           description: Safe human-readable explanation of the constraint failure.
-        value:
-          type: number
-          format: double
-          description: Rejected numeric value when the field is explicitly safe to echo.
       required:
         - path
         - constraint

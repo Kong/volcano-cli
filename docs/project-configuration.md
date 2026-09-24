@@ -94,8 +94,8 @@ Key semantics:
   changing anything. Validation failures exit non-zero with Volcano's error
   list, and nothing is applied. When the server returns structured details,
   each one is printed under the error message as `<field path> (<constraint>):
-  <explanation>`, plus the rejected value when it's a number safe to echo
-  (e.g. `/functions/0/timeout (maximum): must be at most 900 (value: 1200)`).
+  <explanation>` (e.g. `/auth/password/min_length (minimum): must be greater
+  than or equal to 15`).
 - If some entries fail to apply (a provider call failing mid-deploy),
   `config deploy` still prints a full report — succeeded entries included —
   and then exits non-zero because `summary.errors > 0`. Already-applied

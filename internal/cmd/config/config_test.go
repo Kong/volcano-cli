@@ -214,7 +214,6 @@ func TestDeployStructuredRequestValidationFailureRendersDetails(t *testing.T) {
 					"path":       "/auth/password/min_length",
 					"constraint": "minimum",
 					"message":    "must be greater than or equal to 8",
-					"value":      3,
 				},
 			},
 		})
@@ -226,7 +225,7 @@ func TestDeployStructuredRequestValidationFailureRendersDetails(t *testing.T) {
 	assert.Contains(t, out, "/auth/password/min_length")
 	assert.Contains(t, out, "minimum")
 	assert.Contains(t, out, "must be greater than or equal to 8")
-	assert.Contains(t, out, "3")
+	assert.NotContains(t, out, "(value:")
 	assert.NotContains(t, out, "Configuration deployed from")
 }
 

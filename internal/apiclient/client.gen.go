@@ -5144,9 +5144,6 @@ type ErrorDetail struct {
 
 	// Path JSON pointer to the rejected request field.
 	Path string `json:"path"`
-
-	// Value Rejected numeric value when the field is explicitly safe to echo.
-	Value *float64 `json:"value,omitempty"`
 }
 
 // Frontend defines model for Frontend.
