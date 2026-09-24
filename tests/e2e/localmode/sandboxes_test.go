@@ -2,6 +2,8 @@ package localmode
 
 import (
 	"encoding/json"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,6 +27,13 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"running"`, "sandboxes", "get", session.ID, "--json")
 	run("exec", session.ID, "--", "sh", "-c", "printf retained > /workspace/value")
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
+	shell := exec.CommandContext(t.Context(), binary, "sandboxes", "shell", session.ID)
+	shell.Env = env
+	shell.Dir = dir
+	shell.Stdin = strings.NewReader("cat /workspace/value\nexit\n")
+	shellOutput, shellErr := shell.CombinedOutput()
+	require.NoError(t, shellErr, string(shellOutput))
+	require.Contains(t, string(shellOutput), "retained")
 	run("suspend", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"suspended"`, "sandboxes", "get", session.ID, "--json")
 	run("resume", session.ID)

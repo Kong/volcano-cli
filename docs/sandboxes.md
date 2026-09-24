@@ -29,12 +29,17 @@ volcano cloud sandboxes sessions
 volcano cloud sandboxes get SESSION_ID
 volcano cloud sandboxes exec SESSION_ID -- sh -c 'echo hello > /workspace/message'
 volcano cloud sandboxes files read SESSION_ID /workspace/message
+volcano cloud sandboxes shell SESSION_ID
 volcano cloud sandboxes suspend SESSION_ID
 volcano cloud sandboxes resume SESSION_ID
 volcano cloud sandboxes terminate SESSION_ID
 ```
 
-Replace `SESSION_ID` with the ID returned by `run`. Creation and lifecycle changes are asynchronous: check `get` until the session is `running`, `suspended`, or `terminated` as appropriate. `run` starts a persistent session; it does not open an interactive terminal. Always terminate sessions you no longer need.
+Replace `SESSION_ID` with the ID returned by `run`. Creation and lifecycle changes are asynchronous: check `get` until the session is `running`, `suspended`, or `terminated` as appropriate. `run` starts a persistent session; use `shell SESSION_ID` for a command prompt. The prompt runs one command per line
+and supports pipes through the remote shell. Files and background processes persist;
+shell variables and `cd` changes do not. `exit` or EOF detaches without terminating
+the session. Full-screen programs such as `vim` require a PTY, which this prompt
+does not provide. Always terminate sessions you no longer need.
 
 `exec` requires `--` before the command. Each argument is shell-quoted. For shell syntax such as pipes or background processes, explicitly invoke `sh -c`:
 
@@ -58,6 +63,9 @@ volcano cloud sandboxes templates get TEMPLATE_ID
 volcano cloud sandboxes run --template TEMPLATE_ID
 volcano cloud sandboxes templates delete TEMPLATE_ID
 ```
+
+Deleting a template terminates its sessions and permanently removes their files.
+The CLI asks for confirmation. In scripts, pass `--yes` to confirm that deletion.
 
 A template saves a preset and memory size. Custom image builds are not supported by these commands. Lists return pagination metadata; pass `--cursor` to continue where supported.
 

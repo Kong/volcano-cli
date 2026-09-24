@@ -41,7 +41,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	c := &commands{deps: deps}
 	cmd := &cobra.Command{Use: "sandboxes", Short: "Run isolated commands and manage temporary sessions"}
 	cmd.PersistentFlags().BoolVar(&c.json, "json", false, "Print JSON output")
-	cmd.AddCommand(c.presets(), c.execute(), c.run(), c.sessions(), c.get(), c.control("suspend"), c.control("resume"), c.control("terminate"), c.files(), c.templates())
+	cmd.AddCommand(c.presets(), c.execute(), c.shell(), c.run(), c.sessions(), c.get(), c.control("suspend"), c.control("resume"), c.control("terminate"), c.files(), c.templates())
 	return cmd
 }
 
