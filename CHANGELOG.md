@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/Kong/volcano-cli/compare/v0.34.0...v0.34.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **release:** default CLI binaries to production ([#228](https://github.com/Kong/volcano-cli/issues/228)) ([ef2b80a](https://github.com/Kong/volcano-cli/commit/ef2b80a16c69f0790139b300eba64601eb9600c8))
+
 ## [0.34.0](https://github.com/Kong/volcano-cli/compare/v0.33.0...v0.34.0) (2026-09-25)
 
 
