@@ -5127,8 +5127,23 @@ type EmailTemplateTemplateType string
 // Error defines model for Error.
 type Error struct {
 	// Code Stable machine-readable error code when a specific recovery path is available.
-	Code  *string `json:"code,omitempty"`
-	Error string  `json:"error"`
+	Code *string `json:"code,omitempty"`
+
+	// Details Structured details for a request validation failure.
+	Details *[]ErrorDetail `json:"details,omitempty"`
+	Error   string         `json:"error"`
+}
+
+// ErrorDetail A safe detail about a rejected request field.
+type ErrorDetail struct {
+	// Constraint OpenAPI constraint that rejected the field.
+	Constraint string `json:"constraint"`
+
+	// Message Safe human-readable explanation of the constraint failure.
+	Message string `json:"message"`
+
+	// Path JSON pointer to the rejected request field.
+	Path string `json:"path"`
 }
 
 // Frontend defines model for Frontend.

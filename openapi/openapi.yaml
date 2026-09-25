@@ -13677,8 +13677,30 @@ components:
         code:
           type: string
           description: Stable machine-readable error code when a specific recovery path is available.
+        details:
+          type: array
+          description: Structured details for a request validation failure.
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
       required:
         - error
+    ErrorDetail:
+      type: object
+      description: A safe detail about a rejected request field.
+      properties:
+        path:
+          type: string
+          description: JSON pointer to the rejected request field.
+        constraint:
+          type: string
+          description: OpenAPI constraint that rejected the field.
+        message:
+          type: string
+          description: Safe human-readable explanation of the constraint failure.
+      required:
+        - path
+        - constraint
+        - message
     ImportProvider:
       type: string
       enum:
