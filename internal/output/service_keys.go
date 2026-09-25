@@ -9,10 +9,8 @@ import (
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
-// ServiceKeys renders one service-key page, including key values returned by a
-// successful API response. The API wrapper deliberately strips response bodies
-// from errors, so this renderer only receives a secret on the success path.
-func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, projectID string, commandPrefix ...string) {
+// ServiceKeys renders one service-key page. Plaintext requires showKey.
+func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, projectID string, showKey bool, commandPrefix ...string) {
 	if page == nil {
 		page = &apiclient.PaginatedServiceKeys{}
 	}
@@ -30,11 +28,11 @@ func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, projectID st
 		if i > 0 {
 			fmt.Fprintln(w)
 		}
-		ServiceKey(w, &page.Data[i])
+		ServiceKey(w, &page.Data[i], showKey)
 	}
 	summary(w, theme.On(w), "Showing %d of %d service key(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 	if page.HasMore {
-		command := commandPathPrefix(commandPrefix) + " projects service-keys list"
+		command := commandPathPrefix(commandPrefix) + " projects keys service list"
 		if projectID != "" {
 			command += " " + projectID
 		}
@@ -42,16 +40,14 @@ func ServiceKeys(w io.Writer, page *apiclient.PaginatedServiceKeys, projectID st
 	}
 }
 
-// ServiceKey renders service-key metadata and the key value when the API
-// returned it. A nil key value is omitted because list/detail responses from a
-// future server may intentionally redact it.
-func ServiceKey(w io.Writer, key *apiclient.ServiceKey) {
+// ServiceKey renders metadata and optionally a returned plaintext key.
+func ServiceKey(w io.Writer, key *apiclient.ServiceKey, showKey bool) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", key.Id.String())
 	kv(w, on, "Name", "%s", key.Name)
 	kv(w, on, "Prefix", "%s", key.KeyPrefix)
 	kv(w, on, "Permissions", "%s", strings.Join(key.Permissions, ", "))
-	if key.KeyValue != nil {
+	if showKey && key.KeyValue != nil {
 		kv(w, on, "Key value", "%s", *key.KeyValue)
 	}
 	if key.CreatedAt != nil {

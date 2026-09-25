@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ type serviceKeyListOptions struct {
 	page      int
 	limit     int
 	out       io.Writer
+	showKey   bool
 }
 
 type serviceKeyCreateOptions struct {
@@ -45,6 +47,7 @@ type serviceKeyCreateOptions struct {
 	name        string
 	permissions []string
 	out         io.Writer
+	jsonOutput  bool
 }
 
 type serviceKeyGetOptions struct {
@@ -52,15 +55,15 @@ type serviceKeyGetOptions struct {
 	projectID string
 	keyID     string
 	out       io.Writer
+	showKey   bool
 }
 
 func newServiceKeys(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "service-keys",
-		Aliases: []string{"service-key"},
-		Short:   "Manage project service keys",
-		Long:    "Create and inspect backend service keys for a Volcano project. Service keys bypass row-level security and must never be exposed in frontend code.",
-		Args:    cobra.NoArgs,
+		Use:   "service",
+		Short: "Manage project service keys",
+		Long:  "Create and inspect backend service keys for a Volcano project. Service keys bypass row-level security and must never be exposed in frontend code.",
+		Args:  cobra.NoArgs,
 	}
 	cmd.AddCommand(newServiceKeyList(deps))
 	cmd.AddCommand(newServiceKeyCreate(deps))
@@ -71,6 +74,7 @@ func newServiceKeys(deps cliruntime.Deps) *cobra.Command {
 func newServiceKeyList(deps cliruntime.Deps) *cobra.Command {
 	var page int
 	var limit int
+	var showKey bool
 	cmd := &cobra.Command{
 		Use:   "list [project-id]",
 		Short: "List project service keys",
@@ -85,12 +89,14 @@ func newServiceKeyList(deps cliruntime.Deps) *cobra.Command {
 				projectID: projectID,
 				page:      page,
 				limit:     limit,
+				showKey:   showKey,
 				out:       cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().IntVar(&page, "page", api.DefaultPage, "Page number to fetch")
 	cmd.Flags().IntVar(&limit, "limit", api.DefaultLimit, "Number of service keys per page")
+	cmd.Flags().BoolVar(&showKey, "show-key", false, "Print plaintext service keys")
 	return cmd
 }
 
@@ -103,11 +109,12 @@ func runServiceKeyList(ctx context.Context, opts serviceKeyListOptions) error {
 	if err != nil {
 		return err
 	}
-	output.ServiceKeys(opts.out, page, opts.projectID, cliruntime.CommandPath(opts.deps, ""))
+	output.ServiceKeys(opts.out, page, opts.projectID, opts.showKey, cliruntime.CommandPath(opts.deps, ""))
 	return nil
 }
 
 func newServiceKeyCreate(deps cliruntime.Deps) *cobra.Command {
+	var jsonOutput bool
 	var permissions []string
 	var permissionAliases []string
 	cmd := &cobra.Command{
@@ -131,12 +138,14 @@ func newServiceKeyCreate(deps cliruntime.Deps) *cobra.Command {
 				projectID:   projectID,
 				name:        strings.TrimSpace(args[0]),
 				permissions: allPermissions,
+				jsonOutput:  jsonOutput,
 				out:         cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().StringSliceVar(&permissions, "permission", nil, "Permission to grant (repeatable; omitted means full access)")
 	cmd.Flags().StringSliceVar(&permissionAliases, "permissions", nil, "Alias for --permission")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Print the created key as JSON for automation")
 	return cmd
 }
 
@@ -153,12 +162,16 @@ func runServiceKeyCreate(ctx context.Context, opts serviceKeyCreateOptions) erro
 	if err != nil {
 		return err
 	}
-	output.ServiceKey(opts.out, key)
+	if opts.jsonOutput {
+		return json.NewEncoder(opts.out).Encode(key)
+	}
+	output.ServiceKey(opts.out, key, true)
 	return nil
 }
 
 func newServiceKeyGet(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var showKey bool
+	cmd := &cobra.Command{
 		Use:   "get <key-id> [project-id]",
 		Short: "Get a project service key",
 		Args:  cobra.RangeArgs(1, 2),
@@ -171,10 +184,13 @@ func newServiceKeyGet(deps cliruntime.Deps) *cobra.Command {
 				deps:      deps,
 				projectID: projectID,
 				keyID:     strings.TrimSpace(args[0]),
+				showKey:   showKey,
 				out:       cmd.OutOrStdout(),
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&showKey, "show-key", false, "Print the plaintext service key")
+	return cmd
 }
 
 func runServiceKeyGet(ctx context.Context, opts serviceKeyGetOptions) error {
@@ -182,6 +198,6 @@ func runServiceKeyGet(ctx context.Context, opts serviceKeyGetOptions) error {
 	if err != nil {
 		return err
 	}
-	output.ServiceKey(opts.out, key)
+	output.ServiceKey(opts.out, key, opts.showKey)
 	return nil
 }

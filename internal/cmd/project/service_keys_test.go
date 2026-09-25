@@ -38,10 +38,11 @@ func TestProjectServiceKeysListUsesPageAndSelectedProject(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "list", "--page", "2", "--limit", "25")
+		"keys", "service", "list", "--page", "2", "--limit", "25")
 	require.NoError(t, err)
 	assert.Equal(t, "page=2&limit=25", gotQuery)
-	for _, want := range []string{"ID: " + serviceKeyID, "Name: admin", "Prefix: sk-prefix", "Permissions: functions.invoke, storage.read", "Key value: " + serviceKeyValue, "Created:", "Updated:", "Showing 1 of 51 service key(s)", "projects service-keys list --page 3 --limit 25"} {
+	assert.NotContains(t, out, serviceKeyValue)
+	for _, want := range []string{"ID: " + serviceKeyID, "Name: admin", "Prefix: sk-prefix", "Permissions: functions.invoke, storage.read", "Created:", "Updated:", "Showing 1 of 51 service key(s)", "projects keys service list --page 3 --limit 25"} {
 		assert.Contains(t, out, want)
 	}
 }
@@ -61,10 +62,10 @@ func TestProjectServiceKeysListRejectsAWindowTheAPIWouldNot(t *testing.T) {
 		args    []string
 		message string
 	}{
-		{args: []string{"service-keys", "list", "--page", "0"}, message: "invalid --page 0: expected 1 or more"},
-		{args: []string{"service-keys", "list", "--page", "-5"}, message: "invalid --page -5: expected 1 or more"},
-		{args: []string{"service-keys", "list", "--limit", "0"}, message: "invalid --limit 0: expected 1 to 100"},
-		{args: []string{"service-keys", "list", "--limit", "101"}, message: "invalid --limit 101: expected 1 to 100"},
+		{args: []string{"keys", "service", "list", "--page", "0"}, message: "invalid --page 0: expected 1 or more"},
+		{args: []string{"keys", "service", "list", "--page", "-5"}, message: "invalid --page -5: expected 1 or more"},
+		{args: []string{"keys", "service", "list", "--limit", "0"}, message: "invalid --limit 0: expected 1 to 100"},
+		{args: []string{"keys", "service", "list", "--limit", "101"}, message: "invalid --limit 101: expected 1 to 100"},
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			_, err := executeProjectCommand(t,
@@ -92,11 +93,11 @@ func TestProjectServiceKeysExplicitProjectOverridesEnvironment(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "list", projectGammaID)
+		"keys", "service", "list", projectGammaID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectGammaID+"/service-keys", gotPath)
-	assert.Contains(t, out, "projects service-keys list "+projectGammaID+" --page 2 --limit 100")
-	assert.NotContains(t, out, "projects service-keys list --page")
+	assert.Contains(t, out, "projects keys service list "+projectGammaID+" --page 2 --limit 100")
+	assert.NotContains(t, out, "projects keys service list --page")
 }
 
 func TestProjectServiceKeysCreatePreservesOmittedPermissions(t *testing.T) {
@@ -111,7 +112,7 @@ func TestProjectServiceKeysCreatePreservesOmittedPermissions(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "create", "admin")
+		"keys", "service", "create", "admin")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"name": "admin"}, body)
 	assert.Contains(t, out, "Key value: "+serviceKeyValue)
@@ -128,7 +129,7 @@ func TestProjectServiceKeysCreateSendsPermissions(t *testing.T) {
 	defer server.Close()
 
 	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permission", "storage.read")
+		"keys", "service", "create", "scoped", "--permission", "functions.invoke", "--permission", "storage.read")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"name": "scoped", "permissions": []any{"functions.invoke", "storage.read"}}, body)
 }
@@ -144,7 +145,7 @@ func TestProjectServiceKeysCreateMergesPermissionAliases(t *testing.T) {
 	defer server.Close()
 
 	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permissions", "storage.read")
+		"keys", "service", "create", "scoped", "--permission", "functions.invoke", "--permissions", "storage.read")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"name": "scoped", "permissions": []any{"functions.invoke", "storage.read"}}, body)
 }
@@ -160,7 +161,7 @@ func TestProjectServiceKeysCreateRejectsEmptyPermission(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "create", "scoped", "--permission", "functions.invoke", "--permissions", "")
+		"keys", "service", "create", "scoped", "--permission", "functions.invoke", "--permissions", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "service key permission cannot be empty")
 	assert.False(t, called)
@@ -178,15 +179,15 @@ func TestProjectServiceKeysGetUsesExplicitProject(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-key", "get", serviceKeyID, projectAlphaID)
+		"keys", "service", "get", serviceKeyID, projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/service-keys/"+serviceKeyID, gotPath)
-	assert.Contains(t, out, "Key value: "+serviceKeyValue)
+	assert.NotContains(t, out, serviceKeyValue)
 }
 
 func TestProjectServiceKeysRejectsMissingCreateName(t *testing.T) {
 	cmd := NewProjects(cliruntime.Deps{})
-	_, err := executeProjectCommand(t, cmd, "service-keys", "create")
+	_, err := executeProjectCommand(t, cmd, "keys", "service", "create")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "accepts between 1 and 2 arg(s)")
 }
@@ -202,7 +203,7 @@ func TestProjectServiceKeysNeverPrintsSecretOnError(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"service-keys", "create", "admin")
+		"keys", "service", "create", "admin")
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), serviceKeyValue)
 	assert.NotContains(t, out, serviceKeyValue)
@@ -214,4 +215,32 @@ func serviceKeyPayload() map[string]any {
 		"id": serviceKeyID, "name": "admin", "key_prefix": "sk-prefix", "key_value": serviceKeyValue,
 		"permissions": []string{"functions.invoke", "storage.read"}, "created_at": "2026-09-19T00:00:00Z", "updated_at": "2026-09-19T01:00:00Z",
 	}
+}
+
+func TestServiceKeySecretOutputIsExplicit(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			writeProjectCommandJSON(t, w, http.StatusCreated, serviceKeyPayload())
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, serviceKeyID) {
+			writeProjectCommandJSON(t, w, http.StatusOK, serviceKeyPayload())
+			return
+		}
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{serviceKeyPayload()}, "page": 1, "limit": 100, "total": 1, "has_more": false})
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	for _, args := range [][]string{{"keys", "service", "list", "--show-key"}, {"keys", "service", "get", serviceKeyID, "--show-key"}} {
+		out, err := executeProjectCommand(t, NewProjects(deps), args...)
+		require.NoError(t, err)
+		assert.Contains(t, out, serviceKeyValue)
+	}
+	out, err := executeProjectCommand(t, NewProjects(deps), "keys", "service", "create", "worker", "--json")
+	require.NoError(t, err)
+	var key map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &key))
+	assert.Equal(t, serviceKeyValue, key["key_value"])
 }

@@ -49,6 +49,15 @@ func (c *Client) ListAnonKeys(ctx context.Context, projectID uuid.UUID) ([]apicl
 	return *result.Data, nil
 }
 
+// CreateAnonKey creates a publishable key with the server's auth-only default.
+func (c *Client) CreateAnonKey(ctx context.Context, projectID uuid.UUID, name string) (*apiclient.AnonKey, error) {
+	resp, err := c.client.CreateAnonKeyWithResponse(ctx, projectID, apiclient.CreateAnonKeyJSONRequestBody{Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON201)
+}
+
 // GetProject returns one project by ID.
 func (c *Client) GetProject(ctx context.Context, projectID uuid.UUID) (*apiclient.Project, error) {
 	resp, err := c.client.GetProjectWithResponse(ctx, projectID)

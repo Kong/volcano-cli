@@ -126,6 +126,19 @@ func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclien
 	return keys, nil
 }
 
+// CreateAnonKey creates a publishable key for the selected project.
+func (s Service) CreateAnonKey(ctx context.Context, projectID, name string) (*apiclient.AnonKey, error) {
+	authenticated, id, err := s.selectedProject(projectID, "create anon key")
+	if err != nil {
+		return nil, err
+	}
+	key, err := authenticated.API.CreateAnonKey(ctx, id, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create anon key: %w", err)
+	}
+	return key, nil
+}
+
 // Delete starts asynchronous project deletion by ID.
 func (s Service) Delete(ctx context.Context, projectID string) error {
 	authenticated, err := s.sessions.AccountScoped()

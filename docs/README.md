@@ -109,7 +109,7 @@ volcano use my-app                 # set the active project
 volcano projects get               # details for the active project
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
 volcano projects keys              # anon (publishable) API keys for the browser/SDK
-volcano projects service-keys list # backend service keys for the active project
+volcano projects keys service list # backend service-key metadata for the active project
 volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
@@ -117,17 +117,25 @@ volcano projects delete my-app     # delete
 `VOLCANO_PROJECT_ID` overrides the active project for a single invocation
 (useful in CI).
 
+### Project keys
+
+`volcano projects keys [project-id]` still lists publishable anon keys.
+`volcano projects keys anon list [project-id]` does the same.
+`volcano projects keys anon create <name> [project-id]` creates a publishable
+auth-only key using the server default.
+
 ### Backend service keys
 
 Service keys are privileged backend credentials that bypass row-level security.
 Never expose their values in frontend code, logs, shell history, or other
-untrusted output. The `list`, `create`, and `get` commands print plaintext key
-values when the API returns them successfully:
+untrusted output. `list` and `get` show metadata by default. Use `--show-key`
+only when you need the plaintext. `create` prints the new key; use `--json`
+to script it:
 
 ```bash
-volcano projects service-keys list [project-id] --page 1 --limit 100
-volcano projects service-keys create worker [project-id] --permission functions.invoke
-volcano projects service-keys get <key-id> [project-id]
+volcano projects keys service list --page 1 --limit 100
+volcano projects keys service create worker --permission functions.invoke --json
+volcano projects keys service get <key-id> --show-key
 ```
 
 `--permission` is repeatable; `--permissions` is an equivalent spelling and

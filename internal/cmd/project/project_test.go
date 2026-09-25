@@ -415,3 +415,34 @@ func TestProjectsKeysTrimsTheEnvProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 }
+
+func TestProjectKeysAnonPaths(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
+	var method, path string
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, path = r.Method, r.URL.Path
+		if r.Method == http.MethodPost {
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			writeProjectCommandJSON(t, w, http.StatusCreated, map[string]any{"id": serviceKeyID, "name": "browser", "key_value": "ak-browser"})
+			return
+		}
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{map[string]any{"id": serviceKeyID, "name": "browser", "key_value": "ak-browser"}}})
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	for _, args := range [][]string{{"keys"}, {"keys", "anon", "list"}} {
+		out, err := executeProjectCommand(t, NewProjects(deps), args...)
+		require.NoError(t, err)
+		assert.Equal(t, http.MethodGet, method)
+		assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
+		assert.Contains(t, out, "ak-browser")
+	}
+	out, err := executeProjectCommand(t, NewProjects(deps), "keys", "anon", "create", "browser")
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodPost, method)
+	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
+	assert.Equal(t, map[string]any{"name": "browser"}, body)
+	assert.Contains(t, out, "ak-browser")
+}
