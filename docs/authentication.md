@@ -14,8 +14,7 @@ when available (press Enter to accept, or type a different address), then
 opens Volcano's web signup flow in your browser. Once you finish in the
 browser, the CLI completes the device-authorization handshake and saves your
 credentials to `~/.volcano/config.json`, so a single command signs you up
-and logs you in. By default, the CLI uses `https://api.volcano.dev` and opens
-`https://volcano.dev` for signup.
+and logs you in.
 
 Already have an account? Authenticate with `volcano login`:
 
