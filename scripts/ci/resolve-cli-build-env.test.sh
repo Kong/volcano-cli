@@ -5,7 +5,7 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 output="$(mktemp)"
 trap 'rm -f "$output"' EXIT
 
-REF=refs/tags/v1.2.3 GITHUB_ENV="$output" \
+REF=refs/tags/v1.2.3 REF_NAME=v1.2.3 GITHUB_ENV="$output" \
   PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID=prod-client \
   STAGING_FIRST_PARTY_DEVICE_CLIENT_ID=staging-client \
   "$root/scripts/ci/resolve-cli-build-env.sh"
@@ -13,7 +13,7 @@ grep -Fx 'CLI_DEFAULT_API_URL=https://api.volcano.dev' "$output"
 grep -Fx 'CLI_DEFAULT_WEB_URL=https://volcano.dev' "$output"
 grep -Fx 'CLI_FIRST_PARTY_DEVICE_CLIENT_ID=prod-client' "$output"
 
-if error="$(REF=refs/tags/v1.2.3 GITHUB_ENV="$output" \
+if error="$(REF=refs/tags/v1.2.3 REF_NAME=v1.2.3 GITHUB_ENV="$output" \
   PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID= \
   VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION= \
   STAGING_FIRST_PARTY_DEVICE_CLIENT_ID=staging-client \
