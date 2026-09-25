@@ -87,6 +87,7 @@ jobs:
           echo "OK: no version-file changes outside a Release Please PR."
       - run: make openapi-generated-check
       - run: make release-workflow-check
+      - run: bash scripts/ci/resolve-cli-build-env.test.sh
       - run: make lint
       - run: make test
       - run: go build ./...
