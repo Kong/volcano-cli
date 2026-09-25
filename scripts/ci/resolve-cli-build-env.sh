@@ -13,13 +13,8 @@ if [ -z "${GITHUB_ENV:-}" ]; then
   exit 1
 fi
 
-# ponytail: staging default for the whole testing phase so every release path
-# (including stable tags -> `latest`/npm/brew) builds against staging; restore
-# these two lines and each per-case block below before GA
-# CLI_DEFAULT_API_URL="https://api.volcano.dev"
-# CLI_DEFAULT_WEB_URL="https://volcano.dev"
-CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
-CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
+CLI_DEFAULT_API_URL="https://api.volcano.dev"
+CLI_DEFAULT_WEB_URL="https://volcano.dev"
 CLI_FIRST_PARTY_DEVICE_CLIENT_ID=""
 # Local-mode server image baked into the release binary's `volcano start` default.
 # All channels ship kong/volcano:local-nightly, the local-mode image
@@ -37,16 +32,8 @@ case "$REF" in
       echo "Release tags must use stable SemVer form vMAJOR.MINOR.PATCH."
       exit 1
     fi
-    # ponytail: stable tags build against staging during the testing phase so
-    # `latest`/npm default to staging; restore these four lines before GA
-    # CLI_DEFAULT_API_URL="https://api.volcano.dev"
-    # CLI_DEFAULT_WEB_URL="https://volcano.dev"
-    # CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
-    # REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
-    CLI_DEFAULT_API_URL="https://api.staging.volcano.dev"
-    CLI_DEFAULT_WEB_URL="https://staging.volcano.dev"
-    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${STAGING_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING:-}}"
-    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING"
+    CLI_FIRST_PARTY_DEVICE_CLIENT_ID="${PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID:-${VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION:-}}"
+    REQUIRED_DEVICE_CLIENT_ID_VAR="VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION"
     CLI_VERSION="$REF_NAME"
     ;;
   *)
