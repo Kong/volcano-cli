@@ -3,21 +3,51 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
+	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
+
+func TestRunSandboxExitPreservesStatus(t *testing.T) {
+	resetInstructions(t)
+	root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+		return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 7})
+	}}
+	root.SetArgs(nil)
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	assert.Equal(t, 7, run(root, cliruntime.Deps{}))
+	assert.Empty(t, stderr.String())
+}
+
+func TestRunSubprocessFailurePrintsDiagnostic(t *testing.T) {
+	resetInstructions(t)
+	err := exec.Command("sh", "-c", "exit 9").Run()
+	require.Error(t, err)
+	root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+		return fmt.Errorf("Docker startup failed: %w", err)
+	}}
+	root.SetArgs(nil)
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	assert.Equal(t, 1, run(root, cliruntime.Deps{}))
+	assert.Contains(t, stderr.String(), "Docker startup failed: exit status 9")
+}
 
 func resetInstructions(t *testing.T) {
 	t.Helper()

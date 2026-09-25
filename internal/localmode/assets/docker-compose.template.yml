@@ -81,10 +81,31 @@ services:
       retries: 3
       start_period: 10s
 
+  sandbox-broker:
+    image: ${VOLCANO_IMAGE:-kong/volcano:local-nightly}
+    user: "0:0"
+    entrypoint: ["/app/sandbox-local", "broker"]
+    read_only: true
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - volcano-sandbox-control:/run/sandbox-control
+      - volcano-sandbox-state:/state
+    networks:
+      - volcano-internal
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /run/sandbox-control/control.sock"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+
   server:
     image: ${VOLCANO_IMAGE:-kong/volcano:local-nightly}
     container_name: volcano-server
     depends_on:
+      sandbox-broker:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -96,6 +117,7 @@ services:
     environment:
       # Core settings
       LOCAL_MODE: "true"
+      LOCAL_SANDBOX_SOCKET: /run/sandbox-control/control.sock
       LOCAL_MODE_GIT_DEPLOY_WORKER: ${LOCAL_MODE_GIT_DEPLOY_WORKER:-false}
       LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
       # Off by default: a durable function that waits a day is normal to write
@@ -163,6 +185,7 @@ services:
       POSTHOG_TEST_MARKER_ENVIRONMENT: ${POSTHOG_TEST_MARKER_ENVIRONMENT:-}
     volumes:
       - volcano-storage:/app/local-storage
+      - volcano-sandbox-control:/run/sandbox-control
     ports:
       - "8000:8000"
       - "8002:8002"
@@ -185,6 +208,8 @@ volumes:
   volcano-redis:
   volcano-dynamodb:
   volcano-storage:
+  volcano-sandbox-control:
+  volcano-sandbox-state:
 
 configs:
   appconfig-feature-flags-development:
