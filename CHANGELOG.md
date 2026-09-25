@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/Kong/volcano-cli/compare/v0.33.0...v0.34.0) (2026-09-25)
+
+
+### Features
+
+* **cli:** add project service-key and usage commands ([#221](https://github.com/Kong/volcano-cli/issues/221)) ([6cd1b9e](https://github.com/Kong/volcano-cli/commit/6cd1b9e2898bf259118d5109cde5f4ca84ae03f1))
+
 ## [0.33.0](https://github.com/Kong/volcano-cli/compare/v0.32.1...v0.33.0) (2026-09-24)
 
 
