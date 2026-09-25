@@ -108,7 +108,7 @@ volcano projects list              # list your projects
 volcano use my-app                 # set the active project
 volcano projects get               # details for the active project
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
-volcano projects keys              # anon (publishable) API keys for the browser/SDK
+volcano projects keys anon list    # anon (publishable) API keys for the browser/SDK
 volcano projects keys service list # backend service-key metadata for the active project
 volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
@@ -119,8 +119,8 @@ volcano projects delete my-app     # delete
 
 ### Project keys
 
-`volcano projects keys [project-id]` still lists publishable anon keys.
-`volcano projects keys anon list [project-id]` does the same.
+`volcano projects keys` requires an explicit key type.
+`volcano projects keys anon list [project-id]` lists publishable anon keys.
 `volcano projects keys anon create <name> [project-id]` creates a publishable
 auth-only key using the server default.
 

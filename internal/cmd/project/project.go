@@ -206,22 +206,11 @@ func runRename(ctx context.Context, opts renameOptions) error {
 
 func newKeys(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "keys [project-id]",
-		Short: "Show a project's anon (publishable) API keys",
-		Long: `Show a project's anon keys — the publishable JWT you put in the frontend/SDK Authorization header (the value an app or staging build needs).
-
-Defaults to the currently selected project when no ID is given (see ` + "`volcano use`" + `). Anon keys are publishable client keys; this does not print server-side service keys.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var projectID string
-			if len(args) == 1 {
-				projectID = strings.TrimSpace(args[0])
-			}
-			return runKeys(cmd.Context(), keysOptions{
-				deps:      deps,
-				projectID: projectID,
-				out:       cmd.OutOrStdout(),
-			})
+		Use:   "keys",
+		Short: "Manage project anon and service keys",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New("specify a key type: anon or service")
 		},
 	}
 	cmd.AddCommand(newAnonKeys(deps))

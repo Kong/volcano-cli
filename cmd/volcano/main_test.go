@@ -522,7 +522,7 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 // and every link has to carry the argument rather than the selection.
 func TestRun_ProjectTokenHintNamesTheArgumentProject(t *testing.T) {
 	for _, args := range [][]string{
-		{"projects", "keys", mainTestProjectBeta},
+		{"projects", "keys", "anon", "list", mainTestProjectBeta},
 		{"projects", "get", mainTestProjectBeta},
 		{"use", mainTestProjectBeta},
 	} {

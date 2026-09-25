@@ -349,7 +349,7 @@ func TestProjectsKeysDefaultsToCurrentProject(t *testing.T) {
 	defer server.Close()
 
 	// No project-id arg: must target the currently selected project.
-	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", gotPath)
 	for _, want := range []string{"default", "(default)", "ak-anon-jwt-value", "33333333-3333-4333-8333-333333333333"} {
@@ -369,7 +369,7 @@ func TestProjectsKeysExplicitIDAndEmpty(t *testing.T) {
 	defer server.Close()
 
 	// Explicit ID is used, and an empty key list renders a clear message (no current project needed).
-	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", projectAlphaID)
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list", projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 	assert.Contains(t, out, "No anon keys for this project.")
@@ -391,7 +391,7 @@ func TestProjectsKeysHonorsEnvProjectPrecedence(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 }
@@ -411,7 +411,7 @@ func TestProjectsKeysTrimsTheEnvProject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 }
@@ -432,17 +432,27 @@ func TestProjectKeysAnonPaths(t *testing.T) {
 	}))
 	defer server.Close()
 	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
-	for _, args := range [][]string{{"keys"}, {"keys", "anon", "list"}} {
-		out, err := executeProjectCommand(t, NewProjects(deps), args...)
-		require.NoError(t, err)
-		assert.Equal(t, http.MethodGet, method)
-		assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
-		assert.Contains(t, out, "ak-browser")
-	}
-	out, err := executeProjectCommand(t, NewProjects(deps), "keys", "anon", "create", "browser")
+	out, err := executeProjectCommand(t, NewProjects(deps), "keys", "anon", "list")
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodGet, method)
+	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
+	assert.Contains(t, out, "ak-browser")
+	out, err = executeProjectCommand(t, NewProjects(deps), "keys", "anon", "create", "browser")
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodPost, method)
 	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
 	assert.Equal(t, map[string]any{"name": "browser"}, body)
 	assert.Contains(t, out, "ak-browser")
+}
+
+func TestProjectsKeysRequiresKeyType(t *testing.T) {
+	for _, args := range [][]string{{"keys"}, {"keys", projectAlphaID}} {
+		_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{}), args...)
+		require.Error(t, err)
+		if len(args) == 1 {
+			assert.ErrorContains(t, err, "specify a key type: anon or service")
+		} else {
+			assert.ErrorContains(t, err, "unknown command")
+		}
+	}
 }
