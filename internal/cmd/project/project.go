@@ -3,6 +3,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliproject "github.com/Kong/volcano-cli/internal/project"
@@ -87,6 +89,7 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newRename(deps))
 	cmd.AddCommand(newKeys(deps))
+	cmd.AddCommand(newUsage(deps))
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newUse(deps))
 	return cmd
@@ -202,23 +205,62 @@ func runRename(ctx context.Context, opts renameOptions) error {
 }
 
 func newKeys(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
-		Use:   "keys [project-id]",
-		Short: "Show a project's anon (publishable) API keys",
-		Long: `Show a project's anon keys — the publishable JWT you put in the frontend/SDK Authorization header (the value an app or staging build needs).
+	cmd := &cobra.Command{
+		Use:   "keys",
+		Short: "Manage project anon and service keys",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New("specify a key type: anon or service")
+		},
+	}
+	cmd.AddCommand(newAnonKeys(deps))
+	cmd.AddCommand(newServiceKeys(deps))
+	return cmd
+}
 
-Defaults to the currently selected project when no ID is given (see ` + "`volcano use`" + `). Anon keys are publishable client keys; this does not print server-side service keys.`,
-		Args: cobra.MaximumNArgs(1),
+func newAnonKeys(deps cliruntime.Deps) *cobra.Command {
+	cmd := &cobra.Command{Use: "anon", Short: "Manage publishable anon keys", Args: cobra.NoArgs}
+	list := newKeysList(deps)
+	cmd.AddCommand(list)
+	cmd.AddCommand(newAnonKeyCreate(deps))
+	return cmd
+}
+
+func newKeysList(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list [project-id]",
+		Short: "List publishable anon keys",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var projectID string
+			projectID := ""
 			if len(args) == 1 {
 				projectID = strings.TrimSpace(args[0])
 			}
-			return runKeys(cmd.Context(), keysOptions{
-				deps:      deps,
-				projectID: projectID,
-				out:       cmd.OutOrStdout(),
-			})
+			return runKeys(cmd.Context(), keysOptions{deps: deps, projectID: projectID, out: cmd.OutOrStdout()})
+		},
+	}
+}
+
+func newAnonKeyCreate(deps cliruntime.Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "create <name> [project-id]",
+		Short: "Create a publishable auth-only anon key",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := strings.TrimSpace(args[0])
+			if name == "" {
+				return errors.New("anon key name cannot be empty")
+			}
+			projectID := ""
+			if len(args) == 2 {
+				projectID = strings.TrimSpace(args[1])
+			}
+			key, err := cliproject.NewService(deps).CreateAnonKey(cmd.Context(), projectID, name)
+			if err != nil {
+				return err
+			}
+			output.AnonKeys(cmd.OutOrStdout(), []apiclient.AnonKey{*key})
+			return nil
 		},
 	}
 }

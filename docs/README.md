@@ -82,7 +82,7 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 |---|---|---|---|
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
-| Project | create, list, get, rename, delete, select, get anon keys | `projects …`, `use` | below |
+| Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Functions | deploy, invoke, inspect, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Durable functions | deploy, start, inspect executions, read logs, schedule | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
@@ -105,12 +105,52 @@ volcano projects list              # list your projects
 volcano use my-app                 # set the active project
 volcano projects get               # details for the active project
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
-volcano projects keys              # anon (publishable) API keys for the browser/SDK
+volcano projects keys anon list    # anon (publishable) API keys for the browser/SDK
+volcano projects keys service list # backend service-key metadata for the active project
+volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
 
 `VOLCANO_PROJECT_ID` overrides the active project for a single invocation
 (useful in CI).
+
+### Project keys
+
+`volcano projects keys` requires an explicit key type.
+`volcano projects keys anon list [project-id]` lists publishable anon keys.
+`volcano projects keys anon create <name> [project-id]` creates a publishable
+auth-only key using the server default.
+
+### Backend service keys
+
+Service keys are privileged backend credentials that bypass row-level security.
+Never expose their values in frontend code, logs, shell history, or other
+untrusted output. `list` and `get` show metadata by default. Use `--show-key`
+only when you need the plaintext. `create` prints the new key; use `--json`
+to script it:
+
+```bash
+volcano projects keys service list --page 1 --limit 100
+volcano projects keys service create worker --permission functions.invoke --json
+volcano projects keys service get <key-id> --show-key
+```
+
+`--permission` is repeatable; `--permissions` is an equivalent spelling and
+the two can be combined. Omitting both gives the key full access. Empty or blank
+permission values are rejected so an intended restricted key cannot silently
+fall back to full access.
+
+An explicit `[project-id]` takes precedence over `VOLCANO_PROJECT_ID` and the
+active project. Without it, `VOLCANO_PROJECT_ID` takes precedence over the
+active project. Paginated list output includes a next-page command that retains
+an explicit project ID.
+
+### Project usage
+
+`volcano projects usage [project-id]` prints each metric's current-month total
+and all-time total. It does not print the hourly or daily time series returned
+by the API. Project selection follows the same explicit ID, environment, then
+active-project precedence described above.
 
 ## Starting a project
 

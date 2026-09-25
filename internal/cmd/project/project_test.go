@@ -349,7 +349,7 @@ func TestProjectsKeysDefaultsToCurrentProject(t *testing.T) {
 	defer server.Close()
 
 	// No project-id arg: must target the currently selected project.
-	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", gotPath)
 	for _, want := range []string{"default", "(default)", "ak-anon-jwt-value", "33333333-3333-4333-8333-333333333333"} {
@@ -369,7 +369,7 @@ func TestProjectsKeysExplicitIDAndEmpty(t *testing.T) {
 	defer server.Close()
 
 	// Explicit ID is used, and an empty key list renders a clear message (no current project needed).
-	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", projectAlphaID)
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list", projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 	assert.Contains(t, out, "No anon keys for this project.")
@@ -391,7 +391,7 @@ func TestProjectsKeysHonorsEnvProjectPrecedence(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
 }
@@ -411,7 +411,48 @@ func TestProjectsKeysTrimsTheEnvProject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys")
+	_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "keys", "anon", "list")
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+projectAlphaID+"/anon-keys", gotPath)
+}
+
+func TestProjectKeysAnonPaths(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token", CurrentProject: &cliconfig.ProjectConfig{ID: projectBetaID}})
+	var method, path string
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, path = r.Method, r.URL.Path
+		if r.Method == http.MethodPost {
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			writeProjectCommandJSON(t, w, http.StatusCreated, map[string]any{"id": serviceKeyID, "name": "browser", "key_value": "ak-browser"})
+			return
+		}
+		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{map[string]any{"id": serviceKeyID, "name": "browser", "key_value": "ak-browser"}}})
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	out, err := executeProjectCommand(t, NewProjects(deps), "keys", "anon", "list")
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodGet, method)
+	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
+	assert.Contains(t, out, "ak-browser")
+	out, err = executeProjectCommand(t, NewProjects(deps), "keys", "anon", "create", "browser")
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodPost, method)
+	assert.Equal(t, "/projects/"+projectBetaID+"/anon-keys", path)
+	assert.Equal(t, map[string]any{"name": "browser"}, body)
+	assert.Contains(t, out, "ak-browser")
+}
+
+func TestProjectsKeysRequiresKeyType(t *testing.T) {
+	for _, args := range [][]string{{"keys"}, {"keys", projectAlphaID}} {
+		_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{}), args...)
+		require.Error(t, err)
+		if len(args) == 1 {
+			assert.ErrorContains(t, err, "specify a key type: anon or service")
+		} else {
+			assert.ErrorContains(t, err, "unknown command")
+		}
+	}
 }
