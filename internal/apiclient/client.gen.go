@@ -5196,11 +5196,14 @@ type FrontendVariableScope string
 
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse struct {
-	CreatedAt             time.Time                                      `json:"created_at"`
-	Domain                string                                         `json:"domain"`
-	DomainStatus          FrontendCustomDomainResponseDomainStatus       `json:"domain_status"`
-	EffectiveUrls         []string                                       `json:"effective_urls"`
-	RequiredRoutingRecord *FrontendDomainRoutingRecord                   `json:"required_routing_record,omitempty"`
+	CreatedAt             time.Time                                `json:"created_at"`
+	Domain                string                                   `json:"domain"`
+	DomainStatus          FrontendCustomDomainResponseDomainStatus `json:"domain_status"`
+	EffectiveUrls         []string                                 `json:"effective_urls"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord             `json:"required_routing_record,omitempty"`
+
+	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
+	RoutingTargetHostname *string                                        `json:"routing_target_hostname,omitempty"`
 	TlsMode               FrontendCustomDomainResponseTlsMode            `json:"tls_mode"`
 	UpdatedAt             time.Time                                      `json:"updated_at"`
 	VerificationRecords   *[]FrontendDomainVerificationRecord            `json:"verification_records,omitempty"`
@@ -7069,7 +7072,10 @@ type ProjectFrontendCustomDomain struct {
 		Id   openapi_types.UUID `json:"id"`
 		Name string             `json:"name"`
 	} `json:"frontend"`
-	RequiredRoutingRecord *FrontendDomainRoutingRecord                  `json:"required_routing_record,omitempty"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord `json:"required_routing_record,omitempty"`
+
+	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
+	RoutingTargetHostname *string                                       `json:"routing_target_hostname,omitempty"`
 	TlsMode               ProjectFrontendCustomDomainTlsMode            `json:"tls_mode"`
 	UpdatedAt             time.Time                                     `json:"updated_at"`
 	VerificationRecords   *[]FrontendDomainVerificationRecord           `json:"verification_records,omitempty"`
