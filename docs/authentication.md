@@ -36,7 +36,7 @@ The CLI accepts two kinds of credential:
 | Credential | Reaches | Get one with |
 |---|---|---|
 | Account token (`pk-`) | Every project you own | `volcano login` |
-| Project access token (`pt-`) | One project | `volcano cloud access-tokens create` |
+| Project access token (`pt-`) | One project | `volcano projects keys access-tokens create` |
 
 Both work with `volcano login --token` and with `VOLCANO_TOKEN`. A project
 access token is the one to give CI: it is scoped to a single project, carries

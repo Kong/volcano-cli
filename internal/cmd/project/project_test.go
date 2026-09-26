@@ -450,7 +450,7 @@ func TestProjectsKeysRequiresKeyType(t *testing.T) {
 		_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{}), args...)
 		require.Error(t, err)
 		if len(args) == 1 {
-			assert.ErrorContains(t, err, "specify a key type: anon or service")
+			assert.ErrorContains(t, err, "specify a key type: anon, service, or access-tokens")
 		} else {
 			assert.ErrorContains(t, err, "unknown command")
 		}

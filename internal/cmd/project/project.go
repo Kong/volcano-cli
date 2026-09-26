@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	accesstokenscmd "github.com/Kong/volcano-cli/internal/cmd/accesstokens"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliproject "github.com/Kong/volcano-cli/internal/project"
@@ -207,14 +208,16 @@ func runRename(ctx context.Context, opts renameOptions) error {
 func newKeys(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "keys",
-		Short: "Manage project anon and service keys",
+		Short: "Manage project anon, service, and access-token keys",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return errors.New("specify a key type: anon or service")
+			return errors.New("specify a key type: anon, service, or access-tokens")
 		},
 	}
 	cmd.AddCommand(newAnonKeys(deps))
 	cmd.AddCommand(newServiceKeys(deps))
+	deps.CommandPathPrefix = "volcano projects keys"
+	cmd.AddCommand(accesstokenscmd.New(deps))
 	return cmd
 }
 
