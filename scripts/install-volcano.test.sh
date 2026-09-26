@@ -48,9 +48,16 @@ printf '%s\n' "$*" >> "$FAKE_VOLCANO_LOG"
 EOF
 chmod +x "$TMP_DIR/volcano"
 
+cat > "$TMP_DIR/bin/cosign" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" > "$FAKE_COSIGN_LOG"
+EOF
+chmod +x "$TMP_DIR/bin/cosign"
+
 export FAKE_VOLCANO_BINARY="$TMP_DIR/volcano"
 export FAKE_VOLCANO_LOG="$TMP_DIR/volcano.log"
 export FAKE_CURL_LOG="$TMP_DIR/curl.log"
+export FAKE_COSIGN_LOG="$TMP_DIR/cosign.log"
 export FAKE_UNAME_S="Darwin"
 export FAKE_UNAME_M="arm64"
 export PATH="$TMP_DIR/bin:$PATH"
@@ -113,6 +120,13 @@ if VOLCANO_VERSION="$(printf 'v1.2.3\ninvalid')" \
   exit 1
 fi
 grep -F "unsupported Volcano CLI version selector: v1.2.3" "$TMP_DIR/version-error.log" >/dev/null
+
+unset VOLCANO_SKIP_SIGNATURE_VERIFICATION
+sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -F -- "--certificate-identity-regexp ^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$" "$FAKE_COSIGN_LOG" >/dev/null
+VOLCANO_VERSION=v1.2.3 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -F -- "--certificate-identity https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/v1.2.3" "$FAKE_COSIGN_LOG" >/dev/null
+export VOLCANO_SKIP_SIGNATURE_VERIFICATION=1
 
 cat > "$TMP_DIR/bin/volcano" <<'EOF'
 #!/bin/sh
