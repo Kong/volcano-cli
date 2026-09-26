@@ -107,6 +107,13 @@ if VOLCANO_VERSION=v01.2.3 sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/vers
 fi
 grep -F "unsupported Volcano CLI version selector: v01.2.3" "$TMP_DIR/version-error.log" >/dev/null
 
+if VOLCANO_VERSION="$(printf 'v1.2.3\ninvalid')" \
+  sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/version-error.log" 2>&1; then
+  echo "expected multiline version to fail" >&2
+  exit 1
+fi
+grep -F "unsupported Volcano CLI version selector: v1.2.3" "$TMP_DIR/version-error.log" >/dev/null
+
 cat > "$TMP_DIR/bin/volcano" <<'EOF'
 #!/bin/sh
 exit 0
@@ -117,6 +124,13 @@ setup_output="$(sh "$ROOT/scripts/install-volcano.sh" --setup)"
 printf '%s\n' "$setup_output" | grep -F \
   "Warning: 'volcano' on your PATH resolves to $TMP_DIR/bin/volcano, not $TMP_DIR/install/volcano." >/dev/null
 test "$(cat "$FAKE_VOLCANO_LOG")" = "setup"
+
+ln -sf "$TMP_DIR/install/volcano" "$TMP_DIR/bin/volcano"
+path_output="$(sh "$ROOT/scripts/install-volcano.sh")"
+if printf '%s\n' "$path_output" | grep -F "Warning:" >/dev/null; then
+  echo "expected PATH symlink to resolve to the installed binary" >&2
+  exit 1
+fi
 
 if sh "$ROOT/scripts/install-volcano.sh" --unknown >"$TMP_DIR/error.log" 2>&1; then
   echo "expected unknown option to fail" >&2

@@ -19,6 +19,10 @@ have() {
 }
 
 is_semver() {
+  case "$1" in
+    *'
+'*) return 1 ;;
+  esac
   printf '%s\n' "$1" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 }
 
@@ -205,7 +209,7 @@ PATH_VOLCANO="$(command -v "$CLI_COMMAND" 2>/dev/null || true)"
 if [ -z "$PATH_VOLCANO" ]; then
   echo "Add ${INSTALL_DIR} to your PATH to run '${CLI_COMMAND}' from any shell."
   echo "Run: ${INSTALL_PATH} --help"
-elif [ "$PATH_VOLCANO" != "$INSTALL_PATH" ]; then
+elif [ "$PATH_VOLCANO" != "$INSTALL_PATH" ] && ! [ "$PATH_VOLCANO" -ef "$INSTALL_PATH" ]; then
   echo "Warning: '${CLI_COMMAND}' on your PATH resolves to ${PATH_VOLCANO}, not ${INSTALL_PATH}."
   echo "Move ${INSTALL_DIR} earlier in your PATH or run '${INSTALL_PATH}' directly."
   echo "Run: ${INSTALL_PATH} --help"
