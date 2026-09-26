@@ -88,6 +88,7 @@ jobs:
       - run: make openapi-generated-check
       - run: make release-workflow-check
       - run: bash scripts/ci/resolve-cli-build-env.test.sh
+      - run: bash scripts/ci/retry-image-pull.test.sh
       - run: make lint
       - run: make test
       - run: go build ./...
@@ -110,6 +111,8 @@ jobs:
         run: |
           set -euo pipefail
           docker manifest inspect kong/volcano:local-nightly >/dev/null
+      - name: Pre-pull AppConfig agent with retries
+        run: bash scripts/ci/retry-image-pull.sh docker compose -f internal/localmode/assets/docker-compose.template.yml -p volcano pull appconfig-agent
       - name: Run local-mode CLI contract smoke
         env:
           VOLCANO_IMAGE: kong/volcano:local-nightly
