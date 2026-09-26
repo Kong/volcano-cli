@@ -38,11 +38,20 @@ every project you own. Only an account token can manage access tokens.
 | Usage | `volcano projects keys access-tokens usage [<token-id>] [--days <n>] [--json]` |
 | Revoke | `volcano projects keys access-tokens revoke <name-or-id> [--yes]` |
 
-`tokens` is an alias for `access-tokens`. `volcano cloud access-tokens`
-remains available with the same operations and flags. Both paths target the
-current cloud project; local development issues no credentials.
+`tokens` is an alias for `access-tokens`. Both `volcano cloud access-tokens`
+and `volcano projects keys access-tokens` target the current cloud project
+and support the same operations and flags. Local development issues no
+credentials.
 
 ## Create a token
+
+Use either command path to create a token for the current cloud project:
+
+```bash
+volcano cloud access-tokens create ci-deploy
+```
+
+The same operation is available under project keys:
 
 ```bash
 volcano projects keys access-tokens create ci-deploy
@@ -64,7 +73,7 @@ never the secret, so store it when you create it.
 Scope the token down and give it an expiry when you can:
 
 ```bash
-volcano projects keys access-tokens create ci-audit \
+volcano cloud access-tokens create ci-audit \
   --scope read_only \
   --expires-at 2027-01-31T00:00:00Z
 ```
@@ -75,7 +84,7 @@ The secret is printed once and never again. For a script, take it from `--json`
 rather than parsing the human output:
 
 ```bash
-secret=$(volcano projects keys access-tokens create ci-deploy --json | jq -r .token)
+secret=$(volcano cloud access-tokens create ci-deploy --json | jq -r .token)
 ```
 
 ## Set the right project
@@ -127,9 +136,9 @@ project access token (pt-), which only reaches the project it was minted in. Run
 ## Inspect and revoke
 
 ```bash
-volcano projects keys access-tokens list
-volcano projects keys access-tokens get ci-deploy --usage --days 7
-volcano projects keys access-tokens revoke ci-deploy
+volcano cloud access-tokens list
+volcano cloud access-tokens get ci-deploy --usage --days 7
+volcano cloud access-tokens revoke ci-deploy
 ```
 
 `list` shows the tokens that can still authenticate. A token that stopped —
@@ -137,7 +146,7 @@ revoked, or past its `--expires-at` — is hidden until you ask for it, and then
 reports which it was in the `Status` column:
 
 ```bash
-volcano projects keys access-tokens list --include-revoked
+volcano cloud access-tokens list --include-revoked
 ```
 
 ```text
@@ -164,7 +173,7 @@ To compare tokens instead of days, `usage` totals the window for each one,
 revoked tokens included:
 
 ```bash
-volcano projects keys access-tokens usage --days 7
+volcano cloud access-tokens usage --days 7
 ```
 
 ```text
@@ -185,8 +194,8 @@ holds — the whole project, or one token's day-by-day series:
 ```bash
 export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
 export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
-volcano projects keys access-tokens usage --days 7
-volcano projects keys access-tokens usage 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77 --days 7
+volcano cloud access-tokens usage --days 7
+volcano cloud access-tokens usage 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77 --days 7
 ```
 
 The series is addressed by token ID, the one `create` printed, because turning
