@@ -22,7 +22,7 @@ it using its connection string.
 
 | Operation | Command |
 |---|---|
-| Create | `volcano databases create <name> [--type …] [--region aws-<aws-region>] [--pg-version …]` |
+| Create | `volcano databases create <name> [--type …] [--region <region>] [--pg-version …]` |
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
