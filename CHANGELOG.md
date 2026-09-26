@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.2](https://github.com/Kong/volcano-cli/compare/v0.34.1...v0.34.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **ci:** retry AppConfig image pull before local-mode E2E ([#231](https://github.com/Kong/volcano-cli/issues/231)) ([d96bf65](https://github.com/Kong/volcano-cli/commit/d96bf652c92b9753f65c6f6a1ee91a634152a4e7))
+
 ## [0.34.1](https://github.com/Kong/volcano-cli/compare/v0.34.0...v0.34.1) (2026-09-25)
 
 
