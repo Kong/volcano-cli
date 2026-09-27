@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/Kong/volcano-cli/compare/v0.35.0...v0.35.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **databases:** describe regions as plain region codes ([#236](https://github.com/Kong/volcano-cli/issues/236)) ([d8211fb](https://github.com/Kong/volcano-cli/commit/d8211fb5fcbc4eb6ca030b979de013733fd81c0f))
+
 ## [0.35.0](https://github.com/Kong/volcano-cli/compare/v0.34.3...v0.35.0) (2026-09-27)
 
 
