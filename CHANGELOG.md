@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.3](https://github.com/Kong/volcano-cli/compare/v0.34.2...v0.34.3) (2026-09-27)
+
+
+### Bug Fixes
+
+* **docs:** link to public configuration reference ([#235](https://github.com/Kong/volcano-cli/issues/235)) ([d364e92](https://github.com/Kong/volcano-cli/commit/d364e92a41a4b3356a43239a1ab13fc9f6cad3eb))
+
 ## [0.34.2](https://github.com/Kong/volcano-cli/compare/v0.34.1...v0.34.2) (2026-09-26)
 
 
