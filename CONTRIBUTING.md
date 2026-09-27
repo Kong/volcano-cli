@@ -3,11 +3,11 @@
 ## Local prerequisites
 
 - Go (use the toolchain version declared in `go.mod`).
+- Node.js 18 or later (for the npm installer tests).
 - `make`.
 
-That is the entire standalone CLI toolchain. `golangci-lint` is pinned via
-a `tool` directive in `go.mod` and runs through `go tool golangci-lint`, so
-no separate install step is required.
+`golangci-lint` is pinned via a `tool` directive in `go.mod` and runs through
+`go tool golangci-lint`, so no separate install step is required.
 
 ## Common workflows
 
