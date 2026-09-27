@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/Kong/volcano-cli/compare/v0.34.3...v0.35.0) (2026-09-27)
+
+
+### Features
+
+* **installer:** add portable setup option ([#170](https://github.com/Kong/volcano-cli/issues/170)) ([0acf77e](https://github.com/Kong/volcano-cli/commit/0acf77e53e97b28afb58d8aed4624ca37f88d5c3))
+
 ## [0.34.3](https://github.com/Kong/volcano-cli/compare/v0.34.2...v0.34.3) (2026-09-27)
 
 
