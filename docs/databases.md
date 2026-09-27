@@ -191,7 +191,7 @@ same way.
 ```bash
 # Create a database (defaults to type volcano-db-xs)
 volcano databases create app
-volcano databases create app --type volcano-db-s --region aws-us-east-1
+volcano databases create app --type volcano-db-s --region us-east-1
 
 # Show the connection string
 volcano databases get app --show-connection-string
