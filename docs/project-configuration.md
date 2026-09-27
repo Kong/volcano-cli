@@ -249,7 +249,7 @@ snapshot of a prior apply. Practical implications:
   still outstanding.
 
 See the server-side
-[configuration manifest reference](https://github.com/Kong/volcano-hosting/blob/main/docs/projects/configuration.md)
+[configuration manifest reference](/platform/projects/configuration)
 for the full reconciliation semantics.
 
 Behavior changes from older CLI releases:
