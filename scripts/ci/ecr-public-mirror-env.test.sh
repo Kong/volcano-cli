@@ -9,10 +9,16 @@ digest="sha256:$(printf 'a%.0s' {1..64})"
 mirrored="ghcr.io/kong/volcano-hosting-ecr-public/aws-appconfig/aws-appconfig-agent@$digest"
 
 mkdir "$work/bin"
+# The stub mirror answers any lookup, so only the script's own checks decide
+# which images it redirects.
 cat > "$work/bin/docker" <<'EOF'
 #!/usr/bin/env bash
-[ "$MIRROR_SERVES" = 1 ] && [ "${*: -1}" = "$MIRRORED" ] || exit 1
-echo "${MIRRORED#*@}"
+ref="${*: -1}"
+case "$MIRROR" in
+  serves) echo "${ref#*@}" ;;
+  drifted) echo "sha256:$(printf 'b%.0s' {1..64})" ;;
+  *) exit 1 ;;
+esac
 EOF
 chmod +x "$work/bin/docker"
 
@@ -29,20 +35,19 @@ EOF
 
 run() {
   : > "$work/env"
-  PATH="$work/bin:$PATH" MIRROR_SERVES="$1" MIRRORED="$mirrored" \
+  PATH="$work/bin:$PATH" MIRROR="$1" \
     COMPOSE_TEMPLATE="$work/compose.yml" GITHUB_ENV="$work/env" \
     bash "$root/scripts/ci/ecr-public-mirror-env.sh" > "$work/out"
 }
 
-run 1
+run serves
 [ "$(cat "$work/env")" = "VOLCANO_APPCONFIG_AGENT_IMAGE=$mirrored" ]
 grep -q 'ECR Public: public.ecr.aws/example/unpinned:latest$' "$work/out"
-if grep -q 'commented' "$work/out"; then
-  echo 'read a commented-out image' >&2
-  exit 1
-fi
 
-run 0
+run drifted
+[ ! -s "$work/env" ]
+
+run unavailable
 [ ! -s "$work/env" ]
 grep -q 'aws-appconfig-agent:2.x@' "$work/out"
 
