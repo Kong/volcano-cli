@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.4](https://github.com/Kong/volcano-cli/compare/v0.35.3...v0.35.4) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ci:** pull the AppConfig agent from the GHCR mirror in local-mode checks ([#244](https://github.com/Kong/volcano-cli/issues/244)) ([0a091d9](https://github.com/Kong/volcano-cli/commit/0a091d909161d76239a2bcf0d88afbed52354e97))
+
 ## [0.35.3](https://github.com/Kong/volcano-cli/compare/v0.35.2...v0.35.3) (2026-09-28)
 
 
