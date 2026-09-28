@@ -556,9 +556,13 @@ func assertVolcanoLocalModeE2EPlanCannotDowngrade(t *testing.T, env []string, in
 		t.Fatalf("local-mode default user plan = %q, want SUPERAGENT or the image's legacy paid plan", plan)
 	}
 
-	// The management route must refuse a downgrade regardless of the server
-	// image's name for its paid plan.
-	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", `{"plan":"HOBBY"}`); ok {
+	// The management route must refuse a valid downgrade for either image version.
+	downgradePlan := "HOBBY"
+	if plan == "PRO" {
+		downgradePlan = "FREE"
+	}
+	body := fmt.Sprintf(`{"plan":%q}`, downgradePlan)
+	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", body); ok {
 		t.Fatalf("local-mode management API unexpectedly accepted a plan downgrade: %s", body)
 	}
 
