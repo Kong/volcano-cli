@@ -8,7 +8,7 @@ import (
 func TestAPIE2ESmokeVariables(t *testing.T) {
 	env := setupAPIE2E(t, "smoke-variables")
 	// A second project is past the HOBBY cap this test creates one under.
-	env.setUserPlan(t, "SUPERAGENT")
+	env.setUserPlan(t, apiE2EPaidPlan)
 	writeAPIE2EBaseProject(t, env.projectDir)
 
 	env.loginAndUse(t)

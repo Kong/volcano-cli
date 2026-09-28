@@ -78,6 +78,11 @@ func setupAPIE2E(t *testing.T, prefix string) *apiE2E {
 	return env
 }
 
+// apiE2EPaidPlan is the stored SUPERAGENT key. Management API plan writes accept it
+// both before and after Kong/volcano-hosting#1490 adds the SUPERAGENT name, and
+// these tests run against whatever hosting main has deployed.
+const apiE2EPaidPlan = "PRO"
+
 // setUserPlan puts the test's owner on a plan. New users are created on HOBBY,
 // which has no backups and no point-in-time restore at all, so a test of a paid
 // database capability has to buy it first — the CLI would otherwise be asserting

@@ -152,7 +152,8 @@ variables:
     value: must-not-land
 `)
 	gated := env.runCloudCLI(t, "config", "deploy")
-	gated.requireFailure(t, "validation error", "selected_regions customization is only available on SUPERAGENT plan", "nothing was applied")
+	// The plan name in this message moves from PRO to SUPERAGENT with Kong/volcano-hosting#1490.
+	gated.requireFailure(t, "validation error", "selected_regions customization is only available on", "nothing was applied")
 	env.runCloudCLI(t, "variables", "list").requireNotContains(t, "CONFIG_GATED")
 
 	// Item 21: skipped/missing warnings render prominently but exit 0.

@@ -40,7 +40,7 @@ func TestAPIE2ECloudDatabaseBackups(t *testing.T) {
 	// through a cache invalidation, so the flip is quick but not synchronous with
 	// the write. The window arriving with it is the point-in-time entitlement,
 	// which the list is also where a caller reads.
-	env.setUserPlan(t, "SUPERAGENT")
+	env.setUserPlan(t, apiE2EPaidPlan)
 	unlocked := env.waitForCloudCLIContains(t, 5*time.Minute, "Point-in-time restore window:",
 		"databases", "backups", "list", database)
 	unlocked.requireSuccess(t, "No backups of database '"+database+"'")
