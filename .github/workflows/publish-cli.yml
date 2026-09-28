@@ -77,6 +77,10 @@ jobs:
   check:
     name: Release Check
     needs: [validate-release-ref]
+    # A called workflow's jobs can't exceed the permissions granted here.
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/check.yml
 
   build-binaries:

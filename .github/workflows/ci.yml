@@ -10,4 +10,8 @@ permissions:
 
 jobs:
   check:
+    # A called workflow's jobs can't exceed the permissions granted here.
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/check.yml
