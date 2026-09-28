@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.3](https://github.com/Kong/volcano-cli/compare/v0.35.2...v0.35.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* use HOBBY and SUPERAGENT plan names ([#240](https://github.com/Kong/volcano-cli/issues/240)) ([8394586](https://github.com/Kong/volcano-cli/commit/83945861c9df5d44531ead3b6179a621e004343b))
+
 ## [0.35.2](https://github.com/Kong/volcano-cli/compare/v0.35.1...v0.35.2) (2026-09-28)
 
 
