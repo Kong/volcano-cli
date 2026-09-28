@@ -89,6 +89,7 @@ jobs:
       - run: make release-workflow-check
       - run: bash scripts/ci/resolve-cli-build-env.test.sh
       - run: bash scripts/ci/retry-image-pull.test.sh
+      - run: bash scripts/ci/ecr-public-mirror-env.test.sh
       - run: make lint
       - run: make test
       - run: go build ./...
@@ -101,6 +102,11 @@ jobs:
   localmode-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # packages: read lets the job token pull volcano-hosting's GHCR copies of
+    # the ECR Public images.
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -111,6 +117,15 @@ jobs:
         run: |
           set -euo pipefail
           docker manifest inspect kong/volcano:local-nightly >/dev/null
+      - name: Log in to GHCR
+        continue-on-error: true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Resolve mirrored compose images
+        run: bash scripts/ci/ecr-public-mirror-env.sh
       - name: Pre-pull AppConfig agent with retries
         run: bash scripts/ci/retry-image-pull.sh docker compose -f internal/localmode/assets/docker-compose.template.yml -p volcano pull appconfig-agent
       - name: Run local-mode CLI contract smoke
