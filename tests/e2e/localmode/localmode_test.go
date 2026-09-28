@@ -78,7 +78,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, functionGetOutput, "Name: hello")
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
-	assertVolcanoLocalModeE2EUserIsPro(t, env, info)
+	assertVolcanoLocalModeE2EUserIsSuperagent(t, env, info)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
@@ -548,24 +548,24 @@ func requestVolcanoLocalModeE2EManagement(t *testing.T, env []string, method, pa
 	return string(output), err == nil
 }
 
-func assertVolcanoLocalModeE2EUserIsPro(t *testing.T, env []string, info localModeE2EInfo) {
+func assertVolcanoLocalModeE2EUserIsSuperagent(t *testing.T, env []string, info localModeE2EInfo) {
 	t.Helper()
 
 	user := fetchVolcanoLocalModeE2EUser(t, env, info)
-	if user.Plan != "PRO" {
-		t.Fatalf("local-mode default user plan = %q, want PRO", user.Plan)
+	if user.Plan != "SUPERAGENT" {
+		t.Fatalf("local-mode default user plan = %q, want SUPERAGENT", user.Plan)
 	}
 
 	// Local mode must not expose the management downgrade path. The server runs
-	// every user as PRO locally; the route is unregistered in local mode, so this
-	// must fail. If it ever starts accepting FREE, the re-read below catches it.
-	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", `{"plan":"FREE"}`); ok {
+	// every user as SUPERAGENT locally; the route is unregistered in local mode, so this
+	// must fail. If it ever starts accepting HOBBY, the re-read below catches it.
+	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", `{"plan":"HOBBY"}`); ok {
 		t.Fatalf("local-mode management API unexpectedly accepted a plan downgrade: %s", body)
 	}
 
 	user = fetchVolcanoLocalModeE2EUser(t, env, info)
-	if user.Plan != "PRO" {
-		t.Fatalf("local-mode default user plan after attempted downgrade = %q, want PRO", user.Plan)
+	if user.Plan != "SUPERAGENT" {
+		t.Fatalf("local-mode default user plan after attempted downgrade = %q, want SUPERAGENT", user.Plan)
 	}
 }
 
