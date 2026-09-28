@@ -183,11 +183,13 @@ func TestDockerComposeTemplateSetsRegionsButNotPlanLimits(t *testing.T) {
 	assert.Contains(t, template, "AWS_REGIONS:", "compose template must still advertise local deployable regions")
 
 	// Local plan defaults are baked into the server binary so the distributed CLI
-	// template does not leak HOBBY_*/SUPERAGENT_* entitlement numbers. The hosting config
+	// template does not leak FREE_*/PRO_* entitlement numbers. The hosting config
 	// package has a reflection guard that fails when a new plan env var is added
 	// without a baked local default.
-	planEnv := regexp.MustCompile(`(?m)^\s*(HOBBY|SUPERAGENT)_[A-Z0-9_]+:`)
-	assert.Empty(t, planEnv.FindString(template), "local-mode template must not ship HOBBY_*/SUPERAGENT_* plan-limit env vars")
+	planEnv := regexp.MustCompile(`(?m)^\s*(FREE|PRO)_[A-Z0-9_]+:`)
+	assert.Regexp(t, planEnv, "FREE_DATABASE_STORAGE_LIMIT:")
+	assert.Regexp(t, planEnv, "PRO_DATABASE_STORAGE_LIMIT:")
+	assert.Empty(t, planEnv.FindString(template), "local-mode template must not ship FREE_*/PRO_* plan-limit env vars")
 }
 
 // TestDockerComposeTemplateUsesDurationStringsForTimingVars guards the

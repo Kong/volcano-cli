@@ -17587,7 +17587,7 @@ components:
       properties:
         plan:
           type: string
-          description: Plan name (HOBBY or SUPERAGENT)
+          description: Public plan name (HOBBY or SUPERAGENT).
           example: HOBBY
         max_connections:
           type: integer

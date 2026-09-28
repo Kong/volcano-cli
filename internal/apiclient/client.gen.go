@@ -7458,7 +7458,7 @@ type RealtimePlanLimits struct {
 	// MessagesPerMonth Maximum messages per month
 	MessagesPerMonth *int `json:"messages_per_month,omitempty"`
 
-	// Plan Plan name (HOBBY or SUPERAGENT)
+	// Plan Public plan name (HOBBY or SUPERAGENT).
 	Plan *string `json:"plan,omitempty"`
 }
 
