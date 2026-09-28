@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.2](https://github.com/Kong/volcano-cli/compare/v0.35.1...v0.35.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **frontends:** show safe custom-domain DNS guidance ([#234](https://github.com/Kong/volcano-cli/issues/234)) ([7c67b75](https://github.com/Kong/volcano-cli/commit/7c67b7559461039e66b10744214efbff656e3f33))
+
 ## [0.35.1](https://github.com/Kong/volcano-cli/compare/v0.35.0...v0.35.1) (2026-09-27)
 
 
