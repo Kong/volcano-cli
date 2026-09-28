@@ -14533,6 +14533,9 @@ components:
             $ref: '#/components/schemas/FrontendDomainVerificationRecord'
         required_routing_record:
           $ref: '#/components/schemas/FrontendDomainRoutingRecord'
+        routing_target_hostname:
+          type: string
+          description: DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
         effective_urls:
           type: array
           items:
