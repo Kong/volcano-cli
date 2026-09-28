@@ -111,6 +111,9 @@ volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
 
+`volcano projects list` and `volcano projects get` show the project plan as
+`HOBBY` or `SUPERAGENT` when the API provides it.
+
 `VOLCANO_PROJECT_ID` overrides the active project for a single invocation
 (useful in CI).
 

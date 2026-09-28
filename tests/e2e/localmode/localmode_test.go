@@ -78,7 +78,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireContains(t, functionGetOutput, "Name: hello")
 
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
-	assertVolcanoLocalModeE2EUserIsPro(t, env, info)
+	assertVolcanoLocalModeE2EPlanCannotDowngrade(t, env, info)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
 
@@ -548,24 +548,26 @@ func requestVolcanoLocalModeE2EManagement(t *testing.T, env []string, method, pa
 	return string(output), err == nil
 }
 
-func assertVolcanoLocalModeE2EUserIsPro(t *testing.T, env []string, info localModeE2EInfo) {
+func assertVolcanoLocalModeE2EPlanCannotDowngrade(t *testing.T, env []string, info localModeE2EInfo) {
 	t.Helper()
 
-	user := fetchVolcanoLocalModeE2EUser(t, env, info)
-	if user.Plan != "PRO" {
-		t.Fatalf("local-mode default user plan = %q, want PRO", user.Plan)
+	plan := fetchVolcanoLocalModeE2EUser(t, env, info).Plan
+	if plan != "SUPERAGENT" && plan != "PRO" {
+		t.Fatalf("local-mode default user plan = %q, want SUPERAGENT or the image's legacy paid plan", plan)
 	}
 
-	// Local mode must not expose the management downgrade path. The server runs
-	// every user as PRO locally; the route is unregistered in local mode, so this
-	// must fail. If it ever starts accepting FREE, the re-read below catches it.
-	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", `{"plan":"FREE"}`); ok {
+	// The management route must refuse a valid downgrade for either image version.
+	downgradePlan := "HOBBY"
+	if plan == "PRO" {
+		downgradePlan = "FREE"
+	}
+	body := fmt.Sprintf(`{"plan":%q}`, downgradePlan)
+	if body, ok := requestVolcanoLocalModeE2EManagement(t, env, http.MethodPost, "/users/"+info.UserID+"/plan", body); ok {
 		t.Fatalf("local-mode management API unexpectedly accepted a plan downgrade: %s", body)
 	}
 
-	user = fetchVolcanoLocalModeE2EUser(t, env, info)
-	if user.Plan != "PRO" {
-		t.Fatalf("local-mode default user plan after attempted downgrade = %q, want PRO", user.Plan)
+	if got := fetchVolcanoLocalModeE2EUser(t, env, info).Plan; got != plan {
+		t.Fatalf("local-mode user plan after attempted downgrade = %q, want %q", got, plan)
 	}
 }
 

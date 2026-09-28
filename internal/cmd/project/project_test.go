@@ -34,12 +34,12 @@ func TestProjectsOutputAndCurrentProject(t *testing.T) {
 	})
 
 	var queries []string
-	freePlan := "FREE"
+	hobbyPlan := "HOBBY"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		queries = append(queries, r.URL.RawQuery)
 		writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{
-			"data":     []any{projectCommandPayload(projectAlphaID, "Alpha", "active", &freePlan)},
+			"data":     []any{projectCommandPayload(projectAlphaID, "Alpha", "active", &hobbyPlan)},
 			"has_more": false,
 			"page":     1,
 			"limit":    100,
@@ -51,7 +51,7 @@ func TestProjectsOutputAndCurrentProject(t *testing.T) {
 	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{"page=1&limit=100"}, queries)
-	for _, want := range []string{"ID", "Name", "Status", "Plan", "Alpha", "FREE", "Showing 1 of 1 project(s) (page 1, limit 100)", "Current project: Beta (" + projectBetaID + ")"} {
+	for _, want := range []string{"ID", "Name", "Status", "Plan", "Alpha", "HOBBY", "Showing 1 of 1 project(s) (page 1, limit 100)", "Current project: Beta (" + projectBetaID + ")"} {
 		assert.Contains(t, out, want)
 	}
 }
@@ -129,8 +129,8 @@ func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
 			})
 		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectAlphaID:
 			getRequests++
-			proPlan := "PRO"
-			writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectAlphaID, "Alpha", "active", &proPlan))
+			superagentPlan := "SUPERAGENT"
+			writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectAlphaID, "Alpha", "active", &superagentPlan))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects":
 			createRequests++
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&createPayload))
@@ -180,7 +180,7 @@ func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
 	out, err = executeProjectCommand(t, NewProjects(deps), "get", projectAlphaID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "ID:     "+projectAlphaID)
-	assert.Contains(t, out, "Plan:   PRO")
+	assert.Contains(t, out, "Plan:   SUPERAGENT")
 	assert.Equal(t, 1, getRequests)
 
 	out, err = executeProjectCommand(t, NewProjects(deps), "delete", projectAlphaID, "--yes")

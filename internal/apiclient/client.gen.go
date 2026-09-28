@@ -1384,16 +1384,16 @@ func (e PaginatedProjectsStatus) Valid() bool {
 
 // Defines values for ProjectPlan.
 const (
-	FREE ProjectPlan = "FREE"
-	PRO  ProjectPlan = "PRO"
+	HOBBY      ProjectPlan = "HOBBY"
+	SUPERAGENT ProjectPlan = "SUPERAGENT"
 )
 
 // Valid indicates whether the value is a known member of the ProjectPlan enum.
 func (e ProjectPlan) Valid() bool {
 	switch e {
-	case FREE:
+	case HOBBY:
 		return true
-	case PRO:
+	case SUPERAGENT:
 		return true
 	default:
 		return false
@@ -3626,9 +3626,9 @@ type AuthConfig struct {
 	// 403, and `allowed_email_domains_mode` decides whether sign-in is
 	// covered as well.
 	//
-	// The allowlist is a PRO feature to configure and to enforce. A
+	// The allowlist is a SUPERAGENT feature to configure and to enforce. A
 	// downgrade parks it: the domains are still returned here and stop
-	// being applied until the project is back on PRO.
+	// being applied until the project is back on SUPERAGENT.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
 	// AllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` only gates account
@@ -6613,7 +6613,7 @@ type ProjectConfigAuthEmail struct {
 	// Templates Email templates keyed by type. Fully synced when declared - template
 	// types absent from a declared map revert to server defaults (custom
 	// bodies deleted, subject overrides cleared). Custom template bodies
-	// require the PRO plan; subject-only changes are available on FREE.
+	// require the SUPERAGENT plan; subject-only changes are available on HOBBY.
 	Templates *ProjectConfigEmailTemplates `json:"templates,omitempty"`
 }
 
@@ -6653,7 +6653,7 @@ type ProjectConfigAuthManagedPages struct {
 	// Enabled Enable or disable managed auth hosted pages
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Pages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+	// Pages Hosted auth pages keyed by page type (SUPERAGENT plan). Upsert-only: omitted
 	// pages are left untouched (there is no delete for hosted pages).
 	Pages     *ProjectConfigHostedPages   `json:"pages,omitempty"`
 	Redirects *ProjectConfigAuthRedirects `json:"redirects,omitempty"`
@@ -6726,8 +6726,8 @@ type ProjectConfigAuthSignup struct {
 	// prefix) and must be bare domains such as `domain1.com`. Matching is
 	// exact, so subdomains need their own entry. At most 100 entries.
 	//
-	// Restricting signups is a PRO feature to configure and to enforce: a
-	// FREE project can only declare the list it already has or remove the
+	// Restricting signups is a SUPERAGENT feature to configure and to enforce: a
+	// HOBBY project can only declare the list it already has or remove the
 	// restriction, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
@@ -6781,7 +6781,7 @@ type ProjectConfigBucketPolicy struct {
 // ProjectConfigBucketPolicyOperation defines model for ProjectConfigBucketPolicy.Operation.
 type ProjectConfigBucketPolicyOperation string
 
-// ProjectConfigCustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+// ProjectConfigCustomDomain Custom domain with BYOC TLS (SUPERAGENT plan). `tls` is required when the
 // domain is first created and optional afterwards: providing new TLS
 // material for the same domain rotates the certificate in place (zero
 // downtime); omitting `tls` keeps the stored certificate. TLS material is
@@ -6818,18 +6818,18 @@ type ProjectConfigDatabasePgVersion string
 
 // ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.
 type ProjectConfigEmailTemplate struct {
-	// HtmlBody HTML body. Max 256 KiB. PRO plan required for custom bodies.
+	// HtmlBody HTML body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	HtmlBody *string `json:"html_body,omitempty"`
 	Subject  *string `json:"subject,omitempty"`
 
-	// TextBody Plain-text body. Max 256 KiB. PRO plan required for custom bodies.
+	// TextBody Plain-text body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	TextBody *string `json:"text_body,omitempty"`
 }
 
 // ProjectConfigEmailTemplates Email templates keyed by type. Fully synced when declared - template
 // types absent from a declared map revert to server defaults (custom
 // bodies deleted, subject overrides cleared). Custom template bodies
-// require the PRO plan; subject-only changes are available on FREE.
+// require the SUPERAGENT plan; subject-only changes are available on HOBBY.
 type ProjectConfigEmailTemplates struct {
 	Confirmation    *ProjectConfigEmailTemplate `json:"confirmation,omitempty"`
 	PasswordChanged *ProjectConfigEmailTemplate `json:"password_changed,omitempty"`
@@ -6841,7 +6841,7 @@ type ProjectConfigEmailTemplates struct {
 // created or deleted through the manifest. A declared frontend entry
 // without `custom_domain` deletes an existing custom domain.
 type ProjectConfigFrontend struct {
-	// CustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+	// CustomDomain Custom domain with BYOC TLS (SUPERAGENT plan). `tls` is required when the
 	// domain is first created and optional afterwards: providing new TLS
 	// material for the same domain rotates the certificate in place (zero
 	// downtime); omitting `tls` keeps the stored certificate. TLS material is
@@ -6902,7 +6902,7 @@ type ProjectConfigHostedPage struct {
 	Html string `json:"html"`
 }
 
-// ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+// ProjectConfigHostedPages Hosted auth pages keyed by page type (SUPERAGENT plan). Upsert-only: omitted
 // pages are left untouched (there is no delete for hosted pages).
 type ProjectConfigHostedPages struct {
 	Login         *ProjectConfigHostedPage `json:"login,omitempty"`
@@ -6939,7 +6939,7 @@ type ProjectConfigOAuthProviderProvider string
 
 // ProjectConfigProject Project-level settings. `name` renames the project.
 type ProjectConfigProject struct {
-	// AllRegions Region policy. `false` requires `selected_regions` (PRO plan).
+	// AllRegions Region policy. `false` requires `selected_regions` (SUPERAGENT plan).
 	AllRegions *bool   `json:"all_regions,omitempty"`
 	Name       *string `json:"name,omitempty"`
 
@@ -7464,7 +7464,7 @@ type RealtimePlanLimits struct {
 	// MessagesPerMonth Maximum messages per month
 	MessagesPerMonth *int `json:"messages_per_month,omitempty"`
 
-	// Plan Plan name (FREE or PRO)
+	// Plan Public plan name (HOBBY or SUPERAGENT).
 	Plan *string `json:"plan,omitempty"`
 }
 
@@ -7750,8 +7750,8 @@ type UpdateAuthConfigRequest struct {
 	// prefix); matching is exact, so subdomains need their own entry. At
 	// most 100 entries.
 	//
-	// Restricting signups is a PRO feature to configure and to enforce: a
-	// FREE project can only remove the restriction and gets 403 for any
+	// Restricting signups is a SUPERAGENT feature to configure and to enforce: a
+	// HOBBY project can only remove the restriction and gets 403 for any
 	// other change, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
