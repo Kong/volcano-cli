@@ -166,3 +166,12 @@ func (c *Client) DeleteSandboxTemplate(ctx context.Context, project, id uuid.UUI
 	}
 	return apiOK(parsed.StatusCode(), parsed.Body, parsed.JSONDefault)
 }
+
+// SandboxUsage reads preview metrics through the existing project usage endpoint.
+func (c *Client) SandboxUsage(ctx context.Context, project uuid.UUID) (*apiclient.ProjectUsageResponse, error) {
+	response, err := c.client.GetProjectUsageWithResponse(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSON403, response.JSON404)
+}

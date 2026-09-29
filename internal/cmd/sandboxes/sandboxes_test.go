@@ -162,3 +162,34 @@ func TestTemplateDeletionRequiresConfirmationAndListsNextPage(t *testing.T) {
 	require.NoError(t, listed.Execute())
 	assert.Equal(t, http.MethodGet, <-requests)
 }
+
+func TestUsageReadsOnlySandboxPreviewMetrics(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+testProject+"/usage", r.URL.Path)
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"project_id":"` + testProject + `","month":"2026-09","metrics":[{"metric":"Sandbox Running (MiB-Seconds)","total":10240},{"metric":"Sandbox Suspended (Seconds)","total":60},{"metric":"Sandbox Uncertain (MiB-Seconds)","total":0},{"metric":"Build Seconds","total":500}]}`))
+	}))
+	defer server.Close()
+	cmd := New(testDeps(server))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"usage", "--json"})
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, out.String(), "10240")
+	assert.NotContains(t, out.String(), "Build Seconds")
+}
+
+func TestUsageDoesNotInventZeroForOlderServer(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"metrics":[]}`))
+	}))
+	defer server.Close()
+	cmd := New(testDeps(server))
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetArgs([]string{"usage"})
+	require.ErrorContains(t, cmd.Execute(), "does not expose")
+}

@@ -83,3 +83,21 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--json` | All Sandbox commands | Print the API response as JSON |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
+
+## Read preview usage
+
+```bash
+volcano sandboxes usage --json
+```
+
+The response contains project totals and hourly/daily series for configured
+memory times observed running duration (MiB-seconds), suspended duration
+(seconds), and uncertain duration weighted by configured memory (MiB-seconds).
+These preview metrics do not debit credits and are not a price estimate.
+Observation gaps and unconfirmed transitions remain uncertain. Local sessions
+contribute zero cloud usage. An older server without these metrics returns a
+clear error instead of showing zero.
+
+Operators can enable a test budget for selected accounts. Exhausting it refuses
+new sessions and resumes, pauses running sessions, and retains state for up to
+one hour or the session's earlier expiry. Termination remains available.
