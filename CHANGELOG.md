@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.5](https://github.com/Kong/volcano-cli/compare/v0.35.4...v0.35.5) (2026-09-29)
+
+
+### Bug Fixes
+
+* **setup:** show guidance when no coding agents are detected ([#247](https://github.com/Kong/volcano-cli/issues/247)) ([b6f785c](https://github.com/Kong/volcano-cli/commit/b6f785c5ddd88db2b000c0b86f08c7bcd9ba7fcf))
+
 ## [0.35.4](https://github.com/Kong/volcano-cli/compare/v0.35.3...v0.35.4) (2026-09-28)
 
 
