@@ -132,6 +132,7 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 		return nil, false, err
 	}
 	if len(detected) == 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), "No coding agents found. Supported agents include Claude Code, Codex, and Cursor. Set one up, then run `volcano setup` again.")
 		return nil, false, nil
 	}
 
