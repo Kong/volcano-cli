@@ -41,4 +41,17 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
 	run("terminate", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
+	var usage struct {
+		Metrics []struct {
+			Metric  string `json:"metric"`
+			Total   int64  `json:"total"`
+			AllTime int64  `json:"all_time"`
+		} `json:"metrics"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(run("usage", "--json")), &usage))
+	require.Len(t, usage.Metrics, 3)
+	for _, m := range usage.Metrics {
+		require.Zero(t, m.AllTime)
+		require.Zero(t, m.Total)
+	}
 }
