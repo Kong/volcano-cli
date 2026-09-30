@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/Kong/volcano-cli/compare/v0.35.5...v0.36.0) (2026-09-30)
+
+
+### Features
+
+* **projects:** support cloud template installations ([#250](https://github.com/Kong/volcano-cli/issues/250)) ([6dcb225](https://github.com/Kong/volcano-cli/commit/6dcb225b89b9b0e868648ab2c2a65da1220704ce))
+
 ## [0.35.5](https://github.com/Kong/volcano-cli/compare/v0.35.4...v0.35.5) (2026-09-29)
 
 
