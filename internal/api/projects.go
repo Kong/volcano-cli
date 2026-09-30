@@ -22,10 +22,13 @@ func (c *Client) ListProjects(ctx context.Context, page, limit int) (*apiclient.
 }
 
 // CreateProject creates a project for the authenticated user.
-func (c *Client) CreateProject(ctx context.Context, name string) (*apiclient.Project, error) {
-	resp, err := c.client.CreateProjectWithResponse(ctx, apiclient.CreateProjectJSONRequestBody{
-		Name: strings.TrimSpace(name),
-	})
+func (c *Client) CreateProject(ctx context.Context, name, templateID string) (*apiclient.Project, error) {
+	body := apiclient.CreateProjectJSONRequestBody{Name: strings.TrimSpace(name)}
+	if templateID != "" {
+		id := apiclient.CreateProjectRequestTemplateId(templateID)
+		body.TemplateId = &id
+	}
+	resp, err := c.client.CreateProjectWithResponse(ctx, body)
 	if err != nil {
 		return nil, err
 	}

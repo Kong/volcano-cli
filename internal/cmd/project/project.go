@@ -26,9 +26,10 @@ type listOptions struct {
 }
 
 type createOptions struct {
-	deps cliruntime.Deps
-	name string
-	out  io.Writer
+	deps       cliruntime.Deps
+	name       string
+	templateID string
+	out        io.Writer
 }
 
 type getOptions struct {
@@ -128,28 +129,39 @@ func runList(ctx context.Context, opts listOptions) error {
 }
 
 func newCreate(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var templateID string
+	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Create a project",
-		Long:  "Create a Volcano project for the authenticated user.",
+		Long:  "Create a Volcano cloud project for the authenticated user. Use --template to install Trellini, Pixel Board, or Collab Pad. Installation runs asynchronously; check projects get <project-id> until the template status is ready.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd.Context(), createOptions{
-				deps: deps,
-				name: strings.TrimSpace(args[0]),
-				out:  cmd.OutOrStdout(),
+				deps:       deps,
+				name:       strings.TrimSpace(args[0]),
+				templateID: templateID,
+				out:        cmd.OutOrStdout(),
 			})
 		},
 	}
+	cmd.Flags().StringVar(&templateID, "template", "", "Install a cloud template (trellini, pixel-board, collab-pad)")
+	return cmd
 }
 
 func runCreate(ctx context.Context, opts createOptions) error {
-	project, err := cliproject.NewService(opts.deps).Create(ctx, opts.name)
+	if opts.templateID != "" && opts.templateID != "trellini" && opts.templateID != "pixel-board" && opts.templateID != "collab-pad" {
+		return fmt.Errorf("unknown template %q (supported: trellini, pixel-board, collab-pad)", opts.templateID)
+	}
+	project, err := cliproject.NewService(opts.deps).Create(ctx, opts.name, opts.templateID)
 	if err != nil {
 		return err
 	}
 
 	output.Success(opts.out, "Project created: %s (%s)", project.Name, project.Id.String())
+	if opts.templateID != "" {
+		output.Project(opts.out, project)
+		fmt.Fprintf(opts.out, "Check installation: volcano projects get %s\nWait for template status ready before using the app.\n", project.Id.String())
+	}
 	return nil
 }
 

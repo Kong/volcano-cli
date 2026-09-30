@@ -42,13 +42,13 @@ func (s Service) List(ctx context.Context, page, limit int) (*config.Config, *ap
 }
 
 // Create creates a project for the authenticated user.
-func (s Service) Create(ctx context.Context, name string) (*apiclient.Project, error) {
+func (s Service) Create(ctx context.Context, name, templateID string) (*apiclient.Project, error) {
 	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := authenticated.API.CreateProject(ctx, name)
+	project, err := authenticated.API.CreateProject(ctx, name, templateID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project %q: %w", name, err)
 	}

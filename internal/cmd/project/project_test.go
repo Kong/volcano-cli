@@ -174,6 +174,8 @@ func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
 	out, err = executeProjectCommand(t, NewProjects(deps), "create", " Alpha ")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Project created: Alpha ("+projectAlphaID+")")
+	assert.NotContains(t, out, "Template status:")
+	assert.NotContains(t, out, "Check installation:")
 	assert.Equal(t, map[string]any{"name": "Alpha"}, createPayload)
 	assert.Equal(t, 1, createRequests)
 
@@ -455,4 +457,69 @@ func TestProjectsKeysRequiresKeyType(t *testing.T) {
 			assert.ErrorContains(t, err, "unknown command")
 		}
 	}
+}
+
+func TestCreateTemplateAndInspectInstallation(t *testing.T) {
+	for _, templateID := range []string{"trellini", "pixel-board", "collab-pad"} {
+		t.Run(templateID, func(t *testing.T) {
+			setProjectCommandTestHome(t)
+			saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+			status, phase := "pending", "database"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				payload := projectCommandPayload(projectAlphaID, "my-app", "active", nil)
+				payload["template_installation"] = map[string]any{"status": status, "phase": phase}
+				switch {
+				case r.Method == http.MethodPost && r.URL.Path == "/projects":
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					assert.Equal(t, map[string]any{"name": "my-app", "template_id": templateID}, body)
+					writeProjectCommandJSON(t, w, http.StatusCreated, payload)
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+projectAlphaID:
+					writeProjectCommandJSON(t, w, http.StatusOK, payload)
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+			out, err := executeProjectCommand(t, NewProjects(deps), "create", "my-app", "--template", templateID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Template status: pending")
+			assert.Contains(t, out, "Template phase: database")
+			assert.Contains(t, out, "Check installation: volcano projects get "+projectAlphaID)
+			assert.Contains(t, out, "Wait for template status ready before using the app.")
+
+			for _, installation := range []struct{ status, phase string }{
+				{"running", "deploy"}, {"ready", "ready"}, {"failed", "restore"},
+			} {
+				status, phase = installation.status, installation.phase
+				out, err = executeProjectCommand(t, NewProjects(deps), "get", projectAlphaID)
+				require.NoError(t, err)
+				assert.Contains(t, out, "Template status: "+status)
+				assert.Contains(t, out, "Template phase: "+phase)
+			}
+		})
+	}
+}
+
+func TestCreateRejectsUnsupportedTemplate(t *testing.T) {
+	setProjectCommandTestHome(t)
+	for _, templateID := range []string{"unknown", "official-starter", "nextjs"} {
+		_, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{}), "create", "my-app", "--template", templateID)
+		require.ErrorContains(t, err, "unknown template")
+		require.ErrorContains(t, err, "supported: trellini, pixel-board, collab-pad")
+	}
+}
+
+func TestCreateTemplateReportsAPIError(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeProjectCommandJSON(t, w, http.StatusForbidden, map[string]any{"error": "template unavailable"})
+	}))
+	defer server.Close()
+	out, err := executeProjectCommand(t, NewProjects(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "create", "my-app", "--template", "trellini")
+	require.Error(t, err)
+	assert.NotContains(t, out, "Project created")
 }
