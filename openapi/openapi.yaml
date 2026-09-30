@@ -12814,6 +12814,15 @@ components:
           minLength: 1
           maxLength: 255
           example: my-awesome-app
+        template_id:
+          type: string
+          description: Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
+          enum:
+            - pixel-board
+            - trellini
+            - collab-pad
+            - official-starter
+          example: pixel-board
         all_regions:
           type: boolean
           description: |
@@ -16165,6 +16174,8 @@ components:
             param that changes on each upload. Absent when the project has no
             logo. The logo image is stored in the project's storage folder.
           example: /projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/logo?v=1718524800
+        template_installation:
+          $ref: '#/components/schemas/ProjectTemplateInstallation'
         created_at:
           type: string
           format: date-time
@@ -18820,3 +18831,30 @@ components:
         mock_prelude:
           type: string
           description: Preview harness that supplies request params and stubs the hosted-auth API. Never served on a real page.
+    ProjectTemplateInstallation:
+      type: object
+      description: |
+        Template initialization progress, returned by project creation and the
+        individual project endpoint. Omitted for projects without a template.
+        Project creation accepts the installation; wait for `ready` before use.
+        A failed installation retains the project for inspection or deletion.
+      required:
+        - status
+        - phase
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - ready
+            - failed
+        phase:
+          type: string
+          enum:
+            - database
+            - restore
+            - configure
+            - deploy
+            - verify
+            - ready

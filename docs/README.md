@@ -111,6 +111,39 @@ volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
 
+### Create a project from a cloud template
+
+Use `--template` to install a complete app in a new cloud project:
+
+```bash
+volcano projects create my-board --template trellini
+volcano projects create my-pixels --template pixel-board
+volcano projects create my-pad --template collab-pad
+```
+
+The supported templates are `trellini`, `pixel-board`, and `collab-pad`.
+An account token is required. Hosting creates a fresh database and deploys the
+app's functions and frontends. These cloud installations do not write local
+starter files like `volcano init`.
+
+Installation runs asynchronously. Project creation does not mean the app is
+ready. Use the project ID printed by the create command to check progress:
+
+```bash
+volcano projects get <project-id>
+```
+
+Project details show the template status (`pending`, `running`, `ready`, or
+`failed`) and phase (`database`, `restore`, `configure`, `deploy`, `verify`, or
+`ready`). Wait for template status `ready` before using the app. If installation
+fails, the project remains available for inspection or deletion:
+
+```bash
+volcano projects delete <project-id>
+```
+
+### Project details
+
 `volcano projects list` and `volcano projects get` show the project plan as
 `HOBBY` or `SUPERAGENT` when the API provides it.
 

@@ -290,6 +290,30 @@ func (e CreateOAuthConfigRequestProvider) Valid() bool {
 	}
 }
 
+// Defines values for CreateProjectRequestTemplateId.
+const (
+	CollabPad       CreateProjectRequestTemplateId = "collab-pad"
+	OfficialStarter CreateProjectRequestTemplateId = "official-starter"
+	PixelBoard      CreateProjectRequestTemplateId = "pixel-board"
+	Trellini        CreateProjectRequestTemplateId = "trellini"
+)
+
+// Valid indicates whether the value is a known member of the CreateProjectRequestTemplateId enum.
+func (e CreateProjectRequestTemplateId) Valid() bool {
+	switch e {
+	case CollabPad:
+		return true
+	case OfficialStarter:
+		return true
+	case PixelBoard:
+		return true
+	case Trellini:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateStoragePolicyRequestOperation.
 const (
 	CreateStoragePolicyRequestOperationDELETE CreateStoragePolicyRequestOperation = "DELETE"
@@ -2306,6 +2330,60 @@ func (e ProjectMetricsUnit) Valid() bool {
 	}
 }
 
+// Defines values for ProjectTemplateInstallationPhase.
+const (
+	ProjectTemplateInstallationPhaseConfigure ProjectTemplateInstallationPhase = "configure"
+	ProjectTemplateInstallationPhaseDatabase  ProjectTemplateInstallationPhase = "database"
+	ProjectTemplateInstallationPhaseDeploy    ProjectTemplateInstallationPhase = "deploy"
+	ProjectTemplateInstallationPhaseReady     ProjectTemplateInstallationPhase = "ready"
+	ProjectTemplateInstallationPhaseRestore   ProjectTemplateInstallationPhase = "restore"
+	ProjectTemplateInstallationPhaseVerify    ProjectTemplateInstallationPhase = "verify"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationPhase enum.
+func (e ProjectTemplateInstallationPhase) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationPhaseConfigure:
+		return true
+	case ProjectTemplateInstallationPhaseDatabase:
+		return true
+	case ProjectTemplateInstallationPhaseDeploy:
+		return true
+	case ProjectTemplateInstallationPhaseReady:
+		return true
+	case ProjectTemplateInstallationPhaseRestore:
+		return true
+	case ProjectTemplateInstallationPhaseVerify:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectTemplateInstallationStatus.
+const (
+	ProjectTemplateInstallationStatusFailed  ProjectTemplateInstallationStatus = "failed"
+	ProjectTemplateInstallationStatusPending ProjectTemplateInstallationStatus = "pending"
+	ProjectTemplateInstallationStatusReady   ProjectTemplateInstallationStatus = "ready"
+	ProjectTemplateInstallationStatusRunning ProjectTemplateInstallationStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationStatus enum.
+func (e ProjectTemplateInstallationStatus) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationStatusFailed:
+		return true
+	case ProjectTemplateInstallationStatusPending:
+		return true
+	case ProjectTemplateInstallationStatusReady:
+		return true
+	case ProjectTemplateInstallationStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ResourceReferenceType.
 const (
 	ResourceReferenceTypeDatabase ResourceReferenceType = "database"
@@ -4262,7 +4340,13 @@ type CreateProjectRequest struct {
 	// SelectedRegions Optional region subset. Requires `all_regions=false`.
 	// Region names must be a subset of platform `AWS_REGIONS`.
 	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+
+	// TemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
+	TemplateId *CreateProjectRequestTemplateId `json:"template_id,omitempty"`
 }
+
+// CreateProjectRequestTemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
+type CreateProjectRequestTemplateId string
 
 // CreateStorageBucketRequest defines model for CreateStorageBucketRequest.
 type CreateStorageBucketRequest struct {
@@ -6366,7 +6450,13 @@ type Project struct {
 	// SelectedRegions Effective region set for this project (normalized and deduplicated)
 	SelectedRegions []string      `json:"selected_regions"`
 	Status          ProjectStatus `json:"status"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+
+	// TemplateInstallation Template initialization progress, returned by project creation and the
+	// individual project endpoint. Omitted for projects without a template.
+	// Project creation accepts the installation; wait for `ready` before use.
+	// A failed installation retains the project for inspection or deletion.
+	TemplateInstallation *ProjectTemplateInstallation `json:"template_installation,omitempty"`
+	UpdatedAt            time.Time                    `json:"updated_at"`
 }
 
 // ProjectPlan Platform plan applied to the project when available
@@ -7409,6 +7499,21 @@ type ProjectMetricsWindow struct {
 	From time.Time `json:"from"`
 	To   time.Time `json:"to"`
 }
+
+// ProjectTemplateInstallation Template initialization progress, returned by project creation and the
+// individual project endpoint. Omitted for projects without a template.
+// Project creation accepts the installation; wait for `ready` before use.
+// A failed installation retains the project for inspection or deletion.
+type ProjectTemplateInstallation struct {
+	Phase  ProjectTemplateInstallationPhase  `json:"phase"`
+	Status ProjectTemplateInstallationStatus `json:"status"`
+}
+
+// ProjectTemplateInstallationPhase defines model for ProjectTemplateInstallation.Phase.
+type ProjectTemplateInstallationPhase string
+
+// ProjectTemplateInstallationStatus defines model for ProjectTemplateInstallation.Status.
+type ProjectTemplateInstallationStatus string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {

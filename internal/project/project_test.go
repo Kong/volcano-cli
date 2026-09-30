@@ -57,7 +57,7 @@ func TestCreateReturnsProject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	project, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Create(context.Background(), " Alpha ")
+	project, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Create(context.Background(), " Alpha ", "")
 	require.NoError(t, err)
 	assert.Equal(t, projectAlphaID, project.Id.String())
 	assert.Equal(t, "Alpha", project.Name)
@@ -138,7 +138,7 @@ func TestCreateWrapsAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Create(context.Background(), "Alpha")
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Create(context.Background(), "Alpha", "")
 	require.ErrorContains(t, err, `failed to create project "Alpha"`)
 	require.ErrorContains(t, err, "name already exists")
 }
@@ -331,7 +331,7 @@ func TestAccountWideCommandsRejectAProjectToken(t *testing.T) {
 			return err
 		},
 		"create": func(s Service) error {
-			_, err := s.Create(context.Background(), "Alpha")
+			_, err := s.Create(context.Background(), "Alpha", "")
 			return err
 		},
 		"use by name": func(s Service) error {
