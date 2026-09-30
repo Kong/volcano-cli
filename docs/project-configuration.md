@@ -92,7 +92,10 @@ Key semantics:
   unset variable is an error, and `$$` produces a literal `$`.
 - `volcano config deploy --dry-run` prints the projected actions without
   changing anything. Validation failures exit non-zero with Volcano's error
-  list, and nothing is applied.
+  list, and nothing is applied. When the server returns structured details,
+  each one is printed under the error message as `<field path> (<constraint>):
+  <explanation>` (e.g. `/auth/password/min_length (minimum): must be greater
+  than or equal to 15`).
 - If some entries fail to apply (a provider call failing mid-deploy),
   `config deploy` still prints a full report — succeeded entries included —
   and then exits non-zero because `summary.errors > 0`. Already-applied
