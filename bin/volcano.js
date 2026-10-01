@@ -23,7 +23,7 @@ async function resolveBinary() {
     // package.json os/cpu gate but has no published binary.
     console.error(`volcano: could not obtain the CLI binary: ${err.message}`);
     console.error(
-      'Install it manually from https://github.com/Kong/volcano-cli/releases ' +
+      'Install it manually from https://download.volcano.dev/builds/install.sh ' +
         'or re-install the package.'
     );
     process.exit(1);
