@@ -27,7 +27,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-printf '%s\n' "$url" > "$FAKE_CURL_LOG"
+printf '%s\n' "$url" >> "$FAKE_CURL_LOG"
+case "$url" in
+  */latest-version) printf '%s\n' "${FAKE_LATEST_VERSION:-v1.2.3}" > "$output"; exit 0 ;;
+esac
 cp "$FAKE_VOLCANO_BINARY" "$output"
 EOF
 chmod +x "$TMP_DIR/bin/curl"
@@ -72,7 +75,7 @@ assert_asset() {
 
   FAKE_UNAME_S="$asset_os" FAKE_UNAME_M="$asset_arch" VOLCANO_INSTALL_DIR="$asset_dir" \
     sh "$ROOT/scripts/install-volcano.sh" >/dev/null
-  grep -Fx "https://github.com/Kong/volcano-cli/releases/latest/download/$asset_name" "$FAKE_CURL_LOG" >/dev/null
+  grep -Fx "https://download.volcano.dev/builds/releases/download/v1.2.3/$asset_name" "$FAKE_CURL_LOG" >/dev/null
   case "$asset_name" in
     *.exe) test -x "$asset_dir/volcano.exe" ;;
     *) test -x "$asset_dir/volcano" ;;
@@ -123,7 +126,7 @@ grep -F "unsupported Volcano CLI version selector: v1.2.3" "$TMP_DIR/version-err
 
 unset VOLCANO_SKIP_SIGNATURE_VERIFICATION
 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
-grep -F -- "--certificate-identity-regexp ^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$" "$FAKE_COSIGN_LOG" >/dev/null
+grep -F -- "--certificate-identity https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/v1.2.3" "$FAKE_COSIGN_LOG" >/dev/null
 VOLCANO_VERSION=v1.2.3 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
 grep -F -- "--certificate-identity https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/v1.2.3" "$FAKE_COSIGN_LOG" >/dev/null
 export VOLCANO_SKIP_SIGNATURE_VERIFICATION=1
@@ -151,3 +154,14 @@ if sh "$ROOT/scripts/install-volcano.sh" --unknown >"$TMP_DIR/error.log" 2>&1; t
   exit 1
 fi
 grep -F "unknown option: --unknown" "$TMP_DIR/error.log" >/dev/null
+
+# Promotion metadata cannot inject a path or mix release assets.
+if FAKE_LATEST_VERSION='../bad' sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/version-error.log" 2>&1; then
+  echo "expected malformed latest version to fail" >&2
+  exit 1
+fi
+grep -F 'invalid latest Volcano CLI version' "$TMP_DIR/version-error.log" >/dev/null
+VOLCANO_DOWNLOAD_URL=https://mirror.example/releases sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -Fx 'https://mirror.example/releases/download/v1.2.3/volcano-macos-arm64' "$FAKE_CURL_LOG" >/dev/null
+VOLCANO_GITHUB_RELEASES_URL=https://legacy.example/releases sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -Fx 'https://legacy.example/releases/latest/download/volcano-macos-arm64' "$FAKE_CURL_LOG" >/dev/null

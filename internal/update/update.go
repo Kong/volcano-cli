@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	defaultGitHubAPIURL = "https://api.github.com/repos/Kong/volcano-cli"
+	defaultDownloadURL  = "https://download.volcano.dev/builds/releases"
 	defaultTimeout      = 10 * time.Second
 	signatureWorkflow   = "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
 	signatureOIDCIssuer = "https://token.actions.githubusercontent.com"
@@ -51,6 +51,7 @@ func (f RunnerFunc) Run(ctx context.Context, name string, args ...string) ([]byt
 type Options struct {
 	HTTPClient                   HTTPClient
 	GitHubAPIURL                 string
+	DownloadURL                  string
 	ExecutablePath               string
 	CommandRunner                CommandRunner
 	RequireSignatureVerification bool
@@ -77,13 +78,13 @@ type Asset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// LatestRelease fetches GitHub's latest release metadata.
+// LatestRelease resolves the published release from Volcano downloads.
 func LatestRelease(ctx context.Context, opts Options) (*Release, error) {
+	if strings.TrimSpace(opts.GitHubAPIURL) == "" {
+		return latestDownloadRelease(ctx, opts)
+	}
 	client := releaseHTTPClient(opts)
 	baseURL := strings.TrimRight(strings.TrimSpace(opts.GitHubAPIURL), "/")
-	if baseURL == "" {
-		baseURL = defaultGitHubAPIURL
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/releases/latest", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create release request: %w", err)
@@ -138,7 +139,7 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 		return upgradeViaManager(ctx, current, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
-		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")
+		return errors.New("self-upgrade is not supported on Windows; reinstall from https://download.volcano.dev/builds/install.sh")
 	}
 	return upgradeViaDownload(ctx, current, out, opts, exePath)
 }
