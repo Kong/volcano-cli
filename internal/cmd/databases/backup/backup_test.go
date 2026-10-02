@@ -238,7 +238,7 @@ func TestDeleteSurfacesRestoreInProgress(t *testing.T) {
 	assert.Contains(t, err.Error(), "restore is already in progress")
 }
 
-// Backups are a Pro capability, so the plan refusal reaches even the reads. The
+// Backups are a SUPERAGENT capability, so the plan refusal reaches even the reads. The
 // CLI has to pass the reason through: "403" on its own reads as a permissions
 // problem with the token rather than a plan that does not include the feature.
 func TestListSurfacesAPlanWithoutBackups(t *testing.T) {

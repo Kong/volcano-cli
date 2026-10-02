@@ -24,9 +24,9 @@ func TestAPIE2ECloudDatabaseBackups(t *testing.T) {
 	})
 	env.waitForDatabaseActive(t, database, 30*time.Minute)
 
-	// Backups are Pro, and the refusal reaches the reads too, so a Free project
+	// Backups are SUPERAGENT, and the refusal reaches the reads too, so a HOBBY project
 	// gets the plan's reason rather than an empty list or a token error. Asserted
-	// before the upgrade because a new user starts on Free, which is also why the
+	// before the upgrade because a new user starts on HOBBY, which is also why the
 	// rest of this test would otherwise be reading 403s.
 	env.runCloudCLI(t, "databases", "backups", "list", database).
 		requireFailure(t, "backups are not available on this plan")
@@ -40,7 +40,7 @@ func TestAPIE2ECloudDatabaseBackups(t *testing.T) {
 	// through a cache invalidation, so the flip is quick but not synchronous with
 	// the write. The window arriving with it is the point-in-time entitlement,
 	// which the list is also where a caller reads.
-	env.setUserPlan(t, "PRO")
+	env.setUserPlan(t, "SUPERAGENT")
 	unlocked := env.waitForCloudCLIContains(t, 5*time.Minute, "Point-in-time restore window:",
 		"databases", "backups", "list", database)
 	unlocked.requireSuccess(t, "No backups of database '"+database+"'")

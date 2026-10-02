@@ -49,7 +49,7 @@ input every execution the scheduler starts receives.`,
   %s`,
 			cliruntime.CommandPath(deps, `durable schedulers create order-pipeline --cron "0 * * * *"`),
 			cliruntime.CommandPath(deps, `durable schedulers create order-pipeline --name nightly-sweep --cron "0 2 * * *" --input sweep.json`),
-			cliruntime.CommandPath(deps, `durable schedulers create order-pipeline --cron "0 9 * * 1-5" --regions aws-us-east-1`)),
+			cliruntime.CommandPath(deps, `durable schedulers create order-pipeline --cron "0 9 * * 1-5" --regions us-east-1`)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.deps = deps

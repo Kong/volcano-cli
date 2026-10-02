@@ -39,7 +39,7 @@ func TestAPIE2ECloudConfig(t *testing.T) {
 	interpolatedValue := "interpolated-" + apiE2ESuffix(t)
 	secretEnv := []string{"CLI_E2E_CONFIG_SECRET=" + interpolatedValue}
 
-	// Item 18: full manifest (every FREE-plan section) with ${ENV} interpolation.
+	// Item 18: full manifest (every HOBBY-plan section) with ${ENV} interpolation.
 	writeAPIE2EFile(t, manifestPath, fmt.Sprintf(`
 version: 1
 variables:
@@ -139,7 +139,7 @@ variables:
 	afterSync.requireSuccess(t, "CONFIG_SECRET")
 	afterSync.requireNotContains(t, "CONFIG_PLAIN")
 
-	// Item 20c: a plan-gated manifest (region subset on FREE) exits non-zero
+	// Item 20c: a plan-gated manifest (region subset on HOBBY) exits non-zero
 	// with the server's 422 error list rendered, and nothing is applied.
 	writeAPIE2EFile(t, manifestPath, `
 version: 1
@@ -152,7 +152,7 @@ variables:
     value: must-not-land
 `)
 	gated := env.runCloudCLI(t, "config", "deploy")
-	gated.requireFailure(t, "validation error", "selected_regions customization is only available on PRO plan", "nothing was applied")
+	gated.requireFailure(t, "validation error", "selected_regions customization is only available on SUPERAGENT plan", "nothing was applied")
 	env.runCloudCLI(t, "variables", "list").requireNotContains(t, "CONFIG_GATED")
 
 	// Item 21: skipped/missing warnings render prominently but exit 0.

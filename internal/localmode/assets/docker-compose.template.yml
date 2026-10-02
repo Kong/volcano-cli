@@ -64,7 +64,7 @@ services:
       - volcano-internal
 
   appconfig-agent:
-    image: public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x@sha256:003b53280d6a65b56882a502b03cd8bd2f1a8187e9d731dd44fb576b69b83b83
+    image: ${VOLCANO_APPCONFIG_AGENT_IMAGE:-public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x@sha256:003b53280d6a65b56882a502b03cd8bd2f1a8187e9d731dd44fb576b69b83b83}
     environment:
       LOCAL_DEVELOPMENT_DIRECTORY: /local-config
     expose:

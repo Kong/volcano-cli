@@ -99,13 +99,9 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 	kv(w, on, "Domain status", "%s", theme.Status(strings.TrimSpace(string(domain.DomainStatus)), on))
 	kv(w, on, "Verification status", "%s", theme.Status(strings.TrimSpace(string(domain.VerificationStatus)), on))
 
-	if domain.RequiredRoutingRecord != nil {
-		fmt.Fprintln(w, theme.Dim("Required routing record:", on))
-		fmt.Fprintf(w, "  %s %s -> %s\n",
-			domain.RequiredRoutingRecord.RecordType,
-			domain.RequiredRoutingRecord.Name,
-			domain.RequiredRoutingRecord.Value,
-		)
+	if domain.RoutingTargetHostname != nil && *domain.RoutingTargetHostname != "" {
+		kv(w, on, "DNS routing target", "%s", *domain.RoutingTargetHostname)
+		fmt.Fprintln(w, "  Use CNAME only if your DNS provider confirms this is not a zone apex. At an apex, use provider-supported ALIAS, ANAME, or CNAME flattening.")
 	}
 	if domain.VerificationRecords != nil && len(*domain.VerificationRecords) > 0 {
 		fmt.Fprintln(w, theme.Dim("Verification records:", on))

@@ -57,6 +57,7 @@ func TestFrontendsDomainCreate(t *testing.T) {
 	assert.Contains(t, out, "Custom domain 'app.example.com' created for frontend 'web'")
 	assert.Contains(t, out, "TLS mode: byoc")
 	assert.Contains(t, out, "Domain status: provisioning")
+	assert.Contains(t, out, "DNS routing target: web.frontends.volcano.run")
 
 	require.NotNil(t, capturedPayload)
 	assert.Equal(t, "app.example.com", capturedPayload["domain"])
@@ -94,7 +95,9 @@ func TestFrontendsDomainGet(t *testing.T) {
 	assert.Contains(t, out, "Frontend: web")
 	assert.Contains(t, out, "Domain: app.example.com")
 	assert.Contains(t, out, "Domain status: active")
-	assert.Contains(t, out, "Required routing record:")
+	assert.NotContains(t, out, "Required routing record:")
+	assert.Contains(t, out, "DNS routing target: web.frontends.volcano.run")
+	assert.Contains(t, out, "Use CNAME only if your DNS provider confirms this is not a zone apex")
 	assert.Contains(t, out, "Effective URLs:")
 }
 
@@ -189,18 +192,14 @@ func frontendDomainDeleteHandler(t *testing.T, sawDelete *bool) http.HandlerFunc
 
 func frontendDomainCommandResponse(domain, status string) map[string]any {
 	return map[string]any{
-		"created_at":          "2026-05-20T00:00:00Z",
-		"domain":              domain,
-		"domain_status":       status,
-		"effective_urls":      []string{"https://web.frontends.volcano.run/", "https://" + domain + "/"},
-		"tls_mode":            "byoc",
-		"updated_at":          "2026-05-20T00:00:00Z",
-		"verification_status": "verified",
-		"required_routing_record": map[string]any{
-			"name":        domain,
-			"record_type": "CNAME",
-			"value":       "d123.cloudfront.net",
-		},
+		"created_at":              "2026-05-20T00:00:00Z",
+		"domain":                  domain,
+		"domain_status":           status,
+		"effective_urls":          []string{"https://web.frontends.volcano.run/", "https://" + domain + "/"},
+		"tls_mode":                "byoc",
+		"updated_at":              "2026-05-20T00:00:00Z",
+		"verification_status":     "verified",
+		"routing_target_hostname": "web.frontends.volcano.run",
 		"verification_records": []any{
 			map[string]any{"type": "TXT", "name": "_volcano." + domain, "value": "verify"},
 		},

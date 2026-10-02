@@ -187,6 +187,8 @@ func TestDockerComposeTemplateSetsRegionsButNotPlanLimits(t *testing.T) {
 	// package has a reflection guard that fails when a new plan env var is added
 	// without a baked local default.
 	planEnv := regexp.MustCompile(`(?m)^\s*(FREE|PRO)_[A-Z0-9_]+:`)
+	assert.Regexp(t, planEnv, "FREE_DATABASE_STORAGE_LIMIT:")
+	assert.Regexp(t, planEnv, "PRO_DATABASE_STORAGE_LIMIT:")
 	assert.Empty(t, planEnv.FindString(template), "local-mode template must not ship FREE_*/PRO_* plan-limit env vars")
 }
 

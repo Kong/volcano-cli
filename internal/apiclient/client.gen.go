@@ -290,6 +290,30 @@ func (e CreateOAuthConfigRequestProvider) Valid() bool {
 	}
 }
 
+// Defines values for CreateProjectRequestTemplateId.
+const (
+	CollabPad       CreateProjectRequestTemplateId = "collab-pad"
+	OfficialStarter CreateProjectRequestTemplateId = "official-starter"
+	PixelBoard      CreateProjectRequestTemplateId = "pixel-board"
+	Trellini        CreateProjectRequestTemplateId = "trellini"
+)
+
+// Valid indicates whether the value is a known member of the CreateProjectRequestTemplateId enum.
+func (e CreateProjectRequestTemplateId) Valid() bool {
+	switch e {
+	case CollabPad:
+		return true
+	case OfficialStarter:
+		return true
+	case PixelBoard:
+		return true
+	case Trellini:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateSandboxSessionRequestMemoryMb.
 const (
 	CreateSandboxSessionRequestMemoryMbN1024 CreateSandboxSessionRequestMemoryMb = 1024
@@ -1456,16 +1480,16 @@ func (e PaginatedProjectsStatus) Valid() bool {
 
 // Defines values for ProjectPlan.
 const (
-	FREE ProjectPlan = "FREE"
-	PRO  ProjectPlan = "PRO"
+	HOBBY      ProjectPlan = "HOBBY"
+	SUPERAGENT ProjectPlan = "SUPERAGENT"
 )
 
 // Valid indicates whether the value is a known member of the ProjectPlan enum.
 func (e ProjectPlan) Valid() bool {
 	switch e {
-	case FREE:
+	case HOBBY:
 		return true
-	case PRO:
+	case SUPERAGENT:
 		return true
 	default:
 		return false
@@ -2372,6 +2396,60 @@ func (e ProjectMetricsUnit) Valid() bool {
 	case Ratio:
 		return true
 	case Seconds:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectTemplateInstallationPhase.
+const (
+	ProjectTemplateInstallationPhaseConfigure ProjectTemplateInstallationPhase = "configure"
+	ProjectTemplateInstallationPhaseDatabase  ProjectTemplateInstallationPhase = "database"
+	ProjectTemplateInstallationPhaseDeploy    ProjectTemplateInstallationPhase = "deploy"
+	ProjectTemplateInstallationPhaseReady     ProjectTemplateInstallationPhase = "ready"
+	ProjectTemplateInstallationPhaseRestore   ProjectTemplateInstallationPhase = "restore"
+	ProjectTemplateInstallationPhaseVerify    ProjectTemplateInstallationPhase = "verify"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationPhase enum.
+func (e ProjectTemplateInstallationPhase) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationPhaseConfigure:
+		return true
+	case ProjectTemplateInstallationPhaseDatabase:
+		return true
+	case ProjectTemplateInstallationPhaseDeploy:
+		return true
+	case ProjectTemplateInstallationPhaseReady:
+		return true
+	case ProjectTemplateInstallationPhaseRestore:
+		return true
+	case ProjectTemplateInstallationPhaseVerify:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectTemplateInstallationStatus.
+const (
+	ProjectTemplateInstallationStatusFailed  ProjectTemplateInstallationStatus = "failed"
+	ProjectTemplateInstallationStatusPending ProjectTemplateInstallationStatus = "pending"
+	ProjectTemplateInstallationStatusReady   ProjectTemplateInstallationStatus = "ready"
+	ProjectTemplateInstallationStatusRunning ProjectTemplateInstallationStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationStatus enum.
+func (e ProjectTemplateInstallationStatus) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationStatusFailed:
+		return true
+	case ProjectTemplateInstallationStatusPending:
+		return true
+	case ProjectTemplateInstallationStatusReady:
+		return true
+	case ProjectTemplateInstallationStatusRunning:
 		return true
 	default:
 		return false
@@ -3866,9 +3944,9 @@ type AuthConfig struct {
 	// 403, and `allowed_email_domains_mode` decides whether sign-in is
 	// covered as well.
 	//
-	// The allowlist is a PRO feature to configure and to enforce. A
+	// The allowlist is a SUPERAGENT feature to configure and to enforce. A
 	// downgrade parks it: the domains are still returned here and stop
-	// being applied until the project is back on PRO.
+	// being applied until the project is back on SUPERAGENT.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
 	// AllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` only gates account
@@ -4502,7 +4580,13 @@ type CreateProjectRequest struct {
 	// SelectedRegions Optional region subset. Requires `all_regions=false`.
 	// Region names must be a subset of platform `AWS_REGIONS`.
 	SelectedRegions *[]string `json:"selected_regions,omitempty"`
+
+	// TemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
+	TemplateId *CreateProjectRequestTemplateId `json:"template_id,omitempty"`
 }
+
+// CreateProjectRequestTemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
+type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
@@ -4510,9 +4594,11 @@ type CreateSandboxSessionRequest struct {
 	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
 	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
 	Preset             *CreateSandboxSessionRequestPreset   `json:"preset,omitempty"`
-	Region             string                               `json:"region"`
-	SandboxId          *openapi_types.UUID                  `json:"sandbox_id,omitempty"`
-	union              json.RawMessage
+
+	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	Region    string              `json:"region"`
+	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
+	union     json.RawMessage
 }
 
 // CreateSandboxSessionRequestMemoryMb defines model for CreateSandboxSessionRequest.MemoryMb.
@@ -5472,11 +5558,14 @@ type FrontendVariableScope string
 
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse struct {
-	CreatedAt             time.Time                                      `json:"created_at"`
-	Domain                string                                         `json:"domain"`
-	DomainStatus          FrontendCustomDomainResponseDomainStatus       `json:"domain_status"`
-	EffectiveUrls         []string                                       `json:"effective_urls"`
-	RequiredRoutingRecord *FrontendDomainRoutingRecord                   `json:"required_routing_record,omitempty"`
+	CreatedAt             time.Time                                `json:"created_at"`
+	Domain                string                                   `json:"domain"`
+	DomainStatus          FrontendCustomDomainResponseDomainStatus `json:"domain_status"`
+	EffectiveUrls         []string                                 `json:"effective_urls"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord             `json:"required_routing_record,omitempty"`
+
+	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
+	RoutingTargetHostname *string                                        `json:"routing_target_hostname,omitempty"`
 	TlsMode               FrontendCustomDomainResponseTlsMode            `json:"tls_mode"`
 	UpdatedAt             time.Time                                      `json:"updated_at"`
 	VerificationRecords   *[]FrontendDomainVerificationRecord            `json:"verification_records,omitempty"`
@@ -6639,7 +6728,13 @@ type Project struct {
 	// SelectedRegions Effective region set for this project (normalized and deduplicated)
 	SelectedRegions []string      `json:"selected_regions"`
 	Status          ProjectStatus `json:"status"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+
+	// TemplateInstallation Template initialization progress, returned by project creation and the
+	// individual project endpoint. Omitted for projects without a template.
+	// Project creation accepts the installation; wait for `ready` before use.
+	// A failed installation retains the project for inspection or deletion.
+	TemplateInstallation *ProjectTemplateInstallation `json:"template_installation,omitempty"`
+	UpdatedAt            time.Time                    `json:"updated_at"`
 }
 
 // ProjectPlan Platform plan applied to the project when available
@@ -6886,7 +6981,7 @@ type ProjectConfigAuthEmail struct {
 	// Templates Email templates keyed by type. Fully synced when declared - template
 	// types absent from a declared map revert to server defaults (custom
 	// bodies deleted, subject overrides cleared). Custom template bodies
-	// require the PRO plan; subject-only changes are available on FREE.
+	// require the SUPERAGENT plan; subject-only changes are available on HOBBY.
 	Templates *ProjectConfigEmailTemplates `json:"templates,omitempty"`
 }
 
@@ -6926,7 +7021,7 @@ type ProjectConfigAuthManagedPages struct {
 	// Enabled Enable or disable managed auth hosted pages
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Pages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+	// Pages Hosted auth pages keyed by page type (SUPERAGENT plan). Upsert-only: omitted
 	// pages are left untouched (there is no delete for hosted pages).
 	Pages     *ProjectConfigHostedPages   `json:"pages,omitempty"`
 	Redirects *ProjectConfigAuthRedirects `json:"redirects,omitempty"`
@@ -6999,8 +7094,8 @@ type ProjectConfigAuthSignup struct {
 	// prefix) and must be bare domains such as `domain1.com`. Matching is
 	// exact, so subdomains need their own entry. At most 100 entries.
 	//
-	// Restricting signups is a PRO feature to configure and to enforce: a
-	// FREE project can only declare the list it already has or remove the
+	// Restricting signups is a SUPERAGENT feature to configure and to enforce: a
+	// HOBBY project can only declare the list it already has or remove the
 	// restriction, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 
@@ -7054,7 +7149,7 @@ type ProjectConfigBucketPolicy struct {
 // ProjectConfigBucketPolicyOperation defines model for ProjectConfigBucketPolicy.Operation.
 type ProjectConfigBucketPolicyOperation string
 
-// ProjectConfigCustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+// ProjectConfigCustomDomain Custom domain with BYOC TLS (SUPERAGENT plan). `tls` is required when the
 // domain is first created and optional afterwards: providing new TLS
 // material for the same domain rotates the certificate in place (zero
 // downtime); omitting `tls` keeps the stored certificate. TLS material is
@@ -7091,18 +7186,18 @@ type ProjectConfigDatabasePgVersion string
 
 // ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.
 type ProjectConfigEmailTemplate struct {
-	// HtmlBody HTML body. Max 256 KiB. PRO plan required for custom bodies.
+	// HtmlBody HTML body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	HtmlBody *string `json:"html_body,omitempty"`
 	Subject  *string `json:"subject,omitempty"`
 
-	// TextBody Plain-text body. Max 256 KiB. PRO plan required for custom bodies.
+	// TextBody Plain-text body. Max 256 KiB. SUPERAGENT plan required for custom bodies.
 	TextBody *string `json:"text_body,omitempty"`
 }
 
 // ProjectConfigEmailTemplates Email templates keyed by type. Fully synced when declared - template
 // types absent from a declared map revert to server defaults (custom
 // bodies deleted, subject overrides cleared). Custom template bodies
-// require the PRO plan; subject-only changes are available on FREE.
+// require the SUPERAGENT plan; subject-only changes are available on HOBBY.
 type ProjectConfigEmailTemplates struct {
 	Confirmation    *ProjectConfigEmailTemplate `json:"confirmation,omitempty"`
 	PasswordChanged *ProjectConfigEmailTemplate `json:"password_changed,omitempty"`
@@ -7114,7 +7209,7 @@ type ProjectConfigEmailTemplates struct {
 // created or deleted through the manifest. A declared frontend entry
 // without `custom_domain` deletes an existing custom domain.
 type ProjectConfigFrontend struct {
-	// CustomDomain Custom domain with BYOC TLS (PRO plan). `tls` is required when the
+	// CustomDomain Custom domain with BYOC TLS (SUPERAGENT plan). `tls` is required when the
 	// domain is first created and optional afterwards: providing new TLS
 	// material for the same domain rotates the certificate in place (zero
 	// downtime); omitting `tls` keeps the stored certificate. TLS material is
@@ -7175,7 +7270,7 @@ type ProjectConfigHostedPage struct {
 	Html string `json:"html"`
 }
 
-// ProjectConfigHostedPages Hosted auth pages keyed by page type (PRO plan). Upsert-only: omitted
+// ProjectConfigHostedPages Hosted auth pages keyed by page type (SUPERAGENT plan). Upsert-only: omitted
 // pages are left untouched (there is no delete for hosted pages).
 type ProjectConfigHostedPages struct {
 	Login         *ProjectConfigHostedPage `json:"login,omitempty"`
@@ -7212,7 +7307,7 @@ type ProjectConfigOAuthProviderProvider string
 
 // ProjectConfigProject Project-level settings. `name` renames the project.
 type ProjectConfigProject struct {
-	// AllRegions Region policy. `false` requires `selected_regions` (PRO plan).
+	// AllRegions Region policy. `false` requires `selected_regions` (SUPERAGENT plan).
 	AllRegions *bool   `json:"all_regions,omitempty"`
 	Name       *string `json:"name,omitempty"`
 
@@ -7345,7 +7440,10 @@ type ProjectFrontendCustomDomain struct {
 		Id   openapi_types.UUID `json:"id"`
 		Name string             `json:"name"`
 	} `json:"frontend"`
-	RequiredRoutingRecord *FrontendDomainRoutingRecord                  `json:"required_routing_record,omitempty"`
+	RequiredRoutingRecord *FrontendDomainRoutingRecord `json:"required_routing_record,omitempty"`
+
+	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
+	RoutingTargetHostname *string                                       `json:"routing_target_hostname,omitempty"`
 	TlsMode               ProjectFrontendCustomDomainTlsMode            `json:"tls_mode"`
 	UpdatedAt             time.Time                                     `json:"updated_at"`
 	VerificationRecords   *[]FrontendDomainVerificationRecord           `json:"verification_records,omitempty"`
@@ -7680,6 +7778,21 @@ type ProjectMetricsWindow struct {
 	To   time.Time `json:"to"`
 }
 
+// ProjectTemplateInstallation Template initialization progress, returned by project creation and the
+// individual project endpoint. Omitted for projects without a template.
+// Project creation accepts the installation; wait for `ready` before use.
+// A failed installation retains the project for inspection or deletion.
+type ProjectTemplateInstallation struct {
+	Phase  ProjectTemplateInstallationPhase  `json:"phase"`
+	Status ProjectTemplateInstallationStatus `json:"status"`
+}
+
+// ProjectTemplateInstallationPhase defines model for ProjectTemplateInstallation.Phase.
+type ProjectTemplateInstallationPhase string
+
+// ProjectTemplateInstallationStatus defines model for ProjectTemplateInstallation.Status.
+type ProjectTemplateInstallationStatus string
+
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
 	// Frontends Per-frontend request totals for the current usage month
@@ -7748,7 +7861,7 @@ type RealtimePlanLimits struct {
 	// MessagesPerMonth Maximum messages per month
 	MessagesPerMonth *int `json:"messages_per_month,omitempty"`
 
-	// Plan Plan name (FREE or PRO)
+	// Plan Public plan name (HOBBY or SUPERAGENT).
 	Plan *string `json:"plan,omitempty"`
 }
 
@@ -7846,13 +7959,15 @@ type SandboxDeploymentPage struct {
 
 // SandboxExecutionRequest defines model for SandboxExecutionRequest.
 type SandboxExecutionRequest struct {
-	Command        string                           `json:"command"`
-	Environment    *map[string]string               `json:"environment,omitempty"`
-	MemoryMb       *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
-	Preset         *SandboxExecutionRequestPreset   `json:"preset,omitempty"`
-	Region         string                           `json:"region"`
-	SandboxId      *openapi_types.UUID              `json:"sandbox_id,omitempty"`
-	TimeoutSeconds *int                             `json:"timeout_seconds,omitempty"`
+	Command     string                           `json:"command"`
+	Environment *map[string]string               `json:"environment,omitempty"`
+	MemoryMb    *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
+	Preset      *SandboxExecutionRequestPreset   `json:"preset,omitempty"`
+
+	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
+	Region         string              `json:"region"`
+	SandboxId      *openapi_types.UUID `json:"sandbox_id,omitempty"`
+	TimeoutSeconds *int                `json:"timeout_seconds,omitempty"`
 	union          json.RawMessage
 }
 
@@ -8217,8 +8332,8 @@ type UpdateAuthConfigRequest struct {
 	// prefix); matching is exact, so subdomains need their own entry. At
 	// most 100 entries.
 	//
-	// Restricting signups is a PRO feature to configure and to enforce: a
-	// FREE project can only remove the restriction and gets 403 for any
+	// Restricting signups is a SUPERAGENT feature to configure and to enforce: a
+	// HOBBY project can only remove the restriction and gets 403 for any
 	// other change, and the list it keeps is parked until it upgrades.
 	AllowedEmailDomains *[]string `json:"allowed_email_domains,omitempty"`
 

@@ -78,7 +78,7 @@ func setupAPIE2E(t *testing.T, prefix string) *apiE2E {
 	return env
 }
 
-// setUserPlan puts the test's owner on a plan. New users are created on FREE,
+// setUserPlan puts the test's owner on a plan. New users are created on HOBBY,
 // which has no backups and no point-in-time restore at all, so a test of a paid
 // database capability has to buy it first — the CLI would otherwise be asserting
 // against a 403 the whole way through.

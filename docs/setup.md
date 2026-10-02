@@ -28,7 +28,9 @@ volcano setup --yes                  # skip the prompt (use in agents/CI)
 ```
 
 On a real terminal, `setup` shows a picker of detected harnesses (an installed
-harness that is behind its latest version is marked `[outdated]`). It runs
+harness that is behind its latest version is marked `[outdated]`). If it finds
+no coding agents, it shows a message with supported examples instead of a picker,
+then installs the manual fallback under `~/.volcano`. It runs
 non-interactively — installing all detected — when stdin/stdout is piped, in CI,
 when `VOLCANO_NONINTERACTIVE` is set, or with `--yes`.
 
