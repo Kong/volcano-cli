@@ -50,6 +50,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
+	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")

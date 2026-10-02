@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
+	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -33,6 +35,11 @@ func main() {
 func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
 	stderr := root.ErrOrStderr()
+	var commandExit *sandboxcmd.ExitError
+	if errors.As(err, &commandExit) {
+		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		return commandExit.ExitCode()
+	}
 
 	if err != nil && api.Status(err) == http.StatusUpgradeRequired {
 		// The 426 body's message already reads "cli version no longer
