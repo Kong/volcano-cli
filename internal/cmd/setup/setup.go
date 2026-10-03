@@ -174,6 +174,11 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 				Title("Install Volcano for which coding agents?").
 				Description(keyHintDescription(color)).
 				Options(options...).
+				// Workaround for https://github.com/charmbracelet/huh/pull/831:
+				// unset Height collapses the viewport to N-2 rows (hiding every
+				// option at N<=2). len(options)+2 is the field's natural size;
+				// remove once huh ships the fix.
+				Height(len(options) + 2).
 				Value(&selected),
 		),
 	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithKeyMap(km)
