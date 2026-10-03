@@ -395,6 +395,86 @@ func TestDurableDeployLeavesVisibilityAloneByDefault(t *testing.T) {
 	assert.Empty(t, sent)
 }
 
+// A new durable function starts private, which refuses the signed-in users an
+// app usually starts executions as, and there is no update command to fix that
+// afterwards. The hint names the redeploy for a function the manifest leaves
+// alone and config deploy for one it already gives a level. Existing functions
+// and ones the manifest keeps private get nothing.
+func TestDurableDeployHintsHowToOpenNewPrivateFunctions(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	for _, name := range []string{"order-pipeline", "reports", "nightly", "existing"} {
+		writeDurableProjectFile(t, "volcano/functions/"+name+".js", `exports.handler = async () => ({});`)
+	}
+	writeDurableProjectFile(t, "volcano-config.yaml", `version: 1
+functions:
+  - name: order-pipeline
+    kind: durable
+  - name: reports
+    kind: durable
+    visibility: authenticated
+  - name: nightly
+    kind: durable
+    visibility: private
+  - name: existing
+    kind: durable
+`)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			name := r.FormValue("name")
+			status := http.StatusCreated
+			if name == "existing" {
+				status = http.StatusOK
+			}
+			writeDurableCommandJSON(t, w, status, durableFunctionPayload(name, "private"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeDurableCommand(t, newCloudDurableCommand(server), "deploy", "--all")
+	require.NoError(t, err)
+	assert.Contains(t, out, "New durable functions are private: only service keys and schedulers can start executions.\n"+
+		"volcano-config.yaml declares a visibility for reports; apply it with:\n"+
+		"  volcano cloud config deploy\n"+
+		"To let your project's signed-in users start them, redeploy with --visibility:\n"+
+		"  volcano cloud durable deploy -f order-pipeline --visibility authenticated\n"+
+		"Or declare its visibility in volcano-config.yaml and run volcano cloud config deploy\n")
+	assert.NotContains(t, out, "-f reports")
+	assert.NotContains(t, out, "nightly;")
+	assert.NotContains(t, out, "-f nightly")
+	assert.NotContains(t, out, "-f existing")
+}
+
+func TestDurableDeployGivesNoHintWhenTheFlagChoosesPrivate(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeDurableCommand(t, newCloudDurableCommand(server),
+		"deploy", "-f", "order-pipeline", "--visibility", "private")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Visibility: private")
+	assert.NotContains(t, out, "New durable functions are private")
+}
+
 // --all takes its targets from the manifest rather than from the scan, because
 // the source tree does not say which functions are durable.
 func TestDurableDeployAllTakesTargetsFromTheManifest(t *testing.T) {

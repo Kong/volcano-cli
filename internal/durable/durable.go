@@ -46,20 +46,21 @@ func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.Pagi
 }
 
 // Deploy uploads one packaged source archive as a durable function. It creates
-// the function on the first call for a name and redeploys it after that.
+// the function on the first call for a name and redeploys it after that;
+// created reports which one happened.
 //
 // visibility is left nil to keep the deployed function's current visibility,
 // which is what the collection does with an absent field. A new function
 // starts private.
 func (s Service) Deploy(
 	ctx context.Context, pkg clifunction.Package, visibility *apiclient.FunctionVisibility,
-) (*apiclient.DurableFunction, error) {
+) (deployed *apiclient.DurableFunction, created bool, err error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	fn, err := authenticated.API.DeployDurableFunction(ctx, authenticated.ProjectID, api.DurableFunctionDeployInput{
+	deployed, created, err = authenticated.API.DeployDurableFunction(ctx, authenticated.ProjectID, api.DurableFunctionDeployInput{
 		Name:          pkg.Name,
 		Runtime:       pkg.Runtime,
 		Handler:       pkg.Handler,
@@ -69,9 +70,9 @@ func (s Service) Deploy(
 		Variables:     pkg.Variables,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy durable function %q: %w", pkg.Name, err)
+		return nil, false, fmt.Errorf("failed to deploy durable function %q: %w", pkg.Name, err)
 	}
-	return fn, nil
+	return deployed, created, nil
 }
 
 // Get returns one durable function by name or id.

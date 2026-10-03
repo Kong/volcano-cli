@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -58,4 +59,51 @@ func (f *VisibilityFlags) Visibility() (visibility apiclient.FunctionVisibility,
 	default:
 		return "", false, fmt.Errorf("invalid --visibility %q: use private, authenticated, or public", f.value)
 	}
+}
+
+// PrivateHint is what a deploy prints about the new functions that came up
+// private. A deploy does not apply the manifest's visibility, so a function
+// the manifest gives another level is pointed at config deploy, and one the
+// manifest keeps private gets no hint.
+type PrivateHint struct {
+	// Summary says who can call a private function of this kind.
+	Summary string
+	// Instruction introduces the commands Open returns.
+	Instruction string
+	// Open returns the command that lets signed-in users call the function.
+	Open         func(name string) string
+	ConfigDeploy string
+	// Declared is the level volcano-config.yaml declares for each function.
+	Declared map[string]string
+}
+
+// Print writes the hint for names, the new functions that came up private.
+func (h PrivateHint) Print(out io.Writer, names []string) {
+	var declared, undeclared []string
+	for _, name := range names {
+		switch h.Declared[name] {
+		case "":
+			undeclared = append(undeclared, name)
+		case string(apiclient.FunctionVisibilityPrivate):
+		default:
+			declared = append(declared, name)
+		}
+	}
+	if len(declared) == 0 && len(undeclared) == 0 {
+		return
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, h.Summary)
+	if len(declared) > 0 {
+		fmt.Fprintf(out, "volcano-config.yaml declares a visibility for %s; apply it with:\n  %s\n",
+			strings.Join(declared, ", "), h.ConfigDeploy)
+	}
+	if len(undeclared) == 0 {
+		return
+	}
+	fmt.Fprintln(out, h.Instruction)
+	for _, name := range undeclared {
+		fmt.Fprintf(out, "  %s\n", h.Open(name))
+	}
+	fmt.Fprintf(out, "Or declare its visibility in volcano-config.yaml and run %s\n", h.ConfigDeploy)
 }

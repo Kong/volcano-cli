@@ -109,17 +109,34 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 			sources[0].Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
+	var newPrivate []string
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
-		if err := deployOne(
+		deployed, created, err := deployOne(
 			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
-		); err != nil {
+		)
+		if err != nil {
 			return err
+		}
+		// Only a new function the flag did not set: an existing one keeps the
+		// level its owner chose, and --visibility private is a choice too.
+		if created && visibility == nil &&
+			output.FunctionVisibility(deployed.Visibility, deployed.IsPublic) == string(apiclient.FunctionVisibilityPrivate) {
+			newPrivate = append(newPrivate, deployed.Name)
 		}
 	}
 	fmt.Fprintln(opts.out)
 	output.Success(opts.out, "%d/%d durable function(s) deployment started", len(sources), len(sources))
 	fmt.Fprintf(opts.out, "Follow the rollout with %s\n", cliruntime.CommandPath(opts.deps, "durable get "+sources[0].Name))
+	cmdutil.PrivateHint{
+		Summary:     "New durable functions are private: only service keys and schedulers can start executions.",
+		Instruction: "To let your project's signed-in users start them, redeploy with --visibility:",
+		Open: func(name string) string {
+			return cliruntime.CommandPath(opts.deps, "durable deploy -f "+name+" --visibility authenticated")
+		},
+		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
+		Declared:     manifest.Visibility,
+	}.Print(opts.out, newPrivate)
 	return nil
 }
 
@@ -131,12 +148,12 @@ func deployOne(
 	source clifunction.SourceInfo,
 	visibility *apiclient.FunctionVisibility,
 	declarations map[string]projectconfig.FunctionVariableDeclaration,
-) error {
+) (deployed *apiclient.DurableFunction, created bool, err error) {
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
 	pkg, err := clifunction.PackageSource(source, baseDir)
 	if err != nil {
-		return fmt.Errorf("failed to package durable function %s: %w", source.Name, err)
+		return nil, false, fmt.Errorf("failed to package durable function %s: %w", source.Name, err)
 	}
 	if declaration, ok := declarations[pkg.Name]; ok {
 		pkg.VariableScope = declaration.VariableScope
@@ -144,13 +161,13 @@ func deployOne(
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 
-	deployed, err := service.Deploy(ctx, *pkg, visibility)
+	deployed, created, err = service.Deploy(ctx, *pkg, visibility)
 	if err != nil {
-		return err
+		return nil, false, err
 	}
 	fmt.Fprintf(out, "  Deployed %s (%s)\n", deployed.Name, string(deployed.Status))
 	fmt.Fprintf(out, "  Visibility: %s\n", output.FunctionVisibility(deployed.Visibility, deployed.IsPublic))
-	return nil
+	return deployed, created, nil
 }
 
 // deployVisibility turns the flags into the field the API takes, where nil

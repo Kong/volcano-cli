@@ -50,21 +50,25 @@ func (c *Client) ListDurableFunctions(ctx context.Context, projectID uuid.UUID, 
 }
 
 // DeployDurableFunction deploys one durable function source archive. It creates
-// the function on the first call for a name and redeploys it after that.
-func (c *Client) DeployDurableFunction(ctx context.Context, projectID uuid.UUID, fn DurableFunctionDeployInput) (*apiclient.DurableFunction, error) {
+// the function on the first call for a name and redeploys it after that;
+// created reports which one happened.
+func (c *Client) DeployDurableFunction(
+	ctx context.Context, projectID uuid.UUID, fn DurableFunctionDeployInput,
+) (deployed *apiclient.DurableFunction, created bool, err error) {
 	body, contentType, err := buildDurableFunctionDeployMultipart(fn)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	resp, err := c.client.CreateDurableFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if resp.JSON201 != nil {
-		return resp.JSON201, nil
+		return resp.JSON201, true, nil
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+	deployed, err = apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
 		resp.JSON400, resp.JSON403, resp.JSON409, resp.JSON503)
+	return deployed, false, err
 }
 
 // GetDurableFunction returns one durable function by ID or name.
