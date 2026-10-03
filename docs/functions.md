@@ -16,8 +16,11 @@ is invoked over HTTP, by name/alias, or on a schedule.
   every project variable; declare a narrower
   [variable scope](project-configuration.md) to give it only the ones it needs.
 - Connects to **databases** and **storage** in the same project.
-- Its **visibility** (public or not) and **schedulers** can be declared in the
+- Its **visibility** (`private`, `authenticated`, or `public`) and
+  **schedulers** can be declared in the
   [declarative config](project-configuration.md) or managed with the CLI.
+- A **frontend route** can serve a public function under a path of a
+  [frontend](frontends.md).
 - Can be given an **alias** so you can invoke it by a friendly name.
 - Work that has to run for hours belongs in a
   [durable function](durable-functions.md) instead, which is a separate
@@ -48,7 +51,7 @@ normally.
 | Deploy one or all | `volcano functions deploy [-a \| -f <name\|path>]` |
 | List | `volcano functions list` |
 | Get | `volcano functions get <name>` |
-| Update settings | `volcano functions update <name> …` |
+| Set visibility | `volcano functions update <name> --visibility private\|authenticated\|public` |
 | Delete | `volcano functions delete <name>` |
 | Invoke | `volcano functions invoke <name> [--payload …] [--json]` |
 | Logs | `volcano functions logs <name>` |
@@ -65,13 +68,37 @@ queued deploys; later deploys are rejected until deletion finishes.
 
 ## Visibility
 
-`functions update <name> --public` lets anon keys with `functions.invoke`
-invoke the function. `--private` sets the level that refuses anon keys and
-admits your project's signed-in users and service keys. `functions get` shows
-`Visibility: public` or `Visibility: not public`.
+Visibility decides who can invoke a function:
 
-On a server with visibility levels, `--private` opens a private function to
-your project's signed-in users. Use it only on a function they should reach.
+| Visibility | Who can invoke it |
+|---|---|
+| `private` | Service keys and schedulers |
+| `authenticated` | Also your project's signed-in users |
+| `public` | Also anon keys with `functions.invoke`, and [frontend routes](frontends.md#function-routes) |
+
+New functions start `private`. `functions deploy` says so for each function it
+creates and prints the command that lets signed-in users in:
+
+```text
+  Deployed notes-summary (new, visibility private)
+
+New functions are private: only service keys and schedulers can invoke them.
+To let your project's signed-in users call one, run:
+  volcano functions update notes-summary --visibility authenticated
+```
+
+`--public` is the same as `--visibility public`. `--private` is no longer
+accepted: it used to let signed-in users in, which is `authenticated` now, so
+pick the level you mean. A function that a frontend route forwards to has to
+stay `public`; delete the route first.
+
+`functions get` shows the level, and under "Routed from" every frontend path
+that forwards to the function:
+
+```text
+Visibility: public
+Routed from: web /api/session
+```
 
 ## Examples
 
@@ -85,6 +112,9 @@ volcano functions deploy -f volcano/functions/get-notes.js
 volcano functions invoke hello --payload '{"name":"Ada"}'
 volcano functions invoke hello --json
 volcano functions invoke --id 33333333-3333-4333-8333-333333333333
+
+# Let signed-in users invoke a function
+volcano functions update notes-summary --visibility authenticated
 
 # Tail build/runtime logs
 volcano functions logs hello

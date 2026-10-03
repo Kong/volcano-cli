@@ -334,3 +334,78 @@ func multipartArchiveNames(t *testing.T, fileHeader *multipart.FileHeader) []str
 	}
 	return names
 }
+
+// New functions start private, which refuses the signed-in users a frontend
+// usually calls with. The deploy says so for the functions it created, and
+// stays quiet about existing ones, whose level their owner already chose.
+func TestFunctionsDeployNamesTheLevelOfNewFunctions(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	for _, name := range []string{"existing", "fresh", "members"} {
+		require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", name+".js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	}
+	deployed := func(name, visibility string) map[string]any {
+		payload := functionCommandPayload(functionID, name)
+		payload["visibility"] = visibility
+		payload["is_public"] = visibility == "public"
+		return payload
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{deployed("existing", "private")}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions/batch":
+			writeFunctionCommandJSON(t, w, http.StatusAccepted, map[string]any{
+				"batch_id": "77777777-7777-4777-8777-777777777777",
+				"data":     []any{deployed("existing", "private"), deployed("fresh", "private"), deployed("members", "authenticated")},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all")
+	require.NoError(t, err)
+	assert.Contains(t, out, "  Deployed existing\n")
+	assert.Contains(t, out, "  Deployed fresh (new, visibility private)\n")
+	assert.Contains(t, out, "  Deployed members (new, visibility authenticated)\n")
+	assert.Contains(t, out, "New functions are private: only service keys and schedulers can invoke them.")
+	assert.Contains(t, out, "  volcano functions update fresh --visibility authenticated\n")
+	assert.NotContains(t, out, "update existing")
+	assert.NotContains(t, out, "update members")
+}
+
+// Without the listing the deploy cannot tell a new function from an existing
+// one, so it drops the hint rather than the deploy.
+func TestFunctionsDeploySkipsTheHintWhenTheListingFails(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusInternalServerError, map[string]any{"error": "unavailable"})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			payload := functionCommandPayload(functionID, "hello")
+			payload["visibility"] = "private"
+			writeFunctionCommandJSON(t, w, http.StatusCreated, payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", "hello")
+	require.NoError(t, err)
+	assert.Contains(t, out, "  Deployed hello\n")
+	assert.NotContains(t, out, "New functions are private")
+}

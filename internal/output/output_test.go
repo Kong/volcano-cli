@@ -247,12 +247,12 @@ func TestFunctionShowsQueuedDeploymentOnlyWhenOneIsWaiting(t *testing.T) {
 	}
 
 	var queued bytes.Buffer
-	Function(&queued, &fn)
+	Function(&queued, &fn, nil)
 	assert.Contains(t, queued.String(), "Pending Deployment: "+pendingID.String())
 
 	fn.PendingDeploymentId = nil
 	var idle bytes.Buffer
-	Function(&idle, &fn)
+	Function(&idle, &fn, nil)
 	assert.NotContains(t, idle.String(), "Pending Deployment")
 }
 
@@ -270,11 +270,39 @@ func TestFrontendShowsQueuedDeploymentOnlyWhenOneIsWaiting(t *testing.T) {
 	}
 
 	var queued bytes.Buffer
-	Frontend(&queued, &fe)
+	Frontend(&queued, &fe, nil)
 	assert.Contains(t, queued.String(), "Pending Deployment: "+pendingID.String())
 
 	fe.PendingDeploymentId = nil
 	var idle bytes.Buffer
-	Frontend(&idle, &fe)
+	Frontend(&idle, &fe, nil)
 	assert.NotContains(t, idle.String(), "Pending Deployment")
+}
+
+func TestFrontendListsItsFunctionRoutes(t *testing.T) {
+	fe := apiclient.Frontend{Name: "web", Status: apiclient.FrontendStatusActive}
+	routes := []FrontendRouteEntry{
+		{ID: "r1", PathPrefix: "/api/session", Function: "session", Visibility: "public", StripPrefix: true},
+		{ID: "r2", PathPrefix: "/api/health", Function: "44444444-4444-4444-8444-444444444444"},
+	}
+
+	var withRoutes bytes.Buffer
+	Frontend(&withRoutes, &fe, routes)
+	assert.Contains(t, withRoutes.String(), "Function routes:")
+	assert.Contains(t, withRoutes.String(), "  /api/session -> session (public, strip prefix)")
+	assert.Contains(t, withRoutes.String(), "  /api/health -> 44444444-4444-4444-8444-444444444444 (-)")
+
+	var without bytes.Buffer
+	Frontend(&without, &fe, nil)
+	assert.NotContains(t, without.String(), "Function routes")
+
+	var table bytes.Buffer
+	FrontendRoutes(&table, "web", routes)
+	assert.Contains(t, table.String(), "Visibility")
+	assert.Contains(t, table.String(), "session")
+	assert.Contains(t, table.String(), "Total: 2 route(s)")
+
+	var empty bytes.Buffer
+	FrontendRoutes(&empty, "web", nil)
+	assert.Equal(t, "No function routes on frontend \"web\"\n", empty.String())
 }

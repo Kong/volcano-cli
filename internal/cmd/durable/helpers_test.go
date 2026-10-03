@@ -56,7 +56,7 @@ func writeDurableCommandJSON(t *testing.T, w http.ResponseWriter, status int, va
 	require.NoError(t, json.NewEncoder(w).Encode(value))
 }
 
-func durableFunctionPayload(name string, isPublic bool) map[string]any {
+func durableFunctionPayload(name, visibility string) map[string]any {
 	return map[string]any{
 		"id":               durableFunctionID,
 		"project_id":       durableProjectID,
@@ -65,7 +65,8 @@ func durableFunctionPayload(name string, isPublic bool) map[string]any {
 		"handler":          "handler",
 		"kind":             "durable",
 		"status":           "active",
-		"is_public":        isPublic,
+		"visibility":       visibility,
+		"is_public":        visibility == "public",
 		"deployed_regions": []string{"aws-us-east-1"},
 		"durable": map[string]any{
 			"execution_timeout_seconds": 3600,

@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ func TestDurableListPopulatedAndEmpty(t *testing.T) {
 		{
 			name: "populated",
 			body: map[string]any{
-				"data":     []any{durableFunctionPayload("order-pipeline", false)},
+				"data":     []any{durableFunctionPayload("order-pipeline", "private")},
 				"has_more": true,
 				"page":     3,
 				"limit":    25,
@@ -77,29 +78,19 @@ func TestDurableListPopulatedAndEmpty(t *testing.T) {
 	}
 }
 
-// A durable function's visibility governs whether an anon key may start an
-// execution, and nothing else: it is never invocable over HTTP the way a public
-// standard function is, so the field is labeled for what it does.
-func TestDurableGetRendersAnonKeyStart(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		isPublic bool
-		want     string
-	}{
-		{name: "public", isPublic: true, want: "Anon Key Start: allowed"},
-		{name: "private", isPublic: false, want: "Anon Key Start: denied"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+func TestDurableGetRendersVisibility(t *testing.T) {
+	for _, visibility := range []string{"private", "authenticated", "public"} {
+		t.Run(visibility, func(t *testing.T) {
 			setDurableCommandTestHome(t)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/projects/"+durableProjectID+"/durable-functions/order-pipeline", r.URL.Path)
-				writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", tc.isPublic))
+				writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", visibility))
 			}))
 			defer server.Close()
 
 			out, err := executeDurableCommand(t, newCloudDurableCommand(server), "get", "order-pipeline")
 			require.NoError(t, err)
-			assert.Contains(t, out, tc.want)
+			assert.Contains(t, out, "Visibility: "+visibility)
 			assert.Contains(t, out, "Execution Timeout: 1h0m0s")
 			assert.Contains(t, out, "Retention: 30 day(s)")
 		})
@@ -199,7 +190,7 @@ func TestDurableDeleteConfirmsAgainstTheResolvedFunction(t *testing.T) {
 		path := "/projects/" + durableProjectID + "/durable-functions/"
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == path+"order-pipeline":
-			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", "private"))
 		case r.Method == http.MethodDelete && r.URL.Path == path+durableFunctionID:
 			deleted = true
 			w.WriteHeader(http.StatusAccepted)
@@ -219,21 +210,33 @@ func TestDurableDeleteConfirmsAgainstTheResolvedFunction(t *testing.T) {
 func TestDurableDeployRefusesConflictingVisibilityFlags(t *testing.T) {
 	setDurableCommandTestHome(t)
 	_, err := executeDurableCommand(t, newCloudDurableCommand(nil),
-		"deploy", "-f", "order-pipeline", "--public", "--private")
-	require.ErrorContains(t, err, "cannot use --public and --private together")
+		"deploy", "-f", "order-pipeline", "--public", "--visibility", "authenticated")
+	require.ErrorContains(t, err, "--public is the same as --visibility public")
+
+	_, err = executeDurableCommand(t, newCloudDurableCommand(nil),
+		"deploy", "-f", "order-pipeline", "--visibility", "everyone")
+	require.ErrorContains(t, err, `invalid --visibility "everyone"`)
+}
+
+// --private used to keep signed-in users in, which is the authenticated level
+// now. Mapping it to either level would surprise someone, so it is refused.
+func TestDurableDeployRefusesThePrivateFlag(t *testing.T) {
+	setDurableCommandTestHome(t)
+	_, err := executeDurableCommand(t, newCloudDurableCommand(nil), "deploy", "-f", "order-pipeline", "--private")
+	require.ErrorContains(t, err, "--private is no longer accepted")
+	require.ErrorContains(t, err, "--visibility authenticated")
 }
 
 // Visibility is one value applied to every function a run deploys, and a durable
 // function has no update endpoint: undoing an accidental flip is a redeploy of
-// each one. So `--all --public` would quietly make every function the manifest
-// declares durable startable by the anon key, while the flag help says "this
-// function".
+// each one. So `--all --visibility public` would quietly make every function
+// the manifest declares durable startable by the anon key.
 func TestDurableDeployRefusesVisibilityFlagsWithAll(t *testing.T) {
 	setDurableCommandTestHome(t)
 
-	for _, flag := range []string{"--public", "--private"} {
-		_, err := executeDurableCommand(t, newCloudDurableCommand(nil), "deploy", "--all", flag)
-		require.ErrorContains(t, err, "cannot use --public or --private with --all")
+	for _, flags := range [][]string{{"--public"}, {"--visibility", "authenticated"}} {
+		_, err := executeDurableCommand(t, newCloudDurableCommand(nil), append([]string{"deploy", "--all"}, flags...)...)
+		require.ErrorContains(t, err, "cannot use --visibility or --public with --all")
 	}
 }
 
@@ -260,13 +263,13 @@ func TestDurableDeployUploadsSourceAndVisibility(t *testing.T) {
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
 			fields = map[string]string{
-				"name":      r.FormValue("name"),
-				"runtime":   r.FormValue("runtime"),
-				"handler":   r.FormValue("handler"),
-				"is_public": r.FormValue("is_public"),
+				"name":       r.FormValue("name"),
+				"runtime":    r.FormValue("runtime"),
+				"handler":    r.FormValue("handler"),
+				"visibility": r.FormValue("visibility"),
 			}
 			require.Len(t, r.MultipartForm.File["code"], 1)
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", true))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "authenticated"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -274,12 +277,13 @@ func TestDurableDeployUploadsSourceAndVisibility(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeDurableCommand(t, newCloudDurableCommand(server),
-		"deploy", "-f", "volcano/functions/order-pipeline.js", "--public")
+		"deploy", "-f", "volcano/functions/order-pipeline.js", "--visibility", "authenticated")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{
-		"name": "order-pipeline", "runtime": "nodejs24.x", "handler": "handler", "is_public": "true",
+		"name": "order-pipeline", "runtime": "nodejs24.x", "handler": "handler", "visibility": "authenticated",
 	}, fields)
 	assert.Contains(t, out, "Deploying order-pipeline")
+	assert.Contains(t, out, "Visibility: authenticated")
 	assert.Contains(t, out, "1/1 durable function(s) deployment started")
 }
 
@@ -298,7 +302,7 @@ func TestDurableDeployRefusesARuntimeWithoutDurableSupport(t *testing.T) {
 			return
 		case r.Method == http.MethodPost:
 			deployed = true
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -313,24 +317,40 @@ func TestDurableDeployRefusesARuntimeWithoutDurableSupport(t *testing.T) {
 	assert.False(t, deployed, "nothing should be uploaded once the runtime is refused")
 }
 
-// --private is the way back from public, and a durable function has no update
-// endpoint, so a redeploy that sends nothing instead of false would make the
-// flag unusable.
-func TestDurableDeploySendsPrivateVisibility(t *testing.T) {
+// A redeploy is the only way back from public, since a durable function has no
+// update endpoint, and --public is still accepted as the old spelling.
+func TestDurableDeploySendsEachVisibility(t *testing.T) {
+	for _, tc := range []struct {
+		flags []string
+		want  string
+	}{
+		{flags: []string{"--visibility", "private"}, want: "private"},
+		{flags: []string{"--visibility", "Authenticated"}, want: "authenticated"},
+		{flags: []string{"--public"}, want: "public"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			testDurableDeploySendsVisibility(t, tc.flags, tc.want)
+		})
+	}
+}
+
+func testDurableDeploySendsVisibility(t *testing.T, flags []string, want string) {
+	t.Helper()
 	setDurableCommandTestHome(t)
 	t.Chdir(t.TempDir())
 	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js",
 		`exports.handler = async () => ({ ok: true });`)
 
-	var sentIsPublic string
+	var sentVisibility, sentIsPublic []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case writeDurableRuntimesResponse(t, w, r):
 			return
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
-			sentIsPublic = r.FormValue("is_public")
-			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+			sentVisibility = r.MultipartForm.Value["visibility"]
+			sentIsPublic = r.MultipartForm.Value["is_public"]
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", want))
 		default:
 			http.NotFound(w, r)
 		}
@@ -338,13 +358,14 @@ func TestDurableDeploySendsPrivateVisibility(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeDurableCommand(t, newCloudDurableCommand(server),
-		"deploy", "-f", "order-pipeline", "--private")
+		append([]string{"deploy", "-f", "order-pipeline"}, flags...)...)
 	require.NoError(t, err)
-	assert.Equal(t, "false", sentIsPublic)
+	assert.Equal(t, []string{want}, sentVisibility)
+	assert.Empty(t, sentIsPublic)
 	assert.Contains(t, out, "1/1 durable function(s) deployment started")
 }
 
-// Omitting both visibility flags sends no is_public field, which the API reads
+// Omitting the visibility flags sends no visibility field, which the API reads
 // as "keep what the function has". A redeploy must not silently make a public
 // function private.
 func TestDurableDeployLeavesVisibilityAloneByDefault(t *testing.T) {
@@ -353,15 +374,15 @@ func TestDurableDeployLeavesVisibilityAloneByDefault(t *testing.T) {
 	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js",
 		`exports.handler = async () => ({ ok: true });`)
 
-	var sentIsPublic []string
+	var sent []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case writeDurableRuntimesResponse(t, w, r):
 			return
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
-			sentIsPublic = r.MultipartForm.Value["is_public"]
-			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", true))
+			sent = slices.Concat(r.MultipartForm.Value["visibility"], r.MultipartForm.Value["is_public"])
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", "public"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -371,7 +392,7 @@ func TestDurableDeployLeavesVisibilityAloneByDefault(t *testing.T) {
 	_, err := executeDurableCommand(t, newCloudDurableCommand(server),
 		"deploy", "-f", "order-pipeline")
 	require.NoError(t, err)
-	assert.Empty(t, sentIsPublic)
+	assert.Empty(t, sent)
 }
 
 // --all takes its targets from the manifest rather than from the scan, because
@@ -398,7 +419,7 @@ functions:
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
 			deployed = append(deployed, r.FormValue("name"))
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -436,7 +457,7 @@ functions:
 					return
 				case r.Method == http.MethodPost:
 					deployed = true
-					writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("hello", false))
+					writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("hello", "private"))
 				default:
 					http.NotFound(w, r)
 				}
@@ -473,7 +494,7 @@ functions:
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
 			deployed = append(deployed, r.FormValue("name"))
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -516,7 +537,7 @@ functions:
 				"variable_scope": r.FormValue("variable_scope"),
 				"variables":      r.FormValue("variables"),
 			}
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -553,7 +574,7 @@ functions:
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
 			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
 			form = r.MultipartForm.Value
-			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusCreated, durableFunctionPayload("order-pipeline", "private"))
 		default:
 			http.NotFound(w, r)
 		}
