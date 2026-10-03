@@ -233,11 +233,6 @@ func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string 
 // local-mode server. It is self-contained: it declares SMOKE_MESSAGE (already
 // present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands and
 // the value-free pull, then removes CONFIG_SMOKE.
-//
-// Older local-mode images predate the /projects/{id}/config endpoints; against
-// those the CLI returns an upgrade hint and this smoke is skipped rather than
-// failed, so the CLI can ship ahead of the server image that carries the
-// endpoints (cross-repo rollout).
 func runLocalModeConfigSmoke(t *testing.T, binary string, env []string, projectDir string) {
 	t.Helper()
 	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
@@ -252,14 +247,7 @@ functions:
     visibility: public
 `)
 
-	deployOutput, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, projectDir, "config", "deploy")
-	if err != nil {
-		if strings.Contains(deployOutput, "does not support declarative config apply") {
-			t.Logf("skipping config deploy/pull smoke: local-mode image predates the config endpoints\n%s", deployOutput)
-			return
-		}
-		t.Fatalf("volcano config deploy failed: %v\n%s", err, deployOutput)
-	}
+	deployOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy")
 	requireContains(t, deployOutput, "Configuration deployed from volcano-config.yaml")
 	requireContains(t, deployOutput, "variables:")
 
@@ -308,9 +296,7 @@ func requireLocalModeFunctionVisibility(t *testing.T, binary string, env []strin
 }
 
 // requireLocalModeConfigFunctionVisibility applies each level from the
-// manifest, and the deprecated public flag as the level it used to mean. Unlike
-// the config smoke above it does not tolerate an image without the config
-// endpoints: the levels ship with them.
+// manifest, and the deprecated public flag as the level it used to mean.
 func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	manifest := filepath.Join("volcano", "volcano-config.yaml")
