@@ -78,7 +78,7 @@ func (s Service) CreateRoute(ctx context.Context, identifier string, input Route
 	if err != nil {
 		return nil, Route{}, err
 	}
-	target, err := findFunction(functions, input.Function)
+	target, err := routeTarget(ctx, authenticated, functions, input.Function)
 	if err != nil {
 		return nil, Route{}, err
 	}
@@ -127,7 +127,7 @@ func (s Service) UpdateRoute(ctx context.Context, identifier, route string, upda
 		request.StripPrefix = update.StripPrefix
 	}
 	if update.Function != nil {
-		target, err := findFunction(functions, *update.Function)
+		target, err := routeTarget(ctx, authenticated, functions, *update.Function)
 		if err != nil {
 			return nil, Route{}, err
 		}
@@ -203,7 +203,13 @@ func listFunctions(ctx context.Context, authenticated *clisession.ProjectSession
 	return functions, nil
 }
 
-func findFunction(functions []apiclient.Function, identifier string) (*apiclient.Function, error) {
+// routeTarget finds the standard function a route forwards to. The function
+// list holds standard functions only, so a miss is checked against the durable
+// collection to say why a durable name cannot be a target. That lookup only
+// refines the message: if it fails, the name is reported not found.
+func routeTarget(
+	ctx context.Context, authenticated *clisession.ProjectSession, functions []apiclient.Function, identifier string,
+) (*apiclient.Function, error) {
 	target := strings.TrimSpace(identifier)
 	if target == "" {
 		return nil, errors.New("function name or ID cannot be empty")
@@ -212,6 +218,9 @@ func findFunction(functions []apiclient.Function, identifier string) (*apiclient
 		if functions[i].Name == target || functions[i].Id.String() == target {
 			return &functions[i], nil
 		}
+	}
+	if durable, err := authenticated.API.GetDurableFunction(ctx, authenticated.ProjectID, target); err == nil {
+		return nil, fmt.Errorf("%q is a durable function: frontend routes forward only to standard functions", durable.Name)
 	}
 	return nil, fmt.Errorf("function %q not found", identifier)
 }
