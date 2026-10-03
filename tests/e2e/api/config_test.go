@@ -11,8 +11,9 @@ import (
 // TestAPIE2ECloudConfig covers the declarative config workflow end to end
 // (E2E matrix items 18-21): full-manifest deploy with ${ENV} interpolation
 // and report rendering, pull round-trip with --force semantics, dry-run plus
-// exact variables sync, plan-gate validation failure, and skipped/missing
-// warnings.
+// exact variables sync, plan-gate validation failure, skipped/missing
+// warnings, and function visibility levels. Frontend function routes in the
+// manifest are covered by TestAPIE2ECloudFrontends, which has a frontend.
 func TestAPIE2ECloudConfig(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-config")
 	writeAPIE2EBaseProject(t, env.projectDir)
@@ -70,7 +71,7 @@ auth:
         subject: "CLI E2E confirm subject"
 functions:
   - name: hello
-    public: true
+    visibility: public
 `, configBucket))
 
 	deploy := env.runCloudCLIWithEnv(t, secretEnv, "config", "deploy")
@@ -105,7 +106,7 @@ functions:
 		t.Fatalf("failed to read pulled manifest: %v", err)
 	}
 	pulledText := string(pulled)
-	for _, needle := range []string{"version: 1", "CONFIG_SECRET", "CONFIG_PLAIN", "config-read", "Write-only secrets are omitted"} {
+	for _, needle := range []string{"version: 1", "CONFIG_SECRET", "CONFIG_PLAIN", "config-read", "Write-only secrets are omitted", "visibility: public"} {
 		if !strings.Contains(pulledText, needle) {
 			t.Fatalf("pulled manifest missing %q:\n%s", needle, pulledText)
 		}
@@ -119,6 +120,8 @@ functions:
 	redeploy := env.runCloudCLI(t, "config", "deploy")
 	redeploy.requireSuccess(t, "Configuration deployed from volcano-config.yaml", "Summary: 0 created, 0 updated, 0 deleted")
 	redeploy.requireNotContains(t, "Warning:", "Error:")
+
+	requireAPIE2EConfigFunctionVisibility(t, env, manifestPath)
 
 	// Item 20a: dry run projects the variable deletion without applying it.
 	writeAPIE2EFile(t, manifestPath, `
@@ -179,4 +182,29 @@ variables:
 
 	env.runCloudCLI(t, "functions", "delete", "hello", "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No functions deployed", "functions", "list")
+}
+
+// requireAPIE2EConfigFunctionVisibility applies each visibility level from the
+// manifest, and the deprecated public flag as the level it used to mean.
+func requireAPIE2EConfigFunctionVisibility(t *testing.T, env *apiE2E, manifestPath string) {
+	t.Helper()
+	deploy := func(entry, visibility string) {
+		t.Helper()
+		writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n"+entry)
+		env.runCloudCLI(t, "config", "deploy").requireSuccess(t, "functions: 1 updated")
+		env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: "+visibility)
+	}
+	deploy("    visibility: authenticated\n", "authenticated")
+	deploy("    visibility: private\n", "private")
+	// public: false used to keep anon keys out and let signed-in users in.
+	deploy("    public: false\n", "authenticated")
+	deploy("    public: true\n", "public")
+	deploy("    visibility: private\n    public: false\n", "private")
+
+	writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n    visibility: public\n    public: false\n")
+	env.runCloudCLI(t, "config", "deploy").
+		requireFailure(t, "nothing was applied", "visibility and the deprecated public flag disagree")
+	writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n    visibility: everyone\n")
+	env.runCloudCLI(t, "config", "deploy").requireFailure(t, "visibility")
+	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: private")
 }

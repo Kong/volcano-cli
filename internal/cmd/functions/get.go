@@ -34,11 +34,20 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts getOptions) error {
-	function, err := clifunction.NewService(opts.deps).Get(ctx, opts.identifier)
+	service := clifunction.NewService(opts.deps)
+	function, err := service.Get(ctx, opts.identifier)
+	if err != nil {
+		return err
+	}
+	sources, err := service.RoutedFrom(ctx, function.Id)
 	if err != nil {
 		return err
 	}
 
-	output.Function(opts.out, function)
+	routedFrom := make([]output.FunctionRouteSource, 0, len(sources))
+	for _, source := range sources {
+		routedFrom = append(routedFrom, output.FunctionRouteSource{Frontend: source.Frontend, PathPrefix: source.PathPrefix})
+	}
+	output.Function(opts.out, function, routedFrom)
 	return nil
 }

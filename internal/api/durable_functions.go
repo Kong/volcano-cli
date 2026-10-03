@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
@@ -22,7 +21,8 @@ type DurableFunctionDeployInput struct {
 	Runtime       string
 	Handler       string
 	SourceArchive []byte
-	IsPublic      *bool
+	// Visibility is nil to keep a deployed function's current visibility.
+	Visibility *apiclient.FunctionVisibility
 	// VariableScope and Variables carry the manifest's declaration, nil when it
 	// declared none — which leaves an existing function's scope alone.
 	VariableScope *string
@@ -258,9 +258,9 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 	if err := writer.WriteField("handler", fn.Handler); err != nil {
 		return nil, "", fmt.Errorf("failed to write handler field: %w", err)
 	}
-	if fn.IsPublic != nil {
-		if err := writer.WriteField("is_public", strconv.FormatBool(*fn.IsPublic)); err != nil {
-			return nil, "", fmt.Errorf("failed to write is_public field: %w", err)
+	if fn.Visibility != nil {
+		if err := writer.WriteField("visibility", string(*fn.Visibility)); err != nil {
+			return nil, "", fmt.Errorf("failed to write visibility field: %w", err)
 		}
 	}
 	if fn.VariableScope != nil {

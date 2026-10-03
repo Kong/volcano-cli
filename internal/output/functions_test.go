@@ -78,15 +78,36 @@ func TestLogEventsRendersEveryBodyVariant(t *testing.T) {
 	}
 }
 
-// is_public: false refuses anon keys but has always let the project's
-// signed-in users invoke, so calling it private would overstate it.
-func TestFunctionLabelsANonPublicFunctionNotPublic(t *testing.T) {
-	var public bytes.Buffer
-	Function(&public, &apiclient.Function{Name: "hello", IsPublic: true})
-	assert.Contains(t, public.String(), "Visibility: public")
+// A server that predates levels sends only is_public, and its false let
+// signed-in users in, which is the authenticated level now.
+func TestFunctionVisibilityFallsBackToIsPublic(t *testing.T) {
+	for _, tc := range []struct {
+		visibility apiclient.FunctionVisibility
+		isPublic   bool
+		want       string
+	}{
+		{visibility: apiclient.FunctionVisibilityPrivate, want: "private"},
+		{visibility: apiclient.FunctionVisibilityAuthenticated, want: "authenticated"},
+		{visibility: apiclient.FunctionVisibilityPublic, isPublic: true, want: "public"},
+		{isPublic: true, want: "public"},
+		{isPublic: false, want: "authenticated"},
+	} {
+		assert.Equal(t, tc.want, FunctionVisibility(tc.visibility, tc.isPublic))
+	}
+}
 
-	var notPublic bytes.Buffer
-	Function(&notPublic, &apiclient.Function{Name: "hello"})
-	assert.Contains(t, notPublic.String(), "Visibility: not public")
-	assert.NotContains(t, notPublic.String(), "private")
+func TestFunctionShowsTheRoutesThatReachIt(t *testing.T) {
+	fn := apiclient.Function{Name: "session", Visibility: apiclient.FunctionVisibilityPublic, IsPublic: true}
+
+	var routed bytes.Buffer
+	Function(&routed, &fn, []FunctionRouteSource{
+		{Frontend: "admin", PathPrefix: "/api"},
+		{Frontend: "web", PathPrefix: "/api/session"},
+	})
+	assert.Contains(t, routed.String(), "Visibility: public")
+	assert.Contains(t, routed.String(), "Routed from: admin /api, web /api/session")
+
+	var unrouted bytes.Buffer
+	Function(&unrouted, &fn, nil)
+	assert.NotContains(t, unrouted.String(), "Routed from")
 }

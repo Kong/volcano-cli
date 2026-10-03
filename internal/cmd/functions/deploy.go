@@ -132,10 +132,59 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
+	report := newDeployReport(ctx, opts, service)
 	if opts.all {
-		return runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations)
+		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, report)
+	} else {
+		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
 	}
-	return runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations)
+	report.printPrivateHint(opts.out)
+	return err
+}
+
+// deployReport notes which deployed functions are new, so the output can say
+// that they start private. Functions that already existed keep the level their
+// owner chose and need no reminder.
+type deployReport struct {
+	deps       cliruntime.Deps
+	existing   map[string]bool
+	newPrivate []string
+}
+
+// newDeployReport lists the project's functions before anything is uploaded.
+// The deploy responses do not say whether a function was created, and a hint
+// that cannot tell new from existing would nag about every private function on
+// every deploy, so a failed listing drops the hint rather than the deploy.
+func newDeployReport(ctx context.Context, opts deployOptions, service clifunction.Service) *deployReport {
+	existing, err := service.Names(ctx)
+	if err != nil {
+		return &deployReport{deps: opts.deps}
+	}
+	return &deployReport{deps: opts.deps, existing: existing}
+}
+
+func (r *deployReport) deployed(out io.Writer, fn apiclient.Function) {
+	if r.existing == nil || r.existing[fn.Name] {
+		fmt.Fprintf(out, "  Deployed %s\n", fn.Name)
+		return
+	}
+	visibility := output.FunctionVisibility(fn.Visibility, fn.IsPublic)
+	fmt.Fprintf(out, "  Deployed %s (new, visibility %s)\n", fn.Name, visibility)
+	if visibility == string(apiclient.FunctionVisibilityPrivate) {
+		r.newPrivate = append(r.newPrivate, fn.Name)
+	}
+}
+
+func (r *deployReport) printPrivateHint(out io.Writer) {
+	if len(r.newPrivate) == 0 {
+		return
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "New functions are private: only service keys and schedulers can invoke them.")
+	fmt.Fprintln(out, "To let your project's signed-in users call one, run:")
+	for _, name := range r.newPrivate {
+		fmt.Fprintf(out, "  %s\n", cliruntime.CommandPath(r.deps, "functions update "+name+" --visibility authenticated"))
+	}
 }
 
 func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
@@ -172,7 +221,10 @@ func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]
 	pkg.Variables = declaration.Variables
 }
 
-func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
+func runDeployOne(
+	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo,
+	declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
 	pkg, err := clifunction.PackageSource(source, baseDir)
@@ -187,13 +239,16 @@ func runDeployOne(ctx context.Context, out io.Writer, service clifunction.Servic
 		return err
 	}
 	output.Success(out, "Function '%s' deployment started (%s): %s", deployed.Name, deployRuntimeValue(deployed.Runtime), archive.FormatSize(pkg.Size))
-	fmt.Fprintf(out, "  Deployed %s\n", deployed.Name)
+	report.deployed(out, *deployed)
 	fmt.Fprintln(out)
 	output.Success(out, "1/1 functions deployment started")
 	return nil
 }
 
-func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo, batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration) error {
+func runDeployAll(
+	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo,
+	batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
 	for i, source := range sources {
@@ -211,7 +266,7 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 
 	fmt.Fprintf(out, "\nTotal upload size: %s\n", archive.FormatSize(totalSize))
 	if !batch {
-		return runDeployAllIndividually(ctx, out, service, packages)
+		return runDeployAllIndividually(ctx, out, service, packages, report)
 	}
 
 	totalStarted := 0
@@ -226,7 +281,7 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 		}
 		batchCount++
 		for _, fn := range resp.Data {
-			fmt.Fprintf(out, "  Deployed %s\n", fn.Name)
+			report.deployed(out, fn)
 		}
 		failures := batchFailures(resp)
 		for _, failure := range failures {
@@ -248,7 +303,9 @@ func runDeployAll(ctx context.Context, out io.Writer, service clifunction.Servic
 	return nil
 }
 
-func runDeployAllIndividually(ctx context.Context, out io.Writer, service clifunction.Service, packages []clifunction.Package) error {
+func runDeployAllIndividually(
+	ctx context.Context, out io.Writer, service clifunction.Service, packages []clifunction.Package, report *deployReport,
+) error {
 	totalStarted := 0
 	for i, pkg := range packages {
 		fmt.Fprintf(out, "\nUploading %s (%d/%d)...\n", pkg.Name, i+1, len(packages))
@@ -256,7 +313,7 @@ func runDeployAllIndividually(ctx context.Context, out io.Writer, service clifun
 		if err != nil {
 			return fmt.Errorf("failed to deploy function %s: %w", pkg.Name, err)
 		}
-		fmt.Fprintf(out, "  Deployed %s\n", deployed.Name)
+		report.deployed(out, *deployed)
 		totalStarted++
 	}
 

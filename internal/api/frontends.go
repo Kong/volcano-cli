@@ -213,6 +213,52 @@ func (c *Client) DeleteFrontendCustomDomain(ctx context.Context, projectID, fron
 	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }
 
+// ListFrontendFunctionRoutes lists the paths a frontend forwards to functions.
+func (c *Client) ListFrontendFunctionRoutes(ctx context.Context, projectID, frontendID uuid.UUID) ([]apiclient.FrontendFunctionRoute, error) {
+	resp, err := c.client.ListFrontendFunctionRoutesWithResponse(ctx, projectID, frontendID)
+	if err != nil {
+		return nil, err
+	}
+	list, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON500)
+	if err != nil {
+		return nil, err
+	}
+	return list.Data, nil
+}
+
+// CreateFrontendFunctionRoute forwards a path prefix on a frontend to a function.
+func (c *Client) CreateFrontendFunctionRoute(
+	ctx context.Context, projectID, frontendID uuid.UUID, route apiclient.CreateFrontendFunctionRouteRequest,
+) (*apiclient.FrontendFunctionRoute, error) {
+	resp, err := c.client.CreateFrontendFunctionRouteWithResponse(ctx, projectID, frontendID, route)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+// UpdateFrontendFunctionRoute replaces one route's prefix, target, and stripping.
+func (c *Client) UpdateFrontendFunctionRoute(
+	ctx context.Context, projectID, frontendID, routeID uuid.UUID, route apiclient.CreateFrontendFunctionRouteRequest,
+) (*apiclient.FrontendFunctionRoute, error) {
+	resp, err := c.client.UpdateFrontendFunctionRouteWithResponse(ctx, projectID, frontendID, routeID, route)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+// DeleteFrontendFunctionRoute stops forwarding one route's path prefix.
+func (c *Client) DeleteFrontendFunctionRoute(ctx context.Context, projectID, frontendID, routeID uuid.UUID) error {
+	resp, err := c.client.DeleteFrontendFunctionRouteWithResponse(ctx, projectID, frontendID, routeID)
+	if err != nil {
+		return err
+	}
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
+
 func buildFrontendDeployMultipart(fn FrontendDeployInput) (*bytes.Buffer, string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

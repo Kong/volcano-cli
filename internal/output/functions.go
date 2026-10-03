@@ -52,8 +52,14 @@ func printFunctionPageSummary(w io.Writer, on bool, page *apiclient.PaginatedFun
 	summary(w, on, "Showing %d of %d function(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 }
 
-// Function renders one function.
-func Function(w io.Writer, fn *apiclient.Function) {
+// FunctionRouteSource is a frontend path that forwards requests to a function.
+type FunctionRouteSource struct {
+	Frontend   string
+	PathPrefix string
+}
+
+// Function renders one function and the frontend routes that forward to it.
+func Function(w io.Writer, fn *apiclient.Function, routedFrom []FunctionRouteSource) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", fn.Id.String())
 	kv(w, on, "Name", "%s", fn.Name)
@@ -67,7 +73,14 @@ func Function(w io.Writer, fn *apiclient.Function) {
 	if len(fn.DeployedRegions) > 0 {
 		kv(w, on, "Regions", "%s", strings.Join(fn.DeployedRegions, ", "))
 	}
-	kv(w, on, "Visibility", "%s", theme.Status(FunctionVisibility(fn.IsPublic), on))
+	kv(w, on, "Visibility", "%s", theme.Status(FunctionVisibility(fn.Visibility, fn.IsPublic), on))
+	if len(routedFrom) > 0 {
+		sources := make([]string, 0, len(routedFrom))
+		for _, source := range routedFrom {
+			sources = append(sources, source.Frontend+" "+source.PathPrefix)
+		}
+		kv(w, on, "Routed from", "%s", strings.Join(sources, ", "))
+	}
 	if invokeURL := stringPtrValue(fn.InvokeUrl); invokeURL != "" {
 		kv(w, on, "Invoke URL", "%s", invokeURL)
 	}
@@ -78,13 +91,16 @@ func Function(w io.Writer, fn *apiclient.Function) {
 	kv(w, on, "Updated", "%s", FormatTimestamp(fn.UpdatedAt))
 }
 
-// FunctionVisibility names what is_public says. false only refuses anon keys:
-// the project's signed-in users may still invoke, so it is not "private".
-func FunctionVisibility(isPublic bool) string {
-	if isPublic {
-		return "public"
+// FunctionVisibility names a function's visibility level. Servers that predate
+// levels send only is_public, whose false meant what authenticated means now.
+func FunctionVisibility(visibility apiclient.FunctionVisibility, isPublic bool) string {
+	if visibility != "" {
+		return string(visibility)
 	}
-	return "not public"
+	if isPublic {
+		return string(apiclient.FunctionVisibilityPublic)
+	}
+	return string(apiclient.FunctionVisibilityAuthenticated)
 }
 
 // FunctionRuntimes renders function runtime options.

@@ -34,6 +34,11 @@ func TestFunctionsGetAcceptsNamePathOrID(t *testing.T) {
 					})
 				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID:
 					writeFunctionCommandJSON(t, w, http.StatusOK, functionCommandPayload(functionID, "hello"))
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/frontends":
+					writeFunctionCommandJSON(t, w, http.StatusOK, frontendsWithRoutesPayload(map[string][]map[string]any{
+						"web":   {functionRoutePayload(functionID, "/api/hello"), functionRoutePayload(otherFunctionID, "/api/other")},
+						"admin": {functionRoutePayload(functionID, "/hello")},
+					}))
 				default:
 					http.NotFound(w, r)
 				}
@@ -47,6 +52,7 @@ func TestFunctionsGetAcceptsNamePathOrID(t *testing.T) {
 			assert.Contains(t, out, "Runtime: nodejs24.x")
 			assert.Contains(t, out, "Handler: handler")
 			assert.Contains(t, out, "Visibility: public")
+			assert.Contains(t, out, "Routed from: admin /hello, web /api/hello")
 			assert.Contains(t, out, "Invoke URL: https://"+functionID+".functions.volcano.run/")
 		})
 	}

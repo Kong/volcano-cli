@@ -57,7 +57,7 @@ existing function's scope alone.
 
 | Operation | Command |
 |---|---|
-| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path>`; `--public`/`--private` take `-f` |
+| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path>`; `--visibility` takes `-f` |
 | List | `volcano cloud durable list [--page 1] [--limit 100]` |
 | Get | `volcano cloud durable get <name-or-id>` |
 | Delete | `volcano cloud durable delete <name-or-id> [--yes]` |
@@ -89,8 +89,8 @@ match the deployed function.
 # Deploy every function volcano-config.yaml declares durable
 volcano cloud durable deploy --all
 
-# Deploy one, and let anon keys start it
-volcano cloud durable deploy -f order-pipeline --public
+# Deploy one, and let your project's signed-in users start it
+volcano cloud durable deploy -f order-pipeline --visibility authenticated
 
 # Start an execution and follow it
 volcano cloud durable start order-pipeline --input '{"order_id":4417}'
@@ -191,19 +191,29 @@ be refused while the function is still provisioning. Wait for `get` to report
 
 ## Visibility
 
-`--public` lets a project's anon key start executions of one function;
-`--private` takes that back. A public durable function is still not invocable
-over HTTP the way a public standard function is — starting an execution is the
-only thing the anon key can do. Polling and stopping always need a
-project-scoped credential.
+`--visibility` decides who can start executions of one function:
 
-Omit both flags and a redeploy keeps the visibility the function already has. A
-new durable function starts private.
+| Visibility | Who can start executions |
+|---|---|
+| `private` | Service keys and schedulers |
+| `authenticated` | Also your project's signed-in users |
+| `public` | Also anon keys with `functions.invoke` |
 
-Neither flag is accepted with `--all`. Visibility is a per-function decision and
-a durable function has no update endpoint, so one flag applied to a whole
-manifest would take a redeploy of every function to undo. Deploy the one you
-want to change with `-f`.
+A durable function is never invocable over HTTP the way a public standard
+function is, whatever its level: starting an execution is all the level
+allows. Polling and stopping always need a project-scoped credential.
+
+`--public` is the same as `--visibility public`. `--private` is no longer
+accepted: it used to let signed-in users in, which is `authenticated` now, so
+pick the level you mean.
+
+Omit the flag and a redeploy keeps the visibility the function already has. A
+new durable function starts `private`, and `durable get` shows the level.
+
+`--visibility` is not accepted with `--all`. Visibility is a per-function
+decision and a durable function has no update endpoint, so one flag applied to
+a whole manifest would take a redeploy of every function to undo. Deploy the
+one you want to change with `-f`.
 
 ## Stopping and deleting
 

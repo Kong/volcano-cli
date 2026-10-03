@@ -85,6 +85,36 @@ func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeO
 	return runtimes, nil
 }
 
+// maxListPages caps a pagination walk so a server that keeps reporting HasMore
+// cannot hang the CLI.
+const maxListPages = 1000
+
+// Names returns the names of every function in the current project.
+func (s Service) Names(ctx context.Context) (map[string]bool, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	names := map[string]bool{}
+	for page := api.DefaultPage; page < api.DefaultPage+maxListPages; page++ {
+		functions, err := authenticated.API.ListFunctions(ctx, authenticated.ProjectID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list functions: %w", err)
+		}
+		if functions == nil {
+			break
+		}
+		for _, fn := range functions.Data {
+			names[fn.Name] = true
+		}
+		if !functions.HasMore || len(functions.Data) == 0 {
+			break
+		}
+	}
+	return names, nil
+}
+
 // RuntimeCatalog returns deploy runtime metadata from the function runtime catalog.
 func (s Service) RuntimeCatalog(ctx context.Context) (RuntimeCatalog, error) {
 	runtimes, err := s.ListRuntimes(ctx)
@@ -192,8 +222,8 @@ func (s Service) DeleteByID(ctx context.Context, functionID uuid.UUID) error {
 	return nil
 }
 
-// UpdateVisibility updates one function's public/private visibility.
-func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPublic bool) (*apiclient.Function, error) {
+// UpdateVisibility sets who can invoke one function.
+func (s Service) UpdateVisibility(ctx context.Context, identifier string, visibility apiclient.FunctionVisibility) (*apiclient.Function, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -207,7 +237,7 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPubl
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
 	}
 
-	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, isPublic)
+	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, visibility)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update function visibility: %w", err)
 	}
