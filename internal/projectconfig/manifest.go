@@ -280,7 +280,11 @@ type FunctionManifest struct {
 	// is created, so the server compares this against the deployed function.
 	// Empty means standard, which is what every manifest written before durable
 	// functions existed declares.
-	Kind          *string   `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Kind *string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	// Visibility is private, authenticated, or public. Public is its deprecated
+	// alias: true means public and false means authenticated. The server owns
+	// validation, including a manifest that sets both.
+	Visibility    *string   `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Public        *bool     `yaml:"public,omitempty" json:"public,omitempty"`
 	VariableScope *string   `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
 	Variables     *[]string `yaml:"variables,omitempty" json:"variables,omitempty"`
@@ -349,6 +353,17 @@ type FrontendManifest struct {
 	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Name          string                `yaml:"name" json:"name"`
 	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
+	// removes them.
+	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
+}
+
+// FunctionRouteManifest sends requests under PathPrefix on a frontend to a
+// public HTTP-mode function.
+type FunctionRouteManifest struct {
+	Function    string `yaml:"function" json:"function"`
+	PathPrefix  string `yaml:"path_prefix" json:"path_prefix"`
+	StripPrefix *bool  `yaml:"strip_prefix,omitempty" json:"strip_prefix,omitempty"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.
