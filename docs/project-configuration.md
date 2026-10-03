@@ -39,7 +39,7 @@ realtime:
   enabled: true
 functions:
   - name: hello
-    public: true
+    visibility: public         # private, authenticated, or public; omit to keep the current level
     variable_scope: scoped     # only the variables this function needs
     variables:
       - STRIPE_SECRET_KEY
@@ -116,6 +116,33 @@ Key semantics:
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
 
+## Function visibility
+
+`functions[].visibility` decides who can invoke a function:
+
+- `private`: service keys and schedulers only.
+- `authenticated`: also your project's signed-in users.
+- `public`: also anon keys with `functions.invoke`, and frontend function
+  routes.
+
+New functions start `private`. Leaving `visibility` out keeps the level the
+function already has.
+
+The deprecated `public` field still works: `true` means `public` and `false`
+means `authenticated`. When a function declares both, `visibility` wins, and
+the server rejects the pair only when exactly one of them says public, such as
+`visibility: authenticated` with `public: true`. `config pull` writes
+`visibility` only.
+
+```yaml
+version: 1
+functions:
+  - name: notes-summary
+    visibility: authenticated   # called by signed-in users from the dashboard
+  - name: nightly-report
+    visibility: private         # only schedulers and server-side code
+```
+
 ## Frontend function routes
 
 `frontends[].function_routes` forwards every request under a path of a
@@ -125,6 +152,7 @@ frontend to a function, so the browser calls it on the frontend's own origin:
 version: 1
 functions:
   - name: session
+    visibility: public
     invocation_mode: http
 frontends:
   - name: web
@@ -136,7 +164,7 @@ frontends:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `function` | Yes | A deployed standard function with `invocation_mode: http`. |
+| `function` | Yes | A deployed standard function that is `public` with `invocation_mode: http`. |
 | `path_prefix` | Yes | The path to forward, such as `/api/session`. It matches that path and everything under it. It starts with `/` and does not end with one. |
 | `strip_prefix` | No | `true` sends the function the rest of the path, or `/` for the prefix itself. The default, `false`, sends the full path. |
 
@@ -151,6 +179,10 @@ load the frontend can call the function under its prefix. The function must
 authenticate its callers itself. A frontend can have up to 64 routes, and the
 longest matching prefix wins. `config pull` writes the routes back, so a pulled
 manifest deploys again unchanged.
+
+One deploy can make a function public and add its route, or delete a route and
+make the function private. A route to a function that stays non-public fails
+the dry run and nothing is applied. See [frontends](frontends.md#function-routes).
 
 ## Shared variable names
 

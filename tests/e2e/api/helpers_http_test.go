@@ -52,6 +52,56 @@ func createAPIE2EServiceKey(t *testing.T, apiURL, token, projectID, name string)
 	return key
 }
 
+func createAPIE2EAnonKey(t *testing.T, apiURL, token, projectID, name string, permissions ...string) string {
+	t.Helper()
+	body := map[string]any{"name": name, "permissions": permissions}
+	resp := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/projects/"+projectID+"/anon-keys", token, body, http.StatusCreated)
+	key, ok := resp["key_value"].(string)
+	if !ok || strings.TrimSpace(key) == "" {
+		t.Fatalf("anon key response did not include key_value: %#v", resp)
+	}
+	return key
+}
+
+// signUpAPIE2EEndUser creates one of the project's own users and returns its
+// access token. Signup answers without a session, so the token comes from
+// signing in afterwards. The anon key needs auth.signup and auth.signin.
+func signUpAPIE2EEndUser(t *testing.T, apiURL, anonKey string) string {
+	t.Helper()
+	credentials := map[string]string{
+		"email":    "cli-e2e-" + apiE2ESuffix(t) + "@cloud-e2e.invalid",
+		"password": "V0lcano!" + apiE2ESuffix(t) + apiE2ESuffix(t),
+	}
+	apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signup", anonKey, credentials, http.StatusCreated)
+	session := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signin", anonKey, credentials, http.StatusOK)
+	token, ok := session["access_token"].(string)
+	if !ok || strings.TrimSpace(token) == "" {
+		t.Fatal("signin response did not include access_token")
+	}
+	return token
+}
+
+// apiE2EInvokeStatus invokes a function with a caller's credential and reports
+// the status the API answered with.
+func apiE2EInvokeStatus(apiURL, token, functionID string) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL+"/functions/"+functionID+"/invoke",
+		strings.NewReader(`{"payload":{}}`))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return resp.StatusCode, nil
+}
+
 func deleteAPIE2EProject(apiURL, token, projectID string) error {
 	return deleteAPIE2EResource(apiURL+"/projects/"+projectID, token)
 }

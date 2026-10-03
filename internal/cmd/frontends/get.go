@@ -34,11 +34,16 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts getOptions) error {
-	frontend, err := clifrontend.NewService(opts.deps).Get(ctx, opts.identifier)
+	service := clifrontend.NewService(opts.deps)
+	frontend, err := service.Get(ctx, opts.identifier)
+	if err != nil {
+		return err
+	}
+	routes, err := service.RouteTargets(ctx, frontend.FunctionRoutes)
 	if err != nil {
 		return err
 	}
 
-	output.Frontend(opts.out, frontend)
+	output.Frontend(opts.out, frontend, routeEntries(routes))
 	return nil
 }

@@ -122,3 +122,34 @@ func functionRuntimeCommandPayload(name, language string, isDefault bool, fileEx
 		},
 	}
 }
+
+func functionRoutePayload(functionID, pathPrefix string) map[string]any {
+	return map[string]any{
+		"id":           "55555555-5555-4555-8555-555555555555",
+		"project_id":   functionProjectID,
+		"frontend_id":  "66666666-6666-4666-8666-666666666666",
+		"function_id":  functionID,
+		"path_prefix":  pathPrefix,
+		"strip_prefix": false,
+		"created_at":   "2026-05-20T00:00:00Z",
+		"updated_at":   "2026-05-20T00:00:00Z",
+	}
+}
+
+func frontendsWithRoutesPayload(routes map[string][]map[string]any) map[string]any {
+	data := make([]any, 0, len(routes))
+	for name, frontendRoutes := range routes {
+		data = append(data, map[string]any{
+			"id":               "66666666-6666-4666-8666-666666666666",
+			"project_id":       functionProjectID,
+			"name":             name,
+			"framework":        "nextjs",
+			"status":           "active",
+			"deployed_regions": []string{"aws-us-east-1"},
+			"function_routes":  frontendRoutes,
+			"created_at":       "2026-05-20T00:00:00Z",
+			"updated_at":       "2026-05-20T00:00:00Z",
+		})
+	}
+	return map[string]any{"data": data, "has_more": false, "page": 1, "limit": 100, "total": len(data)}
+}
