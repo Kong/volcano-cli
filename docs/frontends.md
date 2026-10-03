@@ -1,6 +1,6 @@
 ---
 title: "Frontends"
-description: "A deployed frontend (static or server-rendered site) served by Volcano, optionally reachable at your own custom domain and able to serve functions under its own paths."
+description: "A static or server-rendered site served by Volcano, optionally on your own custom domain and serving functions under its own paths."
 ---
 
 ## What it is
