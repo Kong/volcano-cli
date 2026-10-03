@@ -39,7 +39,7 @@ realtime:
   enabled: true
 functions:
   - name: hello
-    visibility: public         # private (the default), authenticated, or public
+    visibility: public         # private, authenticated, or public; omit to keep the current level
     variable_scope: scoped     # only the variables this function needs
     variables:
       - STRIPE_SECRET_KEY
@@ -120,14 +120,19 @@ Key semantics:
 
 `functions[].visibility` decides who can invoke a function:
 
-- `private`, the default for new functions: service keys and schedulers only.
+- `private`: service keys and schedulers only.
 - `authenticated`: also your project's signed-in users.
 - `public`: also anon keys with `functions.invoke`, and frontend function
   routes.
 
-`public: true` still works and means `visibility: public`; `public: false`
-means `authenticated`. If a function declares both, they must agree.
-`config pull` writes `visibility`.
+New functions start `private`. Leaving `visibility` out keeps the level the
+function already has.
+
+The deprecated `public` field still works: `true` means `public` and `false`
+means `authenticated`. When a function declares both, `visibility` wins, and
+the server rejects the pair only when exactly one of them says public, such as
+`visibility: authenticated` with `public: true`. `config pull` writes
+`visibility` only.
 
 ```yaml
 version: 1
