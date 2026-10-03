@@ -54,6 +54,19 @@ type apiE2EInvokers struct {
 	anonKey    string
 }
 
+// newAPIE2EInvokers creates a service key, an anon key with functions.invoke,
+// and one of the project's signed-up end users.
+func newAPIE2EInvokers(t *testing.T, env *apiE2E) apiE2EInvokers {
+	t.Helper()
+	anonKey := createAPIE2EAnonKey(t, env.apiURL, env.token, env.projectID, "cli-e2e-invoker",
+		"auth.signup", "auth.signin", "functions.invoke")
+	return apiE2EInvokers{
+		serviceKey: createAPIE2EServiceKey(t, env.apiURL, env.token, env.projectID, "cli-e2e-invoker"),
+		endUser:    signUpAPIE2EEndUser(t, env.apiURL, anonKey),
+		anonKey:    anonKey,
+	}
+}
+
 // requireAPIE2EFunctionVisibility moves a function through every level with
 // `functions update` and checks each one with real invokes, since a level the
 // CLI reports but the API does not enforce is the failure that matters.
@@ -62,13 +75,7 @@ func requireAPIE2EFunctionVisibility(t *testing.T, env *apiE2E, functionID strin
 	if functionID == "" {
 		t.Fatal("functions get printed no ID")
 	}
-	anonKey := createAPIE2EAnonKey(t, env.apiURL, env.token, env.projectID, "cli-e2e-invoker",
-		"auth.signup", "auth.signin", "functions.invoke")
-	invokers := apiE2EInvokers{
-		serviceKey: createAPIE2EServiceKey(t, env.apiURL, env.token, env.projectID, "cli-e2e-invoker"),
-		endUser:    signUpAPIE2EEndUser(t, env.apiURL, anonKey),
-		anonKey:    anonKey,
-	}
+	invokers := newAPIE2EInvokers(t, env)
 	env.waitForFunctionVisibility(t, functionID, invokers, "private")
 
 	for _, level := range []string{"authenticated", "public", "private"} {
