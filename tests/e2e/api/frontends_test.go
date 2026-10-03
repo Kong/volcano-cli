@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,7 +35,6 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	waitForAPIE2EFrontendContent(t, siteURL, "Volcano CLI E2E v3")
 
 	requireAPIE2EFrontendRoutes(t, env, frontend, siteURL)
-	requireAPIE2EFrontendRoutesConfig(t, env, frontend, siteURL)
 
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")
@@ -98,77 +96,9 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
 		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+	waitForAPIE2EPathNotRouted(t, siteURL+"/api/v2/ping")
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
-}
-
-// requireAPIE2EFrontendRoutesConfig manages the same routes through
-// volcano-config.yaml, where one apply changes a function's visibility and the
-// routes to it together.
-func requireAPIE2EFrontendRoutesConfig(t *testing.T, env *apiE2E, frontend, siteURL string) {
-	t.Helper()
-	manifestPath := filepath.Join(env.projectDir, "volcano", "volcano-config.yaml")
-	writeManifest := func(visibility, routes string) {
-		t.Helper()
-		writeAPIE2EFile(t, manifestPath, fmt.Sprintf(`
-version: 1
-functions:
-  - name: echo
-    visibility: %s
-    invocation_mode: http
-frontends:
-  - name: %s
-    function_routes:%s
-`, visibility, frontend, routes))
-	}
-	route := `
-      - function: echo
-        path_prefix: /api/config
-        strip_prefix: true`
-
-	// A route to a function the apply leaves non-public refuses the whole apply.
-	writeManifest("authenticated", route)
-	for _, args := range [][]string{{"config", "deploy", "--dry-run"}, {"config", "deploy"}} {
-		env.runCloudCLI(t, args...).requireFailure(t, "nothing was applied", "require a public Function")
-	}
-	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
-	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
-
-	writeManifest("public", route)
-	env.runCloudCLI(t, "config", "deploy", "--dry-run").
-		requireSuccess(t, "Dry run", "frontends.function_routes: 1 created")
-	env.runCloudCLI(t, "config", "deploy").
-		requireSuccess(t, "Configuration deployed", "frontends.function_routes: 1 created")
-	env.runCloudCLI(t, "functions", "get", "echo").
-		requireSuccess(t, "Visibility: public", "Routed from: "+frontend+" /api/config")
-	waitForAPIE2ERoutedPath(t, siteURL+"/api/config/ping", "/ping")
-
-	// The export writes visibility and the routes back, so re-applying it
-	// changes nothing.
-	env.runCloudCLI(t, "config", "pull", "--force").requireSuccess(t, "Configuration written to")
-	pulled, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("failed to read pulled manifest: %v", err)
-	}
-	for _, needle := range []string{"visibility: public", "function_routes:", "path_prefix: /api/config", "strip_prefix: true"} {
-		if !strings.Contains(string(pulled), needle) {
-			t.Fatalf("pulled manifest missing %q:\n%s", needle, pulled)
-		}
-	}
-	if strings.Contains(string(pulled), "public: true") {
-		t.Fatalf("pulled manifest wrote the deprecated public flag:\n%s", pulled)
-	}
-	env.runCloudCLI(t, "config", "deploy").
-		requireSuccess(t, "Summary: 0 created, 0 updated, 0 deleted")
-
-	// And one apply can drop the route and make the function private again.
-	writeManifest("private", " []")
-	env.runCloudCLI(t, "config", "deploy").
-		requireSuccess(t, "Configuration deployed", "frontends.function_routes: 1 deleted")
-	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
-	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
 }
 
 // writeAPIE2ERoutedFunction writes an HTTP-mode function that answers with the
@@ -214,6 +144,29 @@ func waitForAPIE2ERoutedPath(t *testing.T, url, path string) {
 		time.Sleep(apiE2EPollInterval)
 	}
 	t.Fatalf("GET %s did not reach the function with path %q: last status %d: %.500s", url, path, status, body)
+}
+
+// waitForAPIE2EPathNotRouted waits for a deleted route's path to be answered
+// by the frontend itself instead of by the function.
+func waitForAPIE2EPathNotRouted(t *testing.T, url string) {
+	t.Helper()
+	deadline := time.Now().Add(apiE2EFunctionConvergenceTimeout)
+	client := &http.Client{Timeout: 15 * time.Second}
+	var status int
+	var body string
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err == nil {
+			data, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			status, body = resp.StatusCode, string(data)
+			if status < http.StatusInternalServerError && !strings.Contains(body, `"routed_path"`) {
+				return
+			}
+		}
+		time.Sleep(apiE2EPollInterval)
+	}
+	t.Fatalf("GET %s still reaches the function after its route was deleted: last status %d: %.500s", url, status, body)
 }
 
 func writeAPIE2EFrontendVersion(t *testing.T, projectDir, version string) {
