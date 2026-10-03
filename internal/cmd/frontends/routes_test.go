@@ -21,7 +21,7 @@ const (
 )
 
 // routeServer is a frontend with one route to session, plus the function list
-// the commands resolve names and visibility from.
+// the commands resolve names and visibility from, and one durable function.
 type routeServer struct {
 	t        *testing.T
 	routes   []map[string]any
@@ -52,6 +52,14 @@ func (s *routeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				routeFunctionPayload(sessionV2FuncID, "session-v2", "public"),
 			},
 			"has_more": false, "page": 1, "limit": 100, "total": 2,
+		})
+	case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/durable-functions/order-pipeline":
+		writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+			"id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "project_id": frontendProjectID, "name": "order-pipeline",
+			"runtime": "nodejs24.x", "handler": "handler", "kind": "durable", "status": "active",
+			"visibility": "public", "is_public": true, "deployed_regions": []string{"aws-us-east-1"},
+			"durable":    map[string]any{"execution_timeout_seconds": 3600, "retention_days": 30},
+			"created_at": "2026-05-20T00:00:00Z", "updated_at": "2026-05-20T00:00:00Z",
 		})
 	case r.Method == http.MethodGet && r.URL.Path == frontendRoutesAt:
 		writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{"data": s.routes})
@@ -136,6 +144,15 @@ func TestFrontendsRoutesCreateRefusals(t *testing.T) {
 		require.ErrorContains(t, err, `function "missing" not found`)
 		assert.Empty(t, server.bodies)
 	})
+	t.Run("durable target", func(t *testing.T) {
+		setFrontendCommandTestHome(t)
+		saveFrontendCommandTestConfig(t)
+		server := newRouteServer(t)
+
+		_, err := server.run("routes", "create", "web", "--path", "/api", "--function", "order-pipeline")
+		require.ErrorContains(t, err, `"order-pipeline" is a durable function: frontend routes forward only to standard functions`)
+		assert.Empty(t, server.bodies)
+	})
 	t.Run("non-public target", func(t *testing.T) {
 		setFrontendCommandTestHome(t)
 		saveFrontendCommandTestConfig(t)
@@ -199,6 +216,10 @@ func TestFrontendsRoutesUpdateRefusals(t *testing.T) {
 
 	_, err = server.run("routes", "update", "web", "/missing", "--path", "/x")
 	require.ErrorContains(t, err, `frontend "web" has no route "/missing"`)
+	assert.Empty(t, server.bodies)
+
+	_, err = server.run("routes", "update", "web", "/api/session", "--function", "order-pipeline")
+	require.ErrorContains(t, err, `"order-pipeline" is a durable function`)
 	assert.Empty(t, server.bodies)
 }
 
