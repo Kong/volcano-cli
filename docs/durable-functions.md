@@ -208,7 +208,10 @@ accepted: it used to let signed-in users in, which is `authenticated` now, so
 pick the level you mean.
 
 Omit the flag and a redeploy keeps the visibility the function already has. A
-new durable function starts `private`, and `durable get` shows the level.
+new durable function starts `private`, and `durable get` shows the level. When
+a deploy creates one without `--visibility`, it prints how to let signed-in
+users in: a redeploy with `--visibility authenticated`, or `volcano cloud config
+deploy` when `volcano-config.yaml` already declares a level for it.
 
 `--visibility` is not accepted with `--all`. Visibility is a per-function
 decision and a durable function has no update endpoint, so one flag applied to

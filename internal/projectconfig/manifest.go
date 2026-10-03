@@ -308,6 +308,21 @@ func (f FunctionManifest) isDurable() bool {
 	return f.Kind != nil && strings.TrimSpace(*f.Kind) == FunctionKindDurable
 }
 
+// declaredVisibility is the level the entry asks for, read from the deprecated
+// public alias when visibility is absent, or "" when it declares none.
+func (f FunctionManifest) declaredVisibility() string {
+	switch {
+	case f.Visibility != nil:
+		return strings.ToLower(strings.TrimSpace(*f.Visibility))
+	case f.Public == nil:
+		return ""
+	case *f.Public:
+		return "public"
+	default:
+		return "authenticated"
+	}
+}
+
 // DurableFunctionNames returns the functions the manifest declares durable, in
 // declaration order.
 //
@@ -646,12 +661,15 @@ func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDe
 }
 
 // FunctionDeployManifest is what a function deploy needs from the manifest:
-// each function's variable declaration, and the names each collection is
-// responsible for so neither deploy creates a function of the wrong kind.
+// each function's variable declaration, the names each collection is
+// responsible for so neither deploy creates a function of the wrong kind, and
+// the visibility each function declares. A deploy does not send that level;
+// only config deploy applies it, so the deploy hints point there.
 type FunctionDeployManifest struct {
 	Declarations  map[string]FunctionVariableDeclaration
 	DurableNames  map[string]bool
 	StandardNames map[string]bool
+	Visibility    map[string]string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -662,6 +680,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		Declarations:  map[string]FunctionVariableDeclaration{},
 		DurableNames:  map[string]bool{},
 		StandardNames: map[string]bool{},
+		Visibility:    map[string]string{},
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
@@ -684,6 +703,9 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 				VariableScope: function.VariableScope,
 				Variables:     function.Variables,
 			}
+		}
+		if visibility := function.declaredVisibility(); visibility != "" {
+			read.Visibility[function.Name] = visibility
 		}
 	}
 	for _, name := range manifest.DurableFunctionNames() {

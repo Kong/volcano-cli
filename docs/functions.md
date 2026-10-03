@@ -85,7 +85,13 @@ creates and prints the command that lets signed-in users in:
 New functions are private: only service keys and schedulers can invoke them.
 To let your project's signed-in users call one, run:
   volcano functions update notes-summary --visibility authenticated
+Or declare its visibility in volcano-config.yaml and run volcano config deploy
 ```
+
+A deploy does not apply the `visibility` in
+[`volcano-config.yaml`](project-configuration.md#function-visibility). When the
+manifest already declares a level for a new function, the hint points at
+`volcano config deploy` instead.
 
 `--public` is the same as `--visibility public`. `--private` is no longer
 accepted: it used to let signed-in users in, which is `authenticated` now, so

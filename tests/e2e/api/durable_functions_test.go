@@ -63,10 +63,13 @@ func TestAPIE2ECloudDurableFunctions(t *testing.T) {
 	env.runCloudCLI(t, "durable", "list").requireSuccess(t, "No durable functions")
 
 	// --all takes its targets from the manifest, so both durable entries deploy
-	// and the standard one does not.
+	// and the standard one does not. Both are new and come up private.
 	env.runCloudCLI(t, "durable", "deploy", "--all").requireSuccess(t,
 		"[1/2] Deploying order-pipeline", "[2/2] Deploying sleeper",
-		"2/2 durable function(s) deployment started")
+		"2/2 durable function(s) deployment started",
+		"New durable functions are private",
+		"volcano cloud durable deploy -f order-pipeline --visibility authenticated",
+		"volcano cloud durable deploy -f sleeper --visibility authenticated")
 	t.Cleanup(func() {
 		env.runCloudCLI(t, "durable", "delete", "order-pipeline", "--yes")
 		env.runCloudCLI(t, "durable", "delete", "sleeper", "--yes")
@@ -361,9 +364,11 @@ func requireAPIE2EDurableVisibility(t *testing.T, env *apiE2E) {
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active",
 		"durable", "get", "order-pipeline")
 
-	env.runCloudCLI(t, "durable", "deploy", "-f",
-		filepath.Join("volcano", "functions", "order-pipeline.js"), "--visibility", "private").
-		requireSuccess(t, "Visibility: private", "1/1 durable function(s) deployment started")
+	// Private by choice on an existing function: no hint about opening it up.
+	private := env.runCloudCLI(t, "durable", "deploy", "-f",
+		filepath.Join("volcano", "functions", "order-pipeline.js"), "--visibility", "private")
+	private.requireSuccess(t, "Visibility: private", "1/1 durable function(s) deployment started")
+	private.requireNotContains(t, "New durable functions are private")
 	env.runCloudCLI(t, "durable", "get", "order-pipeline").requireSuccess(t, "Visibility: private")
 
 	// Leave no build in flight, or the delete this test ends with races the

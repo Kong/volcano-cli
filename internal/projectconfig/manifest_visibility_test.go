@@ -3,6 +3,7 @@ package projectconfig
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,4 +167,33 @@ frontends:
 `), noEnv)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "field target not found")
+}
+
+// The deploy commands read these to point a new private function at config
+// deploy when the manifest already gives it a level.
+func TestReadFunctionDeployManifestReadsDeclaredVisibility(t *testing.T) {
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(`version: 1
+functions:
+  - name: reports
+    visibility: Authenticated
+  - name: legacy-open
+    public: true
+  - name: legacy-closed
+    public: false
+  - name: undeclared
+  - name: order-pipeline
+    kind: durable
+    visibility: private
+`), 0o644))
+
+		read, err := ReadFunctionDeployManifest("")
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{
+			"reports":        "authenticated",
+			"legacy-open":    "public",
+			"legacy-closed":  "authenticated",
+			"order-pipeline": "private",
+		}, read.Visibility)
+	})
 }

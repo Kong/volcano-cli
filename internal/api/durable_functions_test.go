@@ -128,7 +128,7 @@ func TestDeployDurableFunctionAcceptsCreatedAndUpdated(t *testing.T) {
 			require.NoError(t, err)
 
 			visibility := apiclient.FunctionVisibilityAuthenticated
-			fn, err := client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
+			fn, created, err := client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
 				Name:          "order-pipeline",
 				Runtime:       "nodejs24.x",
 				Handler:       "handler",
@@ -137,6 +137,7 @@ func TestDeployDurableFunctionAcceptsCreatedAndUpdated(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Equal(t, "order-pipeline", fn.Name)
+			assert.Equal(t, status == http.StatusCreated, created)
 			assert.Equal(t, map[string]string{
 				"name": "order-pipeline", "runtime": "nodejs24.x", "handler": "handler", "visibility": "authenticated",
 			}, fields)
@@ -158,7 +159,7 @@ func TestDeployDurableFunctionOmitsUnsetVisibility(t *testing.T) {
 	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
 	require.NoError(t, err)
 
-	_, err = client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
+	_, _, err = client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
 		Name: "order-pipeline", Runtime: "nodejs24.x", Handler: "handler", SourceArchive: []byte("archive"),
 	})
 	require.NoError(t, err)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
@@ -132,7 +133,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
 
-	report := newDeployReport(ctx, opts, service)
+	report := newDeployReport(ctx, opts, service, manifest.Visibility)
 	if opts.all {
 		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, report)
 	} else {
@@ -146,7 +147,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 // that they start private. Functions that already existed keep the level their
 // owner chose and need no reminder.
 type deployReport struct {
-	deps       cliruntime.Deps
+	hint       cmdutil.PrivateHint
 	existing   map[string]bool
 	newPrivate []string
 }
@@ -155,12 +156,22 @@ type deployReport struct {
 // The deploy responses do not say whether a function was created, and a hint
 // that cannot tell new from existing would nag about every private function on
 // every deploy, so a failed listing drops the hint rather than the deploy.
-func newDeployReport(ctx context.Context, opts deployOptions, service clifunction.Service) *deployReport {
-	existing, err := service.Names(ctx)
-	if err != nil {
-		return &deployReport{deps: opts.deps}
+func newDeployReport(
+	ctx context.Context, opts deployOptions, service clifunction.Service, declared map[string]string,
+) *deployReport {
+	report := &deployReport{hint: cmdutil.PrivateHint{
+		Summary:     "New functions are private: only service keys and schedulers can invoke them.",
+		Instruction: "To let your project's signed-in users call one, run:",
+		Open: func(name string) string {
+			return cliruntime.CommandPath(opts.deps, "functions update "+name+" --visibility authenticated")
+		},
+		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
+		Declared:     declared,
+	}}
+	if existing, err := service.Names(ctx); err == nil {
+		report.existing = existing
 	}
-	return &deployReport{deps: opts.deps, existing: existing}
+	return report
 }
 
 func (r *deployReport) deployed(out io.Writer, fn apiclient.Function) {
@@ -176,15 +187,7 @@ func (r *deployReport) deployed(out io.Writer, fn apiclient.Function) {
 }
 
 func (r *deployReport) printPrivateHint(out io.Writer) {
-	if len(r.newPrivate) == 0 {
-		return
-	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "New functions are private: only service keys and schedulers can invoke them.")
-	fmt.Fprintln(out, "To let your project's signed-in users call one, run:")
-	for _, name := range r.newPrivate {
-		fmt.Fprintf(out, "  %s\n", cliruntime.CommandPath(r.deps, "functions update "+name+" --visibility authenticated"))
-	}
+	r.hint.Print(out, r.newPrivate)
 }
 
 func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
