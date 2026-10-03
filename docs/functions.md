@@ -16,7 +16,7 @@ is invoked over HTTP, by name/alias, or on a schedule.
   every project variable; declare a narrower
   [variable scope](project-configuration.md) to give it only the ones it needs.
 - Connects to **databases** and **storage** in the same project.
-- Its **visibility** (public/private) and **schedulers** can be declared in the
+- Its **visibility** (public or not) and **schedulers** can be declared in the
   [declarative config](project-configuration.md) or managed with the CLI.
 - Can be given an **alias** so you can invoke it by a friendly name.
 - Work that has to run for hours belongs in a
@@ -62,6 +62,13 @@ Without the prefix, function commands always target local development.
 Cloud deploys use latest-wins queueing. If the function is already deploying,
 the new source replaces any older queued deploy and runs next. Delete supersedes
 queued deploys; later deploys are rejected until deletion finishes.
+
+## Visibility
+
+`functions update <name> --public` lets anon keys with `functions.invoke`
+invoke the function. `--private` refuses anon keys; your project's signed-in
+users and service keys can still invoke it. `functions get` shows
+`Visibility: public` or `Visibility: not public`.
 
 ## Examples
 
