@@ -48,8 +48,11 @@ func TestFunctionsUpdateVisibility(t *testing.T) {
 	assert.Equal(t, map[string]bool{"is_public": true}, updateBody)
 	assert.Contains(t, out, "Function 'hello' visibility set to public")
 
+	// is_public: false only keeps anon keys out, so the output must not claim
+	// that signed-in users lost access.
 	out, err = executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "update", "hello", "--private")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]bool{"is_public": false}, updateBody)
-	assert.Contains(t, out, "Function 'hello' visibility set to private")
+	assert.Contains(t, out, "Function 'hello' is not public: anon keys are refused, and your project's signed-in users and service keys can invoke it")
+	assert.NotContains(t, out, "private")
 }
