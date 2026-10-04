@@ -65,7 +65,7 @@ running continue on the version they started on.`,
 	cmd.Flags().BoolVar(&opts.public, "public", false,
 		"Let anon keys start executions of this function (not valid with --all)")
 	cmd.Flags().BoolVar(&opts.private, "private", false,
-		"Stop anon keys from starting executions of this function (not valid with --all)")
+		"Refuse anon keys and let signed-in users start executions; opens a private function to them (not valid with --all)")
 	return cmd
 }
 

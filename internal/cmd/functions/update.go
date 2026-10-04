@@ -35,7 +35,11 @@ Currently supported:
 
 Use exactly one of:
   --public   Let anon keys invoke the function too
-  --private  Refuse anon keys; your project's signed-in users and service keys can invoke it`,
+  --private  Set the level that refuses anon keys and admits your project's
+             signed-in users and service keys
+
+On a server with visibility levels, --private opens a private function to your
+project's signed-in users.`,
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,
@@ -54,7 +58,7 @@ Use exactly one of:
 		},
 	}
 	cmd.Flags().BoolVar(&public, "public", false, "Let anon keys invoke the function")
-	cmd.Flags().BoolVar(&private, "private", false, "Refuse anon keys; signed-in users and service keys can still invoke")
+	cmd.Flags().BoolVar(&private, "private", false, "Refuse anon keys and admit signed-in users (opens a private function to them)")
 	return cmd
 }
 

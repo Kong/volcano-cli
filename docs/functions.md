@@ -66,9 +66,12 @@ queued deploys; later deploys are rejected until deletion finishes.
 ## Visibility
 
 `functions update <name> --public` lets anon keys with `functions.invoke`
-invoke the function. `--private` refuses anon keys; your project's signed-in
-users and service keys can still invoke it. `functions get` shows
+invoke the function. `--private` sets the level that refuses anon keys and
+admits your project's signed-in users and service keys. `functions get` shows
 `Visibility: public` or `Visibility: not public`.
+
+On a server with visibility levels, `--private` opens a private function to
+your project's signed-in users. Use it only on a function they should reach.
 
 ## Examples
 
