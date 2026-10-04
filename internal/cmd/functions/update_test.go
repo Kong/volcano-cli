@@ -84,8 +84,65 @@ func TestFunctionsUpdateRefusesBeforeCallingTheAPI(t *testing.T) {
 }
 
 // Leaving public while a route forwards to the function is refused, and the
-// refusal says what to do first.
+// refusal names the routes to remove first. The CLI manages routes only in the
+// cloud, so a local project is pointed at its manifest instead.
 func TestFunctionsUpdateShowsTheRouteConflict(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		deps cliruntime.Deps
+		want string
+	}{
+		{
+			name: "cloud",
+			deps: cliruntime.Deps{CommandPathPrefix: "volcano cloud"},
+			want: "frontend routes forward to it; remove them first:\n" +
+				"  volcano cloud frontends routes delete admin /hello\n" +
+				"  volcano cloud frontends routes delete web /api/hello",
+		},
+		{
+			name: "local",
+			deps: cliruntime.Deps{CommandPathPrefix: "volcano", LocalMode: true},
+			want: "frontend routes forward to it; remove them from function_routes in volcano-config.yaml and run volcano config deploy:\n" +
+				"  admin /hello\n" +
+				"  web /api/hello",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setFunctionCommandTestHome(t)
+			saveFunctionCommandTestConfig(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+					writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+						"data": []any{functionCommandPayload(functionID, "hello")}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+					})
+				case r.Method == http.MethodPatch:
+					writeFunctionCommandJSON(t, w, http.StatusConflict, map[string]any{
+						"error": "remove attached Frontend Function routes before making the function non-public",
+					})
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/frontends":
+					writeFunctionCommandJSON(t, w, http.StatusOK, frontendsWithRoutesPayload(map[string][]map[string]any{
+						"web":   {functionRoutePayload(functionID, "/api/hello"), functionRoutePayload(otherFunctionID, "/api/other")},
+						"admin": {functionRoutePayload(functionID, "/hello")},
+					}))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			tc.deps.HTTPClient = server.Client()
+			tc.deps.APIBaseURL = server.URL
+
+			_, err := executeFunctionsCommand(t, New(tc.deps), "update", "hello", "--visibility", "authenticated")
+			require.ErrorContains(t, err, "remove attached Frontend Function routes before making the function non-public")
+			require.ErrorContains(t, err, tc.want)
+			assert.NotContains(t, err.Error(), "/api/other")
+		})
+	}
+}
+
+// Without the route listing the refusal still stands, just without the list.
+func TestFunctionsUpdateShowsTheRouteConflictWhenRoutesCannotBeListed(t *testing.T) {
 	setFunctionCommandTestHome(t)
 	saveFunctionCommandTestConfig(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +156,7 @@ func TestFunctionsUpdateShowsTheRouteConflict(t *testing.T) {
 				"error": "remove attached Frontend Function routes before making the function non-public",
 			})
 		default:
-			http.NotFound(w, r)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 		}
 	}))
 	defer server.Close()
@@ -107,6 +164,86 @@ func TestFunctionsUpdateShowsTheRouteConflict(t *testing.T) {
 	_, err := executeFunctionsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
 		"update", "hello", "--visibility", "authenticated")
 	require.ErrorContains(t, err, "remove attached Frontend Function routes before making the function non-public")
+	assert.NotContains(t, err.Error(), "remove them first")
+}
+
+// The standard function list does not hold durable functions, so their names
+// would otherwise read as missing.
+func TestFunctionsUpdateExplainsADurableName(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/durable-functions/order-pipeline":
+			payload := functionCommandPayload(otherFunctionID, "order-pipeline")
+			payload["kind"] = "durable"
+			payload["visibility"] = "private"
+			writeFunctionCommandJSON(t, w, http.StatusOK, payload)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeFunctionsCommand(t,
+		New(cliruntime.Deps{CommandPathPrefix: "volcano cloud", HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"update", "order-pipeline", "--visibility", "authenticated")
+	require.EqualError(t, err, `"order-pipeline" is a durable function: declare visibility: authenticated under it `+
+		"in volcano-config.yaml and run volcano cloud config deploy, "+
+		"or redeploy it with volcano cloud durable deploy -f order-pipeline --visibility authenticated")
+}
+
+// A server that predates visibility levels either refuses the request with a
+// bare 400 or answers without a visibility. Neither may read as success.
+func TestFunctionsUpdateOnAServerWithoutVisibilityLevels(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   map[string]any
+		want   string
+	}{
+		{
+			name:   "refused",
+			status: http.StatusBadRequest,
+			body:   map[string]any{"error": "invalid request"},
+			want:   "invalid request\na server that predates visibility levels refuses --visibility this way: upgrade your local-mode server image",
+		},
+		{
+			name:   "ignored",
+			status: http.StatusOK,
+			body:   functionCommandPayload(functionID, "hello"),
+			want:   "the server does not support visibility levels yet: check who can invoke 'hello' with volcano functions get hello",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setFunctionCommandTestHome(t)
+			saveFunctionCommandTestConfig(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+					writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+						"data": []any{functionCommandPayload(functionID, "hello")}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+					})
+				case r.Method == http.MethodPatch:
+					writeFunctionCommandJSON(t, w, tc.status, tc.body)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			out, err := executeFunctionsCommand(t,
+				New(cliruntime.Deps{CommandPathPrefix: "volcano", LocalMode: true, HTTPClient: server.Client(), APIBaseURL: server.URL}),
+				"update", "hello", "--visibility", "private")
+			require.ErrorContains(t, err, tc.want)
+			assert.NotContains(t, out, "visibility set to")
+		})
+	}
 }
 
 func TestFunctionsUpdateHidesTheRetiredPrivateFlag(t *testing.T) {

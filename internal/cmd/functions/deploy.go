@@ -28,6 +28,7 @@ type deployOptions struct {
 	all      bool
 	batchAll bool
 	out      io.Writer
+	errOut   io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps, batchAll bool) *cobra.Command {
@@ -60,6 +61,7 @@ archive to Volcano. Cloud deploy-all uploads are split into batches of up to
 				all:      all,
 				batchAll: batchAll,
 				out:      cmd.OutOrStdout(),
+				errOut:   cmd.ErrOrStderr(),
 			})
 		},
 	}
@@ -107,6 +109,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if err != nil {
 		return err
 	}
+	for _, warning := range manifest.Deprecations {
+		output.Warning(opts.errOut, "%s", warning)
+	}
 
 	var sources []clifunction.SourceInfo
 	if !opts.all {
@@ -139,7 +144,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	} else {
 		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
 	}
-	report.printPrivateHint(opts.out)
+	report.finish(opts.out, opts.errOut)
 	return err
 }
 
@@ -148,8 +153,11 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 // owner chose and need no reminder.
 type deployReport struct {
 	hint       cmdutil.PrivateHint
+	get        string
 	existing   map[string]bool
 	newPrivate []string
+	// unreported are new functions whose response had no visibility.
+	unreported []string
 }
 
 // newDeployReport lists the project's functions before anything is uploaded.
@@ -167,7 +175,7 @@ func newDeployReport(
 		},
 		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
 		Declared:     declared,
-	}}
+	}, get: cliruntime.CommandPath(opts.deps, "functions get NAME")}
 	if existing, err := service.Names(ctx); err == nil {
 		report.existing = existing
 	}
@@ -179,14 +187,22 @@ func (r *deployReport) deployed(out io.Writer, fn apiclient.Function) {
 		fmt.Fprintf(out, "  Deployed %s\n", fn.Name)
 		return
 	}
-	visibility := output.FunctionVisibility(fn.Visibility, fn.IsPublic)
-	fmt.Fprintf(out, "  Deployed %s (new, visibility %s)\n", fn.Name, visibility)
-	if visibility == string(apiclient.FunctionVisibilityPrivate) {
+	if fn.Visibility == "" {
+		fmt.Fprintf(out, "  Deployed %s (new)\n", fn.Name)
+		r.unreported = append(r.unreported, fn.Name)
+		return
+	}
+	fmt.Fprintf(out, "  Deployed %s (new, visibility %s)\n", fn.Name, fn.Visibility)
+	if fn.Visibility == apiclient.FunctionVisibilityPrivate {
 		r.newPrivate = append(r.newPrivate, fn.Name)
 	}
 }
 
-func (r *deployReport) printPrivateHint(out io.Writer) {
+func (r *deployReport) finish(out, errOut io.Writer) {
+	if len(r.unreported) > 0 {
+		output.Warning(errOut, "%s, so it reported no visibility for %s; check who can invoke them with %s",
+			cmdutil.VisibilityLevelsUnsupported, strings.Join(r.unreported, ", "), r.get)
+	}
 	r.hint.Print(out, r.newPrivate)
 }
 

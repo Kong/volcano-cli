@@ -464,3 +464,75 @@ func TestFunctionsDeploySkipsTheHintWhenTheListingFails(t *testing.T) {
 	assert.Contains(t, out, "  Deployed hello\n")
 	assert.NotContains(t, out, "New functions are private")
 }
+
+// A server that predates visibility levels reports none. Showing the level
+// is_public implies would claim authenticated for a function nobody checked.
+func TestFunctionsDeployWarnsWhenTheServerReportsNoVisibility(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			payload := functionCommandPayload(functionID, "hello")
+			payload["is_public"] = false
+			writeFunctionCommandJSON(t, w, http.StatusCreated, payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	stdout, stderr, err := executeFunctionsCommandSplit(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", "hello")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "  Deployed hello (new)\n")
+	assert.NotContains(t, stdout, "authenticated")
+	assert.NotContains(t, stdout, "New functions are private")
+	assert.Contains(t, stderr, "the server does not support visibility levels yet, so it reported no visibility for hello; "+
+		"check who can invoke them with volcano functions get NAME")
+}
+
+// public: false used to mean "not public" and now admits signed-in users, so a
+// deploy that reads it says so. On stderr, where it cannot break parsed output.
+func TestFunctionsDeployWarnsAboutTheDeprecatedPublicKey(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({ statusCode: 200 });`))
+	require.NoError(t, writeProjectFile("volcano-config.yaml", `version: 1
+functions:
+  - name: hello
+    public: false
+`))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			payload := functionCommandPayload(functionID, "hello")
+			payload["visibility"] = "private"
+			writeFunctionCommandJSON(t, w, http.StatusCreated, payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	stdout, stderr, err := executeFunctionsCommandSplit(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", "hello")
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "functions.hello.public is deprecated; `public: false` sets visibility authenticated")
+	assert.NotContains(t, stdout, "deprecated")
+}

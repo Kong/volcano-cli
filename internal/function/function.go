@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -231,6 +232,12 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, visibi
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
+		// The list holds standard functions only. The durable lookup only
+		// refines the message: if it fails, the name is reported not found.
+		target := normalizeTargetFunction(identifier)
+		if durable, err := authenticated.API.GetDurableFunction(ctx, authenticated.ProjectID, target); err == nil {
+			return nil, &DurableFunctionError{Name: durable.Name}
+		}
 		return nil, fmt.Errorf("function %q not found", identifier)
 	}
 	if err != nil {
@@ -239,10 +246,39 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, visibi
 
 	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, visibility)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update function visibility: %w", err)
+		err = fmt.Errorf("failed to update function visibility: %w", err)
+		if api.Status(err) == http.StatusConflict && visibility != apiclient.FunctionVisibilityPublic {
+			// Best effort: without the routes the refusal still stands.
+			if routes, routesErr := s.RoutedFrom(ctx, function.Id); routesErr == nil && len(routes) > 0 {
+				return nil, &RoutedFunctionError{Name: function.Name, Routes: routes, Err: err}
+			}
+		}
+		return nil, err
 	}
 	return updated, nil
 }
+
+// DurableFunctionError reports that a name the standard function commands
+// cannot find belongs to a durable function.
+type DurableFunctionError struct {
+	Name string
+}
+
+func (e *DurableFunctionError) Error() string {
+	return fmt.Sprintf("%q is a durable function", e.Name)
+}
+
+// RoutedFunctionError reports a function that cannot leave public because
+// frontend routes forward to it.
+type RoutedFunctionError struct {
+	Name   string
+	Routes []RouteSource
+	Err    error
+}
+
+func (e *RoutedFunctionError) Error() string { return e.Err.Error() }
+
+func (e *RoutedFunctionError) Unwrap() error { return e.Err }
 
 // Invoke invokes one function by alias, normalized name/path, or UUID.
 func (s Service) Invoke(ctx context.Context, identifier string, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {

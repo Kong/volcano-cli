@@ -9,7 +9,22 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
+
+// VisibilityLevelsUnsupported explains a response without a visibility: the
+// server predates the levels, so any level the CLI reported would be a guess.
+const VisibilityLevelsUnsupported = "the server does not support visibility levels yet"
+
+// VisibilityLevelsHint follows a bare 400 for a request that sets a visibility
+// level, which a server that predates the levels refuses as malformed.
+func VisibilityLevelsHint(deps cliruntime.Deps) string {
+	hint := "a server that predates visibility levels refuses --visibility this way"
+	if deps.LocalMode {
+		hint += ": upgrade your local-mode server image"
+	}
+	return hint
+}
 
 // errPrivateFlagRetired explains why --private is refused rather than mapped:
 // it used to let signed-in users invoke the function, which is what
@@ -73,6 +88,9 @@ type PrivateHint struct {
 	// Open returns the command that lets signed-in users call the function.
 	Open         func(name string) string
 	ConfigDeploy string
+	// ConfigFirst offers config deploy ahead of Open, for a kind whose Open
+	// command rebuilds the function.
+	ConfigFirst bool
 	// Declared is the level volcano-config.yaml declares for each function.
 	Declared map[string]string
 }
@@ -101,9 +119,15 @@ func (h PrivateHint) Print(out io.Writer, names []string) {
 	if len(undeclared) == 0 {
 		return
 	}
+	if h.ConfigFirst {
+		fmt.Fprintf(out, "To let your project's signed-in users in, declare visibility: authenticated for %s "+
+			"in volcano-config.yaml and run:\n  %s\n", strings.Join(undeclared, ", "), h.ConfigDeploy)
+	}
 	fmt.Fprintln(out, h.Instruction)
 	for _, name := range undeclared {
 		fmt.Fprintf(out, "  %s\n", h.Open(name))
 	}
-	fmt.Fprintf(out, "Or declare its visibility in volcano-config.yaml and run %s\n", h.ConfigDeploy)
+	if !h.ConfigFirst {
+		fmt.Fprintf(out, "Or declare its visibility in volcano-config.yaml and run %s\n", h.ConfigDeploy)
+	}
 }

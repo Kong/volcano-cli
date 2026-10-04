@@ -30,6 +30,18 @@ func executeFunctionsCommand(t *testing.T, cmd *cobra.Command, args ...string) (
 	return out.String(), err
 }
 
+// executeFunctionsCommandSplit keeps stderr apart from stdout, for warnings
+// that must stay out of output a script parses.
+func executeFunctionsCommandSplit(t *testing.T, cmd *cobra.Command, args ...string) (string, string, error) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdout.String(), stderr.String(), err
+}
+
 // syncBuffer is an io.Writer safe for concurrent writes and reads, used to
 // capture command output while a follow command streams on another goroutine.
 type syncBuffer struct {

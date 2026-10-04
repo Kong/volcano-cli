@@ -16,6 +16,7 @@ type getOptions struct {
 	deps       cliruntime.Deps
 	identifier string
 	out        io.Writer
+	errOut     io.Writer
 }
 
 func newGet(deps cliruntime.Deps) *cobra.Command {
@@ -28,6 +29,7 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 				deps:       deps,
 				identifier: strings.TrimSpace(args[0]),
 				out:        cmd.OutOrStdout(),
+				errOut:     cmd.ErrOrStderr(),
 			})
 		},
 	}
@@ -39,9 +41,11 @@ func runGet(ctx context.Context, opts getOptions) error {
 	if err != nil {
 		return err
 	}
+	// The routes only annotate the function, so a failed listing omits them
+	// rather than the function.
 	sources, err := service.RoutedFrom(ctx, function.Id)
 	if err != nil {
-		return err
+		output.Warning(opts.errOut, "frontend routes to '%s' are not shown: %v", function.Name, err)
 	}
 
 	routedFrom := make([]output.FunctionRouteSource, 0, len(sources))
