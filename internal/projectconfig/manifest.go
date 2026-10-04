@@ -313,14 +313,40 @@ func (f FunctionManifest) isDurable() bool {
 func (f FunctionManifest) declaredVisibility() string {
 	switch {
 	case f.Visibility != nil:
-		return strings.ToLower(strings.TrimSpace(*f.Visibility))
+		return *f.Visibility
 	case f.Public == nil:
 		return ""
 	case *f.Public:
-		return "public"
+		return FunctionVisibilityPublic
 	default:
-		return "authenticated"
+		return FunctionVisibilityAuthenticated
 	}
+}
+
+// DeprecationWarnings describes each use of a deprecated field, in declaration
+// order. public: false reads as "not public" but now admits signed-in users,
+// which is the surprise these warnings exist for.
+func (m *Manifest) DeprecationWarnings() []string {
+	if m == nil || m.Functions == nil {
+		return nil
+	}
+	var warnings []string
+	for _, function := range *m.Functions {
+		if function.Public == nil {
+			continue
+		}
+		deprecated := fmt.Sprintf("functions.%s.public is deprecated", function.Name)
+		switch {
+		case function.Visibility != nil:
+			warnings = append(warnings, deprecated+"; visibility sets the level, so remove public")
+		case *function.Public:
+			warnings = append(warnings, deprecated+"; `public: true` sets visibility public. Declare `visibility: public` instead")
+		default:
+			warnings = append(warnings, deprecated+"; `public: false` sets visibility authenticated, which admits signed-in users. "+
+				"Declare `visibility` instead (`visibility: private` keeps them out)")
+		}
+	}
+	return warnings
 }
 
 // DurableFunctionNames returns the functions the manifest declares durable, in
@@ -670,6 +696,8 @@ type FunctionDeployManifest struct {
 	DurableNames  map[string]bool
 	StandardNames map[string]bool
 	Visibility    map[string]string
+	// Deprecations are the manifest's DeprecationWarnings.
+	Deprecations []string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -697,6 +725,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		return read, nil
 	}
 
+	read.Deprecations = manifest.DeprecationWarnings()
 	for _, function := range *manifest.Functions {
 		if function.VariableScope != nil || function.Variables != nil {
 			read.Declarations[function.Name] = FunctionVariableDeclaration{

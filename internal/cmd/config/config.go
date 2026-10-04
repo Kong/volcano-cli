@@ -28,6 +28,7 @@ type deployOptions struct {
 	file   string
 	dryRun bool
 	out    io.Writer
+	errOut io.Writer
 }
 
 type pullOptions struct {
@@ -46,7 +47,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
 email, templates, managed pages), function visibility and schedulers, and
-frontend custom domains.
+frontend custom domains and function routes.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,
@@ -67,8 +68,9 @@ func newDeploy(deps cliruntime.Deps) *cobra.Command {
 The manifest is uploaded in a single request; the server validates everything
 first (nothing is applied on validation failure) and then reconciles each
 declared section. Declared config sections are the source of truth: variables,
-bucket policies, OAuth providers, email templates, and function schedulers are
-fully synced, so entries absent from the manifest are deleted. Omitted
+bucket policies, OAuth providers, email templates, function schedulers, and
+frontend function routes are fully synced, so entries absent from the manifest
+are deleted. Omitted
 sections and fields are left untouched. Functions, frontends, databases, and
 buckets are never created or deleted through the manifest.
 
@@ -95,6 +97,7 @@ If --file is omitted, the CLI looks for (in order):
 				file:   file,
 				dryRun: dryRun,
 				out:    cmd.OutOrStdout(),
+				errOut: cmd.ErrOrStderr(),
 			})
 		},
 	}
@@ -150,6 +153,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	manifest, resolvedPath, err := projectconfig.Load(manifestPath)
 	if err != nil {
 		return err
+	}
+	for _, warning := range manifest.DeprecationWarnings() {
+		output.Warning(opts.errOut, "%s", warning)
 	}
 
 	result, err := projectconfig.NewService(opts.deps).Deploy(ctx, manifest, opts.dryRun)

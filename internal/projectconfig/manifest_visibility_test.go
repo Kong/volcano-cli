@@ -176,7 +176,7 @@ func TestReadFunctionDeployManifestReadsDeclaredVisibility(t *testing.T) {
 		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte(`version: 1
 functions:
   - name: reports
-    visibility: Authenticated
+    visibility: authenticated
   - name: legacy-open
     public: true
   - name: legacy-closed
