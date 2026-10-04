@@ -97,10 +97,16 @@ The target must be a `public` standard function with `invocation_mode: http`.
 A route reaches it with no Volcano credential, so anyone who can load the
 frontend can call it, and the function must authenticate its callers itself.
 Volcano refuses a route to a `private` or `authenticated` function, and refuses
-to make a routed function non-public until its routes are deleted. A frontend
-can have up to 64 routes, and the longest matching prefix wins.
+to make a routed function non-public until its routes are deleted; the CLI
+prints the command that fixes each. A frontend can have up to 64 routes, and
+the longest matching prefix wins.
+
+A path prefix starts with `/`, does not end with `/`, has no `?`, `#`, or `\`,
+and is 2 to 512 characters long. The CLI checks this before calling Volcano.
 
 Declare `function_routes` in [`volcano-config.yaml`](project-configuration.md)
-to manage the whole set at once. See
+to manage the whole set at once. That is also how a local project gets routes:
+local development has no `frontends` commands, so `volcano frontends routes`
+refuses and points to `volcano cloud frontends routes`. See
 [Frontend Function routes](/platform/frontends/function-routes) for how
 requests are matched and how to keep a session in cookies.

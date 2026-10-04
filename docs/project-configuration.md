@@ -121,16 +121,28 @@ Key semantics:
 `functions[].visibility` decides who can invoke a function:
 
 - `private`: service keys and schedulers only.
-- `authenticated`: also your project's signed-in users.
+- `authenticated`: also your project's signed-in users, including
+  [anonymous sign-ins](/platform/authentication/anonymous-users).
 - `public`: also anon keys with `functions.invoke`, and frontend function
   routes.
 
-New functions start `private`. Leaving `visibility` out keeps the level the
-function already has.
+New functions start `private`, durable ones included. Leaving `visibility` out
+keeps the level the function already has. Any other value is refused before
+upload, naming the function.
 
-The deprecated `public` field still works: `true` means `public` and `false`
-means `authenticated`. When a function declares both, `visibility` wins, and
-the server rejects the pair only when exactly one of them says public, such as
+A `private` function answers every caller but a service key or scheduler with
+the `404` of a function that does not exist. An anon key invoking an
+`authenticated` function by ID gets `403`; by name, as the SDK invokes, `404`.
+If your app gets 404 for a function you deployed, check its visibility with
+`volcano cloud functions get <name>`.
+
+The deprecated `public` field still works, but `public: false` means
+`authenticated`, not `private`: it lets your signed-in users in. Manifests
+written by an older `config pull` contain it. To keep such a function
+private, replace it with `visibility: private`. `true` means `public`.
+`config deploy` and the function deploys print a warning for each `public`
+they read. When a function declares both, `visibility` wins, and the server
+rejects the pair only when exactly one of them says public, such as
 `visibility: authenticated` with `public: true`. `config pull` writes
 `visibility` only.
 

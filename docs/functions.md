@@ -73,8 +73,19 @@ Visibility decides who can invoke a function:
 | Visibility | Who can invoke it |
 |---|---|
 | `private` | Service keys and schedulers |
-| `authenticated` | Also your project's signed-in users |
+| `authenticated` | Also your project's signed-in users, including [anonymous sign-ins](/platform/authentication/anonymous-users) |
 | `public` | Also anon keys with `functions.invoke`, and [frontend routes](frontends.md#function-routes) |
+
+A refused caller gets:
+
+| Function | Caller | Answer |
+|---|---|---|
+| `private` | Anyone but a service key or scheduler | `404`, the same as for a function that does not exist |
+| `authenticated` | Anon key, invoking by ID | `403` |
+| `authenticated` | Anon key, invoking by name, as the SDK does | `404` |
+
+If your app gets 404 for a function you deployed, check its visibility with
+`volcano cloud functions get <name>`.
 
 New functions start `private`. `functions deploy` says so for each function it
 creates and prints the command that lets signed-in users in:
@@ -96,7 +107,11 @@ manifest already declares a level for a new function, the hint points at
 `--public` is the same as `--visibility public`. `--private` is no longer
 accepted: it used to let signed-in users in, which is `authenticated` now, so
 pick the level you mean. A function that a frontend route forwards to has to
-stay `public`; delete the route first.
+stay `public`; `functions update` lists the routes to delete first.
+
+`functions update` sets the level of standard functions. For a
+[durable function](durable-functions.md#visibility), declare `visibility` in
+`volcano-config.yaml` and run `volcano cloud config deploy`.
 
 `functions get` shows the level, and under "Routed from" every frontend path
 that forwards to the function:

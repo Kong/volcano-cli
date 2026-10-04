@@ -191,32 +191,47 @@ be refused while the function is still provisioning. Wait for `get` to report
 
 ## Visibility
 
-`--visibility` decides who can start executions of one function:
+Visibility decides who can start executions of a function:
 
 | Visibility | Who can start executions |
 |---|---|
 | `private` | Service keys and schedulers |
-| `authenticated` | Also your project's signed-in users |
+| `authenticated` | Also your project's signed-in users, including [anonymous sign-ins](/platform/authentication/anonymous-users) |
 | `public` | Also anon keys with `functions.invoke` |
+
+A caller a `private` function refuses gets `404` with `durable function not
+found`, the same as for a function that does not exist. If your app gets 404
+for a durable function you deployed, check its visibility with
+`volcano cloud durable get <name>`.
 
 A durable function is never invocable over HTTP the way a public standard
 function is, whatever its level: starting an execution is all the level
 allows. Polling and stopping always need a project-scoped credential.
 
+A new durable function starts `private`, and `durable get` shows the level.
+To change it without rebuilding, declare `visibility` in
+[`volcano-config.yaml`](project-configuration.md#function-visibility) and run
+`volcano cloud config deploy`:
+
+```yaml
+functions:
+  - name: order-pipeline
+    kind: durable
+    visibility: authenticated
+```
+
+A redeploy with `--visibility` also sets the level, for the one function `-f`
+names. Omit the flag and a redeploy keeps the level the function has. When a
+deploy creates a function without `--visibility`, it prints both ways to let
+signed-in users in.
+
 `--public` is the same as `--visibility public`. `--private` is no longer
 accepted: it used to let signed-in users in, which is `authenticated` now, so
 pick the level you mean.
 
-Omit the flag and a redeploy keeps the visibility the function already has. A
-new durable function starts `private`, and `durable get` shows the level. When
-a deploy creates one without `--visibility`, it prints how to let signed-in
-users in: a redeploy with `--visibility authenticated`, or `volcano cloud config
-deploy` when `volcano-config.yaml` already declares a level for it.
-
 `--visibility` is not accepted with `--all`. Visibility is a per-function
-decision and a durable function has no update endpoint, so one flag applied to
-a whole manifest would take a redeploy of every function to undo. Deploy the
-one you want to change with `-f`.
+decision, so one flag applied to a whole manifest would take a redeploy of
+every function to undo. Declare levels in the manifest instead.
 
 ## Stopping and deleting
 
