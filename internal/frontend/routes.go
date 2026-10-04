@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
@@ -91,9 +92,27 @@ func (s Service) CreateRoute(ctx context.Context, identifier string, input Route
 			StripPrefix: &stripPrefix,
 		})
 	if err != nil {
-		return nil, Route{}, fmt.Errorf("failed to create route: %w", err)
+		return nil, Route{}, fmt.Errorf("failed to create route: %w", refusedTarget(err, target))
 	}
 	return frontend, Route{FrontendFunctionRoute: *created, Function: target}, nil
+}
+
+// TargetNotPublicError reports a route refused because the function it
+// forwards to is not public, which every route target must be.
+type TargetNotPublicError struct {
+	Function string
+	Err      error
+}
+
+func (e *TargetNotPublicError) Error() string { return e.Err.Error() }
+
+func (e *TargetNotPublicError) Unwrap() error { return e.Err }
+
+func refusedTarget(err error, target *apiclient.Function) error {
+	if api.Status(err) == http.StatusConflict && target != nil && target.Visibility != apiclient.FunctionVisibilityPublic {
+		return &TargetNotPublicError{Function: target.Name, Err: err}
+	}
+	return err
 }
 
 // UpdateRoute changes one route, found by its path prefix or ID.
@@ -136,7 +155,8 @@ func (s Service) UpdateRoute(ctx context.Context, identifier, route string, upda
 
 	updated, err := authenticated.API.UpdateFrontendFunctionRoute(ctx, authenticated.ProjectID, frontend.Id, current.Id, request)
 	if err != nil {
-		return nil, Route{}, fmt.Errorf("failed to update route %s: %w", current.PathPrefix, err)
+		return nil, Route{}, fmt.Errorf("failed to update route %s: %w",
+			current.PathPrefix, refusedTarget(err, functionByID(functions, request.FunctionId)))
 	}
 	return frontend, withFunctions([]apiclient.FrontendFunctionRoute{*updated}, functions)[0], nil
 }
@@ -233,6 +253,15 @@ func findRoute(routes []apiclient.FrontendFunctionRoute, frontend, identifier st
 		}
 	}
 	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("frontend %q has no route %q", frontend, identifier)
+}
+
+func functionByID(functions []apiclient.Function, id uuid.UUID) *apiclient.Function {
+	for i := range functions {
+		if functions[i].Id == id {
+			return &functions[i]
+		}
+	}
+	return nil
 }
 
 func withFunctions(routes []apiclient.FrontendFunctionRoute, functions []apiclient.Function) []Route {

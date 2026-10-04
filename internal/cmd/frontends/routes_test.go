@@ -2,6 +2,7 @@ package frontends
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +18,7 @@ const (
 	routeID          = "77777777-7777-4777-8777-777777777777"
 	sessionFuncID    = "88888888-8888-4888-8888-888888888888"
 	sessionV2FuncID  = "99999999-9999-4999-8999-999999999999"
+	membersFuncID    = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 	frontendRoutesAt = "/projects/" + frontendProjectID + "/frontends/" + frontendID + "/function-routes"
 )
 
@@ -50,8 +52,9 @@ func (s *routeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"data": []any{
 				routeFunctionPayload(sessionFuncID, "session", "public"),
 				routeFunctionPayload(sessionV2FuncID, "session-v2", "public"),
+				routeFunctionPayload(membersFuncID, "members", "authenticated"),
 			},
-			"has_more": false, "page": 1, "limit": 100, "total": 2,
+			"has_more": false, "page": 1, "limit": 100, "total": 3,
 		})
 	case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/durable-functions/order-pipeline":
 		writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
@@ -159,9 +162,62 @@ func TestFrontendsRoutesCreateRefusals(t *testing.T) {
 		server := newRouteServer(t)
 		server.refuse = "Frontend Function routes require a public Function"
 
-		_, err := server.run("routes", "create", "web", "--path", "/api", "--function", "session")
-		require.ErrorContains(t, err, "Frontend Function routes require a public Function")
+		_, err := server.run("routes", "create", "web", "--path", "/api", "--function", "members")
+		require.ErrorContains(t, err, "Frontend Function routes require a public Function\n"+
+			"make 'members' public first: volcano cloud functions update members --visibility public")
 	})
+	// A conflict over a public target is about something else, so it gets no
+	// advice to make the function public.
+	t.Run("conflict with a public target", func(t *testing.T) {
+		setFrontendCommandTestHome(t)
+		saveFrontendCommandTestConfig(t)
+		server := newRouteServer(t)
+		server.refuse = "route path prefix already exists"
+
+		_, err := server.run("routes", "create", "web", "--path", "/api", "--function", "session")
+		require.ErrorContains(t, err, "route path prefix already exists")
+		assert.NotContains(t, err.Error(), "public first")
+	})
+}
+
+// The API's request validator answers a malformed prefix with a bare "invalid
+// request", so the CLI checks the prefix against the same rule first.
+func TestFrontendsRoutesRefuseAnInvalidPathBeforeCallingTheAPI(t *testing.T) {
+	for _, path := range []string{
+		"/api/echo/",
+		"api/echo",
+		"/",
+		"/api?x=1",
+		"/api#top",
+		`/api\echo`,
+		"/" + strings.Repeat("a", 512),
+	} {
+		t.Run(path[:min(len(path), 12)], func(t *testing.T) {
+			setFrontendCommandTestHome(t)
+			saveFrontendCommandTestConfig(t)
+			server := newRouteServer(t)
+
+			want := fmt.Sprintf("invalid --path %q: a path prefix starts with /, does not end with /, "+
+				`has no "?", "#", or "\", and is 2 to 512 characters long`, path)
+			_, err := server.run("routes", "create", "web", "--path", path, "--function", "session")
+			require.EqualError(t, err, want)
+			_, err = server.run("routes", "update", "web", "/api/session", "--path", path)
+			require.EqualError(t, err, want)
+			assert.Empty(t, server.requests)
+		})
+	}
+}
+
+func TestFrontendsRoutesAcceptTheLongestValidPath(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := newRouteServer(t)
+	path := "/" + strings.Repeat("a", 511)
+
+	_, err := server.run("routes", "create", "web", "--path", path, "--function", "session")
+	require.NoError(t, err)
+	require.Len(t, server.bodies, 1)
+	assert.Equal(t, path, server.bodies[0]["path_prefix"])
 }
 
 // A route update replaces the whole route, so the flags left out have to be

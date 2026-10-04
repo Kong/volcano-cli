@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -61,6 +64,34 @@ has to authenticate its callers itself. The longest matching prefix wins.`,
 	cmd.AddCommand(newRoutesUpdate(deps))
 	cmd.AddCommand(newRoutesDelete(deps))
 	return cmd
+}
+
+// NewRoutesCloudOnly stands in for routes under the deprecated root
+// "volcano frontends" alias. The root is where local commands live, and the
+// alias would otherwise send a local project's route changes to the cloud.
+// Local development has no frontends commands, so routes there come only from
+// volcano-config.yaml. Flag parsing is off so any flags reach the refusal.
+func NewRoutesCloudOnly() *cobra.Command {
+	return &cobra.Command{
+		Use:   "routes",
+		Short: "Manage frontend function routes",
+		Long: `Manage the paths of a frontend that forward requests to functions.
+
+This is a cloud command: run 'volcano cloud frontends routes ...'. Local
+development has no frontends commands; declare function_routes in
+volcano-config.yaml and run 'volcano config deploy' instead.`,
+		Hidden:             true,
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Flag parsing is off, so cobra does not answer --help itself.
+			if slices.ContainsFunc(args, func(arg string) bool { return arg == "--help" || arg == "-h" }) {
+				return cmd.Help()
+			}
+			return errors.New(`"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'. ` +
+				"Local development has no frontends commands; declare function_routes in volcano-config.yaml " +
+				"and run 'volcano config deploy' instead")
+		},
+	}
 }
 
 func newRoutesList(deps cliruntime.Deps) *cobra.Command {
@@ -186,9 +217,12 @@ func runRoutesList(ctx context.Context, opts routesListOptions) error {
 }
 
 func runRoutesCreate(ctx context.Context, opts routesCreateOptions) error {
+	if err := validatePathPrefix(opts.input.PathPrefix); err != nil {
+		return err
+	}
 	frontend, route, err := clifrontend.NewService(opts.deps).CreateRoute(ctx, opts.frontend, opts.input)
 	if err != nil {
-		return err
+		return withTargetHint(opts.deps, err)
 	}
 	entry := routeEntry(route)
 	output.Success(opts.out, "Route %s on frontend '%s' now forwards to function '%s'", entry.PathPrefix, frontend.Name, entry.Function)
@@ -202,9 +236,14 @@ func runRoutesUpdate(ctx context.Context, opts routesUpdateOptions) error {
 	if opts.update.PathPrefix == nil && opts.update.Function == nil && opts.update.StripPrefix == nil {
 		return errors.New("specify at least one of --path, --function, or --strip-prefix")
 	}
+	if opts.update.PathPrefix != nil {
+		if err := validatePathPrefix(*opts.update.PathPrefix); err != nil {
+			return err
+		}
+	}
 	frontend, route, err := clifrontend.NewService(opts.deps).UpdateRoute(ctx, opts.frontend, opts.route, opts.update)
 	if err != nil {
-		return err
+		return withTargetHint(opts.deps, err)
 	}
 	entry := routeEntry(route)
 	output.Success(opts.out, "Route %s on frontend '%s' updated", entry.PathPrefix, frontend.Name)
@@ -234,6 +273,27 @@ func runRoutesDelete(ctx context.Context, opts routesDeleteOptions) error {
 	}
 	output.Success(opts.out, "Route %s deleted from frontend '%s'", route.PathPrefix, frontend.Name)
 	return nil
+}
+
+// routePathPrefix is the pattern the API accepts. Its request validator
+// answers any other prefix with a bare "invalid request".
+var routePathPrefix = regexp.MustCompile(`^/[^?#\\]*[^/?#\\]$`)
+
+func validatePathPrefix(prefix string) error {
+	if length := utf8.RuneCountInString(prefix); length >= 2 && length <= 512 && routePathPrefix.MatchString(prefix) {
+		return nil
+	}
+	return fmt.Errorf("invalid --path %q: a path prefix starts with /, does not end with /, "+
+		`has no "?", "#", or "\", and is 2 to 512 characters long`, prefix)
+}
+
+func withTargetHint(deps cliruntime.Deps, err error) error {
+	var notPublic *clifrontend.TargetNotPublicError
+	if !errors.As(err, &notPublic) {
+		return err
+	}
+	return fmt.Errorf("%w\nmake '%s' public first: %s", err, notPublic.Function,
+		cliruntime.CommandPath(deps, "functions update "+notPublic.Function+" --visibility public"))
 }
 
 func routeEntries(routes []clifrontend.Route) []output.FrontendRouteEntry {
