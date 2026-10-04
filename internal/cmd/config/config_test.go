@@ -282,6 +282,46 @@ func TestDeployOldServerWithoutConfigEndpoint(t *testing.T) {
 	assert.Contains(t, err.Error(), "upgrade")
 }
 
+// A server whose schema predates visibility levels answers the new fields with
+// the same bare 400 as any schema failure, so the hint depends on the manifest
+// declaring them.
+func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manifest string
+		hint     bool
+	}{
+		"visibility and routes": {
+			manifest: "version: 1\nfunctions:\n  - name: hello\n    visibility: private\nfrontends:\n  - name: web\n    function_routes: []\n",
+			hint:     true,
+		},
+		"legacy public": {
+			manifest: "version: 1\nfunctions:\n  - name: hello\n    public: false\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			_, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if !tc.hint {
+				assert.NotContains(t, err.Error(), "predates function visibility levels")
+				return
+			}
+			assert.Contains(t, err.Error(), "a server that predates function visibility levels refuses visibility and function_routes this way")
+			assert.Contains(t, err.Error(), "public: true or public: false stands in for visibility")
+		})
+	}
+}
+
 func TestDeployMissingManifest(t *testing.T) {
 	chdirToTemp(t)
 	setConfigCommandTestHome(t)

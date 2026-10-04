@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -161,6 +162,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config apply; upgrade your local-mode server image and try again")
 		}
+		if hint := visibilityLevelsHint(manifest, err); hint != "" {
+			return fmt.Errorf("failed to deploy configuration from %s: %w\n%s", manifestPath, err, hint)
+		}
 		return fmt.Errorf("failed to deploy configuration from %s: %w", manifestPath, err)
 	}
 
@@ -250,6 +254,24 @@ func writePulledManifest(targetPath string, manifest []byte) error {
 		return fmt.Errorf("failed to write configuration to %s: %w", targetPath, err)
 	}
 	return nil
+}
+
+// visibilityLevelsHint explains a 400 from a server whose schema may predate
+// function visibility levels. Such a server refuses the unknown fields with the
+// same bare "invalid request" as any other schema failure, so the hint keys on
+// the manifest declaring one of them rather than on the message.
+func visibilityLevelsHint(manifest *projectconfig.Manifest, err error) string {
+	if api.Status(err) != http.StatusBadRequest {
+		return ""
+	}
+	fields := manifest.VisibilityLevelFields()
+	if len(fields) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("a server that predates function visibility levels refuses %s this way: "+
+		"upgrade your local-mode server image, or remove them "+
+		"(public: true or public: false stands in for visibility on such a server)",
+		strings.Join(fields, " and "))
 }
 
 // isConfigEndpointMissing detects a 404 from a server without the config

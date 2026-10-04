@@ -2,6 +2,7 @@ package projectconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,6 +119,40 @@ functions:
 	assert.Equal(t, false, body.Functions[1]["public"])
 	assert.NotContains(t, body.Functions[0], "visibility")
 	assert.NotContains(t, body.Functions[1], "visibility")
+}
+
+// The server's schema refuses an unknown level with a bare "invalid request",
+// so the manifest has to name the function and the levels itself.
+func TestManifestRejectsUnknownVisibility(t *testing.T) {
+	for _, value := range []string{"everyone", "Public", " private", ""} {
+		t.Run(value, func(t *testing.T) {
+			_, err := Parse(fmt.Appendf(nil, "version: 1\nfunctions:\n  - name: hello\n    visibility: %q\n", value), noEnv)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), fmt.Sprintf(`function "hello": unsupported visibility %q`, value))
+			assert.Contains(t, err.Error(), `(expected "private", "authenticated", or "public")`)
+		})
+	}
+}
+
+func TestManifestReportsVisibilityLevelFields(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manifest string
+		want     []string
+	}{
+		"legacy public only": {"version: 1\nfunctions:\n  - name: hello\n    public: true\n", nil},
+		"visibility":         {"version: 1\nfunctions:\n  - name: hello\n    visibility: private\n", []string{"visibility"}},
+		"routes":             {"version: 1\nfrontends:\n  - name: web\n    function_routes: []\n", []string{"function_routes"}},
+		"both": {
+			"version: 1\nfunctions:\n  - name: hello\n    visibility: public\nfrontends:\n  - name: web\n    function_routes: []\n",
+			[]string{"visibility", "function_routes"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			manifest, err := Parse([]byte(tc.manifest), noEnv)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, manifest.VisibilityLevelFields())
+		})
+	}
 }
 
 func TestManifestRejectsUnknownFunctionRouteFields(t *testing.T) {
