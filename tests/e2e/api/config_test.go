@@ -216,25 +216,36 @@ func requireAPIE2EConfigFunctionVisibility(t *testing.T, env *apiE2E, manifestPa
 		t.Fatal("functions get printed no ID")
 	}
 	invokers := newAPIE2EInvokers(t, env)
-	deploy := func(entry, visibility string) {
+	deploy := func(entry, visibility, deprecation string) {
 		t.Helper()
 		writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n"+entry)
-		env.runCloudCLI(t, "config", "deploy").requireSuccess(t, "functions: 1 updated")
+		deployed := env.runCloudCLI(t, "config", "deploy")
+		deployed.requireSuccess(t, "functions: 1 updated")
+		if deprecation == "" {
+			deployed.requireNotContains(t, "deprecated")
+		} else {
+			// On stderr, so output a script parses stays clean.
+			deployed.requireSuccess(t, "functions.hello.public is deprecated; "+deprecation)
+			if strings.Contains(deployed.stdout, "deprecated") {
+				t.Fatalf("the deprecation warning reached stdout:\n%s", deployed.stdout)
+			}
+		}
 		env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: "+visibility)
 		env.waitForFunctionVisibility(t, functionID, invokers, visibility)
 	}
-	deploy("    visibility: authenticated\n", "authenticated")
-	deploy("    visibility: private\n", "private")
+	deploy("    visibility: authenticated\n", "authenticated", "")
+	deploy("    visibility: private\n", "private", "")
 	// public: false used to keep anon keys out and let signed-in users in.
-	deploy("    public: false\n", "authenticated")
-	deploy("    public: true\n", "public")
-	deploy("    visibility: private\n    public: false\n", "private")
+	deploy("    public: false\n", "authenticated", "`public: false` sets visibility authenticated")
+	deploy("    public: true\n", "public", "`public: true` sets visibility public")
+	deploy("    visibility: private\n    public: false\n", "private", "visibility sets the level, so remove public")
 
 	writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n    visibility: public\n    public: false\n")
 	env.runCloudCLI(t, "config", "deploy").
 		requireFailure(t, "nothing was applied", "visibility and the deprecated public flag disagree")
 	writeAPIE2EFile(t, manifestPath, "version: 1\nfunctions:\n  - name: hello\n    visibility: everyone\n")
-	env.runCloudCLI(t, "config", "deploy").requireFailure(t, "visibility")
+	env.runCloudCLI(t, "config", "deploy").
+		requireFailure(t, `function "hello": unsupported visibility "everyone" (expected "private", "authenticated", or "public")`)
 	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: private")
 	env.waitForFunctionVisibility(t, functionID, invokers, "private")
 }

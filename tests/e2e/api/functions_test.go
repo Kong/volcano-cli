@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestAPIE2ESmokeFunctions(t *testing.T) {
@@ -104,20 +106,24 @@ func requireAPIE2EFunctionVisibility(t *testing.T, env *apiE2E, functionID strin
 }
 
 // waitForFunctionVisibility waits until every caller gets the answer the level
-// gives it. A changed level takes a moment to reach every invoke, so an answer
-// from the previous level is expected for a while; a status that neither level
-// gives is reported straight away.
+// gives it: a private function answers everyone but service keys with the 404
+// of a missing function, and an authenticated one refuses an anon key with 403.
+// A changed level takes a moment to reach every invoke, so an answer from
+// another level is expected for a while. A status no level gives, or a refusal
+// after which the function ran anyway, is reported straight away.
 func (e *apiE2E) waitForFunctionVisibility(t *testing.T, functionID string, invokers apiE2EInvokers, level string) {
 	t.Helper()
 	want := map[string]int{
 		"service key": http.StatusOK,
-		"end user":    http.StatusForbidden,
-		"anon key":    http.StatusForbidden,
+		"end user":    http.StatusNotFound,
+		"anon key":    http.StatusNotFound,
 	}
-	if level != "private" {
+	switch level {
+	case "authenticated":
 		want["end user"] = http.StatusOK
-	}
-	if level == "public" {
+		want["anon key"] = http.StatusForbidden
+	case "public":
+		want["end user"] = http.StatusOK
 		want["anon key"] = http.StatusOK
 	}
 	tokens := map[string]string{
@@ -127,26 +133,53 @@ func (e *apiE2E) waitForFunctionVisibility(t *testing.T, functionID string, invo
 	}
 
 	deadline := time.Now().Add(apiE2EFunctionConvergenceTimeout)
-	var got map[string]int
 	for {
-		got = make(map[string]int, len(tokens))
+		got := make(map[string]int, len(tokens))
+		answers := make(map[string]apiE2EInvocation, len(tokens))
 		for caller, token := range tokens {
-			status, err := apiE2EInvokeStatus(e.apiURL, token, functionID)
+			answer, err := apiE2EInvoke(e.apiURL, token, functionID)
 			if err != nil {
 				t.Fatalf("%s invoking a %s function: %v", caller, level, err)
 			}
-			if status != http.StatusOK && status != http.StatusForbidden {
-				t.Fatalf("%s invoking a %s function got status %d", caller, level, status)
+			switch answer.status {
+			case http.StatusOK:
+			case http.StatusForbidden, http.StatusNotFound:
+				if answer.ran {
+					t.Fatalf("%s invoking a %s function was refused with %d, but the function ran", caller, level, answer.status)
+				}
+			default:
+				t.Fatalf("%s invoking a %s function got status %d: %.500s", caller, level, answer.status, answer.body)
 			}
-			got[caller] = status
+			got[caller] = answer.status
+			answers[caller] = answer
 		}
 		if maps.Equal(got, want) {
+			for caller, answer := range answers {
+				if answer.status == http.StatusNotFound {
+					requireAPIE2EConcealed(t, e.apiURL, tokens[caller], caller, answer)
+				}
+			}
 			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("invokes of a %s function answered %v, want %v", level, got, want)
 		}
 		time.Sleep(apiE2EPollInterval)
+	}
+}
+
+// requireAPIE2EConcealed checks that a private function's refusal is the
+// answer the same caller gets for a function that does not exist, so it does
+// not reveal that the function does.
+func requireAPIE2EConcealed(t *testing.T, apiURL, token, caller string, refused apiE2EInvocation) {
+	t.Helper()
+	missing, err := apiE2EInvoke(apiURL, token, uuid.NewString())
+	if err != nil {
+		t.Fatalf("%s invoking a missing function: %v", caller, err)
+	}
+	if missing.status != refused.status || !sameAPIE2EJSON(missing.body, refused.body) {
+		t.Fatalf("%s: a private function answered %d %s, but a missing one answers %d %s",
+			caller, refused.status, refused.body, missing.status, missing.body)
 	}
 }
 

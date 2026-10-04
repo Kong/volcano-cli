@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -81,25 +82,49 @@ func signUpAPIE2EEndUser(t *testing.T, apiURL, anonKey string) string {
 	return token
 }
 
-// apiE2EInvokeStatus invokes a function with a caller's credential and reports
-// the status the API answered with.
-func apiE2EInvokeStatus(apiURL, token, functionID string) (int, error) {
+// apiE2EInvocation is the API's answer to one invoke.
+type apiE2EInvocation struct {
+	status int
+	body   string
+	// ran reports the headers the API sets only when the function executed.
+	ran bool
+}
+
+// apiE2EInvoke invokes a function by ID with a caller's credential.
+func apiE2EInvoke(apiURL, token, functionID string) (apiE2EInvocation, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL+"/functions/"+functionID+"/invoke",
 		strings.NewReader(`{"payload":{}}`))
 	if err != nil {
-		return 0, err
+		return apiE2EInvocation{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, err
+		return apiE2EInvocation{}, err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
-	return resp.StatusCode, nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return apiE2EInvocation{}, err
+	}
+	return apiE2EInvocation{
+		status: resp.StatusCode,
+		body:   strings.TrimSpace(string(body)),
+		ran:    resp.Header.Get("X-Volcano-Function-Invoked") != "" || resp.Header.Get("X-Volcano-Compute-Ms") != "",
+	}, nil
+}
+
+// sameAPIE2EJSON compares two response bodies as JSON, so key order and
+// spacing do not count. Bodies that are not JSON compare as text.
+func sameAPIE2EJSON(a, b string) bool {
+	var decodedA, decodedB any
+	if json.Unmarshal([]byte(a), &decodedA) != nil || json.Unmarshal([]byte(b), &decodedB) != nil {
+		return a == b
+	}
+	return reflect.DeepEqual(decodedA, decodedB)
 }
 
 func deleteAPIE2EProject(apiURL, token, projectID string) error {

@@ -54,13 +54,16 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	// A route reaches its function with no credential, so the function has to
 	// be public first.
 	env.runCloudCLI(t, "frontends", "routes", "create", frontend, "--path", "/api/echo", "--function", "echo").
-		requireFailure(t, "Frontend Function routes require a public Function")
+		requireFailure(t, "Frontend Function routes require a public Function",
+			"make 'echo' public first: volcano cloud functions update echo --visibility public")
 	env.runCloudCLI(t, "frontends", "routes", "create", frontend, "--path", "/api/echo", "--function", "missing").
 		requireFailure(t, `function "missing" not found`)
 
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "public").requireSuccess(t, "visibility set to public")
+	// The API answers a malformed prefix with a bare "invalid request", so the
+	// CLI refuses it first and says what a prefix may be.
 	env.runCloudCLI(t, "frontends", "routes", "create", frontend, "--path", "/api/echo/", "--function", "echo").
-		requireFailure(t, "route path prefix is invalid")
+		requireFailure(t, `invalid --path "/api/echo/"`, "does not end with /")
 	env.runCloudCLI(t, "frontends", "routes", "create", frontend,
 		"--path", "/api/echo", "--function", "echo", "--strip-prefix").
 		requireSuccess(t,
@@ -77,7 +80,9 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 
 	// A routed function cannot stop being public while the route is there.
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "authenticated").
-		requireFailure(t, "remove attached Frontend Function routes")
+		requireFailure(t, "remove attached Frontend Function routes",
+			"frontend routes forward to it; remove them first:",
+			"volcano cloud frontends routes delete "+frontend+" /api/echo")
 	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: public")
 
 	// update keeps what it is not told to change: strip prefix stays on here.

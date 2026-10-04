@@ -340,6 +340,11 @@ func requireAPIE2EDurableVisibility(t *testing.T, env *apiE2E) {
 		requireFailure(t, "--private is no longer accepted", "--visibility authenticated")
 	env.runCloudCLI(t, "durable", "deploy", "--all", "--visibility", "public").
 		requireFailure(t, "cannot use --visibility or --public with --all")
+	// functions update covers standard functions only, and says where a
+	// durable one's level is set rather than calling it missing.
+	env.runCloudCLI(t, "functions", "update", "order-pipeline", "--visibility", "authenticated").
+		requireFailure(t, `"order-pipeline" is a durable function`, "volcano cloud config deploy",
+			"volcano cloud durable deploy -f order-pipeline --visibility authenticated")
 
 	// -f deploys by name whether or not the manifest mentions the function, and
 	// visibility is applied when the deploy is accepted rather than when the
