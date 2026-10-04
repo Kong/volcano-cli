@@ -3583,8 +3583,8 @@ paths:
                 $ref: '#/components/schemas/Function'
         '400':
           description: |
-            Bad request (invalid file, too large, etc.), or `visibility` and
-            `is_public` disagree
+            Bad request (invalid file, too large, etc.), an unknown
+            `visibility`, or `visibility` and `is_public` disagree
           content:
             application/json:
               schema:
@@ -3599,8 +3599,9 @@ paths:
           description: |
             Function deletion is queued or running, the name is already held
             by a durable function — a function cannot change kind — or the
-            update would take a function with Frontend Function routes out of
-            `public`.
+            redeploy would take a function with Frontend Function routes out
+            of `public` or out of HTTP invocation mode. The request is refused
+            before the deploy starts, so nothing is deployed.
           content:
             application/json:
               schema:
@@ -3747,7 +3748,9 @@ paths:
         may call it, and the function does not run for any other. A `private`
         function answers every credential but a service key exactly as a
         missing one, with 404, so its name and id cannot be discovered; an anon
-        key on an `authenticated` function gets 403.
+        key on an `authenticated` function gets 403. An SDK calling by name
+        resolves it first through `GET /functions/resolve`, which answers that
+        anon key with 404 instead.
 
         **With Service Key** (admin/background operations, every visibility):
         - Use for background jobs, webhooks, cron, admin operations
@@ -4839,7 +4842,8 @@ paths:
                 $ref: '#/components/schemas/DurableFunction'
         '400':
           description: |
-            Bad request (invalid archive, unsupported runtime, invalid name, or a
+            Bad request (invalid archive, unsupported runtime, invalid name, an
+            unknown `visibility`, `visibility` and `is_public` disagree, or a
             project region that does not offer durable execution — a durable
             function deploys to every region of its project)
           content:
@@ -4853,7 +4857,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Name is held by a standard function, or a deletion is queued or running
+          description: |
+            Name is held by a standard function, or a deletion is queued or
+            running. The request is refused before the deploy starts, so
+            nothing is deployed.
           content:
             application/json:
               schema:
@@ -18878,8 +18885,9 @@ components:
         - volcano
         - none
       description: |
-        Authentication applied by the HTTP ingress. `none` is valid only for public
-        HTTP-mode functions and is intended for externally signed webhooks.
+        Authentication applied by the HTTP ingress. `none` is valid only for
+        HTTP-mode functions with `visibility: public` and is intended for
+        externally signed webhooks.
     FunctionVisibility:
       type: string
       enum:
@@ -20633,8 +20641,11 @@ components:
           deprecated: true
           description: |
             Deprecated alias for `visibility`: `true` means `public` and
-            `false` means `authenticated`. Declaring both with different
-            meanings is an error. Exports write `visibility` only.
+            `false` means `authenticated`, not `private`, so an entry left at
+            `false` applies `authenticated` on every apply; declare
+            `visibility: private` to keep a function private. Declaring both
+            with different meanings is an error. Exports write `visibility`
+            only.
         variable_scope:
           type: string
           enum:

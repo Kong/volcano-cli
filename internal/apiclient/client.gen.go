@@ -6431,8 +6431,9 @@ type Function struct {
 	// HasOpenapiSpec Whether OpenAPI metadata is configured; list responses omit the document itself.
 	HasOpenapiSpec bool `json:"has_openapi_spec"`
 
-	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
-	// HTTP-mode functions and is intended for externally signed webhooks.
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
+	// HTTP-mode functions with `visibility: public` and is intended for
+	// externally signed webhooks.
 	HttpAuthMode FunctionHTTPAuthMode `json:"http_auth_mode"`
 	Id           openapi_types.UUID   `json:"id"`
 
@@ -6520,8 +6521,9 @@ type FunctionDeploymentOperation string
 // FunctionDeploymentStatus defines model for FunctionDeployment.Status.
 type FunctionDeploymentStatus string
 
-// FunctionHTTPAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
-// HTTP-mode functions and is intended for externally signed webhooks.
+// FunctionHTTPAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
+// HTTP-mode functions with `visibility: public` and is intended for
+// externally signed webhooks.
 type FunctionHTTPAuthMode string
 
 // FunctionInvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
@@ -8074,8 +8076,9 @@ type ProjectConfigFrontendFunctionRoute struct {
 // same applies to `variables`: declaring it replaces the function's
 // declared variable names, and omitting it leaves them untouched.
 type ProjectConfigFunction struct {
-	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
-	// HTTP-mode functions and is intended for externally signed webhooks.
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
+	// HTTP-mode functions with `visibility: public` and is intended for
+	// externally signed webhooks.
 	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
 
 	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
@@ -8094,8 +8097,11 @@ type ProjectConfigFunction struct {
 	OpenapiSpec nullable.Nullable[map[string]interface{}] `json:"openapi_spec,omitempty"`
 
 	// Public Deprecated alias for `visibility`: `true` means `public` and
-	// `false` means `authenticated`. Declaring both with different
-	// meanings is an error. Exports write `visibility` only.
+	// `false` means `authenticated`, not `private`, so an entry left at
+	// `false` applies `authenticated` on every apply; declare
+	// `visibility: private` to keep a function private. Declaring both
+	// with different meanings is an error. Exports write `visibility`
+	// only.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Public     *bool                     `json:"public,omitempty"`
 	Schedulers *[]ProjectConfigScheduler `json:"schedulers,omitempty"`
@@ -9415,8 +9421,9 @@ type UpdateEmailTemplateRequest struct {
 
 // UpdateFunctionRequest defines model for UpdateFunctionRequest.
 type UpdateFunctionRequest struct {
-	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
-	// HTTP-mode functions and is intended for externally signed webhooks.
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
+	// HTTP-mode functions with `visibility: public` and is intended for
+	// externally signed webhooks.
 	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
 
 	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
@@ -10995,8 +11002,9 @@ type CreateFunctionMultipartBody struct {
 	// - Ruby: def handler() (in main.rb)
 	Handler *string `json:"handler,omitempty"`
 
-	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for public
-	// HTTP-mode functions and is intended for externally signed webhooks.
+	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
+	// HTTP-mode functions with `visibility: public` and is intended for
+	// externally signed webhooks.
 	HttpAuthMode *FunctionHTTPAuthMode `json:"http_auth_mode,omitempty"`
 
 	// InvocationMode Invocation contract. `rpc` preserves the existing POST `{payload: ...}` contract;
