@@ -1,6 +1,7 @@
 package durable
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -397,9 +398,9 @@ func TestDurableDeployLeavesVisibilityAloneByDefault(t *testing.T) {
 
 // A new durable function starts private, which refuses the signed-in users an
 // app usually starts executions as, and there is no update command to fix that
-// afterwards. The hint names the redeploy for a function the manifest leaves
-// alone and config deploy for one it already gives a level. Existing functions
-// and ones the manifest keeps private get nothing.
+// afterwards. The hint leads with config deploy, which needs no rebuild, and
+// names the redeploy as the alternative for a function the manifest leaves
+// alone. Existing functions and ones the manifest keeps private get nothing.
 func TestDurableDeployHintsHowToOpenNewPrivateFunctions(t *testing.T) {
 	setDurableCommandTestHome(t)
 	t.Chdir(t.TempDir())
@@ -443,9 +444,10 @@ functions:
 	assert.Contains(t, out, "New durable functions are private: only service keys and schedulers can start executions.\n"+
 		"volcano-config.yaml declares a visibility for reports; apply it with:\n"+
 		"  volcano cloud config deploy\n"+
-		"To let your project's signed-in users start them, redeploy with --visibility:\n"+
-		"  volcano cloud durable deploy -f order-pipeline --visibility authenticated\n"+
-		"Or declare its visibility in volcano-config.yaml and run volcano cloud config deploy\n")
+		"To let your project's signed-in users in, declare visibility: authenticated for order-pipeline in volcano-config.yaml and run:\n"+
+		"  volcano cloud config deploy\n"+
+		"Or redeploy with --visibility, which rebuilds the function:\n"+
+		"  volcano cloud durable deploy -f order-pipeline --visibility authenticated\n")
 	assert.NotContains(t, out, "-f reports")
 	assert.NotContains(t, out, "nightly;")
 	assert.NotContains(t, out, "-f nightly")
@@ -473,6 +475,77 @@ func TestDurableDeployGivesNoHintWhenTheFlagChoosesPrivate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Visibility: private")
 	assert.NotContains(t, out, "New durable functions are private")
+}
+
+// A server that predates visibility levels refuses the field with a bare 400
+// or deploys without reporting a level. A deploy that asked for one fails
+// either way; one that did not warns instead of guessing a level.
+func TestDurableDeployOnAServerWithoutVisibilityLevels(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		args       []string
+		status     int
+		wantErr    string
+		wantStderr string
+	}{
+		{
+			name:    "flag refused",
+			args:    []string{"deploy", "-f", "order-pipeline", "--visibility", "authenticated"},
+			status:  http.StatusBadRequest,
+			wantErr: "a server that predates visibility levels refuses --visibility this way",
+		},
+		{
+			name:   "flag ignored",
+			args:   []string{"deploy", "-f", "order-pipeline", "--visibility", "authenticated"},
+			status: http.StatusCreated,
+			wantErr: "the server does not support visibility levels yet: 'order-pipeline' was deployed, " +
+				"but check who can start its executions with volcano cloud durable get order-pipeline",
+		},
+		{
+			name:       "no flag",
+			args:       []string{"deploy", "-f", "order-pipeline"},
+			status:     http.StatusCreated,
+			wantStderr: "the server does not support visibility levels yet, so it reported no visibility for order-pipeline",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setDurableCommandTestHome(t)
+			t.Chdir(t.TempDir())
+			writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case writeDurableRuntimesResponse(t, w, r):
+					return
+				case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+					if tc.status == http.StatusBadRequest {
+						writeDurableCommandJSON(t, w, tc.status, map[string]any{"error": "invalid request"})
+						return
+					}
+					payload := durableFunctionPayload("order-pipeline", "")
+					delete(payload, "visibility")
+					writeDurableCommandJSON(t, w, tc.status, payload)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			cmd := newCloudDurableCommand(server)
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotContains(t, stdout.String(), "Visibility:")
+			assert.NotContains(t, stdout.String(), "New durable functions are private")
+			assert.Contains(t, stderr.String(), tc.wantStderr)
+		})
+	}
 }
 
 // --all takes its targets from the manifest rather than from the scan, because

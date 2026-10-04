@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
@@ -27,6 +29,7 @@ type deployOptions struct {
 	all        bool
 	visibility cmdutil.VisibilityFlags
 	out        io.Writer
+	errOut     io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -51,19 +54,26 @@ manifest declares standard is refused: deploy that one with functions deploy.
 Deploying over an existing durable function redeploys it. Executions already
 running continue on the version they started on.
 
---visibility sets who can start executions, and applies to the one function -f
-names. A durable function has no update endpoint, so a redeploy is how its
-visibility changes; leaving the flag out keeps what the function has:
+Visibility sets who can start executions:
   private        Service keys and schedulers only. New functions start here.
-  authenticated  Also your project's signed-in users.
-  public         Also anon keys with functions.invoke.`,
+  authenticated  Also your project's signed-in users, including anonymous
+                 sign-ins.
+  public         Also anon keys with functions.invoke.
+Callers a private function refuses get the same 404 as for a missing function.
+
+To change a durable function's visibility without rebuilding it, declare
+visibility under it in volcano-config.yaml and run %s. Redeploying with
+--visibility also sets it, for the one function -f names; leaving the flag out
+keeps what the function has.`,
 			cliruntime.CommandPath(deps, "durable deploy --all"),
-			cliruntime.CommandPath(deps, "durable deploy -f order-pipeline")),
+			cliruntime.CommandPath(deps, "durable deploy -f order-pipeline"),
+			cliruntime.CommandPath(deps, "config deploy")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
 			opts.file = strings.TrimSpace(opts.file)
 			opts.out = cmd.OutOrStdout()
+			opts.errOut = cmd.ErrOrStderr()
 			return runDeploy(cmd.Context(), &opts)
 		},
 	}
@@ -98,6 +108,9 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 	if err != nil {
 		return err
 	}
+	for _, warning := range manifest.Deprecations {
+		output.Warning(opts.errOut, "%s", warning)
+	}
 
 	service := clidurable.NewService(opts.deps)
 	sources, baseDir, err := durableSources(ctx, opts, targets)
@@ -109,32 +122,46 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 			sources[0].Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
-	var newPrivate []string
+	var newPrivate, unreported []string
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
 			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
 		)
 		if err != nil {
+			if visibility != nil && api.Status(err) == http.StatusBadRequest {
+				return fmt.Errorf("%w\n%s", err, cmdutil.VisibilityLevelsHint(opts.deps))
+			}
 			return err
+		}
+		if deployed.Visibility == "" {
+			if visibility != nil {
+				return fmt.Errorf("%s: '%s' was deployed, but check who can start its executions with %s",
+					cmdutil.VisibilityLevelsUnsupported, deployed.Name, cliruntime.CommandPath(opts.deps, "durable get "+deployed.Name))
+			}
+			unreported = append(unreported, deployed.Name)
 		}
 		// Only a new function the flag did not set: an existing one keeps the
 		// level its owner chose, and --visibility private is a choice too.
-		if created && visibility == nil &&
-			output.FunctionVisibility(deployed.Visibility, deployed.IsPublic) == string(apiclient.FunctionVisibilityPrivate) {
+		if created && visibility == nil && deployed.Visibility == apiclient.FunctionVisibilityPrivate {
 			newPrivate = append(newPrivate, deployed.Name)
 		}
 	}
 	fmt.Fprintln(opts.out)
 	output.Success(opts.out, "%d/%d durable function(s) deployment started", len(sources), len(sources))
 	fmt.Fprintf(opts.out, "Follow the rollout with %s\n", cliruntime.CommandPath(opts.deps, "durable get "+sources[0].Name))
+	if len(unreported) > 0 {
+		output.Warning(opts.errOut, "%s, so it reported no visibility for %s",
+			cmdutil.VisibilityLevelsUnsupported, strings.Join(unreported, ", "))
+	}
 	cmdutil.PrivateHint{
 		Summary:     "New durable functions are private: only service keys and schedulers can start executions.",
-		Instruction: "To let your project's signed-in users start them, redeploy with --visibility:",
+		Instruction: "Or redeploy with --visibility, which rebuilds the function:",
 		Open: func(name string) string {
 			return cliruntime.CommandPath(opts.deps, "durable deploy -f "+name+" --visibility authenticated")
 		},
 		ConfigDeploy: cliruntime.CommandPath(opts.deps, "config deploy"),
+		ConfigFirst:  true,
 		Declared:     manifest.Visibility,
 	}.Print(opts.out, newPrivate)
 	return nil
@@ -166,7 +193,9 @@ func deployOne(
 		return nil, false, err
 	}
 	fmt.Fprintf(out, "  Deployed %s (%s)\n", deployed.Name, string(deployed.Status))
-	fmt.Fprintf(out, "  Visibility: %s\n", output.FunctionVisibility(deployed.Visibility, deployed.IsPublic))
+	if deployed.Visibility != "" {
+		fmt.Fprintf(out, "  Visibility: %s\n", deployed.Visibility)
+	}
 	return deployed, created, nil
 }
 
