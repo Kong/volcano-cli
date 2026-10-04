@@ -3690,7 +3690,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Function'
         '400':
-          description: Bad request
+          description: |
+            Invalid settings: an unknown `visibility`, `visibility` and
+            `is_public` disagree, or `http_auth_mode: none` on a function that
+            is not `public`
           content:
             application/json:
               schema:
@@ -3741,8 +3744,10 @@ paths:
       summary: Invoke a function
       description: |
         Invoke a function. The function's `visibility` decides which credentials
-        may call it; a credential it does not admit gets 403 and the function
-        does not run.
+        may call it, and the function does not run for any other. A `private`
+        function answers every credential but a service key exactly as a
+        missing one, with 404, so its name and id cannot be discovered; an anon
+        key on an `authenticated` function gets 403.
 
         **With Service Key** (admin/background operations, every visibility):
         - Use for background jobs, webhooks, cron, admin operations
@@ -3864,15 +3869,16 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            Forbidden - CORS blocked, missing `functions.invoke`, or the
-            function's `visibility` does not admit the credential: an auth user
-            token on a `private` function, or an anon key on a non-public one
+            Forbidden - CORS blocked, missing `functions.invoke`, or an anon key
+            on an `authenticated` function
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Function not found
+          description: |
+            Function not found. Also returned for a `private` function to any
+            credential but a service key.
           content:
             application/json:
               schema:
@@ -3952,6 +3958,9 @@ paths:
         **With an anon key:** requires the `functions.invoke` permission, and
         the function must have `visibility: public`.
 
+        A `private` durable function answers every credential but a service key
+        exactly as a missing one, with 404.
+
         Starting is all this endpoint does. Reading a result or stopping an
         execution requires the project owner's token, because an anon key is
         shared by everyone who loads the page and an execution is addressed by
@@ -4017,9 +4026,9 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            The anon key lacks `functions.invoke`, the function's `visibility`
-            does not admit the credential, or the request's origin is refused by
-            the project's CORS policy.
+            The anon key lacks `functions.invoke` or the function is
+            `authenticated`, or the request's origin is refused by the project's
+            CORS policy.
           content:
             application/json:
               schema:
@@ -4027,8 +4036,9 @@ paths:
         '404':
           description: |
             Durable function not found. Also returned for a standard function's
-            id and for a durable function in another project, so the response
-            cannot be used to tell those apart.
+            id, for a durable function in another project, and for a `private`
+            one to any credential but a service key, so the response cannot be
+            used to tell those apart.
           content:
             application/json:
               schema:
@@ -4090,8 +4100,7 @@ paths:
 
         **With Auth User Token**:
         - Allowed for `authenticated` and `public` functions
-        - A `private` function answers 403, so the caller learns why its invoke
-          would be refused
+        - A `private` function answers 404, exactly as a missing one
 
         **With Anon Key**:
         - Requires anon key permission: `functions.invoke`
@@ -4132,15 +4141,16 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            Forbidden - CORS blocked, missing `functions.invoke` permission for
-            anon key, or a `private` function resolved with an auth user token
+            Forbidden - CORS blocked, or missing `functions.invoke` permission
+            for anon key
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
           description: |
-            Function not found (or non-public function with anon key). A durable
+            Function not found. Also returned for a `private` function with an
+            auth user token, and a non-public one with an anon key. A durable
             function is never resolvable here: it is started through
             `POST /durable-functions/{functionId}/executions`, not invoked.
           content:
@@ -5483,7 +5493,7 @@ paths:
         22.x or 24.x. The Node.js runtime is inferred from
         `package.json` `engines.node`; if omitted, Volcano uses Node.js 22.x.
         The selected Node.js family must also satisfy the installed Next.js package's
-        `engines.node` constraint. Volcano tests Next 15.5.26 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.3.7 (`>=20.9.0`).
+        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.3.8 (`>=20.9.0`).
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
         does not apply its own source archive size limit. After the final container images are
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
@@ -18884,7 +18894,8 @@ components:
         Who can invoke the function. Each level admits everything the one
         before it does.
         - `private`: service keys and the project's schedulers only. The
-          default for a new function.
+          default for a new function. To any other credential the function
+          does not exist: it answers 404, like a missing one.
         - `authenticated`: also any signed-in user of the project, including
           anonymous sign-ins. The function receives their auth context.
         - `public`: also anon keys holding `functions.invoke`, and Frontend

@@ -6467,7 +6467,8 @@ type Function struct {
 	// Visibility Who can invoke the function. Each level admits everything the one
 	// before it does.
 	// - `private`: service keys and the project's schedulers only. The
-	//   default for a new function.
+	//   default for a new function. To any other credential the function
+	//   does not exist: it answers 404, like a missing one.
 	// - `authenticated`: also any signed-in user of the project, including
 	//   anonymous sign-ins. The function receives their auth context.
 	// - `public`: also anon keys holding `functions.invoke`, and Frontend
@@ -6662,7 +6663,8 @@ type FunctionSchedulerListResponse struct {
 // FunctionVisibility Who can invoke the function. Each level admits everything the one
 // before it does.
 //   - `private`: service keys and the project's schedulers only. The
-//     default for a new function.
+//     default for a new function. To any other credential the function
+//     does not exist: it answers 404, like a missing one.
 //   - `authenticated`: also any signed-in user of the project, including
 //     anonymous sign-ins. The function receives their auth context.
 //   - `public`: also anon keys holding `functions.invoke`, and Frontend
@@ -8115,7 +8117,8 @@ type ProjectConfigFunction struct {
 	// Visibility Who can invoke the function. Each level admits everything the one
 	// before it does.
 	// - `private`: service keys and the project's schedulers only. The
-	//   default for a new function.
+	//   default for a new function. To any other credential the function
+	//   does not exist: it answers 404, like a missing one.
 	// - `authenticated`: also any signed-in user of the project, including
 	//   anonymous sign-ins. The function receives their auth context.
 	// - `public`: also anon keys holding `functions.invoke`, and Frontend
@@ -9432,7 +9435,8 @@ type UpdateFunctionRequest struct {
 	// Visibility Who can invoke the function. Each level admits everything the one
 	// before it does.
 	// - `private`: service keys and the project's schedulers only. The
-	//   default for a new function.
+	//   default for a new function. To any other credential the function
+	//   does not exist: it answers 404, like a missing one.
 	// - `authenticated`: also any signed-in user of the project, including
 	//   anonymous sign-ins. The function receives their auth context.
 	// - `public`: also anon keys holding `functions.invoke`, and Frontend
