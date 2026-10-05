@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.3](https://github.com/Kong/volcano-cli/compare/v0.37.2...v0.37.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* **cli:** upgrade and install binaries from Volcano downloads ([#259](https://github.com/Kong/volcano-cli/issues/259)) ([4f8eb49](https://github.com/Kong/volcano-cli/commit/4f8eb499e456ee4b5b4bc90a18bf596dc30a0b80))
+
 ## [0.37.2](https://github.com/Kong/volcano-cli/compare/v0.37.1...v0.37.2) (2026-10-05)
 
 
