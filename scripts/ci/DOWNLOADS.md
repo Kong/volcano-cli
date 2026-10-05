@@ -16,8 +16,9 @@ No new credentials or AWS resources are needed.
 All signed assets must exist and verify through the public CDN before promotion,
 and once a pointer exists the new bootstrap must install the current latest
 version through it. After promotion, a signed install must resolve the public
-pointer within 75 seconds of retries, which outlast its cache and CloudFront's
-default error caching, or the job fails before the GitHub release is created.
+pointer within 75 seconds of retries, which outlast CloudFront's default error
+caching, or the job fails before the GitHub release is created. It accepts any
+stable version because the edge can serve the previous pointer for 60 seconds.
 A partial upload keeps the previous pointer, latest assets, and bootstrap.
 If a promotion copy or the pointer write fails, promotion re-reads
 `latest-version` and copies the release it names onto the latest assets and
