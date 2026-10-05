@@ -125,6 +125,7 @@ frontend to a function, so the browser calls it on the frontend's own origin:
 version: 1
 functions:
   - name: session
+    public: true
     invocation_mode: http
 frontends:
   - name: web
@@ -136,7 +137,7 @@ frontends:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `function` | Yes | A deployed standard function with `invocation_mode: http`. |
+| `function` | Yes | A deployed public, standard function with `invocation_mode: http`. |
 | `path_prefix` | Yes | The path to forward, such as `/api/session`. It matches that path and everything under it. It starts with `/` and does not end with one. |
 | `strip_prefix` | No | `true` sends the function the rest of the path, or `/` for the prefix itself. The default, `false`, sends the full path. |
 
