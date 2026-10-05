@@ -1,6 +1,7 @@
 package frontends
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -308,6 +309,36 @@ func TestFrontendsGetShowsRoutesWithTheirTargetsVisibility(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Function routes:")
 	assert.Contains(t, out, "  /api/session -> session (public, strip prefix)")
+}
+
+// The function listing only names the route targets, so failing to read it
+// must not hide the frontend or its routes.
+func TestFrontendsGetShowsRouteTargetIDsWhenFunctionsCannotBeListed(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
+			frontend := frontendCommandPayload(frontendID, "web")
+			frontend["function_routes"] = []map[string]any{routePayload(routeID, sessionFuncID, "/api/session", true)}
+			writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{frontend}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+			})
+		default:
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		}
+	}))
+	defer server.Close()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"get", "web"})
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, stdout.String(), "Name: web")
+	assert.Contains(t, stdout.String(), "  /api/session -> "+sessionFuncID+" (-, strip prefix)")
+	assert.Contains(t, stderr.String(), "routes on 'web' show function IDs instead of names: failed to list functions")
 }
 
 func lineContaining(t *testing.T, output, needle string) string {
