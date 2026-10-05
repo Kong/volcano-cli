@@ -29,10 +29,15 @@ func TestAPIE2ECloudFunctions(t *testing.T) {
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "hello")
 	env.waitForFunctionVersion(t, "hello", "v3", apiE2EFunctionConvergenceTimeout)
 	env.runCloudCLI(t, "functions", "list").requireSuccess(t, "hello")
-	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Name: hello", "Visibility: private")
+	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Name: hello", "Visibility: not public")
 	env.runCloudCLI(t, "functions", "update", "hello", "--public").requireSuccess(t, "visibility set to public")
 	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: public")
-	env.runCloudCLI(t, "functions", "update", "hello", "--private").requireSuccess(t, "visibility set to private")
+	// --private sends is_public: false, which keeps signed-in users in.
+	privateUpdate := env.runCloudCLI(t, "functions", "update", "hello", "--private")
+	privateUpdate.requireSuccess(t, "Function 'hello' is not public: anon keys are refused",
+		"signed-in users and service keys can invoke it")
+	privateUpdate.requireNotContains(t, "visibility set to private")
+	env.runCloudCLI(t, "functions", "get", "hello").requireSuccess(t, "Visibility: not public")
 
 	env.runCloudCLI(t, "functions", "delete", "hello", "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No functions deployed", "functions", "list")

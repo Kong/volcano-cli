@@ -101,7 +101,7 @@ func TestRunTemplateCreatesNextJSNotesExample(t *testing.T) {
 	assert.Contains(t, readProjectFile(t, dir, ".gitignore"), "node_modules")
 	assert.Contains(t, readProjectFile(t, dir, filepath.Join("web", ".gitignore")), ".env*.local")
 	assert.Contains(t, readProjectFile(t, dir, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
-	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano-config.yaml"))
+	assert.Contains(t, result.Created(), filepath.Join("volcano", "volcano-config.yaml"))
 }
 
 func TestRunTemplateCreatesLanguageStartersAndDemos(t *testing.T) {

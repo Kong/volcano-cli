@@ -67,11 +67,7 @@ func Function(w io.Writer, fn *apiclient.Function) {
 	if len(fn.DeployedRegions) > 0 {
 		kv(w, on, "Regions", "%s", strings.Join(fn.DeployedRegions, ", "))
 	}
-	visibility := "private"
-	if fn.IsPublic {
-		visibility = "public"
-	}
-	kv(w, on, "Visibility", "%s", theme.Status(visibility, on))
+	kv(w, on, "Visibility", "%s", theme.Status(FunctionVisibility(fn.IsPublic), on))
 	if invokeURL := stringPtrValue(fn.InvokeUrl); invokeURL != "" {
 		kv(w, on, "Invoke URL", "%s", invokeURL)
 	}
@@ -80,6 +76,15 @@ func Function(w io.Writer, fn *apiclient.Function) {
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(fn.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(fn.UpdatedAt))
+}
+
+// FunctionVisibility names what is_public says. false only refuses anon keys:
+// the project's signed-in users may still invoke, so it is not "private".
+func FunctionVisibility(isPublic bool) string {
+	if isPublic {
+		return "public"
+	}
+	return "not public"
 }
 
 // FunctionRuntimes renders function runtime options.
