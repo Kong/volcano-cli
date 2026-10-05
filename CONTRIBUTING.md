@@ -157,7 +157,7 @@ Release assets include platform binaries, adjacent `.sigstore.json` bundles,
 downloads from Volcano downloads and defaults to the latest stable release:
 
 ```bash
-curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
+curl -fsSL https://download.volcano.dev/builds/install.sh | bash
 ```
 
 Set `VOLCANO_VERSION=vMAJOR.MINOR.PATCH` to install a pinned release.

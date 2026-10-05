@@ -372,7 +372,7 @@ jobs:
           VERSION: ${{ steps.npm_version.outputs.version }}
         run: |
           set -euo pipefail
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          base="https://download.volcano.dev/builds/releases/download/v${VERSION}"
           # Ranged GET (first byte) confirms each asset is actually downloadable,
           # which is what the package's postinstall does.
           for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
@@ -424,7 +424,6 @@ jobs:
 
       - name: Regenerate formula
         env:
-          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -444,11 +443,11 @@ jobs:
             fi
           fi
 
-          # SHA256SUMS is an asset on the release publish-github-release just cut,
-          # so the four platform checksums are already computed; no re-download
-          # of the binaries needed.
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern SHA256SUMS --dir . --clobber
+          base="https://download.volcano.dev/builds/releases/download/${RELEASE_TAG}"
+          # SHA256SUMS comes from the same verified host the formula downloads
+          # from, so the four platform checksums are already computed; no
+          # re-download of the binaries needed.
+          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -o SHA256SUMS "${base}/SHA256SUMS"
 
           sha() { awk -v f="$1" '$2==f {print $1}' SHA256SUMS; }
           MAC_ARM="$(sha volcano-macos-arm64)"
@@ -461,7 +460,6 @@ jobs:
             [ -n "$v" ] || { echo "missing checksum in SHA256SUMS"; exit 1; }
           done
 
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
           # The formula is fully determined by version + the four checksums, so
           # template the whole file rather than sed-patching four url/sha256
           # blocks (which is why `brew bump-formula-pr` — single-url only — does
@@ -474,7 +472,7 @@ jobs:
             license "Apache-2.0"
 
             livecheck do
-              url :stable
+              url :homepage
               strategy :github_latest
             end
 

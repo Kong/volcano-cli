@@ -34,7 +34,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 func updateOptions(deps cliruntime.Deps) update.Options {
 	return update.Options{
 		HTTPClient:     deps.HTTPClient,
-		GitHubAPIURL:   deps.UpdateGitHubAPIURL,
+		DownloadURL:    deps.UpdateDownloadURL,
 		ExecutablePath: deps.ExecutablePath,
 		CommandRunner:  deps.UpdateCommandRunner,
 	}

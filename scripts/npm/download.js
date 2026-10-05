@@ -1,7 +1,7 @@
 'use strict';
 
 // Shared helpers for downloading and verifying the platform-specific Volcano
-// CLI binary from GitHub Releases. Used by the postinstall script
+// CLI binary from Volcano downloads. Used by the postinstall script
 // (scripts/npm/install.js) and, as a self-healing fallback, by the launcher
 // shim (bin/volcano.js).
 
@@ -20,7 +20,8 @@ const pkg = require('../../package.json');
 // Allow pointing at a mirror (kept consistent with scripts/install-volcano.sh).
 const RELEASES_BASE = (
   process.env.VOLCANO_GITHUB_RELEASES_URL ||
-  'https://github.com/Kong/volcano-cli/releases'
+  process.env.VOLCANO_CLI_RELEASES_URL ||
+  'https://download.volcano.dev/builds/releases'
 ).replace(/\/+$/, '');
 
 // Map Node's platform-arch to the release asset target id.
@@ -153,7 +154,7 @@ function parseChecksum(manifest, name) {
   return null;
 }
 
-async function downloadToFile(url, dest) {
+async function downloadToFile(url, dest, expected) {
   const tmp = `${dest}.download-${process.pid}`;
   try {
     const res = await get(url);
@@ -163,6 +164,9 @@ async function downloadToFile(url, dest) {
     const hash = crypto.createHash('sha256');
     await streamPipeline(fs.createReadStream(tmp), hash);
     const digest = hash.digest('hex');
+    if (digest !== expected) {
+      throw new Error(`Checksum mismatch for ${path.basename(dest)}: expected ${expected}, got ${digest}`);
+    }
     // rename does not overwrite an existing destination on Windows, so clear it
     // first (also covers a check-then-write race and force re-downloads).
     fs.rmSync(dest, { force: true });
@@ -202,13 +206,7 @@ async function ensureBinary({ force = false } = {}) {
   }
 
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const actual = (await downloadToFile(`${base}/${name}`, dest)).toLowerCase();
-  if (actual !== expected) {
-    fs.rmSync(dest, { force: true });
-    throw new Error(
-      `Checksum mismatch for ${name}: expected ${expected}, got ${actual}`
-    );
-  }
+  await downloadToFile(`${base}/${name}`, dest, expected);
 
   if (process.platform !== 'win32') {
     fs.chmodSync(dest, 0o755);

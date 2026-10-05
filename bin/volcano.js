@@ -22,10 +22,10 @@ async function resolveBinary() {
     // resolveTarget() throws for e.g. Windows arm64, which passes the
     // package.json os/cpu gate but has no published binary.
     console.error(`volcano: could not obtain the CLI binary: ${err.message}`);
-    console.error(
-      'Install it manually from https://github.com/Kong/volcano-cli/releases ' +
-        'or re-install the package.'
-    );
+    const manual = process.platform === 'win32'
+      ? 'https://download.volcano.dev/builds/releases/latest/download/volcano-windows-amd64.exe'
+      : 'https://download.volcano.dev/builds/install.sh';
+    console.error(`Install it manually from ${manual} or re-install the package.`);
     process.exit(1);
   }
 }

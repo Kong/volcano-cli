@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,7 +22,7 @@ import (
 )
 
 const (
-	defaultGitHubAPIURL = "https://api.github.com/repos/Kong/volcano-cli"
+	defaultDownloadURL  = "https://download.volcano.dev/builds/releases"
 	defaultTimeout      = 10 * time.Second
 	signatureWorkflow   = "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
 	signatureOIDCIssuer = "https://token.actions.githubusercontent.com"
@@ -50,7 +49,7 @@ func (f RunnerFunc) Run(ctx context.Context, name string, args ...string) ([]byt
 // Options configures update operations.
 type Options struct {
 	HTTPClient                   HTTPClient
-	GitHubAPIURL                 string
+	DownloadURL                  string
 	ExecutablePath               string
 	CommandRunner                CommandRunner
 	RequireSignatureVerification bool
@@ -65,45 +64,46 @@ type Options struct {
 	LookPath func(name string) (string, error)
 }
 
-// Release is the subset of GitHub release metadata the CLI needs.
+// Release is a published CLI version on Volcano downloads.
 type Release struct {
-	TagName string  `json:"tag_name"`
-	Assets  []Asset `json:"assets"`
+	TagName string
+	baseURL string
 }
 
-// Asset is a downloadable GitHub release asset.
-type Asset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
+// AssetURL returns the download URL of a named asset in this release.
+func (r Release) AssetURL(name string) string {
+	return r.baseURL + "/download/" + r.TagName + "/" + name
 }
 
-// LatestRelease fetches GitHub's latest release metadata.
+// LatestRelease resolves the promoted release from Volcano downloads.
 func LatestRelease(ctx context.Context, opts Options) (*Release, error) {
-	client := releaseHTTPClient(opts)
-	baseURL := strings.TrimRight(strings.TrimSpace(opts.GitHubAPIURL), "/")
-	if baseURL == "" {
-		baseURL = defaultGitHubAPIURL
+	base := strings.TrimRight(strings.TrimSpace(opts.DownloadURL), "/")
+	if base == "" {
+		base = defaultDownloadURL
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/releases/latest", http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/latest-version", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create release request: %w", err)
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "volcano-cli")
 
-	resp, err := client.Do(req)
+	resp, err := releaseHTTPClient(opts).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("failed to fetch latest release: github returned %s", resp.Status)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch latest release: server returned %s", resp.Status)
 	}
-	var release Release
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to decode latest release: %w", err)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 128))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read latest release: %w", err)
 	}
-	return &release, nil
+	tag := strings.TrimSpace(string(body))
+	if _, err := parseStableVersion(tag); err != nil || !strings.HasPrefix(tag, "v") || len(body) == 128 {
+		return nil, fmt.Errorf("invalid latest release version %q", tag)
+	}
+	return &Release{TagName: tag, baseURL: base}, nil
 }
 
 func releaseHTTPClient(opts Options) HTTPClient {
@@ -138,7 +138,7 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 		return upgradeViaManager(ctx, current, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
-		return errors.New("self-upgrade is not supported on Windows; download the latest installer from GitHub releases")
+		return errors.New("self-upgrade is not supported on Windows; download https://download.volcano.dev/builds/releases/latest/download/volcano-windows-amd64.exe")
 	}
 	return upgradeViaDownload(ctx, current, out, opts, exePath)
 }
@@ -199,7 +199,7 @@ func upgradeViaManager(ctx context.Context, current string, out io.Writer, opts 
 }
 
 // releaseVersionIsPackageVersion reports whether the manager's @latest package
-// is identified exactly by the GitHub release version, making a GitHub-semver
+// is identified exactly by the release version, making a latest-version
 // up-to-date check authoritative. Homebrew is excluded: it can ship formula
 // revision/bottle rebuilds (1.2.3 -> 1.2.3_1) at the same upstream tag, and
 // `brew upgrade` picks those up cheaply, so the brew path always runs.
@@ -261,21 +261,6 @@ func upgradeViaDownload(ctx context.Context, current string, out io.Writer, opts
 	if err != nil {
 		return err
 	}
-	binaryAsset, err := release.Asset(binaryName)
-	if err != nil {
-		return err
-	}
-	var bundleAsset Asset
-	if opts.requireSignatureVerification() {
-		bundleAsset, err = release.Asset(binaryName + ".sigstore.json")
-		if err != nil {
-			return err
-		}
-	}
-	checksumsAsset, err := release.Asset("SHA256SUMS")
-	if err != nil {
-		return err
-	}
 
 	// Stage the download under the system temp dir so users without write access
 	// to filepath.Dir(exePath) (e.g. /usr/local/bin) can still download and verify.
@@ -292,16 +277,19 @@ func upgradeViaDownload(ctx context.Context, current string, out io.Writer, opts
 	tmpChecksums := filepath.Join(tmpDir, "SHA256SUMS")
 
 	fmt.Fprintf(out, "Downloading Volcano CLI %s...\n", release.TagName)
-	if err := downloadFile(ctx, opts, binaryAsset.BrowserDownloadURL, tmpBinary); err != nil {
-		return err
-	}
-	if err := downloadFile(ctx, opts, checksumsAsset.BrowserDownloadURL, tmpChecksums); err != nil {
+	// Fetch the small verification files first so a missing one fails before the binary download.
+	if err := downloadFile(ctx, opts, release.AssetURL("SHA256SUMS"), tmpChecksums); err != nil {
 		return err
 	}
 	if opts.requireSignatureVerification() {
-		if err := downloadFile(ctx, opts, bundleAsset.BrowserDownloadURL, tmpBundle); err != nil {
+		if err := downloadFile(ctx, opts, release.AssetURL(binaryName+".sigstore.json"), tmpBundle); err != nil {
 			return err
 		}
+	}
+	if err := downloadFile(ctx, opts, release.AssetURL(binaryName), tmpBinary); err != nil {
+		return err
+	}
+	if opts.requireSignatureVerification() {
 		if err := verifySignature(ctx, opts, tmpBinary, tmpBundle, release.TagName); err != nil {
 			return err
 		}
@@ -370,16 +358,6 @@ func copyToFile(dst *os.File, srcPath string) error {
 		return fmt.Errorf("failed to copy staged binary: %w", err)
 	}
 	return nil
-}
-
-// Asset returns the release asset with name.
-func (r Release) Asset(name string) (Asset, error) {
-	for _, asset := range r.Assets {
-		if asset.Name == name {
-			return asset, nil
-		}
-	}
-	return Asset{}, fmt.Errorf("latest release does not include required asset %q", name)
 }
 
 // PlatformBinaryName returns the published release asset name for this process.

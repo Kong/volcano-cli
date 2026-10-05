@@ -26,19 +26,18 @@ bootstrap, best effort, then fails.
 Reruns reuse existing signatures, reject changed signed bytes, and rebuild
 checksums from those canonical assets.
 Release runs queue and serialize across tags; older tags cannot downgrade the pointer.
-The npm package, Homebrew formula, and `volcano upgrade` still download from
-GitHub Releases, which publication updates only after promotion succeeds.
+GitHub remains a secondary release destination for older CLI versions.
 
 Promotion server-side copies each verified versioned object to the latest path,
 binaries first and checksums last, and fails if a source changed after
 verification. It then copies the bootstrap and conditionally writes the pointer.
 The latest assets can lead the pointer for the few seconds this takes, and edge
 caches can mix versions for up to 60 seconds afterward. A mixed download fails
-checksum or signature verification and succeeds when retried. The installer
-resolves `latest-version` once and uses versioned URLs instead.
+checksum or signature verification and succeeds when retried. The installer and
+`volcano upgrade` resolve `latest-version` once and use versioned URLs instead.
 
-The shell installer uses `VOLCANO_CLI_RELEASES_URL` only as an explicit mirror
-override; Hosting's `VOLCANO_DOWNLOAD_URL` names the bare
+The shell installer and npm downloader use `VOLCANO_CLI_RELEASES_URL` only as
+an explicit mirror override; Hosting's `VOLCANO_DOWNLOAD_URL` names the bare
 download host instead. The legacy `VOLCANO_GITHUB_RELEASES_URL` override keeps
 its GitHub-compatible URL semantics and takes precedence. Production defaults
 are tracked in code; mirrors do not fail over implicitly.
@@ -55,13 +54,12 @@ are tracked in code; mirrors do not fail over implicitly.
 3. Deploy the monitoring change through volcano-monitoring's deployment workflow.
    Keep the current assertions and eight probe locations. Verify two consecutive
    scheduled runs pass.
-4. Switch the npm downloader, Homebrew formula, and `volcano upgrade` to
-   Volcano downloads in a follow-up change.
 
-Existing binaries and historical GitHub URLs cannot change retrospectively.
-Signature trust metadata can require Sigstore connectivity. This change removes
-GitHub release hosting from the shell installer's binary downloads, not every
-external installation dependency.
+Existing binaries, published npm versions, old Homebrew formulas, and historical
+GitHub URLs cannot change retrospectively; upgrading adopts the new path.
+Homebrew still needs its tap, and npm still needs its registry. Signature trust
+metadata can require Sigstore connectivity. This change removes GitHub release
+hosting from binary downloads, not every external installation dependency.
 
 ## Recovery
 
@@ -86,8 +84,9 @@ python3 scripts/ci/publish-downloads.py --rollback --version vMAJOR.MINOR.PATCH 
 
 It re-verifies that version's signatures, CDN downloads, and installation, then
 restores its latest assets, bootstrap, and pointer. Do not run it while a release
-is publishing. It changes only Volcano downloads: GitHub Releases, npm,
-Homebrew, and `volcano upgrade` keep their latest version, so prefer releasing a
+is publishing. It changes only Volcano downloads: GitHub Releases, npm, and
+Homebrew keep their latest version, and `volcano upgrade` treats the restored
+version as latest and never downgrades an installed CLI, so prefer releasing a
 fixed version. Wait for the 60-second cache lifetime; CDN invalidation is
 optional. Older clients remain supported by GitHub release publication. Do not
 repoint the installer monitor until its URL is live.
