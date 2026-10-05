@@ -12,7 +12,7 @@ import (
 // TestPickerShowsEveryOption pins the workaround for charmbracelet/huh#831:
 // a huh MultiSelect inside a Form with no explicit Height collapses its
 // viewport to N-2 rows, hiding every option at N<=2 and clipping the last
-// two at larger N. promptHarnesses passes Height(len(options)+2) to force
+// two at larger N. newHarnessPicker passes Height(len(options)+2) to force
 // the non-buggy code path; this test fails if that call is dropped or if
 // huh regresses the fix.
 func TestPickerShowsEveryOption(t *testing.T) {
@@ -25,16 +25,7 @@ func TestPickerShowsEveryOption(t *testing.T) {
 			}
 
 			var selected []string
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewMultiSelect[string]().
-						Title("Install Volcano for which coding agents?").
-						Description(keyHintDescription(false)).
-						Options(options...).
-						Height(len(options) + 2).
-						Value(&selected),
-				),
-			)
+			form := newHarnessPicker(options, &selected, false)
 			_ = form.Init()
 			_, _ = form.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 

@@ -162,6 +162,20 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 		options[i] = huh.NewOption(mark+" "+d.Name+note, d.Name).Selected(true)
 	}
 
+	form := newHarnessPicker(options, &selected, color).
+		WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout())
+
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return nil, true, nil
+		}
+		return nil, false, err
+	}
+	return selected, len(selected) == 0, nil
+}
+
+// newHarnessPicker builds the picker used by setup and its render test.
+func newHarnessPicker(options []huh.Option[string], selected *[]string, color bool) *huh.Form {
 	// huh's default quit binding is ctrl+c only; bind esc too so the advertised
 	// "esc cancels" hint actually aborts the picker.
 	km := huh.NewDefaultKeyMap()
@@ -178,9 +192,9 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 				// option at N<=2). len(options)+2 is the field's natural size;
 				// remove once huh ships the fix.
 				Height(len(options) + 2).
-				Value(&selected),
+				Value(selected),
 		),
-	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithKeyMap(km)
+	).WithKeyMap(km)
 	if color {
 		form = form.WithTheme(volcanoTheme())
 	} else {
@@ -188,13 +202,7 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 		form = form.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii))
 	}
 
-	if err := form.Run(); err != nil {
-		if errors.Is(err, huh.ErrUserAborted) {
-			return nil, true, nil
-		}
-		return nil, false, err
-	}
-	return selected, len(selected) == 0, nil
+	return form
 }
 
 // keyHintDescription renders the picker's key hint with the actual keystrokes
