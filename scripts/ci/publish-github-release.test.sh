@@ -78,6 +78,18 @@ expect_calls "$lookup" "$create"
 run missing 'offline ok'
 expect_calls "$lookup" "$create" "$lookup" "$create"
 
+# The last create also falls back to the upload when the release appeared.
+run 'missing missing missing missing ok' 'offline offline offline exists'
+expect_calls "$lookup" "$create" "$lookup" "$create" "$lookup" "$create" \
+  "$lookup" "$create" "$lookup" "$upload" "$edit"
+
+if run missing offline; then
+  echo 'reported success for a release that was never created' >&2
+  exit 1
+fi
+expect_calls "$lookup" "$create" "$lookup" "$create" "$lookup" "$create" \
+  "$lookup" "$create" "$lookup"
+
 if run offline ok; then
   echo 'published a release whose existence could not be checked' >&2
   exit 1

@@ -51,6 +51,11 @@ release_exists() {
 
 n=0
 until release_exists; do
+  if [ "$n" -ge "$max" ]; then
+    echo "giving up creating release ${tag} after ${max} attempts" >&2
+    exit 1
+  fi
+  n=$((n + 1))
   # The bundled create drafts the release, uploads the assets, then publishes
   # it, so a new release is never visible without its assets. After a failed
   # create, check again: the release may exist now.
@@ -60,12 +65,7 @@ until release_exists; do
     --generate-notes; then
     exit 0
   fi
-  n=$((n + 1))
-  if [ "$n" -ge "$max" ]; then
-    echo "giving up creating release ${tag} after ${max} attempts" >&2
-    exit 1
-  fi
-  echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * delay))s" >&2
+  echo "release create for ${tag} failed (attempt ${n}); checking again in $((n * delay))s" >&2
   sleep $((n * delay))
 done
 
