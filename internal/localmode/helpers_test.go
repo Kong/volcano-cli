@@ -77,7 +77,7 @@ func commandIs(command Command, name string, args ...string) bool {
 }
 
 func commandIsComposeDown(command Command, clean bool) bool {
-	args := []string{"compose", "-f", "", "-f", "", "-p", composeProjectName, "down"}
+	args := []string{"compose", "-f", "", "-f", "", "-p", composeProjectName, "--profile", "sandboxes", "down"}
 	if clean {
 		args = append(args, "-v")
 	}

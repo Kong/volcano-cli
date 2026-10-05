@@ -11,6 +11,7 @@ import (
 	durablecmd "github.com/Kong/volcano-cli/internal/cmd/durable"
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
+	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
 	"github.com/Kong/volcano-cli/internal/dataplane"
@@ -38,6 +39,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	deps.CommandPathPrefix = "volcano cloud"
 	dataPlaneKeys := dataplane.NewService(deps)
 	return []*cobra.Command{
+		sandboxescmd.New(deps),
 		accesstokenscmd.New(deps),
 		configcmd.New(deps),
 		databasescmd.New(deps),
