@@ -400,12 +400,6 @@ jobs:
     name: Update Homebrew tap
     runs-on: ubuntu-latest
     needs: [resolve-release, publish-github-release]
-    # Serialize across ALL release tags (the workflow-level concurrency key is
-    # per-ref, so two tags can otherwise reach this job at once and race their
-    # direct pushes to the tap). One tap update at a time, never cancelled.
-    concurrency:
-      group: update-homebrew-tap
-      cancel-in-progress: false
     steps:
       # Mint a short-lived token scoped to Kong/homebrew-volcano. Reuses the
       # same App as release-please.yml (VOLCANO_APP_ID/VOLCANO_APP_KEY); the App
