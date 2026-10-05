@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/Kong/volcano-cli/compare/v0.36.0...v0.37.0) (2026-10-05)
+
+
+### Features
+
+* **config:** accept function visibility and frontend function routes ([#255](https://github.com/Kong/volcano-cli/issues/255)) ([c4ec30d](https://github.com/Kong/volcano-cli/commit/c4ec30d4b1c86d935d885f2cb93fc1222b401488))
+
 ## [0.36.0](https://github.com/Kong/volcano-cli/compare/v0.35.5...v0.36.0) (2026-09-30)
 
 
