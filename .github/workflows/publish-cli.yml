@@ -8,9 +8,12 @@ on:
 permissions:
   contents: read
 
+# Releases serialize so latest-version promotion never races; queue: max keeps a
+# third tag from cancelling the pending run.
 concurrency:
-  group: publish-cli-${{ github.ref_name }}
+  group: publish-cli
   cancel-in-progress: false
+  queue: max
 
 jobs:
   validate-release-ref:
@@ -173,7 +176,7 @@ jobs:
           path: dist/${{ matrix.target.id }}
 
   publish-github-release:
-    name: Publish GitHub Release
+    name: Publish Release Downloads
     runs-on: ubuntu-latest
     needs: [build-binaries, resolve-release]
     permissions:
@@ -213,13 +216,22 @@ jobs:
             --yes
           test -s "dist/release-assets/install.sh.sigstore.json"
 
-      - name: Generate checksums
+      - name: Configure download publisher credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_CLI_PUBLISHER_ROLE_ARN_PRODUCTION }}
+          aws-region: us-east-2
+
+      - name: Publish and install verified downloads without GitHub access
         run: |
           set -euo pipefail
-          (
-            cd dist/release-assets
-            shasum -a 256 * | sort -k2 > SHA256SUMS
-          )
+          # Installation may use Sigstore trust metadata, but must not contact GitHub.
+          hosts='github.com api.github.com codeload.github.com raw.githubusercontent.com objects.githubusercontent.com objects-origin.githubusercontent.com release-assets.githubusercontent.com github-releases.githubusercontent.com'
+          printf '127.0.0.1 %s # no-github\n::1 %s # no-github\n' "$hosts" "$hosts" | sudo tee -a /etc/hosts >/dev/null
+          trap "sudo sed -i '/ # no-github$/d' /etc/hosts" EXIT
+          python3 scripts/ci/publish-downloads.py \
+            --assets dist/release-assets --version "$RELEASE_TAG" \
+            --bucket volcano-public-assets-production
 
       - name: Publish release assets
         run: |

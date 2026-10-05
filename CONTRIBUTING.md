@@ -101,8 +101,10 @@ requests. Follow `SECURITY.md` instead.
 
 ## Maintainer Release Notes
 
-Publishing uses GitHub Releases for artifact hosting and GitHub OIDC for
-Sigstore signing. Do not configure long-lived AWS secrets for CLI releases.
+Publishing hosts artifacts on Volcano downloads through a GitHub OIDC AWS role,
+also attaches them to GitHub Releases, and uses GitHub OIDC for Sigstore
+signing. Do not configure long-lived AWS secrets for CLI releases. See
+`scripts/ci/DOWNLOADS.md` for the download layout, rollout, and recovery.
 
 The publish workflow builds signed binaries for `linux-amd64`, `linux-arm64`,
 `macos-amd64`, `macos-arm64`, and `windows-amd64`. It publishes stable release
@@ -147,10 +149,12 @@ Required repository secrets and variables for stable release publishing:
   The app must be installed on this repo with Contents and Pull requests
   read/write.
 - `VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION`
+- `AWS_CLI_PUBLISHER_ROLE_ARN_PRODUCTION` (variable): the OIDC role that
+  publishes to Volcano downloads.
 
 Release assets include platform binaries, adjacent `.sigstore.json` bundles,
 `install.sh`, `install.sh.sigstore.json`, and `SHA256SUMS`. The installer
-downloads from GitHub Release assets and defaults to the latest stable release:
+downloads from Volcano downloads and defaults to the latest stable release:
 
 ```bash
 curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | bash
