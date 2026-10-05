@@ -169,7 +169,8 @@ class PublishTests(unittest.TestCase):
         self.seed("v1.2.2")
         self.install.reset_mock()
         self.publish()
-        self.assertEqual([call.args[1:] for call in self.install.call_args_list], [(BASE_URL, "v1.2.3"), (BASE_URL,)])
+        self.assertEqual([call.args[1:] for call in self.install.call_args_list],
+                         [(BASE_URL, "v1.2.3"), (BASE_URL,), (BASE_URL,)])
 
         previous = self.latest()
 
@@ -181,6 +182,41 @@ class PublishTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "could not resolve"):
             self.publish("v1.2.4")
         self.assertEqual(self.latest(), previous)
+
+    def test_first_publication_installs_through_the_promoted_pointer(self):
+        pointers = []
+
+        def install(_assets, _base_url, version=None):
+            if version is None:
+                pointers.append(self.objects.get(self.pointer))
+        self.install.side_effect = install
+        self.publish()
+        self.assertEqual(pointers, [b"v1.2.3\n"])
+
+    def test_promoted_install_retries_then_fails_the_release(self):
+        attempts = []
+
+        def install(_assets, _base_url, version=None):
+            if version is None:
+                attempts.append(version)
+                raise ValueError("could not resolve latest")
+        self.install.side_effect = install
+        with patch.object(publisher.time, "sleep") as sleep, self.assertRaisesRegex(ValueError, "could not resolve"):
+            self.publish()
+        self.assertEqual(len(attempts), 6)
+        self.assertEqual(sleep.call_count, 5)
+        self.assert_latest_is("v1.2.3")
+
+    def test_promoted_install_succeeds_once_caches_expire(self):
+        failures = iter([True, True, False])
+
+        def install(_assets, _base_url, version=None):
+            if version is None and next(failures):
+                raise publisher.subprocess.CalledProcessError(1, "sh")
+        self.install.side_effect = install
+        with patch.object(publisher.time, "sleep") as sleep:
+            self.publish()
+        self.assertEqual(sleep.call_count, 2)
 
     def test_latest_objects_use_pointer_cache_lifetime(self):
         self.publish()

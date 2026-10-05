@@ -15,7 +15,9 @@ No new credentials or AWS resources are needed.
 
 All signed assets must exist and verify through the public CDN before promotion,
 and once a pointer exists the new bootstrap must install the current latest
-version through it.
+version through it. After promotion, a signed install must resolve the public
+pointer within 75 seconds of retries, which outlast its cache and CloudFront's
+default error caching, or the job fails before the GitHub release is created.
 A partial upload keeps the previous pointer, latest assets, and bootstrap.
 If a promotion copy or the pointer write fails, promotion re-reads
 `latest-version` and copies the release it names onto the latest assets and
@@ -43,9 +45,10 @@ are tracked in code; mirrors do not fail over implicitly.
 ## Rollout
 
 1. Merge the CLI change and release a new stable version. The publishing job
-   verifies all five platform downloads and performs a signed Linux installation
-   with GitHub download hosts blocked. Check the public bootstrap and version
-   pointer after their 60-second cache lifetime.
+   verifies all five platform downloads and performs signed Linux installations
+   with GitHub download hosts blocked, the last through the new public pointer.
+   Check the public bootstrap and version pointer after their 60-second cache
+   lifetime.
 2. Update the website's `/install` redirect, install commands, deployment
    workflows, and Hosting installation docs after the first publication succeeds.
 3. Deploy the monitoring change through volcano-monitoring's deployment workflow.
@@ -65,7 +68,9 @@ Retry with "Re-run failed jobs" so the same artifacts are used; "Re-run all jobs
 rebuilds binaries with new bytes, which publication rejects for an existing
 version. Never replace an immutable version; release a new version if signed
 bytes changed. A failed CDN check does
-not move `latest-version` or the latest assets. If promotion fails after copying
+not move `latest-version` or the latest assets, but a failed install through the
+new pointer happens after promotion: fix the download path and rerun the job, or
+roll back. If promotion fails after copying
 began, rerun the job; reruns recopy the same verified objects. Until then, any
 latest asset or bootstrap the log reports it could not reconcile may not match
 the pointer.

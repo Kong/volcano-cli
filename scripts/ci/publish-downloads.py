@@ -142,6 +142,18 @@ def verify_install(assets, base_url, version=None):
             raise ValueError(f"installed CLI did not report {version or 'a stable version'}: {result.stdout}")
 
 
+def verify_promoted_install(assets, base_url):
+    # 75 seconds of retries outlast the pointer's 60-second max-age and CloudFront's default
+    # 10-second caching of an earlier 4xx; the download distribution sets no error caching TTL.
+    for attempt in range(6):
+        try:
+            return verify_install(assets, base_url)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            if attempt == 5:
+                raise
+            time.sleep(15)
+
+
 def fetch_published(bucket, version, assets):
     prefix = f"{PREFIX}/download/{version}/"
     published = listed_keys(bucket, prefix)
@@ -234,6 +246,8 @@ def publish(assets, version, bucket, base_url, rollback=False):
             # The new bootstrap must resolve the live pointer before it replaces the old one.
             verify_install(assets, base_url)
         promote(bucket, version, etags, current, metadata)
+        # Fail before the GitHub release is created if installers cannot resolve the public pointer.
+        verify_promoted_install(assets, base_url)
         print(f"Promoted {version} at {base_url}")
 
 
