@@ -44,6 +44,12 @@ To install the CLI and set up Volcano in detected coding agents:
 curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | sh -s -- --setup
 ```
 
+The script resolves the latest version and downloads the CLI and its signature
+from `download.volcano.dev`, then verifies the signature with `cosign`, which can
+also contact Sigstore for trust metadata. If your network allows GitHub but not
+`download.volcano.dev`, or to install a `VOLCANO_VERSION` released before Volcano
+downloads, also set `VOLCANO_GITHUB_RELEASES_URL=https://github.com/Kong/volcano-cli/releases`.
+
 ## Upgrading
 
 `volcano upgrade` upgrades the CLI the same way it was installed: it delegates
