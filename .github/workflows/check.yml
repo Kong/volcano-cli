@@ -91,6 +91,7 @@ jobs:
       - run: bash scripts/ci/resolve-cli-build-env.test.sh
       - run: bash scripts/ci/retry-image-pull.test.sh
       - run: bash scripts/ci/ecr-public-mirror-env.test.sh
+      - run: bash scripts/ci/publish-github-release.test.sh
       - run: make lint
       - run: make test
       - run: go build ./...
