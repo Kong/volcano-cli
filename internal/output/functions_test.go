@@ -77,3 +77,16 @@ func TestLogEventsRendersEveryBodyVariant(t *testing.T) {
 		})
 	}
 }
+
+// is_public: false refuses anon keys but has always let the project's
+// signed-in users invoke, so calling it private would overstate it.
+func TestFunctionLabelsANonPublicFunctionNotPublic(t *testing.T) {
+	var public bytes.Buffer
+	Function(&public, &apiclient.Function{Name: "hello", IsPublic: true})
+	assert.Contains(t, public.String(), "Visibility: public")
+
+	var notPublic bytes.Buffer
+	Function(&notPublic, &apiclient.Function{Name: "hello"})
+	assert.Contains(t, notPublic.String(), "Visibility: not public")
+	assert.NotContains(t, notPublic.String(), "private")
+}

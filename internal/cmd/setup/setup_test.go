@@ -1,11 +1,14 @@
 package setupcmd
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/setup"
 )
 
 // TestSetupFlagContract locks the public CLI contract of the rename: setup
@@ -44,6 +47,24 @@ func TestSetupFlagContract(t *testing.T) {
 		if err := execSetup(t, args...); err != nil {
 			t.Errorf("%v should be accepted, got %v", args, err)
 		}
+	}
+}
+
+func TestPromptHarnessesNoAgents(t *testing.T) {
+	var out bytes.Buffer
+	cmd := New(cliruntime.Deps{})
+	cmd.SetOut(&out)
+	selected, cancelled, err := promptHarnesses(cmd, setup.Options{
+		HomeDir:  t.TempDir(),
+		LookPath: func(string) (string, error) { return "", errors.New("not found") },
+		Getenv:   func(string) string { return "" },
+	}, false)
+	if err != nil || cancelled || len(selected) != 0 {
+		t.Fatalf("selected=%v cancelled=%v err=%v", selected, cancelled, err)
+	}
+	want := "No coding agents found. Supported agents include Claude Code, Codex, and Cursor. Set one up, then run `volcano setup` again.\n"
+	if got := out.String(); got != want {
+		t.Fatalf("output = %q, want %q", got, want)
 	}
 }
 

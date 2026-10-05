@@ -38,7 +38,7 @@ type Deps struct {
 	UpdateCommandRunner CommandRunner
 	GitCommandRunner    CommandRunner
 	ExecutablePath      string
-	UpdateGitHubAPIURL  string
+	UpdateDownloadURL   string
 	CommandPathPrefix   string
 	// DocsCacheDir overrides the base cache directory used by `volcano docs`.
 	// Empty uses os.UserCacheDir()/volcano. Tests inject a t.TempDir().

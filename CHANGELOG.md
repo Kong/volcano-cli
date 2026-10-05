@@ -1,5 +1,117 @@
 # Changelog
 
+## [0.37.3](https://github.com/Kong/volcano-cli/compare/v0.37.2...v0.37.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* **cli:** upgrade and install binaries from Volcano downloads ([#259](https://github.com/Kong/volcano-cli/issues/259)) ([4f8eb49](https://github.com/Kong/volcano-cli/commit/4f8eb499e456ee4b5b4bc90a18bf596dc30a0b80))
+
+## [0.37.2](https://github.com/Kong/volcano-cli/compare/v0.37.1...v0.37.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **cli:** serve verified releases from Volcano downloads ([#253](https://github.com/Kong/volcano-cli/issues/253)) ([35a9615](https://github.com/Kong/volcano-cli/commit/35a96151cb4d7815955ce54c1474f3ca4bedeaca))
+
+## [0.37.1](https://github.com/Kong/volcano-cli/compare/v0.37.0...v0.37.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** bump kin-openapi, x/mod, and Go 1.25 patch past advisories ([#258](https://github.com/Kong/volcano-cli/issues/258)) ([c72a48a](https://github.com/Kong/volcano-cli/commit/c72a48ab9b69157633a0918d0c4ef251cad6d731))
+
+## [0.37.0](https://github.com/Kong/volcano-cli/compare/v0.36.0...v0.37.0) (2026-10-05)
+
+
+### Features
+
+* **config:** accept function visibility and frontend function routes ([#255](https://github.com/Kong/volcano-cli/issues/255)) ([c4ec30d](https://github.com/Kong/volcano-cli/commit/c4ec30d4b1c86d935d885f2cb93fc1222b401488))
+
+## [0.36.0](https://github.com/Kong/volcano-cli/compare/v0.35.5...v0.36.0) (2026-09-30)
+
+
+### Features
+
+* **projects:** support cloud template installations ([#250](https://github.com/Kong/volcano-cli/issues/250)) ([6dcb225](https://github.com/Kong/volcano-cli/commit/6dcb225b89b9b0e868648ab2c2a65da1220704ce))
+
+## [0.35.5](https://github.com/Kong/volcano-cli/compare/v0.35.4...v0.35.5) (2026-09-29)
+
+
+### Bug Fixes
+
+* **setup:** show guidance when no coding agents are detected ([#247](https://github.com/Kong/volcano-cli/issues/247)) ([b6f785c](https://github.com/Kong/volcano-cli/commit/b6f785c5ddd88db2b000c0b86f08c7bcd9ba7fcf))
+
+## [0.35.4](https://github.com/Kong/volcano-cli/compare/v0.35.3...v0.35.4) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ci:** pull the AppConfig agent from the GHCR mirror in local-mode checks ([#244](https://github.com/Kong/volcano-cli/issues/244)) ([0a091d9](https://github.com/Kong/volcano-cli/commit/0a091d909161d76239a2bcf0d88afbed52354e97))
+
+## [0.35.3](https://github.com/Kong/volcano-cli/compare/v0.35.2...v0.35.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* use HOBBY and SUPERAGENT plan names ([#240](https://github.com/Kong/volcano-cli/issues/240)) ([8394586](https://github.com/Kong/volcano-cli/commit/83945861c9df5d44531ead3b6179a621e004343b))
+
+## [0.35.2](https://github.com/Kong/volcano-cli/compare/v0.35.1...v0.35.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **frontends:** show safe custom-domain DNS guidance ([#234](https://github.com/Kong/volcano-cli/issues/234)) ([7c67b75](https://github.com/Kong/volcano-cli/commit/7c67b7559461039e66b10744214efbff656e3f33))
+
+## [0.35.1](https://github.com/Kong/volcano-cli/compare/v0.35.0...v0.35.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **databases:** describe regions as plain region codes ([#236](https://github.com/Kong/volcano-cli/issues/236)) ([d8211fb](https://github.com/Kong/volcano-cli/commit/d8211fb5fcbc4eb6ca030b979de013733fd81c0f))
+
+## [0.35.0](https://github.com/Kong/volcano-cli/compare/v0.34.3...v0.35.0) (2026-09-27)
+
+
+### Features
+
+* **installer:** add portable setup option ([#170](https://github.com/Kong/volcano-cli/issues/170)) ([0acf77e](https://github.com/Kong/volcano-cli/commit/0acf77e53e97b28afb58d8aed4624ca37f88d5c3))
+
+## [0.34.3](https://github.com/Kong/volcano-cli/compare/v0.34.2...v0.34.3) (2026-09-27)
+
+
+### Bug Fixes
+
+* **docs:** link to public configuration reference ([#235](https://github.com/Kong/volcano-cli/issues/235)) ([d364e92](https://github.com/Kong/volcano-cli/commit/d364e92a41a4b3356a43239a1ab13fc9f6cad3eb))
+
+## [0.34.2](https://github.com/Kong/volcano-cli/compare/v0.34.1...v0.34.2) (2026-09-26)
+
+
+### Bug Fixes
+
+* **ci:** retry AppConfig image pull before local-mode E2E ([#231](https://github.com/Kong/volcano-cli/issues/231)) ([d96bf65](https://github.com/Kong/volcano-cli/commit/d96bf652c92b9753f65c6f6a1ee91a634152a4e7))
+
+## [0.34.1](https://github.com/Kong/volcano-cli/compare/v0.34.0...v0.34.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **release:** default CLI binaries to production ([#228](https://github.com/Kong/volcano-cli/issues/228)) ([ef2b80a](https://github.com/Kong/volcano-cli/commit/ef2b80a16c69f0790139b300eba64601eb9600c8))
+
+## [0.34.0](https://github.com/Kong/volcano-cli/compare/v0.33.0...v0.34.0) (2026-09-25)
+
+
+### Features
+
+* **cli:** add project service-key and usage commands ([#221](https://github.com/Kong/volcano-cli/issues/221)) ([6cd1b9e](https://github.com/Kong/volcano-cli/commit/6cd1b9e2898bf259118d5109cde5f4ca84ae03f1))
+
+## [0.33.0](https://github.com/Kong/volcano-cli/compare/v0.32.1...v0.33.0) (2026-09-24)
+
+
+### Features
+
+* **durable:** run durable functions in local mode ([#219](https://github.com/Kong/volcano-cli/issues/219)) ([2f646ee](https://github.com/Kong/volcano-cli/commit/2f646ee7760cb9430b3f75f466357c20a2fb5612))
+
 ## [0.32.1](https://github.com/Kong/volcano-cli/compare/v0.32.0...v0.32.1) (2026-09-19)
 
 

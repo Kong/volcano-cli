@@ -8,9 +8,12 @@ on:
 permissions:
   contents: read
 
+# Releases serialize so latest-version promotion never races; queue: max keeps a
+# third tag from cancelling the pending run.
 concurrency:
-  group: publish-cli-${{ github.ref_name }}
+  group: publish-cli
   cancel-in-progress: false
+  queue: max
 
 jobs:
   validate-release-ref:
@@ -20,6 +23,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate release ref
         run: |
@@ -51,6 +55,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
@@ -77,6 +82,10 @@ jobs:
   check:
     name: Release Check
     needs: [validate-release-ref]
+    # A called workflow's jobs can't exceed the permissions granted here.
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/check.yml
 
   build-binaries:
@@ -112,6 +121,8 @@ jobs:
             ext: ".exe"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
@@ -122,8 +133,6 @@ jobs:
         env:
           CLI_VERSION: ${{ needs.resolve-release.outputs.cli_version }}
           PRODUCTION_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_PRODUCTION }}
-          # ponytail: every release path builds against staging during the testing phase, so all builds consume the staging client ID; drop this line and restore the production blocks in resolve-cli-build-env.sh before GA
-          STAGING_FIRST_PARTY_DEVICE_CLIENT_ID: ${{ vars.VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID_STAGING }}
         run: scripts/ci/resolve-cli-build-env.sh
 
       - name: Build binary
@@ -167,7 +176,7 @@ jobs:
           path: dist/${{ matrix.target.id }}
 
   publish-github-release:
-    name: Publish GitHub Release
+    name: Publish Release Downloads
     runs-on: ubuntu-latest
     needs: [build-binaries, resolve-release]
     permissions:
@@ -179,6 +188,8 @@ jobs:
       RELEASE_TITLE: ${{ needs.resolve-release.outputs.release_title }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Download signed binary artifacts
@@ -195,7 +206,7 @@ jobs:
           find _release -type f -name 'volcano-*' -exec cp {} dist/release-assets/ \;
           cp scripts/install-volcano.sh dist/release-assets/install.sh
           chmod +x dist/release-assets/install.sh
-          bash -n dist/release-assets/install.sh
+          sh -n dist/release-assets/install.sh
 
       - name: Sign installer script
         run: |
@@ -205,92 +216,40 @@ jobs:
             --yes
           test -s "dist/release-assets/install.sh.sigstore.json"
 
-      - name: Generate checksums
+      - name: Configure download publisher credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_CLI_PUBLISHER_ROLE_ARN_PRODUCTION }}
+          aws-region: us-east-2
+
+      - name: Publish and install verified downloads without GitHub access
         run: |
           set -euo pipefail
-          (
-            cd dist/release-assets
-            shasum -a 256 * | sort -k2 > SHA256SUMS
-          )
-
-      - name: Publish release assets
-        run: |
-          set -euo pipefail
-
-          # Retry a command on transient failures (e.g. a GitHub API 5xx such
-          # as the HTTP 502 that has failed release publishes). Up to 4
-          # attempts with linear backoff. The `until` condition is exempt from
-          # set -e, and a persistent failure still returns non-zero so the job
-          # fails loudly rather than shipping a half-published release.
-          retry() {
-            local n=0 max=4
-            until "$@"; do
-              n=$((n + 1))
-              if [ "$n" -ge "$max" ]; then
-                echo "giving up after ${max} attempts: $*" >&2
-                return 1
-              fi
-              echo "attempt ${n} failed: $*; retrying in $((n * 5))s" >&2
-              sleep $((n * 5))
-            done
-          }
-
-          publish_release() {
-            local tag="$1"
-            local title="$2"
-            local notes="$3"
-            shift 3
-            local flags=("$@")
-            local notes_args=()
-
-            if [ -n "$notes" ]; then
-              notes_args=(--notes "$notes")
-            else
-              notes_args=(--generate-notes)
-            fi
-
-            if gh release view "$tag" >/dev/null 2>&1; then
-              # Already published (a workflow re-run): refresh assets and
-              # metadata idempotently. --clobber re-uploads cleanly; edit is a
-              # no-op when nothing changed.
-              local edit_args=(--title "$title" --target "$GITHUB_SHA")
-              if [ -n "$notes" ]; then
-                edit_args+=(--notes "$notes")
-              fi
-              retry gh release upload "$tag" dist/release-assets/* --clobber
-              retry gh release edit "$tag" "${edit_args[@]}" "${flags[@]}"
-              return 0
-            fi
-
-            # New release: keep the bundled `gh release create <assets>`, which
-            # drafts the release, uploads the assets, then publishes it, so it
-            # is never visible without its assets. That bundled call is atomic
-            # but not idempotent, so retry it by hand: if a failed attempt
-            # actually published (its success response was lost to a 5xx) we
-            # are done; otherwise delete the partial draft and recreate cleanly.
-            local n=0 max=4
-            until gh release create "$tag" dist/release-assets/* \
-              --target "$GITHUB_SHA" \
-              --title "$title" \
-              "${notes_args[@]}" \
-              "${flags[@]}"; do
-              if gh release view "$tag" >/dev/null 2>&1; then
+          # Installation may use Sigstore trust metadata, but must not contact GitHub.
+          hosts='github.com api.github.com codeload.github.com raw.githubusercontent.com objects.githubusercontent.com objects-origin.githubusercontent.com release-assets.githubusercontent.com github-releases.githubusercontent.com'
+          printf '127.0.0.1 %s # no-github\n::1 %s # no-github\n' "$hosts" "$hosts" | sudo tee -a /etc/hosts >/dev/null
+          unblock_github() {
+            sudo sed -i '/ # no-github$/d' /etc/hosts
+            # systemd-resolved answers from its last read of /etc/hosts for up
+            # to 2s after a change, which leaked the block into later steps.
+            local addrs
+            for _ in {1..30}; do
+              addrs="$(getent ahosts api.github.com || true)"
+              if ! grep -Eq '^(127\.|::1[[:space:]])' <<< "$addrs"; then
                 return 0
               fi
-              n=$((n + 1))
-              if [ "$n" -ge "$max" ]; then
-                echo "giving up creating release ${tag} after ${max} attempts" >&2
-                return 1
-              fi
-              gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
-              echo "release create for ${tag} failed (attempt ${n}); retrying in $((n * 5))s" >&2
-              sleep $((n * 5))
+              sleep 1
             done
+            echo "api.github.com still resolves to loopback 30s after unblocking GitHub" >&2
+            exit 1
           }
+          trap unblock_github EXIT
+          python3 scripts/ci/publish-downloads.py \
+            --assets dist/release-assets --version "$RELEASE_TAG" \
+            --bucket volcano-public-assets-production
 
-          # Stable release: auto-generate notes and let GitHub pick the latest
-          # flag by semver.
-          publish_release "$RELEASE_TAG" "$RELEASE_TITLE" ""
+      - name: Publish release assets
+        run: scripts/ci/publish-github-release.sh "$RELEASE_TAG" "$RELEASE_TITLE" dist/release-assets
 
       - name: Verify uploaded Linux binary
         run: |
@@ -320,6 +279,8 @@ jobs:
       id-token: write # REQUIRED for npm trusted publishing (OIDC)
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -350,7 +311,7 @@ jobs:
           VERSION: ${{ steps.npm_version.outputs.version }}
         run: |
           set -euo pipefail
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          base="https://download.volcano.dev/builds/releases/download/v${VERSION}"
           # Ranged GET (first byte) confirms each asset is actually downloadable,
           # which is what the package's postinstall does.
           for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
@@ -378,12 +339,6 @@ jobs:
     name: Update Homebrew tap
     runs-on: ubuntu-latest
     needs: [resolve-release, publish-github-release]
-    # Serialize across ALL release tags (the workflow-level concurrency key is
-    # per-ref, so two tags can otherwise reach this job at once and race their
-    # direct pushes to the tap). One tap update at a time, never cancelled.
-    concurrency:
-      group: update-homebrew-tap
-      cancel-in-progress: false
     steps:
       # Mint a short-lived token scoped to Kong/homebrew-volcano. Reuses the
       # same App as release-please.yml (VOLCANO_APP_ID/VOLCANO_APP_KEY); the App
@@ -403,10 +358,11 @@ jobs:
           repository: Kong/homebrew-volcano
           token: ${{ steps.app-token.outputs.token }}
           path: tap
+          # Needed: "Commit and push" later runs git pull/push to the tap with this app token.
+          persist-credentials: true
 
       - name: Regenerate formula
         env:
-          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
         run: |
           set -euo pipefail
@@ -426,11 +382,11 @@ jobs:
             fi
           fi
 
-          # SHA256SUMS is an asset on the release publish-github-release just cut,
-          # so the four platform checksums are already computed; no re-download
-          # of the binaries needed.
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern SHA256SUMS --dir . --clobber
+          base="https://download.volcano.dev/builds/releases/download/${RELEASE_TAG}"
+          # SHA256SUMS comes from the same verified host the formula downloads
+          # from, so the four platform checksums are already computed; no
+          # re-download of the binaries needed.
+          curl -fsSL --retry 6 --retry-delay 15 --retry-all-errors -o SHA256SUMS "${base}/SHA256SUMS"
 
           sha() { awk -v f="$1" '$2==f {print $1}' SHA256SUMS; }
           MAC_ARM="$(sha volcano-macos-arm64)"
@@ -443,7 +399,6 @@ jobs:
             [ -n "$v" ] || { echo "missing checksum in SHA256SUMS"; exit 1; }
           done
 
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
           # The formula is fully determined by version + the four checksums, so
           # template the whole file rather than sed-patching four url/sha256
           # blocks (which is why `brew bump-formula-pr` — single-url only — does
@@ -456,7 +411,7 @@ jobs:
             license "Apache-2.0"
 
             livecheck do
-              url :stable
+              url :homepage
               strategy :github_latest
             end
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -69,7 +68,7 @@ func TestUpgradeDelegatesToPackageManager(t *testing.T) {
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallNPM,
 		ExecutablePath: exePath,
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
 		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
@@ -102,7 +101,7 @@ func TestUpgradeManagerSkipsWhenUpToDate(t *testing.T) {
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallNPM,
 		ExecutablePath: exePath,
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
 		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
@@ -119,7 +118,7 @@ func TestUpgradeBrewRunsAtSameVersion(t *testing.T) {
 	t.Parallel()
 
 	// Homebrew can ship revision rebuilds at the same upstream tag, so the brew
-	// path must delegate even when the GitHub release equals the current version.
+	// path must delegate even when the latest release equals the current version.
 	server := newLatestReleaseServer(t, "v1.2.3")
 	defer server.Close()
 
@@ -132,7 +131,7 @@ func TestUpgradeBrewRunsAtSameVersion(t *testing.T) {
 	err := Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
 		InstallMethod:  InstallBrew,
 		ExecutablePath: exePath,
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "/opt/homebrew/bin/brew", nil },
 		ManagerRunner: func(_ context.Context, _ io.Writer, name string, args ...string) error {
@@ -149,7 +148,7 @@ func TestUpgradeManagerProceedsWhenVersionUnparseable(t *testing.T) {
 	t.Parallel()
 
 	// A dev/unparseable current version makes upToDate best-effort false, so the
-	// upgrade proceeds. GitHub must not be queried (parse fails first): a server
+	// upgrade proceeds. The release pointer must not be queried (parse fails first): a server
 	// that fails the test if hit locks that in.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("unexpected release fetch for unparseable version: %s", r.URL.Path)
@@ -165,7 +164,7 @@ func TestUpgradeManagerProceedsWhenVersionUnparseable(t *testing.T) {
 	err := Upgrade(context.Background(), "dev", io.Discard, Options{
 		InstallMethod:  InstallNPM,
 		ExecutablePath: exePath,
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "/usr/bin/npm", nil },
 		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
@@ -198,7 +197,7 @@ func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	err := Upgrade(context.Background(), "v1.2.3", &out, Options{
 		InstallMethod:  InstallBrew,
 		ExecutablePath: exePath,
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		LookPath:       func(string) (string, error) { return "", exec.ErrNotFound },
 		ManagerRunner: func(context.Context, io.Writer, string, ...string) error {
@@ -211,13 +210,13 @@ func TestUpgradePrintsCommandWhenManagerMissing(t *testing.T) {
 	assert.Contains(t, out.String(), "brew upgrade volcano")
 }
 
-// newLatestReleaseServer serves a minimal GitHub releases/latest response with
-// the given tag, for exercising the manager path's up-to-date check.
+// newLatestReleaseServer serves a latest-version pointer with the given tag,
+// for exercising the manager path's up-to-date check.
 func newLatestReleaseServer(t *testing.T, tag string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/releases/latest" {
-			writeUpdateJSON(t, w, Release{TagName: tag})
+		if r.URL.Path == "/latest-version" {
+			_, _ = io.WriteString(w, tag+"\n")
 			return
 		}
 		http.NotFound(w, r)
@@ -283,17 +282,13 @@ func TestUpgradeDownloadsChecksumsAndReplacesExecutable(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
+		case "/latest-version":
+			_, _ = io.WriteString(w, "v1.2.4\n")
+		case "/download/v1.2.4/" + binaryName:
 			_, _ = w.Write(newBinary)
-		case "/assets/" + binaryName + ".sigstore.json":
+		case "/download/v1.2.4/" + binaryName + ".sigstore.json":
 			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
+		case "/download/v1.2.4/SHA256SUMS":
 			_, _ = w.Write([]byte(checksums))
 		default:
 			http.NotFound(w, r)
@@ -308,7 +303,7 @@ func TestUpgradeDownloadsChecksumsAndReplacesExecutable(t *testing.T) {
 
 	var out bytes.Buffer
 	err = Upgrade(context.Background(), "v1.2.3", &out, Options{
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		ExecutablePath: exePath,
 		CommandRunner: RunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
@@ -336,17 +331,13 @@ func TestUpgradeVerifiesSignatureWhenRequired(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
+		case "/latest-version":
+			_, _ = io.WriteString(w, "v1.2.4\n")
+		case "/download/v1.2.4/" + binaryName:
 			_, _ = w.Write(newBinary)
-		case "/assets/" + binaryName + ".sigstore.json":
+		case "/download/v1.2.4/" + binaryName + ".sigstore.json":
 			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
+		case "/download/v1.2.4/SHA256SUMS":
 			_, _ = w.Write([]byte(checksums))
 		default:
 			http.NotFound(w, r)
@@ -364,7 +355,7 @@ func TestUpgradeVerifiesSignatureWhenRequired(t *testing.T) {
 	})
 
 	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
-		GitHubAPIURL:                 server.URL,
+		DownloadURL:                  server.URL,
 		HTTPClient:                   server.Client(),
 		ExecutablePath:               exePath,
 		CommandRunner:                runner,
@@ -385,17 +376,13 @@ func TestUpgradeRejectsChecksumMismatch(t *testing.T) {
 	require.NoError(t, err)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
+		case "/latest-version":
+			_, _ = io.WriteString(w, "v1.2.4\n")
+		case "/download/v1.2.4/" + binaryName:
 			_, _ = w.Write([]byte("new volcano binary"))
-		case "/assets/" + binaryName + ".sigstore.json":
+		case "/download/v1.2.4/" + binaryName + ".sigstore.json":
 			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
+		case "/download/v1.2.4/SHA256SUMS":
 			_, _ = w.Write([]byte("0000000000000000000000000000000000000000000000000000000000000000  " + binaryName + "\n"))
 		default:
 			http.NotFound(w, r)
@@ -408,7 +395,7 @@ func TestUpgradeRejectsChecksumMismatch(t *testing.T) {
 	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
 
 	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
-		GitHubAPIURL:   server.URL,
+		DownloadURL:    server.URL,
 		HTTPClient:     server.Client(),
 		ExecutablePath: exePath,
 		CommandRunner:  RunnerFunc(func(context.Context, string, ...string) ([]byte, error) { return nil, nil }),
@@ -437,7 +424,7 @@ func TestUpgradeReportsCosignNotInstalled(t *testing.T) {
 	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
 
 	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
-		GitHubAPIURL:                 server.URL,
+		DownloadURL:                  server.URL,
 		HTTPClient:                   server.Client(),
 		ExecutablePath:               exePath,
 		RequireSignatureVerification: true,
@@ -471,7 +458,7 @@ func TestUpgradeReportsCosignVerificationFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
 
 	err = Upgrade(context.Background(), "v1.2.3", io.Discard, Options{
-		GitHubAPIURL:                 server.URL,
+		DownloadURL:                  server.URL,
 		HTTPClient:                   server.Client(),
 		ExecutablePath:               exePath,
 		RequireSignatureVerification: true,
@@ -491,26 +478,16 @@ func newReleaseServer(t *testing.T, binaryName string, binary []byte, checksums 
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			writeUpdateJSON(t, w, Release{TagName: "v1.2.4", Assets: []Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
+		case "/latest-version":
+			_, _ = io.WriteString(w, "v1.2.4\n")
+		case "/download/v1.2.4/" + binaryName:
 			_, _ = w.Write(binary)
-		case "/assets/" + binaryName + ".sigstore.json":
+		case "/download/v1.2.4/" + binaryName + ".sigstore.json":
 			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
+		case "/download/v1.2.4/SHA256SUMS":
 			_, _ = w.Write([]byte(checksums))
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-}
-
-func writeUpdateJSON(t *testing.T, w http.ResponseWriter, value any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	require.NoError(t, json.NewEncoder(w).Encode(value))
 }

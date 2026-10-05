@@ -191,11 +191,14 @@ be refused while the function is still provisioning. Wait for `get` to report
 
 ## Visibility
 
-`--public` lets a project's anon key start executions of one function;
-`--private` takes that back. A public durable function is still not invocable
-over HTTP the way a public standard function is — starting an execution is the
-only thing the anon key can do. Polling and stopping always need a
-project-scoped credential.
+`--public` lets a project's anon key start executions of one function.
+`--private` sets the level that refuses anon keys and lets your project's
+signed-in users start executions. On a server with visibility levels, it opens
+a private durable function to those users.
+
+A public durable function is still not invocable over HTTP the way a public
+standard function is — starting an execution is the only thing the anon key
+can do. Polling and stopping always need a project-scoped credential.
 
 Omit both flags and a redeploy keeps the visibility the function already has. A
 new durable function starts private.

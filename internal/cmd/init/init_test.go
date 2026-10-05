@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/projectconfig"
 )
 
 func TestHelpOutput(t *testing.T) {
@@ -81,10 +83,23 @@ func TestCreatesNextJSNotesExample(t *testing.T) {
 	assert.FileExists(t, filepath.Join("web", "app", "dashboard", "page.js"))
 	assert.FileExists(t, ".gitignore")
 	assert.Contains(t, readFile(t, ".gitignore"), "node_modules")
-	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.NotContains(t, out, "volcano config deploy")
-	assert.NotContains(t, out, "volcano cloud config deploy")
+	assert.FileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
+	assert.Contains(t, out, "volcano config deploy")
+	assert.Contains(t, out, "volcano cloud config deploy")
 	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano init nextjs --example notes")
+	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano config deploy")
+
+	// The dashboard invokes notes-summary as the signed-in user. public: false
+	// keeps that working on servers that default new functions to private,
+	// and is what older servers already do.
+	manifest, _, err := projectconfig.Load(filepath.Join("volcano", "volcano-config.yaml"))
+	require.NoError(t, err)
+	require.NotNil(t, manifest.Functions)
+	require.Len(t, *manifest.Functions, 1)
+	notesSummary := (*manifest.Functions)[0]
+	assert.Equal(t, "notes-summary", notesSummary.Name)
+	require.NotNil(t, notesSummary.Public)
+	assert.False(t, *notesSummary.Public)
 	assert.Contains(t, readFile(t, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
 }
 

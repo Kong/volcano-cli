@@ -15,7 +15,7 @@ validates and applies the full project configuration:
 - Auth configuration, including providers, email, templates, and managed pages
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
-- Frontend custom domains
+- Frontend custom domains and function routes
 
 The same manifest applies to local development and cloud projects — only the
 command namespace changes:
@@ -56,6 +56,12 @@ functions:
         payload: { job: refresh }
   - name: order-pipeline
     kind: durable              # standard or durable; asserted, not applied, since a kind is fixed at creation
+frontends:
+  - name: web
+    function_routes:           # the complete set; routes left out are deleted
+      - function: hello
+        path_prefix: /api/hello
+        strip_prefix: true
 ```
 
 Cloud example — export the current cloud project's configuration to a file,
@@ -81,9 +87,9 @@ Key semantics:
   they describe synchronous HTTP invocation, which a durable function does not
   have.
 - Declared config sections are the source of truth. Variables, bucket policies,
-  OAuth providers, email templates, and function schedulers are fully synced
-  when declared: entries absent from the manifest are deleted. Omitted sections
-  and fields keep their existing values.
+  OAuth providers, email templates, function schedulers, and frontend function
+  routes are fully synced when declared: entries absent from the manifest are
+  deleted. Omitted sections and fields keep their existing values.
 - Functions, frontends, databases, and buckets are never created or deleted
   through the manifest; only their configuration is updated. A manifest entry
   for a resource that does not exist is skipped with a warning. A deployed
@@ -109,6 +115,43 @@ Key semantics:
   function's declared variable names. Omitting it, like omitting
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
+
+## Frontend function routes
+
+`frontends[].function_routes` forwards every request under a path of a
+frontend to a function, so the browser calls it on the frontend's own origin:
+
+```yaml
+version: 1
+functions:
+  - name: session
+    public: true
+    invocation_mode: http
+frontends:
+  - name: web
+    function_routes:
+      - function: session
+        path_prefix: /api/session
+        strip_prefix: true
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `function` | Yes | A deployed public, standard function with `invocation_mode: http`. |
+| `path_prefix` | Yes | The path to forward, such as `/api/session`. It matches that path and everything under it. It starts with `/` and does not end with one. |
+| `strip_prefix` | No | `true` sends the function the rest of the path, or `/` for the prefix itself. The default, `false`, sends the full path. |
+
+The list is the frontend's complete set of routes:
+
+- Omitting `function_routes` keeps the frontend's routes as they are.
+- Declaring it replaces them: a route left out of the list is deleted.
+- `function_routes: []` deletes every route on the frontend.
+
+A route reaches the function without a Volcano credential, so anyone who can
+load the frontend can call the function under its prefix. The function must
+authenticate its callers itself. A frontend can have up to 64 routes, and the
+longest matching prefix wins. `config pull` writes the routes back, so a pulled
+manifest deploys again unchanged.
 
 ## Shared variable names
 
@@ -240,7 +283,7 @@ snapshot of a prior apply. Practical implications:
   **not** apply within a section you've already declared as fully synced
   (`variables`, `buckets[].policies`, `auth.providers.oauth`,
   `auth.email.templates`, `functions[].schedulers`,
-  `functions[].variables`) — omitting one entry
+  `functions[].variables`, `frontends[].function_routes`) — omitting one entry
   from an otherwise-declared list still deletes that entry, since the
   declared list is the source of truth for the whole section. See "Key
   semantics" above.
@@ -249,7 +292,7 @@ snapshot of a prior apply. Practical implications:
   still outstanding.
 
 See the server-side
-[configuration manifest reference](https://github.com/Kong/volcano-hosting/blob/main/docs/projects/configuration.md)
+[configuration manifest reference](/platform/projects/configuration)
 for the full reconciliation semantics.
 
 Behavior changes from older CLI releases:

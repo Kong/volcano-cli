@@ -22,14 +22,17 @@ it using its connection string.
 
 | Operation | Command |
 |---|---|
-| Create | `volcano databases create <name> [--type …] [--region aws-<aws-region>] [--pg-version …]` |
+| Create | `volcano databases create <name> [--type …] [--region <region>] [--pg-version …]` |
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
-| Apply migrations (per db) | `volcano databases migration up …` |
-| Apply migrations (top-level) | `volcano migrations deploy --all -d <db>` |
+| Apply local migrations | `volcano migrations deploy --all -d <db>` |
+| Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
 
-Prefix with `cloud` to force the cloud target.
+Local migrations run from `volcano/migrations` against a local database. Cloud
+migrations use the cloud database command and connect through the managed
+database proxy; the local `migrations deploy` command does not have a cloud
+variant.
 
 ## Branches
 
@@ -188,11 +191,14 @@ same way.
 ```bash
 # Create a database (defaults to type volcano-db-xs)
 volcano databases create app
-volcano databases create app --type volcano-db-s --region aws-us-east-1
+volcano databases create app --type volcano-db-s --region us-east-1
 
 # Show the connection string
 volcano databases get app --show-connection-string
 
 # Apply migration files from volcano/migrations to the "app" database
 volcano migrations deploy --all -d app
+
+# Apply migration files to the managed cloud database named "app"
+volcano cloud databases migration up --all -d app
 ```

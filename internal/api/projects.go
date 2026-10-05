@@ -22,10 +22,13 @@ func (c *Client) ListProjects(ctx context.Context, page, limit int) (*apiclient.
 }
 
 // CreateProject creates a project for the authenticated user.
-func (c *Client) CreateProject(ctx context.Context, name string) (*apiclient.Project, error) {
-	resp, err := c.client.CreateProjectWithResponse(ctx, apiclient.CreateProjectJSONRequestBody{
-		Name: strings.TrimSpace(name),
-	})
+func (c *Client) CreateProject(ctx context.Context, name, templateID string) (*apiclient.Project, error) {
+	body := apiclient.CreateProjectJSONRequestBody{Name: strings.TrimSpace(name)}
+	if templateID != "" {
+		id := apiclient.CreateProjectRequestTemplateId(templateID)
+		body.TemplateId = &id
+	}
+	resp, err := c.client.CreateProjectWithResponse(ctx, body)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +50,15 @@ func (c *Client) ListAnonKeys(ctx context.Context, projectID uuid.UUID) ([]apicl
 		return nil, nil
 	}
 	return *result.Data, nil
+}
+
+// CreateAnonKey creates a publishable key with the server's auth-only default.
+func (c *Client) CreateAnonKey(ctx context.Context, projectID uuid.UUID, name string) (*apiclient.AnonKey, error) {
+	resp, err := c.client.CreateAnonKeyWithResponse(ctx, projectID, apiclient.CreateAnonKeyJSONRequestBody{Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return apiResultWithoutBody(resp.StatusCode(), resp.JSON201)
 }
 
 // GetProject returns one project by ID.

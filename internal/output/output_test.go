@@ -37,7 +37,7 @@ func TestProjectsOutput(t *testing.T) {
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
 	var out bytes.Buffer
-	plan := apiclient.ProjectPlan("FREE")
+	plan := apiclient.ProjectPlan("HOBBY")
 
 	Projects(&out, &config.Config{
 		CurrentProject: &config.ProjectConfig{
@@ -61,7 +61,7 @@ func TestProjectsOutput(t *testing.T) {
 		Total:   51,
 	})
 
-	for _, want := range []string{"ID", "Name", "Status", "Plan", outputProjectID, "Alpha", "active", "FREE", "Showing 1 of 51 project(s) (page 2, limit 25)", "Next page: volcano projects --page 3 --limit 25", "Current project: Alpha (" + outputProjectID + ")"} {
+	for _, want := range []string{"ID", "Name", "Status", "Plan", outputProjectID, "Alpha", "active", "HOBBY", "Showing 1 of 51 project(s) (page 2, limit 25)", "Next page: volcano projects --page 3 --limit 25", "Current project: Alpha (" + outputProjectID + ")"} {
 		assert.Contains(t, out.String(), want)
 	}
 }
@@ -82,7 +82,7 @@ func TestProjectOutput(t *testing.T) {
 	projectID, err := uuid.Parse(outputProjectID)
 	require.NoError(t, err)
 	var out bytes.Buffer
-	plan := apiclient.ProjectPlan("PRO")
+	plan := apiclient.ProjectPlan("SUPERAGENT")
 
 	Project(&out, &apiclient.Project{
 		Id:     projectID,
@@ -91,7 +91,7 @@ func TestProjectOutput(t *testing.T) {
 		Plan:   &plan,
 	})
 
-	assert.Equal(t, "ID:     "+outputProjectID+"\nName:   Alpha\nStatus: active\nPlan:   PRO\nCreated: -\nUpdated: -\n", out.String())
+	assert.Equal(t, "ID:     "+outputProjectID+"\nName:   Alpha\nStatus: active\nPlan:   SUPERAGENT\nCreated: -\nUpdated: -\n", out.String())
 }
 
 func TestDatabasesHideConnectionStringsByDefault(t *testing.T) {

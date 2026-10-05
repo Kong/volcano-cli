@@ -135,7 +135,8 @@ func TestTemplateDeletionRequiresConfirmationAndListsNextPage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Method
 		if r.Method == http.MethodDelete {
-			w.WriteHeader(http.StatusNoContent)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 		assert.Equal(t, "next-page", r.URL.Query().Get("cursor"))
@@ -168,11 +169,16 @@ func TestUsageReadsOnlySandboxPreviewMetrics(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/projects/"+testProject+"/usage", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "Bearer account-token", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"project_id":"` + testProject + `","month":"2026-09","metrics":[{"metric":"Sandbox Running (MiB-Seconds)","total":10240},{"metric":"Sandbox Suspended (Seconds)","total":60},{"metric":"Sandbox Uncertain (MiB-Seconds)","total":0},{"metric":"Build Seconds","total":500}]}`))
 	}))
 	defer server.Close()
-	cmd := New(testDeps(server))
+	deps := testDeps(server)
+	deps.ConfigLoader = func() (*config.Config, error) {
+		return &config.Config{UserToken: "account-token", CurrentProject: &config.ProjectConfig{ID: testProject}}, nil
+	}
+	cmd := New(deps)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetArgs([]string{"usage", "--json"})
@@ -192,4 +198,21 @@ func TestUsageDoesNotInventZeroForOlderServer(t *testing.T) {
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetArgs([]string{"usage"})
 	require.ErrorContains(t, cmd.Execute(), "does not expose")
+}
+
+func TestUsagePreservesPermissionFailureForServiceKey(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer service-key", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"project usage requires a user token"}`))
+	}))
+	defer server.Close()
+	cmd := New(testDeps(server))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"usage", "--json"})
+	require.ErrorContains(t, cmd.Execute(), "project usage requires a user token")
+	assert.NotContains(t, out.String(), "Sandbox Running")
 }

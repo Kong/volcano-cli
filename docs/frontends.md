@@ -56,3 +56,7 @@ volcano cloud frontends logs my-site
 volcano cloud frontends domain create my-site --domain app.example.com
 volcano cloud frontends domain get my-site
 ```
+
+The domain command shows a DNS routing target hostname. Configure a CNAME only if
+your DNS provider confirms that your domain is not a zone apex. At an apex, use
+a provider-supported ALIAS, ANAME, or CNAME-flattening record with that target.

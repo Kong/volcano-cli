@@ -161,7 +161,16 @@ func (s Service) startDockerServices(ctx context.Context, w io.Writer, env []str
 		Args: args,
 		Env:  env,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	// The broker needs a Docker socket that may not exist on this host.
+	// Its optional profile must not prevent ordinary local services from starting.
+	brokerArgs := append(composeFileArgs(composePaths), "-p", composeProjectName, "up", "-d", "sandbox-broker")
+	if _, brokerErr := s.runner.Run(ctx, Command{Name: dockerCommand, Args: brokerArgs, Env: env}); brokerErr != nil {
+		output.Warning(w, "Sandbox broker could not start; other local services remain available. Sandbox commands will be unavailable until the broker is reachable: %v", brokerErr)
+	}
+	return nil
 }
 
 // refreshDefaultServerImage pulls the rolling default local-mode image so
@@ -241,7 +250,7 @@ func (s Service) composeDown(ctx context.Context, clean bool) error {
 	defer cleanup()
 
 	args := composeFileArgs(composePaths)
-	args = append(args, "-p", composeProjectName, "down")
+	args = append(args, "-p", composeProjectName, "--profile", "sandboxes", "down")
 	if clean {
 		args = append(args, "-v")
 	}

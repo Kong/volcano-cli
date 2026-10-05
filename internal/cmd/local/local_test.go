@@ -389,3 +389,23 @@ func TestLocalSandboxesUseServiceKeyFromLocalMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, `"data":[]`)
 }
+
+func TestLocalSandboxUsageUsesUserTokenFromLocalMetadata(t *testing.T) {
+	setLocalCommandTestEnv(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+localProjectID+"/usage", r.URL.Path)
+		if r.Header.Get("Authorization") != "Bearer local-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"metrics":[{"metric":"Sandbox Running (MiB-Seconds)","total":0},{"metric":"Sandbox Suspended (Seconds)","total":0},{"metric":"Sandbox Uncertain (MiB-Seconds)","total":0}]}`))
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), LocalCommandRunner: localmode.CommandRunnerFunc(func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte(localInfoJSON(server.URL)), nil
+	})}
+	out, err := executeLocalCommand(t, New(deps), "sandboxes", "usage", "--json")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Sandbox Running (MiB-Seconds)")
+}

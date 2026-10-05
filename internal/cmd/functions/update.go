@@ -34,8 +34,12 @@ Currently supported:
   --public / --private to control invocation visibility.
 
 Use exactly one of:
-  --public   Make function publicly invokable
-  --private  Require authenticated/service invocation`,
+  --public   Let anon keys invoke the function too
+  --private  Set the level that refuses anon keys and admits your project's
+             signed-in users and service keys
+
+On a server with visibility levels, --private opens a private function to your
+project's signed-in users.`,
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,
@@ -53,8 +57,8 @@ Use exactly one of:
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&public, "public", false, "Set function visibility to public")
-	cmd.Flags().BoolVar(&private, "private", false, "Set function visibility to private")
+	cmd.Flags().BoolVar(&public, "public", false, "Let anon keys invoke the function")
+	cmd.Flags().BoolVar(&private, "private", false, "Refuse anon keys and admit signed-in users (opens a private function to them)")
 	return cmd
 }
 
@@ -68,10 +72,12 @@ func runUpdate(ctx context.Context, opts updateOptions) error {
 		return err
 	}
 
-	visibility := "private"
 	if updated.IsPublic {
-		visibility = "public"
+		output.Success(opts.out, "Function '%s' visibility set to public", updated.Name)
+		return nil
 	}
-	output.Success(opts.out, "Function '%s' visibility set to %s", updated.Name, visibility)
+	output.Success(opts.out,
+		"Function '%s' is not public: anon keys are refused, and your project's signed-in users and service keys can invoke it",
+		updated.Name)
 	return nil
 }
