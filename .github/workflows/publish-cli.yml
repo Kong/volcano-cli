@@ -413,6 +413,8 @@ jobs:
           repository: Kong/homebrew-volcano
           token: ${{ steps.app-token.outputs.token }}
           path: tap
+          # Needed: "Commit and push" later runs git pull/push to the tap with this app token.
+          persist-credentials: true
 
       - name: Regenerate formula
         env:
