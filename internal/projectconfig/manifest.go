@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -32,6 +33,13 @@ const (
 	manifestDir        = "volcano"
 	nestedManifestPath = "volcano/volcano-config.yaml"
 	rootManifestPath   = "volcano-config.yaml"
+)
+
+// The function visibility levels a manifest may declare.
+const (
+	FunctionVisibilityPrivate       = "private"
+	FunctionVisibilityAuthenticated = "authenticated"
+	FunctionVisibilityPublic        = "public"
 )
 
 // Manifest is the on-disk shape of volcano-config.yaml. Field names mirror the
@@ -280,7 +288,11 @@ type FunctionManifest struct {
 	// is created, so the server compares this against the deployed function.
 	// Empty means standard, which is what every manifest written before durable
 	// functions existed declares.
-	Kind          *string   `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Kind *string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	// Visibility is private, authenticated, or public. Public is its deprecated
+	// alias: true means public and false means authenticated. Validate refuses
+	// an unknown level; the server judges a manifest that sets both.
+	Visibility    *string   `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 	Public        *bool     `yaml:"public,omitempty" json:"public,omitempty"`
 	VariableScope *string   `yaml:"variable_scope,omitempty" json:"variable_scope,omitempty"`
 	Variables     *[]string `yaml:"variables,omitempty" json:"variables,omitempty"`
@@ -316,6 +328,19 @@ func (m *Manifest) DurableFunctionNames() []string {
 	return names
 }
 
+// VisibilityLevelFields names the fields this manifest declares that only a
+// server with function visibility levels accepts.
+func (m *Manifest) VisibilityLevelFields() []string {
+	var fields []string
+	if m.Functions != nil && slices.ContainsFunc(*m.Functions, func(f FunctionManifest) bool { return f.Visibility != nil }) {
+		fields = append(fields, "visibility")
+	}
+	if m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FunctionRoutes != nil }) {
+		fields = append(fields, "function_routes")
+	}
+	return fields
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name
@@ -349,6 +374,17 @@ type FrontendManifest struct {
 	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Name          string                `yaml:"name" json:"name"`
 	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
+	// removes them.
+	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
+}
+
+// FunctionRouteManifest sends requests under PathPrefix on a frontend to a
+// public HTTP-mode function.
+type FunctionRouteManifest struct {
+	Function    string `yaml:"function" json:"function"`
+	PathPrefix  string `yaml:"path_prefix" json:"path_prefix"`
+	StripPrefix *bool  `yaml:"strip_prefix,omitempty" json:"strip_prefix,omitempty"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.
@@ -445,8 +481,8 @@ func (m *Manifest) uploadBody() ([]byte, error) {
 }
 
 // Validate performs the minimal local checks: the schema version, the function
-// kind, and the removed scheduler regions field. Other semantic validation is
-// server-side.
+// kind and visibility, and the removed scheduler regions field. Other semantic
+// validation is server-side.
 func (m *Manifest) Validate() error {
 	if m.Version != ManifestVersion {
 		return fmt.Errorf("unsupported manifest version %d (expected %d)", m.Version, ManifestVersion)
@@ -456,6 +492,9 @@ func (m *Manifest) Validate() error {
 	}
 	for _, function := range *m.Functions {
 		if err := validateFunctionKind(function); err != nil {
+			return err
+		}
+		if err := validateFunctionVisibility(function); err != nil {
 			return err
 		}
 		if function.Schedulers == nil {
@@ -487,6 +526,23 @@ func validateFunctionKind(function FunctionManifest) error {
 	default:
 		return fmt.Errorf("function %q: unsupported kind %q (expected %q or %q)",
 			function.Name, kind, FunctionKindStandard, FunctionKindDurable)
+	}
+}
+
+// validateFunctionVisibility refuses a level the server does not have. The
+// server's schema rejects one too, but only as a bare "invalid request" that
+// names neither the function nor the field.
+func validateFunctionVisibility(function FunctionManifest) error {
+	if function.Visibility == nil {
+		return nil
+	}
+	switch *function.Visibility {
+	case FunctionVisibilityPrivate, FunctionVisibilityAuthenticated, FunctionVisibilityPublic:
+		return nil
+	default:
+		return fmt.Errorf("function %q: unsupported visibility %q (expected %q, %q, or %q)",
+			function.Name, *function.Visibility,
+			FunctionVisibilityPrivate, FunctionVisibilityAuthenticated, FunctionVisibilityPublic)
 	}
 }
 
