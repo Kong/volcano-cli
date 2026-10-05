@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/Kong/volcano-cli/compare/v0.37.0...v0.37.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** bump kin-openapi, x/mod, and Go 1.25 patch past advisories ([#258](https://github.com/Kong/volcano-cli/issues/258)) ([c72a48a](https://github.com/Kong/volcano-cli/commit/c72a48ab9b69157633a0918d0c4ef251cad6d731))
+
 ## [0.37.0](https://github.com/Kong/volcano-cli/compare/v0.36.0...v0.37.0) (2026-10-05)
 
 
