@@ -477,34 +477,25 @@ func TestDurableDeployGivesNoHintWhenTheFlagChoosesPrivate(t *testing.T) {
 	assert.NotContains(t, out, "New durable functions are private")
 }
 
-// A server that predates visibility levels refuses the field with a bare 400
-// or deploys without reporting a level. A deploy that asked for one fails
-// either way; one that did not warns instead of guessing a level.
+// A server that predates visibility levels drops the multipart field it does
+// not know and deploys without reporting a level. A deploy that asked for one
+// fails; one that did not warns instead of guessing a level.
 func TestDurableDeployOnAServerWithoutVisibilityLevels(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		args       []string
-		status     int
 		wantErr    string
 		wantStderr string
 	}{
 		{
-			name:    "flag refused",
-			args:    []string{"deploy", "-f", "order-pipeline", "--visibility", "authenticated"},
-			status:  http.StatusBadRequest,
-			wantErr: "a server that predates visibility levels refuses --visibility this way",
-		},
-		{
-			name:   "flag ignored",
-			args:   []string{"deploy", "-f", "order-pipeline", "--visibility", "authenticated"},
-			status: http.StatusCreated,
+			name: "flag ignored",
+			args: []string{"deploy", "-f", "order-pipeline", "--visibility", "authenticated"},
 			wantErr: "the server does not support visibility levels yet: 'order-pipeline' was deployed, " +
 				"but check who can start its executions with volcano cloud durable get order-pipeline",
 		},
 		{
 			name:       "no flag",
 			args:       []string{"deploy", "-f", "order-pipeline"},
-			status:     http.StatusCreated,
 			wantStderr: "the server does not support visibility levels yet, so it reported no visibility for order-pipeline",
 		},
 	} {
@@ -517,13 +508,9 @@ func TestDurableDeployOnAServerWithoutVisibilityLevels(t *testing.T) {
 				case writeDurableRuntimesResponse(t, w, r):
 					return
 				case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
-					if tc.status == http.StatusBadRequest {
-						writeDurableCommandJSON(t, w, tc.status, map[string]any{"error": "invalid request"})
-						return
-					}
 					payload := durableFunctionPayload("order-pipeline", "")
 					delete(payload, "visibility")
-					writeDurableCommandJSON(t, w, tc.status, payload)
+					writeDurableCommandJSON(t, w, http.StatusCreated, payload)
 				default:
 					http.NotFound(w, r)
 				}

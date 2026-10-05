@@ -5,14 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
@@ -129,9 +127,6 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
 		)
 		if err != nil {
-			if visibility != nil && api.Status(err) == http.StatusBadRequest {
-				return fmt.Errorf("%w\n%s", err, cmdutil.VisibilityLevelsHint(opts.deps))
-			}
 			return err
 		}
 		if deployed.Visibility == "" {
