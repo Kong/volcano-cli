@@ -64,6 +64,8 @@ for (const corrupt of [false, true]) {
     const env = { ...process.env };
     delete env.VOLCANO_CLI_RELEASES_URL;
     delete env.VOLCANO_GITHUB_RELEASES_URL;
+    // Launched through a package manager, ensureBinary() would also write an install-method marker into bin/.
+    delete env.npm_config_user_agent;
     const child = spawn(process.execPath, ['-e', script], { cwd: root, env });
     let stderr = '';
     child.stderr.on('data', chunk => { stderr += chunk; });
