@@ -17,8 +17,9 @@ All signed assets must exist and verify through the public CDN before promotion,
 and once a pointer exists the new bootstrap must install the current latest
 version through it.
 A partial upload keeps the previous pointer, latest assets, and bootstrap.
-If a latest-asset copy fails, promotion copies the previous release back over the
-latest assets it replaced, best effort, and fails without moving the pointer.
+If a promotion copy or the pointer write fails, promotion re-reads
+`latest-version` and copies the release it names onto the latest assets and
+bootstrap, best effort, then fails.
 Reruns reuse existing signatures, reject changed signed bytes, and rebuild
 checksums from those canonical assets.
 Release runs queue and serialize across tags; older tags cannot downgrade the pointer.
@@ -65,8 +66,9 @@ rebuilds binaries with new bytes, which publication rejects for an existing
 version. Never replace an immutable version; release a new version if signed
 bytes changed. A failed CDN check does
 not move `latest-version` or the latest assets. If promotion fails after copying
-began, rerun the job; reruns recopy the same verified objects. Until then, a
-latest asset the log reports it could not restore serves a mixed release.
+began, rerun the job; reruns recopy the same verified objects. Until then, any
+latest asset or bootstrap the log reports it could not reconcile may not match
+the pointer.
 
 To roll back, re-promote a published version with credentials that can write
 `builds/` in the production bucket, a current AWS CLI v2, and `cosign`:

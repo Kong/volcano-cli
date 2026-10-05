@@ -29,6 +29,7 @@ class PublishTests(unittest.TestCase):
         self.dispositions = {}
         self.writes = []
         self.fail_key = None
+        self.before_write = {}
         self.pointer = publisher.PREFIX + "/latest-version"
         self.patches = [patch.object(publisher, "aws", side_effect=self.aws),
                         patch.object(publisher, "verify_signatures"),
@@ -63,6 +64,7 @@ class PublishTests(unittest.TestCase):
             if key not in self.objects or arg("--if-match") not in (None, self.etag(key)):
                 raise RuntimeError("An error occurred (PreconditionFailed)")
             return {"ETag": self.etag(key)}
+        self.before_write.pop(key, lambda: None)()
         if key == self.pointer:
             self.assertTrue({"--if-match", "--if-none-match"} & set(args), "pointer writes must be conditional")
         if key == self.fail_key:
@@ -200,25 +202,55 @@ class PublishTests(unittest.TestCase):
             self.publish()
         self.assertEqual(self.latest(), previous)
 
-    def test_failed_alias_copy_restores_previous_latest(self):
+    def test_failed_alias_copy_reconciles_to_pointer(self):
         previous = self.seed("v1.2.2")
         self.fail_key = self.alias(publisher.ASSETS[3])
         with self.assertRaisesRegex(RuntimeError, "upload failed"):
             self.publish()
         self.assertEqual(self.latest(), previous)
 
-    def test_failed_restore_is_reported_and_still_fails(self):
+    def test_failed_bootstrap_copy_reconciles_to_pointer(self):
+        previous = self.seed("v1.2.2")
+        self.fail_key = "builds/install.sh"
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertEqual(self.latest(), previous)
+
+    def test_failed_pointer_write_reconciles_to_unchanged_pointer(self):
+        previous = self.seed("v1.2.2")
+        self.fail_key = self.pointer
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertEqual(self.latest(), previous)
+
+    def test_pointer_write_that_landed_keeps_new_latest(self):
+        self.seed("v1.2.2")
+        self.before_write[self.pointer] = lambda: self.objects.update({self.pointer: b"v1.2.3\n"})
+        with self.assertRaisesRegex(RuntimeError, "PreconditionFailed"):
+            self.publish()
+        self.assert_latest_is("v1.2.3")
+
+    def test_newer_concurrent_promotion_wins_reconcile(self):
+        self.seed("v1.2.2")
+        for name in publisher.ASSETS:
+            self.objects[self.versioned("v1.2.4", name)] = f"v1.2.4:{name}".encode()
+        self.before_write[self.pointer] = lambda: self.objects.update({self.pointer: b"v1.2.4\n"})
+        with self.assertRaisesRegex(RuntimeError, "PreconditionFailed"):
+            self.publish()
+        self.assert_latest_is("v1.2.4")
+
+    def test_failed_reconcile_is_reported_and_still_fails(self):
         previous = self.seed("v1.2.2")
         del self.objects[self.versioned("v1.2.2", publisher.ASSETS[0])]
         self.fail_key = self.alias(publisher.ASSETS[1])
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr), self.assertRaisesRegex(RuntimeError, "upload failed"):
             self.publish()
-        self.assertIn("could not restore " + self.alias(publisher.ASSETS[0]), stderr.getvalue())
+        self.assertIn("could not reconcile " + self.alias(publisher.ASSETS[0]), stderr.getvalue())
         self.assertEqual(self.objects[self.alias(publisher.ASSETS[1])], previous[self.alias(publisher.ASSETS[1])])
         self.assertEqual(self.objects[self.pointer], previous[self.pointer])
 
-    def test_first_promotion_has_nothing_to_restore(self):
+    def test_first_promotion_has_nothing_to_reconcile(self):
         self.fail_key = self.alias(publisher.ASSETS[1])
         with self.assertRaisesRegex(RuntimeError, "upload failed"):
             self.publish()

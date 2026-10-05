@@ -164,15 +164,24 @@ def publish_immutable(bucket, version, name, assets, existing, published):
     return found["ETag"]
 
 
-def restore_aliases(bucket, version, etags, names):
-    for name in names:
-        key = f"{PREFIX}/latest/download/{name}"
+def reconcile(bucket, path):
+    pointer = f"{PREFIX}/latest-version"
+    try:
+        if get(bucket, pointer, path, listed_keys(bucket, pointer)) is None:
+            return
+        version = path.read_text().strip()
+        version_tuple(version)
+        etags = listed_keys(bucket, f"{PREFIX}/download/{version}/")
+    except Exception as error:
+        print(f"error: could not read {pointer} to reconcile latest assets: {error!r}", file=sys.stderr)
+        return
+    aliases = [(name, f"{PREFIX}/latest/download/{name}") for name in ASSETS]
+    for name, key in (*aliases, ("install.sh", "builds/install.sh")):
         source = f"{PREFIX}/download/{version}/{name}"
         try:
             copy(bucket, source, etags[source], key)
         except Exception as error:
-            print(f"error: could not restore {key} to {version}, so latest assets are mixed "
-                  f"until promotion is rerun: {error!r}", file=sys.stderr)
+            print(f"error: could not reconcile {key} to {version}; rerun promotion: {error!r}", file=sys.stderr)
 
 
 def promote(bucket, version, etags, current, metadata):
@@ -182,22 +191,19 @@ def promote(bucket, version, etags, current, metadata):
         aws("head-object", "--bucket", bucket, "--key", pointer, "--if-match", metadata["ETag"])
     elif pointer in listed_keys(bucket, pointer):
         raise RuntimeError(f"{pointer} was created during publication")
-    previous = current.read_text().strip() if metadata else None
-    previous_etags = listed_keys(bucket, f"{PREFIX}/download/{previous}/") if previous else {}
-    # Copy only the verified versioned objects; each copy fails if its source changed.
-    for index, name in enumerate(ASSETS):
-        try:
+    try:
+        # Copy only the verified versioned objects; each copy fails if its source changed.
+        for name in ASSETS:
             copy(bucket, f"{PREFIX}/download/{version}/{name}", etags[name], f"{PREFIX}/latest/download/{name}")
-        except Exception:
-            # Keep the latest assets matching the unchanged pointer; the failed copy may still have landed.
-            if previous:
-                restore_aliases(bucket, previous, previous_etags, ASSETS[:index + 1])
-            raise
-    # This bootstrap resolves latest-version; it must work with the old pointer too.
-    copy(bucket, f"{PREFIX}/download/{version}/install.sh", etags["install.sh"], "builds/install.sh")
-    current.write_text(version + "\n")
-    condition = {"if_match": metadata["ETag"]} if metadata else {"if_none_match": "*"}
-    put(bucket, pointer, current, MUTABLE, **condition)
+        # This bootstrap resolves latest-version; it must work with the old pointer too.
+        copy(bucket, f"{PREFIX}/download/{version}/install.sh", etags["install.sh"], "builds/install.sh")
+        current.write_text(version + "\n")
+        condition = {"if_match": metadata["ETag"]} if metadata else {"if_none_match": "*"}
+        put(bucket, pointer, current, MUTABLE, **condition)
+    except Exception:
+        # Re-read the pointer: a failed write may have landed, or another promotion may have advanced it.
+        reconcile(bucket, current)
+        raise
 
 
 def publish(assets, version, bucket, base_url, rollback=False):
