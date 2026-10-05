@@ -284,15 +284,26 @@ func TestDeployOldServerWithoutConfigEndpoint(t *testing.T) {
 
 // A server whose schema predates visibility levels answers the new fields with
 // the same bare 400 as any schema failure, so the hint depends on the manifest
-// declaring them.
+// declaring them and only says what to do if that is the cause. Upgrading the
+// server image is advice for local mode alone.
 func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
+	const levels = "version: 1\nfunctions:\n  - name: hello\n    visibility: private\nfrontends:\n  - name: web\n    function_routes: []\n"
 	for name, tc := range map[string]struct {
-		manifest string
-		hint     bool
+		manifest  string
+		localMode bool
+		hint      string
 	}{
-		"visibility and routes": {
-			manifest: "version: 1\nfunctions:\n  - name: hello\n    visibility: private\nfrontends:\n  - name: web\n    function_routes: []\n",
-			hint:     true,
+		"cloud": {
+			manifest: levels,
+			hint: "if this server predates function visibility levels, it refuses visibility and function_routes this way: " +
+				"remove them (public: true or public: false stands in for visibility on such a server)",
+		},
+		"local": {
+			manifest:  levels,
+			localMode: true,
+			hint: "if this server predates function visibility levels, it refuses visibility and function_routes this way: " +
+				"upgrade your local-mode server image, or remove them " +
+				"(public: true or public: false stands in for visibility on such a server)",
 		},
 		"legacy public": {
 			manifest: "version: 1\nfunctions:\n  - name: hello\n    public: false\n",
@@ -309,15 +320,18 @@ func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
 			}))
 			defer server.Close()
 
-			_, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy")
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, LocalMode: tc.localMode}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
-			if !tc.hint {
+			if tc.hint == "" {
 				assert.NotContains(t, err.Error(), "predates function visibility levels")
 				return
 			}
-			assert.Contains(t, err.Error(), "a server that predates function visibility levels refuses visibility and function_routes this way")
-			assert.Contains(t, err.Error(), "public: true or public: false stands in for visibility")
+			assert.Contains(t, err.Error(), "\n"+tc.hint)
+			if !tc.localMode {
+				assert.NotContains(t, err.Error(), "local-mode")
+			}
 		})
 	}
 }
