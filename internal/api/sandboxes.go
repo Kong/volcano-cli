@@ -157,7 +157,7 @@ func (c *Client) DeleteSandboxTemplate(ctx context.Context, project, id uuid.UUI
 	if err != nil {
 		return err
 	}
-	if response.StatusCode == http.StatusNoContent {
+	if response.StatusCode == http.StatusAccepted || response.StatusCode == http.StatusNoContent {
 		return response.Body.Close()
 	}
 	parsed, err := apiclient.ParseDeleteSandboxClientResponse(response)

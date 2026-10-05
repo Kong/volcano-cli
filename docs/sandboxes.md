@@ -3,6 +3,8 @@ title: Sandboxes
 description: Execute isolated commands and manage Sandbox sessions, files, and saved templates.
 ---
 
+## Run a command
+
 Run a command in a temporary Sandbox:
 
 ```bash

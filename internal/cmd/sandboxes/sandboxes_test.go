@@ -135,7 +135,8 @@ func TestTemplateDeletionRequiresConfirmationAndListsNextPage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Method
 		if r.Method == http.MethodDelete {
-			w.WriteHeader(http.StatusNoContent)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
 			return
 		}
 		assert.Equal(t, "next-page", r.URL.Query().Get("cursor"))
