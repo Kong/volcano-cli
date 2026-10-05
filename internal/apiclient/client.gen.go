@@ -332,24 +332,6 @@ func (e CreateSandboxSessionRequestMemoryMb) Valid() bool {
 	}
 }
 
-// Defines values for CreateSandboxSessionRequestPreset.
-const (
-	CreateSandboxSessionRequestPresetNode22    CreateSandboxSessionRequestPreset = "node22"
-	CreateSandboxSessionRequestPresetPython312 CreateSandboxSessionRequestPreset = "python3.12"
-)
-
-// Valid indicates whether the value is a known member of the CreateSandboxSessionRequestPreset enum.
-func (e CreateSandboxSessionRequestPreset) Valid() bool {
-	switch e {
-	case CreateSandboxSessionRequestPresetNode22:
-		return true
-	case CreateSandboxSessionRequestPresetPython312:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CreateSandboxTemplateRequestMemoryMb.
 const (
 	CreateSandboxTemplateRequestMemoryMbN1024 CreateSandboxTemplateRequestMemoryMb = 1024
@@ -362,24 +344,6 @@ func (e CreateSandboxTemplateRequestMemoryMb) Valid() bool {
 	case CreateSandboxTemplateRequestMemoryMbN1024:
 		return true
 	case CreateSandboxTemplateRequestMemoryMbN2048:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CreateSandboxTemplateRequestPreset.
-const (
-	CreateSandboxTemplateRequestPresetNode22    CreateSandboxTemplateRequestPreset = "node22"
-	CreateSandboxTemplateRequestPresetPython312 CreateSandboxTemplateRequestPreset = "python3.12"
-)
-
-// Valid indicates whether the value is a known member of the CreateSandboxTemplateRequestPreset enum.
-func (e CreateSandboxTemplateRequestPreset) Valid() bool {
-	switch e {
-	case CreateSandboxTemplateRequestPresetNode22:
-		return true
-	case CreateSandboxTemplateRequestPresetPython312:
 		return true
 	default:
 		return false
@@ -2534,24 +2498,6 @@ func (e SandboxExecutionRequestMemoryMb) Valid() bool {
 	}
 }
 
-// Defines values for SandboxExecutionRequestPreset.
-const (
-	SandboxExecutionRequestPresetNode22    SandboxExecutionRequestPreset = "node22"
-	SandboxExecutionRequestPresetPython312 SandboxExecutionRequestPreset = "python3.12"
-)
-
-// Valid indicates whether the value is a known member of the SandboxExecutionRequestPreset enum.
-func (e SandboxExecutionRequestPreset) Valid() bool {
-	switch e {
-	case SandboxExecutionRequestPresetNode22:
-		return true
-	case SandboxExecutionRequestPresetPython312:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for SandboxPresetMemoryMb.
 const (
 	N1024 SandboxPresetMemoryMb = 1024
@@ -3607,22 +3553,22 @@ func (e SummarizeProjectDeploymentsParamsResourceType) Valid() bool {
 
 // Defines values for CreateDurableFunctionMultipartBodyRuntime.
 const (
-	CreateDurableFunctionMultipartBodyRuntimeNodejs22X CreateDurableFunctionMultipartBodyRuntime = "nodejs22.x"
-	CreateDurableFunctionMultipartBodyRuntimeNodejs24X CreateDurableFunctionMultipartBodyRuntime = "nodejs24.x"
-	CreateDurableFunctionMultipartBodyRuntimePython313 CreateDurableFunctionMultipartBodyRuntime = "python3.13"
-	CreateDurableFunctionMultipartBodyRuntimePython314 CreateDurableFunctionMultipartBodyRuntime = "python3.14"
+	Nodejs22X CreateDurableFunctionMultipartBodyRuntime = "nodejs22.x"
+	Nodejs24X CreateDurableFunctionMultipartBodyRuntime = "nodejs24.x"
+	Python313 CreateDurableFunctionMultipartBodyRuntime = "python3.13"
+	Python314 CreateDurableFunctionMultipartBodyRuntime = "python3.14"
 )
 
 // Valid indicates whether the value is a known member of the CreateDurableFunctionMultipartBodyRuntime enum.
 func (e CreateDurableFunctionMultipartBodyRuntime) Valid() bool {
 	switch e {
-	case CreateDurableFunctionMultipartBodyRuntimeNodejs22X:
+	case Nodejs22X:
 		return true
-	case CreateDurableFunctionMultipartBodyRuntimeNodejs24X:
+	case Nodejs24X:
 		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython313:
+	case Python313:
 		return true
-	case CreateDurableFunctionMultipartBodyRuntimePython314:
+	case Python314:
 		return true
 	default:
 		return false
@@ -4593,7 +4539,9 @@ type CreateSandboxSessionRequest struct {
 	IdleTimeoutSeconds *int                                 `json:"idle_timeout_seconds,omitempty"`
 	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
 	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
-	Preset             *CreateSandboxSessionRequestPreset   `json:"preset,omitempty"`
+
+	// Preset Preset ID from the available Sandbox preset catalog.
+	Preset *string `json:"preset,omitempty"`
 
 	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
 	Region    string              `json:"region"`
@@ -4603,9 +4551,6 @@ type CreateSandboxSessionRequest struct {
 
 // CreateSandboxSessionRequestMemoryMb defines model for CreateSandboxSessionRequest.MemoryMb.
 type CreateSandboxSessionRequestMemoryMb int
-
-// CreateSandboxSessionRequestPreset defines model for CreateSandboxSessionRequest.Preset.
-type CreateSandboxSessionRequestPreset string
 
 // CreateSandboxSessionRequest0 defines model for .
 type CreateSandboxSessionRequest0 = interface{}
@@ -4617,14 +4562,13 @@ type CreateSandboxSessionRequest1 = interface{}
 type CreateSandboxTemplateRequest struct {
 	MemoryMb *CreateSandboxTemplateRequestMemoryMb `json:"memory_mb,omitempty"`
 	Name     string                                `json:"name"`
-	Preset   CreateSandboxTemplateRequestPreset    `json:"preset"`
+
+	// Preset Preset ID from the available Sandbox preset catalog.
+	Preset string `json:"preset"`
 }
 
 // CreateSandboxTemplateRequestMemoryMb defines model for CreateSandboxTemplateRequest.MemoryMb.
 type CreateSandboxTemplateRequestMemoryMb int
-
-// CreateSandboxTemplateRequestPreset defines model for CreateSandboxTemplateRequest.Preset.
-type CreateSandboxTemplateRequestPreset string
 
 // CreateStorageBucketRequest defines model for CreateStorageBucketRequest.
 type CreateStorageBucketRequest struct {
@@ -7962,7 +7906,9 @@ type SandboxExecutionRequest struct {
 	Command     string                           `json:"command"`
 	Environment *map[string]string               `json:"environment,omitempty"`
 	MemoryMb    *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
-	Preset      *SandboxExecutionRequestPreset   `json:"preset,omitempty"`
+
+	// Preset Preset ID from the available Sandbox preset catalog.
+	Preset *string `json:"preset,omitempty"`
 
 	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
 	Region         string              `json:"region"`
@@ -7973,9 +7919,6 @@ type SandboxExecutionRequest struct {
 
 // SandboxExecutionRequestMemoryMb defines model for SandboxExecutionRequest.MemoryMb.
 type SandboxExecutionRequestMemoryMb int
-
-// SandboxExecutionRequestPreset defines model for SandboxExecutionRequest.Preset.
-type SandboxExecutionRequestPreset string
 
 // SandboxExecutionRequest0 defines model for .
 type SandboxExecutionRequest0 = interface{}

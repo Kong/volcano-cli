@@ -21,7 +21,7 @@ type launchOptions struct {
 func (o *launchOptions) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.preset, "preset", "", "Preset from sandboxes presets")
 	cmd.Flags().StringVar(&o.template, "template", "", "Saved Sandbox template ID")
-	cmd.Flags().StringVar(&o.region, "region", "aws-us-east-1", "Sandbox region")
+	cmd.Flags().StringVar(&o.region, "region", "us-east-1", "Sandbox region")
 	cmd.Flags().StringVar(&o.key, "request-id", "", "UUID idempotency key; reuse when retrying the same request")
 	cmd.Flags().IntVar(&o.memory, "memory", 0, "Memory in MB (1024 or 2048; defaults to the preset or template)")
 }
@@ -39,7 +39,7 @@ func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UU
 		result.MemoryMb = &memory
 	}
 	if o.preset != "" {
-		preset := apiclient.CreateSandboxSessionRequestPreset(o.preset)
+		preset := o.preset
 		result.Preset = &preset
 	}
 	if o.template != "" {
@@ -67,6 +67,9 @@ func (c *commands) execute() *cobra.Command {
 		if split < 0 || split > 1 || split >= len(args) {
 			return errors.New("use exec [session-id] -- command [args...]")
 		}
+		if err := validateTimeout(opts.timeout, split == 1); err != nil {
+			return err
+		}
 		command := shellCommand(args[split:])
 		project, err := c.project()
 		if err != nil {
@@ -90,7 +93,7 @@ func (c *commands) execute() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return c.outputCommand(cmd, value.Stdout, value.Stderr, value.ExitCode, value)
+			return c.outputCommand(cmd, *value, value)
 		}
 		request, key, err := opts.request()
 		if err != nil {
@@ -98,7 +101,7 @@ func (c *commands) execute() *cobra.Command {
 		}
 		body := apiclient.SandboxExecutionRequest{Command: command, Region: request.Region, SandboxId: request.SandboxId, TimeoutSeconds: &opts.timeout}
 		if request.Preset != nil {
-			preset := apiclient.SandboxExecutionRequestPreset(*request.Preset)
+			preset := *request.Preset
 			body.Preset = &preset
 		}
 		if request.MemoryMb != nil {
@@ -109,7 +112,7 @@ func (c *commands) execute() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return c.outputCommand(cmd, value.Stdout, value.Stderr, value.ExitCode, value)
+		return c.outputCommand(cmd, apiclient.SandboxCommandResult{Stdout: value.Stdout, Stderr: value.Stderr, ExitCode: value.ExitCode, TimedOut: value.TimedOut, StdoutTruncated: value.StdoutTruncated, StderrTruncated: value.StderrTruncated}, value)
 	}}
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.timeout, "timeout", 60, "Command timeout in seconds")
@@ -124,21 +127,27 @@ func shellCommand(args []string) string {
 	return strings.Join(quoted, " ")
 }
 
-func (c *commands) outputCommand(cmd *cobra.Command, stdout, stderr string, code int, value any) error {
+func (c *commands) outputCommand(cmd *cobra.Command, result apiclient.SandboxCommandResult, value any) error {
 	if c.json {
 		if err := c.write(cmd, value); err != nil {
 			return err
 		}
 	} else {
-		if _, err := fmt.Fprint(cmd.OutOrStdout(), stdout); err != nil {
+		if _, err := fmt.Fprint(cmd.OutOrStdout(), result.Stdout); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), stderr); err != nil {
+		if _, err := fmt.Fprint(cmd.ErrOrStderr(), result.Stderr); err != nil {
+			return err
+		}
+		if err := commandNotices(cmd, result); err != nil {
 			return err
 		}
 	}
-	if code != 0 {
-		return &ExitError{Code: code}
+	if result.TimedOut {
+		return &ExitError{Code: 124}
+	}
+	if result.ExitCode != 0 {
+		return &ExitError{Code: result.ExitCode}
 	}
 	return nil
 }
@@ -146,6 +155,9 @@ func (c *commands) outputCommand(cmd *cobra.Command, stdout, stderr string, code
 func (c *commands) run() *cobra.Command {
 	var opts launchOptions
 	cmd := &cobra.Command{Use: "run", Short: "Start a persistent session", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		if opts.duration < 30 || opts.duration > 28800 {
+			return errors.New("--duration must be between 30 and 28800 seconds")
+		}
 		request, key, err := opts.request()
 		if err != nil {
 			return err
@@ -164,4 +176,35 @@ func (c *commands) run() *cobra.Command {
 	opts.flags(cmd)
 	cmd.Flags().IntVar(&opts.duration, "duration", 3600, "Maximum session lifetime in seconds")
 	return cmd
+}
+
+func validateTimeout(timeout int, session bool) error {
+	if session {
+		if timeout < 1 || timeout > 3600 {
+			return errors.New("--timeout must be between 1 and 3600 seconds for session commands")
+		}
+		return nil
+	}
+	if timeout < 1 || timeout > 60 {
+		return errors.New("--timeout must be between 1 and 60 seconds for one-shot execution; use a session for longer commands")
+	}
+	return nil
+}
+
+func commandNotices(cmd *cobra.Command, result apiclient.SandboxCommandResult) error {
+	for _, notice := range []struct {
+		enabled bool
+		text    string
+	}{
+		{result.TimedOut, "Sandbox command timed out."},
+		{result.StdoutTruncated, "Sandbox stdout was truncated."},
+		{result.StderrTruncated, "Sandbox stderr was truncated."},
+	} {
+		if notice.enabled {
+			if _, err := fmt.Fprintln(cmd.ErrOrStderr(), "\nWarning: "+notice.text); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

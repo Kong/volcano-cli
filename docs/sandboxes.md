@@ -11,7 +11,7 @@ Run a command in a temporary Sandbox:
 volcano cloud sandboxes exec --preset python3.12 -- python -c 'print(42)'
 ```
 
-The command prints stdout and stderr and returns the guest process's exit code. Volcano terminates the temporary session when execution finishes. Add `--json` to receive the API result, including `exit_code` and truncation flags.
+The command prints stdout and stderr and returns the guest process's exit code (124 on timeout). Timeout and truncated stdout/stderr produce warnings on stderr in text mode. Volcano terminates the temporary session when execution finishes. Add `--json` to receive the API result, including `exit_code` and truncation flags.
 
 For local development, start Volcano and use the same commands without `cloud`:
 
@@ -21,7 +21,7 @@ volcano sandboxes presets
 volcano sandboxes exec --preset node22 -- node -e 'console.log(42)'
 ```
 
-Local Sandboxes require Docker. They use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
+Local Sandboxes require Docker. `volcano start` starts the core services before attempting the optional Sandbox broker. A broker startup failure prints a warning and leaves the core services available; Sandbox requests remain unavailable until the broker is reachable. `volcano stop` also stops the broker, and `volcano stop --clean` removes its Compose volumes. They use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
 
 ## Keep a session
 
@@ -78,10 +78,16 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--preset` | `exec`, `run`, template creation | Choose an available preset |
 | `--template` | `exec`, `run` | Use a saved template ID instead of a preset |
 | `--memory` | `exec`, `run` | Override memory with 1024 or 2048 MB; otherwise inherit the preset or template |
-| `--region` | `exec`, `run` | Select a region; defaults to `aws-us-east-1` |
-| `--timeout` | `exec` | Command deadline in seconds; defaults to 60 |
-| `--duration` | `run` | Maximum session lifetime in seconds; defaults to 3600 |
+| `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
+| `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
+| `--duration` | `run` | Maximum session lifetime: 30–28800 seconds; defaults to 3600 |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
-| `--json` | All Sandbox commands | Print the API response as JSON |
+| `--json` | All Sandbox commands | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
+
+## Output format
+
+Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream.
+
+Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.

@@ -1,7 +1,9 @@
 package sandboxes
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -31,6 +33,12 @@ func (c *commands) templates() *cobra.Command {
 	var preset, key string
 	var memory int
 	create := &cobra.Command{Use: "create <name>", Short: "Save a named preset template", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if strings.TrimSpace(preset) == "" {
+			return errors.New("--preset must name a catalog preset")
+		}
+		if memory != 1024 && memory != 2048 {
+			return errors.New("--memory must be 1024 or 2048")
+		}
 		id, err := requestID(key)
 		if err != nil {
 			return err
@@ -40,15 +48,16 @@ func (c *commands) templates() *cobra.Command {
 			return err
 		}
 		size := apiclient.CreateSandboxTemplateRequestMemoryMb(memory)
-		value, err := project.API.CreateSandboxTemplate(cmd.Context(), project.ProjectID, id, apiclient.CreateSandboxTemplateRequest{Name: args[0], Preset: apiclient.CreateSandboxTemplateRequestPreset(preset), MemoryMb: &size})
+		value, err := project.API.CreateSandboxTemplate(cmd.Context(), project.ProjectID, id, apiclient.CreateSandboxTemplateRequest{Name: args[0], Preset: preset, MemoryMb: &size})
 		if err != nil {
 			return err
 		}
 		return c.write(cmd, value)
 	}}
-	create.Flags().StringVar(&preset, "preset", "python3.12", "Preset image")
+	create.Flags().StringVar(&preset, "preset", "", "Preset from sandboxes presets (required)")
 	create.Flags().IntVar(&memory, "memory", 1024, "Memory in MB")
 	create.Flags().StringVar(&key, "request-id", "", "UUID idempotency key")
+	_ = create.MarkFlagRequired("preset")
 	cmd.AddCommand(create)
 	return cmd
 }

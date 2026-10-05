@@ -12579,9 +12579,7 @@ components:
           pattern: ^[a-z][a-z0-9-]{0,62}$
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         memory_mb:
           type: integer
           enum:
@@ -12659,9 +12657,7 @@ components:
       properties:
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         sandbox_id:
           type: string
           format: uuid
@@ -12723,9 +12719,7 @@ components:
       properties:
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         sandbox_id:
           type: string
           format: uuid

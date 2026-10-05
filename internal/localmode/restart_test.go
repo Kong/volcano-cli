@@ -49,6 +49,10 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 			case command.Name == "docker" && slices.Contains(command.Args, "pull"):
 				return nil, nil
 			case command.Name == "docker" && slices.Contains(command.Args, "up"):
+				if slices.Contains(command.Args, "sandbox-broker") {
+					order = append(order, "broker")
+					return nil, nil
+				}
 				order = append(order, "up")
 				running = true
 				return nil, nil
@@ -73,7 +77,7 @@ func TestRestartStopsBeforeStarting(t *testing.T) {
 	)
 
 	require.NoError(t, service.Restart(context.Background(), &out))
-	assert.Equal(t, []string{"down", "up"}, order)
+	assert.Equal(t, []string{"down", "up", "broker"}, order)
 }
 
 func TestRestartFailsBeforeTeardownWhenCustomImageMissing(t *testing.T) {
