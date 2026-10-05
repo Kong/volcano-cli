@@ -73,16 +73,26 @@ def content_type(key):
     return "application/octet-stream"
 
 
+def content_headers(key):
+    name = key.rsplit("/", 1)[-1]
+    headers = ["--content-type", content_type(key)]
+    if name in BINARIES:
+        # Without it, Safari can save the macOS binary with a .dms suffix.
+        headers += ["--content-disposition", f"attachment; filename={name}"]
+    return headers
+
+
 def copy(bucket, source, etag, key):
+    # REPLACE drops every source header, so each one is re-specified here.
     return aws("copy-object", "--bucket", bucket, "--key", key,
                "--copy-source", f"{bucket}/{source}", "--copy-source-if-match", etag,
                "--metadata-directive", "REPLACE", "--cache-control", MUTABLE,
-               "--content-type", content_type(key))
+               *content_headers(key))
 
 
 def put(bucket, key, path, cache, **conditions):
     args = ["put-object", "--bucket", bucket, "--key", key, "--body", str(path),
-            "--cache-control", cache, "--content-type", content_type(key)]
+            "--cache-control", cache, *content_headers(key)]
     for name, value in conditions.items():
         args.extend(["--" + name.replace("_", "-"), value])
     return aws(*args)

@@ -24,6 +24,7 @@ class PublishTests(unittest.TestCase):
         self.objects = {}
         self.cache = {}
         self.types = {}
+        self.dispositions = {}
         self.writes = []
         self.fail_key = None
         self.pointer = publisher.PREFIX + "/latest-version"
@@ -78,6 +79,7 @@ class PublishTests(unittest.TestCase):
         self.objects[key] = body
         self.cache[key] = arg("--cache-control")
         self.types[key] = arg("--content-type")
+        self.dispositions[key] = arg("--content-disposition")
         self.writes.append(key)
         return {"ETag": self.etag(key)}
 
@@ -140,6 +142,23 @@ class PublishTests(unittest.TestCase):
             self.pointer: text,
         }.items():
             self.assertEqual(self.types[key], expected, key)
+
+    def test_binaries_download_under_their_asset_names(self):
+        self.seed("v1.2.2")
+        self.publish()
+        self.rollback("v1.2.2")
+        for version in ("v1.2.2", "v1.2.3"):
+            for name in publisher.ASSETS:
+                expected = f"attachment; filename={name}" if name in publisher.BINARIES else None
+                self.assertEqual(self.dispositions[self.versioned(version, name)], expected, name)
+        for name in publisher.ASSETS:
+            expected = f"attachment; filename={name}" if name in publisher.BINARIES else None
+            self.assertEqual(self.dispositions[self.alias(name)], expected, name)
+            if name in publisher.BINARIES:
+                self.assertEqual(self.types[self.alias(name)], "application/octet-stream", name)
+                self.assertEqual(self.cache[self.alias(name)], publisher.MUTABLE, name)
+        for key in ("builds/install.sh", self.pointer):
+            self.assertIsNone(self.dispositions[key], key)
 
     def test_bootstrap_must_resolve_live_pointer_before_promotion(self):
         self.seed("v1.2.2")
