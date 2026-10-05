@@ -228,7 +228,22 @@ jobs:
           # Installation may use Sigstore trust metadata, but must not contact GitHub.
           hosts='github.com api.github.com codeload.github.com raw.githubusercontent.com objects.githubusercontent.com objects-origin.githubusercontent.com release-assets.githubusercontent.com github-releases.githubusercontent.com'
           printf '127.0.0.1 %s # no-github\n::1 %s # no-github\n' "$hosts" "$hosts" | sudo tee -a /etc/hosts >/dev/null
-          trap "sudo sed -i '/ # no-github$/d' /etc/hosts" EXIT
+          unblock_github() {
+            sudo sed -i '/ # no-github$/d' /etc/hosts
+            # systemd-resolved answers from its last read of /etc/hosts for up
+            # to 2s after a change, which leaked the block into later steps.
+            local addrs
+            for _ in {1..30}; do
+              addrs="$(getent ahosts api.github.com || true)"
+              if ! grep -Eq '^(127\.|::1[[:space:]])' <<< "$addrs"; then
+                return 0
+              fi
+              sleep 1
+            done
+            echo "api.github.com still resolves to loopback 30s after unblocking GitHub" >&2
+            exit 1
+          }
+          trap unblock_github EXIT
           python3 scripts/ci/publish-downloads.py \
             --assets dist/release-assets --version "$RELEASE_TAG" \
             --bucket volcano-public-assets-production
