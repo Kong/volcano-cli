@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.request
@@ -56,7 +57,7 @@ def aws(*args):
 def listed_keys(bucket, prefix):
     # Without ListBucket authorization for the request, GetObject reports a missing key as AccessDenied.
     listing = aws("list-objects-v2", "--bucket", bucket, "--prefix", prefix)
-    return {item["Key"] for item in listing.get("Contents") or []}
+    return {item["Key"]: item["ETag"] for item in listing.get("Contents") or []}
 
 
 def get(bucket, key, path, keys):
@@ -163,6 +164,17 @@ def publish_immutable(bucket, version, name, assets, existing, published):
     return found["ETag"]
 
 
+def restore_aliases(bucket, version, etags, names):
+    for name in names:
+        key = f"{PREFIX}/latest/download/{name}"
+        source = f"{PREFIX}/download/{version}/{name}"
+        try:
+            copy(bucket, source, etags[source], key)
+        except Exception as error:
+            print(f"error: could not restore {key} to {version}, so latest assets are mixed "
+                  f"until promotion is rerun: {error!r}", file=sys.stderr)
+
+
 def promote(bucket, version, etags, current, metadata):
     pointer = f"{PREFIX}/latest-version"
     # Verification takes minutes; stop before touching latest objects if another promotion won meanwhile.
@@ -170,9 +182,17 @@ def promote(bucket, version, etags, current, metadata):
         aws("head-object", "--bucket", bucket, "--key", pointer, "--if-match", metadata["ETag"])
     elif pointer in listed_keys(bucket, pointer):
         raise RuntimeError(f"{pointer} was created during publication")
+    previous = current.read_text().strip() if metadata else None
+    previous_etags = listed_keys(bucket, f"{PREFIX}/download/{previous}/") if previous else {}
     # Copy only the verified versioned objects; each copy fails if its source changed.
-    for name in ASSETS:
-        copy(bucket, f"{PREFIX}/download/{version}/{name}", etags[name], f"{PREFIX}/latest/download/{name}")
+    for index, name in enumerate(ASSETS):
+        try:
+            copy(bucket, f"{PREFIX}/download/{version}/{name}", etags[name], f"{PREFIX}/latest/download/{name}")
+        except Exception:
+            # Keep the latest assets matching the unchanged pointer; the failed copy may still have landed.
+            if previous:
+                restore_aliases(bucket, previous, previous_etags, ASSETS[:index + 1])
+            raise
     # This bootstrap resolves latest-version; it must work with the old pointer too.
     copy(bucket, f"{PREFIX}/download/{version}/install.sh", etags["install.sh"], "builds/install.sh")
     current.write_text(version + "\n")

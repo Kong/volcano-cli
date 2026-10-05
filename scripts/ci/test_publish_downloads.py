@@ -1,5 +1,7 @@
+import contextlib
 import hashlib
 import importlib.util
+import io
 import os
 from pathlib import Path
 import sys
@@ -64,6 +66,7 @@ class PublishTests(unittest.TestCase):
         if key == self.pointer:
             self.assertTrue({"--if-match", "--if-none-match"} & set(args), "pointer writes must be conditional")
         if key == self.fail_key:
+            self.fail_key = None
             raise RuntimeError("upload failed")
         if arg("--if-none-match") == "*" and key in self.objects:
             raise RuntimeError("An error occurred (PreconditionFailed)")
@@ -196,6 +199,31 @@ class PublishTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "upload failed"):
             self.publish()
         self.assertEqual(self.latest(), previous)
+
+    def test_failed_alias_copy_restores_previous_latest(self):
+        previous = self.seed("v1.2.2")
+        self.fail_key = self.alias(publisher.ASSETS[3])
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertEqual(self.latest(), previous)
+
+    def test_failed_restore_is_reported_and_still_fails(self):
+        previous = self.seed("v1.2.2")
+        del self.objects[self.versioned("v1.2.2", publisher.ASSETS[0])]
+        self.fail_key = self.alias(publisher.ASSETS[1])
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertIn("could not restore " + self.alias(publisher.ASSETS[0]), stderr.getvalue())
+        self.assertEqual(self.objects[self.alias(publisher.ASSETS[1])], previous[self.alias(publisher.ASSETS[1])])
+        self.assertEqual(self.objects[self.pointer], previous[self.pointer])
+
+    def test_first_promotion_has_nothing_to_restore(self):
+        self.fail_key = self.alias(publisher.ASSETS[1])
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertEqual([key for key in self.writes if key.startswith(self.alias(""))], [self.alias(publisher.ASSETS[0])])
+        self.assertNotIn(self.pointer, self.objects)
 
     def test_cdn_failure_does_not_promote(self):
         previous = self.seed("v1.2.2")
