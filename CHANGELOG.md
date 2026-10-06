@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/Kong/volcano-cli/compare/v0.39.1...v0.40.0) (2026-10-06)
+
+
+### Features
+
+* **cli:** publish native Windows arm64 downloads ([#270](https://github.com/Kong/volcano-cli/issues/270)) ([186dce3](https://github.com/Kong/volcano-cli/commit/186dce3f60af607363e89aca7b18537540776073))
+
 ## [0.39.1](https://github.com/Kong/volcano-cli/compare/v0.39.0...v0.39.1) (2026-10-06)
 
 
