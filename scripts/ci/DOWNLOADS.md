@@ -3,7 +3,11 @@
 `publish-cli.yml` publishes signed stable releases to the existing production
 public-assets bucket through `AWS_CLI_PUBLISHER_ROLE_ARN_PRODUCTION`. Its OIDC
 trust accepts stable tag jobs and its policy already allows the `builds/` prefix.
-No new credentials or AWS resources are needed.
+No new credentials or AWS resources are needed. Deploy the CI integration policy
+from [Hosting PR #1584](https://github.com/Kong/volcano-hosting/pull/1584) before
+releasing this change. It adds `s3:DeleteObject` only for
+`builds/releases/latest/download/*`; immutable release paths stay outside that
+delete permission.
 
 - `builds/releases/download/<tag>/`: immutable binaries, installer, signature
   bundles, and checksums; cached for one year.
@@ -20,9 +24,9 @@ pointer within 75 seconds of retries, which outlast CloudFront's default error
 caching, or the job fails before the GitHub release is created. It accepts any
 stable version because the edge can serve the previous pointer for 60 seconds.
 A partial upload keeps the previous pointer, latest assets, and bootstrap.
-If a promotion copy or the pointer write fails, promotion re-reads
-`latest-version` and copies the release it names onto the latest assets and
-bootstrap, best effort, then fails.
+If a promotion copy, alias deletion, or the pointer write fails, promotion
+re-reads `latest-version` and restores that release's assets and bootstrap,
+including removal of extra latest-download aliases, best effort, then fails.
 Reruns reuse existing signatures, reject changed signed bytes, and rebuild
 checksums from those canonical assets.
 Release runs queue and serialize across tags; older tags cannot downgrade the pointer.
@@ -30,7 +34,8 @@ GitHub remains a secondary release destination for older CLI versions.
 
 Promotion server-side copies each verified versioned object to the latest path,
 binaries first and checksums last, and fails if a source changed after
-verification. It then copies the bootstrap and conditionally writes the pointer.
+verification. It then copies the bootstrap, deletes aliases absent from the
+target release with conditional deletes, and conditionally writes the pointer.
 The latest assets can lead the pointer for the few seconds this takes, and edge
 caches can mix versions for up to 60 seconds afterward. A mixed download fails
 checksum or signature verification and succeeds when retried. The installer and
@@ -74,19 +79,16 @@ began, rerun the job; reruns recopy the same verified objects. Until then, any
 latest asset or bootstrap the log reports it could not reconcile may not match
 the pointer.
 
-To roll back, use the publisher from the target release tag so its required
-assets match that release. Versions before Windows ARM64 support do not have
-that executable or its signature bundle. Use credentials that can write
-`builds/` in the production bucket, a current AWS CLI v2, and `cosign`:
+To roll back, use the current publisher. It reads the target release's
+`SHA256SUMS`, verifies the listed files and signatures, and removes latest-download
+aliases absent from that release. This includes Windows ARM64 aliases when the
+target release predates ARM64 support. Versioned release files stay unchanged.
+Use credentials that can read and write `builds/` and delete
+`builds/releases/latest/download/*`, a current AWS CLI v2, and `cosign`:
 
 ```sh
-version=vMAJOR.MINOR.PATCH
-git fetch origin "refs/tags/$version:refs/tags/$version"
-publisher="$(mktemp)"
-git show "$version:scripts/ci/publish-downloads.py" > "$publisher"
-python3 "$publisher" --rollback --version "$version" \
+python3 scripts/ci/publish-downloads.py --rollback --version vMAJOR.MINOR.PATCH \
   --bucket volcano-public-assets-production
-rm "$publisher"
 ```
 
 It re-verifies that version's signatures, CDN downloads, and installation, then
