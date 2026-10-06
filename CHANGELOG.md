@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/Kong/volcano-cli/compare/v0.39.0...v0.39.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** move to Go 1.26.8 for security support ([#268](https://github.com/Kong/volcano-cli/issues/268)) ([7489996](https://github.com/Kong/volcano-cli/commit/7489996afa3fbde26a9c155dbc1262b8b8f20d2b))
+
 ## [0.39.0](https://github.com/Kong/volcano-cli/compare/v0.38.1...v0.39.0) (2026-10-06)
 
 
