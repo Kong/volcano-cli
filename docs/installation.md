@@ -72,6 +72,8 @@ Choose the executable for your Windows architecture:
 
 Rename the downloaded file to `volcano.exe` and add its directory to your `PATH`. The npm, pnpm, and Bun installers select the executable for the architecture of your JavaScript runtime. Use an ARM64 runtime to install the native ARM64 executable.
 
+For manual Windows installs, download the matching executable again to upgrade. Self-upgrade does not replace a running Windows executable.
+
 ## Upgrading
 
 `volcano upgrade` upgrades the CLI the same way it was installed: it delegates

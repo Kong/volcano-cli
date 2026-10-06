@@ -12,6 +12,7 @@ test('maps supported Node platforms to published release assets', () => {
     ['darwin', 'x64', 'volcano-macos-amd64'],
     ['darwin', 'arm64', 'volcano-macos-arm64'],
     ['win32', 'x64', 'volcano-windows-amd64.exe'],
+    ['win32', 'arm64', 'volcano-windows-arm64.exe'],
   ];
 
   for (const [platform, arch, expected] of cases) {
@@ -20,7 +21,7 @@ test('maps supported Node platforms to published release assets', () => {
 });
 
 test('rejects a platform without a published release asset', () => {
-  assert.throws(() => assetName('win32', 'arm64'), /Unsupported platform "win32-arm64"/);
+  assert.throws(() => assetName('win32', 'ia32'), /Unsupported platform "win32-ia32"/);
 });
 
 const fs = require('node:fs');
@@ -30,15 +31,20 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 
-for (const corrupt of [false, true]) {
-  test(`first-party download ${corrupt ? 'preserves the installed binary on checksum failure' : 'installs without GitHub'}`, async (t) => {
+for (const [platform, arch, corrupt] of [
+  [process.platform, process.arch, false],
+  [process.platform, process.arch, true],
+  ['win32', 'arm64', false],
+  ['win32', 'arm64', true],
+]) {
+  test(`${platform}-${arch} first-party download ${corrupt ? 'preserves the installed binary on checksum failure' : 'installs without GitHub'}`, async (t) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'volcano-npm-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
     fs.mkdirSync(path.join(root, 'scripts/npm'), { recursive: true });
     fs.mkdirSync(path.join(root, 'bin'));
     fs.copyFileSync(path.join(__dirname, 'download.js'), path.join(root, 'scripts/npm/download.js'));
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.2.3' }));
-    const name = assetName();
+    const name = assetName(platform, arch);
     const dest = path.join(root, 'bin', name);
     fs.writeFileSync(dest, 'old binary');
     const payload = 'new binary';
@@ -54,6 +60,8 @@ for (const corrupt of [false, true]) {
     t.after(() => new Promise(resolve => server.close(resolve)));
     // Intercept only the first-party host. A GitHub dependency fails the test.
     const script = `
+      Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });
+      Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} });
       require('https').get = (url, options, callback) => {
         const parsed = new URL(url);
         if (parsed.origin !== 'https://download.volcano.dev') throw Error('unexpected host: ' + parsed.origin);
