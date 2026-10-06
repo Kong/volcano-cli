@@ -212,8 +212,7 @@ func handleToolCall(ctx context.Context, w io.Writer, req rpcRequest, h Handler)
 	res, err := h.Call(ctx, params.Name, params.Arguments)
 	if err != nil {
 		perr := &Error{Code: CodeInternalError, Message: err.Error()}
-		var e *Error
-		if errors.As(err, &e) {
+		if e, ok := errors.AsType[*Error](err); ok {
 			perr = e
 		}
 		writeError(w, req.ID, perr.Code, perr.Message)

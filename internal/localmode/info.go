@@ -153,8 +153,7 @@ func (execCommandRunner) Run(ctx context.Context, name string, args ...string) (
 		return output, nil
 	}
 
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		stderr := strings.TrimSpace(string(exitErr.Stderr))
 		if stderr != "" {
 			return nil, fmt.Errorf("%s: %w", stderr, err)

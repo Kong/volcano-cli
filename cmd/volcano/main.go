@@ -35,8 +35,7 @@ func main() {
 func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
 	stderr := root.ErrOrStderr()
-	var commandExit *sandboxcmd.ExitError
-	if errors.As(err, &commandExit) {
+	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
 		return commandExit.ExitCode()
 	}

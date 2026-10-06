@@ -23,8 +23,7 @@ type Error struct {
 // Status returns the HTTP status code carried by an *Error wrapped in err, or
 // 0 if err is nil or does not wrap an *Error.
 func Status(err error) int {
-	var apiErr *Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.StatusCode
 	}
 	return 0
@@ -34,8 +33,7 @@ func Status(err error) int {
 // if err is nil, does not wrap an *Error, or carries no message. Callers that
 // act on which refusal a status stands for need the body, not just the code.
 func Message(err error) string {
-	var apiErr *Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.Message
 	}
 	return ""
