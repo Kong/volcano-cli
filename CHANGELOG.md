@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/Kong/volcano-cli/compare/v0.38.0...v0.38.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **setup:** show picker options and test production construction ([#264](https://github.com/Kong/volcano-cli/issues/264)) ([0580524](https://github.com/Kong/volcano-cli/commit/058052471469fd928749a303f5517c39b490e73c))
+
 ## [0.38.0](https://github.com/Kong/volcano-cli/compare/v0.37.3...v0.38.0) (2026-10-06)
 
 
