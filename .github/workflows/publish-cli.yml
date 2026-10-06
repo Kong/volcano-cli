@@ -119,6 +119,10 @@ jobs:
             goos: windows
             goarch: amd64
             ext: ".exe"
+          - id: windows-arm64
+            goos: windows
+            goarch: arm64
+            ext: ".exe"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -314,9 +318,9 @@ jobs:
           base="https://download.volcano.dev/builds/releases/download/v${VERSION}"
           # Ranged GET (first byte) confirms each asset is actually downloadable,
           # which is what the package's postinstall does.
-          for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64; do
+          for target in linux-amd64 linux-arm64 macos-amd64 macos-arm64 windows-amd64 windows-arm64; do
             asset="volcano-${target}"
-            if [ "$target" = "windows-amd64" ]; then
+            if [[ "$target" == windows-* ]]; then
               asset="${asset}.exe"
             fi
             echo "Checking ${base}/${asset}"

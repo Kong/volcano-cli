@@ -45,7 +45,7 @@ are tracked in code; mirrors do not fail over implicitly.
 ## Rollout
 
 1. Merge the CLI change and release a new stable version. The publishing job
-   verifies all five platform downloads and performs signed Linux installations
+   verifies all six platform downloads and performs signed Linux installations
    with GitHub download hosts blocked, the last through the new public pointer.
    Check the public bootstrap and version pointer after their 60-second cache
    lifetime.
@@ -74,12 +74,19 @@ began, rerun the job; reruns recopy the same verified objects. Until then, any
 latest asset or bootstrap the log reports it could not reconcile may not match
 the pointer.
 
-To roll back, re-promote a published version with credentials that can write
+To roll back, use the publisher from the target release tag so its required
+assets match that release. Versions before Windows ARM64 support do not have
+that executable or its signature bundle. Use credentials that can write
 `builds/` in the production bucket, a current AWS CLI v2, and `cosign`:
 
 ```sh
-python3 scripts/ci/publish-downloads.py --rollback --version vMAJOR.MINOR.PATCH \
+version=vMAJOR.MINOR.PATCH
+git fetch origin "refs/tags/$version:refs/tags/$version"
+publisher="$(mktemp)"
+git show "$version:scripts/ci/publish-downloads.py" > "$publisher"
+python3 "$publisher" --rollback --version "$version" \
   --bucket volcano-public-assets-production
+rm "$publisher"
 ```
 
 It re-verifies that version's signatures, CDN downloads, and installation, then

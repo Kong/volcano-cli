@@ -17,7 +17,7 @@ import urllib.request
 PREFIX = "builds/releases"
 BINARIES = (
     "volcano-linux-amd64", "volcano-linux-arm64", "volcano-macos-amd64",
-    "volcano-macos-arm64", "volcano-windows-amd64.exe",
+    "volcano-macos-arm64", "volcano-windows-amd64.exe", "volcano-windows-arm64.exe",
 )
 SIGNED = (*BINARIES, "install.sh")
 BUNDLES = tuple(name + ".sigstore.json" for name in SIGNED)

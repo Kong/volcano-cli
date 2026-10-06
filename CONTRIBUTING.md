@@ -107,7 +107,7 @@ signing. Do not configure long-lived AWS secrets for CLI releases. See
 `scripts/ci/DOWNLOADS.md` for the download layout, rollout, and recovery.
 
 The publish workflow builds signed binaries for `linux-amd64`, `linux-arm64`,
-`macos-amd64`, `macos-arm64`, and `windows-amd64`. It publishes stable release
+`macos-amd64`, `macos-arm64`, `windows-amd64`, and `windows-arm64`. It publishes stable release
 assets from SemVer tags.
 
 Stable releases are managed by Release Please and are largely automatic. Only

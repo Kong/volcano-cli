@@ -133,6 +133,18 @@ class PublishTests(unittest.TestCase):
         self.assertEqual([line.split("  ")[1] for line in sums], sorted((*publisher.SIGNED, *publisher.BUNDLES)))
         self.assertEqual(self.signatures.call_count, 2)
 
+    def test_publishes_windows_arm64_binary_and_signature(self):
+        self.publish()
+        name = "volcano-windows-arm64.exe"
+        for asset in (name, name + ".sigstore.json"):
+            versioned = self.versioned("v1.2.3", asset)
+            self.assertIn(versioned, self.objects)
+            self.assertEqual(self.objects[self.alias(asset)], self.objects[versioned])
+            sums = self.objects[self.versioned("v1.2.3", "SHA256SUMS")].decode()
+            expected = hashlib.sha256(self.objects[versioned]).hexdigest()
+            self.assertIn(f"{expected}  {asset}\n", sums)
+        self.assertEqual(self.dispositions[self.alias(name)], f"attachment; filename={name}")
+
     def test_objects_are_served_with_readable_content_types(self):
         self.publish()
         text = "text/plain; charset=utf-8"
