@@ -390,7 +390,8 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(self.latest(), latest)
 
     def test_base_url_must_be_https(self):
-        for base_url in ("http://download.example/builds/releases", "file:///tmp/releases", "https:///builds"):
+        for base_url in ("http://download.example/builds/releases", "file:///tmp/releases", "https:///builds",
+                         "https://:443/builds/releases", "https://user@/builds/releases"):
             argv = ["publish-downloads.py", "--assets", str(self.assets), "--version", "v1.2.3",
                     "--bucket", "bucket", "--base-url", base_url]
             with self.subTest(base_url=base_url), patch.object(sys, "argv", argv), \

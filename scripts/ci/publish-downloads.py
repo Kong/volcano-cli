@@ -254,7 +254,7 @@ def publish(assets, version, bucket, base_url, rollback=False):
 
 def https_url(value):
     url = urllib.parse.urlsplit(value)
-    if url.scheme != "https" or not url.netloc:
+    if url.scheme != "https" or not url.hostname:
         raise argparse.ArgumentTypeError(f"expected an https URL: {value!r}")
     return value
 
