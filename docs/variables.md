@@ -27,6 +27,10 @@ functions and frontends at runtime.
 
 Prefix with `cloud` to force the cloud target.
 
+`variables deploy` only takes values from the env file (or `--file`); it does
+not accept `KEY=value` positional arguments. Passing any positional value,
+e.g. `volcano variables deploy API_KEY=value`, fails before the file is read.
+
 ## Examples
 
 ```bash

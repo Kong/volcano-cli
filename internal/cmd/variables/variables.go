@@ -75,6 +75,7 @@ By default, looks for volcano.env in these locations (in order):
 Use --file to specify a custom path.
 
 Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, "variables list")),
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDeploy(cmd.Context(), deployOptions{
 				deps: deps,

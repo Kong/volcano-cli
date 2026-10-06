@@ -176,6 +176,17 @@ func TestVariablesDeployLoadErrorIncludesPath(t *testing.T) {
 	assert.Empty(t, out)
 }
 
+func TestVariablesDeployRejectsPositionalArgumentBeforeFileRead(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+
+	out, err := executeVariableCommand(t, New(cliruntime.Deps{}), "deploy", "API_KEY=value")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown command")
+	assert.Empty(t, out)
+	assert.NoFileExists(t, "volcano/volcano.env")
+}
+
 func TestVariablesDeployRequiresProject(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())
