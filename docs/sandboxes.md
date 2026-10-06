@@ -91,3 +91,20 @@ Use a new request ID for each intent. After a network failure, retry with the or
 Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream.
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
+
+## Read preview usage
+
+```bash
+volcano sandboxes usage --json
+```
+
+The response contains project totals and hourly/daily series for configured
+memory times observed running duration (MiB-seconds), suspended duration
+(seconds), and uncertain duration weighted by configured memory (MiB-seconds).
+These preview metrics do not debit credits and are not a price estimate.
+Observation gaps and unconfirmed transitions remain uncertain. Local sessions
+contribute zero cloud usage. An older server without these metrics returns a
+clear error instead of showing zero.
+
+For cloud usage, run `volcano cloud sandboxes usage --json` after signing in
+with `volcano login`. Project service keys cannot read project usage.

@@ -36,9 +36,12 @@ type infoCache struct {
 func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	cache := &infoCache{runner: deps.LocalCommandRunner}
 	localDeps := withLocalConfig(deps, cache)
+	usageDeps := localDeps
+	// Project usage requires the local user token, not the Sandbox service key.
+	usageDeps.LocalMode = false
 
 	return []*cobra.Command{
-		sandboxescmd.New(withLocalSandboxConfig(deps, cache)),
+		sandboxescmd.NewLocal(withLocalSandboxConfig(deps, cache), usageDeps),
 		databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
 			CreateDefaults: cache.databaseCreateDefaults,
 		}),
