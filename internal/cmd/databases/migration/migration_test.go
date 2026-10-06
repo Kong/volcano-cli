@@ -187,7 +187,7 @@ func TestMigrationsUpValidatesDatabase(t *testing.T) {
 		{
 			name:           "inactive",
 			responseStatus: http.StatusOK,
-			payload:        migrationDatabasePayload("app", "provisioning", stringPtr("postgres://example/app")),
+			payload:        migrationDatabasePayload("app", "provisioning", new("postgres://example/app")),
 			want:           "is not active",
 		},
 		{
@@ -319,8 +319,4 @@ func migrationExecutionSQL(executions []migrationExecution) []string {
 		values = append(values, execution.sql)
 	}
 	return values
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

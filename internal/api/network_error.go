@@ -52,8 +52,7 @@ func unreachableHint(err error) string {
 	}
 	// DNS: only a genuine not-found is a clear misconfiguration; resolver
 	// timeouts / SERVFAIL are ambiguous and pass through.
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
+	if dnsErr, ok := errors.AsType[*net.DNSError](err); ok {
 		if dnsErr.IsNotFound {
 			return "host not found"
 		}

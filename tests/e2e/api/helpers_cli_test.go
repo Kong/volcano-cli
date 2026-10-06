@@ -97,8 +97,7 @@ func (e *apiE2E) runCLIWithin(t *testing.T, timeout time.Duration, extraEnv []st
 
 	code := 0
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exitErr.ExitCode()
 		} else {
 			t.Fatalf("failed to run volcano %s: %v", redactCredentials(strings.Join(args, " ")), err)

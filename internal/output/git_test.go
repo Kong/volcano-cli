@@ -36,15 +36,13 @@ func gitSettingsFixture(autoDeploy, functions bool, frontend, appRoot *string) *
 	}
 }
 
-func ptr(s string) *string { return &s }
-
 // frontend_app_root is documented as "Omitted for the repo root", so a frontend
 // that builds from the repository root arrives with a nil app root. That is the
 // ordinary case, not an edge case.
 func TestGitConnectedRendersAFrontendWithNoAppRoot(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, false, ptr("web"), nil)})
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(true, false, new("web"), nil)})
 
 	assert.Contains(t, out.String(), "A push to main deploys: frontend web")
 	assert.NotContains(t, out.String(), "()")
@@ -57,13 +55,13 @@ func TestGitConnectedRendersEveryDeployTargetCombination(t *testing.T) {
 		want     string
 	}{
 		"functions only":       {gitSettingsFixture(true, true, nil, nil), "functions"},
-		"frontend only":        {gitSettingsFixture(true, false, ptr("web"), nil), "frontend web"},
-		"frontend with a root": {gitSettingsFixture(true, false, ptr("web"), ptr("apps/web")), "frontend web (apps/web)"},
-		"both":                 {gitSettingsFixture(true, true, ptr("web"), ptr("apps/web")), "functions, frontend web (apps/web)"},
+		"frontend only":        {gitSettingsFixture(true, false, new("web"), nil), "frontend web"},
+		"frontend with a root": {gitSettingsFixture(true, false, new("web"), new("apps/web")), "frontend web (apps/web)"},
+		"both":                 {gitSettingsFixture(true, true, new("web"), new("apps/web")), "functions, frontend web (apps/web)"},
 		// The update contract permits an empty frontend name to mean "no
 		// frontend", so an echoed-back empty string must not render one.
-		"empty frontend name": {gitSettingsFixture(true, true, ptr(""), nil), "functions"},
-		"empty app root":      {gitSettingsFixture(true, false, ptr("web"), ptr("")), "frontend web"},
+		"empty frontend name": {gitSettingsFixture(true, true, new(""), nil), "functions"},
+		"empty app root":      {gitSettingsFixture(true, false, new("web"), new("")), "frontend web"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -82,7 +80,7 @@ func TestGitConnectedRendersEveryDeployTargetCombination(t *testing.T) {
 func TestGitConnectedWarnsAutoDeployOffAndNamesNoTargets(t *testing.T) {
 	t.Parallel()
 	var out bytes.Buffer
-	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(false, true, ptr("web"), nil)})
+	GitConnected(&out, GitBinding{Connection: gitConnectionFixture(""), Settings: gitSettingsFixture(false, true, new("web"), nil)})
 
 	assert.Contains(t, out.String(), "Auto-deploy is off, so a push to main will not deploy anything.")
 	assert.NotContains(t, out.String(), "A push to main deploys:")
