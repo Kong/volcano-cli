@@ -22,6 +22,11 @@ import (
 
 const (
 	authProjectID = "11111111-1111-4111-8111-111111111111"
+	// Fake credentials: these tests only check that login forwards, rejects, or
+	// saves the token it is given.
+	authTestAccountToken  = "valid-token"
+	authTestRejectedToken = "bad-token"
+	authTestProjectToken  = cliconfig.ProjectTokenPrefix + "project-token"
 	// signupBrowserDeps' API server is a loopback address, so cfg.WebURLForAPIURL derives
 	// http://localhost:3000 with no VOLCANO_WEB_URL set; next is always a same-origin
 	// /device path (not derived from the device-flow verification URI -- see Signup's
@@ -54,14 +59,14 @@ func TestLoginTokenSuccessSavesConfig(t *testing.T) {
 	}))
 	defer server.Close()
 
-	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "--token", "valid-token")
+	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "--token", authTestAccountToken)
 	require.NoError(t, err)
-	assert.Equal(t, "Bearer valid-token", sawAuth)
+	assert.Equal(t, "Bearer "+authTestAccountToken, sawAuth)
 	assert.Contains(t, out, "Token validated")
 	assert.Contains(t, out, "Logged in successfully")
 
 	cfg := loadAuthTestConfig(t)
-	assert.Equal(t, "valid-token", cfg.UserToken)
+	assert.Equal(t, authTestAccountToken, cfg.UserToken)
 	assert.Empty(t, cfg.UserID)
 }
 
@@ -72,7 +77,7 @@ func TestLoginTokenInvalidFailsWithoutSavingConfig(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "--token", "bad-token")
+	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "--token", authTestRejectedToken)
 	require.ErrorContains(t, err, "token authentication failed: invalid token")
 
 	path, err := cliconfig.Path()
@@ -97,14 +102,14 @@ func TestLoginProjectTokenSelectsTheProject(t *testing.T) {
 	defer server.Close()
 
 	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-		"--token", "pt-project-token", "--project", authProjectID)
+		"--token", authTestProjectToken, "--project", authProjectID)
 	require.NoError(t, err)
 	assert.Equal(t, "/projects/"+authProjectID, sawPath)
 	assert.Contains(t, out, "Token validated")
 	assert.Contains(t, out, "Now using project: Alpha ("+authProjectID+")")
 
 	cfg := loadAuthTestConfig(t)
-	assert.Equal(t, "pt-project-token", cfg.UserToken)
+	assert.Equal(t, authTestProjectToken, cfg.UserToken)
 	require.NotNil(t, cfg.CurrentProject)
 	assert.Equal(t, authProjectID, cfg.CurrentProject.ID)
 	assert.Equal(t, "Alpha", cfg.CurrentProject.Name)
@@ -116,7 +121,7 @@ func TestLoginProjectTokenSelectsTheProject(t *testing.T) {
 func TestLoginProjectTokenWithoutAProjectFails(t *testing.T) {
 	setAuthTestHome(t)
 
-	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--token", "pt-project-token")
+	_, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--token", authTestProjectToken)
 	require.ErrorContains(t, err, "--project <project-id>")
 
 	path, err := cliconfig.Path()

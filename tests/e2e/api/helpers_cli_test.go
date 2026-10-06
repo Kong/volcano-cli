@@ -41,7 +41,7 @@ type cliResult struct {
 // `create --json` does. This runs without the E2E gate because it tests the
 // redaction, not the platform.
 func TestAPIE2ERedactsMintedCredentials(t *testing.T) {
-	const secret = "pt-Wq9l2m4XcR7tFv1sN8bK3hJ0"
+	const secret = "pt-fake-access-token"
 
 	for name, text := range map[string]string{
 		"create --json output": `{"name":"ci-deploy","token":"` + secret + `"}`,
