@@ -181,19 +181,12 @@ func newHarnessPicker(options []huh.Option[string], selected *[]string, color bo
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"), key.WithHelp("esc", "cancel"))
 
+	// Keep headings outside the option viewport so wrapping cannot hide options.
 	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Install Volcano for which coding agents?").
-				Description(keyHintDescription(color)).
-				Options(options...).
-				// Workaround for https://github.com/charmbracelet/huh/pull/831:
-				// unset Height collapses the viewport to N-2 rows (hiding every
-				// option at N<=2). len(options)+2 is the field's natural size;
-				// remove once huh ships the fix.
-				Height(len(options) + 2).
-				Value(selected),
-		),
+			huh.NewMultiSelect[string]().Options(options...).Value(selected),
+		).Title("Install Volcano for which coding agents?").
+			Description(keyHintDescription(color)),
 	).WithKeyMap(km)
 	if color {
 		form = form.WithTheme(volcanoTheme())
@@ -239,6 +232,7 @@ func volcanoTheme() huh.Theme {
 		lava := lipgloss.Color(setup.LavaHex)
 		volcano := lipgloss.Color(setup.VolcanoHex)
 		s.Focused.Title = s.Focused.Title.Foreground(lava).Bold(true)
+		s.Group.Title = s.Focused.Title
 		s.Focused.SelectSelector = s.Focused.SelectSelector.Foreground(volcano)
 		s.Focused.MultiSelectSelector = s.Focused.MultiSelectSelector.Foreground(volcano)
 		s.Focused.SelectedPrefix = s.Focused.SelectedPrefix.Foreground(volcano)

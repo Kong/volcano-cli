@@ -32,6 +32,8 @@ harness that is behind its latest version is marked `[outdated]`). It runs
 non-interactively — installing all detected — when stdin/stdout is piped, in CI,
 when `VOLCANO_NONINTERACTIVE` is set, or with `--yes`.
 
+The picker wraps its heading and key hints in narrow terminals, including split tmux panes. Use the arrow keys to move, Space to toggle an agent, and Enter to confirm.
+
 ## Reruns keep things current
 
 `volcano setup` is meant to be re-run. Each run refreshes the source and lands
