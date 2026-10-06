@@ -53,6 +53,21 @@ curl -fsSL https://download.volcano.dev/builds/install.sh -o install-volcano.sh
 VOLCANO_VERSION="$(curl -fsSL https://download.volcano.dev/builds/releases/latest-version)" sh install-volcano.sh
 ```
 
+To verify the script itself before it runs, download the release's script and
+signature bundle, and run the script only if `cosign` accepts it:
+
+```bash
+version="$(curl -fsSL https://download.volcano.dev/builds/releases/latest-version)"
+release="https://download.volcano.dev/builds/releases/download/${version}"
+curl -fsSL -o install-volcano.sh "${release}/install.sh"
+curl -fsSL -o install-volcano.sh.sigstore.json "${release}/install.sh.sigstore.json"
+cosign verify-blob install-volcano.sh \
+  --bundle install-volcano.sh.sigstore.json \
+  --certificate-identity "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/${version}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  && VOLCANO_VERSION="$version" sh install-volcano.sh
+```
+
 The install script, the latest-version lookup, and the CLI and signature
 downloads all use `download.volcano.dev`, and `cosign` can also contact Sigstore
 for trust metadata. On a network that allows GitHub but not

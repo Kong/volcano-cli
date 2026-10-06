@@ -160,4 +160,6 @@ downloads from Volcano downloads and defaults to the latest stable release:
 curl -fsSL https://download.volcano.dev/builds/install.sh | bash
 ```
 
-Set `VOLCANO_VERSION=vMAJOR.MINOR.PATCH` to install a pinned release.
+Set `VOLCANO_VERSION=vMAJOR.MINOR.PATCH` to install a pinned release. To verify
+the installer against `install.sh.sigstore.json` before running it, follow
+[Installation](docs/installation.md).

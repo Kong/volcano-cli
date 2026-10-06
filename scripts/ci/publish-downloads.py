@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 
 PREFIX = "builds/releases"
@@ -291,6 +292,13 @@ def publish(assets, version, bucket, base_url, rollback=False, signed=None):
         print(f"Promoted {version} at {base_url}")
 
 
+def https_url(value):
+    url = urllib.parse.urlsplit(value)
+    if url.scheme != "https" or not url.hostname:
+        raise argparse.ArgumentTypeError(f"expected an https URL: {value!r}")
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
@@ -299,7 +307,7 @@ def main():
                         help="re-verify and re-promote an already published version")
     parser.add_argument("--version", required=True)
     parser.add_argument("--bucket", required=True)
-    parser.add_argument("--base-url", default="https://download.volcano.dev/builds/releases")
+    parser.add_argument("--base-url", type=https_url, default="https://download.volcano.dev/builds/releases")
     args = parser.parse_args()
     base_url = args.base_url.rstrip("/")
     if not args.rollback:
