@@ -2,11 +2,16 @@ package localmode
 
 import (
 	"encoding/json"
+	"net/http"
+	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, dir string) {
@@ -41,17 +46,46 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	require.Equal(t, "retained", run("files", "read", session.ID, "/workspace/value"))
 	run("terminate", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
-	var usage struct {
-		Metrics []struct {
-			Metric  string `json:"metric"`
-			Total   int64  `json:"total"`
-			AllTime int64  `json:"all_time"`
-		} `json:"metrics"`
+	requireLocalModeSandboxUsage(t, binary, env, dir)
+}
+
+func requireLocalModeSandboxUsage(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	info := fetchVolcanoLocalModeE2EInfo(t, env)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		strings.TrimRight(info.APIURL, "/")+"/projects/"+info.ProjectID+"/usage", http.NoBody)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+info.UserToken)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var serverUsage apiclient.ProjectUsageResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&serverUsage))
+	names := []string{"Sandbox Running (MiB-Seconds)", "Sandbox Suspended (Seconds)", "Sandbox Uncertain (MiB-Seconds)"}
+	var serverNames []string
+	for _, metric := range serverUsage.Metrics {
+		if slices.Contains(names, metric.Metric) {
+			serverNames = append(serverNames, metric.Metric)
+		}
 	}
-	require.NoError(t, json.Unmarshal([]byte(run("usage", "--json")), &usage))
-	require.Len(t, usage.Metrics, 3)
+	output, usageErr := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "usage", "--json")
+	if len(serverNames) == 0 {
+		// Published images can predate metering; Hosting's candidate-image lane must expose it.
+		require.NotEqual(t, "1", os.Getenv("VOLCANO_E2E_REQUIRE_SANDBOX_USAGE"), "candidate image must expose Sandbox preview usage")
+		require.Error(t, usageErr)
+		require.Contains(t, output, "this server does not expose Sandbox preview usage yet")
+		return
+	}
+	require.ElementsMatch(t, names, serverNames, "server must expose the complete preview contract")
+	require.NoError(t, usageErr, output)
+	var usage apiclient.ProjectUsageResponse
+	require.NoError(t, json.Unmarshal([]byte(output), &usage))
+	var actualNames []string
 	for _, m := range usage.Metrics {
+		actualNames = append(actualNames, m.Metric)
 		require.Zero(t, m.AllTime)
 		require.Zero(t, m.Total)
 	}
+	require.ElementsMatch(t, names, actualNames)
 }
