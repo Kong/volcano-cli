@@ -63,6 +63,17 @@ Versions released before Volcano downloads are only on
 [GitHub Releases](https://github.com/Kong/volcano-cli/releases); to install one
 with `VOLCANO_VERSION`, also set `VOLCANO_GITHUB_RELEASES_URL` to that URL.
 
+## Windows downloads
+
+Choose the executable for your Windows architecture:
+
+- [Windows x64 (amd64)](https://download.volcano.dev/builds/releases/latest/download/volcano-windows-amd64.exe)
+- [Windows ARM64](https://download.volcano.dev/builds/releases/latest/download/volcano-windows-arm64.exe)
+
+Rename the downloaded file to `volcano.exe` and add its directory to your `PATH`. The npm, pnpm, and Bun installers select the executable for the architecture of your JavaScript runtime. Use an ARM64 runtime to install the native ARM64 executable.
+
+For manual Windows installs, download the matching executable again to upgrade. Self-upgrade does not replace a running Windows executable.
+
 ## Upgrading
 
 `volcano upgrade` upgrades the CLI the same way it was installed: it delegates

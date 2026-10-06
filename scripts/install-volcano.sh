@@ -164,8 +164,7 @@ fi
 
 TARGET="${OS}-${ARCH}"
 case "$TARGET" in
-  linux-amd64 | linux-arm64 | macos-amd64 | macos-arm64 | windows-amd64) ;;
-  windows-arm64) fail "unsupported platform: ${TARGET}; Volcano CLI does not publish a Windows arm64 binary yet" ;;
+  linux-amd64 | linux-arm64 | macos-amd64 | macos-arm64 | windows-amd64 | windows-arm64) ;;
   *) fail "unsupported platform: ${TARGET}" ;;
 esac
 

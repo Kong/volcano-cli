@@ -138,7 +138,11 @@ func Upgrade(ctx context.Context, current string, out io.Writer, opts Options) e
 		return upgradeViaManager(ctx, current, out, opts, method, name, args)
 	}
 	if goruntime.GOOS == "windows" && opts.ExecutablePath == "" {
-		return errors.New("self-upgrade is not supported on Windows; download https://download.volcano.dev/builds/releases/latest/download/volcano-windows-amd64.exe")
+		binaryName, err := PlatformBinaryName()
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("self-upgrade is not supported on Windows; download %s/latest/download/%s", defaultDownloadURL, binaryName)
 	}
 	return upgradeViaDownload(ctx, current, out, opts, exePath)
 }
@@ -376,10 +380,8 @@ func PlatformBinaryName() (string, error) {
 	}
 	target := osName + "-" + arch
 	switch target {
-	case "linux-amd64", "linux-arm64", "macos-amd64", "macos-arm64", "windows-amd64":
+	case "linux-amd64", "linux-arm64", "macos-amd64", "macos-arm64", "windows-amd64", "windows-arm64":
 		return "volcano-" + target + ext, nil
-	case "windows-arm64":
-		return "", errors.New("unsupported platform: windows-arm64; Volcano CLI does not publish a Windows arm64 binary yet")
 	default:
 		return "", fmt.Errorf("unsupported platform: %s", target)
 	}

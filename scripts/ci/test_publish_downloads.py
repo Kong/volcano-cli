@@ -74,6 +74,12 @@ class PublishTests(unittest.TestCase):
             raise RuntimeError("An error occurred (PreconditionFailed)")
         if "--if-match" in args and (key not in self.objects or arg("--if-match") != self.etag(key)):
             raise RuntimeError("An error occurred (PreconditionFailed)")
+        if operation == "delete-object":
+            self.assertEqual(arg("--if-match"), self.etag(key))
+            for store in (self.objects, self.cache, self.types, self.dispositions):
+                store.pop(key, None)
+            self.writes.append(key)
+            return {}
         if operation == "copy-object":
             source = arg("--copy-source").split("/", 1)[1]
             if source not in self.objects or arg("--copy-source-if-match") != self.etag(source):
@@ -132,6 +138,18 @@ class PublishTests(unittest.TestCase):
         sums = self.objects[self.versioned("v1.2.3", "SHA256SUMS")].decode().splitlines()
         self.assertEqual([line.split("  ")[1] for line in sums], sorted((*publisher.SIGNED, *publisher.BUNDLES)))
         self.assertEqual(self.signatures.call_count, 2)
+
+    def test_publishes_windows_arm64_binary_and_signature(self):
+        self.publish()
+        name = "volcano-windows-arm64.exe"
+        for asset in (name, name + ".sigstore.json"):
+            versioned = self.versioned("v1.2.3", asset)
+            self.assertIn(versioned, self.objects)
+            self.assertEqual(self.objects[self.alias(asset)], self.objects[versioned])
+            sums = self.objects[self.versioned("v1.2.3", "SHA256SUMS")].decode()
+            expected = hashlib.sha256(self.objects[versioned]).hexdigest()
+            self.assertIn(f"{expected}  {asset}\n", sums)
+        self.assertEqual(self.dispositions[self.alias(name)], f"attachment; filename={name}")
 
     def test_objects_are_served_with_readable_content_types(self):
         self.publish()
@@ -268,8 +286,12 @@ class PublishTests(unittest.TestCase):
 
     def test_newer_concurrent_promotion_wins_reconcile(self):
         self.seed("v1.2.2")
-        for name in publisher.ASSETS:
+        for name in publisher.ASSETS[:-1]:
             self.objects[self.versioned("v1.2.4", name)] = f"v1.2.4:{name}".encode()
+        self.objects[self.versioned("v1.2.4", "SHA256SUMS")] = "".join(
+            f'{hashlib.sha256(self.objects[self.versioned("v1.2.4", name)]).hexdigest()}  {name}\n'
+            for name in sorted(publisher.ASSETS[:-1])
+        ).encode()
         self.before_write[self.pointer] = lambda: self.objects.update({self.pointer: b"v1.2.4\n"})
         with self.assertRaisesRegex(RuntimeError, "PreconditionFailed"):
             self.publish()
@@ -377,6 +399,76 @@ class PublishTests(unittest.TestCase):
         self.assert_latest_is("v1.2.2")
         self.assertEqual(self.writes, self.promoted_keys())
         self.assertEqual(self.released(), released)
+
+    def seed_without_windows_arm64(self):
+        signed = tuple(name for name in publisher.SIGNED if name != "volcano-windows-arm64.exe")
+        bundles = tuple(name + ".sigstore.json" for name in signed)
+        with patch.multiple(publisher, SIGNED=signed, BUNDLES=bundles, ASSETS=(*signed, *bundles, "SHA256SUMS")):
+            self.seed("v1.2.2")
+
+    def test_rollback_removes_aliases_absent_from_older_release(self):
+        self.seed_without_windows_arm64()
+        self.publish()
+        for name in ("volcano-future-arm64.exe", "volcano-future-arm64.exe.sigstore.json"):
+            self.objects[self.alias(name)] = b"future asset"
+        untouched = publisher.PREFIX + "/latest/keep.txt"
+        self.objects[untouched] = b"outside download aliases"
+        released = self.released()
+        self.rollback("v1.2.2")
+        self.assertEqual(self.objects[self.pointer], b"v1.2.2\n")
+        for name in ("volcano-windows-arm64.exe", "volcano-windows-arm64.exe.sigstore.json",
+                     "volcano-future-arm64.exe", "volcano-future-arm64.exe.sigstore.json"):
+            self.assertNotIn(self.alias(name), self.objects)
+        self.assertEqual(self.objects[self.alias("SHA256SUMS")],
+                         self.objects[self.versioned("v1.2.2", "SHA256SUMS")])
+        self.assertEqual(self.released(), released)
+        self.assertEqual(self.objects[untouched], b"outside download aliases")
+
+    def test_failed_rollback_restores_deleted_aliases(self):
+        self.seed_without_windows_arm64()
+        self.publish()
+        latest = self.latest()
+        self.fail_key = self.pointer
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.rollback("v1.2.2")
+        self.assertEqual(self.latest(), latest)
+
+    def test_alias_deletion_failure_keeps_previous_pointer(self):
+        self.seed_without_windows_arm64()
+        self.publish()
+        latest = self.latest()
+        self.fail_key = self.alias("volcano-windows-arm64.exe")
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.rollback("v1.2.2")
+        self.assertEqual(self.latest(), latest)
+
+    def test_failed_first_arm64_promotion_removes_new_aliases(self):
+        self.seed_without_windows_arm64()
+        previous = self.latest()
+        self.fail_key = self.pointer
+        with self.assertRaisesRegex(RuntimeError, "upload failed"):
+            self.publish()
+        self.assertEqual(self.latest(), previous)
+
+    def test_rollback_rejects_unsafe_or_corrupt_manifest_before_writes(self):
+        for manifest in (b"garbage\n", b"0" * 64 + b"  ../escape\n",
+                         b"0" * 64 + b"  install.sh\n", (b"0" * 64 + b"  install.sh\n") * 2):
+            with self.subTest(manifest=manifest):
+                self.objects[self.versioned("v1.2.2", "SHA256SUMS")] = manifest
+                with self.assertRaisesRegex(ValueError, "release checksum manifest"):
+                    self.rollback("v1.2.2")
+                self.assertFalse(self.writes)
+
+    def test_rollback_rejects_changed_release_bytes_before_writes(self):
+        self.seed("v1.2.2")
+        self.publish()
+        latest = self.latest()
+        self.objects[self.versioned("v1.2.2", "volcano-linux-amd64")] = b"changed bytes"
+        self.writes.clear()
+        with self.assertRaisesRegex(ValueError, "release checksum mismatch"):
+            self.rollback("v1.2.2")
+        self.assertFalse(self.writes)
+        self.assertEqual(self.latest(), latest)
 
     def test_rollback_requires_complete_release(self):
         self.seed("v1.2.2")

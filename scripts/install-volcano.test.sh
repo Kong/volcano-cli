@@ -110,7 +110,8 @@ assert_asset Linux aarch64 volcano-linux-arm64
 assert_asset Darwin x86_64 volcano-macos-amd64
 assert_asset Darwin arm64 volcano-macos-arm64
 assert_asset MINGW64_NT-10.0 x86_64 volcano-windows-amd64.exe
-assert_rejected MINGW64_NT-10.0 arm64 "unsupported platform: windows-arm64"
+assert_asset MINGW64_NT-10.0 arm64 volcano-windows-arm64.exe
+assert_asset MINGW64_NT-10.0 aarch64 volcano-windows-arm64.exe
 assert_rejected Plan9 x86_64 "unsupported operating system: plan9"
 assert_rejected Linux riscv64 "unsupported architecture: riscv64"
 

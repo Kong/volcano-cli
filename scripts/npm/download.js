@@ -31,6 +31,7 @@ const TARGETS = {
   'darwin-x64': 'macos-amd64',
   'darwin-arm64': 'macos-arm64',
   'win32-x64': 'windows-amd64',
+  'win32-arm64': 'windows-arm64',
 };
 
 function resolveTarget(platform = process.platform, arch = process.arch) {

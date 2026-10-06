@@ -17,7 +17,7 @@ import urllib.request
 PREFIX = "builds/releases"
 BINARIES = (
     "volcano-linux-amd64", "volcano-linux-arm64", "volcano-macos-amd64",
-    "volcano-macos-arm64", "volcano-windows-amd64.exe",
+    "volcano-macos-arm64", "volcano-windows-amd64.exe", "volcano-windows-arm64.exe",
 )
 SIGNED = (*BINARIES, "install.sh")
 BUNDLES = tuple(name + ".sigstore.json" for name in SIGNED)
@@ -99,9 +99,9 @@ def put(bucket, key, path, cache, **conditions):
     return aws(*args)
 
 
-def verify_signatures(assets, version):
+def verify_signatures(assets, version, signed):
     identity = "https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/" + version
-    for name in SIGNED:
+    for name in signed:
         subprocess.run([
             "cosign", "verify-blob", str(assets / name),
             "--bundle", str(assets / (name + ".sigstore.json")),
@@ -110,8 +110,8 @@ def verify_signatures(assets, version):
         ], check=True)
 
 
-def verify_downloads(base_url, version, assets):
-    for name in ASSETS:
+def verify_downloads(base_url, version, assets, names=None):
+    for name in ASSETS if names is None else names:
         url = f"{base_url}/download/{version}/{name}"
         for attempt in range(3):
             try:
@@ -154,12 +154,39 @@ def verify_promoted_install(assets, base_url):
             time.sleep(15)
 
 
+def release_checksums(path):
+    checksums = {}
+    for line in path.read_text().splitlines():
+        match = re.fullmatch(r"([0-9a-f]{64})  ((?:install[.]sh|volcano-[a-z0-9-]+(?:[.]exe)?)(?:[.]sigstore[.]json)?)", line)
+        if not match or match[2] in checksums:
+            raise ValueError("invalid release checksum manifest")
+        checksums[match[2]] = match[1]
+    signed = tuple(sorted(name for name in checksums if name != "install.sh" and not name.endswith(".sigstore.json"))) + ("install.sh",)
+    if len(signed) < 2 or set(checksums) != {*signed, *(name + ".sigstore.json" for name in signed)}:
+        raise ValueError("incomplete release checksum manifest")
+    return signed, checksums
+
+
 def fetch_published(bucket, version, assets):
     prefix = f"{PREFIX}/download/{version}/"
     published = listed_keys(bucket, prefix)
-    for name in ASSETS:
+    if get(bucket, prefix + "SHA256SUMS", assets / "SHA256SUMS", published) is None:
+        raise ValueError(f"missing published asset: {prefix}SHA256SUMS")
+    signed, checksums = release_checksums(assets / "SHA256SUMS")
+    for name, expected in checksums.items():
         if get(bucket, prefix + name, assets / name, published) is None:
             raise ValueError(f"missing published asset: {prefix + name}")
+        if digest(assets / name) != expected:
+            raise ValueError(f"release checksum mismatch: {prefix + name}")
+    return signed
+
+
+def prune_aliases(bucket, names):
+    prefix = f"{PREFIX}/latest/download/"
+    expected = {prefix + name for name in names}
+    for key, etag in listed_keys(bucket, prefix).items():
+        if key not in expected:
+            aws("delete-object", "--bucket", bucket, "--key", key, "--if-match", etag)
 
 
 def publish_immutable(bucket, version, name, assets, existing, published):
@@ -169,7 +196,7 @@ def publish_immutable(bucket, version, name, assets, existing, published):
         return put(bucket, key, assets / name, IMMUTABLE, if_none_match="*")["ETag"]
     # Reuse existing bundles on retries: keyless signing produces different bytes.
     # Signed files and checksums may never change for an already-published version.
-    if name in BUNDLES:
+    if name.endswith(".sigstore.json"):
         (assets / name).write_bytes(existing.read_bytes())
     elif digest(existing) != digest(assets / name):
         raise ValueError(f"refusing to overwrite immutable asset: {key}")
@@ -183,20 +210,30 @@ def reconcile(bucket, path):
             return
         version = path.read_text().strip()
         version_tuple(version)
-        etags = listed_keys(bucket, f"{PREFIX}/download/{version}/")
+        source_prefix = f"{PREFIX}/download/{version}/"
+        etags = listed_keys(bucket, source_prefix)
+        manifest = path.with_name("reconcile-SHA256SUMS")
+        if get(bucket, source_prefix + "SHA256SUMS", manifest, etags) is None:
+            raise ValueError(f"missing published asset: {source_prefix}SHA256SUMS")
+        _, checksums = release_checksums(manifest)
+        names = (*checksums, "SHA256SUMS")
     except Exception as error:
         print(f"error: could not read {pointer} to reconcile latest assets: {error!r}", file=sys.stderr)
         return
-    aliases = [(name, f"{PREFIX}/latest/download/{name}") for name in ASSETS]
+    aliases = [(name, f"{PREFIX}/latest/download/{name}") for name in names]
     for name, key in (*aliases, ("install.sh", "builds/install.sh")):
         source = f"{PREFIX}/download/{version}/{name}"
         try:
             copy(bucket, source, etags[source], key)
         except Exception as error:
             print(f"error: could not reconcile {key} to {version}; rerun promotion: {error!r}", file=sys.stderr)
+    try:
+        prune_aliases(bucket, names)
+    except Exception as error:
+        print(f"error: could not remove extra latest aliases for {version}: {error!r}", file=sys.stderr)
 
 
-def promote(bucket, version, etags, current, metadata):
+def promote(bucket, version, etags, current, metadata, names):
     pointer = f"{PREFIX}/latest-version"
     # Verification takes minutes; stop before touching latest objects if another promotion won meanwhile.
     if metadata:
@@ -205,10 +242,11 @@ def promote(bucket, version, etags, current, metadata):
         raise RuntimeError(f"{pointer} was created during publication")
     try:
         # Copy only the verified versioned objects; each copy fails if its source changed.
-        for name in ASSETS:
+        for name in names:
             copy(bucket, f"{PREFIX}/download/{version}/{name}", etags[name], f"{PREFIX}/latest/download/{name}")
         # This bootstrap resolves latest-version; it must work with the old pointer too.
         copy(bucket, f"{PREFIX}/download/{version}/install.sh", etags["install.sh"], "builds/install.sh")
+        prune_aliases(bucket, names)
         current.write_text(version + "\n")
         condition = {"if_match": metadata["ETag"]} if metadata else {"if_none_match": "*"}
         put(bucket, pointer, current, MUTABLE, **condition)
@@ -218,12 +256,14 @@ def promote(bucket, version, etags, current, metadata):
         raise
 
 
-def publish(assets, version, bucket, base_url, rollback=False):
+def publish(assets, version, bucket, base_url, rollback=False, signed=None):
     candidate = version_tuple(version)
-    for name in (*SIGNED, *BUNDLES):
+    signed = SIGNED if signed is None else signed
+    names = (*signed, *(name + ".sigstore.json" for name in signed), "SHA256SUMS")
+    for name in names[:-1]:
         if not (assets / name).is_file() or (assets / name).stat().st_size == 0:
             raise ValueError(f"missing release asset: {name}")
-    verify_signatures(assets, version)
+    verify_signatures(assets, version, signed)
     with tempfile.TemporaryDirectory(prefix="cli-publish-") as work:
         work = Path(work)
         pointer = f"{PREFIX}/latest-version"
@@ -232,12 +272,12 @@ def publish(assets, version, bucket, base_url, rollback=False):
         promote_release = rollback or metadata is None or candidate >= version_tuple(current.read_text().strip())
         published = listed_keys(bucket, f"{PREFIX}/download/{version}/")
         etags = {name: publish_immutable(bucket, version, name, assets, work / name, published)
-                 for name in (*SIGNED, *BUNDLES)}
-        verify_signatures(assets, version)
-        checksum_names = sorted((*SIGNED, *BUNDLES))
+                 for name in names[:-1]}
+        verify_signatures(assets, version, signed)
+        checksum_names = sorted(names[:-1])
         (assets / "SHA256SUMS").write_text("".join(f"{digest(assets / name)}  {name}\n" for name in checksum_names))
         etags["SHA256SUMS"] = publish_immutable(bucket, version, "SHA256SUMS", assets, work / "SHA256SUMS", published)
-        verify_downloads(base_url, version, assets)
+        verify_downloads(base_url, version, assets, names)
         verify_install(assets, base_url, version)
         if not promote_release:
             print(f"Published {version}; retained newer latest version")
@@ -245,7 +285,7 @@ def publish(assets, version, bucket, base_url, rollback=False):
         if metadata and not rollback:
             # The new bootstrap must resolve the live pointer before it replaces the old one.
             verify_install(assets, base_url)
-        promote(bucket, version, etags, current, metadata)
+        promote(bucket, version, etags, current, metadata, names)
         # Fail before the GitHub release is created if installers cannot resolve the public pointer.
         verify_promoted_install(assets, base_url)
         print(f"Promoted {version} at {base_url}")
@@ -266,8 +306,8 @@ def main():
         publish(args.assets, args.version, args.bucket, base_url)
         return
     with tempfile.TemporaryDirectory(prefix="cli-rollback-") as directory:
-        fetch_published(args.bucket, args.version, Path(directory))
-        publish(Path(directory), args.version, args.bucket, base_url, rollback=True)
+        signed = fetch_published(args.bucket, args.version, Path(directory))
+        publish(Path(directory), args.version, args.bucket, base_url, rollback=True, signed=signed)
 
 
 if __name__ == "__main__":
