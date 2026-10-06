@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.0](https://github.com/Kong/volcano-cli/compare/v0.37.3...v0.38.0) (2026-10-06)
+
+
+### Features
+
+* **sandboxes:** add local and cloud CLI commands ([#227](https://github.com/Kong/volcano-cli/issues/227)) ([9689dd5](https://github.com/Kong/volcano-cli/commit/9689dd5fba70d92fac6b61fa829bd7f5d5d36911))
+
+
+### Bug Fixes
+
+* **ci:** stop the GitHub block from skipping release asset uploads ([#266](https://github.com/Kong/volcano-cli/issues/266)) ([30f4aff](https://github.com/Kong/volcano-cli/commit/30f4affed228f447785f82ae421f5921706aa7e1))
+
 ## [0.37.3](https://github.com/Kong/volcano-cli/compare/v0.37.2...v0.37.3) (2026-10-05)
 
 
