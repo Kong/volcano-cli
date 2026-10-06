@@ -389,6 +389,16 @@ class PublishTests(unittest.TestCase):
         self.assertFalse(self.writes)
         self.assertEqual(self.latest(), latest)
 
+    def test_base_url_must_be_https(self):
+        for base_url in ("http://download.example/builds/releases", "file:///tmp/releases", "https:///builds"):
+            argv = ["publish-downloads.py", "--assets", str(self.assets), "--version", "v1.2.3",
+                    "--bucket", "bucket", "--base-url", base_url]
+            with self.subTest(base_url=base_url), patch.object(sys, "argv", argv), \
+                    contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exited:
+                publisher.main()
+            self.assertEqual(exited.exception.code, 2)
+        self.assertFalse(self.writes)
+
     def test_permissions_are_not_missing_objects(self):
         with patch.object(publisher.subprocess, "run") as run:
             run.return_value.returncode = 1
