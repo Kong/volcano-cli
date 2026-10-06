@@ -50,6 +50,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
+	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 
@@ -349,7 +350,7 @@ exports.handler = withDurableExecution(async (input, ctx) => {
 		"durable", "start", "order-pipeline", "--input", `{"n":21}`)
 	executionID := localModeE2EFieldValue(t, startOutput, "ID")
 
-	execution := awaitLocalModeE2EDurableExecution(t, binary, env, dir, executionID)
+	execution := awaitLocalModeE2EDurableExecution(t, binary, env, dir, "order-pipeline", executionID)
 	requireContains(t, execution, "Status: succeeded")
 	requireContains(t, execution, `"doubled": 42`)
 
@@ -397,14 +398,16 @@ func localModeE2EFieldValue(t *testing.T, output, field string) string {
 // Long enough for several suspensions: each one is a separate invocation, and
 // the resume loop picks the execution up on its own interval rather than the
 // moment it suspends.
-func awaitLocalModeE2EDurableExecution(t *testing.T, binary string, env []string, dir, executionID string) string {
+func awaitLocalModeE2EDurableExecution(
+	t *testing.T, binary string, env []string, dir, function, executionID string,
+) string {
 	t.Helper()
 
 	deadline := time.Now().Add(3 * time.Minute)
 	var last string
 	for time.Now().Before(deadline) {
 		last = runVolcanoLocalModeE2E(t, binary, env, dir,
-			"durable", "executions", "get", "order-pipeline", executionID)
+			"durable", "executions", "get", function, executionID)
 		for _, terminal := range []string{"succeeded", "failed", "timed_out", "stopped"} {
 			if strings.Contains(last, "Status: "+terminal) {
 				return last

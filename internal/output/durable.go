@@ -193,6 +193,202 @@ func DurableSchedulers(w io.Writer, functionName string, resp *apiclient.Functio
 	schedulerTable(w, theme.On(w), resp.Data)
 }
 
+// DurableApprovals renders one approval page. status is the filter the page
+// was fetched under, empty for every status, and nextCommand is the list
+// command with its filters, so the next-page hint pages the same set.
+func DurableApprovals(w io.Writer, page *apiclient.PaginatedDurableApprovals, status, nextCommand string) {
+	if page == nil {
+		page = &apiclient.PaginatedDurableApprovals{}
+	}
+
+	on := theme.On(w)
+	if len(page.Data) == 0 {
+		switch {
+		case page.Total > 0:
+			fmt.Fprintf(w, "No approvals found on page %d\n", page.Page)
+		case status != "":
+			fmt.Fprintf(w, "No %s approvals\n", status)
+		default:
+			fmt.Fprintln(w, "No approvals found")
+		}
+		printDurableApprovalPageSummary(w, on, page)
+		return
+	}
+
+	tableHead(w, on, true, 140, "%-36s  %-24s  %-18s  %-20s  %-10s  %-10s  %-10s",
+		"ID", "Title", "Workflow", "Execution", "Status", "Requested", "Expires")
+	for i := range page.Data {
+		approval := &page.Data[i]
+		fmt.Fprintf(w, "%-36s  %-24s  %-18s  %-20s  %s  %-10s  %-10s\n",
+			approval.Id.String(),
+			Truncate(approval.Title, 24),
+			Truncate(approval.Function.Name, 18),
+			Truncate(approval.Execution.Name, 20),
+			statusCell(string(approval.Status), 10, on),
+			FormatTimeAgo(approval.RequestedAt),
+			durableApprovalExpiresCell(approval),
+		)
+	}
+	printDurableApprovalPageSummary(w, on, page)
+	if page.HasMore {
+		nextPage(w, on, fmt.Sprintf("%s --page %d --limit %d", nextCommand, page.Page+1, page.Limit))
+	}
+}
+
+func printDurableApprovalPageSummary(w io.Writer, on bool, page *apiclient.PaginatedDurableApprovals) {
+	summary(w, on, "Showing %d of %d approval(s) (page %d, limit %d)",
+		len(page.Data), page.Total, page.Page, page.Limit)
+}
+
+// DurableApproval renders one approval: what the workflow asked, where it
+// came from, and the decision once a person has made one.
+func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
+	if approval == nil {
+		return
+	}
+	on := theme.On(w)
+	kv(w, on, "ID", "%s", approval.Id.String())
+	kv(w, on, "Title", "%s", approval.Title)
+	kv(w, on, "Name", "%s", approval.Name)
+	kv(w, on, "Status", "%s", theme.Status(string(approval.Status), on))
+	kv(w, on, "Workflow", "%s", durableApprovalWorkflow(approval.Function))
+	kv(w, on, "Execution", "%s", durableApprovalExecution(approval.Execution))
+	kv(w, on, "Requested", "%s", FormatTimestamp(approval.RequestedAt))
+	if approval.ExpiresAt != nil {
+		kv(w, on, "Expires", "%s", FormatTimestamp(*approval.ExpiresAt))
+	} else {
+		kv(w, on, "Expires", "%s", theme.Dim("when its execution ends", on))
+	}
+	if approval.Description != "" {
+		kv(w, on, "Description", "%s", approval.Description)
+	}
+	if approval.Details != nil {
+		encoded, err := json.MarshalIndent(approval.Details, "", "  ")
+		if err != nil {
+			kv(w, on, "Details", "%v", approval.Details)
+		} else {
+			kv(w, on, "Details", "%s", string(encoded))
+		}
+	}
+	if decision := approval.Decision; decision != nil {
+		decider := "a deleted user"
+		if decision.DecidedBy != nil && decision.DecidedBy.Email != "" {
+			decider = decision.DecidedBy.Email
+		}
+		kv(w, on, "Decided By", "%s", decider)
+		kv(w, on, "Decided At", "%s", FormatTimestamp(decision.DecidedAt))
+		if decision.Comment != "" {
+			kv(w, on, "Comment", "%s", decision.Comment)
+		}
+	}
+}
+
+// DurableApprovalStats renders approval counts for a window, overall and for
+// the workflows that asked most.
+func DurableApprovalStats(w io.Writer, stats *apiclient.DurableApprovalStats) {
+	if stats == nil {
+		return
+	}
+	on := theme.On(w)
+	kv(w, on, "Window", "%s to %s", FormatTimestamp(stats.From), FormatTimestamp(stats.To))
+	kv(w, on, "Requested", "%d", stats.Counts.Requested)
+	kv(w, on, "Pending", "%d", stats.Counts.Pending)
+	kv(w, on, "Approved", "%d", stats.Counts.Approved)
+	kv(w, on, "Denied", "%d", stats.Counts.Denied)
+	kv(w, on, "Expired", "%d", stats.Counts.Expired)
+	kv(w, on, "Cancelled", "%d", stats.Counts.Cancelled)
+	// Both are null until something in the window was decided, which is not
+	// the same as a rate of zero.
+	if stats.ApprovalRate != nil {
+		kv(w, on, "Approval Rate", "%.0f%%", *stats.ApprovalRate*100)
+	} else {
+		kv(w, on, "Approval Rate", "-")
+	}
+	if stats.MedianSecondsToDecision != nil {
+		kv(w, on, "Median Time to Decision", "%s", formatDurableSecondsFraction(*stats.MedianSecondsToDecision))
+	} else {
+		kv(w, on, "Median Time to Decision", "-")
+	}
+
+	if len(stats.Functions) == 0 {
+		return
+	}
+	tableHead(w, on, true, 84, "%-24s  %-9s  %-8s  %-8s  %-8s  %-8s  %-9s",
+		"Workflow", "Requested", "Pending", "Approved", "Denied", "Expired", "Cancelled")
+	for _, fn := range stats.Functions {
+		printDurableApprovalCountsRow(w, durableApprovalWorkflow(fn.Function), fn.Counts)
+	}
+	if stats.OtherFunctions.Requested > 0 {
+		printDurableApprovalCountsRow(w, "(other workflows)", stats.OtherFunctions)
+	}
+}
+
+func printDurableApprovalCountsRow(w io.Writer, workflow string, counts apiclient.DurableApprovalCounts) {
+	fmt.Fprintf(w, "%-24s  %-9d  %-8d  %-8d  %-8d  %-8d  %-9d\n",
+		Truncate(workflow, 24), counts.Requested, counts.Pending, counts.Approved,
+		counts.Denied, counts.Expired, counts.Cancelled)
+}
+
+// durableApprovalWorkflow names the workflow, marking one that has since been
+// deleted: its approvals are kept for a year after it is gone.
+func durableApprovalWorkflow(fn apiclient.DurableApprovalFunction) string {
+	if fn.Id == nil {
+		return fn.Name + " (deleted)"
+	}
+	return fn.Name
+}
+
+func durableApprovalExecution(execution apiclient.DurableApprovalExecution) string {
+	if execution.Id == nil {
+		return execution.Name + " (no longer retained)"
+	}
+	if execution.Status == nil {
+		return fmt.Sprintf("%s (%s)", execution.Name, execution.Id)
+	}
+	return fmt.Sprintf("%s (%s, %s)", execution.Name, execution.Id, *execution.Status)
+}
+
+// durableApprovalExpiresCell shows the deadline only where it still means
+// something: a pending approval's, or when an expired one ran out.
+func durableApprovalExpiresCell(approval *apiclient.DurableApproval) string {
+	if approval.ExpiresAt == nil {
+		return "-"
+	}
+	switch approval.Status {
+	case apiclient.DurableApprovalStatusPending:
+		return formatTimeUntil(*approval.ExpiresAt)
+	case apiclient.DurableApprovalStatusExpired:
+		return FormatTimeAgo(*approval.ExpiresAt)
+	default:
+		return "-"
+	}
+}
+
+// formatTimeUntil is FormatTimeAgo for a time still ahead.
+func formatTimeUntil(t time.Time) string {
+	remaining := time.Until(t)
+	switch {
+	case remaining <= 0:
+		return FormatTimeAgo(t)
+	case remaining < time.Minute:
+		return fmt.Sprintf("in %ds", int(remaining.Seconds()))
+	case remaining < time.Hour:
+		return fmt.Sprintf("in %dm", int(remaining.Minutes()))
+	case remaining < 24*time.Hour:
+		return fmt.Sprintf("in %dh", int(remaining.Hours()))
+	default:
+		return fmt.Sprintf("in %dd", int(remaining.Hours()/24))
+	}
+}
+
+func formatDurableSecondsFraction(seconds float64) string {
+	elapsed := time.Duration(seconds * float64(time.Second))
+	if elapsed < time.Second {
+		return elapsed.Round(time.Millisecond).String()
+	}
+	return elapsed.Round(time.Second).String()
+}
+
 func durableFunctionStatus(fn apiclient.DurableFunction) string {
 	status := strings.TrimSpace(string(fn.Status))
 	if status == "" {
