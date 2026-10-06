@@ -17,6 +17,8 @@ const (
 	accessTokenProjectID      = "22222222-2222-4222-8222-222222222222"
 	accessTokenOtherProjectID = "33333333-3333-4333-8333-333333333333"
 	accessTokenID             = "77777777-7777-4777-8777-777777777777"
+	// accessTokenSecret stands in for the secret the API returns once on create.
+	accessTokenSecret = cliconfig.ProjectTokenPrefix + "fake-access-token"
 )
 
 func executeAccessTokenCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
