@@ -143,6 +143,10 @@ functions:
 		"durable", "approvals", "deny", approveID, "--yes")
 	require.Error(t, err, "denying an approved approval has to fail\n%s", conflict)
 	requireContains(t, conflict, "approval "+approveID+" was already approved by ")
+	expired, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir,
+		"durable", "approvals", "approve", expireID, "--yes")
+	require.Error(t, err, "approving an expired approval has to fail\n%s", expired)
+	requireContains(t, expired, "approval "+expireID+" expired at ")
 
 	unknown := uuid.NewString()
 	missing, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "durable", "approvals", "get", unknown)
