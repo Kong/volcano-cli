@@ -42,8 +42,11 @@ updates:
           - "minor"
           - "patch"
 
-  # Starter manifests embedded for `volcano init`. Directories without a
-  # package.json are skipped.
+  # Starter manifests embedded for `volcano init`. Their caret ranges have no
+  # lockfile, so installs already get the newest matching release; only
+  # out-of-range (major) bumps open a PR, grouped so next, react, and react-dom
+  # move together. They change what `volcano init` writes, so they use `fix`.
+  # No CI installs the starters: check `volcano init nextjs` before merging.
   - package-ecosystem: "npm"
     directories:
       - "/internal/projectinit/starters/*"
@@ -52,8 +55,9 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    versioning-strategy: "increase-if-necessary"
     commit-message:
-      prefix: "chore"
+      prefix: "fix"
       include: "scope"
     cooldown:
       default-days: 5
@@ -62,6 +66,3 @@ updates:
       starters:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
