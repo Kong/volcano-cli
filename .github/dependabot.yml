@@ -43,13 +43,16 @@ updates:
           - "minor"
           - "patch"
 
-  # Starter manifests embedded for `volcano init` (nextjs, nextjs-notes). Raising
-  # the caret floors keeps scanners and security updates off vulnerable minimums.
-  # Majors share one PR so next, react, and react-dom move together. Security
-  # updates ignore version-update groups, so they get their own shared group.
-  # No CI installs the starters: before merging a major, check
-  # `volcano init nextjs` and `volcano init nextjs --example notes`, and title it
-  # `fix(deps)` so Release Please ships it.
+  # Starter manifests embedded for `volcano init` (nextjs, nextjs-notes). They
+  # use caret ranges with no lockfile, so a user's `npm install` already gets
+  # patched minors and patches; raising the floors keeps scanners off
+  # vulnerable minimums and needs no release. Majors share one PR so next,
+  # react, and react-dom move together. Security updates ignore version-update
+  # groups, so they get their own group. No CI installs the starters. Before
+  # merging any major, version or security: with a CLI built from the branch,
+  # run `volcano init nextjs` and `volcano init nextjs --example notes` in
+  # empty directories, then `npm install && npm run build` in each. Title the
+  # PR `fix(deps)` so Release Please ships it.
   - package-ecosystem: "npm"
     directories:
       - "/internal/projectinit/starters/*"
