@@ -56,8 +56,8 @@ func TestDecideDurableApprovalSendsTheComment(t *testing.T) {
 	}
 }
 
-// A 409 carries the API's reason, which callers need to tell a conflicting
-// decision from any other failure.
+// A 409 carries the API's reason and code, which callers need to tell a
+// conflicting decision from any other failure, and one conflict from another.
 func TestDecideDurableApprovalSurfacesTheConflict(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeAPIJSON(t, w, http.StatusConflict, map[string]any{
@@ -73,6 +73,7 @@ func TestDecideDurableApprovalSurfacesTheConflict(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, http.StatusConflict, Status(err))
 	assert.Equal(t, "approval already decided", Message(err))
+	assert.Equal(t, "approval_decided", Code(err))
 }
 
 // An unset filter is no filter: sending an empty status or function would ask

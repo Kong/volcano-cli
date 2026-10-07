@@ -424,6 +424,11 @@ func (s Service) DecideApproval(
 			if conflict := ApprovalConflict(current, decision); conflict != nil {
 				return nil, conflict
 			}
+			// Past its deadline by the API's clock, an approval still reads
+			// pending until the background pass marks it expired.
+			if api.Code(err) == "approval_expired" {
+				return nil, approvalExpired(current)
+			}
 		}
 	}
 	return nil, approvalError(action, approvalID, err)
@@ -445,8 +450,10 @@ func refusesProjectTokenDecision(message string) bool {
 }
 
 // ApprovalConflict says why decision cannot be applied to approval, or returns
-// nil when it can: the approval is pending with its deadline ahead, or already
-// carries that same decision, which the API accepts again unchanged.
+// nil when it can: the approval is pending, or already carries that same
+// decision, which the API accepts again unchanged. Whether a pending
+// approval's deadline has passed is left to the API: this machine's clock may
+// disagree with the one that decides.
 func ApprovalConflict(approval *apiclient.DurableApproval, decision apiclient.DurableApprovalStatus) error {
 	if approval == nil || approval.Status == decision {
 		return nil
@@ -454,11 +461,6 @@ func ApprovalConflict(approval *apiclient.DurableApproval, decision apiclient.Du
 
 	switch approval.Status {
 	case apiclient.DurableApprovalStatusPending:
-		// The API refuses a decision once the deadline passes, even before the
-		// background pass marks the approval expired.
-		if approval.ExpiresAt != nil && !time.Now().Before(*approval.ExpiresAt) {
-			return approvalExpired(approval)
-		}
 		return nil
 	case apiclient.DurableApprovalStatusApproved, apiclient.DurableApprovalStatusDenied:
 		return fmt.Errorf("approval %s was already %s%s", approval.Id, approval.Status, DecisionSummary(approval.Decision))

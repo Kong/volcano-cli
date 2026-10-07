@@ -696,16 +696,6 @@ func TestApprovalsConflictSaysWhatHappened(t *testing.T) {
 			current: approvalPayload("cancelled"),
 			want:    "approval " + approvalID + " was cancelled: its execution ended before anyone decided",
 		},
-		// The API refuses it from the deadline on, before the background pass
-		// marks it expired, so asking the person first would ask for nothing.
-		{
-			name:    "pending past its deadline",
-			command: "approve",
-			current: withFields(approvalPayload("pending"), map[string]any{
-				"expires_at": time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
-			}),
-			want: "approval " + approvalID + " expired at ",
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setApprovalsTestHome(t)
@@ -780,6 +770,65 @@ func TestApprovalsDeadlinePassingBeforeTheDecisionReadsAsExpired(t *testing.T) {
 	assert.NotContains(t, err.Error(), "409")
 	assert.Contains(t, out, "Deny it?")
 	assert.Equal(t, 2, reads)
+}
+
+// A pending approval whose deadline this machine's clock has passed is still
+// the API's to refuse: a clock running fast must not turn away a decision the
+// API would take.
+func TestApprovalsPendingPastTheLocalDeadlineIsLeftToTheAPI(t *testing.T) {
+	pastDeadline := withFields(approvalPayload("pending"), map[string]any{
+		"expires_at": time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+	})
+	for _, tc := range []struct {
+		name    string
+		status  int
+		reply   map[string]any
+		wantErr string
+		want    string
+	}{
+		{
+			name:   "the API takes it",
+			status: http.StatusOK,
+			reply: withFields(approvalPayload("approved"), map[string]any{
+				"decision": decisionPayload("owner@example.com", ""),
+			}),
+			want: `Approved "Ship order 4417?"`,
+		},
+		{
+			name:    "the API refuses it as expired",
+			status:  http.StatusConflict,
+			reply:   map[string]any{"error": "approval expired", "code": "approval_expired"},
+			wantErr: "approval " + approvalID + " expired at ",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setApprovalsTestHome(t)
+			decisions := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method + " " + r.URL.Path {
+				case "GET " + approvalsPath + "/" + approvalID:
+					respondJSON(t, w, http.StatusOK, pastDeadline)
+				case "POST " + approvalsPath + "/" + approvalID + "/approve":
+					decisions++
+					respondJSON(t, w, tc.status, tc.reply)
+				default:
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			out, err := executeCommand(t, newApprovalsCommand(server), "approve", approvalID, "--yes")
+			assert.Equal(t, 1, decisions, "the decision must reach the API")
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				assert.NotContains(t, err.Error(), "409")
+				return
+			}
+			require.NoError(t, err)
+			assert.Contains(t, out, tc.want)
+		})
+	}
 }
 
 // The API's own refusals, word for word. A read-only token is refused before
