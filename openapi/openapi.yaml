@@ -458,7 +458,7 @@ paths:
           required: true
           schema:
             type: string
-            pattern: ^aws-[a-z]+-[a-z]+-[0-9]+$
+            pattern: ^(aws-)?[a-z]{2}(-[a-z]+)+-[0-9]+$
         - name: cursor
           in: query
           schema:
