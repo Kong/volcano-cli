@@ -46,7 +46,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
 email, templates, managed pages), function visibility and schedulers, and
-frontend custom domains.
+frontend custom domains, and Sandbox template settings.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,

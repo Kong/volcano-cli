@@ -16,6 +16,7 @@ validates and applies the full project configuration:
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
 - Frontend custom domains and function routes
+- Sandbox template image assertions and default session timeouts
 
 The same manifest applies to local development and cloud projects — only the
 command namespace changes:
@@ -326,3 +327,26 @@ reject apply. Omitting a field preserves it; `variables: []` clears the selectio
 just the function shared list. `NEXT_PUBLIC_*` variables are used during build
 and excluded from runtime. Keep any existing custom-domain declaration in the
 entry. Rebuild the frontend to change values embedded in browser assets.
+
+## Sandbox template settings
+
+Declare an existing template by name. `memory_mb` and `ports` assert the deployed
+image settings; changing them requires a new source deployment. Configuration
+apply updates `idle_timeout_seconds` and `ttl_seconds` for new sessions.
+
+```yaml
+version: 1
+sandboxes:
+  - name: local-custom
+    memory_mb: 1024
+    ports: [8080]
+    idle_timeout_seconds: 90
+    ttl_seconds: 600
+```
+
+Preview with `volcano config deploy --dry-run`, apply with `volcano config deploy`,
+and export with `volcano config pull --force`. Add `cloud` after `volcano` for a
+cloud project. Omitted fields preserve current settings; an explicit idle timeout
+of `0` disables idle expiration. TTL must be 30–28800 seconds, and a nonzero idle
+timeout must not exceed it. Config apply does not build images or delete templates
+omitted from the manifest. See [Sandbox source deployment](sandboxes.md).
