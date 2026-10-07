@@ -291,7 +291,6 @@ paths:
       operationId: deploySandbox
       security:
         - UserToken: []
-        - ProjectAccessToken: []
         - ServiceRoleKey: []
       parameters:
         - name: id
@@ -395,7 +394,6 @@ paths:
       operationId: getSandboxDeployment
       security:
         - UserToken: []
-        - ProjectAccessToken: []
         - ServiceRoleKey: []
       parameters:
         - name: id
@@ -437,7 +435,6 @@ paths:
       operationId: getSandboxDeploymentLogs
       security:
         - UserToken: []
-        - ProjectAccessToken: []
         - ServiceRoleKey: []
       parameters:
         - name: id
@@ -497,7 +494,6 @@ paths:
       operationId: getSandboxDeploymentSource
       security:
         - UserToken: []
-        - ProjectAccessToken: []
         - ServiceRoleKey: []
       parameters:
         - name: id
