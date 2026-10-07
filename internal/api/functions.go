@@ -107,7 +107,7 @@ func (c *Client) DeleteFunction(ctx context.Context, projectID, functionID uuid.
 // UpdateFunctionVisibility updates one function's public/private visibility.
 func (c *Client) UpdateFunctionVisibility(ctx context.Context, projectID, functionID uuid.UUID, isPublic bool) (*apiclient.Function, error) {
 	resp, err := c.client.UpdateFunctionWithResponse(ctx, projectID, functionID, apiclient.UpdateFunctionJSONRequestBody{
-		IsPublic: isPublic,
+		IsPublic: &isPublic,
 	})
 	if err != nil {
 		return nil, err

@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -47,6 +49,7 @@ func requireLocalModeRunsSandboxes(t *testing.T, binary string, env []string, di
 	run("terminate", session.ID)
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"state":"terminated"`, "sandboxes", "get", session.ID, "--json")
 	requireLocalModeSandboxUsage(t, binary, env, dir)
+	requireLocalModeCustomSandbox(t, binary, env, dir)
 }
 
 func requireLocalModeSandboxUsage(t *testing.T, binary string, env []string, dir string) {
@@ -88,4 +91,30 @@ func requireLocalModeSandboxUsage(t *testing.T, binary string, env []string, dir
 		require.Zero(t, m.Total)
 	}
 	require.ElementsMatch(t, names, actualNames)
+}
+
+func requireLocalModeCustomSandbox(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	contextDir := filepath.Join(dir, "custom-sandbox")
+	require.NoError(t, os.MkdirAll(contextDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte("RUN dnf install -y python3.12 && dnf clean all\nRUN printf custom-image > /image-version\nCMD [\"python3.12\", \"-m\", \"http.server\", \"8080\", \"--bind\", \"0.0.0.0\"]\n"), 0o600))
+	template := uuid.NewString()
+	run := func(args ...string) string {
+		t.Helper()
+		return runVolcanoLocalModeE2E(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
+	}
+	var result struct {
+		Deployment struct {
+			ID string `json:"id"`
+		} `json:"deployment"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(run("templates", "deploy", "local-custom", "--path", contextDir, "--template", template, "--ports", "8080", "--json")), &result))
+	require.NotEmpty(t, result.Deployment.ID)
+	t.Cleanup(func() {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "templates", "delete", template, "--yes")
+		require.NoError(t, err, output)
+	})
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"status":"active"`, "sandboxes", "deployments", "get", template, result.Deployment.ID, "--json")
+	require.Contains(t, run("deployments", "list", template), result.Deployment.ID)
+	require.Contains(t, run("exec", "--template", template, "--", "cat", "/image-version"), "custom-image")
 }

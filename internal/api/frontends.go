@@ -66,7 +66,7 @@ func (c *Client) DeployFrontend(ctx context.Context, projectID uuid.UUID, input 
 		// the CLI does not report a successful deploy as a failure.
 		return &apiclient.Frontend{Name: input.Name}, nil
 	}
-	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
+	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // GetFrontend returns one frontend by ID.
@@ -103,7 +103,7 @@ func (c *Client) RedeployFrontend(ctx context.Context, projectID, frontendID uui
 		// so the CLI does not report a successful redeploy as a failure.
 		return &apiclient.Frontend{Id: frontendID}, nil
 	}
-	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
+	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // ListFrontendDeployments lists one deployment page for a frontend.
@@ -173,9 +173,9 @@ func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, fron
 	body := apiclient.CreateFrontendCustomDomainJSONRequestBody{
 		Domain: strings.TrimSpace(input.Domain),
 		Tls: apiclient.FrontendCustomDomainTLSConfig{
-			CertificatePem: strings.TrimSpace(input.CertificatePEM),
+			CertificatePem: new(strings.TrimSpace(input.CertificatePEM)),
 			Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
-			PrivateKeyPem:  strings.TrimSpace(input.PrivateKeyPEM),
+			PrivateKeyPem:  new(strings.TrimSpace(input.PrivateKeyPEM)),
 		},
 	}
 	if chain := strings.TrimSpace(input.CertificateChainPEM); chain != "" {
@@ -192,7 +192,7 @@ func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, fron
 	if resp.JSON200 != nil {
 		return resp.JSON200, nil
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // GetFrontendCustomDomain returns the configured custom domain for a frontend.

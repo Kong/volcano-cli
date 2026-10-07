@@ -25,7 +25,7 @@ func (c *Client) ListDatabases(ctx context.Context, projectID uuid.UUID, page, l
 func (c *Client) CreateDatabase(ctx context.Context, projectID uuid.UUID, name, region, pgVersion, databaseType string) (*apiclient.Database, error) {
 	body := apiclient.CreateDatabaseJSONRequestBody{
 		Name:      strings.TrimSpace(name),
-		Region:    apiclient.CreateDatabaseRequestRegion(strings.TrimSpace(region)),
+		Region:    strings.TrimSpace(region),
 		PgVersion: apiclient.CreateDatabaseRequestPgVersion(strings.TrimSpace(pgVersion)),
 	}
 	if databaseType := strings.TrimSpace(databaseType); databaseType != "" {

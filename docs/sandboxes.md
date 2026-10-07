@@ -108,3 +108,58 @@ clear error instead of showing zero.
 
 For cloud usage, run `volcano cloud sandboxes usage --json` after signing in
 with `volcano login`. Project service keys cannot read project usage.
+
+## Deploy a custom image
+
+Put a `Dockerfile` fragment at the root of your build context. Volcano supplies
+the base image and managed entrypoint. Use `RUN`, `COPY`, and `CMD`; do not add
+`FROM`, `USER`, or `ENTRYPOINT`. For a Python HTTP server:
+
+```dockerfile
+RUN dnf install -y python3.12 && dnf clean all
+CMD ["python3.12", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
+```
+
+Upload the build context:
+
+```sh
+volcano sandboxes templates deploy my-python --path ./sandbox --memory 1024 --ports 8080
+```
+
+The response contains `template_id` and `deployment.id`. A deployment builds and
+validates the image before making it active. Check its status, then create a
+session from the template:
+
+```sh
+volcano sandboxes deployments get <template-id> <deployment-id>
+volcano sandboxes run --template <template-id> --region us-east-1
+```
+
+Use `--template <template-id>` on subsequent deployments to update the same
+template. Existing sessions keep their original image. To retry after an uncertain
+network result, preserve both the printed template ID and request ID:
+
+```sh
+volcano sandboxes templates deploy my-python --path ./sandbox --template <template-id> --request-id <request-id>
+```
+
+Keep the same source, memory, and ports when reusing a request ID. A changed build
+needs a new request ID. The CLI prints these IDs before uploading so they remain
+available if the connection fails.
+
+Build contexts are limited to 32 MiB compressed and expanded, including archive
+headers, and 10,000 files. The CLI applies `.gitignore`, excludes `.git`, `.env`,
+`.env.*`, and `node_modules`, and refuses symbolic links. The uploaded
+`.dockerignore` also controls the image build. Files must be regular files within
+the chosen directory.
+
+Inspect history and download the original source without extracting it:
+
+```sh
+volcano sandboxes deployments list <template-id>
+volcano sandboxes deployments list <template-id> --cursor <next-cursor>
+volcano sandboxes deployments source <template-id> <deployment-id> > source.tar.gz
+```
+
+These commands also work with `volcano local sandboxes` when the local server
+supports custom image deployments.
