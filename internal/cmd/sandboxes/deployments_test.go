@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -110,6 +111,44 @@ func TestCustomDeploymentValidationDoesNotSendRequest(t *testing.T) {
 			cmd.SetErr(io.Discard)
 			cmd.SetArgs(args)
 			require.Error(t, cmd.Execute())
+		})
+	}
+}
+
+func TestCustomDeploymentNameMatchesAPI(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"a", "app-", "a0", strings.Repeat("a", 63)} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("RUN echo hello\n"), 0o600))
+			called := false
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				require.NoError(t, r.ParseMultipartForm(1<<20))
+				defer r.MultipartForm.RemoveAll()
+				assert.Equal(t, name, r.FormValue("name"))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				_, _ = io.WriteString(w, `{"id":"`+testRequest+`","status":"building"}`)
+			}))
+			defer server.Close()
+			cmd := New(testDeps(server))
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"templates", "deploy", name, "--path", dir})
+			require.NoError(t, cmd.Execute())
+			require.True(t, called)
+		})
+	}
+	for _, name := range []string{"1app", "-app", "App", "app_", strings.Repeat("a", 64), "app\n"} {
+		t.Run("invalid_"+name, func(t *testing.T) {
+			t.Parallel()
+			cmd := New(cliruntime.Deps{})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"templates", "deploy", "--", name})
+			require.ErrorContains(t, cmd.Execute(), "template name must contain")
 		})
 	}
 }

@@ -18,8 +18,8 @@ func (c *commands) deployTemplate() *cobra.Command {
 	var memory int
 	var ports []int
 	cmd := &cobra.Command{Use: "deploy <name>", Short: "Build and deploy a custom Sandbox template", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		if !regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`).MatchString(args[0]) {
-			return errors.New("template name must contain 1–63 lowercase letters, digits or hyphens, starting and ending with a letter or digit")
+		if !regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`).MatchString(args[0]) {
+			return errors.New("template name must contain 1–63 lowercase letters, digits or hyphens, starting with a letter")
 		}
 		if memory != 1024 && memory != 2048 {
 			return errors.New("--memory must be 1024 or 2048")

@@ -63,6 +63,8 @@ tags:
     description: Platform-user git provider connections for deployment source integrations
   - name: Project Imports
     description: Read-only project source discovery and import readiness checks
+  - name: Verified Domains
+    description: Domains an account has proven it owns, so it can attach any custom domain below them
   - name: Storage Buckets
     description: Storage bucket management (platform admin)
   - name: Storage Policies
@@ -290,6 +292,7 @@ paths:
       security:
         - UserToken: []
         - ProjectAccessToken: []
+        - ServiceRoleKey: []
       parameters:
         - name: id
           in: path
@@ -328,10 +331,10 @@ paths:
                   description: Source tar.gz archive, limited to 32 MiB compressed and expanded.
                 memory_mb:
                   type: integer
-                  description: Memory in MiB. Defaults to 1024 when omitted.
                   enum:
                     - 1024
                     - 2048
+                  description: Memory in MiB. Defaults to 1024 when omitted.
                 ports:
                   type: string
                   description: JSON array of application ports that must become ready before activation, for example [8080].
@@ -393,6 +396,7 @@ paths:
       security:
         - UserToken: []
         - ProjectAccessToken: []
+        - ServiceRoleKey: []
       parameters:
         - name: id
           in: path
@@ -434,6 +438,7 @@ paths:
       security:
         - UserToken: []
         - ProjectAccessToken: []
+        - ServiceRoleKey: []
       parameters:
         - name: id
           in: path
@@ -493,6 +498,7 @@ paths:
       security:
         - UserToken: []
         - ProjectAccessToken: []
+        - ServiceRoleKey: []
       parameters:
         - name: id
           in: path
@@ -1783,6 +1789,179 @@ paths:
                 $ref: '#/components/schemas/Error'
         '503':
           description: Git provider integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains:
+    get:
+      tags:
+        - Verified Domains
+      summary: List verified domains
+      description: |
+        Lists the domains the account has verified. The account can attach any
+        custom domain at or below one of them, in either TLS mode, without
+        publishing another ownership record.
+      operationId: listVerifiedDomains
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      responses:
+        '200':
+          description: The account's verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomainsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Verified Domains
+      summary: Verify a domain
+      description: |
+        Verifies the account's ownership of a domain and every name below it.
+        Verify a registrable domain such as `example.com` to cover all of its
+        subdomains, or a delegated subdomain you control.
+
+        Publish a TXT record named `_volcano.<domain>`, then send this request.
+        Without the record, the response is `409` with
+        `code: ownership_verification_required` and the `required_record` to
+        publish. Its value is the same on every request. The record must be
+        served at that name itself; a record reached through a CNAME does not
+        count.
+
+        When another account verified the domain, publishing your record moves
+        the domain to your account once that account's record is no longer
+        published. Keep your record published so the domain stays yours.
+
+        Verifying a domain the account already verified returns `200`.
+      operationId: verifyDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDomainRequest'
+      responses:
+        '200':
+          description: The account had already verified the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '201':
+          description: Domain verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '400':
+          description: Bad request - invalid domain or a public suffix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - the ownership record is not published yet, or another account owns the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
+        '500':
+          description: Failed to verify the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - DNS did not answer whether another account's record is still published; retry later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains/{domain}:
+    delete:
+      tags:
+        - Verified Domains
+      summary: Remove a verified domain
+      description: |
+        Gives up the account's ownership of a domain. Custom domains already
+        attached below it keep serving; attaching another requires verifying
+        the domain again. Domains Volcano reserves for its own account cannot
+        be removed.
+      operationId: deleteVerifiedDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The verified domain, such as `example.com`
+          schema:
+            type: string
+            maxLength: 253
+      responses:
+        '204':
+          description: Domain removed
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - Volcano reserves this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The account has not verified this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to remove the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
           content:
             application/json:
               schema:
@@ -5709,7 +5888,7 @@ paths:
         22.x or 24.x. The Node.js runtime is inferred from
         `package.json` `engines.node`; if omitted, Volcano uses Node.js 22.x.
         The selected Node.js family must also satisfy the installed Next.js package's
-        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.3.8 (`>=20.9.0`).
+        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.4.0 (`>=20.9.0`).
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
         does not apply its own source archive size limit. After the final container images are
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
@@ -6052,8 +6231,10 @@ paths:
         Configures one custom domain for a frontend.
         The default Volcano-generated frontend URL remains active.
         Wildcard Volcano frontend TLS remains valid and isolated from custom-domain certificate changes.
-        Managed TLS returns the DNS records currently required for setup. Volcano may require a tenant-specific TXT ownership challenge before returning the certificate authority's validation record. After ownership verification succeeds, Volcano permanently assigns the hostname to the account, including after the domain is deleted. A required but unverified ownership reservation expires after 72 hours.
-        An unverified reservation does not block an account that proves ownership. When another account holds one, a managed TLS request gets `409` with `code: ownership_verification_required` and the caller's own `required_record`; after publishing it, the same request takes over the reservation. A BYOC request with a publicly trusted certificate and key for the hostname also takes it over; other BYOC requests get a `409` without `code`. Hostnames claimed through ownership verification and BYOC domains are never taken over.
+        The account must own the hostname: it must have verified the hostname or a domain above it (see `POST /user/domains`). A certificate does not prove ownership.
+        When the account owns no domain covering the hostname, Volcano asks for a TXT record at `_volcano.<registrable domain>`, such as `_volcano.example.com`. Publishing it verifies the whole domain, so later subdomains need no record. A managed TLS request reserves the hostname and returns that record in `verification_records`; the reservation expires after 72 hours unless the record is published. A BYOC request gets `409` with `code: ownership_verification_required` and the record in `required_record`; publish it and send the same request again.
+        Managed TLS then returns the CNAME that authorizes certificate issuance and renewal.
+        An unverified reservation does not block an account that proves ownership. When another account holds one, a request gets `409` with `code: ownership_verification_required` and the caller's own `required_record`; after publishing it, the same request takes over the reservation. When another account verified the domain, the same `409` names the record that moves the domain to the caller once the other account's record is no longer published. A hostname below a domain another account owns otherwise returns `409` without `code`.
       operationId: createFrontendCustomDomain
       security:
         - UserToken: []
@@ -6105,7 +6286,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - custom domain already in use, reserved by another account until ownership is proven, still detaching, or frontend already has a custom domain
+          description: Conflict - ownership not verified, custom domain owned or reserved by another account, already in use, still detaching, or frontend already has a custom domain
           content:
             application/json:
               schema:
@@ -17698,6 +17879,39 @@ components:
           type: string
       required:
         - authorization_url
+    VerifiedDomain:
+      type: object
+      description: A domain the account owns, along with every name below it.
+      properties:
+        domain:
+          type: string
+          example: example.com
+        verified_at:
+          type: string
+          format: date-time
+          description: When the account last proved ownership.
+      required:
+        - domain
+        - verified_at
+    VerifiedDomainsResponse:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifiedDomain'
+      required:
+        - domains
+    VerifyDomainRequest:
+      type: object
+      properties:
+        domain:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: The domain to verify, such as `example.com`.
+      required:
+        - domain
     GitConnectionsResponse:
       type: object
       properties:
@@ -18410,7 +18624,7 @@ components:
         - value
     FrontendDomainVerificationRecord:
       type: object
-      description: The DNS records currently required for managed TLS. Volcano may require a tenant-specific TXT ownership record before returning a CNAME that authorizes certificate issuance and renewal. Clients must follow the records returned for the current lifecycle state instead of assuming a fixed sequence.
+      description: The DNS records currently required. Volcano may require an account-specific TXT ownership record for the hostname's domain before returning a CNAME that authorizes managed certificate issuance and renewal. Clients must follow the records returned for the current lifecycle state instead of assuming a fixed sequence.
       properties:
         name:
           type: string
@@ -18423,7 +18637,7 @@ components:
         - type
         - value
     FrontendCustomDomainConflictError:
-      description: 'Custom domain create conflict. With `code: ownership_verification_required`, another account holds an unverified managed TLS reservation for the hostname: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. Other conflicts omit both fields.'
+      description: 'Domain ownership conflict. With `code: ownership_verification_required`, the account has not proven it owns the domain: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. Other conflicts omit both fields.'
       allOf:
         - $ref: '#/components/schemas/Error'
         - type: object
