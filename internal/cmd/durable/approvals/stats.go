@@ -54,18 +54,13 @@ back up to a year.`,
 const maxStatsWindow = 366 * 24 * time.Hour
 
 func runStats(ctx context.Context, opts statsOptions) error {
-	window, err := parseSince(opts.since)
+	from, to, err := sinceWindow(opts.since)
 	if err != nil {
 		return err
 	}
-	if window > maxStatsWindow {
+	if to.Sub(from) > maxStatsWindow {
 		return fmt.Errorf("invalid --since %q: stats reach back at most 366 days", opts.since)
 	}
-	// The window ends at the instant it was measured back from. Left to the
-	// API's clock, the end would land later and a full 366 days would arrive
-	// over the limit.
-	to := time.Now().UTC()
-	from := to.Add(-window)
 
 	stats, err := clidurable.NewService(opts.deps).ApprovalStats(ctx, strings.TrimSpace(opts.function), &from, &to)
 	if err != nil {

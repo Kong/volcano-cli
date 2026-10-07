@@ -145,12 +145,24 @@ func TestApprovalsListSendsEveryFilter(t *testing.T) {
 	assert.Equal(t, []string{"order-pipeline"}, query["function"])
 	assert.Equal(t, []string{"denied"}, query["status"])
 	assert.Equal(t, []string{executionID}, query["execution_id"])
-	require.Len(t, query["from"], 1)
-	from, err := time.Parse(time.RFC3339Nano, query["from"][0])
+	from, to := windowSent(t, query)
+	assert.WithinDuration(t, before, to, time.Minute)
+	assert.Equal(t, 7*24*time.Hour, to.Sub(from))
+}
+
+func TestApprovalsListWithoutSinceSendsNoWindow(t *testing.T) {
+	setApprovalsTestHome(t)
+	var query map[string][]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		respondJSON(t, w, http.StatusOK, emptyPage())
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newApprovalsCommand(server), "list")
 	require.NoError(t, err)
-	assert.WithinDuration(t, before.Add(-7*24*time.Hour), from, time.Minute)
-	// Unlike stats, the list has no window limit, and an end taken from this
-	// clock would hide approvals requested after it.
+
+	assert.NotContains(t, query, "from")
 	assert.NotContains(t, query, "to")
 }
 
@@ -849,7 +861,7 @@ func TestApprovalsStatsRendersTheWindow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"order-pipeline"}, query["function"])
-	from, to := statsWindowSent(t, query)
+	from, to := windowSent(t, query)
 	assert.WithinDuration(t, before, to, time.Minute)
 	assert.Equal(t, 30*24*time.Hour, to.Sub(from), "--since defaults to 30d")
 
@@ -883,7 +895,7 @@ func TestApprovalsStatsSendsTheLongestWindowWhole(t *testing.T) {
 
 	_, err := executeCommand(t, newApprovalsCommand(server), "stats", "--since", "366d")
 	require.NoError(t, err)
-	from, to := statsWindowSent(t, query)
+	from, to := windowSent(t, query)
 	assert.Equal(t, 366*24*time.Hour, to.Sub(from))
 }
 
@@ -909,7 +921,7 @@ func TestApprovalsStatsWithNothingDecided(t *testing.T) {
 	assert.NotContains(t, out, "Workflow ")
 }
 
-func statsWindowSent(t *testing.T, query map[string][]string) (time.Time, time.Time) {
+func windowSent(t *testing.T, query map[string][]string) (time.Time, time.Time) {
 	t.Helper()
 	require.Len(t, query["from"], 1)
 	require.Len(t, query["to"], 1)

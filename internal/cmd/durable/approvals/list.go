@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -83,13 +82,12 @@ func runList(ctx context.Context, opts listOptions) error {
 		}
 		input.ExecutionID = &executionID
 	}
-	// No `to`: the list has no window limit to fit, and an end read off this
-	// machine's clock would hide approvals requested after it.
 	if opts.since != "" {
-		input.From, err = sinceTime(opts.since, time.Now())
+		from, to, err := sinceWindow(opts.since)
 		if err != nil {
 			return err
 		}
+		input.From, input.To = &from, &to
 	}
 
 	approvals, err := clidurable.NewService(opts.deps).ListApprovals(ctx, input)

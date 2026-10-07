@@ -16,6 +16,7 @@ type DurableApprovalListInput struct {
 	Status      string
 	ExecutionID *uuid.UUID
 	From        *time.Time
+	To          *time.Time
 	Page        int
 	Limit       int
 }
@@ -29,6 +30,7 @@ func (c *Client) ListDurableApprovals(
 		Limit:       &input.Limit,
 		ExecutionId: input.ExecutionID,
 		From:        input.From,
+		To:          input.To,
 	}
 	if input.Function != "" {
 		function := input.Function

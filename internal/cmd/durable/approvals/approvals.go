@@ -184,15 +184,17 @@ func parseSince(value string) (time.Duration, error) {
 	return window, nil
 }
 
-// sinceTime converts a --since value to the start of the window it names.
-// Sent in UTC so the query string carries no offset to encode.
-func sinceTime(value string, now time.Time) (*time.Time, error) {
+// sinceWindow converts a --since value to the window it names, ending now.
+// Both ends are sent: left to the API's clock, the end would land later than
+// the instant the start was measured back from. In UTC so the query string
+// carries no offset to encode.
+func sinceWindow(value string) (time.Time, time.Time, error) {
 	window, err := parseSince(value)
 	if err != nil {
-		return nil, err
+		return time.Time{}, time.Time{}, err
 	}
-	from := now.Add(-window).UTC()
-	return &from, nil
+	to := time.Now().UTC()
+	return to.Add(-window), to, nil
 }
 
 // writeJSON prints value as indented JSON for --json consumers.
