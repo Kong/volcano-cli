@@ -1,0 +1,17 @@
+name: CLA (merge queue)
+
+# CLA Assistant reports license/cla on pull requests but never on merge-group
+# commits, so the required check would stall the queue. A PR cannot be queued
+# until CLA Assistant passes it.
+on:
+  merge_group:
+
+permissions: {}
+
+jobs:
+  cla:
+    name: license/cla
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "CLA Assistant passed every queued pull request."
