@@ -1,7 +1,7 @@
 version: 2
 # Cooldowns make a release age before Dependabot proposes it, so a compromised
-# or yanked version is less likely to reach a PR. They apply to version updates
-# only. Majors wait longer where the ecosystem supports SemVer cooldowns.
+# or yanked version is less likely to reach a PR. Security updates skip them.
+# Majors wait longer where the ecosystem supports SemVer cooldowns.
 updates:
   # Keep SHA-pinned GitHub Actions current. Dependabot bumps the commit SHA and
   # the trailing version comment together, so pinning does not go stale.
@@ -20,7 +20,8 @@ updates:
           - "patch"
 
   # Go modules compiled into the released binary. `fix(deps)` makes Release
-  # Please cut a patch release, which is how an update reaches users.
+  # Please cut a patch release, which is how an update reaches users. Go majors
+  # (new /vN module paths) and `tool` dependencies (indirect) stay manual.
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -42,11 +43,12 @@ updates:
           - "minor"
           - "patch"
 
-  # Starter manifests embedded for `volcano init`. Their caret ranges have no
-  # lockfile, so installs already get the newest matching release; only
-  # out-of-range (major) bumps open a PR, grouped so next, react, and react-dom
-  # move together. They change what `volcano init` writes, so they use `fix`.
-  # No CI installs the starters: check `volcano init nextjs` before merging.
+  # Starter manifests embedded for `volcano init` (nextjs, nextjs-notes). Raising
+  # the caret floors keeps scanners and security updates off vulnerable minimums.
+  # Majors share one PR so next, react, and react-dom move together. No CI
+  # installs the starters: before merging a major, check `volcano init nextjs`
+  # and `volcano init nextjs --example notes`, and title it `fix(deps)` so
+  # Release Please ships it.
   - package-ecosystem: "npm"
     directories:
       - "/internal/projectinit/starters/*"
@@ -55,9 +57,8 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
-    versioning-strategy: "increase-if-necessary"
     commit-message:
-      prefix: "fix"
+      prefix: "chore"
       include: "scope"
     cooldown:
       default-days: 5
@@ -66,3 +67,11 @@ updates:
       starters:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      starters-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
