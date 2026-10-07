@@ -1,4 +1,7 @@
 version: 2
+# Cooldowns make a release age before Dependabot proposes it, so a compromised
+# or yanked version is less likely to reach a PR. They apply to version updates
+# only. Majors wait longer where the ecosystem supports SemVer cooldowns.
 updates:
   # Keep SHA-pinned GitHub Actions current. Dependabot bumps the commit SHA and
   # the trailing version comment together, so pinning does not go stale.
@@ -8,8 +11,57 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci"
+    cooldown:
+      default-days: 5
     groups:
       github-actions:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Go modules compiled into the released binary. `fix(deps)` makes Release
+  # Please cut a patch release, which is how an update reaches users.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Starter manifests embedded for `volcano init`. Directories without a
+  # package.json are skipped.
+  - package-ecosystem: "npm"
+    directories:
+      - "/internal/projectinit/starters/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+    groups:
+      starters:
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"
