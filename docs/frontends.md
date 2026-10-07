@@ -52,7 +52,9 @@ The selected variables other than `NEXT_PUBLIC_*` must fit the frontend's
 `deploy` archives `--path` (default `.`) and leaves out `node_modules`, `.next`,
 `dist`, `build`, `.env*.local`, `.git`, editor files, `*.log`, and anything in
 the root `.gitignore`. Symbolic links are skipped with a warning, and more than
-10,000 files fails the deploy.
+10,000 files fails the deploy. When the app uses `workspace:` dependencies,
+`deploy` archives the workspace root instead, so these rules and the file limit
+apply to the whole workspace; pass `--app-root` to archive only `--path`.
 
 ## Examples
 

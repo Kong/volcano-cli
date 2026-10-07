@@ -30,8 +30,8 @@ Without `cloud`, these commands act on local development (`volcano start`), not
 on your cloud project. When local development is not running they fail rather
 than fall back to the cloud.
 
-`deploy` reads variables from the file only; it does not accept `NAME=value`
-arguments. It creates and updates variables and never deletes them.
+`deploy` reads variables from the file only; `NAME=value` arguments are an
+error. It creates and updates variables and never deletes them.
 
 ## Examples
 
