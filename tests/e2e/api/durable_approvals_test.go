@@ -94,6 +94,7 @@ func TestAPIE2ECloudDurableApprovals(t *testing.T) {
 		"Title: Ship order approve?", "Name: ship-order", "Status: pending",
 		"Workflow: approval-pipeline", "cli-e2e-approve", `"order": "approve"`,
 		"Expires: when its execution ends")
+	requireAPIE2EDurableApprovalNeedsAPerson(t, env, approveID)
 
 	env.runCloudCLI(t, "durable", "approvals", "approve", approveID, "--comment", "Checked stock", "--yes").
 		requireSuccess(t, "Status: approved", "Comment: Checked stock", `Approved "Ship order approve?"`)
@@ -133,6 +134,27 @@ func TestAPIE2ECloudDurableApprovals(t *testing.T) {
 	unknown := uuid.NewString()
 	env.runCloudCLI(t, "durable", "approvals", "get", unknown).
 		requireFailure(t, "no approval "+unknown+" in this project")
+}
+
+// requireAPIE2EDurableApprovalNeedsAPerson checks that a project access token
+// can read an approval but not decide it. The approval is still pending, so
+// the refusal can only be about the credential.
+func requireAPIE2EDurableApprovalNeedsAPerson(t *testing.T, env *apiE2E, approvalID string) {
+	t.Helper()
+	name := "cli-e2e-approvals-" + apiE2ESuffix(t)
+	created := env.runCloudCLI(t, "access-tokens", "create", name, "--scope", "full", "--json")
+	_, secret := apiE2ECreatedAccessToken(t, created)
+	t.Cleanup(func() {
+		if revoked := env.runCloudCLI(t, "access-tokens", "revoke", name, "--yes"); revoked.code != 0 {
+			t.Errorf("failed to revoke the access token this test minted:\n%s", redactCredentials(revoked.output))
+		}
+	})
+
+	projectTokenEnv := []string{"VOLCANO_TOKEN=" + secret, "VOLCANO_PROJECT_ID=" + env.projectID}
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "durable", "approvals", "get", approvalID).
+		requireSuccess(t, "Status: pending")
+	env.runCloudCLIWithEnv(t, projectTokenEnv, "durable", "approvals", "approve", approvalID, "--yes").
+		requireFailure(t, "approvals are decided by a person")
 }
 
 func startAPIE2EDurableApproval(t *testing.T, env *apiE2E, name, input string) string {
