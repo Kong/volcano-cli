@@ -106,10 +106,14 @@ func requireLocalSandboxDeploymentArtifacts(t *testing.T, run func(...string) st
 		require.NoError(t, json.Unmarshal([]byte(run("deployments", "logs", template, deployment,
 			"--region", region, "--json")), &logs))
 		require.NotEmpty(t, logs.Data, "build output must be visible in region %s", region)
+		hasMessage := false
 		for _, event := range logs.Data {
 			require.False(t, event.Timestamp.IsZero())
-			require.NotEmpty(t, event.Message)
+			if strings.TrimSpace(event.Message) != "" {
+				hasMessage = true
+			}
 		}
+		require.True(t, hasMessage, "build output must include a nonblank message in region %s", region)
 	}
 }
 

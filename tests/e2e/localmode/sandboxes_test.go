@@ -101,10 +101,10 @@ func requireLocalModeCustomSandbox(t *testing.T, binary string, env []string, di
 	require.NoError(t, os.MkdirAll(contextDir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte("RUN dnf install -y python3.12 && dnf clean all\nRUN printf custom-image > /image-version\nCMD [\"python3.12\", \"-m\", \"http.server\", \"8080\", \"--bind\", \"0.0.0.0\"]\n"), 0o600))
 	template := uuid.NewString()
-	t.Cleanup(func() {
+	defer func() {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "templates", "delete", template, "--yes")
 		require.NoError(t, err, output)
-	})
+	}()
 	run := func(args ...string) string {
 		t.Helper()
 		return runVolcanoLocalModeE2EStdout(t, binary, env, dir, append([]string{"sandboxes"}, args...)...)
