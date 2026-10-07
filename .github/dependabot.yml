@@ -18,6 +18,9 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      github-actions-major:
+        update-types:
+          - "major"
 
   # Go modules compiled into the released binary. `fix(deps)` makes Release
   # Please cut a patch release, which is how an update reaches users. Go majors
