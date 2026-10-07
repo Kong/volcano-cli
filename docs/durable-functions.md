@@ -70,7 +70,7 @@ existing function's scope alone.
 | List schedulers | `volcano cloud durable schedulers list <function>` |
 | Pause or resume one | `volcano cloud durable schedulers disable\|enable <function> <scheduler-id>` |
 | Delete one | `volcano cloud durable schedulers delete <function> <scheduler-id> [--yes]` |
-| List approvals | `volcano cloud durable approvals list [--function …] [--status pending] [--execution …] [--since 30d] [--page 1] [--limit 100]` |
+| List approvals | `volcano cloud durable approvals list [--function …] [--status pending] [--execution …] [--since …] [--page 1] [--limit 100]` |
 | Get one approval | `volcano cloud durable approvals get <approval-id>` |
 | Approve or deny one | `volcano cloud durable approvals approve\|deny <approval-id> [--comment …] [--yes]` |
 | Approval stats | `volcano cloud durable approvals stats [--function …] [--since 30d]` |
@@ -220,7 +220,8 @@ ends in one of four ways:
 cannot be changed. Repeating the decision an approval already has changes
 nothing and succeeds, so a retried command is safe. A different decision, or
 any decision on an expired or cancelled approval, fails with what happened, for
-example `approval … was already approved by owner@example.com at …`.
+example `approval … was already approved by owner@example.com at …`. An approval
+past its timeout counts as expired, even while it still reads `pending`.
 
 Approvals are decided by a person. A command run with a project access token is
 refused; run `volcano login`, or decide in the dashboard.

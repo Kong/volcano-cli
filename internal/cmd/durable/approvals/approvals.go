@@ -18,6 +18,7 @@ import (
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // New returns the durable approvals command.
@@ -117,7 +118,8 @@ func runDecide(ctx context.Context, opts decideOptions) error {
 	if !opts.yes {
 		confirmed, err := confirm.Action(opts.in, opts.prompt,
 			fmt.Sprintf("%q was requested by workflow %s. The workflow resumes with your decision, "+
-				"and a decision cannot be changed.", approval.Title, approval.Function.Name),
+				"and a decision cannot be changed.",
+				theme.StripControl(approval.Title), theme.StripControl(approval.Function.Name)),
 			verb+" it?")
 		if err != nil {
 			return err
@@ -135,7 +137,8 @@ func runDecide(ctx context.Context, opts decideOptions) error {
 		return writeJSON(opts.out, decided)
 	}
 	output.DurableApproval(opts.out, decided)
-	output.Success(opts.out, "%s %q; the workflow resumes with the decision", pastTense(opts.decision), decided.Title)
+	output.Success(opts.out, "%s %q; the workflow resumes with the decision",
+		pastTense(opts.decision), theme.StripControl(decided.Title))
 	return nil
 }
 

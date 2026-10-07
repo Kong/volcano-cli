@@ -45,7 +45,8 @@ const localModeE2EDurableApprovalManifest = `{
 `
 
 // Unlike a wait, an approval timeout is not cut short locally, so the expiry
-// takes as long as it says.
+// takes as long as it says. Long enough that all three approvals are still
+// pending when the list is read.
 const localModeE2EDurableApprovalExpiry = "30s"
 
 // requireLocalModeRunsDurableApprovals is the cloud approvals round trip
@@ -85,6 +86,16 @@ functions:
 	denyID := approvals[denyExecution]
 	expireID := approvals[expireExecution]
 
+	pending := runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "approvals", "list", "--function", "approval-pipeline")
+	for _, needle := range []string{
+		"Showing 3 of 3 approval(s)", "approval-pipeline",
+		"Ship order approve?", "Ship order deny?", "Ship order expire?",
+		"cli-local-approve", "cli-local-deny", "cli-local-expire",
+	} {
+		requireContains(t, pending, needle)
+	}
+
 	get := runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "approvals", "get", approveID)
 	for _, needle := range []string{
 		"Title: Ship order approve?", "Status: pending", "Workflow: approval-pipeline",
@@ -109,6 +120,14 @@ functions:
 	requireLocalModeE2EDurableApprovalOutcome(t, binary, env, dir, expireExecution,
 		`"status": "expired"`, `"approved": false`)
 	waitForLocalModeE2EApprovalStatus(t, binary, env, dir, expireID, "expired")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "approvals", "list", "--function", "approval-pipeline"), "No pending approvals")
+	all := runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "approvals", "list", "--function", "approval-pipeline", "--status", "all")
+	for _, needle := range []string{"Showing 3 of 3 approval(s)", approveID, denyID, expireID} {
+		requireContains(t, all, needle)
+	}
 
 	stats := runVolcanoLocalModeE2E(t, binary, env, dir,
 		"durable", "approvals", "stats", "--since", "1h", "--function", "approval-pipeline")

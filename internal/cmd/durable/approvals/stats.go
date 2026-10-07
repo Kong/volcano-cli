@@ -45,18 +45,29 @@ back up to a year.`,
 		},
 	}
 	cmd.Flags().StringVar(&opts.function, "function", "", "Only approvals requested by this durable function (name or id)")
-	cmd.Flags().StringVar(&opts.since, "since", "30d", "Window to count, such as 30d or 24h")
+	cmd.Flags().StringVar(&opts.since, "since", "30d", "Window to count, such as 30d or 24h, up to 366d")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
 
+// maxStatsWindow is the longest window the API counts.
+const maxStatsWindow = 366 * 24 * time.Hour
+
 func runStats(ctx context.Context, opts statsOptions) error {
-	from, err := sinceTime(opts.since, time.Now())
+	window, err := parseSince(opts.since)
 	if err != nil {
 		return err
 	}
+	if window > maxStatsWindow {
+		return fmt.Errorf("invalid --since %q: stats reach back at most 366 days", opts.since)
+	}
+	// The window ends at the instant it was measured back from. Left to the
+	// API's clock, the end would land later and a full 366 days would arrive
+	// over the limit.
+	to := time.Now().UTC()
+	from := to.Add(-window)
 
-	stats, err := clidurable.NewService(opts.deps).ApprovalStats(ctx, strings.TrimSpace(opts.function), from)
+	stats, err := clidurable.NewService(opts.deps).ApprovalStats(ctx, strings.TrimSpace(opts.function), &from, &to)
 	if err != nil {
 		return err
 	}

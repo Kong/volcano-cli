@@ -83,6 +83,8 @@ func runList(ctx context.Context, opts listOptions) error {
 		}
 		input.ExecutionID = &executionID
 	}
+	// No `to`: the list has no window limit to fit, and an end read off this
+	// machine's clock would hide approvals requested after it.
 	if opts.since != "" {
 		input.From, err = sinceTime(opts.since, time.Now())
 		if err != nil {

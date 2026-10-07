@@ -22,6 +22,7 @@ import (
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // Service performs durable function workflows against the current project.
@@ -369,17 +370,17 @@ func (s Service) GetApproval(ctx context.Context, approvalID uuid.UUID) (*apicli
 	return approval, nil
 }
 
-// ApprovalStats counts the project's approvals by outcome since from. A nil
-// from leaves the window to the API, which defaults to the last 30 days.
+// ApprovalStats counts the project's approvals by outcome between from and
+// to. A nil to is the API's now, and a nil from 30 days before to.
 func (s Service) ApprovalStats(
-	ctx context.Context, function string, from *time.Time,
+	ctx context.Context, function string, from, to *time.Time,
 ) (*apiclient.DurableApprovalStats, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
 
-	stats, err := authenticated.API.GetDurableApprovalStats(ctx, authenticated.ProjectID, function, from)
+	stats, err := authenticated.API.GetDurableApprovalStats(ctx, authenticated.ProjectID, function, from, to)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get approval stats: %w", err)
 	}
@@ -414,7 +415,7 @@ func (s Service) DecideApproval(
 	}
 	switch api.Status(err) {
 	case http.StatusForbidden:
-		if api.LastRefusal().ProjectAccessToken || strings.Contains(api.Message(err), "decided by a person") {
+		if api.LastRefusal().ProjectAccessToken || refusesProjectTokenDecision(api.Message(err)) {
 			return nil, errApprovalNeedsAPerson
 		}
 	case http.StatusConflict:
@@ -434,28 +435,48 @@ func (s Service) DecideApproval(
 var errApprovalNeedsAPerson = errors.New(
 	"approvals are decided by a person. Run `volcano login`, or decide in the dashboard")
 
+// refusesProjectTokenDecision reports whether a 403 message is the API
+// refusing a project access token's decision. A read-only token is refused
+// before the decision check, but a full one would be refused next, so both
+// get the same answer.
+func refusesProjectTokenDecision(message string) bool {
+	return strings.Contains(message, "cannot decide durable approvals") ||
+		strings.Contains(message, "project access token is read-only")
+}
+
 // ApprovalConflict says why decision cannot be applied to approval, or returns
-// nil when it can: the approval is pending, or already carries that same
-// decision, which the API accepts again unchanged.
+// nil when it can: the approval is pending with its deadline ahead, or already
+// carries that same decision, which the API accepts again unchanged.
 func ApprovalConflict(approval *apiclient.DurableApproval, decision apiclient.DurableApprovalStatus) error {
-	if approval == nil || approval.Status == apiclient.DurableApprovalStatusPending || approval.Status == decision {
+	if approval == nil || approval.Status == decision {
 		return nil
 	}
 
 	switch approval.Status {
+	case apiclient.DurableApprovalStatusPending:
+		// The API refuses a decision once the deadline passes, even before the
+		// background pass marks the approval expired.
+		if approval.ExpiresAt != nil && !time.Now().Before(*approval.ExpiresAt) {
+			return approvalExpired(approval)
+		}
+		return nil
 	case apiclient.DurableApprovalStatusApproved, apiclient.DurableApprovalStatusDenied:
 		return fmt.Errorf("approval %s was already %s%s", approval.Id, approval.Status, DecisionSummary(approval.Decision))
 	case apiclient.DurableApprovalStatusExpired:
-		if approval.ExpiresAt != nil {
-			return fmt.Errorf("approval %s expired at %s before anyone decided",
-				approval.Id, approval.ExpiresAt.Local().Format(time.RFC3339))
-		}
-		return fmt.Errorf("approval %s expired before anyone decided", approval.Id)
+		return approvalExpired(approval)
 	case apiclient.DurableApprovalStatusCancelled:
 		return fmt.Errorf("approval %s was cancelled: its execution ended before anyone decided", approval.Id)
 	default:
 		return fmt.Errorf("approval %s is %s and can no longer be decided", approval.Id, approval.Status)
 	}
+}
+
+func approvalExpired(approval *apiclient.DurableApproval) error {
+	if approval.ExpiresAt != nil {
+		return fmt.Errorf("approval %s expired at %s before anyone decided",
+			approval.Id, approval.ExpiresAt.Local().Format(time.RFC3339))
+	}
+	return fmt.Errorf("approval %s expired before anyone decided", approval.Id)
 }
 
 // DecisionSummary renders who decided and when as " by <email> at <time>", or
@@ -466,7 +487,7 @@ func DecisionSummary(decision *apiclient.DurableApprovalDecision) string {
 	}
 	decider := "a deleted user"
 	if decision.DecidedBy != nil && decision.DecidedBy.Email != "" {
-		decider = decision.DecidedBy.Email
+		decider = theme.StripControl(decision.DecidedBy.Email)
 	}
 	return fmt.Sprintf(" by %s at %s", decider, decision.DecidedAt.Local().Format(time.RFC3339))
 }

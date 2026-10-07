@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // Section is a heading-delimited slice of a document. Sections are the unit of
@@ -247,21 +249,7 @@ func docTitle(docPath string, lines []string) string {
 	if title == "" {
 		title = deriveTitle(docPath, lines[fmLen:])
 	}
-	return stripControl(title)
-}
-
-// stripControl drops C0/C1 control characters (turning tabs into spaces) so
-// decoded frontmatter titles are safe to print to a terminal.
-func stripControl(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == '\t' {
-			return ' '
-		}
-		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
-			return -1
-		}
-		return r
-	}, s)
+	return theme.StripControl(title)
 }
 
 func deriveTitle(docPath string, lines []string) string {

@@ -149,6 +149,8 @@ func TestApprovalsListSendsEveryFilter(t *testing.T) {
 	from, err := time.Parse(time.RFC3339Nano, query["from"][0])
 	require.NoError(t, err)
 	assert.WithinDuration(t, before.Add(-7*24*time.Hour), from, time.Minute)
+	// Unlike stats, the list has no window limit, and an end taken from this
+	// clock would hide approvals requested after it.
 	assert.NotContains(t, query, "to")
 }
 
@@ -200,6 +202,16 @@ func TestApprovalsListRefusesInvalidFlags(t *testing.T) {
 			name: "negative since",
 			args: []string{"stats", "--since", "-1h"},
 			want: []string{`invalid --since "-1h"`},
+		},
+		{
+			name: "stats longer than the API counts",
+			args: []string{"stats", "--since", "367d"},
+			want: []string{`invalid --since "367d"`, "at most 366 days"},
+		},
+		{
+			name: "stats longer than the API counts, in hours",
+			args: []string{"stats", "--since", "8785h"},
+			want: []string{`invalid --since "8785h"`, "at most 366 days"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -350,6 +362,119 @@ func TestApprovalsGetRendersTheApproval(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A workflow writes the title, name, description, and details, and the names
+// of itself and its execution, so human output must not hand a terminal the
+// bytes it acts on. --json keeps the API's text: a script is not a terminal.
+func TestApprovalsHumanOutputStripsControlCharacters(t *testing.T) {
+	decided := withFields(hostileApprovalPayload("approved"), map[string]any{
+		"decision": decisionPayload("owner\x1b[8m@example.com", "Checked\x1b[2K stock"),
+	})
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		current map[string]any
+		want    []string
+		wantErr string
+	}{
+		{
+			name:    "get",
+			args:    []string{"get", approvalID},
+			current: decided,
+			want: []string{
+				"Title: Ship[2J order?",
+				"Name: ship]52;c;eA==-order",
+				"Description: Stockis reserved31m",
+				`"note": "\u001b[31mred"`,
+				"Workflow: order[1m-pipeline",
+				"Execution: order[0m-4417 (",
+				"Decided By: owner[8m@example.com",
+				"Comment: Checked[2K stock",
+			},
+		},
+		{
+			name: "list",
+			args: []string{"list"},
+			want: []string{"Ship[2J order?", "order[1m-pipeline", "order[0m-4417"},
+		},
+		{
+			name:    "approve",
+			args:    []string{"approve", approvalID},
+			current: hostileApprovalPayload("pending"),
+			want: []string{
+				`"Ship[2J order?" was requested by workflow order[1m-pipeline.`,
+				`Approved "Ship[2J order?"`,
+				"Decided By: owner[8m@example.com",
+			},
+		},
+		{
+			name:    "conflict",
+			args:    []string{"deny", approvalID},
+			current: decided,
+			wantErr: "was already approved by owner[8m@example.com at ",
+		},
+		{
+			name: "stats",
+			args: []string{"stats"},
+			want: []string{"order[1m-pipeline"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setApprovalsTestHome(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method + " " + r.URL.Path {
+				case "GET " + approvalsPath:
+					respondJSON(t, w, http.StatusOK, withFields(emptyPage(), map[string]any{
+						"data": []any{hostileApprovalPayload("pending")}, "total": 1,
+					}))
+				case "GET " + approvalsPath + "/stats":
+					respondJSON(t, w, http.StatusOK, withFields(statsPayload(), map[string]any{
+						"functions": []any{map[string]any{
+							"function": map[string]any{"id": functionID, "name": "order\x1b[1m-pipeline"},
+							"counts":   countsPayload(1, 2, 1, 0, 0),
+						}},
+					}))
+				case "GET " + approvalsPath + "/" + approvalID:
+					respondJSON(t, w, http.StatusOK, tc.current)
+				case "POST " + approvalsPath + "/" + approvalID + "/approve":
+					respondJSON(t, w, http.StatusOK, decided)
+				default:
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			out, err := executeCommand(t, newApprovalsCommand(server), tc.args...)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				requireNoControlCharacters(t, err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+			for _, want := range tc.want {
+				assert.Contains(t, out, want)
+			}
+			requireNoControlCharacters(t, out)
+		})
+	}
+}
+
+func TestApprovalsJSONKeepsTheWorkflowTextAsIs(t *testing.T) {
+	setApprovalsTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respondJSON(t, w, http.StatusOK, hostileApprovalPayload("pending"))
+	}))
+	defer server.Close()
+
+	stdout, _, err := executeCommandSplit(t, newApprovalsCommand(server), "", "get", approvalID, "--json")
+	require.NoError(t, err)
+	var approval apiclient.DurableApproval
+	require.NoError(t, json.Unmarshal(stdout, &approval))
+	assert.Equal(t, "Ship\x1b[2J order\a?", approval.Title)
+	assert.Equal(t, "order\x1b[0m-4417", approval.Execution.Name)
+	assert.Equal(t, map[string]any{"note": "\x1b[31mred\u009b\u007f"}, approval.Details)
 }
 
 // The API answers 404 for an id that never existed and for one in another
@@ -559,6 +684,16 @@ func TestApprovalsConflictSaysWhatHappened(t *testing.T) {
 			current: approvalPayload("cancelled"),
 			want:    "approval " + approvalID + " was cancelled: its execution ended before anyone decided",
 		},
+		// The API refuses it from the deadline on, before the background pass
+		// marks it expired, so asking the person first would ask for nothing.
+		{
+			name:    "pending past its deadline",
+			command: "approve",
+			current: withFields(approvalPayload("pending"), map[string]any{
+				"expires_at": time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+			}),
+			want: "approval " + approvalID + " expired at ",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setApprovalsTestHome(t)
@@ -605,29 +740,57 @@ func TestApprovalsConflictFromTheAPIReadsTheApprovalAgain(t *testing.T) {
 	assert.Equal(t, 2, reads)
 }
 
+// The deadline can pass while the person reads the prompt. The approval then
+// still reads pending, and the API's 409 is answered as the expiry it is.
+func TestApprovalsDeadlinePassingBeforeTheDecisionReadsAsExpired(t *testing.T) {
+	setApprovalsTestHome(t)
+	reads := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			respondJSON(t, w, http.StatusConflict, map[string]any{
+				"error": "approval expired", "code": "approval_expired",
+			})
+			return
+		}
+		reads++
+		expiresAt := time.Now().Add(time.Hour)
+		if reads > 1 {
+			expiresAt = time.Now().Add(-time.Second)
+		}
+		respondJSON(t, w, http.StatusOK, withFields(approvalPayload("pending"), map[string]any{
+			"expires_at": expiresAt.UTC().Format(time.RFC3339Nano),
+		}))
+	}))
+	defer server.Close()
+
+	out, err := executeCommand(t, newApprovalsCommand(server), "deny", approvalID)
+	require.ErrorContains(t, err, "approval "+approvalID+" expired at ")
+	assert.NotContains(t, err.Error(), "409")
+	assert.Contains(t, out, "Deny it?")
+	assert.Equal(t, 2, reads)
+}
+
+// The API's own refusals, word for word. A read-only token is refused before
+// the decision check gets to it.
+const (
+	refusedDecision = "project access tokens cannot decide durable approvals; " +
+		"a person decides in the dashboard or with a platform token"
+	refusedReadOnly = "project access token is read-only"
+)
+
 // Only a person decides. A project access token is refused by the API, and the
-// person reading the refusal is told how to decide instead.
+// person reading the refusal is told how to decide instead. The message alone
+// is enough, for a credential the CLI does not recognize as a project token.
 func TestApprovalsDecideRefusesAProjectAccessToken(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		token   string
 		message string
 	}{
-		{
-			name:    "full-scope project token",
-			token:   "pt-approvals-test",
-			message: "approvals are decided by a person; use a platform token or the dashboard",
-		},
-		{
-			name:    "read-only project token",
-			token:   "pt-approvals-test",
-			message: "read-only project access tokens cannot modify resources",
-		},
-		{
-			name:    "decision message on any credential",
-			token:   "",
-			message: "approvals are decided by a person; use a platform token or the dashboard",
-		},
+		{name: "full-scope project token", token: "pt-approvals-test", message: refusedDecision},
+		{name: "read-only project token", token: "pt-approvals-test", message: refusedReadOnly},
+		{name: "decision refusal on any credential", token: "", message: refusedDecision},
+		{name: "read-only refusal on any credential", token: "", message: refusedReadOnly},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setApprovalsTestHome(t)
@@ -686,10 +849,9 @@ func TestApprovalsStatsRendersTheWindow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"order-pipeline"}, query["function"])
-	require.Len(t, query["from"], 1)
-	from, err := time.Parse(time.RFC3339Nano, query["from"][0])
-	require.NoError(t, err)
-	assert.WithinDuration(t, before.Add(-30*24*time.Hour), from, time.Minute, "--since defaults to 30d")
+	from, to := statsWindowSent(t, query)
+	assert.WithinDuration(t, before, to, time.Minute)
+	assert.Equal(t, 30*24*time.Hour, to.Sub(from), "--since defaults to 30d")
 
 	for _, want := range []string{
 		"Requested: 5",
@@ -705,6 +867,24 @@ func TestApprovalsStatsRendersTheWindow(t *testing.T) {
 	} {
 		assert.Contains(t, out, want)
 	}
+}
+
+// The API refuses a window over 366 days and measures a missing end from its
+// own clock, which runs later than the one the start was measured from. The
+// window is sent with both ends so the longest one the API takes still fits.
+func TestApprovalsStatsSendsTheLongestWindowWhole(t *testing.T) {
+	setApprovalsTestHome(t)
+	var query map[string][]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		respondJSON(t, w, http.StatusOK, statsPayload())
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newApprovalsCommand(server), "stats", "--since", "366d")
+	require.NoError(t, err)
+	from, to := statsWindowSent(t, query)
+	assert.Equal(t, 366*24*time.Hour, to.Sub(from))
 }
 
 // Nothing decided in the window is not a rate of zero, and must not read as
@@ -727,6 +907,17 @@ func TestApprovalsStatsWithNothingDecided(t *testing.T) {
 	assert.Contains(t, out, "Approval Rate: -")
 	assert.Contains(t, out, "Median Time to Decision: -")
 	assert.NotContains(t, out, "Workflow ")
+}
+
+func statsWindowSent(t *testing.T, query map[string][]string) (time.Time, time.Time) {
+	t.Helper()
+	require.Len(t, query["from"], 1)
+	require.Len(t, query["to"], 1)
+	from, err := time.Parse(time.RFC3339Nano, query["from"][0])
+	require.NoError(t, err)
+	to, err := time.Parse(time.RFC3339Nano, query["to"][0])
+	require.NoError(t, err)
+	return from, to
 }
 
 func newApprovalsCommand(server *httptest.Server) *cobra.Command {
@@ -795,6 +986,29 @@ func approvalPayload(status string) map[string]any {
 		"requested_at": "2026-10-06T11:00:00Z",
 		"expires_at":   nil,
 		"decision":     nil,
+	}
+}
+
+// hostileApprovalPayload carries terminal escapes in every field a workflow
+// writes: C0 sequences, a C1 CSI, DEL, and a line break.
+func hostileApprovalPayload(status string) map[string]any {
+	return withFields(approvalPayload(status), map[string]any{
+		"title":       "Ship\x1b[2J order\a?",
+		"name":        "ship\x1b]52;c;eA==\x07-order",
+		"description": "Stock\r\nis reserved\u009b31m",
+		"details":     map[string]any{"note": "\x1b[31mred\u009b\u007f"},
+		"function":    map[string]any{"id": functionID, "name": "order\x1b[1m-pipeline"},
+		"execution":   map[string]any{"id": executionID, "name": "order\x1b[0m-4417", "status": "running"},
+	})
+}
+
+// requireNoControlCharacters allows only the line breaks the renderer writes.
+func requireNoControlCharacters(t *testing.T, text string) {
+	t.Helper()
+	for _, r := range text {
+		if r != '\n' && (r < 0x20 || (r >= 0x7f && r <= 0x9f)) {
+			require.Failf(t, "control character in human output", "%U in %q", r, text)
+		}
 	}
 }
 

@@ -105,6 +105,36 @@ func TestListDurableApprovalsSendsOnlyTheFiltersSet(t *testing.T) {
 	assert.Equal(t, []string{"2026-10-05T12:00:00Z"}, query["from"])
 }
 
+// The API measures a missing `to` from its own clock, so a caller that names
+// both ends has to get both onto the wire.
+func TestGetDurableApprovalStatsSendsTheWindow(t *testing.T) {
+	var query map[string][]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		writeAPIJSON(t, w, http.StatusOK, map[string]any{
+			"from": "2026-09-06T12:00:00Z", "to": "2026-10-06T12:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.GetDurableApprovalStats(context.Background(), durableTestProjectID, "", nil, nil)
+	require.NoError(t, err)
+	assert.Empty(t, query)
+
+	from := time.Date(2025, 10, 5, 12, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	_, err = client.GetDurableApprovalStats(context.Background(), durableTestProjectID, "order-pipeline", &from, &to)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{
+		"function": {"order-pipeline"},
+		"from":     {"2025-10-05T12:00:00Z"},
+		"to":       {"2026-10-06T12:00:00Z"},
+	}, query)
+}
+
 func durableApprovalAPIPayload() map[string]any {
 	return map[string]any{
 		"id":           durableTestApprovalID.String(),

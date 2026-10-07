@@ -59,11 +59,11 @@ func (c *Client) GetDurableApproval(
 }
 
 // GetDurableApprovalStats counts a project's approvals by outcome from `from`
-// until now. A nil from leaves the window to the API's default.
+// until `to`. A nil to is the API's now, and a nil from 30 days before to.
 func (c *Client) GetDurableApprovalStats(
-	ctx context.Context, projectID uuid.UUID, function string, from *time.Time,
+	ctx context.Context, projectID uuid.UUID, function string, from, to *time.Time,
 ) (*apiclient.DurableApprovalStats, error) {
-	params := &apiclient.GetDurableApprovalStatsParams{From: from}
+	params := &apiclient.GetDurableApprovalStatsParams{From: from, To: to}
 	if function != "" {
 		params.Function = &function
 	}

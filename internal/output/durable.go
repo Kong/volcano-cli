@@ -221,9 +221,9 @@ func DurableApprovals(w io.Writer, page *apiclient.PaginatedDurableApprovals, st
 		approval := &page.Data[i]
 		fmt.Fprintf(w, "%-36s  %-24s  %-18s  %-20s  %s  %-10s  %-10s\n",
 			approval.Id.String(),
-			Truncate(approval.Title, 24),
-			Truncate(approval.Function.Name, 18),
-			Truncate(approval.Execution.Name, 20),
+			Truncate(theme.StripControl(approval.Title), 24),
+			Truncate(theme.StripControl(approval.Function.Name), 18),
+			Truncate(theme.StripControl(approval.Execution.Name), 20),
 			statusCell(string(approval.Status), 10, on),
 			FormatTimeAgo(approval.RequestedAt),
 			durableApprovalExpiresCell(approval),
@@ -241,15 +241,16 @@ func printDurableApprovalPageSummary(w io.Writer, on bool, page *apiclient.Pagin
 }
 
 // DurableApproval renders one approval: what the workflow asked, where it
-// came from, and the decision once a person has made one.
+// came from, and the decision once a person has made one. The workflow wrote
+// the text, so it is printed without its control characters.
 func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
 	if approval == nil {
 		return
 	}
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", approval.Id.String())
-	kv(w, on, "Title", "%s", approval.Title)
-	kv(w, on, "Name", "%s", approval.Name)
+	kv(w, on, "Title", "%s", theme.StripControl(approval.Title))
+	kv(w, on, "Name", "%s", theme.StripControl(approval.Name))
 	kv(w, on, "Status", "%s", theme.Status(string(approval.Status), on))
 	kv(w, on, "Workflow", "%s", durableApprovalWorkflow(approval.Function))
 	kv(w, on, "Execution", "%s", durableApprovalExecution(approval.Execution))
@@ -260,27 +261,38 @@ func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
 		kv(w, on, "Expires", "%s", theme.Dim("when its execution ends", on))
 	}
 	if approval.Description != "" {
-		kv(w, on, "Description", "%s", approval.Description)
+		kv(w, on, "Description", "%s", theme.StripControl(approval.Description))
 	}
 	if approval.Details != nil {
-		encoded, err := json.MarshalIndent(approval.Details, "", "  ")
-		if err != nil {
-			kv(w, on, "Details", "%v", approval.Details)
-		} else {
-			kv(w, on, "Details", "%s", string(encoded))
-		}
+		kv(w, on, "Details", "%s", durableApprovalDetails(approval.Details))
 	}
 	if decision := approval.Decision; decision != nil {
 		decider := "a deleted user"
 		if decision.DecidedBy != nil && decision.DecidedBy.Email != "" {
-			decider = decision.DecidedBy.Email
+			decider = theme.StripControl(decision.DecidedBy.Email)
 		}
 		kv(w, on, "Decided By", "%s", decider)
 		kv(w, on, "Decided At", "%s", FormatTimestamp(decision.DecidedAt))
 		if decision.Comment != "" {
-			kv(w, on, "Comment", "%s", decision.Comment)
+			kv(w, on, "Comment", "%s", theme.StripControl(decision.Comment))
 		}
 	}
+}
+
+// durableApprovalDetails renders what the workflow attached as indented JSON.
+// The encoder escapes C0 controls inside strings but passes DEL and C1
+// through, so each line is stripped too. The only raw line breaks are the
+// indentation's.
+func durableApprovalDetails(details any) string {
+	encoded, err := json.MarshalIndent(details, "", "  ")
+	if err != nil {
+		return theme.StripControl(fmt.Sprint(details))
+	}
+	lines := strings.Split(string(encoded), "\n")
+	for i := range lines {
+		lines[i] = theme.StripControl(lines[i])
+	}
+	return strings.Join(lines, "\n")
 }
 
 // DurableApprovalStats renders approval counts for a window, overall and for
@@ -332,20 +344,22 @@ func printDurableApprovalCountsRow(w io.Writer, workflow string, counts apiclien
 // durableApprovalWorkflow names the workflow, marking one that has since been
 // deleted: its approvals are kept for a year after it is gone.
 func durableApprovalWorkflow(fn apiclient.DurableApprovalFunction) string {
+	name := theme.StripControl(fn.Name)
 	if fn.Id == nil {
-		return fn.Name + " (deleted)"
+		return name + " (deleted)"
 	}
-	return fn.Name
+	return name
 }
 
 func durableApprovalExecution(execution apiclient.DurableApprovalExecution) string {
+	name := theme.StripControl(execution.Name)
 	if execution.Id == nil {
-		return execution.Name + " (no longer retained)"
+		return name + " (no longer retained)"
 	}
 	if execution.Status == nil {
-		return fmt.Sprintf("%s (%s)", execution.Name, execution.Id)
+		return fmt.Sprintf("%s (%s)", name, execution.Id)
 	}
-	return fmt.Sprintf("%s (%s, %s)", execution.Name, execution.Id, *execution.Status)
+	return fmt.Sprintf("%s (%s, %s)", name, execution.Id, *execution.Status)
 }
 
 // durableApprovalExpiresCell shows the deadline only where it still means
