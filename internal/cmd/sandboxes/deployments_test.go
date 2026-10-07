@@ -56,6 +56,11 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 			assert.Equal(t, "Dockerfile", header.Name)
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = io.WriteString(w, `{"id":"`+testRequest+`","status":"building"}`)
+		case r.URL.Path == base+"/"+testRequest+"/logs":
+			assert.Equal(t, "aws-us-east-1", r.URL.Query().Get("region"))
+			assert.Equal(t, "10", r.URL.Query().Get("limit"))
+			assert.Equal(t, "next", r.URL.Query().Get("cursor"))
+			_, _ = io.WriteString(w, `{"data":[{"timestamp":"2026-10-07T00:00:00Z","message":"Building"}],"next_cursor":"more"}`)
 		case r.URL.Path == base+"/"+testRequest+"/source":
 			w.Header().Set("Content-Type", "application/gzip")
 			_, _ = w.Write(uploaded)
@@ -87,6 +92,7 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 	require.Contains(t, string(run("deployments", "get", testSession, testRequest)), "active")
 	run("deployments", "list", testSession, "--cursor", "next")
 	require.Equal(t, uploaded, run("deployments", "source", testSession, testRequest))
+	require.Contains(t, string(run("deployments", "logs", testSession, testRequest, "--region", "aws-us-east-1", "--limit", "10", "--cursor", "next")), "Building")
 }
 
 func TestCustomDeploymentValidationDoesNotSendRequest(t *testing.T) {

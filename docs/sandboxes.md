@@ -132,7 +132,7 @@ session from the template:
 
 ```sh
 volcano sandboxes deployments get <template-id> <deployment-id>
-volcano sandboxes run --template <template-id> --region us-east-1
+volcano sandboxes run --template <template-id> --region aws-us-east-1
 ```
 
 Use `--template <template-id>` on subsequent deployments to update the same
@@ -156,6 +156,7 @@ the chosen directory.
 Inspect history and download the original source without extracting it:
 
 ```sh
+volcano sandboxes deployments logs <template-id> <deployment-id> --region aws-us-east-1
 volcano sandboxes deployments list <template-id>
 volcano sandboxes deployments list <template-id> --cursor <next-cursor>
 volcano sandboxes deployments source <template-id> <deployment-id> > source.tar.gz

@@ -30,6 +30,6 @@ func TestAPIE2ECloudSandboxes(t *testing.T) {
 	retried.requireSuccess(t, result.Deployment.ID)
 	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, `"status":"active"`, "sandboxes", "deployments", "get", template, result.Deployment.ID, "--json")
 	env.runCloudCLI(t, "sandboxes", "deployments", "list", template, "--json").requireSuccess(t, result.Deployment.ID)
-	env.runCloudCLI(t, "sandboxes", "exec", "--template", template, "--region", "us-east-1", "--", "cat", "/image-version").requireSuccess(t, "custom-image")
+	env.runCloudCLI(t, "sandboxes", "exec", "--template", template, "--region", "aws-us-east-1", "--", "cat", "/image-version").requireSuccess(t, "custom-image")
 	env.runCloudCLI(t, "sandboxes", "templates", "delete", template, "--yes").requireSuccess(t, template)
 }

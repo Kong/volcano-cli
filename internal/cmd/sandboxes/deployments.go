@@ -89,7 +89,7 @@ func (c *commands) deployments() *cobra.Command {
 		return c.write(cmd, value)
 	}}
 	list.Flags().StringVar(&cursor, "cursor", "", "Continue from a returned pagination cursor")
-	cmd.AddCommand(list, c.deploymentRead(false), c.deploymentRead(true))
+	cmd.AddCommand(list, c.deploymentRead(false), c.deploymentRead(true), c.deploymentLogs())
 	return cmd
 }
 
@@ -123,4 +123,43 @@ func (c *commands) deploymentRead(source bool) *cobra.Command {
 		}
 		return c.write(cmd, value)
 	}}
+}
+
+func (c *commands) deploymentLogs() *cobra.Command {
+	var region, cursor string
+	var limit int
+	cmd := &cobra.Command{Use: "logs <template-id> <deployment-id>", Short: "Read regional build logs", Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
+		if region == "" {
+			return errors.New("--region is required")
+		}
+		if limit < 1 || limit > 1000 {
+			return errors.New("--limit must be between 1 and 1000")
+		}
+		template, err := uuid.Parse(args[0])
+		if err != nil {
+			return err
+		}
+		deployment, err := uuid.Parse(args[1])
+		if err != nil {
+			return err
+		}
+		project, err := c.project()
+		if err != nil {
+			return err
+		}
+		params := &apiclient.GetSandboxDeploymentLogsParams{Region: region, Limit: &limit}
+		if cursor != "" {
+			params.Cursor = &cursor
+		}
+		value, err := project.API.SandboxDeploymentLogs(cmd.Context(), project.ProjectID, template, deployment, params)
+		if err != nil {
+			return err
+		}
+		return c.write(cmd, value)
+	}}
+	cmd.Flags().StringVar(&region, "region", "", "Deployment region, for example aws-us-east-1 (required)")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "Continue from a returned next_cursor")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum log events (1–1000)")
+	_ = cmd.MarkFlagRequired("region")
+	return cmd
 }

@@ -425,6 +425,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/logs:
+    get:
+      tags:
+        - Sandboxes
+      summary: Read sandbox deployment build logs
+      operationId: getSandboxDeploymentLogs
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: region
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^aws-[a-z]+-[a-z]+-[0-9]+$
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 2048
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Read sandbox deployment build logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxBuildLogPage'
+        default:
+          description: Denied access, missing resource, or unavailable deployment service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/source:
     get:
       tags:
@@ -15087,6 +15146,27 @@ components:
         - url
         - token
         - expires_at
+    SandboxBuildLogPage:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - timestamp
+              - message
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              message:
+                type: string
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page. Absent when caught up.
     SandboxDeployment:
       type: object
       additionalProperties: false
@@ -22787,16 +22867,16 @@ components:
           items:
             type: integer
             minimum: 1
-            maximum: 65534
+            maximum: 65532
         idle_timeout_seconds:
           type: integer
-          minimum: 1
-          maximum: 3600
+          minimum: 0
+          maximum: 28800
           description: Default idle timeout for new sessions when the caller omits it.
         ttl_seconds:
           type: integer
-          minimum: 1
-          maximum: 3600
+          minimum: 30
+          maximum: 28800
           description: Default absolute lifetime for new sessions when the caller omits it.
     DatabaseQueryPerformanceDatabase:
       type: object

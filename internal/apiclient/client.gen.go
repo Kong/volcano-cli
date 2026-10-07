@@ -9012,6 +9012,17 @@ type SandboxAccessRequest struct {
 	Port             int  `json:"port"`
 }
 
+// SandboxBuildLogPage defines model for SandboxBuildLogPage.
+type SandboxBuildLogPage struct {
+	Data []struct {
+		Message   string    `json:"message"`
+		Timestamp time.Time `json:"timestamp"`
+	} `json:"data"`
+
+	// NextCursor Opaque cursor for the next page. Absent when caught up.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
 // SandboxCapacity defines model for SandboxCapacity.
 type SandboxCapacity struct {
 	AllocatedMemoryMb int64  `json:"allocated_memory_mb"`
@@ -11315,6 +11326,13 @@ type DeploySandboxParams struct {
 
 // DeploySandboxMultipartBodyMemoryMb defines parameters for DeploySandbox.
 type DeploySandboxMultipartBodyMemoryMb int
+
+// GetSandboxDeploymentLogsParams defines parameters for GetSandboxDeploymentLogs.
+type GetSandboxDeploymentLogsParams struct {
+	Region string  `form:"region" json:"region"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
 
 // ListProjectSchedulersParams defines parameters for ListProjectSchedulers.
 type ListProjectSchedulersParams struct {
@@ -14104,6 +14122,9 @@ type ClientInterface interface {
 
 	// GetSandboxDeployment request
 	GetSandboxDeployment(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSandboxDeploymentLogs request
+	GetSandboxDeploymentLogs(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, params *GetSandboxDeploymentLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSandboxDeploymentSource request
 	GetSandboxDeploymentSource(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -17991,6 +18012,18 @@ func (c *Client) DeploySandboxWithBody(ctx context.Context, id openapi_types.UUI
 
 func (c *Client) GetSandboxDeployment(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSandboxDeploymentRequest(c.Server, id, sandboxId, deploymentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSandboxDeploymentLogs(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, params *GetSandboxDeploymentLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSandboxDeploymentLogsRequest(c.Server, id, sandboxId, deploymentId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -30846,6 +30879,101 @@ func NewGetSandboxDeploymentRequest(server string, id openapi_types.UUID, sandbo
 	return req, nil
 }
 
+// NewGetSandboxDeploymentLogsRequest generates requests for GetSandboxDeploymentLogs
+func NewGetSandboxDeploymentLogsRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, params *GetSandboxDeploymentLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "sandboxId", sandboxId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "deploymentId", deploymentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/sandboxes/%s/deployments/%s/logs", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "region", params.Region, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetSandboxDeploymentSourceRequest generates requests for GetSandboxDeploymentSource
 func NewGetSandboxDeploymentSourceRequest(server string, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -34666,6 +34794,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetSandboxDeploymentWithResponse request
 	GetSandboxDeploymentWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxDeploymentClientResponse, error)
+
+	// GetSandboxDeploymentLogsWithResponse request
+	GetSandboxDeploymentLogsWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, params *GetSandboxDeploymentLogsParams, reqEditors ...RequestEditorFn) (*GetSandboxDeploymentLogsClientResponse, error)
 
 	// GetSandboxDeploymentSourceWithResponse request
 	GetSandboxDeploymentSourceWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSandboxDeploymentSourceClientResponse, error)
@@ -42442,6 +42573,37 @@ func (r GetSandboxDeploymentClientResponse) ContentType() string {
 	return ""
 }
 
+type GetSandboxDeploymentLogsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SandboxBuildLogPage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSandboxDeploymentLogsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSandboxDeploymentLogsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSandboxDeploymentLogsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetSandboxDeploymentSourceClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -46869,6 +47031,15 @@ func (c *ClientWithResponses) GetSandboxDeploymentWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetSandboxDeploymentClientResponse(rsp)
+}
+
+// GetSandboxDeploymentLogsWithResponse request returning *GetSandboxDeploymentLogsClientResponse
+func (c *ClientWithResponses) GetSandboxDeploymentLogsWithResponse(ctx context.Context, id openapi_types.UUID, sandboxId openapi_types.UUID, deploymentId openapi_types.UUID, params *GetSandboxDeploymentLogsParams, reqEditors ...RequestEditorFn) (*GetSandboxDeploymentLogsClientResponse, error) {
+	rsp, err := c.GetSandboxDeploymentLogs(ctx, id, sandboxId, deploymentId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSandboxDeploymentLogsClientResponse(rsp)
 }
 
 // GetSandboxDeploymentSourceWithResponse request returning *GetSandboxDeploymentSourceClientResponse
@@ -57569,6 +57740,39 @@ func ParseGetSandboxDeploymentClientResponse(rsp *http.Response) (*GetSandboxDep
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SandboxDeployment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSandboxDeploymentLogsClientResponse parses an HTTP response from a GetSandboxDeploymentLogsWithResponse call
+func ParseGetSandboxDeploymentLogsClientResponse(rsp *http.Response) (*GetSandboxDeploymentLogsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSandboxDeploymentLogsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SandboxBuildLogPage
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

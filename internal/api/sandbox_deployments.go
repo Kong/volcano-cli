@@ -91,3 +91,12 @@ func (c *Client) SandboxDeploymentSource(ctx context.Context, project, template,
 	_, err = io.Copy(output, response.Body)
 	return err
 }
+
+// SandboxDeploymentLogs reads a bounded page of regional build logs.
+func (c *Client) SandboxDeploymentLogs(ctx context.Context, project, template, deployment uuid.UUID, params *apiclient.GetSandboxDeploymentLogsParams) (*apiclient.SandboxBuildLogPage, error) {
+	response, err := c.client.GetSandboxDeploymentLogsWithResponse(ctx, project, template, deployment, params)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(response.StatusCode(), response.Body, response.JSON200, response.JSONDefault)
+}
