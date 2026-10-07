@@ -1,6 +1,7 @@
 package localmode
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -114,7 +116,15 @@ func requireLocalModeCustomSandbox(t *testing.T, binary string, env []string, di
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "sandboxes", "templates", "delete", template, "--yes")
 		require.NoError(t, err, output)
 	})
-	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, `"status":"active"`, "sandboxes", "deployments", "get", template, result.Deployment.ID, "--json")
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
+	defer cancel()
+	require.NoError(t, waitForLocalSandboxDeployment(ctx, 2*time.Second, func(ctx context.Context) (string, error) {
+		cmd := exec.CommandContext(ctx, binary, "sandboxes", "deployments", "get", template, result.Deployment.ID, "--json")
+		cmd.Env = env
+		cmd.Dir = dir
+		output, err := cmd.CombinedOutput()
+		return string(output), err
+	}))
 	require.Contains(t, run("deployments", "list", template), result.Deployment.ID)
 	require.Contains(t, run("exec", "--template", template, "--", "cat", "/image-version"), "custom-image")
 }
