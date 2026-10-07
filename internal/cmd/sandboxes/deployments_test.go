@@ -37,7 +37,7 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 			defer r.MultipartForm.RemoveAll()
 			assert.Equal(t, "custom-python", r.FormValue("name"))
 			assert.Equal(t, "2048", r.FormValue("memory_mb"))
-			assert.Equal(t, "[8080]", r.FormValue("ports"))
+			assert.Equal(t, "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,65532]", r.FormValue("ports"))
 			f, _, err := r.FormFile("code")
 			if !assert.NoError(t, err) {
 				w.WriteHeader(http.StatusBadRequest)
@@ -87,7 +87,7 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 		require.NoError(t, cmd.Execute())
 		return out.Bytes()
 	}
-	result := run("templates", "deploy", "custom-python", "--template", testSession, "--request-id", testRequest, "--path", dir, "--memory", "2048", "--ports", "8080", "--json")
+	result := run("templates", "deploy", "custom-python", "--template", testSession, "--request-id", testRequest, "--path", dir, "--memory", "2048", "--ports", "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,65532", "--json")
 	var response map[string]any
 	require.NoError(t, json.Unmarshal(result, &response))
 	require.Equal(t, testSession, response["template_id"])
@@ -164,6 +164,20 @@ func TestCustomDeploymentHistoryLimitValidation(t *testing.T) {
 			cmd.SetErr(io.Discard)
 			cmd.SetArgs([]string{"deployments", "list", testSession, "--limit", limit})
 			require.ErrorContains(t, cmd.Execute(), "--limit must be between 1 and 100")
+		})
+	}
+}
+
+func TestCustomDeploymentPortsValidateBeforeUpload(t *testing.T) {
+	t.Parallel()
+	for _, ports := range []string{"65533", "65534", "65535", "0", "-1", "8080,8080", "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17"} {
+		t.Run(ports, func(t *testing.T) {
+			t.Parallel()
+			cmd := New(cliruntime.Deps{})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"templates", "deploy", "app", "--ports", ports})
+			require.ErrorContains(t, cmd.Execute(), "--ports")
 		})
 	}
 }

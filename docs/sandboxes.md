@@ -120,6 +120,8 @@ RUN dnf install -y python3.12 && dnf clean all
 CMD ["python3.12", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
 ```
 
+`--ports` accepts at most 16 unique ports from 1 through 65532.
+
 Upload the build context:
 
 ```sh

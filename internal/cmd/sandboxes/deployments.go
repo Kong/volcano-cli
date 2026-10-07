@@ -24,10 +24,15 @@ func (c *commands) deployTemplate() *cobra.Command {
 		if memory != 1024 && memory != 2048 {
 			return errors.New("--memory must be 1024 or 2048")
 		}
+		if len(ports) > 16 {
+			return errors.New("--ports supports at most 16 ports")
+		}
+		seen := make(map[int]bool, len(ports))
 		for _, port := range ports {
-			if port < 1 || port > 65535 {
-				return errors.New("--ports must contain ports between 1 and 65535")
+			if port < 1 || port > 65532 || seen[port] {
+				return errors.New("--ports must contain unique ports between 1 and 65532")
 			}
+			seen[port] = true
 		}
 		if key != "" && templateID == "" {
 			return errors.New("--request-id requires --template so retrying targets the same template")
