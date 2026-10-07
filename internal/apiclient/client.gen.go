@@ -11311,7 +11311,9 @@ type ListSandboxDeploymentsParams struct {
 // DeploySandboxMultipartBody defines parameters for DeploySandbox.
 type DeploySandboxMultipartBody struct {
 	// Code Source tar.gz archive, limited to 32 MiB compressed and expanded.
-	Code     openapi_types.File                  `json:"code"`
+	Code openapi_types.File `json:"code"`
+
+	// MemoryMb Memory in MiB. Defaults to 1024 when omitted.
 	MemoryMb *DeploySandboxMultipartBodyMemoryMb `json:"memory_mb,omitempty"`
 	Name     string                              `json:"name"`
 

@@ -328,10 +328,10 @@ paths:
                   description: Source tar.gz archive, limited to 32 MiB compressed and expanded.
                 memory_mb:
                   type: integer
+                  description: Memory in MiB. Defaults to 1024 when omitted.
                   enum:
                     - 1024
                     - 2048
-                  default: 1024
                 ports:
                   type: string
                   description: JSON array of application ports that must become ready before activation, for example [8080].
