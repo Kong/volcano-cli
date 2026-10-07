@@ -15,6 +15,7 @@ active project, then operate on the resources inside it:
 
 ```text
 account (auth)
+├── verified domains .......... domains you own, for custom domains → domains.md
 └── project ................... volcano projects / use
     ├── functions ............. deployed backend logic        → functions.md
     │     ├── uses → variables (config & secrets)

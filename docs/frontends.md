@@ -12,7 +12,8 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one or more **custom domains** (BYOC) attached.
+- Can have one or more **custom domains** (BYOC) attached, each at or below a
+  domain your account has [verified](domains.md).
 - Frontend custom domains can also be declared in the
   [declarative config](project-configuration.md).
 
@@ -56,6 +57,9 @@ volcano cloud frontends logs my-site
 volcano cloud frontends domain create my-site --domain app.example.com
 volcano cloud frontends domain get my-site
 ```
+
+Attaching a custom domain needs a [verified domain](domains.md) above it. When
+none exists, the command fails and prints the TXT record to publish.
 
 The domain command shows a DNS routing target hostname. Configure a CNAME only if
 your DNS provider confirms that your domain is not a zone apex. At an apex, use

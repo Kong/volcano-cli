@@ -192,7 +192,10 @@ func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, fron
 	if resp.JSON200 != nil {
 		return resp.JSON200, nil
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
+	if resp.JSON409 != nil {
+		return nil, conflictError(resp.StatusCode(), resp.JSON409)
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // GetFrontendCustomDomain returns the configured custom domain for a frontend.

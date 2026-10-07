@@ -5500,6 +5500,14 @@ type FrontendStatus string
 // FrontendVariableScope All preserves access to all project variables. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
 type FrontendVariableScope string
 
+// FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
+type FrontendCustomDomainConflictError struct {
+	// Code Stable machine-readable error code when a specific recovery path is available.
+	Code           *string                           `json:"code,omitempty"`
+	Error          string                            `json:"error"`
+	RequiredRecord *FrontendDomainVerificationRecord `json:"required_record,omitempty"`
+}
+
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse struct {
 	CreatedAt             time.Time                                `json:"created_at"`
@@ -8566,6 +8574,25 @@ type VariableDeploySource string
 // VariableStatus Latest project variable propagation status, when a sync has run.
 type VariableStatus string
 
+// VerifiedDomain A domain the account owns, along with every name below it.
+type VerifiedDomain struct {
+	Domain string `json:"domain"`
+
+	// VerifiedAt When the account last proved ownership.
+	VerifiedAt time.Time `json:"verified_at"`
+}
+
+// VerifiedDomainsResponse defines model for VerifiedDomainsResponse.
+type VerifiedDomainsResponse struct {
+	Domains []VerifiedDomain `json:"domains"`
+}
+
+// VerifyDomainRequest defines model for VerifyDomainRequest.
+type VerifyDomainRequest struct {
+	// Domain The domain to verify, such as `example.com`.
+	Domain string `json:"domain"`
+}
+
 // AccessTokenId defines model for AccessTokenId.
 type AccessTokenId = openapi_types.UUID
 
@@ -10496,6 +10523,9 @@ type UploadStorageObjectMultipartRequestBody UploadStorageObjectMultipartBody
 
 // UpdateStorageObjectVisibilityJSONRequestBody defines body for UpdateStorageObjectVisibility for application/json ContentType.
 type UpdateStorageObjectVisibilityJSONRequestBody = StorageVisibilityRequest
+
+// VerifyDomainJSONRequestBody defines body for VerifyDomain for application/json ContentType.
+type VerifyDomainJSONRequestBody = VerifyDomainRequest
 
 // AsCreateSandboxSessionRequest0 returns the union data inside the CreateSandboxSessionRequest as a CreateSandboxSessionRequest0
 func (t CreateSandboxSessionRequest) AsCreateSandboxSessionRequest0() (CreateSandboxSessionRequest0, error) {
@@ -12559,6 +12589,17 @@ type ClientInterface interface {
 	UpdateStorageObjectVisibilityWithBody(ctx context.Context, bucketName BucketName, path string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateStorageObjectVisibility(ctx context.Context, bucketName BucketName, path string, body UpdateStorageObjectVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVerifiedDomains request
+	ListVerifiedDomains(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// VerifyDomainWithBody request with any body
+	VerifyDomainWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	VerifyDomain(ctx context.Context, body VerifyDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVerifiedDomain request
+	DeleteVerifiedDomain(ctx context.Context, domain string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StartGitConnect request
 	StartGitConnect(ctx context.Context, params *StartGitConnectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16631,6 +16672,54 @@ func (c *Client) UpdateStorageObjectVisibilityWithBody(ctx context.Context, buck
 
 func (c *Client) UpdateStorageObjectVisibility(ctx context.Context, bucketName BucketName, path string, body UpdateStorageObjectVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateStorageObjectVisibilityRequest(c.Server, bucketName, path, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListVerifiedDomains(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVerifiedDomainsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) VerifyDomainWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyDomainRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) VerifyDomain(ctx context.Context, body VerifyDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyDomainRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteVerifiedDomain(ctx context.Context, domain string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVerifiedDomainRequest(c.Server, domain)
 	if err != nil {
 		return nil, err
 	}
@@ -30076,6 +30165,107 @@ func NewUpdateStorageObjectVisibilityRequestWithBody(server string, bucketName B
 	return req, nil
 }
 
+// NewListVerifiedDomainsRequest generates requests for ListVerifiedDomains
+func NewListVerifiedDomainsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/domains")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewVerifyDomainRequest calls the generic VerifyDomain builder with application/json body
+func NewVerifyDomainRequest(server string, body VerifyDomainJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewVerifyDomainRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewVerifyDomainRequestWithBody generates requests for VerifyDomain with any type of body
+func NewVerifyDomainRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/domains")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVerifiedDomainRequest generates requests for DeleteVerifiedDomain
+func NewDeleteVerifiedDomainRequest(server string, domain string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "domain", domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/user/domains/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewStartGitConnectRequest generates requests for StartGitConnect
 func NewStartGitConnectRequest(server string, params *StartGitConnectParams) (*http.Request, error) {
 	var err error
@@ -31372,6 +31562,17 @@ type ClientWithResponsesInterface interface {
 	UpdateStorageObjectVisibilityWithBodyWithResponse(ctx context.Context, bucketName BucketName, path string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStorageObjectVisibilityClientResponse, error)
 
 	UpdateStorageObjectVisibilityWithResponse(ctx context.Context, bucketName BucketName, path string, body UpdateStorageObjectVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStorageObjectVisibilityClientResponse, error)
+
+	// ListVerifiedDomainsWithResponse request
+	ListVerifiedDomainsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVerifiedDomainsClientResponse, error)
+
+	// VerifyDomainWithBodyWithResponse request with any body
+	VerifyDomainWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyDomainClientResponse, error)
+
+	VerifyDomainWithResponse(ctx context.Context, body VerifyDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyDomainClientResponse, error)
+
+	// DeleteVerifiedDomainWithResponse request
+	DeleteVerifiedDomainWithResponse(ctx context.Context, domain string, reqEditors ...RequestEditorFn) (*DeleteVerifiedDomainClientResponse, error)
 
 	// StartGitConnectWithResponse request
 	StartGitConnectWithResponse(ctx context.Context, params *StartGitConnectParams, reqEditors ...RequestEditorFn) (*StartGitConnectClientResponse, error)
@@ -36721,7 +36922,7 @@ type CreateFrontendCustomDomainClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
-	JSON409      *Error
+	JSON409      *FrontendCustomDomainConflictError
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -39554,6 +39755,110 @@ func (r UpdateStorageObjectVisibilityClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateStorageObjectVisibilityClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListVerifiedDomainsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VerifiedDomainsResponse
+	JSON401      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVerifiedDomainsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVerifiedDomainsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVerifiedDomainsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type VerifyDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VerifiedDomain
+	JSON201      *VerifiedDomain
+	JSON400      *Error
+	JSON401      *Error
+	JSON409      *FrontendCustomDomainConflictError
+	JSON500      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r VerifyDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r VerifyDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r VerifyDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVerifiedDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVerifiedDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVerifiedDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVerifiedDomainClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -42783,6 +43088,41 @@ func (c *ClientWithResponses) UpdateStorageObjectVisibilityWithResponse(ctx cont
 		return nil, err
 	}
 	return ParseUpdateStorageObjectVisibilityClientResponse(rsp)
+}
+
+// ListVerifiedDomainsWithResponse request returning *ListVerifiedDomainsClientResponse
+func (c *ClientWithResponses) ListVerifiedDomainsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVerifiedDomainsClientResponse, error) {
+	rsp, err := c.ListVerifiedDomains(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVerifiedDomainsClientResponse(rsp)
+}
+
+// VerifyDomainWithBodyWithResponse request with arbitrary body returning *VerifyDomainClientResponse
+func (c *ClientWithResponses) VerifyDomainWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyDomainClientResponse, error) {
+	rsp, err := c.VerifyDomainWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyDomainClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) VerifyDomainWithResponse(ctx context.Context, body VerifyDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyDomainClientResponse, error) {
+	rsp, err := c.VerifyDomain(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyDomainClientResponse(rsp)
+}
+
+// DeleteVerifiedDomainWithResponse request returning *DeleteVerifiedDomainClientResponse
+func (c *ClientWithResponses) DeleteVerifiedDomainWithResponse(ctx context.Context, domain string, reqEditors ...RequestEditorFn) (*DeleteVerifiedDomainClientResponse, error) {
+	rsp, err := c.DeleteVerifiedDomain(ctx, domain, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVerifiedDomainClientResponse(rsp)
 }
 
 // StartGitConnectWithResponse request returning *StartGitConnectClientResponse
@@ -49833,7 +50173,7 @@ func ParseCreateFrontendCustomDomainClientResponse(rsp *http.Response) (*CreateF
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Error
+		var dest FrontendCustomDomainConflictError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -53014,6 +53354,182 @@ func ParseUpdateStorageObjectVisibilityClientResponse(rsp *http.Response) (*Upda
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVerifiedDomainsClientResponse parses an HTTP response from a ListVerifiedDomainsWithResponse call
+func ParseListVerifiedDomainsClientResponse(rsp *http.Response) (*ListVerifiedDomainsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVerifiedDomainsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VerifiedDomainsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseVerifyDomainClientResponse parses an HTTP response from a VerifyDomainWithResponse call
+func ParseVerifyDomainClientResponse(rsp *http.Response) (*VerifyDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &VerifyDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VerifiedDomain
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VerifiedDomain
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FrontendCustomDomainConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVerifiedDomainClientResponse parses an HTTP response from a DeleteVerifiedDomainWithResponse call
+func ParseDeleteVerifiedDomainClientResponse(rsp *http.Response) (*DeleteVerifiedDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVerifiedDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

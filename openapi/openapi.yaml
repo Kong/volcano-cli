@@ -53,6 +53,8 @@ tags:
     description: Platform-user git provider connections for deployment source integrations
   - name: Project Imports
     description: Read-only project source discovery and import readiness checks
+  - name: Verified Domains
+    description: Domains an account has proven it owns, so it can attach any custom domain below them
   - name: Storage Buckets
     description: Storage bucket management (platform admin)
   - name: Storage Policies
@@ -874,6 +876,179 @@ paths:
                 $ref: '#/components/schemas/Error'
         '503':
           description: Git provider integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains:
+    get:
+      tags:
+        - Verified Domains
+      summary: List verified domains
+      description: |
+        Lists the domains the account has verified. The account can attach any
+        custom domain at or below one of them, in either TLS mode, without
+        publishing another ownership record.
+      operationId: listVerifiedDomains
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      responses:
+        '200':
+          description: The account's verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomainsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Verified Domains
+      summary: Verify a domain
+      description: |
+        Verifies the account's ownership of a domain and every name below it.
+        Verify a registrable domain such as `example.com` to cover all of its
+        subdomains, or a delegated subdomain you control.
+
+        Publish a TXT record named `_volcano.<domain>`, then send this request.
+        Without the record, the response is `409` with
+        `code: ownership_verification_required` and the `required_record` to
+        publish. Its value is the same on every request. The record must be
+        served at that name itself; a record reached through a CNAME does not
+        count.
+
+        When another account verified the domain, publishing your record moves
+        the domain to your account once that account's record is no longer
+        published. Keep your record published so the domain stays yours.
+
+        Verifying a domain the account already verified returns `200`.
+      operationId: verifyDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDomainRequest'
+      responses:
+        '200':
+          description: The account had already verified the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '201':
+          description: Domain verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '400':
+          description: Bad request - invalid domain or a public suffix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - the ownership record is not published yet, or another account owns the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
+        '500':
+          description: Failed to verify the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - DNS did not answer whether another account's record is still published; retry later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains/{domain}:
+    delete:
+      tags:
+        - Verified Domains
+      summary: Remove a verified domain
+      description: |
+        Gives up the account's ownership of a domain. Custom domains already
+        attached below it keep serving; attaching another requires verifying
+        the domain again. Domains Volcano reserves for its own account cannot
+        be removed.
+      operationId: deleteVerifiedDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The verified domain, such as `example.com`
+          schema:
+            type: string
+            maxLength: 253
+      responses:
+        '204':
+          description: Domain removed
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - Volcano reserves this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The account has not verified this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to remove the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
           content:
             application/json:
               schema:
@@ -4662,11 +4837,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - custom domain already in use or frontend already has a custom domain
+          description: Conflict - ownership not verified, custom domain owned or reserved by another account, already in use, still detaching, or frontend already has a custom domain
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
         '500':
           description: Internal server error
           content:
@@ -14861,6 +15036,47 @@ components:
         - subject
         - html_body
         - text_body
+    FrontendCustomDomainConflictError:
+      description: 'Domain ownership conflict. With `code: ownership_verification_required`, the account has not proven it owns the domain: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. Other conflicts omit both fields.'
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            required_record:
+              $ref: '#/components/schemas/FrontendDomainVerificationRecord'
+    VerifyDomainRequest:
+      type: object
+      properties:
+        domain:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: The domain to verify, such as `example.com`.
+      required:
+        - domain
+    VerifiedDomain:
+      type: object
+      description: A domain the account owns, along with every name below it.
+      properties:
+        domain:
+          type: string
+          example: example.com
+        verified_at:
+          type: string
+          format: date-time
+          description: When the account last proved ownership.
+      required:
+        - domain
+        - verified_at
+    VerifiedDomainsResponse:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifiedDomain'
+      required:
+        - domains
     Error:
       type: object
       properties:
