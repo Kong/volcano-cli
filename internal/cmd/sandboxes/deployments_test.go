@@ -68,6 +68,7 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 		case r.URL.Path == base+"/"+testRequest:
 			_, _ = io.WriteString(w, `{"id":"`+testRequest+`","status":"active"}`)
 		case r.URL.Path == base:
+			assert.Equal(t, "25", r.URL.Query().Get("limit"))
 			assert.Equal(t, "next", r.URL.Query().Get("cursor"))
 			_, _ = io.WriteString(w, `{"data":[],"pagination":{"limit":10,"has_more":false}}`)
 		default:
@@ -91,7 +92,7 @@ func TestCustomDeploymentUploadStatusAndSource(t *testing.T) {
 	require.NoError(t, json.Unmarshal(result, &response))
 	require.Equal(t, testSession, response["template_id"])
 	require.Contains(t, string(run("deployments", "get", testSession, testRequest)), "active")
-	run("deployments", "list", testSession, "--cursor", "next")
+	run("deployments", "list", testSession, "--cursor", "next", "--limit", "25")
 	require.Equal(t, uploaded, run("deployments", "source", testSession, testRequest))
 	require.Contains(t, string(run("deployments", "logs", testSession, testRequest, "--region", "aws-us-east-1", "--limit", "10", "--cursor", "next")), "Building")
 }
@@ -149,6 +150,20 @@ func TestCustomDeploymentNameMatchesAPI(t *testing.T) {
 			cmd.SetErr(io.Discard)
 			cmd.SetArgs([]string{"templates", "deploy", "--", name})
 			require.ErrorContains(t, cmd.Execute(), "template name must contain")
+		})
+	}
+}
+
+func TestCustomDeploymentHistoryLimitValidation(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []string{"0", "101"} {
+		t.Run(limit, func(t *testing.T) {
+			t.Parallel()
+			cmd := New(cliruntime.Deps{})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"deployments", "list", testSession, "--limit", limit})
+			require.ErrorContains(t, cmd.Execute(), "--limit must be between 1 and 100")
 		})
 	}
 }

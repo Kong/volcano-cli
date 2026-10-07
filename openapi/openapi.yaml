@@ -7958,7 +7958,7 @@ paths:
                 $ref: '#/components/schemas/DatabaseQueryResult'
               example:
                 data:
-                  - '?column?': 1
+                  - ?column?: 1
                 count: 1
         '401':
           description: Not authenticated
@@ -8315,7 +8315,7 @@ paths:
                 $ref: '#/components/schemas/DatabaseQueryResult'
               example:
                 data:
-                  - '?column?': 1
+                  - ?column?: 1
                 count: 1
         '401':
           description: Not authenticated
@@ -8697,7 +8697,8 @@ paths:
       summary: List available PostgreSQL versions
       operationId: listPostgresVersions
       description: |
-        Returns a list of supported PostgreSQL major versions for database provisioning.
+        Returns the PostgreSQL major versions a database can be created on,
+        newest first. Local mode lists only the version its server runs.
         This is a public endpoint that doesn't require authentication.
       responses:
         '200':
@@ -8711,15 +8712,18 @@ paths:
                   properties:
                     version:
                       type: string
-                      example: '16'
+                      example: '18'
                       description: PostgreSQL major version number
                     name:
                       type: string
-                      example: PostgreSQL 16
+                      example: PostgreSQL 18
                       description: Human-readable version name
                     default:
                       type: boolean
-                      description: Whether this is the default version (recommended)
+                      description: True on the version to preselect for a new database; absent on the others
+                    recommended:
+                      type: boolean
+                      description: True on the version recommended for new databases; absent on the others
                     deprecated:
                       type: boolean
                       description: Whether this version is deprecated (approaching EOL)
@@ -16409,11 +16413,16 @@ components:
           example: us-east-1
         pg_version:
           type: string
-          description: PostgreSQL major version
-          example: '16'
+          description: |
+            PostgreSQL major version. `GET /databases/postgres-versions` lists
+            the versions this environment accepts; local mode accepts only the
+            version its server runs. Any other value is rejected with 400.
+          example: '18'
           enum:
             - '15'
             - '16'
+            - '17'
+            - '18'
         database_type:
           type: string
           description: |
@@ -16740,7 +16749,7 @@ components:
         pg_version:
           type: string
           description: PostgreSQL major version
-          example: '16'
+          example: '18'
         database_type:
           type: string
           description: |
@@ -21087,6 +21096,8 @@ components:
           enum:
             - '15'
             - '16'
+            - '17'
+            - '18'
           description: PostgreSQL major version. Asserted, never written.
         database_type:
           type: string

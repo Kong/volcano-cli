@@ -73,7 +73,11 @@ func (c *commands) deployTemplate() *cobra.Command {
 func (c *commands) deployments() *cobra.Command {
 	cmd := &cobra.Command{Use: "deployments", Short: "Inspect custom template deployments"}
 	var cursor string
+	var limit int
 	list := &cobra.Command{Use: "list <template-id>", Short: "List deployment history", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if limit < 1 || limit > 100 {
+			return errors.New("--limit must be between 1 and 100")
+		}
 		id, err := uuid.Parse(args[0])
 		if err != nil {
 			return err
@@ -82,13 +86,14 @@ func (c *commands) deployments() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		value, err := project.API.SandboxDeployments(cmd.Context(), project.ProjectID, id, cursor)
+		value, err := project.API.SandboxDeployments(cmd.Context(), project.ProjectID, id, cursor, limit)
 		if err != nil {
 			return err
 		}
 		return c.write(cmd, value)
 	}}
 	list.Flags().StringVar(&cursor, "cursor", "", "Continue from a returned pagination cursor")
+	list.Flags().IntVar(&limit, "limit", 10, "Deployment history page size (1–100)")
 	cmd.AddCommand(list, c.deploymentRead(false), c.deploymentRead(true), c.deploymentLogs())
 	return cmd
 }

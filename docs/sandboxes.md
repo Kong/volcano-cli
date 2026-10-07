@@ -123,7 +123,7 @@ CMD ["python3.12", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
 Upload the build context:
 
 ```sh
-volcano sandboxes templates deploy my-python --path ./sandbox --memory 1024 --ports 8080
+volcano cloud sandboxes templates deploy my-python --path ./sandbox --memory 1024 --ports 8080
 ```
 
 The response contains `template_id` and `deployment.id`. A deployment builds and
@@ -131,8 +131,8 @@ validates the image before making it active. Check its status, then create a
 session from the template:
 
 ```sh
-volcano sandboxes deployments get <template-id> <deployment-id>
-volcano sandboxes run --template <template-id> --region aws-us-east-1
+volcano cloud sandboxes deployments get <template-id> <deployment-id>
+volcano cloud sandboxes run --template <template-id> --region aws-us-east-1
 ```
 
 Use `--template <template-id>` on subsequent deployments to update the same
@@ -140,7 +140,7 @@ template. Existing sessions keep their original image. To retry after an uncerta
 network result, preserve both the printed template ID and request ID:
 
 ```sh
-volcano sandboxes templates deploy my-python --path ./sandbox --template <template-id> --request-id <request-id>
+volcano cloud sandboxes templates deploy my-python --path ./sandbox --template <template-id> --request-id <request-id>
 ```
 
 Keep the same source, memory, and ports when reusing a request ID. A changed build
@@ -156,11 +156,14 @@ the chosen directory.
 Inspect history and download the original source without extracting it:
 
 ```sh
-volcano sandboxes deployments logs <template-id> <deployment-id> --region aws-us-east-1
-volcano sandboxes deployments list <template-id>
-volcano sandboxes deployments list <template-id> --cursor <next-cursor>
-volcano sandboxes deployments source <template-id> <deployment-id> > source.tar.gz
+volcano cloud sandboxes deployments logs <template-id> <deployment-id> --region aws-us-east-1
+volcano cloud sandboxes deployments list <template-id> --limit 25
+volcano cloud sandboxes deployments list <template-id> --cursor <next-cursor>
+volcano cloud sandboxes deployments source <template-id> <deployment-id> > source.tar.gz
 ```
 
-These commands also work with `volcano local sandboxes` when the local server
-supports custom image deployments.
+For local development, run `volcano start` and omit `cloud` from these commands
+(for example, `volcano sandboxes templates deploy my-python --path ./sandbox`).
+The local server must support custom image deployments, and Docker must be running.
+
+Deployment history accepts `--limit` (1–100, default 10) and `--cursor` to control pagination.

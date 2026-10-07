@@ -334,6 +334,8 @@ func (e CreateDatabaseRequestDatabaseType) Valid() bool {
 const (
 	CreateDatabaseRequestPgVersionN15 CreateDatabaseRequestPgVersion = "15"
 	CreateDatabaseRequestPgVersionN16 CreateDatabaseRequestPgVersion = "16"
+	CreateDatabaseRequestPgVersionN17 CreateDatabaseRequestPgVersion = "17"
+	CreateDatabaseRequestPgVersionN18 CreateDatabaseRequestPgVersion = "18"
 )
 
 // Valid indicates whether the value is a known member of the CreateDatabaseRequestPgVersion enum.
@@ -342,6 +344,10 @@ func (e CreateDatabaseRequestPgVersion) Valid() bool {
 	case CreateDatabaseRequestPgVersionN15:
 		return true
 	case CreateDatabaseRequestPgVersionN16:
+		return true
+	case CreateDatabaseRequestPgVersionN17:
+		return true
+	case CreateDatabaseRequestPgVersionN18:
 		return true
 	default:
 		return false
@@ -2029,6 +2035,8 @@ func (e ProjectConfigDatabaseDatabaseType) Valid() bool {
 const (
 	ProjectConfigDatabasePgVersionN15 ProjectConfigDatabasePgVersion = "15"
 	ProjectConfigDatabasePgVersionN16 ProjectConfigDatabasePgVersion = "16"
+	ProjectConfigDatabasePgVersionN17 ProjectConfigDatabasePgVersion = "17"
+	ProjectConfigDatabasePgVersionN18 ProjectConfigDatabasePgVersion = "18"
 )
 
 // Valid indicates whether the value is a known member of the ProjectConfigDatabasePgVersion enum.
@@ -2037,6 +2045,10 @@ func (e ProjectConfigDatabasePgVersion) Valid() bool {
 	case ProjectConfigDatabasePgVersionN15:
 		return true
 	case ProjectConfigDatabasePgVersionN16:
+		return true
+	case ProjectConfigDatabasePgVersionN17:
+		return true
+	case ProjectConfigDatabasePgVersionN18:
 		return true
 	default:
 		return false
@@ -5028,7 +5040,9 @@ type CreateDatabaseRequest struct {
 	// Name Database name (must be unique within project)
 	Name string `json:"name"`
 
-	// PgVersion PostgreSQL major version
+	// PgVersion PostgreSQL major version. `GET /databases/postgres-versions` lists
+	// the versions this environment accepts; local mode accepts only the
+	// version its server runs. Any other value is rejected with 400.
 	PgVersion CreateDatabaseRequestPgVersion `json:"pg_version"`
 
 	// Region Region for database hosting, such as `us-east-1`. The accepted values
@@ -5043,7 +5057,9 @@ type CreateDatabaseRequest struct {
 // Determines autoscaling limits for the database.
 type CreateDatabaseRequestDatabaseType string
 
-// CreateDatabaseRequestPgVersion PostgreSQL major version
+// CreateDatabaseRequestPgVersion PostgreSQL major version. `GET /databases/postgres-versions` lists
+// the versions this environment accepts; local mode accepts only the
+// version its server runs. Any other value is rejected with 400.
 type CreateDatabaseRequestPgVersion string
 
 // CreateDatabaseRestoreRequest Names what to restore. Supply exactly one of `backup_name` or
@@ -36406,7 +36422,7 @@ type ListPostgresVersionsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]struct {
-		// Default Whether this is the default version (recommended)
+		// Default True on the version to preselect for a new database; absent on the others
 		Default *bool `json:"default,omitempty"`
 
 		// Deprecated Whether this version is deprecated (approaching EOL)
@@ -36414,6 +36430,9 @@ type ListPostgresVersionsClientResponse struct {
 
 		// Name Human-readable version name
 		Name *string `json:"name,omitempty"`
+
+		// Recommended True on the version recommended for new databases; absent on the others
+		Recommended *bool `json:"recommended,omitempty"`
 
 		// Version PostgreSQL major version number
 		Version *string `json:"version,omitempty"`
@@ -49424,7 +49443,7 @@ func ParseListPostgresVersionsClientResponse(rsp *http.Response) (*ListPostgresV
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []struct {
-			// Default Whether this is the default version (recommended)
+			// Default True on the version to preselect for a new database; absent on the others
 			Default *bool `json:"default,omitempty"`
 
 			// Deprecated Whether this version is deprecated (approaching EOL)
@@ -49432,6 +49451,9 @@ func ParseListPostgresVersionsClientResponse(rsp *http.Response) (*ListPostgresV
 
 			// Name Human-readable version name
 			Name *string `json:"name,omitempty"`
+
+			// Recommended True on the version recommended for new databases; absent on the others
+			Recommended *bool `json:"recommended,omitempty"`
 
 			// Version PostgreSQL major version number
 			Version *string `json:"version,omitempty"`

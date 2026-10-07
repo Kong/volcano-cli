@@ -53,8 +53,8 @@ func (c *Client) DeploySandbox(ctx context.Context, project, template, key uuid.
 }
 
 // SandboxDeployments lists one deployment history page.
-func (c *Client) SandboxDeployments(ctx context.Context, project, template uuid.UUID, cursor string) (*apiclient.SandboxDeploymentPage, error) {
-	params := &apiclient.ListSandboxDeploymentsParams{}
+func (c *Client) SandboxDeployments(ctx context.Context, project, template uuid.UUID, cursor string, limit int) (*apiclient.SandboxDeploymentPage, error) {
+	params := &apiclient.ListSandboxDeploymentsParams{Limit: &limit}
 	if cursor != "" {
 		params.Cursor = &cursor
 	}
