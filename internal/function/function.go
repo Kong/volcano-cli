@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -83,6 +84,36 @@ func (s Service) ListRuntimes(ctx context.Context) ([]apiclient.FunctionRuntimeO
 		return nil, fmt.Errorf("failed to list function runtimes: %w", err)
 	}
 	return runtimes, nil
+}
+
+// maxListPages caps a pagination walk so a server that keeps reporting HasMore
+// cannot hang the CLI.
+const maxListPages = 1000
+
+// Names returns the names of every function in the current project.
+func (s Service) Names(ctx context.Context) (map[string]bool, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	names := map[string]bool{}
+	for page := api.DefaultPage; page < api.DefaultPage+maxListPages; page++ {
+		functions, err := authenticated.API.ListFunctions(ctx, authenticated.ProjectID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list functions: %w", err)
+		}
+		if functions == nil {
+			break
+		}
+		for _, fn := range functions.Data {
+			names[fn.Name] = true
+		}
+		if !functions.HasMore || len(functions.Data) == 0 {
+			break
+		}
+	}
+	return names, nil
 }
 
 // RuntimeCatalog returns deploy runtime metadata from the function runtime catalog.
@@ -192,8 +223,8 @@ func (s Service) DeleteByID(ctx context.Context, functionID uuid.UUID) error {
 	return nil
 }
 
-// UpdateVisibility updates one function's public/private visibility.
-func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPublic bool) (*apiclient.Function, error) {
+// UpdateVisibility sets who can invoke one function.
+func (s Service) UpdateVisibility(ctx context.Context, identifier string, visibility apiclient.FunctionVisibility) (*apiclient.Function, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
@@ -201,18 +232,53 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, isPubl
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
+		// The list holds standard functions only. The durable lookup only
+		// refines the message: if it fails, the name is reported not found.
+		target := normalizeTargetFunction(identifier)
+		if durable, err := authenticated.API.GetDurableFunction(ctx, authenticated.ProjectID, target); err == nil {
+			return nil, &DurableFunctionError{Name: durable.Name}
+		}
 		return nil, fmt.Errorf("function %q not found", identifier)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
 	}
 
-	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, isPublic)
+	updated, err := authenticated.API.UpdateFunctionVisibility(ctx, authenticated.ProjectID, function.Id, visibility)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update function visibility: %w", err)
+		err = fmt.Errorf("failed to update function visibility: %w", err)
+		if api.Status(err) == http.StatusConflict && visibility != apiclient.FunctionVisibilityPublic {
+			// Best effort: without the routes the refusal still stands.
+			if routes, routesErr := s.RoutedFrom(ctx, function.Id); routesErr == nil && len(routes) > 0 {
+				return nil, &RoutedFunctionError{Name: function.Name, Routes: routes, Err: err}
+			}
+		}
+		return nil, err
 	}
 	return updated, nil
 }
+
+// DurableFunctionError reports that a name the standard function commands
+// cannot find belongs to a durable function.
+type DurableFunctionError struct {
+	Name string
+}
+
+func (e *DurableFunctionError) Error() string {
+	return fmt.Sprintf("%q is a durable function", e.Name)
+}
+
+// RoutedFunctionError reports a function that cannot leave public because
+// frontend routes forward to it.
+type RoutedFunctionError struct {
+	Name   string
+	Routes []RouteSource
+	Err    error
+}
+
+func (e *RoutedFunctionError) Error() string { return e.Err.Error() }
+
+func (e *RoutedFunctionError) Unwrap() error { return e.Err }
 
 // Invoke invokes one function by alias, normalized name/path, or UUID.
 func (s Service) Invoke(ctx context.Context, identifier string, payload map[string]any) (*apiclient.FunctionInvocationResponse, error) {

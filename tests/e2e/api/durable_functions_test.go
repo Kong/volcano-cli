@@ -63,10 +63,13 @@ func TestAPIE2ECloudDurableFunctions(t *testing.T) {
 	env.runCloudCLI(t, "durable", "list").requireSuccess(t, "No durable functions")
 
 	// --all takes its targets from the manifest, so both durable entries deploy
-	// and the standard one does not.
+	// and the standard one does not. Both are new and come up private.
 	env.runCloudCLI(t, "durable", "deploy", "--all").requireSuccess(t,
 		"[1/2] Deploying order-pipeline", "[2/2] Deploying sleeper",
-		"2/2 durable function(s) deployment started")
+		"2/2 durable function(s) deployment started",
+		"New durable functions are private",
+		"volcano cloud durable deploy -f order-pipeline --visibility authenticated",
+		"volcano cloud durable deploy -f sleeper --visibility authenticated")
 	t.Cleanup(func() {
 		env.runCloudCLI(t, "durable", "delete", "order-pipeline", "--yes")
 		env.runCloudCLI(t, "durable", "delete", "sleeper", "--yes")
@@ -75,7 +78,7 @@ func TestAPIE2ECloudDurableFunctions(t *testing.T) {
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active",
 		"durable", "get", "order-pipeline")
 	env.runCloudCLI(t, "durable", "get", "order-pipeline").
-		requireSuccess(t, "Anon Key Start: denied", "Execution Timeout:", "Retention:")
+		requireSuccess(t, "Visibility: private", "Execution Timeout:", "Retention:")
 	env.runCloudCLI(t, "durable", "list").requireSuccess(t, "order-pipeline", "sleeper", "active")
 
 	// A durable function is in its own collection: the standard commands must
@@ -325,30 +328,53 @@ func requireAPIE2EDurableLogs(t *testing.T, env *apiE2E) {
 	standard.requireNotContains(t, "Fetching build logs")
 }
 
-// requireAPIE2EDurableVisibility covers `deploy -f` and the two visibility
-// flags. Visibility travels with a deploy because a durable function has no
-// update endpoint, so getting this wrong means a function that cannot be made
-// public at all — or worse, one that quietly becomes public on a redeploy.
+// requireAPIE2EDurableVisibility covers `deploy -f` and the visibility flags.
+// Visibility travels with a deploy because a durable function has no update
+// endpoint, so getting this wrong means a function whose level cannot be
+// changed at all — or worse, one that quietly opens up on a redeploy.
 func requireAPIE2EDurableVisibility(t *testing.T, env *apiE2E) {
 	t.Helper()
 
+	// The refusals come before anything is uploaded.
+	env.runCloudCLI(t, "durable", "deploy", "-f", "order-pipeline", "--private").
+		requireFailure(t, "--private is no longer accepted", "--visibility authenticated")
+	env.runCloudCLI(t, "durable", "deploy", "--all", "--visibility", "public").
+		requireFailure(t, "cannot use --visibility or --public with --all")
+	// functions update covers standard functions only, and says where a
+	// durable one's level is set rather than calling it missing.
+	env.runCloudCLI(t, "functions", "update", "order-pipeline", "--visibility", "authenticated").
+		requireFailure(t, `"order-pipeline" is a durable function`, "volcano cloud config deploy",
+			"volcano cloud durable deploy -f order-pipeline --visibility authenticated")
+
 	// -f deploys by name whether or not the manifest mentions the function, and
 	// visibility is applied when the deploy is accepted rather than when the
-	// build finishes.
-	env.runCloudCLI(t, "durable", "deploy", "-f", "order-pipeline", "--public").
-		requireSuccess(t, "Deploying order-pipeline", "1/1 durable function(s) deployment started")
-	env.runCloudCLI(t, "durable", "get", "order-pipeline").
-		requireSuccess(t, "Anon Key Start: allowed")
-
-	// A redeploy has to be able to take it back. Each of these is a real build,
-	// so waiting for the rollout in between is the price of not racing it.
+	// build finishes. Each of these is a real build, so waiting for the rollout
+	// in between is the price of not racing it.
+	env.runCloudCLI(t, "durable", "deploy", "-f", "order-pipeline", "--visibility", "authenticated").
+		requireSuccess(t, "Deploying order-pipeline", "Visibility: authenticated",
+			"1/1 durable function(s) deployment started")
+	env.runCloudCLI(t, "durable", "get", "order-pipeline").requireSuccess(t, "Visibility: authenticated")
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active",
 		"durable", "get", "order-pipeline")
-	env.runCloudCLI(t, "durable", "deploy", "-f",
-		filepath.Join("volcano", "functions", "order-pipeline.js"), "--private").
-		requireSuccess(t, "1/1 durable function(s) deployment started")
-	env.runCloudCLI(t, "durable", "get", "order-pipeline").
-		requireSuccess(t, "Anon Key Start: denied")
+
+	// A redeploy without the flag keeps the level.
+	env.runCloudCLI(t, "durable", "deploy", "-f", "order-pipeline").
+		requireSuccess(t, "Visibility: authenticated", "1/1 durable function(s) deployment started")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active",
+		"durable", "get", "order-pipeline")
+
+	env.runCloudCLI(t, "durable", "deploy", "-f", "order-pipeline", "--public").
+		requireSuccess(t, "Visibility: public", "1/1 durable function(s) deployment started")
+	env.runCloudCLI(t, "durable", "get", "order-pipeline").requireSuccess(t, "Visibility: public")
+	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active",
+		"durable", "get", "order-pipeline")
+
+	// Private by choice on an existing function: no hint about opening it up.
+	private := env.runCloudCLI(t, "durable", "deploy", "-f",
+		filepath.Join("volcano", "functions", "order-pipeline.js"), "--visibility", "private")
+	private.requireSuccess(t, "Visibility: private", "1/1 durable function(s) deployment started")
+	private.requireNotContains(t, "New durable functions are private")
+	env.runCloudCLI(t, "durable", "get", "order-pipeline").requireSuccess(t, "Visibility: private")
 
 	// Leave no build in flight, or the delete this test ends with races the
 	// rollout.

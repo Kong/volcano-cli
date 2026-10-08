@@ -5,5 +5,7 @@ version: 1
 # function are fully synced, and entries for functions that are not
 # deployed yet are skipped with a warning.
 functions:
+  # Anyone holding the project's anon key can invoke hello. Use authenticated
+  # to keep it to signed-in users, or private for server-side callers only.
   - name: hello
-    public: true
+    visibility: public

@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
@@ -22,7 +21,8 @@ type DurableFunctionDeployInput struct {
 	Runtime       string
 	Handler       string
 	SourceArchive []byte
-	IsPublic      *bool
+	// Visibility is nil to keep a deployed function's current visibility.
+	Visibility *apiclient.FunctionVisibility
 	// VariableScope and Variables carry the manifest's declaration, nil when it
 	// declared none — which leaves an existing function's scope alone.
 	VariableScope *string
@@ -50,21 +50,25 @@ func (c *Client) ListDurableFunctions(ctx context.Context, projectID uuid.UUID, 
 }
 
 // DeployDurableFunction deploys one durable function source archive. It creates
-// the function on the first call for a name and redeploys it after that.
-func (c *Client) DeployDurableFunction(ctx context.Context, projectID uuid.UUID, fn DurableFunctionDeployInput) (*apiclient.DurableFunction, error) {
+// the function on the first call for a name and redeploys it after that;
+// created reports which one happened.
+func (c *Client) DeployDurableFunction(
+	ctx context.Context, projectID uuid.UUID, fn DurableFunctionDeployInput,
+) (deployed *apiclient.DurableFunction, created bool, err error) {
 	body, contentType, err := buildDurableFunctionDeployMultipart(fn)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	resp, err := c.client.CreateDurableFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if resp.JSON201 != nil {
-		return resp.JSON201, nil
+		return resp.JSON201, true, nil
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+	deployed, err = apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
 		resp.JSON400, resp.JSON403, resp.JSON409, resp.JSON503)
+	return deployed, false, err
 }
 
 // GetDurableFunction returns one durable function by ID or name.
@@ -258,9 +262,9 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 	if err := writer.WriteField("handler", fn.Handler); err != nil {
 		return nil, "", fmt.Errorf("failed to write handler field: %w", err)
 	}
-	if fn.IsPublic != nil {
-		if err := writer.WriteField("is_public", strconv.FormatBool(*fn.IsPublic)); err != nil {
-			return nil, "", fmt.Errorf("failed to write is_public field: %w", err)
+	if fn.Visibility != nil {
+		if err := writer.WriteField("visibility", string(*fn.Visibility)); err != nil {
+			return nil, "", fmt.Errorf("failed to write visibility field: %w", err)
 		}
 	}
 	if fn.VariableScope != nil {

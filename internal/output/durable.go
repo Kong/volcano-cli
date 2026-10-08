@@ -68,10 +68,9 @@ func DurableFunction(w io.Writer, fn *apiclient.DurableFunction) {
 	if len(fn.DeployedRegions) > 0 {
 		kv(w, on, "Regions", "%s", strings.Join(fn.DeployedRegions, ", "))
 	}
-	// Named "Anon key start" rather than "Visibility": a public durable function
-	// is startable with an anon key, never invocable over HTTP the way a public
-	// standard function is.
-	kv(w, on, "Anon Key Start", "%s", theme.Status(durableVisibility(*fn), on))
+	// Visibility decides who can start executions. A durable function is never
+	// invocable over HTTP, whatever its level.
+	kv(w, on, "Visibility", "%s", theme.Status(FunctionVisibility(fn.Visibility, fn.IsPublic), on))
 	kv(w, on, "Execution Timeout", "%s", formatDurableSeconds(fn.Durable.ExecutionTimeoutSeconds))
 	kv(w, on, "Retention", "%d day(s)", fn.Durable.RetentionDays)
 	if fn.PendingDeploymentId != nil {
@@ -409,13 +408,6 @@ func durableFunctionStatus(fn apiclient.DurableFunction) string {
 		return "-"
 	}
 	return status
-}
-
-func durableVisibility(fn apiclient.DurableFunction) string {
-	if fn.IsPublic {
-		return "allowed"
-	}
-	return "denied"
 }
 
 func formatDurableSeconds(seconds int64) string {

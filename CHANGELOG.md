@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.42.0](https://github.com/Kong/volcano-cli/compare/v0.41.0...v0.42.0) (2026-10-08)
+
+
+### Features
+
+* **functions:** set visibility levels and manage frontend function routes ([#256](https://github.com/Kong/volcano-cli/issues/256)) ([c9fe1aa](https://github.com/Kong/volcano-cli/commit/c9fe1aa6fb3e3e9582dca7ae9e0947bbbbdb5fd6))
+
+## [0.41.0](https://github.com/Kong/volcano-cli/compare/v0.40.1...v0.41.0) (2026-10-08)
+
+
+### Features
+
+* **domains:** verify custom domain ownership from the CLI ([#278](https://github.com/Kong/volcano-cli/issues/278)) ([036e246](https://github.com/Kong/volcano-cli/commit/036e246c0bafb578622d8f3d58d1949a5dca3583))
+
+## [0.40.1](https://github.com/Kong/volcano-cli/compare/v0.40.0...v0.40.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **variables:** refuse arguments to deploy; correct frontend and variables docs ([#276](https://github.com/Kong/volcano-cli/issues/276)) ([b6b5532](https://github.com/Kong/volcano-cli/commit/b6b5532510e174fcbcfe31a2c3e724b0a3411ebe))
+
 ## [0.40.0](https://github.com/Kong/volcano-cli/compare/v0.39.1...v0.40.0) (2026-10-06)
 
 

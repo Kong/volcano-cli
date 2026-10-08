@@ -6,14 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestLocalModeE2ESmoke(t *testing.T) {
@@ -53,6 +57,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeRefusesFrontendRoutes(t, volcanoBin, env, projectDir)
+	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -74,6 +80,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	functionDeployOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "deploy", "--all")
 	requireContains(t, functionDeployOutput, "Packaging hello")
 	requireContains(t, functionDeployOutput, "functions deployment started")
+	// The durable round trip above deployed hello first, so it is not new here.
+	requireNotContains(t, functionDeployOutput, "New functions are private")
 
 	waitForVolcanoLocalModeE2EContains(t, volcanoBin, env, projectDir, "hello", "functions", "list")
 	functionGetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "get", "hello")
@@ -83,6 +91,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	assertVolcanoLocalModeE2EPlanCannotDowngrade(t, env, info)
 	functionID := waitForVolcanoLocalModeE2EFunctionID(t, info, "hello")
 	waitForVolcanoLocalModeE2EInvokeContains(t, info, functionID, `"ok":true`)
+	requireLocalModeFunctionVisibility(t, volcanoBin, env, projectDir, info, functionID)
 
 	restartOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "restart")
 	requireContains(t, restartOutput, "Volcano is ready for local development.")
@@ -90,6 +99,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	waitForVolcanoLocalModeE2EInvokeContains(t, fetchVolcanoLocalModeE2EInfo(t, env), functionID, `"ok":true`)
 
 	runLocalModeConfigSmoke(t, volcanoBin, env, projectDir)
+	requireLocalModeConfigFunctionVisibility(t, volcanoBin, env, projectDir)
 
 	variableDeleteOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "variables", "delete", "SMOKE_MESSAGE", "--yes")
 	requireContains(t, variableDeleteOutput, "deleted")
@@ -230,11 +240,6 @@ func readLocalModeE2EFile(t *testing.T, projectDir, relativePath string) string 
 // local-mode server. It is self-contained: it declares SMOKE_MESSAGE (already
 // present, kept by the full sync) plus CONFIG_SMOKE, verifies both commands and
 // the value-free pull, then removes CONFIG_SMOKE.
-//
-// Older local-mode images predate the /projects/{id}/config endpoints; against
-// those the CLI returns an upgrade hint and this smoke is skipped rather than
-// failed, so the CLI can ship ahead of the server image that carries the
-// endpoints (cross-repo rollout).
 func runLocalModeConfigSmoke(t *testing.T, binary string, env []string, projectDir string) {
 	t.Helper()
 	writeLocalModeE2EFile(t, projectDir, filepath.Join("volcano", "volcano-config.yaml"), `
@@ -246,17 +251,10 @@ variables:
     value: from-config-deploy
 functions:
   - name: hello
-    public: true
+    visibility: public
 `)
 
-	deployOutput, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, projectDir, "config", "deploy")
-	if err != nil {
-		if strings.Contains(deployOutput, "does not support declarative config apply") {
-			t.Logf("skipping config deploy/pull smoke: local-mode image predates the config endpoints\n%s", deployOutput)
-			return
-		}
-		t.Fatalf("volcano config deploy failed: %v\n%s", err, deployOutput)
-	}
+	deployOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "config", "deploy")
 	requireContains(t, deployOutput, "Configuration deployed from volcano-config.yaml")
 	requireContains(t, deployOutput, "variables:")
 
@@ -272,6 +270,73 @@ functions:
 
 	configDeleteOutput := runVolcanoLocalModeE2E(t, binary, env, projectDir, "variables", "delete", "CONFIG_SMOKE", "--yes")
 	requireContains(t, configDeleteOutput, "deleted")
+}
+
+// requireLocalModeFunctionVisibility moves hello through every level with
+// `functions update` and checks each one with the credentials a local app uses:
+// the service key, a signed-up end user, and the project's anon key.
+func requireLocalModeFunctionVisibility(t *testing.T, binary string, env []string, dir string, info localModeE2EInfo, functionID string) {
+	t.Helper()
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "get", "hello"), "Visibility: private")
+	endUser := signUpVolcanoLocalModeE2EUser(t, info)
+	waitForVolcanoLocalModeE2EVisibility(t, info, functionID, endUser, "private")
+
+	for _, level := range []string{"authenticated", "public", "private"} {
+		requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "update", "hello", "--visibility", level),
+			"Function 'hello' visibility set to "+level)
+		requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "get", "hello"), "Visibility: "+level)
+		waitForVolcanoLocalModeE2EVisibility(t, info, functionID, endUser, level)
+	}
+
+	// --private used to mean what authenticated means now, so it is refused
+	// rather than quietly applying the stricter level.
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "functions", "update", "hello", "--private")
+	if err == nil {
+		t.Fatalf("expected volcano functions update --private to fail\n%s", output)
+	}
+	requireContains(t, output, "--private is no longer accepted")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "update", "hello", "--public"),
+		"Function 'hello' visibility set to public")
+	waitForVolcanoLocalModeE2EVisibility(t, info, functionID, endUser, "public")
+	runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "update", "hello", "--visibility", "private")
+}
+
+// requireLocalModeConfigFunctionVisibility applies each level from the
+// manifest, and the deprecated public flag as the level it used to mean.
+func requireLocalModeConfigFunctionVisibility(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	manifest := filepath.Join("volcano", "volcano-config.yaml")
+	deploy := func(entry, visibility, deprecation string) {
+		t.Helper()
+		writeLocalModeE2EFile(t, dir, manifest, "version: 1\nfunctions:\n  - name: hello\n"+entry)
+		output := runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy")
+		requireContains(t, output, "functions: 1 updated")
+		if deprecation == "" {
+			requireNotContains(t, output, "deprecated")
+		} else {
+			requireContains(t, output, "functions.hello.public is deprecated; "+deprecation)
+		}
+		requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "get", "hello"), "Visibility: "+visibility)
+	}
+	deploy("    visibility: authenticated\n", "authenticated", "")
+	deploy("    public: true\n", "public", "`public: true` sets visibility public")
+	deploy("    public: false\n", "authenticated", "`public: false` sets visibility authenticated")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "pull", "--force"), "Configuration written to")
+	pulled := readLocalModeE2EFile(t, dir, manifest)
+	requireContains(t, pulled, "visibility: authenticated")
+	requireNotContains(t, pulled, "public: false")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy"), "Summary: 0 created, 0 updated, 0 deleted")
+
+	writeLocalModeE2EFile(t, dir, manifest, "version: 1\nfunctions:\n  - name: hello\n    visibility: public\n    public: false\n")
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "config", "deploy")
+	if err == nil {
+		t.Fatalf("expected a manifest whose visibility and public disagree to be refused\n%s", output)
+	}
+	requireContains(t, output, "visibility and the deprecated public flag disagree")
+
+	deploy("    visibility: private\n", "private", "")
 }
 
 // requireLocalModeOmitsProviderOnlyDatabaseCommands checks against the running
@@ -366,7 +431,19 @@ exports.handler = withDurableExecution(async (input, ctx) => {
 	// deploying it as standard would be permanent.
 	skipOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
 	requireContains(t, skipOutput, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
+	// This is hello's first deploy, so the output names its level and how to
+	// open it up.
+	requireContains(t, skipOutput, "Deployed hello (new, visibility private)")
+	requireContains(t, skipOutput, "volcano functions update hello --visibility authenticated")
 	requireNotContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "list"), "order-pipeline")
+
+	// A durable function has no update endpoint, so its level travels with a
+	// deploy.
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "get", "order-pipeline"), "Visibility: private")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "deploy", "-f", "order-pipeline", "--visibility", "authenticated"), "Visibility: authenticated")
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, "Status: active", "durable", "get", "order-pipeline")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "get", "order-pipeline"), "Visibility: authenticated")
 
 	runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "delete", "order-pipeline", "--yes")
 
@@ -450,6 +527,47 @@ func requireLocalModeOmitsAccessTokenCommands(t *testing.T, binary string, env [
 	}
 }
 
+// requireLocalModeRefusesFrontendRoutes checks that the root "volcano
+// frontends" alias, which targets the cloud, does not take a local project's
+// route changes there. Local development has no frontends commands, so the
+// refusal names the cloud command and the manifest.
+func requireLocalModeRefusesFrontendRoutes(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"frontends", "routes", "list", "web"},
+		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "hello"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, `"frontends routes" is a cloud command`)
+		requireContains(t, output, "volcano cloud frontends routes")
+		requireContains(t, output, "declare function_routes in volcano-config.yaml")
+	}
+}
+
+// requireLocalModeOmitsDomainCommands checks that domain verification, which
+// local development has no use for, names the cloud path instead of running.
+func requireLocalModeOmitsDomainCommands(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
+	requireNotContains(t, help, "domains")
+
+	for _, args := range [][]string{
+		{"domains", "list"},
+		{"domains", "verify", "example.com"},
+		{"domains", "remove", "example.com", "--yes"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, "is a cloud command")
+		requireContains(t, output, "volcano cloud domains")
+	}
+}
+
 func runVolcanoLocalModeE2E(t *testing.T, binary string, env []string, dir string, args ...string) string {
 	t.Helper()
 	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
@@ -495,6 +613,7 @@ type localModeE2EInfo struct {
 	UserID     string `json:"user_id"`
 	UserToken  string `json:"user_token"`
 	ServiceKey string `json:"service_key"`
+	AnonKey    string `json:"anon_key"`
 }
 
 type localModeE2EUser struct {
@@ -524,7 +643,7 @@ func fetchVolcanoLocalModeE2EInfo(t *testing.T, env []string) localModeE2EInfo {
 	if err := json.Unmarshal(output, &info); err != nil {
 		t.Fatalf("failed to parse local-mode info: %v\n%s", err, output)
 	}
-	if info.APIURL == "" || info.ProjectID == "" || info.UserID == "" || info.UserToken == "" || info.ServiceKey == "" {
+	if info.APIURL == "" || info.ProjectID == "" || info.UserID == "" || info.UserToken == "" || info.ServiceKey == "" || info.AnonKey == "" {
 		t.Fatalf("local-mode info missing required fields: %s", output)
 	}
 	return info
@@ -674,6 +793,134 @@ func invokeVolcanoLocalModeE2EFunction(t *testing.T, info localModeE2EInfo, func
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
 	return string(data), resp.StatusCode
+}
+
+// signUpVolcanoLocalModeE2EUser creates one of the project's own users and
+// returns its access token. Signup answers without a session, so the token
+// comes from signing in afterwards.
+func signUpVolcanoLocalModeE2EUser(t *testing.T, info localModeE2EInfo) string {
+	t.Helper()
+	credentials := fmt.Sprintf(`{"email":"cli-visibility-%d@localmode-e2e.invalid","password":"V0lcano!%d"}`,
+		time.Now().UnixNano(), time.Now().UnixNano())
+	for _, path := range []string{"/auth/signup", "/auth/signin"} {
+		resp := requestVolcanoLocalModeE2EAPI(t, info, path, info.AnonKey, credentials)
+		if resp.status != http.StatusOK && resp.status != http.StatusCreated {
+			t.Fatalf("POST %s returned %d:\n%s", path, resp.status, resp.body)
+		}
+		if path != "/auth/signin" {
+			continue
+		}
+		var session struct {
+			AccessToken string `json:"access_token"`
+		}
+		if err := json.Unmarshal([]byte(resp.body), &session); err != nil || session.AccessToken == "" {
+			t.Fatalf("signin returned no access token (%v):\n%s", err, resp.body)
+		}
+		return session.AccessToken
+	}
+	return ""
+}
+
+// waitForVolcanoLocalModeE2EVisibility waits until every caller gets the answer
+// the level gives it: a private function answers everyone but the service key
+// with the 404 of a missing function, and an authenticated one refuses the anon
+// key with 403. Another level's answer is expected while a change settles; a
+// status no level gives, or a refusal after which the function ran anyway, is
+// reported straight away.
+func waitForVolcanoLocalModeE2EVisibility(t *testing.T, info localModeE2EInfo, functionID, endUser, level string) {
+	t.Helper()
+	want := map[string]int{"service key": http.StatusOK, "end user": http.StatusNotFound, "anon key": http.StatusNotFound}
+	switch level {
+	case "authenticated":
+		want["end user"] = http.StatusOK
+		want["anon key"] = http.StatusForbidden
+	case "public":
+		want["end user"] = http.StatusOK
+		want["anon key"] = http.StatusOK
+	}
+	tokens := map[string]string{"service key": info.ServiceKey, "end user": endUser, "anon key": info.AnonKey}
+
+	deadline := time.Now().Add(2 * time.Minute)
+	got := map[string]int{}
+	for time.Now().Before(deadline) {
+		answers := make(map[string]localModeE2EResponse, len(tokens))
+		for caller, token := range tokens {
+			answer := requestVolcanoLocalModeE2EAPI(t, info, "/functions/"+functionID+"/invoke", token, `{"payload":{}}`)
+			switch answer.status {
+			case http.StatusOK:
+			case http.StatusForbidden, http.StatusNotFound:
+				if answer.functionRan() {
+					t.Fatalf("%s invoking a %s function was refused with %d, but the function ran", caller, level, answer.status)
+				}
+			default:
+				t.Fatalf("%s invoking a %s function got status %d:\n%s", caller, level, answer.status, answer.body)
+			}
+			got[caller] = answer.status
+			answers[caller] = answer
+		}
+		if maps.Equal(got, want) {
+			for caller, answer := range answers {
+				if answer.status == http.StatusNotFound {
+					requireVolcanoLocalModeE2EConcealed(t, info, tokens[caller], caller, answer)
+				}
+			}
+			return
+		}
+		time.Sleep(2 * time.Second)
+	}
+	t.Fatalf("invokes of a %s function answered %v, want %v", level, got, want)
+}
+
+// requireVolcanoLocalModeE2EConcealed checks that a private function's refusal
+// is the answer the same caller gets for a function that does not exist.
+func requireVolcanoLocalModeE2EConcealed(t *testing.T, info localModeE2EInfo, token, caller string, refused localModeE2EResponse) {
+	t.Helper()
+	missing := requestVolcanoLocalModeE2EAPI(t, info, "/functions/"+uuid.NewString()+"/invoke", token, `{"payload":{}}`)
+	if missing.status != refused.status || !sameLocalModeE2EJSON(missing.body, refused.body) {
+		t.Fatalf("%s: a private function answered %d %s, but a missing one answers %d %s",
+			caller, refused.status, refused.body, missing.status, missing.body)
+	}
+}
+
+// sameLocalModeE2EJSON compares two response bodies as JSON, so key order and
+// spacing do not count. Bodies that are not JSON compare as text.
+func sameLocalModeE2EJSON(a, b string) bool {
+	var decodedA, decodedB any
+	if json.Unmarshal([]byte(a), &decodedA) != nil || json.Unmarshal([]byte(b), &decodedB) != nil {
+		return strings.TrimSpace(a) == strings.TrimSpace(b)
+	}
+	return reflect.DeepEqual(decodedA, decodedB)
+}
+
+// localModeE2EResponse is the local API's answer to one request.
+type localModeE2EResponse struct {
+	body   string
+	status int
+	header http.Header
+}
+
+// functionRan reports the headers the API sets only when a function executed.
+func (r localModeE2EResponse) functionRan() bool {
+	return r.header.Get("X-Volcano-Function-Invoked") != "" || r.header.Get("X-Volcano-Compute-Ms") != ""
+}
+
+// requestVolcanoLocalModeE2EAPI POSTs a JSON body to the local API as the
+// holder of token.
+func requestVolcanoLocalModeE2EAPI(t *testing.T, info localModeE2EInfo, path, token, jsonBody string) localModeE2EResponse {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(info.APIURL, "/")+path, bytes.NewBufferString(jsonBody))
+	if err != nil {
+		t.Fatalf("failed to build request for %s: %v", path, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return localModeE2EResponse{body: err.Error()}
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	return localModeE2EResponse{body: string(data), status: resp.StatusCode, header: resp.Header}
 }
 
 func requireContains(t *testing.T, output, needle string) {

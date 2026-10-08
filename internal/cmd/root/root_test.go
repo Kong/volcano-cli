@@ -68,6 +68,37 @@ func TestAccessTokensAreCloudOnly(t *testing.T) {
 	}
 }
 
+// The root "volcano frontends" alias targets the cloud, but the root is where
+// local commands live. Routes came after that alias was deprecated, so it
+// refuses them instead of sending a local project's routes to the cloud.
+func TestFrontendRoutesAreCloudOnlyAtTheRoot(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	t.Setenv("VOLCANO_API_URL", server.URL)
+
+	for _, args := range [][]string{
+		{"frontends", "routes", "list", "web"},
+		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "session"},
+		{"frontends", "routes"},
+	} {
+		_, err := executeRootCommand(t, args...)
+		require.ErrorContains(t, err, `"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'`, "%v", args)
+		require.ErrorContains(t, err, "declare function_routes in volcano-config.yaml", "%v", args)
+	}
+
+	out, err := executeRootCommand(t, "frontends", "routes", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "This is a cloud command")
+
+	out, err = executeRootCommand(t, "cloud", "frontends", "routes", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "create")
+	assert.Contains(t, out, "delete")
+}
+
 func TestInitCommandPath(t *testing.T) {
 	t.Chdir(t.TempDir())
 

@@ -353,7 +353,7 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 		FileField string `json:"file_field"`
 	}
 	var batchFilenames []string
-	var updateBody map[string]bool
+	var updateBody map[string]any
 	var invokeBody map[string]any
 	var logSearchBodies []map[string]any
 	var schedulerCreateBody map[string]any
@@ -505,10 +505,10 @@ func TestFunctionMethodsUseGeneratedRoutes(t *testing.T) {
 
 	require.NoError(t, client.DeleteFunction(context.Background(), projectID, functionID))
 
-	updated, err := client.UpdateFunctionVisibility(context.Background(), projectID, functionID, true)
+	updated, err := client.UpdateFunctionVisibility(context.Background(), projectID, functionID, apiclient.FunctionVisibilityAuthenticated)
 	require.NoError(t, err)
 	assert.Equal(t, "hello", updated.Name)
-	assert.Equal(t, map[string]bool{"is_public": true}, updateBody)
+	assert.Equal(t, map[string]any{"visibility": "authenticated"}, updateBody)
 
 	invoked, err := client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{
 		Payload: map[string]any{"k": "v"},

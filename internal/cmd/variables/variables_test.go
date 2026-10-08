@@ -176,6 +176,17 @@ func TestVariablesDeployLoadErrorIncludesPath(t *testing.T) {
 	assert.Empty(t, out)
 }
 
+func TestVariablesDeployRefusesNameValueArguments(t *testing.T) {
+	setVariableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.MkdirAll("volcano", 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "volcano.env"), []byte("API_KEY=value\n"), 0o644))
+
+	out, err := executeVariableCommand(t, New(cliruntime.Deps{}), "deploy", "FOO=bar")
+	require.ErrorContains(t, err, `unknown command "FOO=bar"`)
+	assert.NotContains(t, out, "API_KEY", "deploy must not run with arguments it would ignore")
+}
+
 func TestVariablesDeployRequiresProject(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())

@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 // TestDeployFrontendAcceptsEmptyCreatedBody ensures that if the server
@@ -230,5 +232,105 @@ func frontendCustomDomainResponse(domain, status string) map[string]any {
 			"record_type": "CNAME",
 			"value":       "d123.cloudfront.net",
 		},
+	}
+}
+
+func TestFrontendFunctionRouteMethodsUseGeneratedRoutes(t *testing.T) {
+	projectIDText := "11111111-1111-4111-8111-111111111111"
+	frontendIDText := "22222222-2222-4222-8222-222222222222"
+	routeIDText := "33333333-3333-4333-8333-333333333333"
+	functionIDText := "44444444-4444-4444-8444-444444444444"
+	routesPath := "/projects/" + projectIDText + "/frontends/" + frontendIDText + "/function-routes"
+	var requests []string
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == routesPath:
+			writeAPIJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{frontendRouteResponse(routeIDText, projectIDText, frontendIDText, functionIDText, "/api")},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == routesPath:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			bodies = append(bodies, body)
+			writeAPIJSON(t, w, http.StatusCreated, frontendRouteResponse(routeIDText, projectIDText, frontendIDText, functionIDText, "/api"))
+		case r.Method == http.MethodPut && r.URL.Path == routesPath+"/"+routeIDText:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			bodies = append(bodies, body)
+			writeAPIJSON(t, w, http.StatusOK, frontendRouteResponse(routeIDText, projectIDText, frontendIDText, functionIDText, "/v2"))
+		case r.Method == http.MethodDelete && r.URL.Path == routesPath+"/"+routeIDText:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	projectID := uuid.MustParse(projectIDText)
+	frontendID := uuid.MustParse(frontendIDText)
+	routeID := uuid.MustParse(routeIDText)
+	functionID := uuid.MustParse(functionIDText)
+
+	routes, err := client.ListFrontendFunctionRoutes(context.Background(), projectID, frontendID)
+	require.NoError(t, err)
+	require.Len(t, routes, 1)
+	assert.Equal(t, "/api", routes[0].PathPrefix)
+
+	strip := true
+	created, err := client.CreateFrontendFunctionRoute(context.Background(), projectID, frontendID,
+		apiclient.CreateFrontendFunctionRouteRequest{PathPrefix: "/api", FunctionId: functionID, StripPrefix: &strip})
+	require.NoError(t, err)
+	assert.Equal(t, routeID, created.Id)
+
+	updated, err := client.UpdateFrontendFunctionRoute(context.Background(), projectID, frontendID, routeID,
+		apiclient.CreateFrontendFunctionRouteRequest{PathPrefix: "/v2", FunctionId: functionID})
+	require.NoError(t, err)
+	assert.Equal(t, "/v2", updated.PathPrefix)
+
+	require.NoError(t, client.DeleteFrontendFunctionRoute(context.Background(), projectID, frontendID, routeID))
+
+	assert.Equal(t, []map[string]any{
+		{"path_prefix": "/api", "function_id": functionIDText, "strip_prefix": true},
+		{"path_prefix": "/v2", "function_id": functionIDText},
+	}, bodies)
+	assert.Equal(t, []string{
+		"GET " + routesPath,
+		"POST " + routesPath,
+		"PUT " + routesPath + "/" + routeIDText,
+		"DELETE " + routesPath + "/" + routeIDText,
+	}, requests)
+}
+
+// The server's refusal says what to fix, so it has to reach the user as sent.
+func TestCreateFrontendFunctionRouteSurfacesTheRefusal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAPIJSON(t, w, http.StatusConflict, map[string]any{"error": "Frontend Function routes require a public Function"})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.CreateFrontendFunctionRoute(context.Background(), uuid.New(), uuid.New(),
+		apiclient.CreateFrontendFunctionRouteRequest{PathPrefix: "/api", FunctionId: uuid.New()})
+	require.Error(t, err)
+	assert.Equal(t, http.StatusConflict, Status(err))
+	assert.ErrorContains(t, err, "Frontend Function routes require a public Function")
+}
+
+func frontendRouteResponse(id, projectID, frontendID, functionID, pathPrefix string) map[string]any {
+	return map[string]any{
+		"id":           id,
+		"project_id":   projectID,
+		"frontend_id":  frontendID,
+		"function_id":  functionID,
+		"path_prefix":  pathPrefix,
+		"strip_prefix": true,
+		"created_at":   "2026-05-20T00:00:00Z",
+		"updated_at":   "2026-05-20T00:00:00Z",
 	}
 }

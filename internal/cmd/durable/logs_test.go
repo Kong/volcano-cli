@@ -34,7 +34,7 @@ func TestDurableLogsBuildReadsTheCurrentDeployment(t *testing.T) {
 			http.NotFound(w, r)
 		case r.Method == http.MethodGet &&
 			r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/order-pipeline":
-			function := durableFunctionPayload("order-pipeline", false)
+			function := durableFunctionPayload("order-pipeline", "private")
 			function["status"] = "failed"
 			function["current_deployment_id"] = durableDeploymentID
 			writeDurableCommandJSON(t, w, http.StatusOK, function)
@@ -68,7 +68,7 @@ func TestDurableLogsRuntimePagesEveryExecution(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet &&
 			r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/order-pipeline":
-			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", "private"))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/logs/search":
 			var body map[string]any
 			require.NoError(t, decodeJSONBody(r, &body))
@@ -107,7 +107,7 @@ func TestDurableLogsBuildWithoutADeploymentSaysSo(t *testing.T) {
 		if r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/logs/search" {
 			t.Error("build logs without a deployment must not search")
 		}
-		writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+		writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", "private"))
 	}))
 	defer server.Close()
 
@@ -128,7 +128,7 @@ func TestDurableLogsFollowWaitsForTheFunctionToLeaveProvisioning(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet &&
 			r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/"+durableFunctionID:
-			function := durableFunctionPayload("order-pipeline", false)
+			function := durableFunctionPayload("order-pipeline", "private")
 			function["current_deployment_id"] = durableDeploymentID
 			if reads.Add(1) == 1 {
 				function["status"] = "provisioning"
@@ -138,7 +138,7 @@ func TestDurableLogsFollowWaitsForTheFunctionToLeaveProvisioning(t *testing.T) {
 			writeDurableCommandJSON(t, w, http.StatusOK, function)
 		case r.Method == http.MethodGet &&
 			r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/order-pipeline":
-			function := durableFunctionPayload("order-pipeline", false)
+			function := durableFunctionPayload("order-pipeline", "private")
 			function["status"] = "provisioning"
 			function["current_deployment_id"] = durableDeploymentID
 			writeDurableCommandJSON(t, w, http.StatusOK, function)
@@ -182,7 +182,7 @@ func TestDurableLogsRuntimeFollowStreamsTheFunction(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet &&
 			r.URL.Path == "/projects/"+durableProjectID+"/durable-functions/order-pipeline":
-			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", false))
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload("order-pipeline", "private"))
 		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/logs/stream":
 			require.NoError(t, decodeJSONBody(r, &streamBody))
 			writeDurableLogStream(t, w, "step charge-card completed")

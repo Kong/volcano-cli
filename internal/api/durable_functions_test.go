@@ -6,11 +6,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 var (
@@ -111,10 +114,10 @@ func TestDeployDurableFunctionAcceptsCreatedAndUpdated(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				require.NoError(t, r.ParseMultipartForm(1024*1024))
 				fields = map[string]string{
-					"name":      r.FormValue("name"),
-					"runtime":   r.FormValue("runtime"),
-					"handler":   r.FormValue("handler"),
-					"is_public": r.FormValue("is_public"),
+					"name":       r.FormValue("name"),
+					"runtime":    r.FormValue("runtime"),
+					"handler":    r.FormValue("handler"),
+					"visibility": r.FormValue("visibility"),
 				}
 				require.Len(t, r.MultipartForm.File["code"], 1)
 				writeAPIJSON(t, w, status, durableFunctionAPIPayload())
@@ -124,30 +127,31 @@ func TestDeployDurableFunctionAcceptsCreatedAndUpdated(t *testing.T) {
 			client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
 			require.NoError(t, err)
 
-			isPublic := true
-			fn, err := client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
+			visibility := apiclient.FunctionVisibilityAuthenticated
+			fn, created, err := client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
 				Name:          "order-pipeline",
 				Runtime:       "nodejs24.x",
 				Handler:       "handler",
 				SourceArchive: []byte("archive"),
-				IsPublic:      &isPublic,
+				Visibility:    &visibility,
 			})
 			require.NoError(t, err)
 			assert.Equal(t, "order-pipeline", fn.Name)
+			assert.Equal(t, status == http.StatusCreated, created)
 			assert.Equal(t, map[string]string{
-				"name": "order-pipeline", "runtime": "nodejs24.x", "handler": "handler", "is_public": "true",
+				"name": "order-pipeline", "runtime": "nodejs24.x", "handler": "handler", "visibility": "authenticated",
 			}, fields)
 		})
 	}
 }
 
-// An absent is_public is what tells the server to keep the visibility the
-// function already has, so it must not be sent as false.
+// An absent visibility is what tells the server to keep the level the function
+// already has, so neither it nor the deprecated is_public may be sent.
 func TestDeployDurableFunctionOmitsUnsetVisibility(t *testing.T) {
 	var sent []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, r.ParseMultipartForm(1024*1024))
-		sent = r.MultipartForm.Value["is_public"]
+		sent = slices.Concat(r.MultipartForm.Value["visibility"], r.MultipartForm.Value["is_public"])
 		writeAPIJSON(t, w, http.StatusOK, durableFunctionAPIPayload())
 	}))
 	defer server.Close()
@@ -155,7 +159,7 @@ func TestDeployDurableFunctionOmitsUnsetVisibility(t *testing.T) {
 	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
 	require.NoError(t, err)
 
-	_, err = client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
+	_, _, err = client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
 		Name: "order-pipeline", Runtime: "nodejs24.x", Handler: "handler", SourceArchive: []byte("archive"),
 	})
 	require.NoError(t, err)
