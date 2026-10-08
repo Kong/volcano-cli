@@ -54,8 +54,18 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 }
 
 // NewDeprecatedFrontendAlias returns the legacy direct frontend cloud command.
+// Routes arrived after the alias was deprecated, so it has none to keep
+// working, and refuses them rather than send a local project's routes to the
+// cloud.
 func NewDeprecatedFrontendAlias(deps cliruntime.Deps) *cobra.Command {
 	deps.CommandPathPrefix = "volcano cloud"
 	cmd := frontendscmd.New(deps)
-	return cmdutil.HideDeprecatedAlias(cmd, `warning: "volcano frontends ..." is deprecated; use "volcano cloud frontends ..."`)
+	for _, child := range cmd.Commands() {
+		if child.Name() == "routes" {
+			cmd.RemoveCommand(child)
+		}
+	}
+	cmd = cmdutil.HideDeprecatedAlias(cmd, `warning: "volcano frontends ..." is deprecated; use "volcano cloud frontends ..."`)
+	cmd.AddCommand(frontendscmd.NewRoutesCloudOnly())
+	return cmd
 }

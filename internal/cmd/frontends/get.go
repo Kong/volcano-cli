@@ -16,6 +16,7 @@ type getOptions struct {
 	deps       cliruntime.Deps
 	identifier string
 	out        io.Writer
+	errOut     io.Writer
 }
 
 func newGet(deps cliruntime.Deps) *cobra.Command {
@@ -28,17 +29,29 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 				deps:       deps,
 				identifier: strings.TrimSpace(args[0]),
 				out:        cmd.OutOrStdout(),
+				errOut:     cmd.ErrOrStderr(),
 			})
 		},
 	}
 }
 
 func runGet(ctx context.Context, opts getOptions) error {
-	frontend, err := clifrontend.NewService(opts.deps).Get(ctx, opts.identifier)
+	service := clifrontend.NewService(opts.deps)
+	frontend, err := service.Get(ctx, opts.identifier)
 	if err != nil {
 		return err
 	}
+	// The function listing only names the route targets, so a failed one
+	// leaves the routes showing function IDs rather than failing the command.
+	routes, err := service.RouteTargets(ctx, frontend.FunctionRoutes)
+	if err != nil {
+		output.Warning(opts.errOut, "routes on '%s' show function IDs instead of names: %v", frontend.Name, err)
+		routes = make([]clifrontend.Route, 0, len(frontend.FunctionRoutes))
+		for _, route := range frontend.FunctionRoutes {
+			routes = append(routes, clifrontend.Route{FrontendFunctionRoute: route})
+		}
+	}
 
-	output.Frontend(opts.out, frontend)
+	output.Frontend(opts.out, frontend, routeEntries(routes))
 	return nil
 }

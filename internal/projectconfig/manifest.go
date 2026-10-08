@@ -308,6 +308,47 @@ func (f FunctionManifest) isDurable() bool {
 	return f.Kind != nil && strings.TrimSpace(*f.Kind) == FunctionKindDurable
 }
 
+// declaredVisibility is the level the entry asks for, read from the deprecated
+// public alias when visibility is absent, or "" when it declares none.
+func (f FunctionManifest) declaredVisibility() string {
+	switch {
+	case f.Visibility != nil:
+		return *f.Visibility
+	case f.Public == nil:
+		return ""
+	case *f.Public:
+		return FunctionVisibilityPublic
+	default:
+		return FunctionVisibilityAuthenticated
+	}
+}
+
+// DeprecationWarnings describes each use of a deprecated field, in declaration
+// order. public: false reads as "not public" but now admits signed-in users,
+// which is the surprise these warnings exist for.
+func (m *Manifest) DeprecationWarnings() []string {
+	if m == nil || m.Functions == nil {
+		return nil
+	}
+	var warnings []string
+	for _, function := range *m.Functions {
+		if function.Public == nil {
+			continue
+		}
+		deprecated := fmt.Sprintf("functions.%s.public is deprecated", function.Name)
+		switch {
+		case function.Visibility != nil:
+			warnings = append(warnings, deprecated+"; visibility sets the level, so remove public")
+		case *function.Public:
+			warnings = append(warnings, deprecated+"; `public: true` sets visibility public. Declare `visibility: public` instead")
+		default:
+			warnings = append(warnings, deprecated+"; `public: false` sets visibility authenticated, which admits signed-in users. "+
+				"Declare `visibility` instead (`visibility: private` keeps them out)")
+		}
+	}
+	return warnings
+}
+
 // DurableFunctionNames returns the functions the manifest declares durable, in
 // declaration order.
 //
@@ -646,12 +687,17 @@ func FunctionVariableDeclarations(fileArg string) (map[string]FunctionVariableDe
 }
 
 // FunctionDeployManifest is what a function deploy needs from the manifest:
-// each function's variable declaration, and the names each collection is
-// responsible for so neither deploy creates a function of the wrong kind.
+// each function's variable declaration, the names each collection is
+// responsible for so neither deploy creates a function of the wrong kind, and
+// the visibility each function declares. A deploy does not send that level;
+// only config deploy applies it, so the deploy hints point there.
 type FunctionDeployManifest struct {
 	Declarations  map[string]FunctionVariableDeclaration
 	DurableNames  map[string]bool
 	StandardNames map[string]bool
+	Visibility    map[string]string
+	// Deprecations are the manifest's DeprecationWarnings.
+	Deprecations []string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -662,6 +708,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		Declarations:  map[string]FunctionVariableDeclaration{},
 		DurableNames:  map[string]bool{},
 		StandardNames: map[string]bool{},
+		Visibility:    map[string]string{},
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
@@ -678,12 +725,16 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		return read, nil
 	}
 
+	read.Deprecations = manifest.DeprecationWarnings()
 	for _, function := range *manifest.Functions {
 		if function.VariableScope != nil || function.Variables != nil {
 			read.Declarations[function.Name] = FunctionVariableDeclaration{
 				VariableScope: function.VariableScope,
 				Variables:     function.Variables,
 			}
+		}
+		if visibility := function.declaredVisibility(); visibility != "" {
+			read.Visibility[function.Name] = visibility
 		}
 	}
 	for _, name := range manifest.DurableFunctionNames() {

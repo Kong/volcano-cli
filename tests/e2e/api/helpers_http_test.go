@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -50,6 +51,80 @@ func createAPIE2EServiceKey(t *testing.T, apiURL, token, projectID, name string)
 		t.Fatalf("service key response did not include key_value: %#v", resp)
 	}
 	return key
+}
+
+func createAPIE2EAnonKey(t *testing.T, apiURL, token, projectID, name string, permissions ...string) string {
+	t.Helper()
+	body := map[string]any{"name": name, "permissions": permissions}
+	resp := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/projects/"+projectID+"/anon-keys", token, body, http.StatusCreated)
+	key, ok := resp["key_value"].(string)
+	if !ok || strings.TrimSpace(key) == "" {
+		t.Fatalf("anon key response did not include key_value: %#v", resp)
+	}
+	return key
+}
+
+// signUpAPIE2EEndUser creates one of the project's own users and returns its
+// access token. Signup answers without a session, so the token comes from
+// signing in afterwards. The anon key needs auth.signup and auth.signin.
+func signUpAPIE2EEndUser(t *testing.T, apiURL, anonKey string) string {
+	t.Helper()
+	credentials := map[string]string{
+		"email":    "cli-e2e-" + apiE2ESuffix(t) + "@cloud-e2e.invalid",
+		"password": "V0lcano!" + apiE2ESuffix(t) + apiE2ESuffix(t),
+	}
+	apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signup", anonKey, credentials, http.StatusCreated)
+	session := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signin", anonKey, credentials, http.StatusOK)
+	token, ok := session["access_token"].(string)
+	if !ok || strings.TrimSpace(token) == "" {
+		t.Fatal("signin response did not include access_token")
+	}
+	return token
+}
+
+// apiE2EInvocation is the API's answer to one invoke.
+type apiE2EInvocation struct {
+	status int
+	body   string
+	// ran reports the headers the API sets only when the function executed.
+	ran bool
+}
+
+// apiE2EInvoke invokes a function by ID with a caller's credential.
+func apiE2EInvoke(apiURL, token, functionID string) (apiE2EInvocation, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL+"/functions/"+functionID+"/invoke",
+		strings.NewReader(`{"payload":{}}`))
+	if err != nil {
+		return apiE2EInvocation{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return apiE2EInvocation{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return apiE2EInvocation{}, err
+	}
+	return apiE2EInvocation{
+		status: resp.StatusCode,
+		body:   strings.TrimSpace(string(body)),
+		ran:    resp.Header.Get("X-Volcano-Function-Invoked") != "" || resp.Header.Get("X-Volcano-Compute-Ms") != "",
+	}, nil
+}
+
+// sameAPIE2EJSON compares two response bodies as JSON, so key order and
+// spacing do not count. Bodies that are not JSON compare as text.
+func sameAPIE2EJSON(a, b string) bool {
+	var decodedA, decodedB any
+	if json.Unmarshal([]byte(a), &decodedA) != nil || json.Unmarshal([]byte(b), &decodedB) != nil {
+		return a == b
+	}
+	return reflect.DeepEqual(decodedA, decodedB)
 }
 
 func deleteAPIE2EProject(apiURL, token, projectID string) error {
