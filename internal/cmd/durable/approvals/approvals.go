@@ -115,6 +115,9 @@ func runDecide(ctx context.Context, opts decideOptions) error {
 		return nil
 	}
 
+	if err := service.RequirePerson(); err != nil {
+		return err
+	}
 	if !opts.yes {
 		confirmed, err := confirm.Action(opts.in, opts.prompt,
 			fmt.Sprintf("%q was requested by workflow %s. The workflow resumes with your decision, "+
@@ -184,17 +187,14 @@ func parseSince(value string) (time.Duration, error) {
 	return window, nil
 }
 
-// sinceWindow converts a --since value to the window it names, ending now.
-// Both ends are sent: left to the API's clock, the end would land later than
-// the instant the start was measured back from. In UTC so the query string
-// carries no offset to encode.
-func sinceWindow(value string) (time.Time, time.Time, error) {
+// sinceStart converts a --since value to the instant that long before now, in
+// UTC so the query string carries no offset to encode.
+func sinceStart(value string, now time.Time) (time.Time, error) {
 	window, err := parseSince(value)
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, err
 	}
-	to := time.Now().UTC()
-	return to.Add(-window), to, nil
+	return now.UTC().Add(-window), nil
 }
 
 // writeJSON prints value as indented JSON for --json consumers.

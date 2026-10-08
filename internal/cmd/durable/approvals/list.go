@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -82,12 +83,14 @@ func runList(ctx context.Context, opts listOptions) error {
 		}
 		input.ExecutionID = &executionID
 	}
+	// Only the start is sent. The API ends the window at its own now, so an
+	// approval requested a moment ago is listed even when this clock is behind.
 	if opts.since != "" {
-		from, to, err := sinceWindow(opts.since)
+		from, err := sinceStart(opts.since, time.Now())
 		if err != nil {
 			return err
 		}
-		input.From, input.To = &from, &to
+		input.From = &from
 	}
 
 	approvals, err := clidurable.NewService(opts.deps).ListApprovals(ctx, input)

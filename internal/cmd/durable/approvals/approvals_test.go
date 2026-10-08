@@ -145,9 +145,11 @@ func TestApprovalsListSendsEveryFilter(t *testing.T) {
 	assert.Equal(t, []string{"order-pipeline"}, query["function"])
 	assert.Equal(t, []string{"denied"}, query["status"])
 	assert.Equal(t, []string{executionID}, query["execution_id"])
-	from, to := windowSent(t, query)
-	assert.WithinDuration(t, before, to, time.Minute)
-	assert.Equal(t, 7*24*time.Hour, to.Sub(from))
+	require.Len(t, query["from"], 1)
+	from, err := time.Parse(time.RFC3339Nano, query["from"][0])
+	require.NoError(t, err)
+	assert.WithinDuration(t, before.Add(-7*24*time.Hour), from, time.Minute)
+	assert.NotContains(t, query, "to", "the API ends the window at its own now")
 }
 
 func TestApprovalsListWithoutSinceSendsNoWindow(t *testing.T) {
@@ -214,16 +216,6 @@ func TestApprovalsListRefusesInvalidFlags(t *testing.T) {
 			name: "negative since",
 			args: []string{"stats", "--since", "-1h"},
 			want: []string{`invalid --since "-1h"`},
-		},
-		{
-			name: "stats longer than the API counts",
-			args: []string{"stats", "--since", "367d"},
-			want: []string{`invalid --since "367d"`, "at most 366 days"},
-		},
-		{
-			name: "stats longer than the API counts, in hours",
-			args: []string{"stats", "--since", "8785h"},
-			want: []string{`invalid --since "8785h"`, "at most 366 days"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -870,11 +862,36 @@ func TestApprovalsDecideRefusesAProjectAccessToken(t *testing.T) {
 			defer server.Close()
 
 			_, err := executeCommand(t, newApprovalsCommand(server), "approve", approvalID, "--yes")
-			require.EqualError(t, err,
-				"approvals are decided by a person. Run `volcano login`, or decide in the dashboard")
+			require.EqualError(t, err, needsAPerson)
 		})
 	}
 }
+
+// A credential the CLI knows is a project access token is refused before the
+// prompt: confirming a decision the API will refuse wastes the person's yes,
+// and sends an agent after --yes first.
+func TestApprovalsDecideRefusesAProjectTokenBeforeConfirming(t *testing.T) {
+	for _, args := range [][]string{{"approve", approvalID}, {"deny", approvalID, "--yes"}} {
+		t.Run(args[0], func(t *testing.T) {
+			setApprovalsTestHome(t)
+			t.Setenv("VOLCANO_TOKEN", "PT-approvals-test")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Error("a project access token's decision must not reach the API")
+				}
+				respondJSON(t, w, http.StatusOK, approvalPayload("pending"))
+			}))
+			defer server.Close()
+
+			out, err := executeCommand(t, newApprovalsCommand(server), args...)
+			require.EqualError(t, err, needsAPerson)
+			assert.NotContains(t, out, "Approve it?")
+		})
+	}
+}
+
+const needsAPerson = "approvals are decided by a person. " +
+	"Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"
 
 // Any other refusal keeps the API's own reason: telling a person who is
 // already logged in to log in would send them after the wrong thing.
@@ -946,6 +963,23 @@ func TestApprovalsStatsSendsTheLongestWindowWhole(t *testing.T) {
 	require.NoError(t, err)
 	from, to := windowSent(t, query)
 	assert.Equal(t, 366*24*time.Hour, to.Sub(from))
+}
+
+// The API owns the longest window it counts, so a longer one is its refusal
+// to explain, and a CLI already released follows when the limit changes.
+func TestApprovalsStatsLeavesTheWindowLimitToTheAPI(t *testing.T) {
+	setApprovalsTestHome(t)
+	var query map[string][]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		respondJSON(t, w, http.StatusBadRequest, map[string]any{"error": "the window can span at most 366 days"})
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newApprovalsCommand(server), "stats", "--since", "367d")
+	require.ErrorContains(t, err, "the window can span at most 366 days")
+	from, to := windowSent(t, query)
+	assert.Equal(t, 367*24*time.Hour, to.Sub(from))
 }
 
 // Nothing decided in the window is not a rate of zero, and must not read as

@@ -19,6 +19,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
@@ -436,9 +437,24 @@ func (s Service) DecideApproval(
 
 // errApprovalNeedsAPerson is the answer to a project access token deciding.
 // Approvals exist so that a person signs off, which is why the API refuses
-// any credential that is not a person's.
+// any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
+// is how a project access token usually arrives.
 var errApprovalNeedsAPerson = errors.New(
-	"approvals are decided by a person. Run `volcano login`, or decide in the dashboard")
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard")
+
+// RequirePerson refuses a credential the CLI knows is a project access token,
+// so a decision is not confirmed only to be refused. DecideApproval still maps
+// the API's refusal, for credentials without a recognizable prefix.
+func (s Service) RequirePerson() error {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return err
+	}
+	if config.IsProjectToken(cfg.Token()) {
+		return errApprovalNeedsAPerson
+	}
+	return nil
+}
 
 // refusesProjectTokenDecision reports whether a 403 message is the API
 // refusing a project access token's decision. A read-only token is refused

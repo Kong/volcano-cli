@@ -224,7 +224,8 @@ example `approval … was already approved by owner@example.com at …`. An appr
 past its timeout counts as expired, even while it still reads `pending`.
 
 Approvals are decided by a person. A command run with a project access token is
-refused; run `volcano login`, or decide in the dashboard.
+refused before it asks; run `volcano login` with `VOLCANO_TOKEN` unset, or
+decide in the dashboard.
 
 `stats` counts the approvals requested in a window, 30 days unless `--since`
 says otherwise, up to 366 days:
