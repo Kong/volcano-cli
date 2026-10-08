@@ -52,6 +52,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -444,6 +445,27 @@ func requireLocalModeOmitsAccessTokenCommands(t *testing.T, binary string, env [
 		}
 		requireContains(t, output, "is a cloud command")
 		requireContains(t, output, "volcano cloud access-tokens")
+	}
+}
+
+// requireLocalModeOmitsDomainCommands checks that domain verification, which
+// local development has no use for, names the cloud path instead of running.
+func requireLocalModeOmitsDomainCommands(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
+	requireNotContains(t, help, "domains")
+
+	for _, args := range [][]string{
+		{"domains", "list"},
+		{"domains", "verify", "example.com"},
+		{"domains", "remove", "example.com", "--yes"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, "is a cloud command")
+		requireContains(t, output, "volcano cloud domains")
 	}
 }
 

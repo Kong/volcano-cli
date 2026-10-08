@@ -12,8 +12,9 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one **custom domain** (BYOC) attached. A second, different domain
-  is rejected with `409`; serve another hostname from a separate frontend.
+- Can have one **custom domain** (BYOC) attached, at or below a domain your
+  account has [verified](domains.md). A second, different domain is rejected
+  with `409`; serve another hostname from a separate frontend.
 - Frontend custom domains can also be declared in the
   [declarative config](project-configuration.md).
 
@@ -73,6 +74,9 @@ volcano cloud frontends domain create my-site --domain app.example.com \
   --cert ./fullchain-leaf.pem --key ./privkey.pem
 volcano cloud frontends domain get my-site
 ```
+
+Attaching a custom domain needs a [verified domain](domains.md) above it. When
+none exists, the command fails and prints the TXT record to publish.
 
 The domain command shows a DNS routing target hostname. Configure a CNAME only if
 your DNS provider confirms that your domain is not a zone apex. At an apex, use
