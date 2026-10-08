@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/Kong/volcano-cli/compare/v0.42.0...v0.43.0) (2026-10-08)
+
+
+### Features
+
+* **sandboxes:** expose custom deployment and source commands ([#281](https://github.com/Kong/volcano-cli/issues/281)) ([8a6af63](https://github.com/Kong/volcano-cli/commit/8a6af635fbb329e239305736cc24408b76a2e3b7))
+
 ## [0.42.0](https://github.com/Kong/volcano-cli/compare/v0.41.0...v0.42.0) (2026-10-08)
 
 
