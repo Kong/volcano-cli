@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/Kong/volcano-cli/compare/v0.40.1...v0.41.0) (2026-10-08)
+
+
+### Features
+
+* **domains:** verify custom domain ownership from the CLI ([#278](https://github.com/Kong/volcano-cli/issues/278)) ([036e246](https://github.com/Kong/volcano-cli/commit/036e246c0bafb578622d8f3d58d1949a5dca3583))
+
 ## [0.40.1](https://github.com/Kong/volcano-cli/compare/v0.40.0...v0.40.1) (2026-10-07)
 
 
