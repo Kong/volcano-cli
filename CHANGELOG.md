@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/Kong/volcano-cli/compare/v0.41.0...v0.42.0) (2026-10-08)
+
+
+### Features
+
+* **functions:** set visibility levels and manage frontend function routes ([#256](https://github.com/Kong/volcano-cli/issues/256)) ([c9fe1aa](https://github.com/Kong/volcano-cli/commit/c9fe1aa6fb3e3e9582dca7ae9e0947bbbbdb5fd6))
+
 ## [0.41.0](https://github.com/Kong/volcano-cli/compare/v0.40.1...v0.41.0) (2026-10-08)
 
 
