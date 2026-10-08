@@ -61,6 +61,7 @@ type Manifest struct {
 	Auth      *AuthManifest       `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
 	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
+	Sandboxes *[]SandboxManifest  `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
 
 	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
 	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
@@ -71,6 +72,17 @@ type Manifest struct {
 	// upload is the interpolated manifest decoded into a generic shape; it is the
 	// source of the apply request body (see uploadBody). Populated by Parse.
 	upload map[string]any
+}
+
+// SandboxManifest declares image assertions and default session settings for an
+// existing Sandbox template. Nil fields preserve existing values; explicit
+// zero idle timeout and empty ports remain present during round trips.
+type SandboxManifest struct {
+	Name               string `yaml:"name" json:"name"`
+	MemoryMB           *int   `yaml:"memory_mb,omitempty" json:"memory_mb,omitempty"`
+	Ports              *[]int `yaml:"ports,omitempty" json:"ports,omitempty"`
+	IdleTimeoutSeconds *int   `yaml:"idle_timeout_seconds,omitempty" json:"idle_timeout_seconds,omitempty"`
+	TTLSeconds         *int   `yaml:"ttl_seconds,omitempty" json:"ttl_seconds,omitempty"`
 }
 
 // ProjectManifest declares project-level settings.
