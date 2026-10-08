@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.1](https://github.com/Kong/volcano-cli/compare/v0.40.0...v0.40.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **variables:** refuse arguments to deploy; correct frontend and variables docs ([#276](https://github.com/Kong/volcano-cli/issues/276)) ([b6b5532](https://github.com/Kong/volcano-cli/commit/b6b5532510e174fcbcfe31a2c3e724b0a3411ebe))
+
 ## [0.40.0](https://github.com/Kong/volcano-cli/compare/v0.39.1...v0.40.0) (2026-10-06)
 
 
