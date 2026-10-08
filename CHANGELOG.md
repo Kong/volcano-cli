@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.1](https://github.com/Kong/volcano-cli/compare/v0.43.0...v0.43.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **localmode:** reclaim sandbox resources on clean stop ([#288](https://github.com/Kong/volcano-cli/issues/288)) ([7141f90](https://github.com/Kong/volcano-cli/commit/7141f903b1d5ecbfcc95e99ca9c5e36cb6eeb2eb))
+
 ## [0.43.0](https://github.com/Kong/volcano-cli/compare/v0.42.0...v0.43.0) (2026-10-08)
 
 
