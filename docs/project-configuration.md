@@ -40,7 +40,7 @@ realtime:
   enabled: true
 functions:
   - name: hello
-    public: true
+    visibility: public         # private, authenticated, or public; omit to keep the current level
     variable_scope: scoped     # only the variables this function needs
     variables:
       - STRIPE_SECRET_KEY
@@ -94,7 +94,10 @@ Key semantics:
 - Functions, frontends, databases, and buckets are never created or deleted
   through the manifest; only their configuration is updated. A manifest entry
   for a resource that does not exist is skipped with a warning. A deployed
-  resource missing from a declared section is reported too.
+  resource missing from a declared section is reported too. For a new
+  frontend, run `volcano cloud frontends deploy` with the `--variable-scope`
+  and `--variable` flags its entry needs, then `volcano cloud config deploy`.
+  A frontend created without them starts with no project variables.
 - `${ENV_VAR}` references are interpolated before upload. A reference to an
   unset variable is an error, and `$$` produces a literal `$`.
 - `volcano config deploy --dry-run` prints the projected actions without
@@ -117,6 +120,45 @@ Key semantics:
   `variable_scope`, leaves the function's existing declaration untouched. See
   "Function variable scope" below.
 
+## Function visibility
+
+`functions[].visibility` decides who can invoke a function:
+
+- `private`: service keys and schedulers only.
+- `authenticated`: also your project's signed-in users, including
+  [anonymous sign-ins](/platform/authentication/anonymous-users).
+- `public`: also anon keys with `functions.invoke`, and frontend function
+  routes.
+
+New functions start `private`, durable ones included. Leaving `visibility` out
+keeps the level the function already has. Any other value is refused before
+upload, naming the function.
+
+A `private` function answers every caller but a service key or scheduler with
+the `404` of a function that does not exist. An anon key invoking an
+`authenticated` function by ID gets `403`; by name, as the SDK invokes, `404`.
+If your app gets 404 for a function you deployed, check its visibility with
+`volcano cloud functions get <name>`.
+
+The deprecated `public` field still works, but `public: false` means
+`authenticated`, not `private`: it lets your signed-in users in. Manifests
+written by an older `config pull` contain it. To keep such a function
+private, replace it with `visibility: private`. `true` means `public`.
+`config deploy` and the function deploys print a warning for each `public`
+they read. When a function declares both, `visibility` wins, and the server
+rejects the pair only when exactly one of them says public, such as
+`visibility: authenticated` with `public: true`. `config pull` writes
+`visibility` only.
+
+```yaml
+version: 1
+functions:
+  - name: notes-summary
+    visibility: authenticated   # called by signed-in users from the dashboard
+  - name: nightly-report
+    visibility: private         # only schedulers and server-side code
+```
+
 ## Frontend function routes
 
 `frontends[].function_routes` forwards every request under a path of a
@@ -126,7 +168,7 @@ frontend to a function, so the browser calls it on the frontend's own origin:
 version: 1
 functions:
   - name: session
-    public: true
+    visibility: public
     invocation_mode: http
 frontends:
   - name: web
@@ -138,7 +180,7 @@ frontends:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `function` | Yes | A deployed public, standard function with `invocation_mode: http`. |
+| `function` | Yes | A deployed standard function that is `public` with `invocation_mode: http`. |
 | `path_prefix` | Yes | The path to forward, such as `/api/session`. It matches that path and everything under it. It starts with `/` and does not end with one. |
 | `strip_prefix` | No | `true` sends the function the rest of the path, or `/` for the prefix itself. The default, `false`, sends the full path. |
 
@@ -153,6 +195,10 @@ load the frontend can call the function under its prefix. The function must
 authenticate its callers itself. A frontend can have up to 64 routes, and the
 longest matching prefix wins. `config pull` writes the routes back, so a pulled
 manifest deploys again unchanged.
+
+One deploy can make a function public and add its route, or delete a route and
+make the function private. A route to a function that stays non-public fails
+the dry run and nothing is applied. See [frontends](frontends.md#function-routes).
 
 ## Shared variable names
 

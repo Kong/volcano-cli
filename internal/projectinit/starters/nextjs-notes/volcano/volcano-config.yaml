@@ -8,4 +8,4 @@ functions:
   # The dashboard calls notes-summary as the signed-in user, so it has to
   # accept the project's end users and not only server-side callers.
   - name: notes-summary
-    public: false
+    visibility: authenticated

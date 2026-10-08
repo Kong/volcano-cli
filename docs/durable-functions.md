@@ -57,7 +57,7 @@ existing function's scope alone.
 
 | Operation | Command |
 |---|---|
-| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path>`; `--public`/`--private` take `-f` |
+| Deploy all declared, or one | `volcano cloud durable deploy --all \| -f <name\|path>`; `--visibility` takes `-f` |
 | List | `volcano cloud durable list [--page 1] [--limit 100]` |
 | Get | `volcano cloud durable get <name-or-id>` |
 | Delete | `volcano cloud durable delete <name-or-id> [--yes]` |
@@ -89,8 +89,8 @@ match the deployed function.
 # Deploy every function volcano-config.yaml declares durable
 volcano cloud durable deploy --all
 
-# Deploy one, and let anon keys start it
-volcano cloud durable deploy -f order-pipeline --public
+# Deploy one, and let your project's signed-in users start it
+volcano cloud durable deploy -f order-pipeline --visibility authenticated
 
 # Start an execution and follow it
 volcano cloud durable start order-pipeline --input '{"order_id":4417}'
@@ -191,22 +191,47 @@ be refused while the function is still provisioning. Wait for `get` to report
 
 ## Visibility
 
-`--public` lets a project's anon key start executions of one function.
-`--private` sets the level that refuses anon keys and lets your project's
-signed-in users start executions. On a server with visibility levels, it opens
-a private durable function to those users.
+Visibility decides who can start executions of a function:
 
-A public durable function is still not invocable over HTTP the way a public
-standard function is — starting an execution is the only thing the anon key
-can do. Polling and stopping always need a project-scoped credential.
+| Visibility | Who can start executions |
+|---|---|
+| `private` | Service keys and schedulers |
+| `authenticated` | Also your project's signed-in users, including [anonymous sign-ins](/platform/authentication/anonymous-users) |
+| `public` | Also anon keys with `functions.invoke` |
 
-Omit both flags and a redeploy keeps the visibility the function already has. A
-new durable function starts private.
+A caller a `private` function refuses gets `404` with `durable function not
+found`, the same as for a function that does not exist. If your app gets 404
+for a durable function you deployed, check its visibility with
+`volcano cloud durable get <name>`.
 
-Neither flag is accepted with `--all`. Visibility is a per-function decision and
-a durable function has no update endpoint, so one flag applied to a whole
-manifest would take a redeploy of every function to undo. Deploy the one you
-want to change with `-f`.
+A durable function is never invocable over HTTP the way a public standard
+function is, whatever its level: starting an execution is all the level
+allows. Polling and stopping always need a project-scoped credential.
+
+A new durable function starts `private`, and `durable get` shows the level.
+To change it without rebuilding, declare `visibility` in
+[`volcano-config.yaml`](project-configuration.md#function-visibility) and run
+`volcano cloud config deploy`:
+
+```yaml
+functions:
+  - name: order-pipeline
+    kind: durable
+    visibility: authenticated
+```
+
+A redeploy with `--visibility` also sets the level, for the one function `-f`
+names. Omit the flag and a redeploy keeps the level the function has. When a
+deploy creates a function without `--visibility`, it prints both ways to let
+signed-in users in.
+
+`--public` is the same as `--visibility public`. `--private` is no longer
+accepted: it used to let signed-in users in, which is `authenticated` now, so
+pick the level you mean.
+
+`--visibility` is not accepted with `--all`. Visibility is a per-function
+decision, so one flag applied to a whole manifest would take a redeploy of
+every function to undo. Declare levels in the manifest instead.
 
 ## Stopping and deleting
 

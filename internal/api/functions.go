@@ -104,15 +104,17 @@ func (c *Client) DeleteFunction(ctx context.Context, projectID, functionID uuid.
 	return apiOK(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
-// UpdateFunctionVisibility updates one function's public/private visibility.
-func (c *Client) UpdateFunctionVisibility(ctx context.Context, projectID, functionID uuid.UUID, isPublic bool) (*apiclient.Function, error) {
+// UpdateFunctionVisibility sets who can invoke one function.
+func (c *Client) UpdateFunctionVisibility(
+	ctx context.Context, projectID, functionID uuid.UUID, visibility apiclient.FunctionVisibility,
+) (*apiclient.Function, error) {
 	resp, err := c.client.UpdateFunctionWithResponse(ctx, projectID, functionID, apiclient.UpdateFunctionJSONRequestBody{
-		IsPublic: &isPublic,
+		Visibility: &visibility,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON404)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON404, resp.JSON409)
 }
 
 // InvokeFunction invokes one function by ID.

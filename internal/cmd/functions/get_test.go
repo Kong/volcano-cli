@@ -34,6 +34,11 @@ func TestFunctionsGetAcceptsNamePathOrID(t *testing.T) {
 					})
 				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID:
 					writeFunctionCommandJSON(t, w, http.StatusOK, functionCommandPayload(functionID, "hello"))
+				case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/frontends":
+					writeFunctionCommandJSON(t, w, http.StatusOK, frontendsWithRoutesPayload(map[string][]map[string]any{
+						"web":   {functionRoutePayload(functionID, "/api/hello"), functionRoutePayload(otherFunctionID, "/api/other")},
+						"admin": {functionRoutePayload(functionID, "/hello")},
+					}))
 				default:
 					http.NotFound(w, r)
 				}
@@ -47,7 +52,35 @@ func TestFunctionsGetAcceptsNamePathOrID(t *testing.T) {
 			assert.Contains(t, out, "Runtime: nodejs24.x")
 			assert.Contains(t, out, "Handler: handler")
 			assert.Contains(t, out, "Visibility: public")
+			assert.Contains(t, out, "Routed from: admin /hello, web /api/hello")
 			assert.Contains(t, out, "Invoke URL: https://"+functionID+".functions.volcano.run/")
 		})
 	}
+}
+
+// Routes only annotate the function, so failing to list them must not hide it.
+func TestFunctionsGetShowsTheFunctionWhenRoutesCannotBeListed(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			writeFunctionCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{functionCommandPayload(functionID, "hello")}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+functionProjectID+"/functions/"+functionID:
+			writeFunctionCommandJSON(t, w, http.StatusOK, functionCommandPayload(functionID, "hello"))
+		default:
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		}
+	}))
+	defer server.Close()
+
+	stdout, stderr, err := executeFunctionsCommandSplit(t,
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "get", "hello")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Name: hello")
+	assert.Contains(t, stdout, "Visibility: public")
+	assert.NotContains(t, stdout, "Routed from")
+	assert.Contains(t, stderr, "frontend routes to 'hello' are not shown")
 }

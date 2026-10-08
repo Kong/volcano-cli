@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -341,6 +342,49 @@ func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
 			if !tc.localMode {
 				assert.NotContains(t, err.Error(), "local-mode")
 			}
+		})
+	}
+}
+
+// public: false reads as "not public" but now admits signed-in users, so every
+// deploy that reads it, the dry run included, warns. The warning goes to
+// stderr so it cannot break output a script parses.
+func TestDeployWarnsAboutTheDeprecatedPublicKey(t *testing.T) {
+	for _, args := range [][]string{{"deploy"}, {"deploy", "--dry-run"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(`version: 1
+functions:
+  - name: hello
+    public: false
+  - name: open
+    public: true
+  - name: both
+    public: true
+    visibility: public
+  - name: current
+    visibility: private
+`), 0o644))
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+			}))
+			defer server.Close()
+
+			cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(args)
+			require.NoError(t, cmd.Execute())
+
+			assert.Equal(t, "Warning: functions.hello.public is deprecated; `public: false` sets visibility authenticated, "+
+				"which admits signed-in users. Declare `visibility` instead (`visibility: private` keeps them out)\n"+
+				"Warning: functions.open.public is deprecated; `public: true` sets visibility public. Declare `visibility: public` instead\n"+
+				"Warning: functions.both.public is deprecated; visibility sets the level, so remove public\n",
+				stderr.String())
+			assert.NotContains(t, stdout.String(), "deprecated")
 		})
 	}
 }

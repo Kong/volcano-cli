@@ -69,6 +69,43 @@ func TestFrontendsDomainCreate(t *testing.T) {
 	assert.Contains(t, strings.TrimSpace(tlsConfig["certificate_chain_pem"].(string)), "BEGIN CERTIFICATE")
 }
 
+func TestFrontendsDomainCreateNamesTheOwnershipRecord(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+frontendProjectID+"/frontends":
+			writeFrontendCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{frontendCommandPayload(frontendID, "web")}, "has_more": false, "page": 1, "limit": 100, "total": 1,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/frontends/"+frontendID+"/domain":
+			writeFrontendCommandJSON(t, w, http.StatusConflict, map[string]any{
+				"error": "ownership of example.com is not verified",
+				"code":  "ownership_verification_required",
+				"required_record": map[string]any{
+					"name": "_volcano.example.com", "type": "TXT", "value": "volcano-domain-verification=abc",
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	keyPath := filepath.Join(dir, "key.pem")
+	require.NoError(t, os.WriteFile(certPath, []byte("-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----\n"), 0o600))
+	require.NoError(t, os.WriteFile(keyPath, []byte("-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n"), 0o600))
+
+	_, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"domain", "create", "web", "--domain", "app.example.com", "--cert", certPath, "--key", keyPath,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTTP 409: ownership of example.com is not verified")
+	assert.Contains(t, err.Error(), `_volcano.example.com  TXT  "volcano-domain-verification=abc"`)
+}
+
 func TestFrontendsDomainGet(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)

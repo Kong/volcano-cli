@@ -332,7 +332,6 @@ func (e CreateDatabaseRequestDatabaseType) Valid() bool {
 
 // Defines values for CreateDatabaseRequestPgVersion.
 const (
-	CreateDatabaseRequestPgVersionN15 CreateDatabaseRequestPgVersion = "15"
 	CreateDatabaseRequestPgVersionN16 CreateDatabaseRequestPgVersion = "16"
 	CreateDatabaseRequestPgVersionN17 CreateDatabaseRequestPgVersion = "17"
 	CreateDatabaseRequestPgVersionN18 CreateDatabaseRequestPgVersion = "18"
@@ -341,8 +340,6 @@ const (
 // Valid indicates whether the value is a known member of the CreateDatabaseRequestPgVersion enum.
 func (e CreateDatabaseRequestPgVersion) Valid() bool {
 	switch e {
-	case CreateDatabaseRequestPgVersionN15:
-		return true
 	case CreateDatabaseRequestPgVersionN16:
 		return true
 	case CreateDatabaseRequestPgVersionN17:
@@ -5205,7 +5202,10 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
-	IdleTimeoutSeconds *int                                 `json:"idle_timeout_seconds,omitempty"`
+	// IdleTimeoutSeconds Inherits the template idle timeout when omitted, capped at the session duration. Set zero to disable idle timeout.
+	IdleTimeoutSeconds *int `json:"idle_timeout_seconds,omitempty"`
+
+	// MaxDurationSeconds Inherits the template TTL when omitted (3600 seconds for a new template).
 	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
 	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
 
@@ -5615,7 +5615,9 @@ type DatabaseInsertRequest struct {
 	// Table Table name
 	Table string `json:"table"`
 
-	// Values Column values to insert
+	// Values Column values to insert. JSON objects and arrays are stored as JSON,
+	// so send them to `json` or `jsonb` columns. For a Postgres array
+	// column, send an array literal string such as `"{a,b}"`.
 	Values map[string]interface{} `json:"values"`
 }
 
@@ -5887,7 +5889,9 @@ type DatabaseUpdateRequest struct {
 	// Table Table name
 	Table string `json:"table"`
 
-	// Values Column values to update
+	// Values Column values to update. JSON objects and arrays are stored as JSON,
+	// so send them to `json` or `jsonb` columns. For a Postgres array
+	// column, send an array literal string such as `"{a,b}"`.
 	Values map[string]interface{} `json:"values"`
 }
 
@@ -8115,7 +8119,9 @@ type ProjectConfigDatabase struct {
 	DatabaseType *ProjectConfigDatabaseDatabaseType `json:"database_type,omitempty"`
 	Name         string                             `json:"name"`
 
-	// PgVersion PostgreSQL major version. Asserted, never written.
+	// PgVersion PostgreSQL major version. Asserted, never written. Also accepts
+	// versions new databases can no longer be created on, so an export
+	// of an existing database re-applies.
 	PgVersion ProjectConfigDatabasePgVersion `json:"pg_version"`
 
 	// Region Deployed region ID (e.g. us-east-1). Asserted, never written; region IDs issued by earlier versions of the API match too.
@@ -8126,7 +8132,9 @@ type ProjectConfigDatabase struct {
 // supported via the manifest; use the databases API/CLI/GUI instead.
 type ProjectConfigDatabaseDatabaseType string
 
-// ProjectConfigDatabasePgVersion PostgreSQL major version. Asserted, never written.
+// ProjectConfigDatabasePgVersion PostgreSQL major version. Asserted, never written. Also accepts
+// versions new databases can no longer be created on, so an export
+// of an existing database re-applies.
 type ProjectConfigDatabasePgVersion string
 
 // ProjectConfigEmailTemplate defines model for ProjectConfigEmailTemplate.

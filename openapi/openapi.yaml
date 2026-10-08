@@ -15109,12 +15109,12 @@ components:
           type: integer
           minimum: 30
           maximum: 28800
-          default: 3600
+          description: Inherits the template TTL when omitted (3600 seconds for a new template).
         idle_timeout_seconds:
           type: integer
           minimum: 0
           maximum: 28800
-          default: 0
+          description: Inherits the template idle timeout when omitted, capped at the session duration. Set zero to disable idle timeout.
       required:
         - region
       oneOf:
@@ -16415,7 +16415,6 @@ components:
             version its server runs. Any other value is rejected with 400.
           example: '18'
           enum:
-            - '15'
             - '16'
             - '17'
             - '18'
@@ -17083,7 +17082,10 @@ components:
         values:
           type: object
           additionalProperties: true
-          description: Column values to insert
+          description: |
+            Column values to insert. JSON objects and arrays are stored as JSON,
+            so send them to `json` or `jsonb` columns. For a Postgres array
+            column, send an array literal string such as `"{a,b}"`.
           example:
             title: My New Post
             content: This is the content
@@ -17101,7 +17103,10 @@ components:
         values:
           type: object
           additionalProperties: true
-          description: Column values to update
+          description: |
+            Column values to update. JSON objects and arrays are stored as JSON,
+            so send them to `json` or `jsonb` columns. For a Postgres array
+            column, send an array literal string such as `"{a,b}"`.
           example:
             title: Updated Title
             status: published
@@ -21094,7 +21099,10 @@ components:
             - '16'
             - '17'
             - '18'
-          description: PostgreSQL major version. Asserted, never written.
+          description: |
+            PostgreSQL major version. Asserted, never written. Also accepts
+            versions new databases can no longer be created on, so an export
+            of an existing database re-applies.
         database_type:
           type: string
           enum:

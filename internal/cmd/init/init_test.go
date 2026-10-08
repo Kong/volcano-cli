@@ -89,17 +89,14 @@ func TestCreatesNextJSNotesExample(t *testing.T) {
 	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano init nextjs --example notes")
 	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano config deploy")
 
-	// The dashboard invokes notes-summary as the signed-in user. public: false
-	// keeps that working on servers that default new functions to private,
-	// and is what older servers already do.
+	// The dashboard invokes notes-summary as the signed-in user, which new
+	// functions refuse until they are authenticated.
 	manifest, _, err := projectconfig.Load(filepath.Join("volcano", "volcano-config.yaml"))
 	require.NoError(t, err)
 	require.NotNil(t, manifest.Functions)
 	require.Len(t, *manifest.Functions, 1)
-	notesSummary := (*manifest.Functions)[0]
-	assert.Equal(t, "notes-summary", notesSummary.Name)
-	require.NotNil(t, notesSummary.Public)
-	assert.False(t, *notesSummary.Public)
+	assert.Equal(t, "notes-summary", (*manifest.Functions)[0].Name)
+	assertStarterFunctionVisibility(t, "notes-summary", "authenticated")
 	assert.Contains(t, readFile(t, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
 }
 
@@ -134,7 +131,9 @@ func TestCreatesFunctionLanguageTemplates(t *testing.T) {
 			assert.FileExists(t, tt.manifest)
 			assert.FileExists(t, tt.function)
 			assert.Contains(t, readFile(t, tt.function), tt.contains)
-			if tt.template != "javascript" && tt.template != "js" {
+			if tt.template == "javascript" || tt.template == "js" {
+				assertStarterFunctionVisibility(t, "hello", "public")
+			} else {
 				assert.NoFileExists(t, filepath.Join("volcano", "functions", "hello.js"))
 				assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
 			}
@@ -160,8 +159,29 @@ func TestCreatesFunctionLanguageExamples(t *testing.T) {
 			require.NoError(t, err)
 			assert.FileExists(t, tt.function)
 			assert.Contains(t, readFile(t, tt.function), "Hello from Volcano")
+			if tt.template == "js" {
+				assertStarterFunctionVisibility(t, "hello", "public")
+			}
 		})
 	}
+}
+
+// assertStarterFunctionVisibility checks the level a starter's manifest gives a
+// function, spelled the current way rather than with the deprecated public.
+func assertStarterFunctionVisibility(t *testing.T, name, visibility string) {
+	t.Helper()
+	manifest, _, err := projectconfig.Load(filepath.Join("volcano", "volcano-config.yaml"))
+	require.NoError(t, err)
+	require.NotNil(t, manifest.Functions)
+	for _, fn := range *manifest.Functions {
+		if fn.Name == name {
+			require.NotNil(t, fn.Visibility)
+			assert.Equal(t, visibility, *fn.Visibility)
+			assert.Nil(t, fn.Public)
+			return
+		}
+	}
+	t.Fatalf("starter manifest declares no function %q", name)
 }
 
 func TestRerunPrintsUnchangedFiles(t *testing.T) {
