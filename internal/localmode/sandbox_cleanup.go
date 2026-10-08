@@ -19,6 +19,17 @@ func (s Service) cleanSandboxResources(ctx context.Context) error {
 			return fmt.Errorf("remove local Sandbox container %s: %w", id, err)
 		}
 	}
+	networks, err := s.runDocker(ctx, "network", "ls", "--quiet", "--filter", filter)
+	if err != nil {
+		return fmt.Errorf("list local Sandbox networks: %w", err)
+	}
+	for id := range strings.FieldsSeq(string(networks)) {
+		// Docker refuses to remove a network with remaining endpoints. Never
+		// disconnect unrelated containers to force cleanup through.
+		if _, err := s.runDocker(ctx, "network", "rm", id); err != nil {
+			return fmt.Errorf("remove local Sandbox network %s: %w", id, err)
+		}
+	}
 	images, err := s.runDocker(ctx, "image", "ls", "--quiet", "--filter", filter)
 	if err != nil {
 		return fmt.Errorf("list local Sandbox images: %w", err)

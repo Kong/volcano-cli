@@ -49,6 +49,7 @@ func TestStopCleanRunsWhenServerIsStopped(t *testing.T) {
 				return []byte("false\n"), nil
 			case commandIsComposeDown(command, false), commandIsComposeDown(command, true),
 				commandIs(command, "docker", "container", "ls", "--all", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),
+				commandIs(command, "docker", "network", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"),
 				commandIs(command, "docker", "image", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"):
 				return nil, nil
 			default:

@@ -13,8 +13,8 @@ import (
 )
 
 func TestStopCleanReclaimsSandboxesBeforeDeletingVolumes(t *testing.T) {
-	for _, failAt := range []int{-1, 1, 2, 3, 4, 5, 6} {
-		t.Run(map[int]string{-1: "success", 1: "stop", 2: "list-containers", 3: "remove-container", 4: "list-images", 5: "remove-image", 6: "remove-volumes"}[failAt], func(t *testing.T) {
+	for _, failAt := range []int{-1, 1, 2, 3, 4, 5, 6, 7, 8} {
+		t.Run(map[int]string{-1: "success", 1: "stop", 2: "list-containers", 3: "remove-container", 4: "list-networks", 5: "remove-network", 6: "list-images", 7: "remove-image", 8: "remove-volumes"}[failAt], func(t *testing.T) {
 			setLocalDevTestHome(t)
 			require.NoError(t, saveDevState(localModeInfo("http://localhost:8000")))
 			state, err := DevStatePath()
@@ -36,11 +36,16 @@ func TestStopCleanReclaimsSandboxesBeforeDeletingVolumes(t *testing.T) {
 				case 3:
 					require.True(t, commandIs(c, "docker", "container", "rm", "--force", "container123"))
 				case 4:
+					require.True(t, commandIs(c, "docker", "network", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"))
+					output = "network123\n"
+				case 5:
+					require.True(t, commandIs(c, "docker", "network", "rm", "network123"))
+				case 6:
 					require.True(t, commandIs(c, "docker", "image", "ls", "--quiet", "--filter", "label=dev.volcano.sandbox.namespace=volcano"))
 					output = "image123\nimage123\n"
-				case 5:
+				case 7:
 					require.True(t, commandIs(c, "docker", "image", "rm", "image123"), "never force image deletion")
-				case 6:
+				case 8:
 					require.True(t, commandIsComposeDown(c, true))
 				default:
 					t.Fatalf("unexpected command: %s", commandDebug(c))
@@ -54,7 +59,7 @@ func TestStopCleanReclaimsSandboxesBeforeDeletingVolumes(t *testing.T) {
 			err = NewService(cliruntime.Deps{}, WithDockerRunner(runner)).Stop(t.Context(), &out, true)
 			if failAt < 0 {
 				require.NoError(t, err)
-				require.Equal(t, 7, step)
+				require.Equal(t, 9, step)
 				_, err = os.Stat(state)
 				require.True(t, os.IsNotExist(err))
 			} else {
