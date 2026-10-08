@@ -36829,6 +36829,7 @@ type ApproveDurableApprovalClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -36863,6 +36864,7 @@ type DenyDurableApprovalClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -49938,6 +49940,13 @@ func ParseApproveDurableApprovalClientResponse(rsp *http.Response) (*ApproveDura
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
 	}
 
 	return response, nil
@@ -49991,6 +50000,13 @@ func ParseDenyDurableApprovalClientResponse(rsp *http.Response) (*DenyDurableApp
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	}
 

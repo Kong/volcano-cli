@@ -4484,6 +4484,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/durable-approvals/{approvalId}/deny:
     post:
       tags:
@@ -4541,6 +4547,12 @@ paths:
             The approval was already approved, or has expired or been
             cancelled. `code` is `approval_decided`, `approval_expired`, or
             `approval_cancelled`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 16 KiB
           content:
             application/json:
               schema:
