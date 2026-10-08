@@ -21,7 +21,11 @@ volcano sandboxes presets
 volcano sandboxes exec --preset node22 -- node -e 'console.log(42)'
 ```
 
-Local Sandboxes require Docker. `volcano start` starts the core services before attempting the optional Sandbox broker. A broker startup failure prints a warning and leaves the core services available; Sandbox requests remain unavailable until the broker is reachable. `volcano stop` also stops the broker, and `volcano stop --clean` removes its Compose volumes. They use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
+Local Sandboxes require Docker. `volcano start` starts the core services before attempting the optional Sandbox broker. A broker startup failure prints a warning and leaves the core services available; Sandbox requests remain unavailable until the broker is reachable. `volcano stop` also stops the broker.
+
+`volcano stop --clean` removes Sandbox containers, their private networks, and custom images before deleting local data volumes, including resources left after a broker failure. Cleanup is limited to this local environment; other Docker projects and images are preserved. Networks still used by other containers are not disconnected. If Sandbox cleanup fails, data volumes are kept so you can retry `volcano stop --clean`.
+
+Local Sandboxes use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
 
 ## Keep a session
 
