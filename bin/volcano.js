@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { binaryPath, ensureBinary } = require('../scripts/npm/download.js');
+const { assetName, binaryPath, ensureBinary } = require('../scripts/npm/download.js');
 
 async function resolveBinary() {
   try {
@@ -18,14 +18,12 @@ async function resolveBinary() {
     }
     return await ensureBinary();
   } catch (err) {
-    // Covers both download failures and unsupported platforms: binaryPath() ->
-    // resolveTarget() throws for e.g. Windows arm64, which passes the
-    // package.json os/cpu gate but has no published binary.
+    // Covers download failures and unsupported platforms.
     console.error(`volcano: could not obtain the CLI binary: ${err.message}`);
-    console.error(
-      'Install it manually from https://github.com/Kong/volcano-cli/releases ' +
-        'or re-install the package.'
-    );
+    const manual = process.platform === 'win32' && ['x64', 'arm64'].includes(process.arch)
+      ? `https://download.volcano.dev/builds/releases/latest/download/${assetName()}`
+      : 'https://download.volcano.dev/builds/install.sh';
+    console.error(`Install it manually from ${manual} or re-install the package.`);
     process.exit(1);
   }
 }

@@ -33,7 +33,7 @@ func TestAccessTokenCommandsCreateListGetRevoke(t *testing.T) {
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			createBodies = append(createBodies, body)
 			created := accessTokenCommandPayload(accessTokenID, "ci-deploy")
-			created["token"] = "pt-Wq9l2m4XcR7tFv1sN8bK3hJ0"
+			created["token"] = accessTokenSecret
 			writeAccessTokenCommandJSON(t, w, http.StatusCreated, created)
 		case r.Method == http.MethodGet && r.URL.Path == basePath:
 			listQueries = append(listQueries, r.URL.RawQuery)
@@ -60,7 +60,7 @@ func TestAccessTokenCommandsCreateListGetRevoke(t *testing.T) {
 		"expires_at": "2099-01-31T00:00:00Z",
 	}, createBodies[0])
 	assert.Contains(t, out, "Access token 'ci-deploy' created")
-	assert.Contains(t, out, "pt-Wq9l2m4XcR7tFv1sN8bK3hJ0")
+	assert.Contains(t, out, accessTokenSecret)
 	assert.Contains(t, out, "shown once and cannot be retrieved again")
 
 	out, err = executeAccessTokenCommand(t, New(deps), "list")
@@ -544,10 +544,9 @@ func TestAccessTokenCreateAcceptsTheNameFlag(t *testing.T) {
 func TestAccessTokenCreateEmitsJSONIncludingTheSecret(t *testing.T) {
 	setAccessTokenCommandTestHome(t)
 	saveAccessTokenCommandTestConfig(t, "token")
-	const secret = "pt-9f3c1a8b2d47e0c5a1b8f36d92e4c7a0"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		payload := accessTokenCommandPayload(accessTokenID, "ci-deploy")
-		payload["token"] = secret
+		payload["token"] = accessTokenSecret
 		writeAccessTokenCommandJSON(t, w, http.StatusCreated, payload)
 	}))
 	defer server.Close()
@@ -558,7 +557,7 @@ func TestAccessTokenCreateEmitsJSONIncludingTheSecret(t *testing.T) {
 
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &decoded), "output should parse as JSON: %s", out)
-	assert.Equal(t, secret, decoded["token"])
+	assert.Equal(t, accessTokenSecret, decoded["token"])
 	assert.Equal(t, "ci-deploy", decoded["name"])
 }
 

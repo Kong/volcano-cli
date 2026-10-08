@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
 
-readonly VOLCANO_GITHUB_RELEASES_URL="${VOLCANO_GITHUB_RELEASES_URL:-https://github.com/Kong/volcano-cli/releases}"
+readonly VOLCANO_GITHUB_RELEASES_URL="${VOLCANO_GITHUB_RELEASES_URL:-}"
+readonly VOLCANO_CLI_RELEASES_URL="${VOLCANO_CLI_RELEASES_URL:-https://download.volcano.dev/builds/releases}"
 readonly VOLCANO_DEFAULT_VERSION="latest"
 readonly VOLCANO_SIGNATURE_WORKFLOW="https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml"
 readonly VOLCANO_SIGNATURE_OIDC_ISSUER="https://token.actions.githubusercontent.com"
@@ -49,11 +50,11 @@ download_file() {
   download_file_url="$1"
   download_file_output="$2"
   if have curl; then
-    curl --fail --location --silent --show-error "$download_file_url" --output "$download_file_output"
+    curl --fail --location --silent --show-error --connect-timeout 10 --speed-limit 1 --speed-time 30 --retry 2 "$download_file_url" --output "$download_file_output"
     return
   fi
   if have wget; then
-    wget --quiet --output-document="$download_file_output" "$download_file_url"
+    wget --quiet --timeout=30 --tries=3 --output-document="$download_file_output" "$download_file_url"
     return
   fi
   fail "curl or wget is required to download Volcano CLI"
@@ -107,11 +108,11 @@ release_asset_url() {
 
   case "$release_asset_url_version" in
     latest)
-      echo "${VOLCANO_GITHUB_RELEASES_URL%/}/latest/download/${release_asset_url_asset}"
+      echo "${RELEASES_URL%/}/latest/download/${release_asset_url_asset}"
       ;;
     *)
       if is_semver "$release_asset_url_version"; then
-        echo "${VOLCANO_GITHUB_RELEASES_URL%/}/download/${release_asset_url_version}/${release_asset_url_asset}"
+        echo "${RELEASES_URL%/}/download/${release_asset_url_version}/${release_asset_url_asset}"
       else
         fail "unsupported Volcano CLI version selector: ${release_asset_url_version}; use latest or vMAJOR.MINOR.PATCH"
       fi
@@ -147,6 +148,7 @@ for arg in "$@"; do
   esac
 done
 
+RELEASES_URL="${VOLCANO_GITHUB_RELEASES_URL:-$VOLCANO_CLI_RELEASES_URL}"
 VERSION="${VOLCANO_VERSION:-$VOLCANO_DEFAULT_VERSION}"
 
 if [ -z "$VERSION" ]; then
@@ -162,24 +164,36 @@ fi
 
 TARGET="${OS}-${ARCH}"
 case "$TARGET" in
-  linux-amd64 | linux-arm64 | macos-amd64 | macos-arm64 | windows-amd64) ;;
-  windows-arm64) fail "unsupported platform: ${TARGET}; Volcano CLI does not publish a Windows arm64 binary yet" ;;
+  linux-amd64 | linux-arm64 | macos-amd64 | macos-arm64 | windows-amd64 | windows-arm64) ;;
   *) fail "unsupported platform: ${TARGET}" ;;
 esac
+
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+# Resolve once so concurrent promotion cannot mix binary and signature versions.
+if [ "$VERSION" = latest ] && [ -z "$VOLCANO_GITHUB_RELEASES_URL" ]; then
+  download_file "${RELEASES_URL%/}/latest-version" "$TMP_DIR/version" ||
+    fail "could not resolve the latest Volcano CLI version from ${RELEASES_URL%/}/latest-version"
+  VERSION="$(cat "$TMP_DIR/version")"
+  is_semver "$VERSION" || fail "invalid latest Volcano CLI version: $VERSION"
+fi
 
 BINARY_NAME="volcano-${TARGET}${EXT}"
 DOWNLOAD_URL="$(release_asset_url "$VERSION" "$BINARY_NAME")"
 BUNDLE_URL="${DOWNLOAD_URL}.sigstore.json"
 
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
 TMP_FILE="${TMP_DIR}/${BINARY_NAME}"
 TMP_BUNDLE="${TMP_FILE}.sigstore.json"
 
 require_cosign_for_verification
 
 echo "Downloading Volcano CLI (${TARGET}) from ${DOWNLOAD_URL}"
-download_file "$DOWNLOAD_URL" "$TMP_FILE"
+if ! download_file "$DOWNLOAD_URL" "$TMP_FILE"; then
+  if [ -z "$VOLCANO_GITHUB_RELEASES_URL" ] && [ "$VERSION" = "${VOLCANO_VERSION:-}" ]; then
+    fail "could not download Volcano CLI ${VERSION}. If it predates Volcano downloads, set VOLCANO_GITHUB_RELEASES_URL=https://github.com/Kong/volcano-cli/releases"
+  fi
+  fail "could not download Volcano CLI ${VERSION}"
+fi
 if [ "${VOLCANO_SKIP_SIGNATURE_VERIFICATION:-}" != "1" ]; then
   download_file "$BUNDLE_URL" "$TMP_BUNDLE"
 fi

@@ -25,12 +25,12 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	writeAPIE2EFrontend(t, env.projectDir)
 	env.runCloudCLI(t, "frontends", "deploy", "--name", frontend, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
 	env.runCloudCLI(t, "frontends", "list").requireSuccess(t, frontend)
-	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
+	first := env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	writeAPIE2EFrontendVersion(t, env.projectDir, "v2")
 	env.runCloudCLI(t, "frontends", "deploy", "--name", frontend, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
 	writeAPIE2EFrontendVersion(t, env.projectDir, "v3")
 	env.runCloudCLI(t, "frontends", "deploy", "--name", frontend, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
-	active := env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
+	active := env.waitForFrontendDeployment(t, frontend, cliOutputField(first.output, "Current Deployment:"))
 	siteURL := cliOutputField(active.output, "Site URL:")
 	waitForAPIE2EFrontendContent(t, siteURL, "Volcano CLI E2E v3")
 
@@ -190,6 +190,49 @@ func cliOutputField(output, prefix string) string {
 		}
 	}
 	return ""
+}
+
+// waitForFrontendDeployment waits for the latest deployment started after
+// previousDeployment to become active. A failed redeploy puts the frontend
+// back to active on previousDeployment, so this fails on that with the build
+// log instead of passing.
+func (e *apiE2E) waitForFrontendDeployment(t *testing.T, frontend, previousDeployment string) cliResult {
+	t.Helper()
+	if previousDeployment == "" {
+		t.Fatal("frontend output did not include Current Deployment")
+	}
+	deadline := time.Now().Add(apiE2EFrontendDeploymentTimeout)
+	var last cliResult
+	started := ""
+	for time.Now().Before(deadline) {
+		last = e.runCloudCLIWithin(t, attemptTimeout(deadline), "frontends", "get", frontend)
+		if last.code == 0 {
+			current := cliOutputField(last.output, "Current Deployment:")
+			pending := cliOutputField(last.output, "Pending Deployment:")
+			for _, id := range []string{current, pending} {
+				if id != "" && id != previousDeployment {
+					started = id
+				}
+			}
+			status := cliOutputField(last.output, "Status:")
+			if status == "failed" || (status == "active" && pending == "" && current != started) {
+				logArgs := []string{"frontends", "logs", frontend, "--type", "build"}
+				if started != "" {
+					logArgs = []string{"frontends", "logs", frontend, started, "--type", "build"}
+				}
+				logs := e.runCloudCLIWithin(t, attemptTimeout(deadline), logArgs...)
+				t.Fatalf("frontend %s deployment %q did not become active:\n%s\nbuild logs:\n%s",
+					frontend, started, redactCredentials(last.output), redactCredentials(logs.output))
+			}
+			if status == "active" && pending == "" {
+				return last
+			}
+		}
+		time.Sleep(apiE2EPollInterval)
+	}
+	t.Fatalf("frontend %s did not finish a deployment after %s before %s:\n%s",
+		frontend, previousDeployment, apiE2EFrontendDeploymentTimeout, redactCredentials(last.output))
+	return last
 }
 
 func waitForAPIE2EFrontendContent(t *testing.T, siteURL, expected string) {

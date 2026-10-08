@@ -63,6 +63,8 @@ tags:
     description: Platform-user git provider connections for deployment source integrations
   - name: Project Imports
     description: Read-only project source discovery and import readiness checks
+  - name: Verified Domains
+    description: Domains an account has proven it owns, so it can attach any custom domain below them
   - name: Storage Buckets
     description: Storage bucket management (platform admin)
   - name: Storage Policies
@@ -281,6 +283,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /projects/{id}/sandboxes/{sandboxId}/deployments:
+    post:
+      tags:
+        - Sandboxes
+      summary: Build and deploy a custom sandbox template
+      description: Upload a tar.gz context with a Dockerfile. The template ID may be new. Retries with the same Idempotency-Key and content return the same deployment. Existing sessions retain their image while the replacement builds and validates.
+      operationId: deploySandbox
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - code
+              properties:
+                name:
+                  type: string
+                  pattern: ^[a-z][a-z0-9-]{0,62}$
+                code:
+                  type: string
+                  format: binary
+                  description: Source tar.gz archive, limited to 32 MiB compressed and expanded.
+                memory_mb:
+                  type: integer
+                  enum:
+                    - 1024
+                    - 2048
+                  description: Memory in MiB. Defaults to 1024 when omitted.
+                ports:
+                  type: string
+                  description: JSON array of application ports that must become ready before activation, for example [8080].
+      responses:
+        '202':
+          description: Deployment queued or replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxDeployment'
+        default:
+          description: Invalid source, conflicting retry, denied access, or unavailable deployment service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     get:
       tags:
         - Sandboxes
@@ -313,6 +382,148 @@ paths:
                 $ref: '#/components/schemas/SandboxDeploymentPage'
         default:
           description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and disabled or unavailable (503).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}:
+    get:
+      tags:
+        - Sandboxes
+      summary: Get a sandbox deployment
+      operationId: getSandboxDeployment
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Get a sandbox deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxDeployment'
+        default:
+          description: Denied access, missing resource, or unavailable deployment service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/logs:
+    get:
+      tags:
+        - Sandboxes
+      summary: Read sandbox deployment build logs
+      operationId: getSandboxDeploymentLogs
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: region
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^(aws-)?[a-z]{2}(-[a-z]+)+-[0-9]+$
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 2048
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Read sandbox deployment build logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxBuildLogPage'
+        default:
+          description: Denied access, missing resource, or unavailable deployment service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/sandboxes/{sandboxId}/deployments/{deploymentId}/source:
+    get:
+      tags:
+        - Sandboxes
+      summary: Download the retained custom sandbox source
+      operationId: getSandboxDeploymentSource
+      security:
+        - UserToken: []
+        - ServiceRoleKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sandboxId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: deploymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Download the retained custom sandbox source
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        default:
+          description: Denied access, missing resource, or unavailable deployment service
           content:
             application/json:
               schema:
@@ -1574,6 +1785,179 @@ paths:
                 $ref: '#/components/schemas/Error'
         '503':
           description: Git provider integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains:
+    get:
+      tags:
+        - Verified Domains
+      summary: List verified domains
+      description: |
+        Lists the domains the account has verified. The account can attach any
+        custom domain at or below one of them, in either TLS mode, without
+        publishing another ownership record.
+      operationId: listVerifiedDomains
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      responses:
+        '200':
+          description: The account's verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomainsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list verified domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Verified Domains
+      summary: Verify a domain
+      description: |
+        Verifies the account's ownership of a domain and every name below it.
+        Verify a registrable domain such as `example.com` to cover all of its
+        subdomains, or a delegated subdomain you control.
+
+        Publish a TXT record named `_volcano.<domain>`, then send this request.
+        Without the record, the response is `409` with
+        `code: ownership_verification_required` and the `required_record` to
+        publish. Its value is the same on every request. The record must be
+        served at that name itself; a record reached through a CNAME does not
+        count.
+
+        When another account verified the domain, publishing your record moves
+        the domain to your account once that account's record is no longer
+        published. Keep your record published so the domain stays yours.
+
+        Verifying a domain the account already verified returns `200`.
+      operationId: verifyDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDomainRequest'
+      responses:
+        '200':
+          description: The account had already verified the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '201':
+          description: Domain verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifiedDomain'
+        '400':
+          description: Bad request - invalid domain or a public suffix
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - the ownership record is not published yet, or another account owns the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
+        '500':
+          description: Failed to verify the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - DNS did not answer whether another account's record is still published; retry later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/domains/{domain}:
+    delete:
+      tags:
+        - Verified Domains
+      summary: Remove a verified domain
+      description: |
+        Gives up the account's ownership of a domain. Custom domains already
+        attached below it keep serving; attaching another requires verifying
+        the domain again. Domains Volcano reserves for its own account cannot
+        be removed.
+      operationId: deleteVerifiedDomain
+      security:
+        - UserToken: []
+        - AuthUserAccessToken: []
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The verified domain, such as `example.com`
+          schema:
+            type: string
+            maxLength: 253
+      responses:
+        '204':
+          description: Domain removed
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - Volcano reserves this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The account has not verified this domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to remove the domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Domain verification is unavailable in local mode
           content:
             application/json:
               schema:
@@ -5500,7 +5884,7 @@ paths:
         22.x or 24.x. The Node.js runtime is inferred from
         `package.json` `engines.node`; if omitted, Volcano uses Node.js 22.x.
         The selected Node.js family must also satisfy the installed Next.js package's
-        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.3.8 (`>=20.9.0`).
+        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.4.0 (`>=20.9.0`).
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
         does not apply its own source archive size limit. After the final container images are
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
@@ -5843,6 +6227,10 @@ paths:
         Configures one custom domain for a frontend.
         The default Volcano-generated frontend URL remains active.
         Wildcard Volcano frontend TLS remains valid and isolated from custom-domain certificate changes.
+        The account must own the hostname: it must have verified the hostname or a domain above it (see `POST /user/domains`). A certificate does not prove ownership.
+        When the account owns no domain covering the hostname, Volcano asks for a TXT record at `_volcano.<registrable domain>`, such as `_volcano.example.com`. Publishing it verifies the whole domain, so later subdomains need no record. A managed TLS request reserves the hostname and returns that record in `verification_records`; the reservation expires after 72 hours unless the record is published. A BYOC request gets `409` with `code: ownership_verification_required` and the record in `required_record`; publish it and send the same request again.
+        Managed TLS then returns the CNAME that authorizes certificate issuance and renewal.
+        An unverified reservation does not block an account that proves ownership. When another account holds one, a request gets `409` with `code: ownership_verification_required` and the caller's own `required_record`; after publishing it, the same request takes over the reservation. When another account verified the domain, the same `409` names the record that moves the domain to the caller once the other account's record is no longer published. A hostname below a domain another account owns otherwise returns `409` without `code`.
       operationId: createFrontendCustomDomain
       security:
         - UserToken: []
@@ -5882,7 +6270,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - custom domains require SUPERAGENT plan
+          description: Forbidden - custom domains require SUPERAGENT plan, or a managed TLS request would exceed the account's managed TLS certificate limit
           content:
             application/json:
               schema:
@@ -5894,11 +6282,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - custom domain already in use, still detaching, or frontend already has a custom domain
+          description: Conflict - ownership not verified, custom domain owned or reserved by another account, already in use, still detaching, or frontend already has a custom domain
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
         '500':
           description: Internal server error
           content:
@@ -7566,7 +7954,7 @@ paths:
                 $ref: '#/components/schemas/DatabaseQueryResult'
               example:
                 data:
-                  - '?column?': 1
+                  - ?column?: 1
                 count: 1
         '401':
           description: Not authenticated
@@ -7923,7 +8311,7 @@ paths:
                 $ref: '#/components/schemas/DatabaseQueryResult'
               example:
                 data:
-                  - '?column?': 1
+                  - ?column?: 1
                 count: 1
         '401':
           description: Not authenticated
@@ -8305,7 +8693,8 @@ paths:
       summary: List available PostgreSQL versions
       operationId: listPostgresVersions
       description: |
-        Returns a list of supported PostgreSQL major versions for database provisioning.
+        Returns the PostgreSQL major versions a database can be created on,
+        newest first. Local mode lists only the version its server runs.
         This is a public endpoint that doesn't require authentication.
       responses:
         '200':
@@ -8319,15 +8708,18 @@ paths:
                   properties:
                     version:
                       type: string
-                      example: '16'
+                      example: '18'
                       description: PostgreSQL major version number
                     name:
                       type: string
-                      example: PostgreSQL 16
+                      example: PostgreSQL 18
                       description: Human-readable version name
                     default:
                       type: boolean
-                      description: Whether this is the default version (recommended)
+                      description: True on the version to preselect for a new database; absent on the others
+                    recommended:
+                      type: boolean
+                      description: True on the version recommended for new databases; absent on the others
                     deprecated:
                       type: boolean
                       description: Whether this version is deprecated (approaching EOL)
@@ -9569,12 +9961,15 @@ paths:
         - Auth Admin
       summary: Get auth user insights
       description: |
-        Returns current auth-user totals, rolling 30-day active users, and
-        zero-filled signup and successful sign-in counts for an inclusive UTC
-        date range. Weeks start on Monday. Sign-in counts and active-user
-        activity begin when collection is deployed. Historical signup counts
-        are backfilled from users present at deployment. Token refreshes affect
-        active users but not the sign-in series.
+        Returns current and deleted auth-user totals, rolling 24-hour and 30-day
+        active users, and zero-filled signup, deletion, net-growth, and successful
+        sign-in counts for an inclusive UTC date range. Weeks start on Monday.
+        Signups remain counted after deletion; net growth is signups minus
+        deletions. Deleted users contribute to active counts until their last
+        activity leaves the rolling window. Token refreshes affect active users
+        but not the sign-in series. Collection starts at deployment, with signup
+        history backfilled from accounts still present then. Earlier hard-deleted
+        accounts cannot be recovered.
       operationId: getAuthInsights
       security:
         - UserToken: []
@@ -9614,11 +10009,15 @@ paths:
                   interval: day
                 summary:
                   total_users: 1234
+                  deleted_users: 42
+                  active_users_1d: 83
                   active_users_30d: 418
                 series:
                   - bucket_start: '2026-07-20'
                     signups: 12
                     signins: 97
+                    deletions: 3
+                    net_growth: 9
                     is_partial: true
         '400':
           description: Invalid date range or interval
@@ -9934,6 +10333,7 @@ paths:
       description: |
         Bans a user temporarily or permanently. Banned users cannot sign in
         and all their active sessions are immediately revoked.
+        Omitting banned_until clears any previous expiry. Deleted accounts cannot be banned.
 
         - Omit `banned_until` for a permanent ban
         - Provide `banned_until` ISO timestamp for a temporary ban
@@ -9973,6 +10373,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Deleted accounts cannot be banned or restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/auth/users/{userId}/unban:
     post:
       tags:
@@ -9980,7 +10386,7 @@ paths:
       summary: Unban a user
       description: |
         Removes a ban from a user, restoring their ability to sign in.
-        The user's status is set back to 'active'.
+        The user's status is set back to 'active'. Deleted accounts cannot be restored.
       operationId: unbanAuthUser
       security:
         - UserToken: []
@@ -10002,6 +10408,12 @@ paths:
                 $ref: '#/components/schemas/UnbanUserResponse'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Deleted accounts cannot be banned or restored
           content:
             application/json:
               schema:
@@ -14602,9 +15014,7 @@ components:
           pattern: ^[a-z][a-z0-9-]{0,62}$
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         memory_mb:
           type: integer
           enum:
@@ -14682,9 +15092,7 @@ components:
       properties:
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         sandbox_id:
           type: string
           format: uuid
@@ -14701,12 +15109,12 @@ components:
           type: integer
           minimum: 30
           maximum: 28800
-          default: 3600
+          description: Inherits the template TTL when omitted (3600 seconds for a new template).
         idle_timeout_seconds:
           type: integer
           minimum: 0
           maximum: 28800
-          default: 0
+          description: Inherits the template idle timeout when omitted, capped at the session duration. Set zero to disable idle timeout.
       required:
         - region
       oneOf:
@@ -14746,9 +15154,7 @@ components:
       properties:
         preset:
           type: string
-          enum:
-            - python3.12
-            - node22
+          description: Preset ID from the available Sandbox preset catalog.
         sandbox_id:
           type: string
           format: uuid
@@ -14921,6 +15327,27 @@ components:
         - url
         - token
         - expires_at
+    SandboxBuildLogPage:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - timestamp
+              - message
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              message:
+                type: string
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page. Absent when caught up.
     SandboxDeployment:
       type: object
       additionalProperties: false
@@ -15331,12 +15758,21 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: Accounts created during the bucket that still exist.
+          description: Registrations during the bucket. Subsequent deletion does not subtract from this count. Historical counts removed before deletion-history collection cannot be reconstructed.
         signins:
           type: integer
           format: int64
           minimum: 0
           description: Successful session creations during the bucket.
+        deletions:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Accounts deleted during this bucket, counted once across soft and hard deletion.
+        net_growth:
+          type: integer
+          format: int64
+          description: Registrations minus deletions during this bucket. May be negative.
         is_partial:
           type: boolean
           description: Whether the requested window or observation time clips this bucket.
@@ -15345,6 +15781,8 @@ components:
         - signups
         - signins
         - is_partial
+        - deletions
+        - net_growth
     AuthInsightsSummary:
       type: object
       additionalProperties: false
@@ -15353,15 +15791,27 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: Current auth-user count, matching the auth-user list total.
+          description: Current auth-user count, excluding accounts with deleted status.
+        deleted_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Recorded deletions, excluding internal test identities. Includes soft and hard deletion, counted once per account.
+        active_users_1d:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Distinct users active in the trailing 24 hours, including activity before account deletion.
         active_users_30d:
           type: integer
           format: int64
           minimum: 0
-          description: Users with a successful session creation or refresh in the trailing 30 days since activity collection was deployed.
+          description: Distinct users with a successful session creation or refresh in the trailing 30 days, including activity before account deletion.
       required:
         - total_users
         - active_users_30d
+        - active_users_1d
+        - deleted_users
     AuthInsightsWindow:
       type: object
       additionalProperties: false
@@ -15959,11 +16409,15 @@ components:
           example: us-east-1
         pg_version:
           type: string
-          description: PostgreSQL major version
-          example: '16'
+          description: |
+            PostgreSQL major version. `GET /databases/postgres-versions` lists
+            the versions this environment accepts; local mode accepts only the
+            version its server runs. Any other value is rejected with 400.
+          example: '18'
           enum:
-            - '15'
             - '16'
+            - '17'
+            - '18'
         database_type:
           type: string
           description: |
@@ -16014,10 +16468,12 @@ components:
         - text_body
     CreateFrontendCustomDomainRequest:
       type: object
+      additionalProperties: false
       properties:
         domain:
           type: string
-          description: Fully-qualified domain name (hostname only, no scheme/path)
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
           example: app.example.com
         tls:
           $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
@@ -16288,7 +16744,7 @@ components:
         pg_version:
           type: string
           description: PostgreSQL major version
-          example: '16'
+          example: '18'
         database_type:
           type: string
           description: |
@@ -16626,7 +17082,10 @@ components:
         values:
           type: object
           additionalProperties: true
-          description: Column values to insert
+          description: |
+            Column values to insert. JSON objects and arrays are stored as JSON,
+            so send them to `json` or `jsonb` columns. For a Postgres array
+            column, send an array literal string such as `"{a,b}"`.
           example:
             title: My New Post
             content: This is the content
@@ -16644,7 +17103,10 @@ components:
         values:
           type: object
           additionalProperties: true
-          description: Column values to update
+          description: |
+            Column values to update. JSON objects and arrays are stored as JSON,
+            so send them to `json` or `jsonb` columns. For a Postgres array
+            column, send an array literal string such as `"{a,b}"`.
           example:
             title: Updated Title
             status: published
@@ -17427,6 +17889,39 @@ components:
           type: string
       required:
         - authorization_url
+    VerifiedDomain:
+      type: object
+      description: A domain the account owns, along with every name below it.
+      properties:
+        domain:
+          type: string
+          example: example.com
+        verified_at:
+          type: string
+          format: date-time
+          description: When the account last proved ownership.
+      required:
+        - domain
+        - verified_at
+    VerifiedDomainsResponse:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifiedDomain'
+      required:
+        - domains
+    VerifyDomainRequest:
+      type: object
+      properties:
+        domain:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: The domain to verify, such as `example.com`.
+      required:
+        - domain
     GitConnectionsResponse:
       type: object
       properties:
@@ -17929,6 +18424,62 @@ components:
       required:
         - function_id
         - path_prefix
+    FrontendCustomDomainTLSConfig:
+      type: object
+      description: 'TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.'
+      additionalProperties: false
+      not:
+        anyOf:
+          - allOf:
+              - properties:
+                  mode:
+                    enum:
+                      - managed
+                required:
+                  - mode
+              - anyOf:
+                  - required:
+                      - certificate_pem
+                  - required:
+                      - private_key_pem
+                  - required:
+                      - certificate_chain_pem
+          - allOf:
+              - properties:
+                  mode:
+                    enum:
+                      - byoc
+                required:
+                  - mode
+              - anyOf:
+                  - not:
+                      required:
+                        - certificate_pem
+                  - not:
+                      required:
+                        - private_key_pem
+      properties:
+        mode:
+          type: string
+          enum:
+            - managed
+            - byoc
+          default: byoc
+          description: managed for a Volcano-issued certificate; byoc to supply your own.
+        certificate_pem:
+          type: string
+          maxLength: 65536
+          description: PEM-encoded certificate. Required when mode is byoc; not allowed when mode is managed.
+        private_key_pem:
+          type: string
+          maxLength: 65536
+          description: PEM-encoded private key. Required when mode is byoc; not allowed when mode is managed.
+        certificate_chain_pem:
+          type: string
+          maxLength: 65536
+          description: Optional PEM-encoded certificate chain when mode is byoc; not allowed when mode is managed.
+      required:
+        - mode
     FrontendCustomDomainResponse:
       type: object
       properties:
@@ -17953,12 +18504,20 @@ components:
           enum:
             - pending
             - verified
+            - failed
+          description: '`verified`: the domain is served by a validated certificate. `pending`: it is not served yet, is being re-validated after its certificate material was withdrawn, or Volcano is retrying after a failure. `failed`: a failure left the domain unserved, alongside `domain_status: failed`; managed domains report the cause in `failure_reason`.'
+        failure_reason:
+          type: string
+          description: Failure category, present only when managed TLS setup has failed. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
         verification_records:
           type: array
           items:
             $ref: '#/components/schemas/FrontendDomainVerificationRecord'
         required_routing_record:
-          $ref: '#/components/schemas/FrontendDomainRoutingRecord'
+          allOf:
+            - $ref: '#/components/schemas/FrontendDomainRoutingRecord'
+          deprecated: true
+          description: Deprecated and no longer returned. Use routing_target_hostname as the DNS routing target.
         routing_target_hostname:
           type: string
           description: DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
@@ -17980,28 +18539,6 @@ components:
         - effective_urls
         - created_at
         - updated_at
-    FrontendCustomDomainTLSConfig:
-      type: object
-      properties:
-        mode:
-          type: string
-          enum:
-            - byoc
-          default: byoc
-          description: BYOC is mandatory for custom domain creation.
-        certificate_pem:
-          type: string
-          description: Required. PEM-encoded certificate.
-        private_key_pem:
-          type: string
-          description: Required. PEM-encoded private key.
-        certificate_chain_pem:
-          type: string
-          description: Optional PEM-encoded certificate chain.
-      required:
-        - mode
-        - certificate_pem
-        - private_key_pem
     FrontendDeployment:
       type: object
       properties:
@@ -18097,6 +18634,7 @@ components:
         - value
     FrontendDomainVerificationRecord:
       type: object
+      description: The DNS records currently required. Volcano may require an account-specific TXT ownership record for the hostname's domain before returning a CNAME that authorizes managed certificate issuance and renewal. Clients must follow the records returned for the current lifecycle state instead of assuming a fixed sequence.
       properties:
         name:
           type: string
@@ -18108,6 +18646,14 @@ components:
         - name
         - type
         - value
+    FrontendCustomDomainConflictError:
+      description: 'Domain ownership conflict. With `code: ownership_verification_required`, the account has not proven it owns the domain: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. Other conflicts omit both fields.'
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            required_record:
+              $ref: '#/components/schemas/FrontendDomainVerificationRecord'
     FrontendUsageDailyEntry:
       type: object
       description: One day of request and error counts for a single frontend.
@@ -19452,6 +19998,13 @@ components:
             started in. "Durable Compute (MB-Seconds)" reports the memory the execution ran
             at times the time it spent running, in megabyte-seconds; the allowance for it is
             published in gigabyte-seconds, which is 1024 of these.
+            "Sandbox Running (MiB-Seconds)", "Sandbox Suspended (Seconds)", and
+            "Sandbox Uncertain (MiB-Seconds)" are preview-only usage; they do not
+            debit credits. Running reports configured memory times observed runtime,
+            not measured CPU or elastic memory consumption. Uncertain includes
+            observation gaps and unconfirmed state transitions. Suspended reports
+            duration, not snapshot size. Local sessions do not contribute.
+            Totals are rounded down after aggregating millisecond measurements.
             "Database Storage (Bytes)" is a current observed gauge,
             not a cumulative counter. It is the sum of the latest samples exposed as
             `storage_bytes` by the project's database list, so it includes what each
@@ -20124,6 +20677,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProjectConfigFrontend'
+        sandboxes:
+          type: array
+          description: Settings for existing templates; Git deploy applies build settings to matching sandbox source directories. Templates are never deleted by omission.
+          items:
+            $ref: '#/components/schemas/ProjectConfigSandbox'
       required:
         - version
     ProjectConfigApplyResult:
@@ -20502,17 +21060,21 @@ components:
       type: object
       additionalProperties: false
       description: |
-        Custom domain with BYOC TLS (SUPERAGENT plan). `tls` is required when the
-        domain is first created and optional afterwards: providing new TLS
-        material for the same domain rotates the certificate in place (zero
-        downtime); omitting `tls` keeps the stored certificate. TLS material is
-        write-only and omitted from config export.
+        Custom domain with managed or BYOC TLS (SUPERAGENT plan). `tls` is required
+        when the domain is first created and optional afterwards. For an existing
+        domain, omitting `tls` or sending only `tls.mode` keeps the stored
+        certificate; new BYOC material for the same domain rotates the
+        certificate in place (zero downtime). Changing `tls.mode` for the same
+        hostname, or the hostname of a managed domain, requires deleting the
+        domain first. BYOC TLS material is write-only; exports render only
+        `tls.mode`.
       properties:
         domain:
           type: string
-          description: Fully-qualified domain name (hostname only, no scheme/path)
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
         tls:
-          $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
+          $ref: '#/components/schemas/ProjectConfigFrontendCustomDomainTLSConfig'
       required:
         - domain
     ProjectConfigDatabase:
@@ -20535,7 +21097,12 @@ components:
           enum:
             - '15'
             - '16'
-          description: PostgreSQL major version. Asserted, never written.
+            - '17'
+            - '18'
+          description: |
+            PostgreSQL major version. Asserted, never written. Also accepts
+            versions new databases can no longer be created on, so an export
+            of an existing database re-applies.
         database_type:
           type: string
           enum:
@@ -20757,6 +21324,7 @@ components:
             - frontend
             - database
             - bucket
+            - sandbox
         name:
           type: string
       required:
@@ -20854,6 +21422,7 @@ components:
             - frontend
             - database
             - bucket
+            - sandbox
         name:
           type: string
         reason:
@@ -22428,6 +22997,62 @@ components:
           $ref: '#/components/schemas/AuthPageTheme'
         layouts:
           $ref: '#/components/schemas/ProjectConfigAuthPageLayouts'
+    ManagedProjectConfigFrontendCustomDomainTLSConfig:
+      type: object
+      description: Volcano issues and renews the certificate. Certificate fields are not allowed.
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+            - managed
+      required:
+        - mode
+    BYOCProjectConfigFrontendCustomDomainTLSConfig:
+      type: object
+      description: 'Your own certificate. Send `certificate_pem` and `private_key_pem` together, with an optional `certificate_chain_pem`, to create the domain or rotate its certificate. For an existing BYOC domain, `mode: byoc` without certificate fields keeps the stored certificate; exports render only the mode.'
+      additionalProperties: false
+      not:
+        anyOf:
+          - required:
+              - certificate_pem
+            not:
+              required:
+                - private_key_pem
+          - required:
+              - private_key_pem
+            not:
+              required:
+                - certificate_pem
+          - required:
+              - certificate_chain_pem
+            not:
+              required:
+                - certificate_pem
+                - private_key_pem
+      properties:
+        mode:
+          type: string
+          enum:
+            - byoc
+          description: Optional; a TLS block without `mode` is BYOC.
+        certificate_pem:
+          type: string
+          maxLength: 65536
+          description: PEM-encoded certificate for create or rotation. Requires private_key_pem. Omitted from exports.
+        private_key_pem:
+          type: string
+          maxLength: 65536
+          description: PEM-encoded private key for create or rotation. Requires certificate_pem. Omitted from exports.
+        certificate_chain_pem:
+          type: string
+          maxLength: 65536
+          description: Optional PEM-encoded certificate chain. Requires certificate_pem and private_key_pem. Omitted from exports.
+    ProjectConfigFrontendCustomDomainTLSConfig:
+      description: TLS for the custom domain. `mode` defaults to `byoc` when omitted.
+      oneOf:
+        - $ref: '#/components/schemas/ManagedProjectConfigFrontendCustomDomainTLSConfig'
+        - $ref: '#/components/schemas/BYOCProjectConfigFrontendCustomDomainTLSConfig'
     ProjectConfigFrontendFunctionRoute:
       type: object
       additionalProperties: false
@@ -22447,6 +23072,41 @@ components:
       required:
         - function
         - path_prefix
+    ProjectConfigSandbox:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,62}$
+          description: Name of an existing sandbox template or matching Git source directory.
+        memory_mb:
+          type: integer
+          enum:
+            - 1024
+            - 2048
+          description: Immutable deployed memory profile; config apply asserts it and Git deploy builds it.
+        ports:
+          type: array
+          uniqueItems: true
+          maxItems: 16
+          description: Service readiness ports; config apply asserts them and Git deploy builds them.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65532
+        idle_timeout_seconds:
+          type: integer
+          minimum: 0
+          maximum: 28800
+          description: Default idle timeout for new sessions when the caller omits it.
+        ttl_seconds:
+          type: integer
+          minimum: 30
+          maximum: 28800
+          description: Default absolute lifetime for new sessions when the caller omits it.
     DatabaseQueryPerformanceDatabase:
       type: object
       properties:

@@ -409,8 +409,7 @@ const (
 // it in ExitError.Stderr, and it is the only thing that distinguishes "run this
 // somewhere else" from "run git config --global --add safe.directory".
 func gitFailure(err error) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		if message := strings.TrimSpace(string(exitErr.Stderr)); message != "" {
 			return fmt.Errorf("%w: %s", ErrGitUnavailable, message)
 		}

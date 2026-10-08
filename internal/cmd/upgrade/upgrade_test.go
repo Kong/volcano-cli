@@ -5,8 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,9 +42,9 @@ func TestUpgradeCommand(t *testing.T) {
 	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
 	cosignCalled := false
 	deps := cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-		ExecutablePath:     exePath,
+		HTTPClient:        server.Client(),
+		UpdateDownloadURL: server.URL,
+		ExecutablePath:    exePath,
 		UpdateCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
 			cosignCalled = true
 			return nil, nil
@@ -79,9 +79,9 @@ func TestUpgradeCommandVerifySignatureFlag(t *testing.T) {
 	require.NoError(t, os.WriteFile(exePath, []byte("old volcano binary"), 0o755))
 	cosignCalled := false
 	deps := cliruntime.Deps{
-		HTTPClient:         server.Client(),
-		UpdateGitHubAPIURL: server.URL,
-		ExecutablePath:     exePath,
+		HTTPClient:        server.Client(),
+		UpdateDownloadURL: server.URL,
+		ExecutablePath:    exePath,
 		UpdateCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
 			cosignCalled = true
 			return nil, nil
@@ -334,26 +334,16 @@ func newUpgradeTestServer(t *testing.T, binaryName string, binary []byte, checks
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/releases/latest":
-			writeUpgradeJSON(t, w, update.Release{TagName: "v1.2.4", Assets: []update.Asset{
-				{Name: binaryName, BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName},
-				{Name: binaryName + ".sigstore.json", BrowserDownloadURL: "http://" + r.Host + "/assets/" + binaryName + ".sigstore.json"},
-				{Name: "SHA256SUMS", BrowserDownloadURL: "http://" + r.Host + "/assets/SHA256SUMS"},
-			}})
-		case "/assets/" + binaryName:
+		case "/latest-version":
+			_, _ = io.WriteString(w, "v1.2.4\n")
+		case "/download/v1.2.4/" + binaryName:
 			_, _ = w.Write(binary)
-		case "/assets/" + binaryName + ".sigstore.json":
+		case "/download/v1.2.4/" + binaryName + ".sigstore.json":
 			_, _ = w.Write([]byte(`{"bundle":true}`))
-		case "/assets/SHA256SUMS":
+		case "/download/v1.2.4/SHA256SUMS":
 			_, _ = w.Write([]byte(checksums))
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-}
-
-func writeUpgradeJSON(t *testing.T, w http.ResponseWriter, value any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	require.NoError(t, json.NewEncoder(w).Encode(value))
 }

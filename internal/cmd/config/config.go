@@ -160,8 +160,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 
 	result, err := projectconfig.NewService(opts.deps).Deploy(ctx, manifest, opts.dryRun)
 	if err != nil {
-		var validationErr *api.ProjectConfigValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*api.ProjectConfigValidationError](err); ok {
 			output.ProjectConfigValidationErrors(opts.out, validationErr.Errors)
 			return validationErr
 		}

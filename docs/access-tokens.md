@@ -53,7 +53,7 @@ ID: 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77
 Scope: full
 Expires: never
 
-Token: pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+Token: pt-xxxxxxxxxxxxxxxxxxxxxxxx
 Warning: Copy this token now. It is shown once and cannot be retrieved again.
 ```
 
@@ -91,7 +91,7 @@ can tell that apart from a genuine permission problem.
 Set it as `VOLCANO_TOKEN` along with the project it belongs to:
 
 ```bash
-export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+export VOLCANO_TOKEN=pt-xxxxxxxxxxxxxxxxxxxxxxxx
 export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 volcano cloud functions deploy --all
 ```
@@ -99,7 +99,7 @@ volcano cloud functions deploy --all
 Or log in with it, naming the project once:
 
 ```bash
-volcano login --token pt-Wq9l2m4XcR7tFv1sN8bK3hJ0 --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano login --token pt-xxxxxxxxxxxxxxxxxxxxxxxx --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 ```
 
 A project access token cannot list projects, so nothing can work out which
@@ -141,7 +141,7 @@ volcano cloud access-tokens list --include-revoked
 
 ```text
 Name                      Prefix            Scope       Status     Last used        Requests
-ci-deploy                 pt-Wq9l2m4X       full        active     3h ago           42
+ci-deploy                 pt-xxxxxxxx       full        active     3h ago           42
 ci-audit                  pt-4bN7sK1p       read_only   expired    20d ago          3
 ci-old                    pt-Zx8c5Vt2       full        revoked    41d ago          77
 ```
@@ -182,7 +182,7 @@ CI job can report what it consumed with nothing but the credential it already
 holds — the whole project, or one token's day-by-day series:
 
 ```bash
-export VOLCANO_TOKEN=pt-Wq9l2m4XcR7tFv1sN8bK3hJ0
+export VOLCANO_TOKEN=pt-xxxxxxxxxxxxxxxxxxxxxxxx
 export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 volcano cloud access-tokens usage --days 7
 volcano cloud access-tokens usage 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77 --days 7

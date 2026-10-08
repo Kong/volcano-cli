@@ -1,5 +1,80 @@
 # Changelog
 
+## [0.41.0](https://github.com/Kong/volcano-cli/compare/v0.40.1...v0.41.0) (2026-10-08)
+
+
+### Features
+
+* **domains:** verify custom domain ownership from the CLI ([#278](https://github.com/Kong/volcano-cli/issues/278)) ([036e246](https://github.com/Kong/volcano-cli/commit/036e246c0bafb578622d8f3d58d1949a5dca3583))
+
+## [0.40.1](https://github.com/Kong/volcano-cli/compare/v0.40.0...v0.40.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **variables:** refuse arguments to deploy; correct frontend and variables docs ([#276](https://github.com/Kong/volcano-cli/issues/276)) ([b6b5532](https://github.com/Kong/volcano-cli/commit/b6b5532510e174fcbcfe31a2c3e724b0a3411ebe))
+
+## [0.40.0](https://github.com/Kong/volcano-cli/compare/v0.39.1...v0.40.0) (2026-10-06)
+
+
+### Features
+
+* **cli:** publish native Windows arm64 downloads ([#270](https://github.com/Kong/volcano-cli/issues/270)) ([186dce3](https://github.com/Kong/volcano-cli/commit/186dce3f60af607363e89aca7b18537540776073))
+
+## [0.39.1](https://github.com/Kong/volcano-cli/compare/v0.39.0...v0.39.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** move to Go 1.26.8 for security support ([#268](https://github.com/Kong/volcano-cli/issues/268)) ([7489996](https://github.com/Kong/volcano-cli/commit/7489996afa3fbde26a9c155dbc1262b8b8f20d2b))
+
+## [0.39.0](https://github.com/Kong/volcano-cli/compare/v0.38.1...v0.39.0) (2026-10-06)
+
+
+### Features
+
+* **sandboxes:** expose preview usage command ([#249](https://github.com/Kong/volcano-cli/issues/249)) ([4e30c35](https://github.com/Kong/volcano-cli/commit/4e30c35c98952b85239500028457c1061f702071))
+
+## [0.38.1](https://github.com/Kong/volcano-cli/compare/v0.38.0...v0.38.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **setup:** show picker options and test production construction ([#264](https://github.com/Kong/volcano-cli/issues/264)) ([0580524](https://github.com/Kong/volcano-cli/commit/058052471469fd928749a303f5517c39b490e73c))
+
+## [0.38.0](https://github.com/Kong/volcano-cli/compare/v0.37.3...v0.38.0) (2026-10-06)
+
+
+### Features
+
+* **sandboxes:** add local and cloud CLI commands ([#227](https://github.com/Kong/volcano-cli/issues/227)) ([9689dd5](https://github.com/Kong/volcano-cli/commit/9689dd5fba70d92fac6b61fa829bd7f5d5d36911))
+
+
+### Bug Fixes
+
+* **ci:** stop the GitHub block from skipping release asset uploads ([#266](https://github.com/Kong/volcano-cli/issues/266)) ([30f4aff](https://github.com/Kong/volcano-cli/commit/30f4affed228f447785f82ae421f5921706aa7e1))
+
+## [0.37.3](https://github.com/Kong/volcano-cli/compare/v0.37.2...v0.37.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* **cli:** upgrade and install binaries from Volcano downloads ([#259](https://github.com/Kong/volcano-cli/issues/259)) ([4f8eb49](https://github.com/Kong/volcano-cli/commit/4f8eb499e456ee4b5b4bc90a18bf596dc30a0b80))
+
+## [0.37.2](https://github.com/Kong/volcano-cli/compare/v0.37.1...v0.37.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **cli:** serve verified releases from Volcano downloads ([#253](https://github.com/Kong/volcano-cli/issues/253)) ([35a9615](https://github.com/Kong/volcano-cli/commit/35a96151cb4d7815955ce54c1474f3ca4bedeaca))
+
+## [0.37.1](https://github.com/Kong/volcano-cli/compare/v0.37.0...v0.37.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** bump kin-openapi, x/mod, and Go 1.25 patch past advisories ([#258](https://github.com/Kong/volcano-cli/issues/258)) ([c72a48a](https://github.com/Kong/volcano-cli/commit/c72a48ab9b69157633a0918d0c4ef251cad6d731))
+
 ## [0.37.0](https://github.com/Kong/volcano-cli/compare/v0.36.0...v0.37.0) (2026-10-05)
 
 

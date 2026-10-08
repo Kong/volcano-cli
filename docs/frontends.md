@@ -12,7 +12,9 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one or more **custom domains** (BYOC) attached.
+- Can have one **custom domain** (BYOC) attached, at or below a domain your
+  account has [verified](domains.md). A second, different domain is rejected
+  with `409`; serve another hostname from a separate frontend.
 - Can forward paths to public [functions](functions.md) through
   **function routes**.
 - Frontend custom domains and function routes can also be declared in the
@@ -43,6 +45,21 @@ selected variables. A scoped deploy with no `--variable` flags exposes no
 project variables. Omitting both flags preserves the current selection when the
 frontend exists.
 
+`volcano cloud config deploy` never creates a frontend; an entry for one that
+does not exist yet is skipped. Deploy a new frontend with the variables its
+manifest entry selects, then run `volcano cloud config deploy`.
+
+The selected variables other than `NEXT_PUBLIC_*` must fit the frontend's
+4,096-byte runtime environment, of which Volcano uses about 900 bytes. See
+[Environment size](/platform/frontends/deploy#environment-size).
+
+`deploy` archives `--path` (default `.`) and leaves out `node_modules`, `.next`,
+`dist`, `build`, `.env*.local`, `.git`, editor files, `*.log`, and anything in
+the root `.gitignore`. Symbolic links are skipped with a warning, and more than
+10,000 files fails the deploy. When the app uses `workspace:` dependencies,
+`deploy` archives the workspace root instead, so these rules and the file limit
+apply to the whole workspace; pass `--app-root` to archive only `--path`.
+
 ## Examples
 
 ```bash
@@ -56,9 +73,13 @@ volcano cloud frontends list
 volcano cloud frontends logs my-site
 
 # Attach and check a custom domain
-volcano cloud frontends domain create my-site --domain app.example.com
+volcano cloud frontends domain create my-site --domain app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem
 volcano cloud frontends domain get my-site
 ```
+
+Attaching a custom domain needs a [verified domain](domains.md) above it. When
+none exists, the command fails and prints the TXT record to publish.
 
 The domain command shows a DNS routing target hostname. Configure a CNAME only if
 your DNS provider confirms that your domain is not a zone apex. At an apex, use

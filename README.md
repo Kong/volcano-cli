@@ -38,7 +38,7 @@ volcano --help
 Or install manually:
 
 ```bash
-curl -fsSL https://github.com/Kong/volcano-cli/releases/latest/download/install.sh | sh
+curl -fsSL https://download.volcano.dev/builds/install.sh | sh
 volcano --help
 ```
 

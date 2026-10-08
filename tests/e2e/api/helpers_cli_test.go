@@ -41,7 +41,7 @@ type cliResult struct {
 // `create --json` does. This runs without the E2E gate because it tests the
 // redaction, not the platform.
 func TestAPIE2ERedactsMintedCredentials(t *testing.T) {
-	const secret = "pt-Wq9l2m4XcR7tFv1sN8bK3hJ0"
+	const secret = "pt-fake-access-token"
 
 	for name, text := range map[string]string{
 		"create --json output": `{"name":"ci-deploy","token":"` + secret + `"}`,
@@ -97,8 +97,7 @@ func (e *apiE2E) runCLIWithin(t *testing.T, timeout time.Duration, extraEnv []st
 
 	code := 0
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exitErr.ExitCode()
 		} else {
 			t.Fatalf("failed to run volcano %s: %v", redactCredentials(strings.Join(args, " ")), err)

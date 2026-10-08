@@ -23,8 +23,7 @@ type Error struct {
 // Status returns the HTTP status code carried by an *Error wrapped in err, or
 // 0 if err is nil or does not wrap an *Error.
 func Status(err error) int {
-	var apiErr *Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.StatusCode
 	}
 	return 0
@@ -34,8 +33,7 @@ func Status(err error) int {
 // if err is nil, does not wrap an *Error, or carries no message. Callers that
 // act on which refusal a status stands for need the body, not just the code.
 func Message(err error) string {
-	var apiErr *Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.Message
 	}
 	return ""
@@ -49,6 +47,33 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("HTTP %d", e.StatusCode)
 	}
 	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
+}
+
+// OwnershipVerificationRequired is the code of a refusal the user resolves by
+// publishing a DNS record that proves the account owns the domain.
+const OwnershipVerificationRequired = "ownership_verification_required"
+
+// OwnershipRequiredError is an ownership refusal. Its message names the record
+// to publish, so every command that can hit it tells the user what to do.
+type OwnershipRequiredError struct {
+	Err    *Error
+	Record apiclient.FrontendDomainVerificationRecord
+}
+
+func (e *OwnershipRequiredError) Error() string {
+	return fmt.Sprintf("%s\n\nPublish this DNS record, then run the command again:\n  %s  %s  %q",
+		e.Err.Error(), e.Record.Name, e.Record.Type, e.Record.Value)
+}
+
+func (e *OwnershipRequiredError) Unwrap() error { return e.Err }
+
+// conflictError keeps the record an ownership refusal names.
+func conflictError(statusCode int, conflict *apiclient.FrontendCustomDomainConflictError) error {
+	apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(conflict.Error)}
+	if conflict.Code != nil && *conflict.Code == OwnershipVerificationRequired && conflict.RequiredRecord != nil {
+		return &OwnershipRequiredError{Err: apiErr, Record: *conflict.RequiredRecord}
+	}
+	return apiErr
 }
 
 func oauthError(statusCode int, resp *apiclient.OAuthErrorResponse) error {

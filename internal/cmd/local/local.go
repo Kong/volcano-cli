@@ -13,8 +13,10 @@ import (
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
 	migrationcmd "github.com/Kong/volcano-cli/internal/cmd/databases/migration"
+	domainscmd "github.com/Kong/volcano-cli/internal/cmd/domains"
 	durablecmd "github.com/Kong/volcano-cli/internal/cmd/durable"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
+	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
@@ -35,8 +37,12 @@ type infoCache struct {
 func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 	cache := &infoCache{runner: deps.LocalCommandRunner}
 	localDeps := withLocalConfig(deps, cache)
+	usageDeps := localDeps
+	// Project usage requires the local user token, not the Sandbox service key.
+	usageDeps.LocalMode = false
 
 	return []*cobra.Command{
+		sandboxescmd.NewLocal(withLocalSandboxConfig(deps, cache), usageDeps),
 		databasescmd.NewLocalWithOptions(localDeps, databasescmd.LocalOptions{
 			CreateDefaults: cache.databaseCreateDefaults,
 		}),
@@ -47,6 +53,7 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		durablecmd.NewLocal(localDeps),
 		variablescmd.New(localDeps),
 		accesstokenscmd.NewCloudOnly(),
+		domainscmd.NewCloudOnly(),
 		newReset(deps),
 	}
 }
@@ -120,4 +127,26 @@ func (c *infoCache) load(ctx context.Context) (localmode.Info, error) {
 		c.info, c.err = localmode.FetchInfo(ctx, c.runner)
 	})
 	return c.info, c.err
+}
+
+// Sandbox APIs retain authentication locally, unlike the function harness.
+func withLocalSandboxConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
+	local := withLocalConfig(deps, cache)
+	load := local.ConfigLoader
+	local.LocalMode = false
+	local.ConfigLoader = func() (*cliconfig.Config, error) {
+		cfg, err := load()
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), localInfoTimeout)
+		defer cancel()
+		info, err := cache.load(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cfg.UserToken = info.ServiceKey
+		return cfg, nil
+	}
+	return local
 }

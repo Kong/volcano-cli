@@ -27,7 +27,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-printf '%s\n' "$url" > "$FAKE_CURL_LOG"
+printf '%s\n' "$url" >> "$FAKE_CURL_LOG"
+case "$url" in
+  "${FAKE_CURL_MISSING:-}") exit 22 ;;
+  */latest-version) printf '%s\n' "${FAKE_LATEST_VERSION:-v1.2.3}" > "$output"; exit 0 ;;
+esac
 cp "$FAKE_VOLCANO_BINARY" "$output"
 EOF
 chmod +x "$TMP_DIR/bin/curl"
@@ -70,9 +74,10 @@ assert_asset() {
   asset_name="$3"
   asset_dir="$TMP_DIR/install-$asset_os-$asset_arch"
 
+  : > "$FAKE_CURL_LOG"
   FAKE_UNAME_S="$asset_os" FAKE_UNAME_M="$asset_arch" VOLCANO_INSTALL_DIR="$asset_dir" \
     sh "$ROOT/scripts/install-volcano.sh" >/dev/null
-  grep -Fx "https://github.com/Kong/volcano-cli/releases/latest/download/$asset_name" "$FAKE_CURL_LOG" >/dev/null
+  grep -Fx "https://download.volcano.dev/builds/releases/download/v1.2.3/$asset_name" "$FAKE_CURL_LOG" >/dev/null
   case "$asset_name" in
     *.exe) test -x "$asset_dir/volcano.exe" ;;
     *) test -x "$asset_dir/volcano" ;;
@@ -84,12 +89,14 @@ assert_rejected() {
   rejected_arch="$2"
   rejected_message="$3"
 
+  : > "$FAKE_CURL_LOG"
   if FAKE_UNAME_S="$rejected_os" FAKE_UNAME_M="$rejected_arch" \
     sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/platform-error.log" 2>&1; then
     echo "expected $rejected_os $rejected_arch to fail" >&2
     exit 1
   fi
   grep -F "$rejected_message" "$TMP_DIR/platform-error.log" >/dev/null
+  test ! -s "$FAKE_CURL_LOG"
 }
 
 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
@@ -103,7 +110,8 @@ assert_asset Linux aarch64 volcano-linux-arm64
 assert_asset Darwin x86_64 volcano-macos-amd64
 assert_asset Darwin arm64 volcano-macos-arm64
 assert_asset MINGW64_NT-10.0 x86_64 volcano-windows-amd64.exe
-assert_rejected MINGW64_NT-10.0 arm64 "unsupported platform: windows-arm64"
+assert_asset MINGW64_NT-10.0 arm64 volcano-windows-arm64.exe
+assert_asset MINGW64_NT-10.0 aarch64 volcano-windows-arm64.exe
 assert_rejected Plan9 x86_64 "unsupported operating system: plan9"
 assert_rejected Linux riscv64 "unsupported architecture: riscv64"
 
@@ -123,7 +131,7 @@ grep -F "unsupported Volcano CLI version selector: v1.2.3" "$TMP_DIR/version-err
 
 unset VOLCANO_SKIP_SIGNATURE_VERIFICATION
 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
-grep -F -- "--certificate-identity-regexp ^https://github[.]com/Kong/volcano-cli/[.]github/workflows/publish-cli[.]yml@refs/tags/v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$" "$FAKE_COSIGN_LOG" >/dev/null
+grep -F -- "--certificate-identity https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/v1.2.3" "$FAKE_COSIGN_LOG" >/dev/null
 VOLCANO_VERSION=v1.2.3 sh "$ROOT/scripts/install-volcano.sh" >/dev/null
 grep -F -- "--certificate-identity https://github.com/Kong/volcano-cli/.github/workflows/publish-cli.yml@refs/tags/v1.2.3" "$FAKE_COSIGN_LOG" >/dev/null
 export VOLCANO_SKIP_SIGNATURE_VERIFICATION=1
@@ -151,3 +159,45 @@ if sh "$ROOT/scripts/install-volcano.sh" --unknown >"$TMP_DIR/error.log" 2>&1; t
   exit 1
 fi
 grep -F "unknown option: --unknown" "$TMP_DIR/error.log" >/dev/null
+
+# Promotion metadata cannot inject a path or mix release assets.
+if FAKE_LATEST_VERSION='../bad' sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/version-error.log" 2>&1; then
+  echo "expected malformed latest version to fail" >&2
+  exit 1
+fi
+grep -F 'invalid latest Volcano CLI version' "$TMP_DIR/version-error.log" >/dev/null
+if FAKE_CURL_MISSING='https://mirror.example/releases/latest-version' \
+  VOLCANO_CLI_RELEASES_URL=https://mirror.example/releases sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/version-error.log" 2>&1; then
+  echo "expected missing latest version pointer to fail" >&2
+  exit 1
+fi
+grep -F 'could not resolve the latest Volcano CLI version from https://mirror.example/releases/latest-version' "$TMP_DIR/version-error.log" >/dev/null
+: > "$FAKE_CURL_LOG"
+VOLCANO_CLI_RELEASES_URL=https://mirror.example/releases sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -Fx 'https://mirror.example/releases/latest-version' "$FAKE_CURL_LOG" >/dev/null
+grep -Fx 'https://mirror.example/releases/download/v1.2.3/volcano-macos-arm64' "$FAKE_CURL_LOG" >/dev/null
+: > "$FAKE_CURL_LOG"
+VOLCANO_GITHUB_RELEASES_URL=https://legacy.example/releases sh "$ROOT/scripts/install-volcano.sh" >/dev/null
+grep -Fx 'https://legacy.example/releases/latest/download/volcano-macos-arm64' "$FAKE_CURL_LOG" >/dev/null
+if grep -F latest-version "$FAKE_CURL_LOG" >/dev/null; then
+  echo "legacy releases URL must keep GitHub latest semantics" >&2
+  exit 1
+fi
+
+# A pinned release missing from Volcano downloads points at the legacy source.
+if FAKE_CURL_MISSING='https://download.volcano.dev/builds/releases/download/v0.9.0/volcano-macos-arm64' \
+  VOLCANO_VERSION=v0.9.0 sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/missing.log" 2>&1; then
+  echo "expected missing pinned release to fail" >&2
+  exit 1
+fi
+grep -F 'VOLCANO_GITHUB_RELEASES_URL=https://github.com/Kong/volcano-cli/releases' "$TMP_DIR/missing.log" >/dev/null
+if FAKE_CURL_MISSING='https://download.volcano.dev/builds/releases/download/v1.2.3/volcano-macos-arm64' \
+  sh "$ROOT/scripts/install-volcano.sh" >"$TMP_DIR/missing.log" 2>&1; then
+  echo "expected missing latest release to fail" >&2
+  exit 1
+fi
+grep -F 'could not download Volcano CLI v1.2.3' "$TMP_DIR/missing.log" >/dev/null
+if grep -F 'VOLCANO_GITHUB_RELEASES_URL' "$TMP_DIR/missing.log" >/dev/null; then
+  echo "latest install must not suggest the legacy source" >&2
+  exit 1
+fi

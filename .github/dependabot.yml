@@ -1,4 +1,7 @@
 version: 2
+# Cooldowns make a release age before Dependabot proposes it, so a compromised
+# or yanked version is less likely to reach a PR. Security updates skip them.
+# Majors wait longer where the ecosystem supports SemVer cooldowns.
 updates:
   # Keep SHA-pinned GitHub Actions current. Dependabot bumps the commit SHA and
   # the trailing version comment together, so pinning does not go stale.
@@ -8,8 +11,78 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci"
+    cooldown:
+      default-days: 5
     groups:
       github-actions:
         update-types:
           - "minor"
           - "patch"
+      github-actions-major:
+        update-types:
+          - "major"
+
+  # Go modules compiled into the released binary. `fix(deps)` makes Release
+  # Please cut a patch release, which is how an update reaches users. Go majors
+  # (new /vN module paths) and `tool` dependencies (indirect) stay manual.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Starter manifests embedded for `volcano init` (nextjs, nextjs-notes). They
+  # use caret ranges with no lockfile, so a user's `npm install` already gets
+  # patched minors and patches; raising the floors keeps scanners off
+  # vulnerable minimums and needs no release. Majors share one PR so next,
+  # react, and react-dom move together. Security updates ignore version-update
+  # groups, so they get their own group. No CI installs the starters. Before
+  # merging any major, version or security: with a CLI built from the branch,
+  # run `volcano init nextjs` and `volcano init nextjs --example notes` in
+  # empty directories, then `npm install && npm run build` in each. Title the
+  # PR `fix(deps)` so Release Please ships it.
+  - package-ecosystem: "npm"
+    directories:
+      - "/internal/projectinit/starters/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 5
+      semver-major-days: 30
+    groups:
+      starters:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      starters-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+      starters-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"

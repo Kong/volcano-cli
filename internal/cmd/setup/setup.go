@@ -163,26 +163,8 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 		options[i] = huh.NewOption(mark+" "+d.Name+note, d.Name).Selected(true)
 	}
 
-	// huh's default quit binding is ctrl+c only; bind esc too so the advertised
-	// "esc cancels" hint actually aborts the picker.
-	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"), key.WithHelp("esc", "cancel"))
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Install Volcano for which coding agents?").
-				Description(keyHintDescription(color)).
-				Options(options...).
-				Value(&selected),
-		),
-	).WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout()).WithKeyMap(km)
-	if color {
-		form = form.WithTheme(volcanoTheme())
-	} else {
-		// Strip all color (including huh's default theme) under NO_COLOR.
-		form = form.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii))
-	}
+	form := newHarnessPicker(options, &selected, color).
+		WithInput(cmd.InOrStdin()).WithOutput(cmd.OutOrStdout())
 
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
@@ -191,6 +173,30 @@ func promptHarnesses(cmd *cobra.Command, opts setup.Options, color bool) (select
 		return nil, false, err
 	}
 	return selected, len(selected) == 0, nil
+}
+
+// newHarnessPicker builds the picker used by setup and its render test.
+func newHarnessPicker(options []huh.Option[string], selected *[]string, color bool) *huh.Form {
+	// huh's default quit binding is ctrl+c only; bind esc too so the advertised
+	// "esc cancels" hint actually aborts the picker.
+	km := huh.NewDefaultKeyMap()
+	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"), key.WithHelp("esc", "cancel"))
+
+	// Keep headings outside the option viewport so wrapping cannot hide options.
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().Options(options...).Value(selected),
+		).Title("Install Volcano for which coding agents?").
+			Description(keyHintDescription(color)),
+	).WithKeyMap(km)
+	if color {
+		form = form.WithTheme(volcanoTheme())
+	} else {
+		// Strip all color (including huh's default theme) under NO_COLOR.
+		form = form.WithProgramOptions(tea.WithColorProfile(colorprofile.Ascii))
+	}
+
+	return form
 }
 
 // keyHintDescription renders the picker's key hint with the actual keystrokes
@@ -227,6 +233,7 @@ func volcanoTheme() huh.Theme {
 		lava := lipgloss.Color(setup.LavaHex)
 		volcano := lipgloss.Color(setup.VolcanoHex)
 		s.Focused.Title = s.Focused.Title.Foreground(lava).Bold(true)
+		s.Group.Title = s.Focused.Title
 		s.Focused.SelectSelector = s.Focused.SelectSelector.Foreground(volcano)
 		s.Focused.MultiSelectSelector = s.Focused.MultiSelectSelector.Foreground(volcano)
 		s.Focused.SelectedPrefix = s.Focused.SelectedPrefix.Foreground(volcano)

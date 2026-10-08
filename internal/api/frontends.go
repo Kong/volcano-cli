@@ -170,12 +170,14 @@ func (c *Client) StreamFrontendDeploymentLogs(ctx context.Context, projectID, fr
 
 // CreateFrontendCustomDomain attaches a BYOC custom domain to a frontend.
 func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendCustomDomainInput) (*apiclient.FrontendCustomDomainResponse, error) {
+	certificate := strings.TrimSpace(input.CertificatePEM)
+	privateKey := strings.TrimSpace(input.PrivateKeyPEM)
 	body := apiclient.CreateFrontendCustomDomainJSONRequestBody{
 		Domain: strings.TrimSpace(input.Domain),
 		Tls: apiclient.FrontendCustomDomainTLSConfig{
-			CertificatePem: strings.TrimSpace(input.CertificatePEM),
+			CertificatePem: &certificate,
 			Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
-			PrivateKeyPem:  strings.TrimSpace(input.PrivateKeyPEM),
+			PrivateKeyPem:  &privateKey,
 		},
 	}
 	if chain := strings.TrimSpace(input.CertificateChainPEM); chain != "" {
@@ -192,7 +194,10 @@ func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, fron
 	if resp.JSON200 != nil {
 		return resp.JSON200, nil
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
+	if resp.JSON409 != nil {
+		return nil, conflictError(resp.StatusCode(), resp.JSON409)
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // GetFrontendCustomDomain returns the configured custom domain for a frontend.
