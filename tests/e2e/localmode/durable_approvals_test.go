@@ -39,7 +39,7 @@ const localModeE2EDurableApprovalManifest = `{
   "name": "approval-pipeline",
   "private": true,
   "dependencies": {
-    "@volcano.dev/sdk": "^1.16.0"
+    "@volcano.dev/sdk": "^2.0.0"
   }
 }
 `
