@@ -80,7 +80,7 @@ api-e2e-cloud: ## Run provisioning CLI API E2E tests against VOLCANO_API_URL and
 	VOLCANO_API_E2E=1 go test ./tests/e2e/api -run '^TestAPIE2E(Smoke|Cloud)' -count=1 -timeout 240m
 
 localmode-e2e: ## Run destructive local-mode Docker smoke tests
-	VOLCANO_LOCALMODE_E2E=1 go test ./tests/e2e/localmode -run TestLocalModeE2ESmoke -count=1 -timeout 20m
+	VOLCANO_LOCALMODE_E2E=1 go test ./tests/e2e/localmode -run 'TestLocalModeE2E(Smoke|StopCleanSandboxes)' -count=1 -timeout 20m
 
 lint: ## Run golangci-lint (includes gofmt, goimports, and go vet)
 	go tool golangci-lint run ./...

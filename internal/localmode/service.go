@@ -260,11 +260,17 @@ func (s Service) Stop(ctx context.Context, w io.Writer, clean bool) error {
 	}
 
 	fmt.Fprintln(w, "Stopping Docker services...")
-	if err := s.composeDown(ctx, clean); err != nil {
+	if err := s.composeDown(ctx, false); err != nil {
 		return fmt.Errorf("failed to stop Docker services: %w", err)
 	}
 
 	if clean {
+		if err := s.cleanSandboxResources(ctx); err != nil {
+			return fmt.Errorf("failed to clean Sandbox resources; data volumes preserved, retry volcano stop --clean: %w", err)
+		}
+		if err := s.composeDown(ctx, true); err != nil {
+			return fmt.Errorf("failed to remove Docker data volumes: %w", err)
+		}
 		output.Success(w, "All Docker services stopped and data removed")
 		if err := deleteDevState(); err != nil {
 			return fmt.Errorf("failed to delete dev state: %w", err)
