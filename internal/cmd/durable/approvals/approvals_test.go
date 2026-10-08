@@ -868,18 +868,17 @@ func TestApprovalsDecideRefusesAProjectAccessToken(t *testing.T) {
 }
 
 // A credential the CLI knows is a project access token is refused before the
-// prompt: confirming a decision the API will refuse wastes the person's yes,
-// and sends an agent after --yes first.
-func TestApprovalsDecideRefusesAProjectTokenBeforeConfirming(t *testing.T) {
+// prompt and before the approval is read: confirming a decision the API will
+// refuse wastes the person's yes, and an approval that does not exist would
+// otherwise answer with a 404 instead of saying who can decide.
+func TestApprovalsDecideRefusesAProjectTokenBeforeAnyRequest(t *testing.T) {
 	for _, args := range [][]string{{"approve", approvalID}, {"deny", approvalID, "--yes"}} {
 		t.Run(args[0], func(t *testing.T) {
 			setApprovalsTestHome(t)
 			t.Setenv("VOLCANO_TOKEN", "PT-approvals-test")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != http.MethodGet {
-					t.Error("a project access token's decision must not reach the API")
-				}
-				respondJSON(t, w, http.StatusOK, approvalPayload("pending"))
+				t.Errorf("a project access token's decision must not reach the API: %s %s", r.Method, r.URL.Path)
+				respondJSON(t, w, http.StatusNotFound, map[string]any{"error": "not found"})
 			}))
 			defer server.Close()
 

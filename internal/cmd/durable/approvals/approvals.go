@@ -89,9 +89,13 @@ func newDecideCommand(
 
 // runDecide reads the approval before deciding, both to show the person what
 // they are deciding and to answer without a write when nothing is left to
-// decide.
+// decide. A credential that cannot decide is refused first, as the API does,
+// whether or not the approval exists.
 func runDecide(ctx context.Context, opts decideOptions) error {
 	service := clidurable.NewService(opts.deps)
+	if err := service.RequirePerson(); err != nil {
+		return err
+	}
 	approval, err := service.GetApproval(ctx, opts.approvalID)
 	if err != nil {
 		return err
@@ -115,9 +119,6 @@ func runDecide(ctx context.Context, opts decideOptions) error {
 		return nil
 	}
 
-	if err := service.RequirePerson(); err != nil {
-		return err
-	}
 	if !opts.yes {
 		confirmed, err := confirm.Action(opts.in, opts.prompt,
 			fmt.Sprintf("%q was requested by workflow %s. The workflow resumes with your decision, "+
