@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.4](https://github.com/Kong/volcano-cli/compare/v0.43.3...v0.43.4) (2026-10-09)
+
+
+### Bug Fixes
+
+* **sandboxes:** align CLI with hosting-2 lifetime contract ([#294](https://github.com/Kong/volcano-cli/issues/294)) ([3d5b7f8](https://github.com/Kong/volcano-cli/commit/3d5b7f838b8bf710ff5613e99f7a4884fc67e115))
+
 ## [0.43.3](https://github.com/Kong/volcano-cli/compare/v0.43.2...v0.43.3) (2026-10-09)
 
 
