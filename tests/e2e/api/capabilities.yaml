@@ -1,0 +1,113 @@
+common:
+  - createProject
+  - deleteProject
+  - listProjects
+
+tests:
+  TestAPIE2ESmokeAuth:
+    - listProjects
+  TestAPIE2ESmokeFunctions:
+    - listFunctions
+  TestAPIE2ESmokeMigrations:
+    - getDatabase
+  TestAPIE2ESmokeProjects:
+    - getProject
+  TestAPIE2ESmokeVariables:
+    - createVariable
+    - deleteVariable
+    - getVariable
+    - listVariables
+  TestAPIE2ECloudConfig:
+    - applyProjectConfig
+    - createFunction
+    - createStorageBucket
+    - createVariable
+    - deleteFunction
+    - deleteStorageBucket
+    - getFunction
+    - getProjectConfig
+    - getStorageBucket
+    - listFunctionRuntimes
+    - listFunctions
+    - listStoragePolicies
+    - listVariables
+  TestAPIE2ECloudDatabaseBackups:
+    - createDatabase
+    - createDatabaseBackup
+    - createDatabaseRestore
+    - deleteDatabase
+    - deleteDatabaseBackup
+    - getDatabase
+    - getDatabaseBackup
+    - getDatabaseBackupSchedule
+    - getDatabaseRestore
+    - listDatabaseBackups
+    - listDatabaseRegions
+    - listDatabaseRestores
+    - listPostgresVersions
+    - updateDatabaseBackupSchedule
+  TestAPIE2ECloudDatabaseBranches:
+    - createDatabase
+    - createDatabaseBranch
+    - deleteDatabase
+    - deleteDatabaseBranch
+    - getDatabase
+    - getDatabaseBranch
+    - listDatabaseBranches
+    - listDatabaseRegions
+    - listPostgresVersions
+    - resetDatabaseBranch
+    - resetDatabaseBranchPassword
+    - updateDatabaseBranch
+  TestAPIE2ECloudDatabases:
+    - createDatabase
+    - deleteDatabase
+    - getDatabase
+    - listDatabaseRegions
+    - listDatabases
+    - listPostgresVersions
+  TestAPIE2ECloudDurableFunctions:
+    - createDurableFunction
+    - createDurableFunctionScheduler
+    - deleteDurableFunction
+    - deleteDurableFunctionScheduler
+    - getDurableExecution
+    - getDurableFunction
+    - getDurableFunctionScheduler
+    - getFunction
+    - listDurableExecutions
+    - listDurableFunctions
+    - listDurableFunctionSchedulers
+    - listFunctionRuntimes
+    - listFunctions
+    - startDurableExecution
+    - stopDurableExecution
+    - updateDurableFunctionScheduler
+  TestAPIE2ECloudFrontends:
+    - createFrontend
+    - deleteFrontend
+    - getFrontend
+    - listFrontends
+  TestAPIE2ECloudFunctions:
+    - createFunction
+    - createFunctionsBatch
+    - deleteFunction
+    - getFunction
+    - invokeFunction
+    - listFunctionRuntimes
+    - listFunctions
+    - updateFunction
+  TestAPIE2ECloudStorage:
+    - createServiceKey
+    - createStorageBucket
+    - createStoragePolicy
+    - deleteStorageBucket
+    - deleteStorageObject
+    - deleteStoragePolicy
+    - downloadStorageObject
+    - getStorageBucket
+    - listStorageBuckets
+    - listStorageObjects
+    - listStoragePolicies
+    - updateStorageBucket
+    - uploadStorageObject
