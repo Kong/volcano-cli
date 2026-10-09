@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -18,11 +19,10 @@ import (
 )
 
 type localSandboxSettings struct {
-	Name        string `yaml:"name"`
-	MemoryMB    int    `yaml:"memory_mb"`
-	Ports       []int  `yaml:"ports"`
-	IdleTimeout int    `yaml:"idle_timeout_seconds"`
-	TTL         int    `yaml:"ttl_seconds"`
+	Name     string `yaml:"name"`
+	MemoryMB int    `yaml:"memory_mb"`
+	Ports    []int  `yaml:"ports"`
+	TTL      int    `yaml:"ttl_seconds"`
 }
 
 func sandboxSettingsFromManifest(data []byte, name string) (localSandboxSettings, error) {
@@ -60,7 +60,6 @@ sandboxes:
   - name: local-custom
     memory_mb: 1024
     ports: [8080]
-    idle_timeout_seconds: 90
     ttl_seconds: 600
 `), 0o600))
 	plan := runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest, "--dry-run")
@@ -69,7 +68,7 @@ sandboxes:
 	require.Equal(t, before, pull(), "dry run must not change template settings")
 	applied := runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest)
 	require.Contains(t, applied, "Configuration deployed")
-	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, IdleTimeout: 90, TTL: 600}, pull())
+	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, TTL: 600}, pull())
 	var saved apiclient.SandboxTemplate
 	require.NoError(t, json.Unmarshal([]byte(runVolcanoLocalModeE2EStdout(t, binary, env, dir,
 		"sandboxes", "templates", "get", template, "--json")), &saved))
@@ -77,6 +76,30 @@ sandboxes:
 	require.Equal(t, "local-custom", saved.Name)
 	require.NotNil(t, saved.MemoryMb)
 	require.Equal(t, 1024, *saved.MemoryMb)
+
+	checkLifetime := func(want time.Duration, extraArgs ...string) {
+		t.Helper()
+		args := append([]string{"sandboxes", "run", "--template", template, "--json"}, extraArgs...)
+		var session apiclient.SandboxSession
+		require.NoError(t, json.Unmarshal([]byte(runVolcanoLocalModeE2EStdout(t, binary, env, dir, args...)), &session))
+		defer runVolcanoLocalModeE2EStdout(t, binary, env, dir, "sandboxes", "terminate", session.Id.String())
+		if want == 0 {
+			require.Nil(t, session.ExpiresAt, "unlimited local sessions must not expire")
+		} else {
+			require.NotNil(t, session.ExpiresAt)
+			require.WithinDuration(t, session.CreatedAt.Add(want), *session.ExpiresAt, time.Second)
+		}
+	}
+	checkLifetime(600 * time.Second)
+	checkLifetime(0, "--duration", "0")
+	require.NoError(t, os.WriteFile(manifest, []byte(`version: 1
+sandboxes:
+  - name: local-custom
+    ttl_seconds: 0
+`), 0o600))
+	runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest)
+	require.Zero(t, pull().TTL)
+	checkLifetime(0)
 }
 
 func requireLocalSandboxDeploymentArtifacts(t *testing.T, run func(...string) string, template, deployment string) {
@@ -118,10 +141,10 @@ func requireLocalSandboxDeploymentArtifacts(t *testing.T, run func(...string) st
 }
 
 func TestSandboxSettingsFromManifest(t *testing.T) {
-	data := []byte("version: 1\nvariables:\n  - name: retained\nsandboxes:\n  - name: other\n  - name: local-custom\n    memory_mb: 1024\n    ports: [8080]\n    idle_timeout_seconds: 90\n    ttl_seconds: 600\n")
+	data := []byte("version: 1\nvariables:\n  - name: retained\nsandboxes:\n  - name: other\n  - name: local-custom\n    memory_mb: 1024\n    ports: [8080]\n    ttl_seconds: 600\n")
 	settings, err := sandboxSettingsFromManifest(data, "local-custom")
 	require.NoError(t, err)
-	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, IdleTimeout: 90, TTL: 600}, settings)
+	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, TTL: 600}, settings)
 	_, err = sandboxSettingsFromManifest(data, "missing")
 	require.ErrorContains(t, err, "omitted sandbox")
 	_, err = sandboxSettingsFromManifest([]byte("invalid: ["), "local-custom")

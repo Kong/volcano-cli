@@ -47,6 +47,11 @@ shell variables and `cd` changes do not. `exit` or EOF detaches without terminat
 the session. Full-screen programs such as `vim` require a PTY, which this prompt
 does not provide. Always terminate sessions you no longer need.
 
+Without `--duration`, `run` inherits the template's `ttl_seconds`. The default
+is 3600 seconds in cloud mode and unlimited in local mode. To override a finite
+template with an unlimited local session, use
+`volcano sandboxes run --template TEMPLATE_ID --duration 0`.
+
 `exec` requires `--` before the command. Each argument is shell-quoted. For shell syntax such as pipes or background processes, explicitly invoke `sh -c`:
 
 ```bash
@@ -84,7 +89,7 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--memory` | `exec`, `run` | Override memory with 1024 or 2048 MB; otherwise inherit the preset or template |
 | `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
-| `--duration` | `run` | Maximum session lifetime: 30–28800 seconds; defaults to 3600 |
+| `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
 | `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 

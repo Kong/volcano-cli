@@ -76,13 +76,12 @@ type Manifest struct {
 
 // SandboxManifest declares image assertions and default session settings for an
 // existing Sandbox template. Nil fields preserve existing values; explicit
-// zero idle timeout and empty ports remain present during round trips.
+// zero TTL and empty ports remain present during round trips.
 type SandboxManifest struct {
-	Name               string `yaml:"name" json:"name"`
-	MemoryMB           *int   `yaml:"memory_mb,omitempty" json:"memory_mb,omitempty"`
-	Ports              *[]int `yaml:"ports,omitempty" json:"ports,omitempty"`
-	IdleTimeoutSeconds *int   `yaml:"idle_timeout_seconds,omitempty" json:"idle_timeout_seconds,omitempty"`
-	TTLSeconds         *int   `yaml:"ttl_seconds,omitempty" json:"ttl_seconds,omitempty"`
+	Name       string `yaml:"name" json:"name"`
+	MemoryMB   *int   `yaml:"memory_mb,omitempty" json:"memory_mb,omitempty"`
+	Ports      *[]int `yaml:"ports,omitempty" json:"ports,omitempty"`
+	TTLSeconds *int   `yaml:"ttl_seconds,omitempty" json:"ttl_seconds,omitempty"`
 }
 
 // ProjectManifest declares project-level settings.
