@@ -16,13 +16,12 @@ sandboxes:
   - name: local-custom
     memory_mb: 1024
     ports: [8080]
-    idle_timeout_seconds: 90
     ttl_seconds: 600
 `), noEnv)
 	require.NoError(t, err)
 	body, err := manifest.uploadBody()
 	require.NoError(t, err)
-	require.JSONEq(t, `{"version":1,"sandboxes":[{"name":"local-custom","memory_mb":1024,"ports":[8080],"idle_timeout_seconds":90,"ttl_seconds":600}]}`, string(body))
+	require.JSONEq(t, `{"version":1,"sandboxes":[{"name":"local-custom","memory_mb":1024,"ports":[8080],"ttl_seconds":600}]}`, string(body))
 	var wire apiclient.ProjectConfig
 	require.NoError(t, json.Unmarshal(body, &wire))
 	require.NotNil(t, wire.Sandboxes)
@@ -46,7 +45,7 @@ func TestSandboxManifestPreservesOmittedAndExplicitValues(t *testing.T) {
 		"omitted section":         {"version: 1\n", `{"version":1}`},
 		"empty section":           {"version: 1\nsandboxes: []\n", `{"version":1,"sandboxes":[]}`},
 		"omitted settings":        {"version: 1\nsandboxes:\n  - name: custom\n", `{"version":1,"sandboxes":[{"name":"custom"}]}`},
-		"zero and empty settings": {"version: 1\nsandboxes:\n  - name: custom\n    ports: []\n    idle_timeout_seconds: 0\n", `{"version":1,"sandboxes":[{"name":"custom","ports":[],"idle_timeout_seconds":0}]}`},
+		"zero and empty settings": {"version: 1\nsandboxes:\n  - name: custom\n    ports: []\n    ttl_seconds: 0\n", `{"version":1,"sandboxes":[{"name":"custom","ports":[],"ttl_seconds":0}]}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			manifest, err := Parse([]byte(example.yaml), noEnv)
@@ -68,4 +67,9 @@ func TestSandboxManifestPreservesOmittedAndExplicitValues(t *testing.T) {
 func TestSandboxManifestRejectsUnknownFields(t *testing.T) {
 	_, err := Parse([]byte("version: 1\nsandboxes:\n  - name: custom\n    ttl_second: 600\n"), noEnv)
 	require.ErrorContains(t, err, "field ttl_second not found")
+}
+
+func TestSandboxManifestRejectsRemovedIdleTimeout(t *testing.T) {
+	_, err := Parse([]byte("version: 1\nsandboxes:\n  - name: custom\n    idle_timeout_seconds: 90\n"), noEnv)
+	require.ErrorContains(t, err, "field idle_timeout_seconds not found")
 }

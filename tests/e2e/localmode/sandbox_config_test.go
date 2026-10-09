@@ -18,11 +18,10 @@ import (
 )
 
 type localSandboxSettings struct {
-	Name        string `yaml:"name"`
-	MemoryMB    int    `yaml:"memory_mb"`
-	Ports       []int  `yaml:"ports"`
-	IdleTimeout int    `yaml:"idle_timeout_seconds"`
-	TTL         int    `yaml:"ttl_seconds"`
+	Name     string `yaml:"name"`
+	MemoryMB int    `yaml:"memory_mb"`
+	Ports    []int  `yaml:"ports"`
+	TTL      int    `yaml:"ttl_seconds"`
 }
 
 func sandboxSettingsFromManifest(data []byte, name string) (localSandboxSettings, error) {
@@ -60,7 +59,6 @@ sandboxes:
   - name: local-custom
     memory_mb: 1024
     ports: [8080]
-    idle_timeout_seconds: 90
     ttl_seconds: 600
 `), 0o600))
 	plan := runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest, "--dry-run")
@@ -69,7 +67,7 @@ sandboxes:
 	require.Equal(t, before, pull(), "dry run must not change template settings")
 	applied := runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest)
 	require.Contains(t, applied, "Configuration deployed")
-	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, IdleTimeout: 90, TTL: 600}, pull())
+	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, TTL: 600}, pull())
 	var saved apiclient.SandboxTemplate
 	require.NoError(t, json.Unmarshal([]byte(runVolcanoLocalModeE2EStdout(t, binary, env, dir,
 		"sandboxes", "templates", "get", template, "--json")), &saved))
@@ -118,10 +116,10 @@ func requireLocalSandboxDeploymentArtifacts(t *testing.T, run func(...string) st
 }
 
 func TestSandboxSettingsFromManifest(t *testing.T) {
-	data := []byte("version: 1\nvariables:\n  - name: retained\nsandboxes:\n  - name: other\n  - name: local-custom\n    memory_mb: 1024\n    ports: [8080]\n    idle_timeout_seconds: 90\n    ttl_seconds: 600\n")
+	data := []byte("version: 1\nvariables:\n  - name: retained\nsandboxes:\n  - name: other\n  - name: local-custom\n    memory_mb: 1024\n    ports: [8080]\n    ttl_seconds: 600\n")
 	settings, err := sandboxSettingsFromManifest(data, "local-custom")
 	require.NoError(t, err)
-	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, IdleTimeout: 90, TTL: 600}, settings)
+	require.Equal(t, localSandboxSettings{Name: "local-custom", MemoryMB: 1024, Ports: []int{8080}, TTL: 600}, settings)
 	_, err = sandboxSettingsFromManifest(data, "missing")
 	require.ErrorContains(t, err, "omitted sandbox")
 	_, err = sandboxSettingsFromManifest([]byte("invalid: ["), "local-custom")

@@ -114,7 +114,6 @@ sandboxes:
   - name: local-custom
     memory_mb: 1024
     ports: [8080]
-    idle_timeout_seconds: 0
     ttl_seconds: 600
 `), 0o644))
 
@@ -148,7 +147,7 @@ sandboxes:
 	assert.Equal(t, false, realtime["enabled"])
 	sandboxes, err := json.Marshal(uploaded["sandboxes"])
 	require.NoError(t, err)
-	assert.JSONEq(t, `[{"name":"local-custom","memory_mb":1024,"ports":[8080],"idle_timeout_seconds":0,"ttl_seconds":600}]`, string(sandboxes))
+	assert.JSONEq(t, `[{"name":"local-custom","memory_mb":1024,"ports":[8080],"ttl_seconds":600}]`, string(sandboxes))
 
 	assert.Contains(t, out, "Configuration deployed from volcano-config.yaml")
 	assert.Contains(t, out, "variables: 1 created, 1 deleted")
