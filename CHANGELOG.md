@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.3](https://github.com/Kong/volcano-cli/compare/v0.43.2...v0.43.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* remove cloud sandbox CLI E2E test ([#292](https://github.com/Kong/volcano-cli/issues/292)) ([999801d](https://github.com/Kong/volcano-cli/commit/999801d4a2879a13a778443bc071bd7403b1fc0d))
+
 ## [0.43.2](https://github.com/Kong/volcano-cli/compare/v0.43.1...v0.43.2) (2026-10-09)
 
 
