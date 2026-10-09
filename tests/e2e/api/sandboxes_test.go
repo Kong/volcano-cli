@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAPIE2ECloudSandboxes(t *testing.T) {
@@ -27,8 +26,12 @@ func TestAPIE2ECloudSandboxes(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"deployment"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(deployed.stdout), &result))
-	require.NotEmpty(t, result.Deployment.ID)
+	if err := json.Unmarshal([]byte(deployed.stdout), &result); err != nil {
+		t.Fatalf("decode sandbox deployment response: %v", err)
+	}
+	if result.Deployment.ID == "" {
+		t.Fatal("sandbox deployment response is missing deployment ID")
+	}
 	retried := env.runCloudCLI(t, deployArgs...)
 	retried.requireSuccess(t, result.Deployment.ID)
 	env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, `"status":"active"`, "sandboxes", "deployments", "get", template, result.Deployment.ID, "--json")
