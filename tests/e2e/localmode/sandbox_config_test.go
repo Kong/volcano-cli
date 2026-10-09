@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -75,6 +76,30 @@ sandboxes:
 	require.Equal(t, "local-custom", saved.Name)
 	require.NotNil(t, saved.MemoryMb)
 	require.Equal(t, 1024, *saved.MemoryMb)
+
+	checkLifetime := func(want time.Duration, extraArgs ...string) {
+		t.Helper()
+		args := append([]string{"sandboxes", "run", "--template", template, "--json"}, extraArgs...)
+		var session apiclient.SandboxSession
+		require.NoError(t, json.Unmarshal([]byte(runVolcanoLocalModeE2EStdout(t, binary, env, dir, args...)), &session))
+		defer runVolcanoLocalModeE2EStdout(t, binary, env, dir, "sandboxes", "terminate", session.Id.String())
+		if want == 0 {
+			require.Nil(t, session.ExpiresAt, "unlimited local sessions must not expire")
+		} else {
+			require.NotNil(t, session.ExpiresAt)
+			require.WithinDuration(t, session.CreatedAt.Add(want), *session.ExpiresAt, time.Second)
+		}
+	}
+	checkLifetime(600 * time.Second)
+	checkLifetime(0, "--duration", "0")
+	require.NoError(t, os.WriteFile(manifest, []byte(`version: 1
+sandboxes:
+  - name: local-custom
+    ttl_seconds: 0
+`), 0o600))
+	runVolcanoLocalModeE2EStdout(t, binary, env, dir, "config", "deploy", "--file", manifest)
+	require.Zero(t, pull().TTL)
+	checkLifetime(0)
 }
 
 func requireLocalSandboxDeploymentArtifacts(t *testing.T, run func(...string) string, template, deployment string) {
