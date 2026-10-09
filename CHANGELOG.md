@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.2](https://github.com/Kong/volcano-cli/compare/v0.43.1...v0.43.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* remove testify from sandbox API E2E tests ([#290](https://github.com/Kong/volcano-cli/issues/290)) ([363b7f2](https://github.com/Kong/volcano-cli/commit/363b7f256640922d722834e0b4f590c1c64d0661))
+
 ## [0.43.1](https://github.com/Kong/volcano-cli/compare/v0.43.0...v0.43.1) (2026-10-08)
 
 
