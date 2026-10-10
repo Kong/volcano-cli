@@ -50,6 +50,23 @@ func TestHelpersOffArePlain(t *testing.T) {
 	}
 }
 
+// TestStripControl drops the bytes a terminal acts on, C1 included since
+// U+009B is a one-rune CSI, and keeps printable text, Unicode too.
+func TestStripControl(t *testing.T) {
+	for in, want := range map[string]string{
+		"Ship\x1b[2J order\x07":          "Ship[2J order",
+		"line\r\nbreak":                  "linebreak",
+		"tab\there":                      "tab here",
+		"csi\u009b31m red\u007f":         "csi31m red",
+		"Envío 4417 · 出荷?":               "Envío 4417 · 出荷?",
+		"osc\x1b]52;c;eA==\x07clipboard": "osc]52;c;eA==clipboard",
+	} {
+		if got := StripControl(in); got != want {
+			t.Errorf("StripControl(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // TestHelpersOnEmitANSI checks color-on renders escape codes.
 func TestHelpersOnEmitANSI(t *testing.T) {
 	if !strings.Contains(Title("x", true), "\x1b[") {

@@ -9,16 +9,21 @@ package durable
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 // Service performs durable function workflows against the current project.
@@ -337,6 +342,184 @@ func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedul
 		return durableSchedulerError("delete", identifier, schedulerID, err)
 	}
 	return nil
+}
+
+// ListApprovals returns one page of the project's approvals, newest first.
+func (s Service) ListApprovals(
+	ctx context.Context, input api.DurableApprovalListInput,
+) (*apiclient.PaginatedDurableApprovals, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	approvals, err := authenticated.API.ListDurableApprovals(ctx, authenticated.ProjectID, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list approvals: %w", err)
+	}
+	return approvals, nil
+}
+
+// GetApproval returns one approval of the current project.
+func (s Service) GetApproval(ctx context.Context, approvalID uuid.UUID) (*apiclient.DurableApproval, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	approval, err := authenticated.API.GetDurableApproval(ctx, authenticated.ProjectID, approvalID)
+	if err != nil {
+		return nil, approvalError("get", approvalID, err)
+	}
+	return approval, nil
+}
+
+// ApprovalStats counts the project's approvals by outcome between from and
+// to. A nil to is the API's now, and a nil from 30 days before to.
+func (s Service) ApprovalStats(
+	ctx context.Context, function string, from, to *time.Time,
+) (*apiclient.DurableApprovalStats, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	stats, err := authenticated.API.GetDurableApprovalStats(ctx, authenticated.ProjectID, function, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get approval stats: %w", err)
+	}
+	return stats, nil
+}
+
+// DecideApproval approves or denies one approval, and returns it as decided.
+// decision is apiclient.DurableApprovalStatusApproved or
+// apiclient.DurableApprovalStatusDenied.
+//
+// The API answers a conflicting decision with 409 and no detail of what got
+// there first, so the approval is read again to say who decided it, or when it
+// expired.
+func (s Service) DecideApproval(
+	ctx context.Context, approvalID uuid.UUID, decision apiclient.DurableApprovalStatus, comment string,
+) (*apiclient.DurableApproval, error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return nil, err
+	}
+
+	decide := authenticated.API.ApproveDurableApproval
+	action := "approve"
+	if decision == apiclient.DurableApprovalStatusDenied {
+		decide = authenticated.API.DenyDurableApproval
+		action = "deny"
+	}
+
+	approval, err := decide(ctx, authenticated.ProjectID, approvalID, comment)
+	if err == nil {
+		return approval, nil
+	}
+	switch api.Status(err) {
+	case http.StatusForbidden:
+		if api.LastRefusal().ProjectAccessToken || refusesProjectTokenDecision(api.Message(err)) {
+			return nil, errApprovalNeedsAPerson
+		}
+	case http.StatusConflict:
+		current, getErr := authenticated.API.GetDurableApproval(ctx, authenticated.ProjectID, approvalID)
+		if getErr == nil {
+			if conflict := ApprovalConflict(current, decision); conflict != nil {
+				return nil, conflict
+			}
+			// Past its deadline by the API's clock, an approval still reads
+			// pending until the background pass marks it expired.
+			if api.Code(err) == "approval_expired" {
+				return nil, approvalExpired(current)
+			}
+		}
+	}
+	return nil, approvalError(action, approvalID, err)
+}
+
+// errApprovalNeedsAPerson is the answer to a project access token deciding.
+// Approvals exist so that a person signs off, which is why the API refuses
+// any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
+// is how a project access token usually arrives.
+var errApprovalNeedsAPerson = errors.New(
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard")
+
+// RequirePerson refuses a credential the CLI knows is a project access token,
+// so a decision is not confirmed only to be refused. DecideApproval still maps
+// the API's refusal, for credentials without a recognizable prefix.
+func (s Service) RequirePerson() error {
+	cfg, err := s.sessions.Config()
+	if err != nil {
+		return err
+	}
+	if config.IsProjectToken(cfg.Token()) {
+		return errApprovalNeedsAPerson
+	}
+	return nil
+}
+
+// refusesProjectTokenDecision reports whether a 403 message is the API
+// refusing a project access token's decision. A read-only token is refused
+// before the decision check, but a full one would be refused next, so both
+// get the same answer.
+func refusesProjectTokenDecision(message string) bool {
+	return strings.Contains(message, "cannot decide durable approvals") ||
+		strings.Contains(message, "project access token is read-only")
+}
+
+// ApprovalConflict says why decision cannot be applied to approval, or returns
+// nil when it can: the approval is pending, or already carries that same
+// decision, which the API accepts again unchanged. Whether a pending
+// approval's deadline has passed is left to the API: this machine's clock may
+// disagree with the one that decides.
+func ApprovalConflict(approval *apiclient.DurableApproval, decision apiclient.DurableApprovalStatus) error {
+	if approval == nil || approval.Status == decision {
+		return nil
+	}
+
+	switch approval.Status {
+	case apiclient.DurableApprovalStatusPending:
+		return nil
+	case apiclient.DurableApprovalStatusApproved, apiclient.DurableApprovalStatusDenied:
+		return fmt.Errorf("approval %s was already %s%s", approval.Id, approval.Status, DecisionSummary(approval.Decision))
+	case apiclient.DurableApprovalStatusExpired:
+		return approvalExpired(approval)
+	case apiclient.DurableApprovalStatusCancelled:
+		return fmt.Errorf("approval %s was cancelled: its execution ended before anyone decided", approval.Id)
+	default:
+		return fmt.Errorf("approval %s is %s and can no longer be decided", approval.Id, approval.Status)
+	}
+}
+
+func approvalExpired(approval *apiclient.DurableApproval) error {
+	if approval.ExpiresAt != nil {
+		return fmt.Errorf("approval %s expired at %s before anyone decided",
+			approval.Id, approval.ExpiresAt.Local().Format(time.RFC3339))
+	}
+	return fmt.Errorf("approval %s expired before anyone decided", approval.Id)
+}
+
+// DecisionSummary renders who decided and when as " by <email> at <time>", or
+// "" when there is no decision.
+func DecisionSummary(decision *apiclient.DurableApprovalDecision) string {
+	if decision == nil {
+		return ""
+	}
+	decider := "a deleted user"
+	if decision.DecidedBy != nil && decision.DecidedBy.Email != "" {
+		decider = theme.StripControl(decision.DecidedBy.Email)
+	}
+	return fmt.Sprintf(" by %s at %s", decider, decision.DecidedAt.Local().Format(time.RFC3339))
+}
+
+// approvalError answers 404 in the project's terms: the API gives the same
+// answer for an id that never existed and one that belongs to another project.
+func approvalError(action string, approvalID uuid.UUID, err error) error {
+	if api.Status(err) == http.StatusNotFound {
+		return fmt.Errorf("no approval %s in this project", approvalID)
+	}
+	return fmt.Errorf("failed to %s approval %s: %w", action, approvalID, err)
 }
 
 // durableFunctionError names the function the user asked for. The API answers

@@ -18,6 +18,8 @@ var ErrNotFound = errors.New("not found")
 type Error struct {
 	StatusCode int
 	Message    string
+	// Code is the API's machine-readable code, when the response declares one.
+	Code string
 }
 
 // Status returns the HTTP status code carried by an *Error wrapped in err, or
@@ -35,6 +37,16 @@ func Status(err error) int {
 func Message(err error) string {
 	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.Message
+	}
+	return ""
+}
+
+// Code returns the API's machine-readable code for the *Error wrapped in err,
+// or "" if err does not wrap an *Error or the response carried no code. A code
+// tells apart refusals that share a status and whose messages may change.
+func Code(err error) string {
+	if apiErr, ok := errors.AsType[*Error](err); ok {
+		return apiErr.Code
 	}
 	return ""
 }
@@ -120,7 +132,11 @@ func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) err
 func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	for _, generatedError := range generatedErrors {
 		if generatedError != nil {
-			return apiErrorWithMessage(statusCode, generatedError.Error)
+			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(generatedError.Error)}
+			if generatedError.Code != nil {
+				apiErr.Code = *generatedError.Code
+			}
+			return apiErr
 		}
 	}
 	return apiError(statusCode, body)

@@ -70,10 +70,15 @@ existing function's scope alone.
 | List schedulers | `volcano cloud durable schedulers list <function>` |
 | Pause or resume one | `volcano cloud durable schedulers disable\|enable <function> <scheduler-id>` |
 | Delete one | `volcano cloud durable schedulers delete <function> <scheduler-id> [--yes]` |
+| List approvals | `volcano cloud durable approvals list [--function …] [--status pending] [--execution …] [--since …] [--page 1] [--limit 100]` |
+| Get one approval | `volcano cloud durable approvals get <approval-id>` |
+| Approve or deny one | `volcano cloud durable approvals approve\|deny <approval-id> [--comment …] [--yes]` |
+| Approval stats | `volcano cloud durable approvals stats [--function …] [--since 30d]` |
 
 Wherever a command takes a function, it takes the name or the id. `deploy` needs
 exactly one of `--all` and `-f`. `--yes` skips the confirmation prompt the three
-destructive commands ask for. Schedulers require `SUPERAGENT` and are capped at
+destructive commands and the two approval decisions ask for. Every `approvals`
+command takes `--json`. Schedulers require `SUPERAGENT` and are capped at
 5 per project across standard and durable functions together; a create beyond
 that answers `403`.
 
@@ -162,6 +167,80 @@ run rather than queueing.
 executions it already started keep running. `schedulers delete` removes the
 scheduler and its run history, and also leaves running executions alone — stop
 those with `executions stop`.
+
+## Approvals
+
+A workflow that calls `ctx.waitForApproval` pauses until a person approves or
+denies it, then resumes with the decision. See
+[durable functions in the JavaScript SDK](/sdk/js/durable-functions) for the
+authoring side. The `approvals` commands are the deciding side:
+
+```bash
+# What is waiting on someone
+volcano cloud durable approvals list
+
+# Read what the workflow is asking, with the details it attached
+volcano cloud durable approvals get 0b6f3c1e-8a4d-4f7e-9c2b-5d1a7e3f9b20
+
+# Decide it; the comment reaches the workflow and stays in the history
+volcano cloud durable approvals approve 0b6f3c1e-8a4d-4f7e-9c2b-5d1a7e3f9b20 --comment "Checked stock"
+volcano cloud durable approvals deny 0b6f3c1e-8a4d-4f7e-9c2b-5d1a7e3f9b20
+```
+
+```text
+ID: 0b6f3c1e-8a4d-4f7e-9c2b-5d1a7e3f9b20
+Title: Ship order 4417?
+Name: ship-order
+Status: approved
+Workflow: order-pipeline
+Execution: order-4417 (66666666-6666-4666-8666-666666666666, running)
+Requested: 2026-10-06T11:00:00Z
+Expires: when its execution ends
+Details: {
+  "order": 4417
+}
+Decided By: owner@example.com
+Decided At: 2026-10-06T11:04:12Z
+Comment: Checked stock
+✓ Approved "Ship order 4417?"; the workflow resumes with the decision
+```
+
+`list` shows pending approvals unless `--status` says otherwise. It takes
+`pending`, `approved`, `denied`, `expired`, `cancelled`, or `all`. An approval
+ends in one of four ways:
+
+| Status | What happened | What the workflow gets |
+|---|---|---|
+| `approved` | A person approved it | `approved: true` and the comment |
+| `denied` | A person denied it | `approved: false` and the comment |
+| `expired` | Its timeout passed with nobody deciding | `status: 'expired'`; the wait resolves rather than failing |
+| `cancelled` | Its execution ended first | Nothing; the execution is already over |
+
+`approve` and `deny` show the title and ask before deciding, because a decision
+cannot be changed. Repeating the decision an approval already has changes
+nothing and succeeds, so a retried command is safe. A different decision, or
+any decision on an expired or cancelled approval, fails with what happened, for
+example `approval … was already approved by owner@example.com at …`. An approval
+past its timeout counts as expired, even while it still reads `pending`.
+
+Approvals are decided by a person. A command run with a project access token is
+refused before it asks; run `volcano login` with `VOLCANO_TOKEN` unset, or
+decide in the dashboard.
+
+`stats` counts the approvals requested in a window, 30 days unless `--since`
+says otherwise, up to 366 days:
+
+```bash
+volcano cloud durable approvals stats --since 7d
+```
+
+It prints the count in each status, the approval rate (approved out of
+approved and denied), the median time from request to decision, and the
+workflows that request the most.
+
+In local mode, drop `cloud`: `volcano durable approvals approve …` decides as the
+local user. An approval timeout runs in real time locally, even though plain
+waits resolve immediately.
 
 ## Starting is asynchronous
 
