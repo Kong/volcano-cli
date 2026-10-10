@@ -37,6 +37,8 @@ tags:
     description: Service keys for function invocation and database admin access
   - name: Variables
     description: Environment variable management
+  - name: Variable Environments
+    description: Project-owned variable Environment identity and lifecycle management
   - name: Databases
     description: PostgreSQL database provisioning and management
   - name: Database Branches
@@ -5799,6 +5801,361 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /durable-approvals:
+    post:
+      tags:
+        - Durable Functions
+      summary: Request an approval from inside a workflow
+      description: |
+        Registers an approval request for a running durable execution. The
+        Volcano SDK calls this from `ctx.waitForApproval`; applications do not
+        call it directly.
+
+        `execution_ref` and `callback_id` are opaque values the SDK reads from
+        the running workflow. Together they are the request's credential, so
+        the operation takes no other authentication. The approval belongs to
+        the project that owns the execution, and expires when the workflow's
+        own approval timeout does.
+
+        Retrying is safe: a request for an approval that is already registered
+        returns it with `200`.
+      operationId: requestDurableApproval
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestDurableApprovalRequest'
+      responses:
+        '200':
+          description: The approval was already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApprovalRegistration'
+        '201':
+          description: Approval registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApprovalRegistration'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No running durable execution matches `execution_ref`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The approval cannot be registered now. `code` says why:
+
+            - `approval_not_ready`: the workflow has not finished opening the
+              approval yet. Retry with a short backoff; the SDK does.
+            - `approval_closed`: the workflow is no longer waiting on it.
+            - `execution_ended`: the execution has finished.
+            - `too_many_pending_approvals`: the execution already has the
+              maximum number of pending approvals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 64 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many approval requests from this execution or address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            The approval could not be confirmed with the workflow right now.
+            Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-approvals:
+    get:
+      tags:
+        - Durable Functions
+      summary: List durable approvals
+      description: |
+        Lists the approvals durable workflows in the project have requested,
+        newest first. Pending approvals are the ones a workflow is waiting on;
+        decided, expired, and cancelled ones are kept for a year.
+
+        Project access tokens can list approvals, including read-only ones.
+      operationId: listDurableApprovals
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          description: Return only approvals in this status.
+          schema:
+            $ref: '#/components/schemas/DurableApprovalStatus'
+        - $ref: '#/components/parameters/DurableApprovalFunctionFilter'
+        - name: execution_id
+          in: query
+          required: false
+          description: Return only approvals requested by this durable execution.
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          description: Return only approvals requested at or after this time.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: Return only approvals requested before this time.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDurableApprovals'
+        '400':
+          description: A filter is invalid, or `from` is after `to`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-approvals/stats:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get durable approval statistics
+      description: |
+        Counts the project's approvals by outcome over a time window, overall,
+        per workflow, and per day. The window defaults to the last 30 days and
+        can cover up to a year. An approval is counted on the day it was
+        requested.
+
+        Project access tokens can read statistics, including read-only ones.
+      operationId: getDurableApprovalStats
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableApprovalFunctionFilter'
+        - name: from
+          in: query
+          required: false
+          description: Start of the window. Defaults to 30 days before `to`.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          description: End of the window. Defaults to now.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApprovalStats'
+        '400':
+          description: The window is invalid or longer than 366 days
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-approvals/{approvalId}:
+    get:
+      tags:
+        - Durable Functions
+      summary: Get a durable approval
+      description: |
+        Returns one approval: what the workflow asked, the durable function
+        and execution that asked it, its deadline, and the decision once one
+        is made.
+
+        Project access tokens can read approvals, including read-only ones.
+      operationId: getDurableApproval
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableApprovalId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApproval'
+        '404':
+          description: Approval not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-approvals/{approvalId}/approve:
+    post:
+      tags:
+        - Durable Functions
+      summary: Approve a durable approval
+      description: |
+        Approves a pending approval. The workflow resumes with the decision.
+
+        Only a person can decide: use the dashboard or a platform token from
+        `volcano login`. Project access tokens are refused with `403`.
+
+        Approving an approval that is already approved returns it unchanged.
+        If the workflow cannot be reached right away, the decision still
+        stands and Volcano keeps delivering it.
+      operationId: approveDurableApproval
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableApprovalId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DurableApprovalDecisionRequest'
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApproval'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The credential is not a person's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Approval not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The approval was already denied, or has expired or been cancelled.
+            `code` is `approval_decided`, `approval_expired`, or
+            `approval_cancelled`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-approvals/{approvalId}/deny:
+    post:
+      tags:
+        - Durable Functions
+      summary: Deny a durable approval
+      description: |
+        Denies a pending approval. The workflow resumes with the decision; a
+        denial is a value the workflow branches on, not an error.
+
+        Only a person can decide: use the dashboard or a platform token from
+        `volcano login`. Project access tokens are refused with `403`.
+
+        Denying an approval that is already denied returns it unchanged.
+        If the workflow cannot be reached right away, the decision still
+        stands and Volcano keeps delivering it.
+      operationId: denyDurableApproval
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableApprovalId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DurableApprovalDecisionRequest'
+      responses:
+        '200':
+          description: Denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableApproval'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The credential is not a person's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Approval not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The approval was already approved, or has expired or been
+            cancelled. `code` is `approval_decided`, `approval_expired`, or
+            `approval_cancelled`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/frontends:
     get:
       tags:
@@ -6657,6 +7014,262 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Failed to delete Function route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/variable-environments:
+    get:
+      tags:
+        - Variable Environments
+      summary: List variable Environments
+      operationId: listVariableEnvironments
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Variable Environments, with Global first and custom Environments ordered by name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironmentList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list variable Environments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Variable Environments
+      summary: Create a variable Environment
+      operationId: createVariableEnvironment
+      description: Creates a custom variable Environment. Global is reserved and already exists. A Project may have at most 100 custom Environments.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVariableEnvironmentRequest'
+      responses:
+        '201':
+          description: Variable Environment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '400':
+          description: |
+            Invalid name, or the reserved Global name. Schema-invalid names
+            return the generic invalid-request error; a reserved name returns
+            `invalid_variable_environment`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A case-insensitive name conflict or the 100-custom-Environment
+            limit has been reached, or the Project is being deleted. Tell them
+            apart with `code`, which is `variable_environment_conflict`,
+            `variable_environment_limit_reached`, or `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/variable-environments/{environmentId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/VariableEnvironmentId'
+    get:
+      tags:
+        - Variable Environments
+      summary: Get a variable Environment
+      operationId: getVariableEnvironment
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: Variable Environment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Variable Environments
+      summary: Rename a variable Environment
+      operationId: renameVariableEnvironment
+      description: Renames a custom Environment without changing its stable ID. Global cannot be renamed.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameVariableEnvironmentRequest'
+      responses:
+        '200':
+          description: Variable Environment renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '400':
+          description: |
+            Invalid name, or the reserved Global name. Schema-invalid names
+            return the generic invalid-request error; a reserved name returns
+            `invalid_variable_environment`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A case-insensitive name conflict, an attempt to rename Global, or
+            a Project being deleted. Tell them apart with `code`, which is
+            `variable_environment_conflict`,
+            `variable_environment_immutable`, or `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to rename the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Variable Environments
+      summary: Delete a variable Environment
+      operationId: deleteVariableEnvironment
+      description: Deletes a custom Environment. Global cannot be deleted.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Variable Environment deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Global is protected, or the Project is being deleted. Tell them
+            apart with `code`, which is `variable_environment_immutable` or
+            `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete the variable Environment
           content:
             application/json:
               schema:
@@ -14686,6 +15299,14 @@ components:
         type: string
         format: uuid
       description: Frontend deployment ID
+    VariableEnvironmentId:
+      name: environmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Variable Environment ID
     FrontendId:
       name: frontendId
       in: path
@@ -14725,6 +15346,26 @@ components:
         type: string
         format: uuid
       description: Durable execution ID
+    DurableApprovalId:
+      name: approvalId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Durable approval ID
+    DurableApprovalFunctionFilter:
+      name: function
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+      description: |
+        Only approvals requested by this durable function, given by id or by
+        name. A name also matches approvals from a deleted function of that
+        name.
     Limit:
       name: limit
       in: query
@@ -15605,6 +16246,10 @@ components:
           type: integer
           description: Refresh token lifetime in seconds
           default: 2592000
+        refresh_token_reuse_interval:
+          type: integer
+          description: A refresh within this many seconds of the refresh token being issued returns the same refresh token instead of rotating it, so concurrent refreshes from several tabs all succeed
+          default: 10
         inactivity_timeout:
           type: integer
           description: Force re-login after inactivity (seconds, 0=never)
@@ -15653,6 +16298,10 @@ components:
           type: integer
           description: Refreshes per hour per IP
           default: 1000
+        rate_limit_password_reset:
+          type: integer
+          description: Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+          default: 10
         cors_enabled:
           type: boolean
           default: false
@@ -15789,6 +16438,12 @@ components:
             the built-in managed device page. Lets a CLI surface the project's
             own RFC 8628 approval page. Empty falls back to the managed page.
           example: https://app.acme.com/device
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
       required:
         - password_policy
     AuthInsightsInterval:
@@ -16767,6 +17422,67 @@ components:
       required:
         - name
         - value
+    VariableEnvironment:
+      type: object
+      description: Stable identity for a Project-owned variable Environment.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+          minLength: 1
+          maxLength: 64
+        is_global:
+          type: boolean
+          description: Whether this is the reserved Global Environment.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - is_global
+        - created_at
+        - updated_at
+    VariableEnvironmentList:
+      type: object
+      properties:
+        data:
+          type: array
+          maxItems: 101
+          items:
+            $ref: '#/components/schemas/VariableEnvironment'
+      required:
+        - data
+    CreateVariableEnvironmentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+          pattern: ^[ \t\n\f\r]*[A-Za-z0-9_-]{1,64}[ \t\n\f\r]*$
+      required:
+        - name
+    RenameVariableEnvironmentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+          pattern: ^[ \t\n\f\r]*[A-Za-z0-9_-]{1,64}[ \t\n\f\r]*$
+      required:
+        - name
     Database:
       type: object
       description: |
@@ -20395,6 +21111,207 @@ components:
         - limit
         - total
         - has_more
+    DurableApproval:
+      type: object
+      description: An approval a durable workflow requested.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/DurableApprovalStatus'
+        name:
+          type: string
+          description: |
+            The name the workflow gave the approval in `ctx.waitForApproval`.
+        title:
+          type: string
+        description:
+          type: string
+        details:
+          description: |
+            The JSON value the workflow attached for the person deciding, as
+            given.
+        function:
+          $ref: '#/components/schemas/DurableApprovalFunction'
+        execution:
+          $ref: '#/components/schemas/DurableApprovalExecution'
+        requested_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the approval expires if nobody decides. Null when the
+            workflow set no timeout; the approval then lasts as long as its
+            execution.
+        decision:
+          $ref: '#/components/schemas/DurableApprovalDecision'
+      required:
+        - id
+        - status
+        - name
+        - title
+        - description
+        - function
+        - execution
+        - requested_at
+        - expires_at
+        - decision
+    DurableApprovalStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - denied
+        - expired
+        - cancelled
+      description: |
+        `pending` means the workflow is waiting for a decision. `approved` and
+        `denied` are decisions a person made. `expired` means the workflow's
+        approval timeout passed first, and `cancelled` means the execution
+        ended while the approval was still pending. Every status but `pending`
+        is final.
+    DurableApprovalRegistration:
+      type: object
+      description: The registered approval, as the requesting workflow sees it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/DurableApprovalStatus'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - status
+        - expires_at
+    DurableApprovalStats:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        counts:
+          $ref: '#/components/schemas/DurableApprovalCounts'
+        approval_rate:
+          type: number
+          format: double
+          nullable: true
+          description: |
+            `approved / (approved + denied)`, from 0 to 1. Null when nothing in
+            the window was decided.
+        median_seconds_to_decision:
+          type: number
+          format: double
+          nullable: true
+          description: Median time from request to decision. Null when nothing was decided.
+        p90_seconds_to_decision:
+          type: number
+          format: double
+          nullable: true
+          description: 90th percentile time from request to decision. Null when nothing was decided.
+        functions:
+          type: array
+          description: |
+            The ten workflows that requested the most approvals, most first.
+            The rest are summed in `other_functions`.
+          items:
+            $ref: '#/components/schemas/DurableApprovalFunctionCounts'
+        other_functions:
+          $ref: '#/components/schemas/DurableApprovalCounts'
+        daily:
+          type: array
+          description: |
+            One entry per UTC day in the window that has approvals, oldest
+            first. Days with none are omitted.
+          items:
+            $ref: '#/components/schemas/DurableApprovalDailyCounts'
+      required:
+        - from
+        - to
+        - counts
+        - approval_rate
+        - median_seconds_to_decision
+        - p90_seconds_to_decision
+        - functions
+        - other_functions
+        - daily
+    DurableApprovalDecisionRequest:
+      type: object
+      properties:
+        comment:
+          type: string
+          maxLength: 2000
+          description: A note for the workflow and the approval's history.
+      additionalProperties: false
+    RequestDurableApprovalRequest:
+      type: object
+      properties:
+        execution_ref:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Opaque reference to the running execution, supplied by the SDK.
+        callback_id:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Opaque approval reference, supplied by the SDK.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+        details:
+          description: |
+            Any JSON value to show the person deciding. The whole request is
+            limited to 64 KiB.
+      required:
+        - execution_ref
+        - callback_id
+        - name
+        - title
+      additionalProperties: false
+    PaginatedDurableApprovals:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DurableApproval'
+        page:
+          type: integer
+          description: Current page number (1-indexed)
+        limit:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items across all pages
+        has_more:
+          type: boolean
+          description: Whether there are more pages available
+      required:
+        - data
+        - page
+        - limit
+        - total
+        - has_more
     PaginatedProjectCustomDomains:
       type: object
       properties:
@@ -22506,10 +23423,17 @@ components:
           type: integer
         refresh_token_lifetime:
           type: integer
+        refresh_token_reuse_interval:
+          type: integer
         inactivity_timeout:
           type: integer
         max_session_duration:
           type: integer
+        platform_token_ttl:
+          type: integer
+          description: TTL in seconds for platform tokens minted via `/auth/platform/exchange`. From 3600 (1 hour) to 31536000 (365 days).
+          minimum: 3600
+          maximum: 31536000
         min_password_length:
           type: integer
           minimum: 15
@@ -22534,6 +23458,19 @@ components:
           type: integer
         rate_limit_token_refresh:
           type: integer
+        rate_limit_password_reset:
+          type: integer
+          description: Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+        cors_enabled:
+          type: boolean
+        cors_allowed_origins:
+          type: array
+          description: Replaces the allowed origins list.
+          items:
+            type: string
+          example:
+            - https://myapp.com
+            - http://localhost:3000
         cors_allow_credentials:
           type: boolean
         cors_max_age:
@@ -23436,6 +24373,119 @@ components:
           description: Deployment stage that produced the log event, when available.
       required:
         - id
+    DurableApprovalFunction:
+      type: object
+      description: |
+        The durable function that requested the approval. `id` is null once the
+        function has been deleted; `name` is kept.
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+      required:
+        - id
+        - name
+    DurableApprovalExecution:
+      type: object
+      description: |
+        The durable execution that requested the approval. `id` and `status`
+        are null once the execution is no longer retained; `name` is kept.
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        status:
+          allOf:
+            - $ref: '#/components/schemas/DurableExecutionStatus'
+          nullable: true
+      required:
+        - id
+        - name
+        - status
+    DurableApprovalDecider:
+      type: object
+      nullable: true
+      description: The person who decided. Null once their account is deleted.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+      required:
+        - id
+        - email
+    DurableApprovalDecision:
+      type: object
+      nullable: true
+      description: Who decided and when. Null unless the approval was approved or denied.
+      properties:
+        comment:
+          type: string
+        decided_by:
+          $ref: '#/components/schemas/DurableApprovalDecider'
+        decided_at:
+          type: string
+          format: date-time
+      required:
+        - comment
+        - decided_by
+        - decided_at
+    DurableApprovalCounts:
+      type: object
+      description: Approvals by status. `requested` is every approval, whatever its status.
+      properties:
+        requested:
+          type: integer
+          format: int64
+        pending:
+          type: integer
+          format: int64
+        approved:
+          type: integer
+          format: int64
+        denied:
+          type: integer
+          format: int64
+        expired:
+          type: integer
+          format: int64
+        cancelled:
+          type: integer
+          format: int64
+      required:
+        - requested
+        - pending
+        - approved
+        - denied
+        - expired
+        - cancelled
+    DurableApprovalFunctionCounts:
+      type: object
+      properties:
+        function:
+          $ref: '#/components/schemas/DurableApprovalFunction'
+        counts:
+          $ref: '#/components/schemas/DurableApprovalCounts'
+      required:
+        - function
+        - counts
+    DurableApprovalDailyCounts:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        counts:
+          $ref: '#/components/schemas/DurableApprovalCounts'
+      required:
+        - date
+        - counts
     DatabaseQueryFilter:
       type: object
       description: One WHERE condition. Conditions are combined with AND.
