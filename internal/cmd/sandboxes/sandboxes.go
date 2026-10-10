@@ -35,24 +35,25 @@ type commands struct {
 	deps      cliruntime.Deps
 	usageDeps cliruntime.Deps
 	json      bool
+	local     bool
 }
 
 // New returns the Sandbox command tree.
 func New(deps cliruntime.Deps) *cobra.Command {
-	return newCommands(deps, deps)
+	return newCommands(deps, deps, false)
 }
 
 // NewLocal uses authenticated local user credentials for project usage and
 // service-role credentials for the Sandbox session APIs.
 func NewLocal(deps, usageDeps cliruntime.Deps) *cobra.Command {
-	return newCommands(deps, usageDeps)
+	return newCommands(deps, usageDeps, true)
 }
 
-func newCommands(deps, usageDeps cliruntime.Deps) *cobra.Command {
-	c := &commands{deps: deps, usageDeps: usageDeps}
+func newCommands(deps, usageDeps cliruntime.Deps, local bool) *cobra.Command {
+	c := &commands{deps: deps, usageDeps: usageDeps, local: local}
 	cmd := &cobra.Command{Use: "sandboxes", Short: "Run isolated commands and manage temporary sessions"}
 	cmd.PersistentFlags().BoolVar(&c.json, "json", false, "Print compact JSON; use structured results for exec, shell, and files read")
-	cmd.AddCommand(c.presets(), c.usage(), c.execute(), c.shell(), c.run(), c.sessions(), c.get(), c.control("suspend"), c.control("resume"), c.control("terminate"), c.files(), c.templates())
+	cmd.AddCommand(c.presets(), c.usage(), c.execute(), c.shell(), c.run(), c.sessions(), c.get(), c.control("suspend"), c.control("resume"), c.control("terminate"), c.files(), c.templates(), c.deployments())
 	return cmd
 }
 

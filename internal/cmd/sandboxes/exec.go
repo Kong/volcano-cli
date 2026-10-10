@@ -155,14 +155,20 @@ func (c *commands) outputCommand(cmd *cobra.Command, result apiclient.SandboxCom
 func (c *commands) run() *cobra.Command {
 	var opts launchOptions
 	cmd := &cobra.Command{Use: "run", Short: "Start a persistent session", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		if opts.duration < 30 || opts.duration > 28800 {
-			return errors.New("--duration must be between 30 and 28800 seconds")
-		}
 		request, key, err := opts.request()
 		if err != nil {
 			return err
 		}
-		request.MaxDurationSeconds = &opts.duration
+		if cmd.Flags().Changed("duration") {
+			if c.local {
+				if opts.duration < 0 {
+					return errors.New("--duration must be zero (unlimited) or positive for local sessions")
+				}
+			} else if opts.duration < 30 || opts.duration > 28800 {
+				return errors.New("--duration must be between 30 and 28800 seconds for cloud sessions")
+			}
+			request.MaxDurationSeconds = &opts.duration
+		}
 		project, err := c.project()
 		if err != nil {
 			return err
@@ -174,7 +180,7 @@ func (c *commands) run() *cobra.Command {
 		return c.write(cmd, value)
 	}}
 	opts.flags(cmd)
-	cmd.Flags().IntVar(&opts.duration, "duration", 3600, "Maximum session lifetime in seconds")
+	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")
 	return cmd
 }
 

@@ -21,7 +21,11 @@ volcano sandboxes presets
 volcano sandboxes exec --preset node22 -- node -e 'console.log(42)'
 ```
 
-Local Sandboxes require Docker. `volcano start` starts the core services before attempting the optional Sandbox broker. A broker startup failure prints a warning and leaves the core services available; Sandbox requests remain unavailable until the broker is reachable. `volcano stop` also stops the broker, and `volcano stop --clean` removes its Compose volumes. They use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
+Local Sandboxes require Docker. `volcano start` starts the core services before attempting the optional Sandbox broker. A broker startup failure prints a warning and leaves the core services available; Sandbox requests remain unavailable until the broker is reachable. `volcano stop` also stops the broker.
+
+`volcano stop --clean` removes Sandbox containers, their private networks, and custom images before deleting local data volumes, including resources left after a broker failure. Cleanup is limited to this local environment; other Docker projects and images are preserved. Networks still used by other containers are not disconnected. If Sandbox cleanup fails, data volumes are kept so you can retry `volcano stop --clean`.
+
+Local Sandboxes use the selected local project's service key; anonymous access is rejected. Cloud access requires Sandbox availability and a platform user or service key authorized for the project.
 
 ## Keep a session
 
@@ -42,6 +46,11 @@ and supports pipes through the remote shell. Files and background processes pers
 shell variables and `cd` changes do not. `exit` or EOF detaches without terminating
 the session. Full-screen programs such as `vim` require a PTY, which this prompt
 does not provide. Always terminate sessions you no longer need.
+
+Without `--duration`, `run` inherits the template's `ttl_seconds`. The default
+is 3600 seconds in cloud mode and unlimited in local mode. To override a finite
+template with an unlimited local session, use
+`volcano sandboxes run --template TEMPLATE_ID --duration 0`.
 
 `exec` requires `--` before the command. Each argument is shell-quoted. For shell syntax such as pipes or background processes, explicitly invoke `sh -c`:
 
@@ -80,15 +89,15 @@ A template saves a preset and memory size. Custom image builds are not supported
 | `--memory` | `exec`, `run` | Override memory with 1024 or 2048 MB; otherwise inherit the preset or template |
 | `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
-| `--duration` | `run` | Maximum session lifetime: 30–28800 seconds; defaults to 3600 |
+| `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
-| `--json` | All Sandbox commands | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
+| `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 
 Use a new request ID for each intent. After a network failure, retry with the original ID and identical arguments. A canceled client does not prove the remote command stopped.
 
 ## Output format
 
-Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream.
+Session, preset, template, and file-write commands always return JSON, indented by default and compact with `--json`. This JSON format is supported for scripts. `exec` and `shell` normally write guest stdout/stderr, and `files read` writes raw bytes; use `--json` for their API response instead. JSON execution results retain timeout and truncation flags without adding warnings to the JSON stream. `deployments source` writes the original tar.gz bytes to stdout and rejects `--json`; redirect its output to a file.
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
 
@@ -108,3 +117,64 @@ clear error instead of showing zero.
 
 For cloud usage, run `volcano cloud sandboxes usage --json` after signing in
 with `volcano login`. Project service keys cannot read project usage.
+
+## Deploy a custom image
+
+Put a `Dockerfile` fragment at the root of your build context. Volcano supplies
+the base image and managed entrypoint. Use `RUN`, `COPY`, and `CMD`; do not add
+`FROM`, `USER`, or `ENTRYPOINT`. For a Python HTTP server:
+
+```dockerfile
+RUN dnf install -y python3.12 && dnf clean all
+CMD ["python3.12", "-m", "http.server", "8080", "--bind", "0.0.0.0"]
+```
+
+`--ports` accepts at most 16 unique ports from 1 through 65532.
+
+Upload the build context:
+
+```sh
+volcano cloud sandboxes templates deploy my-python --path ./sandbox --memory 1024 --ports 8080
+```
+
+The response contains `template_id` and `deployment.id`. A deployment builds and
+validates the image before making it active. Check its status, then create a
+session from the template:
+
+```sh
+volcano cloud sandboxes deployments get <template-id> <deployment-id>
+volcano cloud sandboxes run --template <template-id> --region aws-us-east-1
+```
+
+Use `--template <template-id>` on subsequent deployments to update the same
+template. Existing sessions keep their original image. To retry after an uncertain
+network result, preserve both the printed template ID and request ID:
+
+```sh
+volcano cloud sandboxes templates deploy my-python --path ./sandbox --template <template-id> --request-id <request-id>
+```
+
+Keep the same source, memory, and ports when reusing a request ID. A changed build
+needs a new request ID. The CLI prints these IDs before uploading so they remain
+available if the connection fails.
+
+Build contexts are limited to 32 MiB compressed and expanded, including archive
+headers, and 10,000 files. The CLI applies `.gitignore`, excludes `.git`, `.env`,
+`.env.*`, and `node_modules`, and refuses symbolic links. The uploaded
+`.dockerignore` also controls the image build. Files must be regular files within
+the chosen directory.
+
+Inspect history and download the original source without extracting it:
+
+```sh
+volcano cloud sandboxes deployments logs <template-id> <deployment-id> --region aws-us-east-1
+volcano cloud sandboxes deployments list <template-id> --limit 25
+volcano cloud sandboxes deployments list <template-id> --cursor <next-cursor>
+volcano cloud sandboxes deployments source <template-id> <deployment-id> > source.tar.gz
+```
+
+For local development, run `volcano start` and omit `cloud` from these commands
+(for example, `volcano sandboxes templates deploy my-python --path ./sandbox`).
+The local server must support custom image deployments, and Docker must be running.
+
+Deployment history accepts `--limit` (1–100, default 10) and `--cursor` to control pagination.

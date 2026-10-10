@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.43.3](https://github.com/Kong/volcano-cli/compare/v0.43.2...v0.43.3) (2026-10-09)
+
+
+### Bug Fixes
+
+* remove cloud sandbox CLI E2E test ([#292](https://github.com/Kong/volcano-cli/issues/292)) ([999801d](https://github.com/Kong/volcano-cli/commit/999801d4a2879a13a778443bc071bd7403b1fc0d))
+
+## [0.43.2](https://github.com/Kong/volcano-cli/compare/v0.43.1...v0.43.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* remove testify from sandbox API E2E tests ([#290](https://github.com/Kong/volcano-cli/issues/290)) ([363b7f2](https://github.com/Kong/volcano-cli/commit/363b7f256640922d722834e0b4f590c1c64d0661))
+
+## [0.43.1](https://github.com/Kong/volcano-cli/compare/v0.43.0...v0.43.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **localmode:** reclaim sandbox resources on clean stop ([#288](https://github.com/Kong/volcano-cli/issues/288)) ([7141f90](https://github.com/Kong/volcano-cli/commit/7141f903b1d5ecbfcc95e99ca9c5e36cb6eeb2eb))
+
+## [0.43.0](https://github.com/Kong/volcano-cli/compare/v0.42.0...v0.43.0) (2026-10-08)
+
+
+### Features
+
+* **sandboxes:** expose custom deployment and source commands ([#281](https://github.com/Kong/volcano-cli/issues/281)) ([8a6af63](https://github.com/Kong/volcano-cli/commit/8a6af635fbb329e239305736cc24408b76a2e3b7))
+
 ## [0.42.0](https://github.com/Kong/volcano-cli/compare/v0.41.0...v0.42.0) (2026-10-08)
 
 

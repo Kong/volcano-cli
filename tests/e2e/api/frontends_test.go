@@ -76,7 +76,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 		requireSuccess(t, "Function routes:", "/api/echo -> echo (public, strip prefix)")
 	env.runCloudCLI(t, "functions", "get", "echo").
 		requireSuccess(t, "Routed from: "+frontend+" /api/echo")
-	waitForAPIE2ERoutedPath(t, siteURL+"/api/echo/ping?x=1", "/ping")
+	waitForAPIE2ERoutedPath(t, frontendPathURL(siteURL, "/api/echo/ping?x=1"), "/ping")
 
 	// A routed function cannot stop being public while the route is there.
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "authenticated").
@@ -88,10 +88,10 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	// update keeps what it is not told to change: strip prefix stays on here.
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/echo", "--path", "/api/v2").
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 on frontend '%s' updated", frontend), "Strip prefix: yes")
-	waitForAPIE2ERoutedPath(t, siteURL+"/api/v2/ping", "/ping")
+	waitForAPIE2ERoutedPath(t, frontendPathURL(siteURL, "/api/v2/ping"), "/ping")
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2", "--strip-prefix=false").
 		requireSuccess(t, "Strip prefix: no")
-	waitForAPIE2ERoutedPath(t, siteURL+"/api/v2/ping", "/api/v2/ping")
+	waitForAPIE2ERoutedPath(t, frontendPathURL(siteURL, "/api/v2/ping"), "/api/v2/ping")
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2").
 		requireFailure(t, "specify at least one of --path, --function, or --strip-prefix")
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/echo", "--yes").
@@ -101,7 +101,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
 		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
-	waitForAPIE2EPathNotRouted(t, siteURL+"/api/v2/ping")
+	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
 }
@@ -123,6 +123,12 @@ functions:
   - name: echo
     invocation_mode: http
 `)
+}
+
+// frontendPathURL joins a request path onto a Site URL, which ends in "/". The
+// frontend refuses a "//" path as ambiguous.
+func frontendPathURL(siteURL, path string) string {
+	return strings.TrimSuffix(siteURL, "/") + path
 }
 
 // waitForAPIE2ERoutedPath waits for a request through the frontend to reach

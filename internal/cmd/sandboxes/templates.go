@@ -13,8 +13,8 @@ import (
 )
 
 func (c *commands) templates() *cobra.Command {
-	cmd := &cobra.Command{Use: "templates", Short: "Manage named Sandbox presets"}
-	cmd.AddCommand(c.listTemplates(), c.deleteTemplate())
+	cmd := &cobra.Command{Use: "templates", Short: "Manage Sandbox templates"}
+	cmd.AddCommand(c.listTemplates(), c.deleteTemplate(), c.deployTemplate())
 	cmd.AddCommand(&cobra.Command{Use: "get <template-id>", Short: "Get a template", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := uuid.Parse(args[0])
 		if err != nil {

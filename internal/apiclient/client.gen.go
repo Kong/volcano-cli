@@ -300,6 +300,24 @@ func (e BatchFunctionDeployFailureOperation) Valid() bool {
 	}
 }
 
+// Defines values for CapabilityStatus.
+const (
+	CapabilityStatusAvailable   CapabilityStatus = "available"
+	CapabilityStatusUnavailable CapabilityStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the CapabilityStatus enum.
+func (e CapabilityStatus) Valid() bool {
+	switch e {
+	case CapabilityStatusAvailable:
+		return true
+	case CapabilityStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateDatabaseRequestDatabaseType.
 const (
 	CreateDatabaseRequestDatabaseTypeVolcanoDb2xl CreateDatabaseRequestDatabaseType = "volcano-db-2xl"
@@ -3758,22 +3776,22 @@ func (e ListDeploymentsParamsStatus) Valid() bool {
 
 // Defines values for ListDeploymentsParamsOperation.
 const (
-	ListDeploymentsParamsOperationDelete   ListDeploymentsParamsOperation = "delete"
-	ListDeploymentsParamsOperationDeploy   ListDeploymentsParamsOperation = "deploy"
-	ListDeploymentsParamsOperationRedeploy ListDeploymentsParamsOperation = "redeploy"
-	ListDeploymentsParamsOperationUpdate   ListDeploymentsParamsOperation = "update"
+	Delete   ListDeploymentsParamsOperation = "delete"
+	Deploy   ListDeploymentsParamsOperation = "deploy"
+	Redeploy ListDeploymentsParamsOperation = "redeploy"
+	Update   ListDeploymentsParamsOperation = "update"
 )
 
 // Valid indicates whether the value is a known member of the ListDeploymentsParamsOperation enum.
 func (e ListDeploymentsParamsOperation) Valid() bool {
 	switch e {
-	case ListDeploymentsParamsOperationDelete:
+	case Delete:
 		return true
-	case ListDeploymentsParamsOperationDeploy:
+	case Deploy:
 		return true
-	case ListDeploymentsParamsOperationRedeploy:
+	case Redeploy:
 		return true
-	case ListDeploymentsParamsOperationUpdate:
+	case Update:
 		return true
 	default:
 		return false
@@ -5009,6 +5027,23 @@ type BatchFunctionDeployResponse struct {
 	Failed *[]BatchFunctionDeployFailure `json:"failed,omitempty"`
 }
 
+// Capability A product capability and whether it accepts new work in this environment.
+type Capability struct {
+	// Id Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, or `sandboxes.custom_templates`. New IDs may appear at any time.
+	Id string `json:"id"`
+
+	// Status `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+	Status CapabilityStatus `json:"status"`
+}
+
+// CapabilityList defines model for CapabilityList.
+type CapabilityList struct {
+	Data []Capability `json:"data"`
+}
+
+// CapabilityStatus `available` means the capability accepts new work; a temporary outage still answers `503`. `unavailable` means requests that start new work answer `404` or `400` with code `feature_unavailable`. Treat any other value as `unavailable`.
+type CapabilityStatus string
+
 // CompleteUploadSessionResponse Response when completing an upload
 type CompleteUploadSessionResponse struct {
 	Object *StorageObject `json:"object,omitempty"`
@@ -5229,10 +5264,7 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
-	// IdleTimeoutSeconds Inherits the template idle timeout when omitted, capped at the session duration. Set zero to disable idle timeout.
-	IdleTimeoutSeconds *int `json:"idle_timeout_seconds,omitempty"`
-
-	// MaxDurationSeconds Inherits the template TTL when omitted (3600 seconds for a new template).
+	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
 	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
 	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
 
@@ -6537,7 +6569,9 @@ type FrontendCustomDomainResponse struct {
 	RoutingTargetHostname *string                             `json:"routing_target_hostname,omitempty"`
 	TlsMode               FrontendCustomDomainResponseTlsMode `json:"tls_mode"`
 	UpdatedAt             time.Time                           `json:"updated_at"`
-	VerificationRecords   *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
+
+	// VerificationRecords DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
+	VerificationRecords *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
 
 	// VerificationStatus `verified`: the domain is served by a validated certificate. `pending`: it is not served yet, is being re-validated after its certificate material was withdrawn, or Volcano is retrying after a failure. `failed`: a failure left the domain unserved, alongside `domain_status: failed`; managed domains report the cause in `failure_reason`.
 	VerificationStatus FrontendCustomDomainResponseVerificationStatus `json:"verification_status"`
@@ -8529,9 +8563,6 @@ type ProjectConfigRealtime struct {
 
 // ProjectConfigSandbox defines model for ProjectConfigSandbox.
 type ProjectConfigSandbox struct {
-	// IdleTimeoutSeconds Default idle timeout for new sessions when the caller omits it.
-	IdleTimeoutSeconds *int `json:"idle_timeout_seconds,omitempty"`
-
 	// MemoryMb Immutable deployed memory profile; config apply asserts it and Git deploy builds it.
 	MemoryMb *ProjectConfigSandboxMemoryMb `json:"memory_mb,omitempty"`
 
@@ -8541,7 +8572,7 @@ type ProjectConfigSandbox struct {
 	// Ports Service readiness ports; config apply asserts them and Git deploy builds them.
 	Ports *[]int `json:"ports,omitempty"`
 
-	// TtlSeconds Default absolute lifetime for new sessions when the caller omits it.
+	// TtlSeconds Default absolute lifetime for new sessions when the caller omits it. Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
@@ -8683,10 +8714,12 @@ type ProjectFrontendCustomDomain struct {
 	RequiredRoutingRecord *FrontendDomainRoutingRecord `json:"required_routing_record,omitempty"`
 
 	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
-	RoutingTargetHostname *string                             `json:"routing_target_hostname,omitempty"`
-	TlsMode               ProjectFrontendCustomDomainTlsMode  `json:"tls_mode"`
-	UpdatedAt             time.Time                           `json:"updated_at"`
-	VerificationRecords   *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
+	RoutingTargetHostname *string                            `json:"routing_target_hostname,omitempty"`
+	TlsMode               ProjectFrontendCustomDomainTlsMode `json:"tls_mode"`
+	UpdatedAt             time.Time                          `json:"updated_at"`
+
+	// VerificationRecords DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
+	VerificationRecords *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
 
 	// VerificationStatus `verified`: the domain is served by a validated certificate. `pending`: it is not served yet, is being re-validated after its certificate material was withdrawn, or Volcano is retrying after a failure. `failed`: a failure left the domain unserved, alongside `domain_status: failed`; managed domains report the cause in `failure_reason`.
 	VerificationStatus ProjectFrontendCustomDomainVerificationStatus `json:"verification_status"`
@@ -9269,9 +9302,11 @@ type SandboxCapacityList struct {
 
 // SandboxCommandRequest defines model for SandboxCommandRequest.
 type SandboxCommandRequest struct {
-	Command        string             `json:"command"`
-	Environment    *map[string]string `json:"environment,omitempty"`
-	TimeoutSeconds *int               `json:"timeout_seconds,omitempty"`
+	Command     string             `json:"command"`
+	Environment *map[string]string `json:"environment,omitempty"`
+
+	// TimeoutSeconds Command execution time from process start. Cloud defaults to 60 seconds and accepts 1–28800; local defaults to 0 (unlimited) and accepts nonnegative values. VM expiry always takes precedence. Cloud synchronous requests must return within the public connection idle limit (1000 seconds); use a session with a background process and short polling requests for longer work.
+	TimeoutSeconds *int `json:"timeout_seconds,omitempty"`
 }
 
 // SandboxCommandResult defines model for SandboxCommandResult.
@@ -9300,17 +9335,22 @@ type SandboxDeploymentPage struct {
 
 // SandboxExecutionRequest defines model for SandboxExecutionRequest.
 type SandboxExecutionRequest struct {
-	Command     string                           `json:"command"`
-	Environment *map[string]string               `json:"environment,omitempty"`
-	MemoryMb    *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
+	Command     string             `json:"command"`
+	Environment *map[string]string `json:"environment,omitempty"`
+
+	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
+	MaxDurationSeconds *int                             `json:"max_duration_seconds,omitempty"`
+	MemoryMb           *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
 
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
 
 	// Region Region such as `us-east-1`. Region IDs issued by earlier versions of the API are still accepted.
-	Region         string              `json:"region"`
-	SandboxId      *openapi_types.UUID `json:"sandbox_id,omitempty"`
-	TimeoutSeconds *int                `json:"timeout_seconds,omitempty"`
+	Region    string              `json:"region"`
+	SandboxId *openapi_types.UUID `json:"sandbox_id,omitempty"`
+
+	// TimeoutSeconds Command execution time from process start. Cloud defaults to 60 seconds and accepts 1–28800; local defaults to 0 (unlimited) and accepts nonnegative values. VM expiry always takes precedence. Cloud synchronous requests must return within the public connection idle limit (1000 seconds); use a session with a background process and short polling requests for longer work.
+	TimeoutSeconds *int `json:"timeout_seconds,omitempty"`
 	union          json.RawMessage
 }
 
@@ -9380,14 +9420,18 @@ type SandboxPresetList struct {
 type SandboxSession struct {
 	CreatedAt    time.Time                  `json:"created_at"`
 	DesiredState SandboxSessionDesiredState `json:"desired_state"`
-	ExpiresAt    time.Time                  `json:"expires_at"`
-	Id           openapi_types.UUID         `json:"id"`
-	MemoryMb     int                        `json:"memory_mb"`
-	ProjectId    openapi_types.UUID         `json:"project_id"`
-	Region       string                     `json:"region"`
-	SandboxId    openapi_types.UUID         `json:"sandbox_id"`
-	StartedAt    *time.Time                 `json:"started_at,omitempty"`
-	State        SandboxSessionState        `json:"state"`
+
+	// ExpiresAt Absolute VM expiry. Null means unlimited in local mode.
+	ExpiresAt *time.Time         `json:"expires_at"`
+	Id        openapi_types.UUID `json:"id"`
+	MemoryMb  int                `json:"memory_mb"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	Region    string             `json:"region"`
+
+	// SandboxId Explicit template used to create the session. Null when created directly from a preset.
+	SandboxId *openapi_types.UUID `json:"sandbox_id"`
+	StartedAt *time.Time          `json:"started_at,omitempty"`
+	State     SandboxSessionState `json:"state"`
 }
 
 // SandboxSessionDesiredState defines model for SandboxSession.DesiredState.
@@ -12337,13 +12381,6 @@ func (t CreateSandboxSessionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	if t.IdleTimeoutSeconds != nil {
-		object["idle_timeout_seconds"], err = json.Marshal(t.IdleTimeoutSeconds)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'idle_timeout_seconds': %w", err)
-		}
-	}
-
 	if t.MaxDurationSeconds != nil {
 		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
 		if err != nil {
@@ -12389,13 +12426,6 @@ func (t *CreateSandboxSessionRequest) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
-	}
-
-	if raw, found := object["idle_timeout_seconds"]; found {
-		err = json.Unmarshal(raw, &t.IdleTimeoutSeconds)
-		if err != nil {
-			return fmt.Errorf("error reading 'idle_timeout_seconds': %w", err)
-		}
 	}
 
 	if raw, found := object["max_duration_seconds"]; found {
@@ -13176,6 +13206,13 @@ func (t SandboxExecutionRequest) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.MaxDurationSeconds != nil {
+		object["max_duration_seconds"], err = json.Marshal(t.MaxDurationSeconds)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'max_duration_seconds': %w", err)
+		}
+	}
+
 	if t.MemoryMb != nil {
 		object["memory_mb"], err = json.Marshal(t.MemoryMb)
 		if err != nil {
@@ -13234,6 +13271,13 @@ func (t *SandboxExecutionRequest) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.Environment)
 		if err != nil {
 			return fmt.Errorf("error reading 'environment': %w", err)
+		}
+	}
+
+	if raw, found := object["max_duration_seconds"]; found {
+		err = json.Unmarshal(raw, &t.MaxDurationSeconds)
+		if err != nil {
+			return fmt.Errorf("error reading 'max_duration_seconds': %w", err)
 		}
 	}
 
@@ -13741,6 +13785,9 @@ type ClientInterface interface {
 
 	// AuthDeleteMySession request
 	AuthDeleteMySession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCapabilities request
+	ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPostgresVersions request
 	ListPostgresVersions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15327,6 +15374,18 @@ func (c *Client) AuthGetMySessions(ctx context.Context, params *AuthGetMySession
 
 func (c *Client) AuthDeleteMySession(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthDeleteMySessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCapabilitiesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -20939,6 +20998,33 @@ func NewAuthDeleteMySessionRequest(server string, sessionId openapi_types.UUID) 
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListCapabilitiesRequest generates requests for ListCapabilities
+func NewListCapabilitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/capabilities")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -35113,6 +35199,9 @@ type ClientWithResponsesInterface interface {
 	// AuthDeleteMySessionWithResponse request
 	AuthDeleteMySessionWithResponse(ctx context.Context, sessionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AuthDeleteMySessionClientResponse, error)
 
+	// ListCapabilitiesWithResponse request
+	ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesClientResponse, error)
+
 	// ListPostgresVersionsWithResponse request
 	ListPostgresVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPostgresVersionsClientResponse, error)
 
@@ -37251,6 +37340,36 @@ func (r AuthDeleteMySessionClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AuthDeleteMySessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCapabilitiesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CapabilityList
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCapabilitiesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCapabilitiesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCapabilitiesClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -46175,6 +46294,15 @@ func (c *ClientWithResponses) AuthDeleteMySessionWithResponse(ctx context.Contex
 	return ParseAuthDeleteMySessionClientResponse(rsp)
 }
 
+// ListCapabilitiesWithResponse request returning *ListCapabilitiesClientResponse
+func (c *ClientWithResponses) ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesClientResponse, error) {
+	rsp, err := c.ListCapabilities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCapabilitiesClientResponse(rsp)
+}
+
 // ListPostgresVersionsWithResponse request returning *ListPostgresVersionsClientResponse
 func (c *ClientWithResponses) ListPostgresVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPostgresVersionsClientResponse, error) {
 	rsp, err := c.ListPostgresVersions(ctx, reqEditors...)
@@ -50538,6 +50666,32 @@ func ParseAuthDeleteMySessionClientResponse(rsp *http.Response) (*AuthDeleteMySe
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListCapabilitiesClientResponse parses an HTTP response from a ListCapabilitiesWithResponse call
+func ParseListCapabilitiesClientResponse(rsp *http.Response) (*ListCapabilitiesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCapabilitiesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapabilityList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
