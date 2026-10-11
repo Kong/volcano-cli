@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.44.0](https://github.com/Kong/volcano-cli/compare/v0.43.3...v0.44.0) (2026-10-11)
+
+
+### Features
+
+* **durable:** add durable approvals commands ([#282](https://github.com/Kong/volcano-cli/issues/282)) ([6c7a517](https://github.com/Kong/volcano-cli/commit/6c7a517783a7c4cf692c19082edd7ff47100c3f2))
+
+
+### Bug Fixes
+
+* **sandboxes:** align CLI with hosting-2 lifetime contract ([#294](https://github.com/Kong/volcano-cli/issues/294)) ([3d5b7f8](https://github.com/Kong/volcano-cli/commit/3d5b7f838b8bf710ff5613e99f7a4884fc67e115))
+
 ## [0.43.3](https://github.com/Kong/volcano-cli/compare/v0.43.2...v0.43.3) (2026-10-09)
 
 
