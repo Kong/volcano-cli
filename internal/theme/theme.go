@@ -121,6 +121,22 @@ func Status(s string, on bool) string {
 	}
 }
 
+// StripControl drops C0/C1 control characters (turning tabs into spaces) so
+// text from an untrusted source cannot inject terminal escape sequences when
+// printed. Unlike the helpers above it applies whether or not color is on:
+// a pipe can still end at a terminal.
+func StripControl(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' {
+			return ' '
+		}
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func render(style lipgloss.Style, s string, on bool) string {
 	if !on || s == "" {
 		return s
