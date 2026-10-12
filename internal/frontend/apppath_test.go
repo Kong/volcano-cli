@@ -75,3 +75,38 @@ func TestValidateAppRootExists(t *testing.T) {
 		assert.Contains(t, err.Error(), "--path is required")
 	})
 }
+
+func TestHasBuildPackage(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+		app   string
+		want  bool
+	}{
+		{name: "own package.json", files: map[string]string{"web/package.json": `{}`}, app: "web", want: true},
+		{name: "archive root package.json", files: map[string]string{"package.json": `{}`}, app: "", want: true},
+		{name: "root builds the app", files: map[string]string{"package.json": `{"scripts":{"build":"next build web"}}`}, app: "web", want: true},
+		{name: "root builds it with flags", files: map[string]string{"package.json": `{"scripts":{"build":"next build --no-lint ./apps/web && echo done"}}`}, app: "apps/web", want: true},
+		{name: "root builds another app", files: map[string]string{"package.json": `{"scripts":{"build":"next build admin"}}`}, app: "web", want: false},
+		{name: "root builds itself", files: map[string]string{"package.json": `{"scripts":{"build":"next build"}}`}, app: "web", want: false},
+		{name: "nearest package.json decides", files: map[string]string{
+			"package.json":      `{"scripts":{"build":"next build apps/web"}}`,
+			"apps/package.json": `{"scripts":{"build":"tsc"}}`,
+		}, app: "apps/web", want: false},
+		{name: "no package.json", files: map[string]string{"web/page.js": ""}, app: "web", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(root, filepath.FromSlash(tc.app)), 0o755))
+			for name, content := range tc.files {
+				path := filepath.Join(root, filepath.FromSlash(name))
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+				require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+			}
+			found, err := HasBuildPackage(root, filepath.Join(root, filepath.FromSlash(tc.app)))
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, found)
+		})
+	}
+}

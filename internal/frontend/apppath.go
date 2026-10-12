@@ -2,8 +2,10 @@
 package frontend
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,4 +72,76 @@ func ValidateAppRootExists(archiveRoot, appRoot string) error {
 		return fmt.Errorf("--app-root %q must point to a directory", appRoot)
 	}
 	return nil
+}
+
+// HasBuildPackage reports whether the app in appDir has a package.json that
+// builds it: its own, or the nearest one above it inside archiveRoot whose
+// build script runs "next build <appDir>". volcano init nextjs creates the
+// second layout, and Volcano's builders accept both.
+func HasBuildPackage(archiveRoot, appDir string) (bool, error) {
+	root, err := filepath.Abs(archiveRoot)
+	if err != nil {
+		return false, err
+	}
+	app, err := filepath.Abs(appDir)
+	if err != nil {
+		return false, err
+	}
+	if found, err := isFile(filepath.Join(app, "package.json")); found || err != nil {
+		return found, err
+	}
+	for dir := app; dir != root; {
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false, nil
+		}
+		dir = parent
+		data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return false, fmt.Errorf("failed to read package.json at %s: %w", dir, err)
+		}
+		built, ok := nextBuildDir(data)
+		return ok && filepath.Join(dir, filepath.FromSlash(built)) == app, nil
+	}
+	return false, nil
+}
+
+// nextBuildDir returns the directory argument of the "next build" command in
+// a package.json build script.
+func nextBuildDir(packageJSON []byte) (string, bool) {
+	var pkg struct {
+		Scripts map[string]any `json:"scripts"`
+	}
+	if json.Unmarshal(packageJSON, &pkg) != nil {
+		return "", false
+	}
+	build, _ := pkg.Scripts["build"].(string)
+	idx := strings.LastIndex(build, "next build")
+	if idx < 0 {
+		return "", false
+	}
+	segment := build[idx+len("next build"):]
+	if end := strings.IndexAny(segment, ";&|"); end >= 0 {
+		segment = segment[:end]
+	}
+	for token := range strings.FieldsSeq(segment) {
+		if !strings.HasPrefix(token, "-") {
+			return token, true
+		}
+	}
+	return "", false
+}
+
+func isFile(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+	return !info.IsDir(), nil
 }

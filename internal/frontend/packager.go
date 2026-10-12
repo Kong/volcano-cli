@@ -34,6 +34,10 @@ func cloudIgnorePatterns() []string {
 		// Next.js convention for machine-local secrets; never ship by default.
 		".env.local",
 		".env*.local",
+		// Volcano env files hold project variables, the service key among
+		// them, whether or not the project's .gitignore lists them.
+		"volcano/*.env",
+		"volcano.env",
 	}
 }
 

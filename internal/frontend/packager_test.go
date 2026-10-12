@@ -46,6 +46,30 @@ func TestPackageDirectoryStandaloneApp(t *testing.T) {
 	}
 }
 
+// A project packaged from its root, as `"workspace": ""` in the source layout
+// does, holds the Volcano env files. A project scaffolded before the starters
+// listed them in .gitignore must not upload them either.
+func TestPackageDirectoryLeavesOutVolcanoEnvFiles(t *testing.T) {
+	root := t.TempDir()
+	writePackageJSON(t, root, map[string]any{"name": "notes"})
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "volcano"), 0o755))
+	for _, name := range []string{"volcano.env", filepath.Join("volcano", "volcano.env"), filepath.Join("volcano", "cloud.env")} {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("VOLCANO_SERVICE_KEY=sk-secret"), 0o644))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "volcano", "volcano.env.example"), []byte("VOLCANO_SERVICE_KEY=sk-..."), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "volcano", "volcano-config.yaml"), []byte("version: 1\n"), 0o644))
+
+	pkg, err := PackageDirectory(root, PackageOptions{})
+	require.NoError(t, err)
+
+	entries := readTarEntries(t, pkg.Archive)
+	assert.Contains(t, entries, "volcano/volcano-config.yaml")
+	assert.Contains(t, entries, "volcano/volcano.env.example")
+	assert.NotContains(t, entries, "volcano.env")
+	assert.NotContains(t, entries, "volcano/volcano.env")
+	assert.NotContains(t, entries, "volcano/cloud.env")
+}
+
 func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".git"), 0o755))

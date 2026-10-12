@@ -186,19 +186,7 @@ func awaitLocalModeE2EFrontendGone(t *testing.T, binary string, env []string, di
 // address rather than depend on the host resolving that name.
 func awaitLocalModeE2EFrontendServes(t *testing.T, siteURL, want string) {
 	t.Helper()
-	parsed, err := url.Parse(siteURL)
-	if err != nil {
-		t.Fatalf("frontend site URL %q: %v", siteURL, err)
-	}
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-				var dialer net.Dialer
-				return dialer.DialContext(ctx, network, net.JoinHostPort("127.0.0.1", parsed.Port()))
-			},
-		},
-	}
+	client := localModeE2EFrontendClient(t, siteURL)
 
 	deadline := time.Now().Add(2 * time.Minute)
 	var lastBody string
@@ -211,6 +199,23 @@ func awaitLocalModeE2EFrontendServes(t *testing.T, siteURL, want string) {
 		time.Sleep(2 * time.Second)
 	}
 	t.Fatalf("frontend at %s did not render %q (last status %d):\n%s", siteURL, want, lastStatus, lastBody)
+}
+
+func localModeE2EFrontendClient(t *testing.T, siteURL string) *http.Client {
+	t.Helper()
+	parsed, err := url.Parse(siteURL)
+	if err != nil {
+		t.Fatalf("frontend site URL %q: %v", siteURL, err)
+	}
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				var dialer net.Dialer
+				return dialer.DialContext(ctx, network, net.JoinHostPort("127.0.0.1", parsed.Port()))
+			},
+		},
+	}
 }
 
 func fetchLocalModeE2EFrontend(client *http.Client, siteURL string) (string, int) {

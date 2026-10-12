@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -157,48 +156,38 @@ func printResult(w io.Writer, result *projectinit.Result, starter string) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Next steps:")
 	fmt.Fprintln(w, "  1. Run: volcano start")
-	fmt.Fprintln(w, "  2. Run: volcano variables deploy")
-	fmt.Fprintln(w, "  3. Run: volcano functions deploy --all")
-	step := 4
-	hasConfig := resultContainsPath(result, "volcano/volcano-config.yaml", "volcano-config.yaml")
-	if hasConfig {
-		fmt.Fprintf(w, "  %d. Run: volcano config deploy\n", step)
-		step++
-	}
-	fmt.Fprintf(w, "  %d. Run: volcano migrations deploy --all -d app\n", step)
-	step++
+	fmt.Fprintln(w, "  2. Run: volcano deploy --with-migrations")
 	if strings.HasPrefix(starter, "nextjs") {
-		fmt.Fprintf(w, "  %d. Run: npm install            (or: yarn install)\n", step)
-		step++
-		fmt.Fprintf(w, "  %d. Run: npm run dev            (or: yarn dev)\n", step)
-		step++
-		fmt.Fprintf(w, "  %d. Open: http://localhost:3000\n", step)
+		fmt.Fprintln(w, "  3. Open the frontend URL the deploy prints")
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "To edit with hot reload:")
+		fmt.Fprintln(w, "  - Run: npm install && npm run dev    (or: yarn install && yarn dev)")
+		fmt.Fprintln(w, "  - Open: http://localhost:3000")
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Cloud deployment:")
 	fmt.Fprintln(w, "  - Run: volcano login    (new to Volcano? run: volcano signup)")
 	fmt.Fprintln(w, "  - Run: volcano use <project-id-or-name>")
-	fmt.Fprintln(w, "  - Run: volcano cloud variables deploy")
-	fmt.Fprintln(w, "  - Run: volcano cloud functions deploy --all")
-	if hasConfig {
-		fmt.Fprintln(w, "  - Run: volcano cloud config deploy")
+	fmt.Fprintln(w, "  - Put the cloud project's variables in volcano/cloud.env (volcano/volcano.env holds the local server's)")
+	if resultHasMigrations(result) {
+		fmt.Fprintln(w, "  - Run: volcano cloud deploy --env-file volcano/cloud.env --with-migrations -d <database>")
+	} else {
+		fmt.Fprintln(w, "  - Run: volcano cloud deploy --env-file volcano/cloud.env")
 	}
 }
 
-func resultContainsPath(result *projectinit.Result, paths ...string) bool {
+func resultHasMigrations(result *projectinit.Result) bool {
 	if result == nil {
 		return false
 	}
-	for _, path := range paths {
-		if containsPath(result.Created(), path) || containsPath(result.Unchanged(), path) || containsPath(result.Overwritten(), path) {
-			return true
+	for _, paths := range [][]string{result.Created(), result.Unchanged(), result.Overwritten()} {
+		for _, path := range paths {
+			if strings.HasPrefix(path, "volcano/migrations/") && strings.HasSuffix(path, ".sql") {
+				return true
+			}
 		}
 	}
 	return false
-}
-
-func containsPath(paths []string, wanted string) bool {
-	return slices.Contains(paths, wanted)
 }
 
 func printList(w io.Writer, label string, paths []string) {

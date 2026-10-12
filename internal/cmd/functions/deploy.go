@@ -30,8 +30,11 @@ type deployOptions struct {
 	// manifest names the volcano-config.yaml to read; empty uses the default
 	// lookup.
 	manifest string
-	out      io.Writer
-	errOut   io.Writer
+	// durableFollows drops the hint to deploy the skipped durable functions,
+	// for a caller that deploys them next.
+	durableFollows bool
+	out            io.Writer
+	errOut         io.Writer
 }
 
 // DeployAllOptions configures DeployAll.
@@ -41,6 +44,9 @@ type DeployAllOptions struct {
 	ManifestPath string
 	// Batch uploads up to 100 functions per request, as the cloud command does.
 	Batch bool
+	// DurableFollows is set by a caller that deploys the durable functions
+	// itself, so the output does not tell the user to.
+	DurableFollows bool
 	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -51,12 +57,13 @@ type DeployAllOptions struct {
 // started. On error it still returns the ones started before the failure.
 func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions) ([]apiclient.Function, error) {
 	return deploy(ctx, deployOptions{
-		deps:     deps,
-		all:      true,
-		batchAll: opts.Batch,
-		manifest: opts.ManifestPath,
-		out:      opts.Out,
-		errOut:   opts.ErrOut,
+		deps:           deps,
+		all:            true,
+		batchAll:       opts.Batch,
+		manifest:       opts.ManifestPath,
+		durableFollows: opts.DurableFollows,
+		out:            opts.Out,
+		errOut:         opts.ErrOut,
 	})
 }
 
@@ -164,7 +171,11 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
-		sources = excludeDurable(allSources, manifest, cliruntime.CommandPath(opts.deps, "durable deploy --all"), opts.out)
+		durableDeploy := cliruntime.CommandPath(opts.deps, "durable deploy --all")
+		if opts.durableFollows {
+			durableDeploy = ""
+		}
+		sources = excludeDurable(allSources, manifest, durableDeploy, opts.out)
 		if len(sources) == 0 {
 			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
 			return nil, nil
@@ -261,7 +272,9 @@ func excludeDurable(
 	if len(skipped) > 0 {
 		fmt.Fprintf(out, "Skipping %d durable function(s) declared in %s: %s\n",
 			len(skipped), manifest.Name, strings.Join(skipped, ", "))
-		fmt.Fprintf(out, "Deploy them with %q\n", durableDeploy)
+		if durableDeploy != "" {
+			fmt.Fprintf(out, "Deploy them with %q\n", durableDeploy)
+		}
 	}
 	return kept
 }

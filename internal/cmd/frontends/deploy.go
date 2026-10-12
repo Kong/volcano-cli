@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -170,14 +169,15 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 	if appRoot != "" {
 		appCheckRoot = filepath.Join(absPath, filepath.FromSlash(appRoot))
 	}
-	if _, err := os.Stat(filepath.Join(appCheckRoot, "package.json")); err != nil {
-		if os.IsNotExist(err) {
-			if appRoot != "" {
-				return nil, fmt.Errorf("no package.json at --path/--app-root (%s); make sure --app-root points at the app directory", appCheckRoot)
-			}
-			return nil, fmt.Errorf("no package.json at --path (%s); pass --app-root or run from the app directory", appCheckRoot)
+	found, err := clifrontend.HasBuildPackage(absPath, appCheckRoot)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		if appRoot != "" {
+			return nil, fmt.Errorf("no package.json at --path/--app-root (%s); make sure --app-root points at the app directory", appCheckRoot)
 		}
-		return nil, fmt.Errorf("failed to read package.json at %s: %w", appCheckRoot, err)
+		return nil, fmt.Errorf("no package.json at --path (%s); pass --app-root or run from the app directory", appCheckRoot)
 	}
 
 	fmt.Fprintf(opts.out, "Packaging frontend directory: %s\n", absPath)

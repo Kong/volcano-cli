@@ -49,17 +49,25 @@ selected variables. A scoped deploy with no `--variable` flags exposes no
 project variables. Omitting both flags preserves the current selection when the
 frontend exists.
 
+Builds never see variables named `VOLCANO_*`; the server runtime still gets
+them. Browser code reads values Next.js inlines at build time, so give it
+`NEXT_PUBLIC_*` copies, such as `NEXT_PUBLIC_VOLCANO_ANON_KEY`. See
+[Variables](/platform/frontends/overview#variables).
+
 `volcano cloud config deploy` never creates a frontend; an entry for one that
 does not exist yet is skipped. Deploy a new frontend with the variables its
 manifest entry selects, then run `volcano cloud config deploy`.
+[`volcano deploy`](deploy.md) does both for every frontend listed in
+`.volcano/source-layout.json`.
 
 The selected variables other than `NEXT_PUBLIC_*` must fit the frontend's
 4,096-byte runtime environment, of which Volcano uses about 900 bytes. See
 [Environment size](/platform/frontends/deploy#environment-size).
 
 `deploy` archives `--path` (default `.`) and leaves out `node_modules`, `.next`,
-`dist`, `build`, `.env*.local`, `.git`, editor files, `*.log`, and anything in
-the root `.gitignore`. Symbolic links are skipped with a warning, and more than
+`dist`, `build`, `.env*.local`, the Volcano env files (`volcano/*.env` and
+`volcano.env`), `.git`, editor files, `*.log`, and anything in the root
+`.gitignore`. Symbolic links are skipped with a warning, and more than
 10,000 files fails the deploy. When the app uses `workspace:` dependencies,
 `deploy` archives the workspace root instead, so these rules and the file limit
 apply to the whole workspace; pass `--app-root` to archive only `--path`.
