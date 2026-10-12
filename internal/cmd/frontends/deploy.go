@@ -95,8 +95,25 @@ func Deploy(ctx context.Context, deps cliruntime.Deps, opts DeployOptions) (*api
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
-	_, err := deploy(ctx, opts)
-	return err
+	deployed, err := deploy(ctx, opts)
+	if err != nil {
+		return err
+	}
+	if opts.deps.LocalMode {
+		printLocalSiteURL(opts, deployed)
+	}
+	return nil
+}
+
+// printLocalSiteURL names where the local frontend serves. A frontend's URL
+// exists only once its first build finishes, so a new one points at "get".
+func printLocalSiteURL(opts deployOptions, deployed *apiclient.Frontend) {
+	if deployed.SiteUrl != nil && *deployed.SiteUrl != "" {
+		fmt.Fprintf(opts.out, "Site URL: %s (serves the new build once it is active)\n", *deployed.SiteUrl)
+		return
+	}
+	fmt.Fprintf(opts.out, "Run '%s' for the site URL once the build finishes.\n",
+		cliruntime.CommandPath(opts.deps, "frontends get "+deployed.Name))
 }
 
 func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error) {

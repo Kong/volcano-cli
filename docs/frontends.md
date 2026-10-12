@@ -20,20 +20,24 @@ optionally reachable at your own custom domain.
 - Frontend custom domains and function routes can also be declared in the
   [declarative config](project-configuration.md).
 
-Frontend commands live under the `cloud` group.
+`volcano frontends …` targets local development and `volcano cloud frontends …`
+targets the cloud project. The local server builds and serves each frontend at
+the `site_url` that `frontends get` prints. A local deploy prints that URL too,
+except for a new frontend, which has a URL only once its first build finishes.
+Custom domains and function routes are cloud commands.
 
 ## CLI operations
 
-| Operation | Command |
-|---|---|
-| Deploy | `volcano cloud frontends deploy …` |
-| Redeploy | `volcano cloud frontends redeploy …` |
-| List | `volcano cloud frontends list` |
-| Get | `volcano cloud frontends get <name>` |
-| Delete | `volcano cloud frontends delete <name>` |
-| Logs | `volcano cloud frontends logs <name>` |
-| Custom domains | `volcano cloud frontends domain create\|list\|get\|delete …` |
-| Function routes | `volcano cloud frontends routes list\|create\|update\|delete …` |
+| Operation | Local | Cloud |
+|---|---|---|
+| Deploy | `volcano frontends deploy …` | `volcano cloud frontends deploy …` |
+| Redeploy | `volcano frontends redeploy …` | `volcano cloud frontends redeploy …` |
+| List | `volcano frontends list` | `volcano cloud frontends list` |
+| Get | `volcano frontends get <name>` | `volcano cloud frontends get <name>` |
+| Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
+| Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
+| Custom domains | — | `volcano cloud frontends domain create\|list\|get\|delete …` |
+| Function routes | `function_routes` in `volcano-config.yaml` | `volcano cloud frontends routes list\|create\|update\|delete …` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
@@ -63,7 +67,11 @@ apply to the whole workspace; pass `--app-root` to archive only `--path`.
 ## Examples
 
 ```bash
-# Deploy / redeploy a frontend
+# Deploy a frontend to local development and print its local URL
+volcano frontends deploy --name web --path ./web
+volcano frontends get web
+
+# Deploy / redeploy a frontend in the cloud
 volcano cloud frontends deploy
 volcano cloud frontends deploy --variable-scope scoped --variable API_URL --variable API_KEY
 volcano cloud frontends redeploy my-site
@@ -127,7 +135,6 @@ and is 2 to 512 characters long. The CLI checks this before calling Volcano.
 
 Declare `function_routes` in [`volcano-config.yaml`](project-configuration.md)
 to manage the whole set at once. That is also how a local project gets routes:
-local development has no `frontends` commands, so `volcano frontends routes`
-refuses and points to `volcano cloud frontends routes`. See
+`volcano frontends routes` refuses and points to `volcano config deploy`. See
 [Frontend Function routes](/platform/frontends/function-routes) for how
 requests are matched and how to keep a session in cookies.

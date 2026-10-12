@@ -66,20 +66,18 @@ has to authenticate its callers itself. The longest matching prefix wins.`,
 	return cmd
 }
 
-// NewRoutesCloudOnly stands in for routes under the deprecated root
-// "volcano frontends" alias. The root is where local commands live, and the
-// alias would otherwise send a local project's route changes to the cloud.
-// Local development has no frontends commands, so routes there come only from
-// volcano-config.yaml. Flag parsing is off so any flags reach the refusal.
-func NewRoutesCloudOnly() *cobra.Command {
+// newRoutesCloudOnly stands in for routes in the local frontends tree. Local
+// routes come only from volcano-config.yaml. Flag parsing is off so any flags
+// reach the refusal.
+func newRoutesCloudOnly() *cobra.Command {
 	return &cobra.Command{
 		Use:   "routes",
 		Short: "Manage frontend function routes",
 		Long: `Manage the paths of a frontend that forward requests to functions.
 
-This is a cloud command: run 'volcano cloud frontends routes ...'. Local
-development has no frontends commands; declare function_routes in
-volcano-config.yaml and run 'volcano config deploy' instead.`,
+This is a cloud command: run 'volcano cloud frontends routes ...'. For local
+development, declare function_routes in volcano-config.yaml and run
+'volcano config deploy' instead.`,
 		Hidden:             true,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -88,7 +86,7 @@ volcano-config.yaml and run 'volcano config deploy' instead.`,
 				return cmd.Help()
 			}
 			return errors.New(`"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'. ` +
-				"Local development has no frontends commands; declare function_routes in volcano-config.yaml " +
+				"For local development, declare function_routes in volcano-config.yaml " +
 				"and run 'volcano config deploy' instead")
 		},
 	}
