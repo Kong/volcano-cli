@@ -144,6 +144,12 @@ given.`,
 	return cmd
 }
 
+// DeployManifest applies a manifest already loaded from path, as
+// "config deploy" does, and prints the apply report.
+func DeployManifest(ctx context.Context, deps cliruntime.Deps, manifest *projectconfig.Manifest, path string, out, errOut io.Writer) error {
+	return apply(ctx, deployOptions{deps: deps, out: out, errOut: errOut}, manifest, path, path)
+}
+
 func runDeploy(ctx context.Context, opts deployOptions) error {
 	manifestPath, err := projectconfig.ResolveManifestPath(opts.file)
 	if err != nil {
@@ -154,6 +160,10 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if err != nil {
 		return err
 	}
+	return apply(ctx, opts, manifest, manifestPath, resolvedPath)
+}
+
+func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Manifest, manifestPath, resolvedPath string) error {
 	for _, warning := range manifest.DeprecationWarnings() {
 		output.Warning(opts.errOut, "%s", warning)
 	}

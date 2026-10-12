@@ -13,6 +13,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// ErrNotFound is returned when no path is given and neither default location
+// holds an env file.
+var ErrNotFound = errors.New("no volcano.env file found.\ncreate volcano/volcano.env or use --file to specify a path")
+
 // File is a loaded Volcano env file.
 type File struct {
 	Path      string
@@ -35,7 +39,7 @@ func (f *File) envVars() []string {
 
 // Load resolves and reads the selected Volcano env file.
 func Load(fileArg string) (*File, error) {
-	path, err := resolvePath(fileArg)
+	path, err := ResolvePath(fileArg)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +89,10 @@ func LoadFirstEnvVars(candidates ...string) ([]string, error) {
 	return file.envVars(), nil
 }
 
-func resolvePath(fileArg string) (string, error) {
+// ResolvePath returns the env file Load would read. An explicit path must
+// exist; otherwise it looks for volcano/volcano.env then ./volcano.env and
+// returns ErrNotFound when neither exists.
+func ResolvePath(fileArg string) (string, error) {
 	if fileArg != "" {
 		found, err := fileExists(fileArg)
 		if err != nil {
@@ -119,7 +126,7 @@ func resolvePath(fileArg string) (string, error) {
 		return found[0], nil
 	}
 
-	return "", errors.New("no volcano.env file found.\ncreate volcano/volcano.env or use --file to specify a path")
+	return "", ErrNotFound
 }
 
 func fileExists(path string) (bool, error) {

@@ -2,6 +2,7 @@ package durable
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -452,6 +453,44 @@ functions:
 	assert.NotContains(t, out, "nightly;")
 	assert.NotContains(t, out, "-f nightly")
 	assert.NotContains(t, out, "-f existing")
+}
+
+func TestDeployAllReadsTheNamedManifest(t *testing.T) {
+	setDurableCommandTestHome(t)
+	t.Chdir(t.TempDir())
+	writeDurableProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDurableProjectFile(t, "volcano/functions/hello.js", `exports.handler = async () => ({});`)
+	writeDurableProjectFile(t, "volcano/cloud.yaml", `version: 1
+functions:
+  - name: order-pipeline
+    kind: durable
+`)
+
+	var deployed []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeDurableRuntimesResponse(t, w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+durableProjectID+"/durable-functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			deployed = append(deployed, r.FormValue("name"))
+			writeDurableCommandJSON(t, w, http.StatusOK, durableFunctionPayload(r.FormValue("name"), "private"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	started, err := DeployAll(context.Background(), cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}, DeployAllOptions{
+		ManifestPath: "volcano/cloud.yaml",
+		Out:          &out,
+		ErrOut:       io.Discard,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"order-pipeline"}, deployed)
+	require.Len(t, started, 1)
+	assert.Equal(t, "order-pipeline", started[0].Name)
 }
 
 func TestDurableDeployGivesNoHintWhenTheFlagChoosesPrivate(t *testing.T) {

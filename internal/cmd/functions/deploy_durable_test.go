@@ -1,7 +1,10 @@
 package functions
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -59,11 +62,54 @@ functions:
 	defer server.Close()
 
 	out, err := executeFunctionsCommand(t,
-		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--all")
+		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, CommandPathPrefix: "volcano cloud"}), "deploy", "--all")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"hello"}, deployed)
 	assert.Contains(t, out, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
 	assert.Contains(t, out, `Deploy them with "volcano cloud durable deploy --all"`)
+}
+
+// A manifest outside the default locations still decides the kinds when the
+// caller names it, and DeployAll reports what it started.
+func TestDeployAllReadsTheNamedManifest(t *testing.T) {
+	setFunctionCommandTestHome(t)
+	saveFunctionCommandTestConfig(t)
+	t.Chdir(t.TempDir())
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "hello.js"), `exports.handler = async () => ({});`))
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "order-pipeline.js"), `exports.handler = async () => ({});`))
+	require.NoError(t, writeProjectFile(filepath.Join("volcano", "cloud.yaml"), `version: 1
+functions:
+  - name: order-pipeline
+    kind: durable
+`))
+
+	var deployed []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case writeFunctionRuntimesCommandResponse(w, r):
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+functionProjectID+"/functions":
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			name := r.FormValue("name")
+			deployed = append(deployed, name)
+			writeFunctionCommandJSON(t, w, http.StatusCreated, functionCommandPayload(functionID, name))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	started, err := DeployAll(context.Background(), cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}, DeployAllOptions{
+		ManifestPath: filepath.Join("volcano", "cloud.yaml"),
+		Out:          &out,
+		ErrOut:       io.Discard,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hello"}, deployed)
+	require.Len(t, started, 1)
+	assert.Equal(t, "hello", started[0].Name)
+	assert.Contains(t, out.String(), "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
 }
 
 // Naming a durable function here is a mistake worth catching locally: sent on,
@@ -92,9 +138,10 @@ functions:
 	defer server.Close()
 
 	_, err := executeFunctionsCommand(t,
-		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "-f", "order-pipeline")
+		NewLocal(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, CommandPathPrefix: "volcano"}), "deploy", "-f", "order-pipeline")
 	require.ErrorContains(t, err, `"order-pipeline" is declared durable in volcano-config.yaml`)
-	require.ErrorContains(t, err, "volcano cloud durable deploy -f order-pipeline")
+	// The hint names the tree the command ran from.
+	require.ErrorContains(t, err, `"volcano durable deploy -f order-pipeline"`)
 }
 
 // A standard function deploy in a project that also holds durable ones must not
