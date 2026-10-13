@@ -668,40 +668,40 @@ func (e DatabaseBranchStatus) Valid() bool {
 
 // Defines values for DatabaseQueryFilterOperator.
 const (
-	Eq    DatabaseQueryFilterOperator = "eq"
-	Gt    DatabaseQueryFilterOperator = "gt"
-	Gte   DatabaseQueryFilterOperator = "gte"
-	Ilike DatabaseQueryFilterOperator = "ilike"
-	In    DatabaseQueryFilterOperator = "in"
-	Is    DatabaseQueryFilterOperator = "is"
-	Like  DatabaseQueryFilterOperator = "like"
-	Lt    DatabaseQueryFilterOperator = "lt"
-	Lte   DatabaseQueryFilterOperator = "lte"
-	Neq   DatabaseQueryFilterOperator = "neq"
+	DatabaseQueryFilterOperatorEq    DatabaseQueryFilterOperator = "eq"
+	DatabaseQueryFilterOperatorGt    DatabaseQueryFilterOperator = "gt"
+	DatabaseQueryFilterOperatorGte   DatabaseQueryFilterOperator = "gte"
+	DatabaseQueryFilterOperatorIlike DatabaseQueryFilterOperator = "ilike"
+	DatabaseQueryFilterOperatorIn    DatabaseQueryFilterOperator = "in"
+	DatabaseQueryFilterOperatorIs    DatabaseQueryFilterOperator = "is"
+	DatabaseQueryFilterOperatorLike  DatabaseQueryFilterOperator = "like"
+	DatabaseQueryFilterOperatorLt    DatabaseQueryFilterOperator = "lt"
+	DatabaseQueryFilterOperatorLte   DatabaseQueryFilterOperator = "lte"
+	DatabaseQueryFilterOperatorNeq   DatabaseQueryFilterOperator = "neq"
 )
 
 // Valid indicates whether the value is a known member of the DatabaseQueryFilterOperator enum.
 func (e DatabaseQueryFilterOperator) Valid() bool {
 	switch e {
-	case Eq:
+	case DatabaseQueryFilterOperatorEq:
 		return true
-	case Gt:
+	case DatabaseQueryFilterOperatorGt:
 		return true
-	case Gte:
+	case DatabaseQueryFilterOperatorGte:
 		return true
-	case Ilike:
+	case DatabaseQueryFilterOperatorIlike:
 		return true
-	case In:
+	case DatabaseQueryFilterOperatorIn:
 		return true
-	case Is:
+	case DatabaseQueryFilterOperatorIs:
 		return true
-	case Like:
+	case DatabaseQueryFilterOperatorLike:
 		return true
-	case Lt:
+	case DatabaseQueryFilterOperatorLt:
 		return true
-	case Lte:
+	case DatabaseQueryFilterOperatorLte:
 		return true
-	case Neq:
+	case DatabaseQueryFilterOperatorNeq:
 		return true
 	default:
 		return false
@@ -1080,6 +1080,105 @@ func (e DurableFunctionStatus) Valid() bool {
 	case DurableFunctionStatusFailed:
 		return true
 	case DurableFunctionStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DurableMessageDirection.
+const (
+	DurableMessageDirectionIn  DurableMessageDirection = "in"
+	DurableMessageDirectionOut DurableMessageDirection = "out"
+)
+
+// Valid indicates whether the value is a known member of the DurableMessageDirection enum.
+func (e DurableMessageDirection) Valid() bool {
+	switch e {
+	case DurableMessageDirectionIn:
+		return true
+	case DurableMessageDirectionOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DurableMessageSenderType.
+const (
+	DurableMessageSenderTypeAnon       DurableMessageSenderType = "anon"
+	DurableMessageSenderTypeExecution  DurableMessageSenderType = "execution"
+	DurableMessageSenderTypeProject    DurableMessageSenderType = "project"
+	DurableMessageSenderTypeServiceKey DurableMessageSenderType = "service_key"
+	DurableMessageSenderTypeUser       DurableMessageSenderType = "user"
+)
+
+// Valid indicates whether the value is a known member of the DurableMessageSenderType enum.
+func (e DurableMessageSenderType) Valid() bool {
+	switch e {
+	case DurableMessageSenderTypeAnon:
+		return true
+	case DurableMessageSenderTypeExecution:
+		return true
+	case DurableMessageSenderTypeProject:
+		return true
+	case DurableMessageSenderTypeServiceKey:
+		return true
+	case DurableMessageSenderTypeUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DurableMessageStatus.
+const (
+	DurableMessageStatusDelivered  DurableMessageStatus = "delivered"
+	DurableMessageStatusDelivering DurableMessageStatus = "delivering"
+	DurableMessageStatusDropped    DurableMessageStatus = "dropped"
+	DurableMessageStatusPublished  DurableMessageStatus = "published"
+	DurableMessageStatusQueued     DurableMessageStatus = "queued"
+)
+
+// Valid indicates whether the value is a known member of the DurableMessageStatus enum.
+func (e DurableMessageStatus) Valid() bool {
+	switch e {
+	case DurableMessageStatusDelivered:
+		return true
+	case DurableMessageStatusDelivering:
+		return true
+	case DurableMessageStatusDropped:
+		return true
+	case DurableMessageStatusPublished:
+		return true
+	case DurableMessageStatusQueued:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DurableMessageWaitStatus.
+const (
+	DurableMessageWaitStatusCancelled DurableMessageWaitStatus = "cancelled"
+	DurableMessageWaitStatusDelivered DurableMessageWaitStatus = "delivered"
+	DurableMessageWaitStatusExpired   DurableMessageWaitStatus = "expired"
+	DurableMessageWaitStatusMatched   DurableMessageWaitStatus = "matched"
+	DurableMessageWaitStatusWaiting   DurableMessageWaitStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the DurableMessageWaitStatus enum.
+func (e DurableMessageWaitStatus) Valid() bool {
+	switch e {
+	case DurableMessageWaitStatusCancelled:
+		return true
+	case DurableMessageWaitStatusDelivered:
+		return true
+	case DurableMessageWaitStatusExpired:
+		return true
+	case DurableMessageWaitStatusMatched:
+		return true
+	case DurableMessageWaitStatusWaiting:
 		return true
 	default:
 		return false
@@ -3776,22 +3875,22 @@ func (e ListDeploymentsParamsStatus) Valid() bool {
 
 // Defines values for ListDeploymentsParamsOperation.
 const (
-	Delete   ListDeploymentsParamsOperation = "delete"
-	Deploy   ListDeploymentsParamsOperation = "deploy"
-	Redeploy ListDeploymentsParamsOperation = "redeploy"
-	Update   ListDeploymentsParamsOperation = "update"
+	ListDeploymentsParamsOperationDelete   ListDeploymentsParamsOperation = "delete"
+	ListDeploymentsParamsOperationDeploy   ListDeploymentsParamsOperation = "deploy"
+	ListDeploymentsParamsOperationRedeploy ListDeploymentsParamsOperation = "redeploy"
+	ListDeploymentsParamsOperationUpdate   ListDeploymentsParamsOperation = "update"
 )
 
 // Valid indicates whether the value is a known member of the ListDeploymentsParamsOperation enum.
 func (e ListDeploymentsParamsOperation) Valid() bool {
 	switch e {
-	case Delete:
+	case ListDeploymentsParamsOperationDelete:
 		return true
-	case Deploy:
+	case ListDeploymentsParamsOperationDeploy:
 		return true
-	case Redeploy:
+	case ListDeploymentsParamsOperationRedeploy:
 		return true
-	case Update:
+	case ListDeploymentsParamsOperationUpdate:
 		return true
 	default:
 		return false
@@ -4524,7 +4623,8 @@ type AuthConfig struct {
 	CorsEnabled          *bool     `json:"cors_enabled,omitempty"`
 
 	// CorsMaxAge CORS preflight cache duration (seconds)
-	CorsMaxAge *int `json:"cors_max_age,omitempty"`
+	CorsMaxAge *int       `json:"cors_max_age,omitempty"`
+	CreatedAt  *time.Time `json:"created_at,omitempty"`
 
 	// DeviceVerificationUrl Optional override for the device-authorization verification page.
 	// When set, POST /auth/device/authorize returns this URL (with the
@@ -4584,6 +4684,9 @@ type AuthConfig struct {
 	PostLogoutRedirectUrl *string             `json:"post_logout_redirect_url,omitempty"`
 	ProjectId             *openapi_types.UUID `json:"project_id,omitempty"`
 
+	// RateLimitPasswordReset Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+	RateLimitPasswordReset *int `json:"rate_limit_password_reset,omitempty"`
+
 	// RateLimitSignin Signins per hour per IP
 	RateLimitSignin *int `json:"rate_limit_signin,omitempty"`
 
@@ -4596,6 +4699,9 @@ type AuthConfig struct {
 	// RefreshTokenLifetime Refresh token lifetime in seconds
 	RefreshTokenLifetime *int `json:"refresh_token_lifetime,omitempty"`
 
+	// RefreshTokenReuseInterval A refresh within this many seconds of the refresh token being issued returns the same refresh token instead of rotating it, so concurrent refreshes from several tabs all succeed
+	RefreshTokenReuseInterval *int `json:"refresh_token_reuse_interval,omitempty"`
+
 	// RequireEmailConfirmation Require users to confirm email before sign-in. Can only be true when email_enabled is true.
 	RequireEmailConfirmation *bool   `json:"require_email_confirmation,omitempty"`
 	RequireLowercase         *bool   `json:"require_lowercase,omitempty"`
@@ -4605,10 +4711,11 @@ type AuthConfig struct {
 	SmtpHost                 *string `json:"smtp_host,omitempty"`
 
 	// SmtpPasswordConfigured Whether an SMTP password is configured. The password itself is never returned.
-	SmtpPasswordConfigured *bool   `json:"smtp_password_configured,omitempty"`
-	SmtpPort               *int    `json:"smtp_port,omitempty"`
-	SmtpUseTls             *bool   `json:"smtp_use_tls,omitempty"`
-	SmtpUsername           *string `json:"smtp_username,omitempty"`
+	SmtpPasswordConfigured *bool      `json:"smtp_password_configured,omitempty"`
+	SmtpPort               *int       `json:"smtp_port,omitempty"`
+	SmtpUseTls             *bool      `json:"smtp_use_tls,omitempty"`
+	SmtpUsername           *string    `json:"smtp_username,omitempty"`
+	UpdatedAt              *time.Time `json:"updated_at,omitempty"`
 }
 
 // AuthConfigAllowedEmailDomainsMode How far `allowed_email_domains` reaches. `signup` only gates account
@@ -4711,7 +4818,15 @@ type AuthInsightsResponse struct {
 
 // AuthInsightsSeriesPoint defines model for AuthInsightsSeriesPoint.
 type AuthInsightsSeriesPoint struct {
+	// AvailableUsers Currently available users registered in this bucket (signups minus banned_users minus deleted_users). Unban or expiry restores availability in the original signup bucket. This measures account availability, not return activity.
+	AvailableUsers int64 `json:"available_users"`
+
+	// BannedUsers Users registered in this bucket who are currently banned. Excludes deleted users, lifted bans, expired temporary bans, and internal test identities.
+	BannedUsers int64              `json:"banned_users"`
 	BucketStart openapi_types.Date `json:"bucket_start"`
+
+	// DeletedUsers Users registered in this bucket who are now deleted, counted once across soft and hard deletion. Grouped by signup date, not deletion date.
+	DeletedUsers int64 `json:"deleted_users"`
 
 	// Deletions Accounts deleted during this bucket, counted once across soft and hard deletion.
 	Deletions int64 `json:"deletions"`
@@ -4719,7 +4834,7 @@ type AuthInsightsSeriesPoint struct {
 	// IsPartial Whether the requested window or observation time clips this bucket.
 	IsPartial bool `json:"is_partial"`
 
-	// NetGrowth Registrations minus deletions during this bucket. May be negative.
+	// NetGrowth Registrations minus deletions during this bucket. May be negative. Bans do not affect this value.
 	NetGrowth int64 `json:"net_growth"`
 
 	// Signins Successful session creations during the bucket.
@@ -5264,9 +5379,11 @@ type CreateProjectRequestTemplateId string
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
-	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
-	MaxDurationSeconds *int                                 `json:"max_duration_seconds,omitempty"`
-	MemoryMb           *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
+	// MaxDurationSeconds Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
+	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
+
+	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
+	MemoryMb *CreateSandboxSessionRequestMemoryMb `json:"memory_mb,omitempty"`
 
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
@@ -5277,7 +5394,7 @@ type CreateSandboxSessionRequest struct {
 	union     json.RawMessage
 }
 
-// CreateSandboxSessionRequestMemoryMb defines model for CreateSandboxSessionRequest.MemoryMb.
+// CreateSandboxSessionRequestMemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 type CreateSandboxSessionRequestMemoryMb int
 
 // CreateSandboxSessionRequest0 defines model for .
@@ -5353,6 +5470,12 @@ type CreateUploadSessionResponse struct {
 
 	// TotalParts Number of parts to upload
 	TotalParts *int `json:"total_parts,omitempty"`
+}
+
+// CreateVariableEnvironmentRequest defines model for CreateVariableEnvironmentRequest.
+type CreateVariableEnvironmentRequest struct {
+	// Name Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+	Name string `json:"name"`
 }
 
 // CreateVariableRequest defines model for CreateVariableRequest.
@@ -6158,6 +6281,11 @@ type DurableApprovalStatus string
 
 // DurableExecution defines model for DurableExecution.
 type DurableExecution struct {
+	// ClientToken Lets a browser read and send the execution's messages. Returned only
+	// by the start that created the execution, never by a repeat under the
+	// same name or by a read. Send it as `X-Volcano-Client-Token`.
+	ClientToken *string `json:"client_token,omitempty"`
+
 	// CompletedAt Present once the execution has reached a terminal status.
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -6441,6 +6569,123 @@ type DurableFunctionConfig struct {
 	RetentionDays int64 `json:"retention_days"`
 }
 
+// DurableMessage A message sent to, or published by, a durable execution.
+type DurableMessage struct {
+	// Data The JSON value sent or published, or null.
+	Data json.RawMessage `json:"data"`
+
+	// DeliveredAt When the execution received the message. Null until then, and for `out` messages.
+	DeliveredAt *time.Time `json:"delivered_at"`
+
+	// Direction `in` is a message sent to the execution. `out` is one the execution
+	// published.
+	Direction   DurableMessageDirection `json:"direction"`
+	ExecutionId openapi_types.UUID      `json:"execution_id"`
+	Id          openapi_types.UUID      `json:"id"`
+	Name        string                  `json:"name"`
+
+	// Sender Who sent the message.
+	Sender DurableMessageSender `json:"sender"`
+	SentAt time.Time            `json:"sent_at"`
+
+	// Seq Orders the execution's messages in both directions. It increases
+	// with every message but can skip numbers. Pass the last one you read
+	// as `after` to read what came next.
+	Seq int64 `json:"seq"`
+
+	// Status An `in` message is `queued` until a wait for its name takes it,
+	// `delivering` while it is handed over, and `delivered` once the
+	// execution has it. It is `dropped` if the execution ended before any
+	// wait took it. Every `out` message is `published`.
+	Status DurableMessageStatus `json:"status"`
+}
+
+// DurableMessageDirection `in` is a message sent to the execution. `out` is one the execution
+// published.
+type DurableMessageDirection string
+
+// DurableMessageList defines model for DurableMessageList.
+type DurableMessageList struct {
+	// Data Messages after `after`, oldest first.
+	Data []DurableMessage `json:"data"`
+
+	// HasMore Whether more messages follow. Read them with `after` set to the
+	// last message's `seq`.
+	HasMore bool `json:"has_more"`
+}
+
+// DurableMessageName The name a workflow waits on or publishes under: up to 237 printable
+// ASCII characters.
+type DurableMessageName = string
+
+// DurableMessageSender Who sent the message.
+type DurableMessageSender struct {
+	// Type The credential the message was sent with. `project` is the
+	// project's owner or one of its access tokens, and `execution` is the
+	// execution itself publishing.
+	Type DurableMessageSenderType `json:"type"`
+
+	// UserId The auth user who sent it. Null unless `type` is `user`.
+	UserId *string `json:"user_id"`
+}
+
+// DurableMessageSenderType The credential the message was sent with. `project` is the
+// project's owner or one of its access tokens, and `execution` is the
+// execution itself publishing.
+type DurableMessageSenderType string
+
+// DurableMessageSessionRegistration The registered session. Its token reaches the workflow through the
+// workflow itself, never in this response.
+type DurableMessageSessionRegistration struct {
+	Id openapi_types.UUID `json:"id"`
+}
+
+// DurableMessageStatus An `in` message is `queued` until a wait for its name takes it,
+// `delivering` while it is handed over, and `delivered` once the
+// execution has it. It is `dropped` if the execution ended before any
+// wait took it. Every `out` message is `published`.
+type DurableMessageStatus string
+
+// DurableMessageWait A wait an execution has open for a message.
+type DurableMessageWait struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// ExpiresAt When the wait times out. Null when the workflow set no timeout.
+	ExpiresAt *time.Time         `json:"expires_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+
+	// Status `waiting` until a message for its name arrives, `matched` while that
+	// message is handed over, then `delivered`. `expired` means the wait's
+	// timeout passed first, and `cancelled` that the execution stopped
+	// waiting.
+	Status DurableMessageWaitStatus `json:"status"`
+}
+
+// DurableMessageWaitList defines model for DurableMessageWaitList.
+type DurableMessageWaitList struct {
+	// Data Open waits, oldest first.
+	Data []DurableMessageWait `json:"data"`
+}
+
+// DurableMessageWaitRegistration The registered wait, as the waiting workflow sees it.
+type DurableMessageWaitRegistration struct {
+	ExpiresAt *time.Time         `json:"expires_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Status `waiting` until a message for its name arrives, `matched` while that
+	// message is handed over, then `delivered`. `expired` means the wait's
+	// timeout passed first, and `cancelled` that the execution stopped
+	// waiting.
+	Status DurableMessageWaitStatus `json:"status"`
+}
+
+// DurableMessageWaitStatus `waiting` until a message for its name arrives, `matched` while that
+// message is handed over, then `delivered`. `expired` means the wait's
+// timeout passed first, and `cancelled` that the execution stopped
+// waiting.
+type DurableMessageWaitStatus string
+
 // EmailTemplate Custom email template
 type EmailTemplate struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
@@ -6498,8 +6743,11 @@ type Frontend struct {
 	// reach the target function at these paths without a credential.
 	FunctionRoutes []FrontendFunctionRoute `json:"function_routes"`
 	Id             openapi_types.UUID      `json:"id"`
-	LastInvokedAt  *time.Time              `json:"last_invoked_at,omitempty"`
-	Name           string                  `json:"name"`
+
+	// LastDeployedAt Recorded completion time of the most recent deploy or redeploy with status active. Omitted when no such deployment has a recorded completion time. Site traffic, pending deployments, degraded deployments, failed deployments, and deletion do not change this value.
+	LastDeployedAt *time.Time `json:"last_deployed_at,omitempty"`
+	LastInvokedAt  *time.Time `json:"last_invoked_at,omitempty"`
+	Name           string     `json:"name"`
 
 	// PendingDeploymentId Newest queued deployment that will run after the current operation
 	PendingDeploymentId *openapi_types.UUID `json:"pending_deployment_id,omitempty"`
@@ -7414,12 +7662,19 @@ type MetricUsageData struct {
 	// at times the time it spent running, in megabyte-seconds; the allowance for it is
 	// published in gigabyte-seconds, which is 1024 of these.
 	// "Sandbox Running (MiB-Seconds)", "Sandbox Suspended (Seconds)", and
-	// "Sandbox Uncertain (MiB-Seconds)" are preview-only usage; they do not
-	// debit credits. Running reports configured memory times observed runtime,
-	// not measured CPU or elastic memory consumption. Uncertain includes
-	// observation gaps and unconfirmed state transitions. Suspended reports
-	// duration, not snapshot size. Local sessions do not contribute.
-	// Totals are rounded down after aggregating millisecond measurements.
+	// "Sandbox Uncertain (MiB-Seconds)" report cloud Sandbox usage. Running
+	// reports configured baseline memory times confirmed runtime, not measured
+	// CPU or elastic memory consumption. For sessions admitted after the pricing
+	// release, confirmed running time consumes the account's runtime allowance;
+	// SUPERAGENT overage debits credits according to the account's pricing terms.
+	// Suspended time and uncertain usage do not consume runtime allowance or
+	// debit credits. Uncertain includes observation gaps and unconfirmed state
+	// transitions. Suspended reports duration, not snapshot size; snapshot costs
+	// are included in runtime pricing. Local and platform image-validation
+	// sessions do not contribute. Existing preview sessions remain unbilled,
+	// and preview history is never charged retroactively. Displayed totals are
+	// rounded down after aggregating millisecond measurements; billing uses
+	// unrounded measurements in the monthly account billing cycle.
 	// "Database Storage (Bytes)" is a current observed gauge,
 	// not a cumulative counter. It is the sum of the latest samples exposed as
 	// `storage_bytes` by the project's database list, so it includes what each
@@ -7458,6 +7713,15 @@ type OAuthErrorResponse struct {
 // OpenAPISpecDocument This OpenAPI document, with every reference resolved. Shared by the JSON
 // and YAML operations, which differ only in serialization.
 type OpenAPISpecDocument map[string]interface{}
+
+// OpenDurableMessageSessionRequest defines model for OpenDurableMessageSessionRequest.
+type OpenDurableMessageSessionRequest struct {
+	// CallbackId Opaque session reference, supplied by the SDK.
+	CallbackId string `json:"callback_id"`
+
+	// ExecutionRef Opaque reference to the running execution, supplied by the SDK.
+	ExecutionRef string `json:"execution_ref"`
+}
 
 // PaginatedAuthUsers defines model for PaginatedAuthUsers.
 type PaginatedAuthUsers struct {
@@ -8572,7 +8836,7 @@ type ProjectConfigSandbox struct {
 	// Ports Service readiness ports; config apply asserts them and Git deploy builds them.
 	Ports *[]int `json:"ports,omitempty"`
 
-	// TtlSeconds Default absolute lifetime for new sessions when the caller omits it. Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
+	// TtlSeconds Default absolute lifetime for new sessions when the caller omits it. Cloud templates accept 30–28800 seconds; inherited lifetimes are clamped to the session plan limit (3600 for HOBBY, 28800 for SUPERAGENT). Local accepts 0 for unlimited or a positive lifetime.
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
@@ -9152,6 +9416,16 @@ type ProjectUsageResponse struct {
 	ProjectId openapi_types.UUID `json:"project_id"`
 }
 
+// PublishDurableMessageRequest defines model for PublishDurableMessageRequest.
+type PublishDurableMessageRequest struct {
+	// Data Any JSON value, up to 64 KiB. Omitted means null.
+	Data json.RawMessage `json:"data,omitempty"`
+
+	// Name The name a workflow waits on or publishes under: up to 237 printable
+	// ASCII characters.
+	Name DurableMessageName `json:"name"`
+}
+
 // PublishSandboxPresetRequest defines model for PublishSandboxPresetRequest.
 type PublishSandboxPresetRequest struct {
 	DeploymentId openapi_types.UUID                  `json:"deployment_id"`
@@ -9224,15 +9498,37 @@ type RealtimeStats struct {
 	PeakConnections *int `json:"peak_connections,omitempty"`
 }
 
+// RegisterDurableMessageWaitRequest defines model for RegisterDurableMessageWaitRequest.
+type RegisterDurableMessageWaitRequest struct {
+	// CallbackId Opaque wait reference, supplied by the SDK.
+	CallbackId string `json:"callback_id"`
+
+	// ExecutionRef Opaque reference to the running execution, supplied by the SDK.
+	ExecutionRef string `json:"execution_ref"`
+
+	// Name The name a workflow waits on or publishes under: up to 237 printable
+	// ASCII characters.
+	Name DurableMessageName `json:"name"`
+}
+
+// RenameVariableEnvironmentRequest defines model for RenameVariableEnvironmentRequest.
+type RenameVariableEnvironmentRequest struct {
+	// Name Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+	Name string `json:"name"`
+}
+
 // RequestDurableApprovalRequest defines model for RequestDurableApprovalRequest.
 type RequestDurableApprovalRequest struct {
 	// CallbackId Opaque approval reference, supplied by the SDK.
 	CallbackId  string  `json:"callback_id"`
 	Description *string `json:"description,omitempty"`
 
-	// Details Any JSON value to show the person deciding. The whole request is
-	// limited to 64 KiB.
-	Details interface{} `json:"details,omitempty"`
+	// Details Any JSON value to show the person deciding. A number's exponent must
+	// be between -324 and 324, and a number too large or too precise to
+	// store is refused with `400`. Numbers are read back written out in
+	// full, so the exponents' absolute values may total at most 65,536.
+	// The whole request is limited to 64 KiB.
+	Details json.RawMessage `json:"details,omitempty"`
 
 	// ExecutionRef Opaque reference to the running execution, supplied by the SDK.
 	ExecutionRef string `json:"execution_ref"`
@@ -9338,9 +9634,11 @@ type SandboxExecutionRequest struct {
 	Command     string             `json:"command"`
 	Environment *map[string]string `json:"environment,omitempty"`
 
-	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
-	MaxDurationSeconds *int                             `json:"max_duration_seconds,omitempty"`
-	MemoryMb           *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
+	// MaxDurationSeconds Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
+	MaxDurationSeconds *int `json:"max_duration_seconds,omitempty"`
+
+	// MemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
+	MemoryMb *SandboxExecutionRequestMemoryMb `json:"memory_mb,omitempty"`
 
 	// Preset Preset ID from the available Sandbox preset catalog.
 	Preset *string `json:"preset,omitempty"`
@@ -9354,7 +9652,7 @@ type SandboxExecutionRequest struct {
 	union          json.RawMessage
 }
 
-// SandboxExecutionRequestMemoryMb defines model for SandboxExecutionRequest.MemoryMb.
+// SandboxExecutionRequestMemoryMb Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
 type SandboxExecutionRequestMemoryMb int
 
 // SandboxExecutionRequest0 defines model for .
@@ -9480,6 +9778,16 @@ type ScheduleRequest struct {
 
 // ScheduleRequestKind defines model for ScheduleRequest.Kind.
 type ScheduleRequestKind string
+
+// SendDurableMessageRequest defines model for SendDurableMessageRequest.
+type SendDurableMessageRequest struct {
+	// Data Any JSON value, up to 64 KiB. Omitted means null.
+	Data json.RawMessage `json:"data,omitempty"`
+
+	// Name The name a workflow waits on or publishes under: up to 237 printable
+	// ASCII characters.
+	Name DurableMessageName `json:"name"`
+}
 
 // ServiceKey Service role key for admin operations.
 // **WARNING:** Bypasses all RLS - backend use only!
@@ -9734,7 +10042,11 @@ type UpdateAuthConfigRequest struct {
 	// AutoLinkVerifiedOauth Link a verified OAuth identity to an existing confirmed account with the same email instead of returning a conflict. Requires require_email_confirmation to be true.
 	AutoLinkVerifiedOauth *bool `json:"auto_link_verified_oauth,omitempty"`
 	CorsAllowCredentials  *bool `json:"cors_allow_credentials,omitempty"`
-	CorsMaxAge            *int  `json:"cors_max_age,omitempty"`
+
+	// CorsAllowedOrigins Replaces the allowed origins list.
+	CorsAllowedOrigins *[]string `json:"cors_allowed_origins,omitempty"`
+	CorsEnabled        *bool     `json:"cors_enabled,omitempty"`
+	CorsMaxAge         *int      `json:"cors_max_age,omitempty"`
 
 	// DeviceVerificationUrl Optional custom device-authorization verification page. Must be a
 	// valid http/https URL (not tied to allowed_redirect_urls). When set,
@@ -9768,15 +10080,22 @@ type UpdateAuthConfigRequest struct {
 	MinPasswordLength    *int  `json:"min_password_length,omitempty"`
 	PasswordResetTimeout *int  `json:"password_reset_timeout,omitempty"`
 
+	// PlatformTokenTtl TTL in seconds for platform tokens minted via `/auth/platform/exchange`. From 3600 (1 hour) to 31536000 (365 days).
+	PlatformTokenTtl *int `json:"platform_token_ttl,omitempty"`
+
 	// PostAuthRedirectUrl Must be included in allowed_redirect_urls when set.
 	PostAuthRedirectUrl *string `json:"post_auth_redirect_url,omitempty"`
 
 	// PostLogoutRedirectUrl Must be included in allowed_redirect_urls when set.
 	PostLogoutRedirectUrl *string `json:"post_logout_redirect_url,omitempty"`
-	RateLimitSignin       *int    `json:"rate_limit_signin,omitempty"`
-	RateLimitSignup       *int    `json:"rate_limit_signup,omitempty"`
-	RateLimitTokenRefresh *int    `json:"rate_limit_token_refresh,omitempty"`
-	RefreshTokenLifetime  *int    `json:"refresh_token_lifetime,omitempty"`
+
+	// RateLimitPasswordReset Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+	RateLimitPasswordReset    *int `json:"rate_limit_password_reset,omitempty"`
+	RateLimitSignin           *int `json:"rate_limit_signin,omitempty"`
+	RateLimitSignup           *int `json:"rate_limit_signup,omitempty"`
+	RateLimitTokenRefresh     *int `json:"rate_limit_token_refresh,omitempty"`
+	RefreshTokenLifetime      *int `json:"refresh_token_lifetime,omitempty"`
+	RefreshTokenReuseInterval *int `json:"refresh_token_reuse_interval,omitempty"`
 
 	// RequireEmailConfirmation Require users to confirm email before sign-in. Can only be true when email_enabled is true.
 	RequireEmailConfirmation *bool   `json:"require_email_confirmation,omitempty"`
@@ -10049,6 +10368,23 @@ type VariableDeploySource string
 // VariableStatus Latest project variable propagation status, when a sync has run.
 type VariableStatus string
 
+// VariableEnvironment Stable identity for a Project-owned variable Environment.
+type VariableEnvironment struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// IsGlobal Whether this is the reserved Global Environment.
+	IsGlobal  bool               `json:"is_global"`
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
+// VariableEnvironmentList defines model for VariableEnvironmentList.
+type VariableEnvironmentList struct {
+	Data []VariableEnvironment `json:"data"`
+}
+
 // VerifiedDomain A domain the account owns, along with every name below it.
 type VerifiedDomain struct {
 	Domain string `json:"domain"`
@@ -10107,11 +10443,31 @@ type DurableApprovalFunctionFilter = string
 // DurableApprovalId defines model for DurableApprovalId.
 type DurableApprovalId = openapi_types.UUID
 
+// DurableClientToken defines model for DurableClientToken.
+type DurableClientToken = string
+
 // DurableExecutionId defines model for DurableExecutionId.
 type DurableExecutionId = openapi_types.UUID
 
 // DurableFunctionId defines model for DurableFunctionId.
 type DurableFunctionId = string
+
+// DurableMessageAfter defines model for DurableMessageAfter.
+type DurableMessageAfter = int64
+
+// DurableMessageDirectionFilter `in` is a message sent to the execution. `out` is one the execution
+// published.
+type DurableMessageDirectionFilter = DurableMessageDirection
+
+// DurableMessageIdempotencyKey defines model for DurableMessageIdempotencyKey.
+type DurableMessageIdempotencyKey = string
+
+// DurableMessageLimit defines model for DurableMessageLimit.
+type DurableMessageLimit = int
+
+// DurableMessageNameFilter The name a workflow waits on or publishes under: up to 237 printable
+// ASCII characters.
+type DurableMessageNameFilter = DurableMessageName
 
 // EndingBefore defines model for EndingBefore.
 type EndingBefore = string
@@ -10160,6 +10516,9 @@ type Search = string
 
 // TokenId defines model for TokenId.
 type TokenId = openapi_types.UUID
+
+// VariableEnvironmentId defines model for VariableEnvironmentId.
+type VariableEnvironmentId = openapi_types.UUID
 
 // VariableName defines model for VariableName.
 type VariableName = string
@@ -10548,6 +10907,48 @@ type StartDurableExecutionFromApplicationParams struct {
 	// Letters, digits, `-`, `_` and `.`, up to 255 characters. Anything
 	// else is rejected with `400`.
 	XVolcanoExecutionName *string `json:"X-Volcano-Execution-Name,omitempty"`
+}
+
+// ListDurableMessagesFromApplicationParams defines parameters for ListDurableMessagesFromApplication.
+type ListDurableMessagesFromApplicationParams struct {
+	// Direction Return only messages travelling this way.
+	Direction *DurableMessageDirectionFilter `form:"direction,omitempty" json:"direction,omitempty"`
+
+	// Name Return only messages with this name.
+	Name *DurableMessageNameFilter `form:"name,omitempty" json:"name,omitempty"`
+
+	// After Return only messages whose `seq` is greater than this.
+	After *DurableMessageAfter `form:"after,omitempty" json:"after,omitempty"`
+
+	// Limit Most messages to return.
+	Limit *DurableMessageLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key,
+	// or a user who did not start the execution, reach it.
+	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
+}
+
+// SendDurableMessageFromApplicationParams defines parameters for SendDurableMessageFromApplication.
+type SendDurableMessageFromApplicationParams struct {
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
+	// already seen returns the first message and sends nothing. Up to 255
+	// characters.
+	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
+
+	// XVolcanoClientToken The `client_token` the execution's start returned. Lets an anon key,
+	// or a user who did not start the execution, reach it.
+	XVolcanoClientToken *DurableClientToken `json:"X-Volcano-Client-Token,omitempty"`
+}
+
+// PublishDurableMessageParams defines parameters for PublishDurableMessage.
+type PublishDurableMessageParams struct {
+	// XVolcanoDurableSession The session token the workflow received when its session opened.
+	XVolcanoDurableSession string `json:"X-Volcano-Durable-Session"`
+
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
+	// already seen returns the first message and sends nothing. Up to 255
+	// characters.
+	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
 // GetDefaultEmailTemplateParamsType defines parameters for GetDefaultEmailTemplate.
@@ -11342,6 +11743,29 @@ type StartDurableExecutionParams struct {
 	XVolcanoExecutionName *string `json:"X-Volcano-Execution-Name,omitempty"`
 }
 
+// ListDurableMessagesParams defines parameters for ListDurableMessages.
+type ListDurableMessagesParams struct {
+	// Direction Return only messages travelling this way.
+	Direction *DurableMessageDirectionFilter `form:"direction,omitempty" json:"direction,omitempty"`
+
+	// Name Return only messages with this name.
+	Name *DurableMessageNameFilter `form:"name,omitempty" json:"name,omitempty"`
+
+	// After Return only messages whose `seq` is greater than this.
+	After *DurableMessageAfter `form:"after,omitempty" json:"after,omitempty"`
+
+	// Limit Most messages to return.
+	Limit *DurableMessageLimit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SendDurableMessageParams defines parameters for SendDurableMessage.
+type SendDurableMessageParams struct {
+	// IdempotencyKey Makes a send safe to retry. A repeat with a key the execution has
+	// already seen returns the first message and sends nothing. Up to 255
+	// characters.
+	IdempotencyKey *DurableMessageIdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // DeleteEmailTemplateParamsType defines parameters for DeleteEmailTemplate.
 type DeleteEmailTemplateParamsType string
 
@@ -12076,6 +12500,18 @@ type RequestDurableApprovalJSONRequestBody = RequestDurableApprovalRequest
 // StartDurableExecutionFromApplicationJSONRequestBody defines body for StartDurableExecutionFromApplication for application/json ContentType.
 type StartDurableExecutionFromApplicationJSONRequestBody = StartDurableExecutionFromApplicationJSONBody
 
+// SendDurableMessageFromApplicationJSONRequestBody defines body for SendDurableMessageFromApplication for application/json ContentType.
+type SendDurableMessageFromApplicationJSONRequestBody = SendDurableMessageRequest
+
+// PublishDurableMessageJSONRequestBody defines body for PublishDurableMessage for application/json ContentType.
+type PublishDurableMessageJSONRequestBody = PublishDurableMessageRequest
+
+// OpenDurableMessageSessionJSONRequestBody defines body for OpenDurableMessageSession for application/json ContentType.
+type OpenDurableMessageSessionJSONRequestBody = OpenDurableMessageSessionRequest
+
+// RegisterDurableMessageWaitJSONRequestBody defines body for RegisterDurableMessageWait for application/json ContentType.
+type RegisterDurableMessageWaitJSONRequestBody = RegisterDurableMessageWaitRequest
+
 // InvokeFunctionJSONRequestBody defines body for InvokeFunction for application/json ContentType.
 type InvokeFunctionJSONRequestBody = FunctionInvocationRequest
 
@@ -12168,6 +12604,9 @@ type CreateDurableFunctionMultipartRequestBody CreateDurableFunctionMultipartBod
 
 // StartDurableExecutionJSONRequestBody defines body for StartDurableExecution for application/json ContentType.
 type StartDurableExecutionJSONRequestBody = StartDurableExecutionJSONBody
+
+// SendDurableMessageJSONRequestBody defines body for SendDurableMessage for application/json ContentType.
+type SendDurableMessageJSONRequestBody = SendDurableMessageRequest
 
 // CreateDurableFunctionSchedulerJSONRequestBody defines body for CreateDurableFunctionScheduler for application/json ContentType.
 type CreateDurableFunctionSchedulerJSONRequestBody = CreateFunctionSchedulerRequest
@@ -12276,6 +12715,12 @@ type UpdateStorageBucketJSONRequestBody = UpdateStorageBucketRequest
 
 // CreateStoragePolicyJSONRequestBody defines body for CreateStoragePolicy for application/json ContentType.
 type CreateStoragePolicyJSONRequestBody = CreateStoragePolicyRequest
+
+// CreateVariableEnvironmentJSONRequestBody defines body for CreateVariableEnvironment for application/json ContentType.
+type CreateVariableEnvironmentJSONRequestBody = CreateVariableEnvironmentRequest
+
+// RenameVariableEnvironmentJSONRequestBody defines body for RenameVariableEnvironment for application/json ContentType.
+type RenameVariableEnvironmentJSONRequestBody = RenameVariableEnvironmentRequest
 
 // CreateVariableJSONRequestBody defines body for CreateVariable for application/json ContentType.
 type CreateVariableJSONRequestBody = CreateVariableRequest
@@ -13854,6 +14299,29 @@ type ClientInterface interface {
 
 	StartDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, body StartDurableExecutionFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListDurableMessagesFromApplication request
+	ListDurableMessagesFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendDurableMessageFromApplicationWithBody request with any body
+	SendDurableMessageFromApplicationWithBody(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SendDurableMessageFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishDurableMessageWithBody request with any body
+	PublishDurableMessageWithBody(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PublishDurableMessage(ctx context.Context, params *PublishDurableMessageParams, body PublishDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenDurableMessageSessionWithBody request with any body
+	OpenDurableMessageSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	OpenDurableMessageSession(ctx context.Context, body OpenDurableMessageSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterDurableMessageWaitWithBody request with any body
+	RegisterDurableMessageWaitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDurableMessageWait(ctx context.Context, body RegisterDurableMessageWaitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDefaultEmailTemplates request
 	GetDefaultEmailTemplates(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -14241,6 +14709,17 @@ type ClientInterface interface {
 	// GetDurableExecution request
 	GetDurableExecution(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListDurableMessageWaits request
+	ListDurableMessageWaits(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDurableMessages request
+	ListDurableMessages(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendDurableMessageWithBody request with any body
+	SendDurableMessageWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SendDurableMessage(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, body SendDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDurableExecutionOperations request
 	ListDurableExecutionOperations(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -14590,6 +15069,25 @@ type ClientInterface interface {
 
 	// GetProjectUsage request
 	GetProjectUsage(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListVariableEnvironments request
+	ListVariableEnvironments(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVariableEnvironmentWithBody request with any body
+	CreateVariableEnvironmentWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateVariableEnvironment(ctx context.Context, id ProjectId, body CreateVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVariableEnvironment request
+	DeleteVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVariableEnvironment request
+	GetVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenameVariableEnvironmentWithBody request with any body
+	RenameVariableEnvironmentWithBody(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RenameVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, body RenameVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListVariables request
 	ListVariables(ctx context.Context, id ProjectId, params *ListVariablesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15686,6 +16184,114 @@ func (c *Client) StartDurableExecutionFromApplicationWithBody(ctx context.Contex
 
 func (c *Client) StartDurableExecutionFromApplication(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, body StartDurableExecutionFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStartDurableExecutionFromApplicationRequest(c.Server, functionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableMessagesFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableMessagesFromApplicationRequest(c.Server, functionId, executionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendDurableMessageFromApplicationWithBody(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendDurableMessageFromApplicationRequestWithBody(c.Server, functionId, executionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendDurableMessageFromApplication(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendDurableMessageFromApplicationRequest(c.Server, functionId, executionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishDurableMessageWithBody(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishDurableMessageRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishDurableMessage(ctx context.Context, params *PublishDurableMessageParams, body PublishDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishDurableMessageRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenDurableMessageSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenDurableMessageSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenDurableMessageSession(ctx context.Context, body OpenDurableMessageSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenDurableMessageSessionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDurableMessageWaitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDurableMessageWaitRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDurableMessageWait(ctx context.Context, body RegisterDurableMessageWaitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDurableMessageWaitRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17364,6 +17970,54 @@ func (c *Client) GetDurableExecution(ctx context.Context, id ProjectId, function
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListDurableMessageWaits(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableMessageWaitsRequest(c.Server, id, functionId, executionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDurableMessages(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDurableMessagesRequest(c.Server, id, functionId, executionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendDurableMessageWithBody(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendDurableMessageRequestWithBody(c.Server, id, functionId, executionId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendDurableMessage(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, body SendDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendDurableMessageRequest(c.Server, id, functionId, executionId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDurableExecutionOperations(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDurableExecutionOperationsRequest(c.Server, id, functionId, executionId)
 	if err != nil {
@@ -18878,6 +19532,90 @@ func (c *Client) GetStorageStats(ctx context.Context, id ProjectId, reqEditors .
 
 func (c *Client) GetProjectUsage(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectUsageRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListVariableEnvironments(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVariableEnvironmentsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateVariableEnvironmentWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVariableEnvironmentRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateVariableEnvironment(ctx context.Context, id ProjectId, body CreateVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVariableEnvironmentRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVariableEnvironmentRequest(c.Server, id, environmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVariableEnvironmentRequest(c.Server, id, environmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameVariableEnvironmentWithBody(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameVariableEnvironmentRequestWithBody(c.Server, id, environmentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameVariableEnvironment(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, body RenameVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameVariableEnvironmentRequest(c.Server, id, environmentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21849,6 +22587,349 @@ func NewStartDurableExecutionFromApplicationRequestWithBody(server string, funct
 		}
 
 	}
+
+	return req, nil
+}
+
+// NewListDurableMessagesFromApplicationRequest generates requests for ListDurableMessagesFromApplication
+func NewListDurableMessagesFromApplicationRequest(server string, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-functions/%s/executions/%s/messages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Direction != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "direction", *params.Direction, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Name != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", *params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.After != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after", *params.After, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XVolcanoClientToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-Token", *params.XVolcanoClientToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSendDurableMessageFromApplicationRequest calls the generic SendDurableMessageFromApplication builder with application/json body
+func NewSendDurableMessageFromApplicationRequest(server string, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSendDurableMessageFromApplicationRequestWithBody(server, functionId, executionId, params, "application/json", bodyReader)
+}
+
+// NewSendDurableMessageFromApplicationRequestWithBody generates requests for SendDurableMessageFromApplication with any type of body
+func NewSendDurableMessageFromApplicationRequestWithBody(server string, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-functions/%s/executions/%s/messages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+		if params.XVolcanoClientToken != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Client-Token", *params.XVolcanoClientToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Volcano-Client-Token", headerParam1)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewPublishDurableMessageRequest calls the generic PublishDurableMessage builder with application/json body
+func NewPublishDurableMessageRequest(server string, params *PublishDurableMessageParams, body PublishDurableMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishDurableMessageRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPublishDurableMessageRequestWithBody generates requests for PublishDurableMessage with any type of body
+func NewPublishDurableMessageRequestWithBody(server string, params *PublishDurableMessageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-messages/publish")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Volcano-Durable-Session", params.XVolcanoDurableSession, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Volcano-Durable-Session", headerParam0)
+
+		if params.IdempotencyKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam1)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewOpenDurableMessageSessionRequest calls the generic OpenDurableMessageSession builder with application/json body
+func NewOpenDurableMessageSessionRequest(server string, body OpenDurableMessageSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOpenDurableMessageSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewOpenDurableMessageSessionRequestWithBody generates requests for OpenDurableMessageSession with any type of body
+func NewOpenDurableMessageSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-messages/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRegisterDurableMessageWaitRequest calls the generic RegisterDurableMessageWait builder with application/json body
+func NewRegisterDurableMessageWaitRequest(server string, body RegisterDurableMessageWaitJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDurableMessageWaitRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDurableMessageWaitRequestWithBody generates requests for RegisterDurableMessageWait with any type of body
+func NewRegisterDurableMessageWaitRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-messages/waits")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -28134,6 +29215,241 @@ func NewGetDurableExecutionRequest(server string, id ProjectId, functionId Durab
 	return req, nil
 }
 
+// NewListDurableMessageWaitsRequest generates requests for ListDurableMessageWaits
+func NewListDurableMessageWaitsRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions/%s/message-waits", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDurableMessagesRequest generates requests for ListDurableMessages
+func NewListDurableMessagesRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions/%s/messages", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Direction != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "direction", *params.Direction, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Name != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", *params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.After != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after", *params.After, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSendDurableMessageRequest calls the generic SendDurableMessage builder with application/json body
+func NewSendDurableMessageRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, body SendDurableMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSendDurableMessageRequestWithBody(server, id, functionId, executionId, params, "application/json", bodyReader)
+}
+
+// NewSendDurableMessageRequestWithBody generates requests for SendDurableMessage with any type of body
+func NewSendDurableMessageRequestWithBody(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "functionId", functionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "executionId", executionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/durable-functions/%s/executions/%s/messages", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListDurableExecutionOperationsRequest generates requests for ListDurableExecutionOperations
 func NewListDurableExecutionOperationsRequest(server string, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId) (*http.Request, error) {
 	var err error
@@ -33244,6 +34560,223 @@ func NewGetProjectUsageRequest(server string, id ProjectId) (*http.Request, erro
 	return req, nil
 }
 
+// NewListVariableEnvironmentsRequest generates requests for ListVariableEnvironments
+func NewListVariableEnvironmentsRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/variable-environments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVariableEnvironmentRequest calls the generic CreateVariableEnvironment builder with application/json body
+func NewCreateVariableEnvironmentRequest(server string, id ProjectId, body CreateVariableEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVariableEnvironmentRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateVariableEnvironmentRequestWithBody generates requests for CreateVariableEnvironment with any type of body
+func NewCreateVariableEnvironmentRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/variable-environments", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVariableEnvironmentRequest generates requests for DeleteVariableEnvironment
+func NewDeleteVariableEnvironmentRequest(server string, id ProjectId, environmentId VariableEnvironmentId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "environmentId", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/variable-environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVariableEnvironmentRequest generates requests for GetVariableEnvironment
+func NewGetVariableEnvironmentRequest(server string, id ProjectId, environmentId VariableEnvironmentId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "environmentId", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/variable-environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRenameVariableEnvironmentRequest calls the generic RenameVariableEnvironment builder with application/json body
+func NewRenameVariableEnvironmentRequest(server string, id ProjectId, environmentId VariableEnvironmentId, body RenameVariableEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenameVariableEnvironmentRequestWithBody(server, id, environmentId, "application/json", bodyReader)
+}
+
+// NewRenameVariableEnvironmentRequestWithBody generates requests for RenameVariableEnvironment with any type of body
+func NewRenameVariableEnvironmentRequestWithBody(server string, id ProjectId, environmentId VariableEnvironmentId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "environmentId", environmentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/variable-environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListVariablesRequest generates requests for ListVariables
 func NewListVariablesRequest(server string, id ProjectId, params *ListVariablesParams) (*http.Request, error) {
 	var err error
@@ -35267,6 +36800,29 @@ type ClientWithResponsesInterface interface {
 
 	StartDurableExecutionFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, body StartDurableExecutionFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*StartDurableExecutionFromApplicationClientResponse, error)
 
+	// ListDurableMessagesFromApplicationWithResponse request
+	ListDurableMessagesFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesFromApplicationClientResponse, error)
+
+	// SendDurableMessageFromApplicationWithBodyWithResponse request with any body
+	SendDurableMessageFromApplicationWithBodyWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error)
+
+	SendDurableMessageFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error)
+
+	// PublishDurableMessageWithBodyWithResponse request with any body
+	PublishDurableMessageWithBodyWithResponse(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishDurableMessageClientResponse, error)
+
+	PublishDurableMessageWithResponse(ctx context.Context, params *PublishDurableMessageParams, body PublishDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishDurableMessageClientResponse, error)
+
+	// OpenDurableMessageSessionWithBodyWithResponse request with any body
+	OpenDurableMessageSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenDurableMessageSessionClientResponse, error)
+
+	OpenDurableMessageSessionWithResponse(ctx context.Context, body OpenDurableMessageSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenDurableMessageSessionClientResponse, error)
+
+	// RegisterDurableMessageWaitWithBodyWithResponse request with any body
+	RegisterDurableMessageWaitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDurableMessageWaitClientResponse, error)
+
+	RegisterDurableMessageWaitWithResponse(ctx context.Context, body RegisterDurableMessageWaitJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDurableMessageWaitClientResponse, error)
+
 	// GetDefaultEmailTemplatesWithResponse request
 	GetDefaultEmailTemplatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDefaultEmailTemplatesClientResponse, error)
 
@@ -35654,6 +37210,17 @@ type ClientWithResponsesInterface interface {
 	// GetDurableExecutionWithResponse request
 	GetDurableExecutionWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*GetDurableExecutionClientResponse, error)
 
+	// ListDurableMessageWaitsWithResponse request
+	ListDurableMessageWaitsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*ListDurableMessageWaitsClientResponse, error)
+
+	// ListDurableMessagesWithResponse request
+	ListDurableMessagesWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesClientResponse, error)
+
+	// SendDurableMessageWithBodyWithResponse request with any body
+	SendDurableMessageWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendDurableMessageClientResponse, error)
+
+	SendDurableMessageWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, body SendDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*SendDurableMessageClientResponse, error)
+
 	// ListDurableExecutionOperationsWithResponse request
 	ListDurableExecutionOperationsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*ListDurableExecutionOperationsClientResponse, error)
 
@@ -36003,6 +37570,25 @@ type ClientWithResponsesInterface interface {
 
 	// GetProjectUsageWithResponse request
 	GetProjectUsageWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectUsageClientResponse, error)
+
+	// ListVariableEnvironmentsWithResponse request
+	ListVariableEnvironmentsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListVariableEnvironmentsClientResponse, error)
+
+	// CreateVariableEnvironmentWithBodyWithResponse request with any body
+	CreateVariableEnvironmentWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVariableEnvironmentClientResponse, error)
+
+	CreateVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, body CreateVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVariableEnvironmentClientResponse, error)
+
+	// DeleteVariableEnvironmentWithResponse request
+	DeleteVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*DeleteVariableEnvironmentClientResponse, error)
+
+	// GetVariableEnvironmentWithResponse request
+	GetVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*GetVariableEnvironmentClientResponse, error)
+
+	// RenameVariableEnvironmentWithBodyWithResponse request with any body
+	RenameVariableEnvironmentWithBodyWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameVariableEnvironmentClientResponse, error)
+
+	RenameVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, body RenameVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameVariableEnvironmentClientResponse, error)
 
 	// ListVariablesWithResponse request
 	ListVariablesWithResponse(ctx context.Context, id ProjectId, params *ListVariablesParams, reqEditors ...RequestEditorFn) (*ListVariablesClientResponse, error)
@@ -37913,6 +39499,187 @@ func (r StartDurableExecutionFromApplicationClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r StartDurableExecutionFromApplicationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDurableMessagesFromApplicationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessageList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableMessagesFromApplicationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableMessagesFromApplicationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableMessagesFromApplicationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SendDurableMessageFromApplicationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessage
+	JSON201      *DurableMessage
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendDurableMessageFromApplicationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendDurableMessageFromApplicationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SendDurableMessageFromApplicationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PublishDurableMessageClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessage
+	JSON201      *DurableMessage
+	JSON400      *Error
+	JSON401      *Error
+	JSON409      *Error
+	JSON413      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PublishDurableMessageClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PublishDurableMessageClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PublishDurableMessageClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OpenDurableMessageSessionClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessageSessionRegistration
+	JSON201      *DurableMessageSessionRegistration
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenDurableMessageSessionClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenDurableMessageSessionClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OpenDurableMessageSessionClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RegisterDurableMessageWaitClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessageWaitRegistration
+	JSON201      *DurableMessageWaitRegistration
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDurableMessageWaitClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDurableMessageWaitClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RegisterDurableMessageWaitClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -41549,6 +43316,105 @@ func (r GetDurableExecutionClientResponse) ContentType() string {
 	return ""
 }
 
+type ListDurableMessageWaitsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessageWaitList
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableMessageWaitsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableMessageWaitsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableMessageWaitsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDurableMessagesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessageList
+	JSON400      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDurableMessagesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDurableMessagesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDurableMessagesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SendDurableMessageClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableMessage
+	JSON201      *DurableMessage
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendDurableMessageClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendDurableMessageClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SendDurableMessageClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDurableExecutionOperationsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -44671,6 +46537,179 @@ func (r GetProjectUsageClientResponse) ContentType() string {
 	return ""
 }
 
+type ListVariableEnvironmentsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VariableEnvironmentList
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVariableEnvironmentsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVariableEnvironmentsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListVariableEnvironmentsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateVariableEnvironmentClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *VariableEnvironment
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVariableEnvironmentClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVariableEnvironmentClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateVariableEnvironmentClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteVariableEnvironmentClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVariableEnvironmentClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVariableEnvironmentClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteVariableEnvironmentClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetVariableEnvironmentClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VariableEnvironment
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVariableEnvironmentClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVariableEnvironmentClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetVariableEnvironmentClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RenameVariableEnvironmentClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VariableEnvironment
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RenameVariableEnvironmentClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenameVariableEnvironmentClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RenameVariableEnvironmentClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListVariablesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -46518,6 +48557,83 @@ func (c *ClientWithResponses) StartDurableExecutionFromApplicationWithResponse(c
 	return ParseStartDurableExecutionFromApplicationClientResponse(rsp)
 }
 
+// ListDurableMessagesFromApplicationWithResponse request returning *ListDurableMessagesFromApplicationClientResponse
+func (c *ClientWithResponses) ListDurableMessagesFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesFromApplicationParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesFromApplicationClientResponse, error) {
+	rsp, err := c.ListDurableMessagesFromApplication(ctx, functionId, executionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableMessagesFromApplicationClientResponse(rsp)
+}
+
+// SendDurableMessageFromApplicationWithBodyWithResponse request with arbitrary body returning *SendDurableMessageFromApplicationClientResponse
+func (c *ClientWithResponses) SendDurableMessageFromApplicationWithBodyWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error) {
+	rsp, err := c.SendDurableMessageFromApplicationWithBody(ctx, functionId, executionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendDurableMessageFromApplicationClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SendDurableMessageFromApplicationWithResponse(ctx context.Context, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageFromApplicationParams, body SendDurableMessageFromApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*SendDurableMessageFromApplicationClientResponse, error) {
+	rsp, err := c.SendDurableMessageFromApplication(ctx, functionId, executionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendDurableMessageFromApplicationClientResponse(rsp)
+}
+
+// PublishDurableMessageWithBodyWithResponse request with arbitrary body returning *PublishDurableMessageClientResponse
+func (c *ClientWithResponses) PublishDurableMessageWithBodyWithResponse(ctx context.Context, params *PublishDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishDurableMessageClientResponse, error) {
+	rsp, err := c.PublishDurableMessageWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishDurableMessageClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PublishDurableMessageWithResponse(ctx context.Context, params *PublishDurableMessageParams, body PublishDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishDurableMessageClientResponse, error) {
+	rsp, err := c.PublishDurableMessage(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishDurableMessageClientResponse(rsp)
+}
+
+// OpenDurableMessageSessionWithBodyWithResponse request with arbitrary body returning *OpenDurableMessageSessionClientResponse
+func (c *ClientWithResponses) OpenDurableMessageSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenDurableMessageSessionClientResponse, error) {
+	rsp, err := c.OpenDurableMessageSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenDurableMessageSessionClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) OpenDurableMessageSessionWithResponse(ctx context.Context, body OpenDurableMessageSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenDurableMessageSessionClientResponse, error) {
+	rsp, err := c.OpenDurableMessageSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenDurableMessageSessionClientResponse(rsp)
+}
+
+// RegisterDurableMessageWaitWithBodyWithResponse request with arbitrary body returning *RegisterDurableMessageWaitClientResponse
+func (c *ClientWithResponses) RegisterDurableMessageWaitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDurableMessageWaitClientResponse, error) {
+	rsp, err := c.RegisterDurableMessageWaitWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDurableMessageWaitClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDurableMessageWaitWithResponse(ctx context.Context, body RegisterDurableMessageWaitJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDurableMessageWaitClientResponse, error) {
+	rsp, err := c.RegisterDurableMessageWait(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDurableMessageWaitClientResponse(rsp)
+}
+
 // GetDefaultEmailTemplatesWithResponse request returning *GetDefaultEmailTemplatesClientResponse
 func (c *ClientWithResponses) GetDefaultEmailTemplatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDefaultEmailTemplatesClientResponse, error) {
 	rsp, err := c.GetDefaultEmailTemplates(ctx, reqEditors...)
@@ -47739,6 +49855,41 @@ func (c *ClientWithResponses) GetDurableExecutionWithResponse(ctx context.Contex
 	return ParseGetDurableExecutionClientResponse(rsp)
 }
 
+// ListDurableMessageWaitsWithResponse request returning *ListDurableMessageWaitsClientResponse
+func (c *ClientWithResponses) ListDurableMessageWaitsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*ListDurableMessageWaitsClientResponse, error) {
+	rsp, err := c.ListDurableMessageWaits(ctx, id, functionId, executionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableMessageWaitsClientResponse(rsp)
+}
+
+// ListDurableMessagesWithResponse request returning *ListDurableMessagesClientResponse
+func (c *ClientWithResponses) ListDurableMessagesWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *ListDurableMessagesParams, reqEditors ...RequestEditorFn) (*ListDurableMessagesClientResponse, error) {
+	rsp, err := c.ListDurableMessages(ctx, id, functionId, executionId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDurableMessagesClientResponse(rsp)
+}
+
+// SendDurableMessageWithBodyWithResponse request with arbitrary body returning *SendDurableMessageClientResponse
+func (c *ClientWithResponses) SendDurableMessageWithBodyWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendDurableMessageClientResponse, error) {
+	rsp, err := c.SendDurableMessageWithBody(ctx, id, functionId, executionId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendDurableMessageClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SendDurableMessageWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, params *SendDurableMessageParams, body SendDurableMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*SendDurableMessageClientResponse, error) {
+	rsp, err := c.SendDurableMessage(ctx, id, functionId, executionId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendDurableMessageClientResponse(rsp)
+}
+
 // ListDurableExecutionOperationsWithResponse request returning *ListDurableExecutionOperationsClientResponse
 func (c *ClientWithResponses) ListDurableExecutionOperationsWithResponse(ctx context.Context, id ProjectId, functionId DurableFunctionId, executionId DurableExecutionId, reqEditors ...RequestEditorFn) (*ListDurableExecutionOperationsClientResponse, error) {
 	rsp, err := c.ListDurableExecutionOperations(ctx, id, functionId, executionId, reqEditors...)
@@ -48849,6 +51000,67 @@ func (c *ClientWithResponses) GetProjectUsageWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseGetProjectUsageClientResponse(rsp)
+}
+
+// ListVariableEnvironmentsWithResponse request returning *ListVariableEnvironmentsClientResponse
+func (c *ClientWithResponses) ListVariableEnvironmentsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListVariableEnvironmentsClientResponse, error) {
+	rsp, err := c.ListVariableEnvironments(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVariableEnvironmentsClientResponse(rsp)
+}
+
+// CreateVariableEnvironmentWithBodyWithResponse request with arbitrary body returning *CreateVariableEnvironmentClientResponse
+func (c *ClientWithResponses) CreateVariableEnvironmentWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVariableEnvironmentClientResponse, error) {
+	rsp, err := c.CreateVariableEnvironmentWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVariableEnvironmentClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, body CreateVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVariableEnvironmentClientResponse, error) {
+	rsp, err := c.CreateVariableEnvironment(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVariableEnvironmentClientResponse(rsp)
+}
+
+// DeleteVariableEnvironmentWithResponse request returning *DeleteVariableEnvironmentClientResponse
+func (c *ClientWithResponses) DeleteVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*DeleteVariableEnvironmentClientResponse, error) {
+	rsp, err := c.DeleteVariableEnvironment(ctx, id, environmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVariableEnvironmentClientResponse(rsp)
+}
+
+// GetVariableEnvironmentWithResponse request returning *GetVariableEnvironmentClientResponse
+func (c *ClientWithResponses) GetVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, reqEditors ...RequestEditorFn) (*GetVariableEnvironmentClientResponse, error) {
+	rsp, err := c.GetVariableEnvironment(ctx, id, environmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVariableEnvironmentClientResponse(rsp)
+}
+
+// RenameVariableEnvironmentWithBodyWithResponse request with arbitrary body returning *RenameVariableEnvironmentClientResponse
+func (c *ClientWithResponses) RenameVariableEnvironmentWithBodyWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameVariableEnvironmentClientResponse, error) {
+	rsp, err := c.RenameVariableEnvironmentWithBody(ctx, id, environmentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameVariableEnvironmentClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RenameVariableEnvironmentWithResponse(ctx context.Context, id ProjectId, environmentId VariableEnvironmentId, body RenameVariableEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameVariableEnvironmentClientResponse, error) {
+	rsp, err := c.RenameVariableEnvironment(ctx, id, environmentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameVariableEnvironmentClientResponse(rsp)
 }
 
 // ListVariablesWithResponse request returning *ListVariablesClientResponse
@@ -51572,6 +53784,353 @@ func ParseStartDurableExecutionFromApplicationClientResponse(rsp *http.Response)
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableMessagesFromApplicationClientResponse parses an HTTP response from a ListDurableMessagesFromApplicationWithResponse call
+func ParseListDurableMessagesFromApplicationClientResponse(rsp *http.Response) (*ListDurableMessagesFromApplicationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableMessagesFromApplicationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendDurableMessageFromApplicationClientResponse parses an HTTP response from a SendDurableMessageFromApplicationWithResponse call
+func ParseSendDurableMessageFromApplicationClientResponse(rsp *http.Response) (*SendDurableMessageFromApplicationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendDurableMessageFromApplicationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePublishDurableMessageClientResponse parses an HTTP response from a PublishDurableMessageWithResponse call
+func ParsePublishDurableMessageClientResponse(rsp *http.Response) (*PublishDurableMessageClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PublishDurableMessageClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOpenDurableMessageSessionClientResponse parses an HTTP response from a OpenDurableMessageSessionWithResponse call
+func ParseOpenDurableMessageSessionClientResponse(rsp *http.Response) (*OpenDurableMessageSessionClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenDurableMessageSessionClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessageSessionRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableMessageSessionRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRegisterDurableMessageWaitClientResponse parses an HTTP response from a RegisterDurableMessageWaitWithResponse call
+func ParseRegisterDurableMessageWaitClientResponse(rsp *http.Response) (*RegisterDurableMessageWaitClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDurableMessageWaitClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessageWaitRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableMessageWaitRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -56403,6 +58962,147 @@ func ParseGetDurableExecutionClientResponse(rsp *http.Response) (*GetDurableExec
 	return response, nil
 }
 
+// ParseListDurableMessageWaitsClientResponse parses an HTTP response from a ListDurableMessageWaitsWithResponse call
+func ParseListDurableMessageWaitsClientResponse(rsp *http.Response) (*ListDurableMessageWaitsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableMessageWaitsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessageWaitList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDurableMessagesClientResponse parses an HTTP response from a ListDurableMessagesWithResponse call
+func ParseListDurableMessagesClientResponse(rsp *http.Response) (*ListDurableMessagesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDurableMessagesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendDurableMessageClientResponse parses an HTTP response from a SendDurableMessageWithResponse call
+func ParseSendDurableMessageClientResponse(rsp *http.Response) (*SendDurableMessageClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendDurableMessageClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DurableMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDurableExecutionOperationsClientResponse parses an HTTP response from a ListDurableExecutionOperationsWithResponse call
 func ParseListDurableExecutionOperationsClientResponse(rsp *http.Response) (*ListDurableExecutionOperationsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -60443,6 +63143,297 @@ func ParseGetProjectUsageClientResponse(rsp *http.Response) (*GetProjectUsageCli
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListVariableEnvironmentsClientResponse parses an HTTP response from a ListVariableEnvironmentsWithResponse call
+func ParseListVariableEnvironmentsClientResponse(rsp *http.Response) (*ListVariableEnvironmentsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVariableEnvironmentsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VariableEnvironmentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVariableEnvironmentClientResponse parses an HTTP response from a CreateVariableEnvironmentWithResponse call
+func ParseCreateVariableEnvironmentClientResponse(rsp *http.Response) (*CreateVariableEnvironmentClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVariableEnvironmentClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest VariableEnvironment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVariableEnvironmentClientResponse parses an HTTP response from a DeleteVariableEnvironmentWithResponse call
+func ParseDeleteVariableEnvironmentClientResponse(rsp *http.Response) (*DeleteVariableEnvironmentClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVariableEnvironmentClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVariableEnvironmentClientResponse parses an HTTP response from a GetVariableEnvironmentWithResponse call
+func ParseGetVariableEnvironmentClientResponse(rsp *http.Response) (*GetVariableEnvironmentClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVariableEnvironmentClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VariableEnvironment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRenameVariableEnvironmentClientResponse parses an HTTP response from a RenameVariableEnvironmentWithResponse call
+func ParseRenameVariableEnvironmentClientResponse(rsp *http.Response) (*RenameVariableEnvironmentClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenameVariableEnvironmentClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VariableEnvironment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

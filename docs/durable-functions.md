@@ -74,11 +74,14 @@ existing function's scope alone.
 | Get one approval | `volcano cloud durable approvals get <approval-id>` |
 | Approve or deny one | `volcano cloud durable approvals approve\|deny <approval-id> [--comment …] [--yes]` |
 | Approval stats | `volcano cloud durable approvals stats [--function …] [--since 30d]` |
+| Send a message | `volcano cloud durable messages send <function> <execution-id> <name> [--data … \| --data-file …] [--idempotency-key …]` |
+| List messages | `volcano cloud durable messages list <function> <execution-id> [--direction in\|out] [--name …] [--after …] [--limit 100] [--follow]` |
+| Open message waits | `volcano cloud durable messages waits <function> <execution-id>` |
 
 Wherever a command takes a function, it takes the name or the id. `deploy` needs
 exactly one of `--all` and `-f`. `--yes` skips the confirmation prompt the three
 destructive commands and the two approval decisions ask for. Every `approvals`
-command takes `--json`. Schedulers require `SUPERAGENT` and are capped at
+and `messages` command takes `--json`. Schedulers require `SUPERAGENT` and are capped at
 5 per project across standard and durable functions together; a create beyond
 that answers `403`.
 
@@ -241,6 +244,63 @@ workflows that request the most.
 In local mode, drop `cloud`: `volcano durable approvals approve …` decides as the
 local user. An approval timeout runs in real time locally, even though plain
 waits resolve immediately.
+
+## Messages
+
+A workflow that calls `ctx.waitForMessage` pauses until a message with that name
+arrives, and `ctx.publish` sends progress out of a running execution. See
+[durable functions in the JavaScript SDK](/sdk/js/durable-functions) for the
+authoring side. The `messages` commands send to an execution and read what it
+received and published:
+
+```bash
+# What the execution is waiting for
+volcano cloud durable messages waits order-pipeline 66666666-6666-4666-8666-666666666666
+
+# Send it; the workflow resumes with the data
+volcano cloud durable messages send order-pipeline 66666666-6666-4666-8666-666666666666 \
+  payment-confirmed --data '{"amount":4200}' --idempotency-key pay-4417
+
+# Watch what it publishes until it ends
+volcano cloud durable messages list order-pipeline 66666666-6666-4666-8666-666666666666 \
+  --direction out --follow
+```
+
+```text
+ID: 8f3b6c2a-1d4e-4a7b-9c5f-2e8d1a6b3c70
+Seq: 3
+Direction: in
+Name: payment-confirmed
+Status: queued
+Sender: project
+Sent: 2026-10-12T09:00:00Z
+Data: {
+  "amount": 4200
+}
+✓ Sent "payment-confirmed" to execution 66666666-6666-4666-8666-666666666666
+```
+
+A message sent before the workflow waits for its name is `queued` until it does,
+and waits take messages oldest first. Without `--data` or `--data-file` the
+workflow receives `null`. An execution that has ended takes no messages: the
+send fails with `execution … has ended and takes no more messages`, and queued
+messages nobody took are marked `dropped`.
+
+`--idempotency-key` makes a send safe to retry. Repeating it with a key the
+execution has already seen prints the first message and `Already sent with this
+idempotency key; nothing changed`.
+
+`list` reads both directions oldest first: `in` for messages sent to the
+execution, `out` for the ones it published. Each message has a `seq`; `--after`
+reads only the ones after it, and a long list ends with the command for the rest.
+`--follow` keeps reading until the execution ends; with `--json` it prints one
+message per line.
+
+Anyone with access to the project can send and read messages, including a
+project access token. A read-only token can list but not send.
+
+In local mode, drop `cloud`: `volcano durable messages send …` sends to an
+execution running on the local engine.
 
 ## Starting is asynchronous
 
