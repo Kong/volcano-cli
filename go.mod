@@ -1,6 +1,6 @@
 module github.com/Kong/volcano-cli
 
-go 1.26.8
+go 1.26.9
 
 require (
 	charm.land/bubbles/v2 v2.0.0
@@ -238,7 +238,7 @@ require (
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
