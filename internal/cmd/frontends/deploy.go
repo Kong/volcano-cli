@@ -76,7 +76,8 @@ type DeployOptions struct {
 	AppRoot       string
 	VariableScope string
 	Variables     []string
-	Out           io.Writer
+	// Out is required.
+	Out io.Writer
 }
 
 // Deploy packages and uploads one frontend, as "frontends deploy" does, and

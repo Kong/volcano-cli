@@ -89,7 +89,7 @@ Creates new variables and updates existing ones.`, cliruntime.CommandPath(deps, 
 }
 
 // Deploy saves every variable in the env file at path, as "variables deploy"
-// does. An empty path uses the default lookup.
+// does. An empty path uses the default lookup. out must not be nil.
 func Deploy(ctx context.Context, deps cliruntime.Deps, path string, out io.Writer) error {
 	return runDeploy(ctx, deployOptions{deps: deps, file: path, out: out})
 }

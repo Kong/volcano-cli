@@ -38,8 +38,9 @@ type DeployAllOptions struct {
 	// ManifestPath names the volcano-config.yaml that declares the durable
 	// functions. Empty uses the default lookup.
 	ManifestPath string
-	Out          io.Writer
-	ErrOut       io.Writer
+	// Out and ErrOut are required.
+	Out    io.Writer
+	ErrOut io.Writer
 }
 
 // DeployAll deploys every function the manifest declares durable, as
@@ -146,8 +147,8 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 		return nil, err
 	}
 	if opts.file != "" && manifest.StandardNames[sources[0].Name] {
-		return nil, fmt.Errorf("%q is declared a standard function in volcano-config.yaml; deploy it with %q",
-			sources[0].Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
+		return nil, fmt.Errorf("%q is declared a standard function in %s; deploy it with %q",
+			sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
 	var newPrivate, unreported []string

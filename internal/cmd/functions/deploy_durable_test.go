@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -109,18 +110,39 @@ functions:
 	assert.Equal(t, []string{"hello"}, deployed)
 	require.Len(t, started, 1)
 	assert.Equal(t, "hello", started[0].Name)
-	assert.Contains(t, out.String(), "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
+	assert.Contains(t, out.String(), "Skipping 1 durable function(s) declared in volcano/cloud.yaml: order-pipeline")
 }
 
 // Naming a durable function here is a mistake worth catching locally: sent on,
 // it would be refused by the server with a message about kinds rather than one
 // about which command to use.
 func TestFunctionsDeploySingleRefusesADurableDeclaredFunction(t *testing.T) {
-	setFunctionCommandTestHome(t)
-	saveFunctionCommandTestConfig(t)
-	t.Chdir(t.TempDir())
-	require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "order-pipeline.js"), `exports.handler = async () => ({});`))
-	require.NoError(t, writeProjectFile("volcano-config.yaml", `version: 1
+	// The hint names the tree the command ran from.
+	for _, tc := range []struct {
+		name string
+		cmd  func(cliruntime.Deps) *cobra.Command
+		deps cliruntime.Deps
+		hint string
+	}{
+		{
+			name: "cloud",
+			cmd:  New,
+			deps: cliruntime.Deps{CommandPathPrefix: "volcano cloud"},
+			hint: `"volcano cloud durable deploy -f order-pipeline"`,
+		},
+		{
+			name: "local",
+			cmd:  NewLocal,
+			deps: cliruntime.Deps{CommandPathPrefix: "volcano"},
+			hint: `"volcano durable deploy -f order-pipeline"`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setFunctionCommandTestHome(t)
+			saveFunctionCommandTestConfig(t)
+			t.Chdir(t.TempDir())
+			require.NoError(t, writeProjectFile(filepath.Join("volcano", "functions", "order-pipeline.js"), `exports.handler = async () => ({});`))
+			require.NoError(t, writeProjectFile("volcano-config.yaml", `version: 1
 project:
   name: beta
 functions:
@@ -128,20 +150,23 @@ functions:
     kind: durable
 `))
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if writeFunctionRuntimesCommandResponse(w, r) {
-			return
-		}
-		t.Errorf("unexpected request to %s %s", r.Method, r.URL.Path)
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if writeFunctionRuntimesCommandResponse(w, r) {
+					return
+				}
+				t.Errorf("unexpected request to %s %s", r.Method, r.URL.Path)
+				http.NotFound(w, r)
+			}))
+			defer server.Close()
 
-	_, err := executeFunctionsCommand(t,
-		NewLocal(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, CommandPathPrefix: "volcano"}), "deploy", "-f", "order-pipeline")
-	require.ErrorContains(t, err, `"order-pipeline" is declared durable in volcano-config.yaml`)
-	// The hint names the tree the command ran from.
-	require.ErrorContains(t, err, `"volcano durable deploy -f order-pipeline"`)
+			deps := tc.deps
+			deps.HTTPClient = server.Client()
+			deps.APIBaseURL = server.URL
+			_, err := executeFunctionsCommand(t, tc.cmd(deps), "deploy", "-f", "order-pipeline")
+			require.ErrorContains(t, err, `"order-pipeline" is declared durable in volcano-config.yaml`)
+			require.ErrorContains(t, err, tc.hint)
+		})
+	}
 }
 
 // A standard function deploy in a project that also holds durable ones must not

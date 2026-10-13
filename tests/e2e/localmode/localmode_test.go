@@ -431,6 +431,7 @@ exports.handler = withDurableExecution(async (input, ctx) => {
 	// deploying it as standard would be permanent.
 	skipOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
 	requireContains(t, skipOutput, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
+	requireContains(t, skipOutput, `Deploy them with "volcano durable deploy --all"`)
 	// This is hello's first deploy, so the output names its level and how to
 	// open it up.
 	requireContains(t, skipOutput, "Deployed hello (new, visibility private)")

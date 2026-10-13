@@ -90,8 +90,8 @@ func LoadFirstEnvVars(candidates ...string) ([]string, error) {
 }
 
 // ResolvePath returns the env file Load would read. An explicit path must
-// exist; otherwise it looks for volcano/volcano.env then ./volcano.env and
-// returns ErrNotFound when neither exists.
+// exist; otherwise it looks for volcano/volcano.env and ./volcano.env, returns
+// ErrNotFound when neither exists, and an error when both do.
 func ResolvePath(fileArg string) (string, error) {
 	if fileArg != "" {
 		found, err := fileExists(fileArg)

@@ -145,7 +145,8 @@ given.`,
 }
 
 // DeployManifest applies a manifest already loaded from path, as
-// "config deploy" does, and prints the apply report.
+// "config deploy" does, and prints the apply report. out and errOut must not be
+// nil.
 func DeployManifest(ctx context.Context, deps cliruntime.Deps, manifest *projectconfig.Manifest, path string, out, errOut io.Writer) error {
 	return apply(ctx, deployOptions{deps: deps, out: out, errOut: errOut}, manifest, path, path)
 }

@@ -40,7 +40,8 @@ type DeployAllOptions struct {
 	// and variable scopes. Empty uses the default lookup.
 	ManifestPath string
 	// Batch uploads up to 100 functions per request, as the cloud command does.
-	Batch  bool
+	Batch bool
+	// Out and ErrOut are required.
 	Out    io.Writer
 	ErrOut io.Writer
 }
@@ -158,12 +159,12 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 			return nil, fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
 		}
 		if manifest.DurableNames[sources[0].Name] {
-			return nil, fmt.Errorf("%q is declared durable in volcano-config.yaml; deploy it with %q",
-				sources[0].Name, cliruntime.CommandPath(opts.deps, "durable deploy -f "+sources[0].Name))
+			return nil, fmt.Errorf("%q is declared durable in %s; deploy it with %q",
+				sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "durable deploy -f "+sources[0].Name))
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
-		sources = excludeDurable(allSources, manifest.DurableNames, cliruntime.CommandPath(opts.deps, "durable deploy --all"), opts.out)
+		sources = excludeDurable(allSources, manifest, cliruntime.CommandPath(opts.deps, "durable deploy --all"), opts.out)
 		if len(sources) == 0 {
 			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
 			return nil, nil
@@ -241,23 +242,25 @@ func (r *deployReport) finish(out, errOut io.Writer) {
 	r.hint.Print(out, r.newPrivate)
 }
 
-func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, durableDeploy string, out io.Writer) []clifunction.SourceInfo {
-	if len(durableNames) == 0 {
+func excludeDurable(
+	sources []clifunction.SourceInfo, manifest projectconfig.FunctionDeployManifest, durableDeploy string, out io.Writer,
+) []clifunction.SourceInfo {
+	if len(manifest.DurableNames) == 0 {
 		return sources
 	}
 
 	kept := make([]clifunction.SourceInfo, 0, len(sources))
 	var skipped []string
 	for _, source := range sources {
-		if durableNames[source.Name] {
+		if manifest.DurableNames[source.Name] {
 			skipped = append(skipped, source.Name)
 			continue
 		}
 		kept = append(kept, source)
 	}
 	if len(skipped) > 0 {
-		fmt.Fprintf(out, "Skipping %d durable function(s) declared in volcano-config.yaml: %s\n",
-			len(skipped), strings.Join(skipped, ", "))
+		fmt.Fprintf(out, "Skipping %d durable function(s) declared in %s: %s\n",
+			len(skipped), manifest.Name, strings.Join(skipped, ", "))
 		fmt.Fprintf(out, "Deploy them with %q\n", durableDeploy)
 	}
 	return kept

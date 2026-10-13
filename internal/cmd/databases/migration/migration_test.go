@@ -122,6 +122,11 @@ func TestMigrationsUpValidatesFlags(t *testing.T) {
 			want: "required flag(s) \"database\" not set",
 		},
 		{
+			name: "rejects blank database",
+			args: []string{"up", "--all", "-d", "  "},
+			want: "specify the database with --database/-d",
+		},
+		{
 			name: "requires target",
 			args: []string{"up", "-d", "app"},
 			want: "specify either --all",
@@ -146,6 +151,18 @@ func TestMigrationsUpValidatesFlags(t *testing.T) {
 			assert.Contains(t, strings.ToLower(out+err.Error()), strings.ToLower(tc.want))
 		})
 	}
+}
+
+// ApplyAll takes the database from a caller rather than the flag, and treats
+// it the way the command treats --database.
+func TestApplyAllRequiresADatabase(t *testing.T) {
+	setMigrationCommandTestHome(t)
+	t.Chdir(t.TempDir())
+
+	var out bytes.Buffer
+	err := ApplyAll(context.Background(), cliruntime.Deps{}, " ", &out)
+	require.EqualError(t, err, "specify the database with --database/-d")
+	assert.Empty(t, out.String())
 }
 
 func TestMigrationsUpHandlesNoMigrationFiles(t *testing.T) {
