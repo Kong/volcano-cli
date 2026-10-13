@@ -797,28 +797,29 @@ func invokeVolcanoLocalModeE2EFunction(t *testing.T, info localModeE2EInfo, func
 
 // signUpVolcanoLocalModeE2EUser creates one of the project's own users and
 // returns its access token. Signup answers without a session, so the token
-// comes from signing in afterwards.
+// comes from signing in afterwards. Signup is retried only while the
+// breached-password check is unavailable; see retryLocalModeE2ESignup.
 func signUpVolcanoLocalModeE2EUser(t *testing.T, info localModeE2EInfo) string {
 	t.Helper()
 	credentials := fmt.Sprintf(`{"email":"cli-visibility-%d@localmode-e2e.invalid","password":"V0lcano!%d"}`,
 		time.Now().UnixNano(), time.Now().UnixNano())
-	for _, path := range []string{"/auth/signup", "/auth/signin"} {
-		resp := requestVolcanoLocalModeE2EAPI(t, info, path, info.AnonKey, credentials)
-		if resp.status != http.StatusOK && resp.status != http.StatusCreated {
-			t.Fatalf("POST %s returned %d:\n%s", path, resp.status, resp.body)
-		}
-		if path != "/auth/signin" {
-			continue
-		}
-		var session struct {
-			AccessToken string `json:"access_token"`
-		}
-		if err := json.Unmarshal([]byte(resp.body), &session); err != nil || session.AccessToken == "" {
-			t.Fatalf("signin returned no access token (%v):\n%s", err, resp.body)
-		}
-		return session.AccessToken
+	signup := retryLocalModeE2ESignup(t, passwordCheckRetryWindow, passwordCheckRetryInterval, func() localModeE2EResponse {
+		return requestVolcanoLocalModeE2EAPI(t, info, "/auth/signup", info.AnonKey, credentials)
+	})
+	if signup.status != http.StatusOK && signup.status != http.StatusCreated {
+		t.Fatalf("POST /auth/signup returned %d:\n%s", signup.status, signup.body)
 	}
-	return ""
+	signin := requestVolcanoLocalModeE2EAPI(t, info, "/auth/signin", info.AnonKey, credentials)
+	if signin.status != http.StatusOK && signin.status != http.StatusCreated {
+		t.Fatalf("POST /auth/signin returned %d:\n%s", signin.status, signin.body)
+	}
+	var session struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal([]byte(signin.body), &session); err != nil || session.AccessToken == "" {
+		t.Fatalf("signin returned no access token (%v):\n%s", err, signin.body)
+	}
+	return session.AccessToken
 }
 
 // waitForVolcanoLocalModeE2EVisibility waits until every caller gets the answer
