@@ -17,7 +17,7 @@ services:
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U volcano"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U volcano"]
       interval: 5s
       timeout: 5s
       retries: 5
