@@ -26,8 +26,34 @@ type deployOptions struct {
 	file       string
 	all        bool
 	visibility cmdutil.VisibilityFlags
-	out        io.Writer
-	errOut     io.Writer
+	// manifest names the volcano-config.yaml to read; empty uses the default
+	// lookup.
+	manifest string
+	out      io.Writer
+	errOut   io.Writer
+}
+
+// DeployAllOptions configures DeployAll.
+type DeployAllOptions struct {
+	// ManifestPath names the volcano-config.yaml that declares the durable
+	// functions. Empty uses the default lookup.
+	ManifestPath string
+	// Out and ErrOut are required.
+	Out    io.Writer
+	ErrOut io.Writer
+}
+
+// DeployAll deploys every function the manifest declares durable, as
+// "durable deploy --all" does, and returns the functions whose deployment
+// started. On error it still returns the ones started before the failure.
+func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions) ([]apiclient.DurableFunction, error) {
+	return deploy(ctx, &deployOptions{
+		deps:     deps,
+		all:      true,
+		manifest: opts.ManifestPath,
+		out:      opts.Out,
+		errOut:   opts.ErrOut,
+	})
 }
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
@@ -83,9 +109,14 @@ keeps what the function has.`,
 }
 
 func runDeploy(ctx context.Context, opts *deployOptions) error {
+	_, err := deploy(ctx, opts)
+	return err
+}
+
+func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFunction, error) {
 	visibility, err := deployVisibility(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Visibility is one value applied to every function the run deploys, and a
 	// durable function has no update endpoint -- undoing a flip is a redeploy of
@@ -93,18 +124,18 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 	// describes it, and --all has to be told visibility per function through the
 	// manifest rather than for all of them at once.
 	if opts.all && opts.visibility.Set() {
-		return errors.New("cannot use --visibility or --public with --all: deploy one function at a time to set its visibility")
+		return nil, errors.New("cannot use --visibility or --public with --all: deploy one function at a time to set its visibility")
 	}
 	targets, err := deployTargets(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// The same manifest read the standard deploy does. Without it a durable
 	// function the manifest scopes is created with every project variable, since
 	// the API reads a declaration only from the deploy that sends one.
-	manifest, err := projectconfig.ReadFunctionDeployManifest("")
+	manifest, err := projectconfig.ReadFunctionDeployManifest(opts.manifest)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, warning := range manifest.Deprecations {
 		output.Warning(opts.errOut, "%s", warning)
@@ -113,25 +144,27 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 	service := clidurable.NewService(opts.deps)
 	sources, baseDir, err := durableSources(ctx, opts, targets)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if opts.file != "" && manifest.StandardNames[sources[0].Name] {
-		return fmt.Errorf("%q is declared a standard function in volcano-config.yaml; deploy it with %q",
-			sources[0].Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
+		return nil, fmt.Errorf("%q is declared a standard function in %s; deploy it with %q",
+			sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
 	var newPrivate, unreported []string
+	started := make([]apiclient.DurableFunction, 0, len(sources))
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
 			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
 		)
 		if err != nil {
-			return err
+			return started, err
 		}
+		started = append(started, *deployed)
 		if deployed.Visibility == "" {
 			if visibility != nil {
-				return fmt.Errorf("%s: '%s' was deployed, but check who can start its executions with %s",
+				return started, fmt.Errorf("%s: '%s' was deployed, but check who can start its executions with %s",
 					cmdutil.VisibilityLevelsUnsupported, deployed.Name, cliruntime.CommandPath(opts.deps, "durable get "+deployed.Name))
 			}
 			unreported = append(unreported, deployed.Name)
@@ -159,7 +192,7 @@ func runDeploy(ctx context.Context, opts *deployOptions) error {
 		ConfigFirst:  true,
 		Declared:     manifest.Visibility,
 	}.Print(opts.out, newPrivate)
-	return nil
+	return started, nil
 }
 
 func deployOne(
@@ -217,7 +250,7 @@ func deployTargets(opts *deployOptions) ([]string, error) {
 		return []string{opts.file}, nil
 	}
 
-	manifestPath, err := projectconfig.ResolveManifestPath("")
+	manifestPath, err := projectconfig.ResolveManifestPath(opts.manifest)
 	if errors.Is(err, projectconfig.ErrManifestNotFound) {
 		// The shared message ends by offering --file to point at a manifest,
 		// which is not what --file means here: on this command it names a

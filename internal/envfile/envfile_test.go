@@ -87,8 +87,19 @@ func TestResolvePathSurfacesStatErrors(t *testing.T) {
 	t.Chdir(t.TempDir())
 	require.NoError(t, os.WriteFile("volcano", []byte("not a directory"), 0o644))
 
-	_, err := resolvePath(filepath.Join("volcano", "volcano.env"))
+	_, err := ResolvePath(filepath.Join("volcano", "volcano.env"))
 	require.ErrorContains(t, err, "failed to access volcano/volcano.env")
+}
+
+func TestResolvePathReturnsErrNotFoundWithoutDefaults(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	_, err := ResolvePath("")
+	require.ErrorIs(t, err, ErrNotFound)
+
+	_, err = ResolvePath("missing.env")
+	require.ErrorContains(t, err, "specified file not found: missing.env")
+	assert.NotErrorIs(t, err, ErrNotFound)
 }
 
 func TestLoadParsesEnvFile(t *testing.T) {

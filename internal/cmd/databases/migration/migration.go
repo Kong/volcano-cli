@@ -123,9 +123,18 @@ func newApply(deps cliruntime.Deps, executor sqlExecutor, use, long string) *cob
 	return cmd
 }
 
+// ApplyAll applies every migration in volcano/migrations to database, as
+// "migrations deploy --all" does.
+func ApplyAll(ctx context.Context, deps cliruntime.Deps, database string, out io.Writer) error {
+	return runUp(ctx, upOptions{deps: deps, database: strings.TrimSpace(database), all: true, out: out})
+}
+
 func runUp(ctx context.Context, opts upOptions) error {
 	if opts.executor == nil {
 		opts.executor = executeSQLMigration
+	}
+	if opts.database == "" {
+		return errors.New("specify the database with --database/-d")
 	}
 	if opts.all && opts.file != "" {
 		return errors.New("cannot use --all and --file together")

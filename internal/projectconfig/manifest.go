@@ -709,6 +709,9 @@ type FunctionDeployManifest struct {
 	Visibility    map[string]string
 	// Deprecations are the manifest's DeprecationWarnings.
 	Deprecations []string
+	// Name is how messages refer to the manifest: the path the caller passed,
+	// or volcano-config.yaml when the default lookup found it.
+	Name string
 }
 
 // ReadFunctionDeployManifest reads both of a deploy's manifest inputs in one
@@ -720,6 +723,10 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 		DurableNames:  map[string]bool{},
 		StandardNames: map[string]bool{},
 		Visibility:    map[string]string{},
+		Name:          "volcano-config.yaml",
+	}
+	if trimmed := strings.TrimSpace(fileArg); trimmed != "" {
+		read.Name = trimmed
 	}
 	path, err := ResolveManifestPath(fileArg)
 	if errors.Is(err, ErrManifestNotFound) {
@@ -730,7 +737,7 @@ func ReadFunctionDeployManifest(fileArg string) (FunctionDeployManifest, error) 
 	}
 	manifest, _, err := Load(path)
 	if err != nil {
-		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from volcano-config.yaml: %w\nfix the manifest (or export the environment variables it references) and deploy again", err)
+		return FunctionDeployManifest{}, fmt.Errorf("failed to read function variable scope from %s: %w\nfix the manifest (or export the environment variables it references) and deploy again", read.Name, err)
 	}
 	if manifest.Functions == nil {
 		return read, nil
