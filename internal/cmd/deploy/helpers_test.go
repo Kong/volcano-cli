@@ -1,8 +1,13 @@
 package deploy
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -93,11 +98,16 @@ type fakeVolcano struct {
 	// superseding names resources whose deployment the feed reports as
 	// superseded by a newer one, with that one's statuses per poll.
 	superseding map[string][]string
+	// queuedBehind names resources with a newer deployment queued behind the
+	// one this run started, with the newer one's statuses per poll.
+	queuedBehind map[string][]string
 
-	mu          sync.Mutex
-	calls       []string
-	configs     []map[string]any
-	frontends   map[string]map[string][]string
+	mu        sync.Mutex
+	calls     []string
+	configs   []map[string]any
+	frontends map[string]map[string][]string
+	// archives lists the files in each frontend's upload.
+	archives    map[string][]string
 	deployments map[string]uuid.UUID
 	successors  map[string]uuid.UUID
 	resources   map[string]uuid.UUID
@@ -111,6 +121,7 @@ func newFakeVolcano(t *testing.T) *fakeVolcano {
 		t:           t,
 		sourceMode:  "platform",
 		frontends:   map[string]map[string][]string{},
+		archives:    map[string][]string{},
 		deployments: map[string]uuid.UUID{},
 		successors:  map[string]uuid.UUID{},
 		resources:   map[string]uuid.UUID{},
@@ -214,6 +225,7 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
 		f.calls = append(f.calls, "frontend "+name)
 		f.frontends[name] = r.MultipartForm.Value
+		f.archives[name] = f.archiveNames(r.MultipartForm.File["archive"])
 		f.writeJSON(w, http.StatusCreated, f.deployed(name))
 	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/frontends/"):
 		id := strings.TrimPrefix(path, project+"/frontends/")
@@ -280,16 +292,40 @@ func (f *fakeVolcano) feed() map[string]any {
 		if sequence := f.statuses[name]; len(sequence) > 0 {
 			status = sequence[min(poll, len(sequence)-1)]
 		}
+		successor := f.queuedBehind[name]
 		if sequence := f.superseding[name]; len(sequence) > 0 {
 			status = "superseded"
+			successor = sequence
+		}
+		if len(successor) > 0 {
 			if _, ok := f.successors[name]; !ok {
 				f.successors[name] = uuid.New()
 			}
-			data = append(data, f.feedEntry(name, f.successors[name], sequence[min(poll, len(sequence)-1)], created.Add(time.Second)))
+			data = append(data, f.feedEntry(name, f.successors[name], successor[min(poll, len(successor)-1)], created.Add(time.Second)))
 		}
 		data = append(data, f.feedEntry(name, id, status, created))
 	}
 	return map[string]any{"data": data, "has_more": false, "page": 1, "limit": 100, "total": len(data)}
+}
+
+func (f *fakeVolcano) archiveNames(files []*multipart.FileHeader) []string {
+	require.Len(f.t, files, 1)
+	file, err := files[0].Open()
+	require.NoError(f.t, err)
+	defer file.Close()
+	gz, err := gzip.NewReader(file)
+	require.NoError(f.t, err)
+	defer gz.Close()
+	var names []string
+	tr := tar.NewReader(gz)
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return names
+		}
+		require.NoError(f.t, err)
+		names = append(names, header.Name)
+	}
 }
 
 func (f *fakeVolcano) feedEntry(name string, id uuid.UUID, status string, created time.Time) map[string]any {

@@ -70,6 +70,27 @@ func TestPackageDirectoryLeavesOutVolcanoEnvFiles(t *testing.T) {
 	assert.NotContains(t, entries, "volcano/cloud.env")
 }
 
+// A caller can name files the patterns don't cover, such as an env file it
+// deployed from the project root. Only that file goes, not others of its name.
+func TestPackageDirectoryLeavesOutExcludedFiles(t *testing.T) {
+	root := t.TempDir()
+	writePackageJSON(t, root, map[string]any{"name": "notes"})
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "web"), 0o755))
+	for _, name := range []string{"cloud.env", filepath.Join("web", "cloud.env")} {
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("GREETING=hello"), 0o644))
+	}
+	outside := filepath.Join(t.TempDir(), "cloud.env")
+	require.NoError(t, os.WriteFile(outside, []byte("GREETING=hello"), 0o644))
+
+	pkg, err := PackageDirectory(root, PackageOptions{ExcludeFiles: []string{filepath.Join(root, "cloud.env"), outside}})
+	require.NoError(t, err)
+
+	entries := readTarEntries(t, pkg.Archive)
+	assert.NotContains(t, entries, "cloud.env")
+	assert.Contains(t, entries, "web/cloud.env")
+	assert.Contains(t, entries, "package.json")
+}
+
 func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(root, ".git"), 0o755))

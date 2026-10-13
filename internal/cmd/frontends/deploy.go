@@ -28,6 +28,7 @@ type deployOptions struct {
 	appRoot       string
 	variableScope string
 	variables     []string
+	excludeFiles  []string
 	out           io.Writer
 }
 
@@ -72,14 +73,17 @@ Usage:
 	return cmd
 }
 
-// DeployOptions configures Deploy. The fields mirror the flags of
-// "frontends deploy".
+// DeployOptions configures Deploy. The fields up to Variables mirror the flags
+// of "frontends deploy".
 type DeployOptions struct {
 	Path          string
 	Name          string
 	AppRoot       string
 	VariableScope string
 	Variables     []string
+	// ExcludeFiles are files to leave out of the upload, such as an env file
+	// the caller deployed from inside the frontend's directory.
+	ExcludeFiles []string
 	// Out is required.
 	Out io.Writer
 }
@@ -94,6 +98,7 @@ func Deploy(ctx context.Context, deps cliruntime.Deps, opts DeployOptions) (*api
 		appRoot:       opts.AppRoot,
 		variableScope: opts.VariableScope,
 		variables:     opts.Variables,
+		excludeFiles:  opts.ExcludeFiles,
 		out:           opts.Out,
 	})
 }
@@ -184,6 +189,7 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 	pkg, err := clifrontend.PackageDirectory(absPath, clifrontend.PackageOptions{
 		DisableWorkspacePromotion: appRoot != "",
 		AppRoot:                   appRoot,
+		ExcludeFiles:              opts.excludeFiles,
 	})
 	if err != nil {
 		return nil, err

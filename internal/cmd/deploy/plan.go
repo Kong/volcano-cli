@@ -22,6 +22,7 @@ import (
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
 	"github.com/Kong/volcano-cli/internal/envfile"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
+	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/project"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -59,9 +60,10 @@ type step struct {
 }
 
 type plan struct {
-	local  bool
-	target project.Target
-	steps  []step
+	local    bool
+	target   project.Target
+	steps    []step
+	warnings []string
 }
 
 // prepare reads and checks every input before anything is deployed, so a
@@ -74,7 +76,10 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 	if err := checkLaterManifests(manifests); err != nil {
 		return nil, err
 	}
-	envFile, err := resolveEnvFile(opts.envFile)
+	if err := checkDefaultManifest(manifests); err != nil {
+		return nil, err
+	}
+	envFile, err := resolveEnvFile(opts.envFile, opts.noEnvFile)
 	if err != nil {
 		return nil, err
 	}
@@ -115,10 +120,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 			return nil, err
 		}
 		if mode != apiclient.ProjectSourceExportStateModePlatform {
-			return nil, fmt.Errorf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n"+
-				"Push to the repository to deploy code, and use %q and %q for variables and configuration",
-				targetLabel(target), mode,
-				cliruntime.CommandPath(opts.deps, "variables deploy"), cliruntime.CommandPath(opts.deps, "config deploy"))
+			return nil, gitSourceError(opts.deps, target, mode, envFile)
 		}
 	}
 
@@ -127,6 +129,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 		primaryPath = manifests[0].path
 	}
 	b := planBuilder{deps: opts.deps, manifests: manifests}
+	frontendsStep, warnings := b.frontends(frontends, layoutFound, opts.noFrontends, envFile)
 	return &plan{
 		local:  opts.deps.LocalMode,
 		target: target,
@@ -135,13 +138,26 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 			b.migrations(opts.withMigrations, database),
 			b.functions(hasFunctions, primaryPath, len(durable) > 0),
 			b.durable(durable, primaryPath),
-			b.frontends(frontends, layoutFound, opts.noFrontends),
+			frontendsStep,
 			b.config(),
 		},
+		warnings: warnings,
 	}, nil
 }
 
-func (p *plan) print(w io.Writer) {
+// gitSourceError refuses to deploy code to a project that builds from its Git
+// repository, and names the commands that still apply.
+func gitSourceError(deps cliruntime.Deps, target project.Target, mode apiclient.ProjectSourceExportStateMode, envFile string) error {
+	commands := []string{cliruntime.CommandPath(deps, "config deploy")}
+	if envFile != "" {
+		commands = append([]string{cliruntime.CommandPath(deps, "variables deploy -f "+envFile)}, commands...)
+	}
+	return fmt.Errorf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n"+
+		"Push to the repository to deploy code, and deploy variables and configuration with:\n  %s",
+		targetLabel(target), mode, strings.Join(commands, "\n  "))
+}
+
+func (p *plan) print(w, errOut io.Writer) {
 	on := theme.On(w)
 	where := "cloud"
 	if p.local {
@@ -154,6 +170,9 @@ func (p *plan) print(w io.Writer) {
 			detail = theme.Dim("skipped: "+detail, on)
 		}
 		fmt.Fprintf(w, "  %d. %-11s %s\n", i+1, s.name, detail)
+	}
+	for _, warning := range p.warnings {
+		output.Warning(errOut, "%s", warning)
 	}
 }
 
@@ -220,6 +239,51 @@ func checkLaterManifests(manifests []manifestFile) error {
 	return nil
 }
 
+// checkDefaultManifest refuses a -c list that leaves out the default manifest
+// when it declares durable functions the first manifest doesn't. The functions
+// step would create them as standard functions, and the commands that finish a
+// failed run by hand read the default manifest.
+func checkDefaultManifest(manifests []manifestFile) error {
+	if len(manifests) == 0 {
+		return nil
+	}
+	path, err := projectconfig.ResolveManifestPath("")
+	if errors.Is(err, projectconfig.ErrManifestNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	primary := manifests[0]
+	if samePath(path, primary.path) {
+		return nil
+	}
+	defaultManifest, _, err := projectconfig.Load(path)
+	if err != nil {
+		return fmt.Errorf("%s is not passed with -c, but its durable functions still decide function kinds: %w", path, err)
+	}
+	declared := primary.manifest.DurableFunctionNames()
+	var missing []string
+	for _, name := range defaultManifest.DurableFunctionNames() {
+		if !slices.Contains(declared, name) {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s declares durable functions (%s) that %s, the first manifest, does not; "+
+		"this deploy would create them as standard functions, and a function's kind can't change.\n"+
+		"Pass %s first, or declare them durable in %s",
+		path, strings.Join(missing, ", "), primary.path, path, primary.path)
+}
+
+func samePath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	return errA == nil && errB == nil && absA == absB
+}
+
 // The local development server's fixed keys, which the starters'
 // volcano/volcano.env holds.
 var localServerKeys = []string{
@@ -262,7 +326,13 @@ func isLoopbackURL(value string) bool {
 	return ip != nil && (ip.IsLoopback() || ip.IsUnspecified())
 }
 
-func resolveEnvFile(flag string) (string, error) {
+func resolveEnvFile(flag string, none bool) (string, error) {
+	if none {
+		if flag != "" {
+			return "", errors.New("--env-file and --no-env-file can't be used together")
+		}
+		return "", nil
+	}
 	path, err := envfile.ResolvePath(flag)
 	if errors.Is(err, envfile.ErrNotFound) && flag == "" {
 		return "", nil
@@ -270,10 +340,34 @@ func resolveEnvFile(flag string) (string, error) {
 	return path, err
 }
 
-// checkVariableSources refuses an env file next to a manifest variables
-// section. The section is fully synced, so the config step would delete every
-// variable only the env file sets.
+// variableSections are the manifest sections that replace a whole set when
+// applied, so only one source may declare each.
+var variableSections = []struct {
+	name     string
+	declared func(*projectconfig.Manifest) bool
+}{
+	{"variables", func(m *projectconfig.Manifest) bool { return m.Variables != nil }},
+	{"shared_variables", func(m *projectconfig.Manifest) bool { return m.SharedVariables != nil }},
+	{"frontend_shared_variables", func(m *projectconfig.Manifest) bool { return m.FrontendSharedVariables != nil }},
+}
+
+// checkVariableSources refuses two sources for one set of variables: two
+// manifests declaring the same section, or an env file next to a variables
+// section. Each section is fully synced, so applying one deletes what the
+// other set.
 func checkVariableSources(envFile string, named bool, manifests []manifestFile) error {
+	for _, section := range variableSections {
+		var declaring []string
+		for _, m := range manifests {
+			if section.declared(m.manifest) {
+				declaring = append(declaring, m.path)
+			}
+		}
+		if len(declaring) > 1 {
+			return fmt.Errorf("%s each declare %s, and applying one deletes every entry it does not list, so the last one wins.\n"+
+				"Declare %s in one manifest", strings.Join(declaring, " and "), section.name, section.name)
+		}
+	}
 	if envFile == "" {
 		return nil
 	}
@@ -281,9 +375,9 @@ func checkVariableSources(envFile string, named bool, manifests []manifestFile) 
 		if !m.manifest.DeclaresVariables() {
 			continue
 		}
-		fix := "rename " + envFile
+		fix := "pass --no-env-file"
 		if named {
-			fix = "leave out --env-file"
+			fix = "replace --env-file with --no-env-file"
 		}
 		return fmt.Errorf("both %s and the variables section of %s set project variables, and applying %s deletes every variable it does not list.\n"+
 			"Keep variables in one place: %s, or remove the variables section from %s",
@@ -493,32 +587,46 @@ func (b planBuilder) durable(names []string, manifestPath string) step {
 	return s
 }
 
-func (b planBuilder) frontends(frontends []clifrontend.LayoutFrontend, layoutFound, skip bool) step {
+// frontends deploys each frontend in the layout. The warnings name manifest
+// entries whose variable selection only the config step can apply.
+func (b planBuilder) frontends(frontends []clifrontend.LayoutFrontend, layoutFound, skip bool, envFile string) (step, []string) {
 	s := step{name: stepFrontends}
 	switch {
 	case skip:
 		s.skipped = true
 		s.detail = "--no-frontends"
-		return s
+		return s, nil
 	case !layoutFound:
 		s.skipped = true
 		s.detail = "no " + clifrontend.SourceLayoutPath
-		return s
+		return s, nil
 	case len(frontends) == 0:
 		s.skipped = true
 		s.detail = clifrontend.SourceLayoutPath + " lists no frontends"
-		return s
+		return s, nil
+	}
+	var exclude []string
+	if envFile != "" {
+		exclude = []string{envFile}
 	}
 	names := make([]string, 0, len(frontends))
 	deploys := make([]frontendscmd.DeployOptions, 0, len(frontends))
+	var warnings []string
 	for _, fe := range frontends {
 		names = append(names, fe.Name)
 		opts := frontendscmd.DeployOptions{
-			Name:    fe.Name,
-			Path:    frontendPath(fe),
-			AppRoot: fe.AppRoot,
+			Name:         fe.Name,
+			Path:         frontendPath(fe),
+			AppRoot:      fe.AppRoot,
+			ExcludeFiles: exclude,
 		}
-		opts.VariableScope, opts.Variables = b.frontendSelection(fe.Name)
+		var deferred bool
+		opts.VariableScope, opts.Variables, deferred = b.frontendSelection(fe.Name)
+		if deferred {
+			warnings = append(warnings, fmt.Sprintf("a deploy can't apply the variable selection %s declares for frontend %q, so it builds with "+
+				"the selection the frontend has (none if it is new). The config step applies it afterwards; deploy again to rebuild with it",
+				b.manifests[0].path, fe.Name))
+		}
 		deploys = append(deploys, opts)
 		s.manual = append(s.manual, b.frontendCommand(opts))
 	}
@@ -535,32 +643,32 @@ func (b planBuilder) frontends(frontends []clifrontend.LayoutFrontend, layoutFou
 		}
 		return nil
 	}
-	return s
+	return s, warnings
 }
 
 // frontendSelection is the variable selection a frontend is built with, from
 // its entry in the first manifest. A deploy can only set all or scoped; a
 // shared frontend, or an entry that leaves either field out, keeps what the
-// frontend has until the config step applies the entry.
-func (b planBuilder) frontendSelection(name string) (string, []string) {
+// frontend has until the config step applies the entry, and deferred reports
+// that.
+func (b planBuilder) frontendSelection(name string) (scope string, variables []string, deferred bool) {
 	if len(b.manifests) == 0 || b.manifests[0].manifest.Frontends == nil {
-		return "", nil
+		return "", nil, false
 	}
 	for _, fe := range *b.manifests[0].manifest.Frontends {
-		if fe.Name != name || fe.VariableScope == nil {
+		if fe.Name != name || (fe.VariableScope == nil && fe.Variables == nil) {
 			continue
 		}
-		switch *fe.VariableScope {
-		case "all":
-			return "all", nil
-		case "scoped":
-			if fe.Variables == nil {
-				return "", nil
-			}
-			return "scoped", *fe.Variables
+		switch {
+		case fe.VariableScope != nil && *fe.VariableScope == "all":
+			return "all", nil, false
+		case fe.VariableScope != nil && *fe.VariableScope == "scoped" && fe.Variables != nil:
+			return "scoped", *fe.Variables, false
+		default:
+			return "", nil, true
 		}
 	}
-	return "", nil
+	return "", nil, false
 }
 
 func (b planBuilder) frontendCommand(opts frontendscmd.DeployOptions) string {

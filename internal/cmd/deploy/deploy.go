@@ -22,6 +22,7 @@ type options struct {
 	withMigrations bool
 	database       string
 	envFile        string
+	noEnvFile      bool
 	configs        []string
 	noFrontends    bool
 	noWait         bool
@@ -45,6 +46,7 @@ func newCommand(deps cliruntime.Deps, short string) *cobra.Command {
 	databaseHelp := "Database to apply migrations to (default: the one the manifests declare)"
 	deployExample := "deploy --env-file volcano/cloud.env"
 	migrateExample := "deploy --env-file volcano/cloud.env --with-migrations -d app"
+	manifestsExample := "deploy --env-file volcano/staging.env -c volcano/volcano-config.yaml -c volcano/auth.yaml"
 	envNote := `
 
 volcano/volcano.env holds the local server's values. Name the cloud project's
@@ -54,6 +56,7 @@ VOLCANO_API_URL is refused.`
 		databaseHelp = "Database to apply migrations to (default: " + defaultLocalDatabase + ")"
 		deployExample = "deploy"
 		migrateExample = "deploy --with-migrations"
+		manifestsExample = "deploy -c volcano/volcano-config.yaml -c volcano/auth.local.yaml"
 		envNote = ""
 	}
 	cmd := &cobra.Command{
@@ -69,13 +72,16 @@ needs:
   5. frontends   the frontends listed in .volcano/source-layout.json
   6. config      each manifest, in the order given
 
-A step with nothing to deploy is skipped. Nothing is changed until every input
-file has been read and checked, and the run stops at the first step that fails.
-Afterwards the command waits for the deployments it started and prints each
-frontend's URL; --no-wait returns as soon as the config step is done.
+A step with nothing to deploy is skipped. The env file, the manifests, and the
+source layout are read and checked before anything changes; function sources
+and frontend directories are packaged in their own steps. The run stops at the
+first step that fails. Afterwards the command waits for the deployments it
+started and prints each frontend's URL; --no-wait returns as soon as the config
+step is done.
 
 Variables come from the env file or from a manifest's variables section, never
-both: applying that section deletes every variable it does not list.%s
+both: applying that section deletes every variable it does not list. Pass
+--no-env-file when a manifest holds them.%s
 
 Migrations run without tracking, so every file runs again on each
 --with-migrations run. Write them to be safe to re-run.
@@ -87,7 +93,7 @@ Usage:
 			envNote,
 			cliruntime.CommandPath(deps, deployExample),
 			cliruntime.CommandPath(deps, migrateExample),
-			cliruntime.CommandPath(deps, "deploy --env-file volcano/staging.env -c volcano/volcano-config.yaml -c volcano/auth.yaml")),
+			cliruntime.CommandPath(deps, manifestsExample)),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			run := opts
@@ -102,6 +108,7 @@ Usage:
 	cmd.Flags().BoolVar(&opts.withMigrations, "with-migrations", false, "Apply every migration in volcano/migrations")
 	cmd.Flags().StringVarP(&opts.database, "database", "d", "", databaseHelp)
 	cmd.Flags().StringVar(&opts.envFile, "env-file", "", "Env file to deploy (default: volcano/volcano.env or ./volcano.env)")
+	cmd.Flags().BoolVar(&opts.noEnvFile, "no-env-file", false, "Deploy no env file, even when volcano/volcano.env exists")
 	cmd.Flags().StringArrayVarP(&opts.configs, "config", "c", nil, "Manifest to apply; repeat to apply several in order (default: volcano/volcano-config.yaml or ./volcano-config.yaml)")
 	cmd.Flags().BoolVar(&opts.noFrontends, "no-frontends", false, "Skip frontends")
 	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Return without waiting for deployments to finish")
@@ -114,7 +121,7 @@ func runDeploy(ctx context.Context, opts options) error {
 	if err != nil {
 		return err
 	}
-	p.print(opts.out)
+	p.print(opts.out, opts.errOut)
 
 	r := &runner{opts: opts}
 	on := theme.On(opts.out)
@@ -151,7 +158,7 @@ func resumeHint(done []string, rest []step) string {
 	}
 	b.WriteString("Fix the cause and run the command again")
 	if slices.Contains(done, stepMigrations) {
-		b.WriteString(" without --with-migrations, since the migrations already ran")
+		b.WriteString(" without --with-migrations and -d, since the migrations already ran")
 	}
 	var manual []string
 	for _, s := range rest {

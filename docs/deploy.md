@@ -51,11 +51,16 @@ each result, and prints the frontend URLs. It exits non-zero when a deployment
 fails, and prints the command that shows that deployment's build log. Pass
 `--no-wait` to return as soon as the config step is done.
 
-Before anything changes, the command reads and checks every input file. A
-missing file named by a flag, a broken manifest, or one of the refusals below
-stops the run with the project untouched. After that, the run stops at the
-first step that fails, names the steps that already ran, and lists the commands
-that finish the rest by hand.
+Before anything changes, the command reads and checks the env file, the
+manifests, and `.volcano/source-layout.json`. A missing file named by a flag, a
+broken manifest, or one of the refusals below stops the run with the project
+untouched. Function sources and frontend directories are packaged later, in
+their own steps. The run stops at the first step that fails, names the steps
+that already ran, and lists the commands that finish the rest by hand.
+
+A deployment can be redeployed while the run waits, for example when the config
+step changes a function's regions. The run then waits for the newer deployment,
+since that is the one that serves.
 
 ## Flags
 
@@ -64,6 +69,7 @@ that finish the rest by hand.
 | `--with-migrations` | Apply every migration in `volcano/migrations`. |
 | `-d, --database` | Database to migrate. Local mode defaults to `app`. In the cloud, the default is the database the manifests' `databases:` sections declare, if they declare exactly one. |
 | `--env-file` | Env file to deploy. Default: `volcano/volcano.env` or `./volcano.env`. |
+| `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
 | `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
 | `--no-frontends` | Skip frontends. Useful while `npm run dev` is your edit loop, or when only function code changed. |
 | `--no-wait` | Return without waiting for deployments to finish. |
@@ -74,7 +80,9 @@ The first manifest is the primary one. Function kinds, variable scopes, and
 each frontend's variable selection come from it. A later manifest that declares
 `kind: durable` or a frontend's `variable_scope` or `variables` is refused:
 deployed from the wrong manifest, a durable function would be created as a
-standard one, and a function's kind can't change.
+standard one, and a function's kind can't change. For the same reason, when
+`-c` leaves out the default manifest and it declares durable functions the
+first manifest doesn't, the run is refused.
 
 ```bash
 volcano deploy --with-migrations --env-file volcano/volcano.local.env \
@@ -100,7 +108,12 @@ Variables come from the env file or from a manifest's `variables` section,
 never both. Applying a `variables` section deletes every variable it does not
 list, so it would delete the ones only the env file sets. When an env file is
 found and a manifest declares `variables`, the command refuses and names both
-files.
+files. Pass `--no-env-file` to deploy only the manifest's variables, for
+example in a project whose `volcano/volcano.env` serves local runs.
+
+For the same reason, only one manifest may declare each of `variables`,
+`shared_variables`, and `frontend_shared_variables`. Two `-c` manifests that
+declare the same section are refused.
 
 Variables are deployed first, before any function or frontend that selects
 them. The variables step deploys the env file, then applies just the
@@ -112,8 +125,8 @@ each manifest that has them. The config step applies the full manifests later.
 Migrations run only with `--with-migrations`, and without tracking: every file
 runs again on each run. Write migrations that are safe to re-run, for example
 with `create table if not exists`, and put one SQL statement in each file. When
-a later step fails, run the command again without `--with-migrations`, since
-the migrations already ran.
+a later step fails, run the command again without `--with-migrations` and
+`-d`, since the migrations already ran.
 
 ## Frontends
 
@@ -139,8 +152,9 @@ same frontends.
 `app_root` must contain the app's `package.json`, or be the directory that a
 parent `package.json` builds with `next build <dir>`, as in projects that
 `volcano init nextjs` creates. The upload skips what the workspace's root
-`.gitignore` lists, `node_modules`, `.next`, `.env*.local` files, and the
-Volcano env files (`volcano/*.env` and `volcano.env`).
+`.gitignore` lists, `node_modules`, `.next`, `.env*.local` files, the Volcano
+env files (`volcano/*.env` and `volcano.env`), and the env file the run
+deployed, wherever it is.
 
 Each frontend is built with the variable selection its entry under
 `frontends:` in the primary manifest declares:
@@ -156,8 +170,9 @@ frontends:
 in place when the frontend builds, not only when config applies. A frontend
 deploy can set `all` or `scoped` with its `variables`. A frontend with
 `variable_scope: shared`, or an entry that leaves out either field, builds
-with the selection it already has, and the config step applies the entry
-afterwards.
+with the selection it already has (none for a new frontend), and the config
+step applies the entry afterwards. The run warns about each such frontend; run
+the deploy again to rebuild it with the selection.
 
 In the cloud, a declared frontend entry without `custom_domain` removes the
 frontend's custom domain. Keep `custom_domain` in the entry if the frontend has
@@ -168,7 +183,9 @@ one.
 When a cloud project's code deploys from its connected repository, functions
 and frontends can't be deployed directly. `volcano cloud deploy` refuses before
 it changes anything. Push to the repository to deploy code, and use
-`volcano cloud variables deploy` and `volcano cloud config deploy` for the rest.
+`volcano cloud variables deploy -f volcano/cloud.env` and
+`volcano cloud config deploy` for the rest. Name the env file: without `-f`,
+`variables deploy` reads `volcano/volcano.env`, the local server's values.
 
 ## Related
 

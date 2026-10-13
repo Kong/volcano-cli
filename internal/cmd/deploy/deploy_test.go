@@ -99,6 +99,75 @@ func TestDeployAppliesEveryNamedManifestInOrder(t *testing.T) {
 	assert.Contains(t, out, "6. config      volcano/app.yaml, volcano/auth.yaml")
 }
 
+// A first manifest that declares the default manifest's durable functions
+// itself decides their kinds as well as the default would.
+func TestDeployAcceptsAFirstManifestThatDeclaresTheDurableFunctions(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", "version: 1\nfunctions:\n  - name: order-pipeline\n    kind: durable\n")
+	writeDeployProjectFile(t, "volcano/cloud.yaml", "version: 1\nfunctions:\n  - name: order-pipeline\n    kind: durable\n    visibility: authenticated\n")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "-c", "volcano/cloud.yaml", "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Equal(t, []string{"durable order-pipeline", "config"}, fake.recorded())
+}
+
+// A manifest that owns the project's variables still deploys in a project
+// whose volcano/volcano.env serves local runs.
+func TestDeployNoEnvFileLeavesTheEnvFileOut(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano.env", "VOLCANO_API_URL=http://localhost:8000\n")
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", "version: 1\nvariables:\n  - name: API_URL\n    value: https://api.example.test\n")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-env-file")
+	require.NoError(t, err, out)
+
+	assert.Equal(t, []string{"config", "config"}, fake.recorded())
+	assert.Contains(t, out, "1. variables   variable sections of volcano/volcano-config.yaml")
+}
+
+// A deploy can set a frontend's selection only to all or scoped with a list,
+// so it says when a build won't get the selection the manifest declares.
+func TestDeployWarnsWhenOnlyConfigCanApplyAFrontendSelection(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", "version: 1\nfrontends:\n  - name: web\n    variable_scope: shared\n")
+	writeDeployProjectFile(t, ".volcano/source-layout.json",
+		`{"version": 1, "frontends": [{"name": "web", "workspace": "", "app_root": "web"}]}`)
+	writeDeployProjectFile(t, "web/package.json", `{"name": "web", "private": true}`)
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.NotContains(t, fake.frontends["web"], "variable_scope")
+	assert.Contains(t, out, `Warning: a deploy can't apply the variable selection volcano/volcano-config.yaml declares for frontend "web"`)
+	assert.Contains(t, out, "deploy again to rebuild with it")
+}
+
+// Frontend uploads archive their directory, which can hold the env file this
+// run deployed; the packager's patterns only cover the usual names.
+func TestDeployLeavesTheEnvFileOutOfFrontendUploads(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "cloud.env", "STRIPE_SECRET_KEY=sk_live_secret\n")
+	writeDeployProjectFile(t, ".volcano/source-layout.json",
+		`{"version": 1, "frontends": [{"name": "web", "workspace": "", "app_root": "web"}]}`)
+	writeDeployProjectFile(t, "web/package.json", `{"name": "web", "private": true}`)
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--env-file", "cloud.env", "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, fake.archives["web"], "web/package.json")
+	assert.NotContains(t, fake.archives["web"], "cloud.env")
+}
+
 func TestDeploySkipsStepsWithNothingToDeploy(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeDeployProjectFile(t, "volcano-config.yaml", "version: 1\nrealtime:\n  enabled: true\n")
@@ -152,7 +221,7 @@ func TestDeployRefusesBeforeChangingAnything(t *testing.T) {
 			},
 			want: []string{
 				"both volcano/volcano.env and the variables section of volcano/volcano-config.yaml set project variables",
-				"rename volcano/volcano.env, or remove the variables section from volcano/volcano-config.yaml",
+				"pass --no-env-file, or remove the variables section from volcano/volcano-config.yaml",
 			},
 		},
 		{
@@ -163,7 +232,50 @@ func TestDeployRefusesBeforeChangingAnything(t *testing.T) {
 				writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nvariables: []\n")
 			},
 			args: []string{"--env-file", "local.env", "-c", "volcano/auth.yaml"},
-			want: []string{"leave out --env-file, or remove the variables section from volcano/auth.yaml"},
+			want: []string{"replace --env-file with --no-env-file, or remove the variables section from volcano/auth.yaml"},
+		},
+		{
+			name: "env file and no env file",
+			args: []string{"--env-file", "volcano/cloud.env", "--no-env-file"},
+			want: []string{"--env-file and --no-env-file can't be used together"},
+		},
+		{
+			name: "two manifests declaring variables",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/app.yaml", "version: 1\nvariables:\n  - name: API_URL\n    value: x\n")
+				writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nvariables:\n  - name: AUTH_SECRET\n    value: y\n")
+			},
+			args: []string{"-c", "volcano/app.yaml", "-c", "volcano/auth.yaml"},
+			want: []string{
+				"volcano/app.yaml and volcano/auth.yaml each declare variables, and applying one deletes every entry it does not list",
+				"Declare variables in one manifest",
+			},
+		},
+		{
+			name: "two manifests declaring frontend shared variables",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/app.yaml", "version: 1\nfrontend_shared_variables: [API_URL]\n")
+				writeDeployProjectFile(t, "volcano/web.yaml", "version: 1\nfrontend_shared_variables: []\n")
+			},
+			args: []string{"-c", "volcano/app.yaml", "-c", "volcano/web.yaml"},
+			want: []string{"volcano/app.yaml and volcano/web.yaml each declare frontend_shared_variables"},
+		},
+		{
+			name: "default manifest with durable functions left out",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+				writeDeployProjectFile(t, "volcano/volcano-config.yaml", "version: 1\nfunctions:\n  - name: order-pipeline\n    kind: durable\n")
+				writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nauth:\n  email:\n    enabled: true\n")
+			},
+			args: []string{"-c", "volcano/auth.yaml"},
+			want: []string{
+				"volcano/volcano-config.yaml declares durable functions (order-pipeline) that volcano/auth.yaml, the first manifest, does not",
+				"a function's kind can't change",
+				"Pass volcano/volcano-config.yaml first, or declare them durable in volcano/auth.yaml",
+			},
 		},
 		{
 			name: "missing named manifest",
@@ -281,7 +393,11 @@ func TestDeployRefusesProjectsThatDeployFromGit(t *testing.T) {
 
 			_, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
 			require.ErrorContains(t, err, `project "Beta" deploys its code from its connected Git repository (source mode "`+mode+`")`)
-			require.ErrorContains(t, err, `"volcano cloud variables deploy"`)
+			// A bare "variables deploy" reads volcano/volcano.env, which may
+			// hold the local server's values; name the file this run vetted.
+			require.ErrorContains(t, err, "deploy variables and configuration with:\n"+
+				"  volcano cloud variables deploy -f volcano/volcano.env\n"+
+				"  volcano cloud config deploy")
 			assert.Empty(t, fake.recorded())
 		})
 	}
@@ -369,7 +485,7 @@ func TestDeployResumeHintLeavesOutMigrationsThatRan(t *testing.T) {
 	})
 
 	assert.Equal(t, "Already deployed: variables, migrations.\n"+
-		"Fix the cause and run the command again without --with-migrations, since the migrations already ran, or finish by hand:\n"+
+		"Fix the cause and run the command again without --with-migrations and -d, since the migrations already ran, or finish by hand:\n"+
 		"  volcano functions deploy --all", hint)
 }
 
@@ -440,6 +556,26 @@ func TestDeployDoesNotCountASupersededDeploymentAsDeployed(t *testing.T) {
 	assert.Contains(t, out, "- web             superseded by a newer deployment")
 	assert.NotContains(t, out, "✓ web")
 	assert.NotContains(t, fake.reads, "frontend web")
+}
+
+// The server supersedes only queued deployments. One already provisioning when
+// the config step redeploys its resource stays, and the redeploy queues behind
+// it; that redeploy is what serves, so the run waits for it too.
+func TestDeployWaitsForARedeployQueuedBehindItsDeployment(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	fake.queuedBehind = map[string][]string{"web": {"queued", "provisioning", "failed"}}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps))
+	require.EqualError(t, err, "1 deployment(s) failed: frontend web")
+
+	assert.Equal(t, 3, fake.polls)
+	assert.Contains(t, out, "✗ web             failed: next build exited with code 1")
+	assert.NotContains(t, out, "✓ web")
 }
 
 func TestDeployNoWaitReturnsOnceStarted(t *testing.T) {
@@ -525,6 +661,10 @@ frontends:
     variable_scope: shared
   - name: kept
     variable_scope: scoped
+  - name: list-only
+    variables: [API_URL]
+  - name: routes-only
+    function_routes: []
 `), func(string) (string, bool) { return "", false })
 	require.NoError(t, err)
 	b := planBuilder{manifests: []manifestFile{{path: "volcano-config.yaml", manifest: manifest}}}
@@ -533,18 +673,22 @@ frontends:
 		name      string
 		scope     string
 		variables []string
+		deferred  bool
 	}{
 		{name: "scoped", scope: "scoped", variables: []string{"API_URL"}},
 		{name: "none-selected", scope: "scoped", variables: []string{}},
 		{name: "everything", scope: "all"},
-		{name: "shared"},
-		{name: "kept"},
+		{name: "shared", deferred: true},
+		{name: "kept", deferred: true},
+		{name: "list-only", deferred: true},
+		{name: "routes-only"},
 		{name: "undeclared"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			scope, variables := b.frontendSelection(tc.name)
+			scope, variables, deferred := b.frontendSelection(tc.name)
 			assert.Equal(t, tc.scope, scope)
 			assert.Equal(t, tc.variables, variables)
+			assert.Equal(t, tc.deferred, deferred)
 		})
 	}
 }

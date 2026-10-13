@@ -110,7 +110,7 @@ func requireLocalModeDeploysWholeProject(t *testing.T, binary string, env []stri
 	requireContains(t, output, "5. frontends   deploy-web (.volcano/source-layout.json)")
 	requireContains(t, output, "6. config      volcano/volcano-config.yaml")
 	requireContains(t, output, "Applying 001_create_deploy_smoke.sql... ok")
-	requireContains(t, output, "Skipping 1 durable function(s) declared in volcano-config.yaml: deploy-pipeline")
+	requireContains(t, output, "Skipping 1 durable function(s) declared in volcano/volcano-config.yaml: deploy-pipeline")
 	requireNotContains(t, output, "Deploy them with")
 	requireContains(t, output, "✓ deploy-greeting")
 	requireContains(t, output, "✓ deploy-route")
@@ -191,7 +191,7 @@ exports.handler = async () => ({ statusCode: 200, body: "ok" });
 
 // requireLocalModeDeployRefusesTwoVariableSources checks that a refusal
 // changes nothing: applying the manifest's variables section would delete the
-// variables only the env file sets.
+// variables only the env file sets. --no-env-file then deploys the manifest's.
 func requireLocalModeDeployRefusesTwoVariableSources(t *testing.T, binary string, env []string) {
 	t.Helper()
 	dir := localModeE2EProjectDir(t)
@@ -208,8 +208,14 @@ variables:
 		t.Fatalf("expected volcano deploy to refuse two variable sources\n%s", output)
 	}
 	requireContains(t, output, "both volcano/volcano.env and the variables section of volcano/volcano-config.yaml set project variables")
+	requireContains(t, output, "pass --no-env-file")
 	requireNotContains(t, output, "[1/6]")
 	requireNotContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "list"), "DEPLOY_REFUSED")
+
+	output = runVolcanoLocalModeE2EDeploy(t, binary, env, dir, "deploy", "--no-env-file")
+	requireContains(t, output, "1. variables   variable sections of volcano/volcano-config.yaml")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "list"), "DEPLOY_REFUSED")
+	runVolcanoLocalModeE2E(t, binary, env, dir, "variables", "delete", "DEPLOY_REFUSED", "--yes")
 }
 
 // requireLocalModeDeploysStarter runs the two commands a new Next.js project's

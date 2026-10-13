@@ -112,19 +112,26 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 				continue
 			}
 			switch deployment.Status {
-			case apiclient.ProjectDeploymentStatusActive, apiclient.ProjectDeploymentStatusDeleted:
-				fmt.Fprintf(out, "  %s %-*s  %s\n", theme.Success("✓", on), width, d.name, deployment.Status)
-				succeeded = append(succeeded, d)
-			case apiclient.ProjectDeploymentStatusSuperseded:
-				// The config step supersedes deployments it redeploys, as on a
-				// region change; the newer one is what serves, so wait for it.
+			case apiclient.ProjectDeploymentStatusActive, apiclient.ProjectDeploymentStatusSuperseded:
+				// The config step can redeploy a resource, as on a region change.
+				// The server supersedes this run's deployment if it was still
+				// queued, or queues the redeploy behind it. Either way the newer
+				// one is what serves, so wait for it.
 				if next, found := newestDeployment(deployments, deployment); found {
 					delete(pending, d.id)
 					r.started[i].id = next.Id
 					pending[next.Id] = r.started[i]
 					continue
 				}
-				fmt.Fprintf(out, "  - %-*s  %s\n", width, d.name, theme.Dim("superseded by a newer deployment", on))
+				if deployment.Status == apiclient.ProjectDeploymentStatusSuperseded {
+					fmt.Fprintf(out, "  - %-*s  %s\n", width, d.name, theme.Dim("superseded by a newer deployment", on))
+					break
+				}
+				fmt.Fprintf(out, "  %s %-*s  %s\n", theme.Success("✓", on), width, d.name, deployment.Status)
+				succeeded = append(succeeded, d)
+			case apiclient.ProjectDeploymentStatusDeleted:
+				fmt.Fprintf(out, "  %s %-*s  %s\n", theme.Success("✓", on), width, d.name, deployment.Status)
+				succeeded = append(succeeded, d)
 			case apiclient.ProjectDeploymentStatusFailed, apiclient.ProjectDeploymentStatusDegraded:
 				fmt.Fprintf(out, "  %s %-*s  %s\n", theme.Fail("✗", on), width, d.name, failureText(deployment))
 				fmt.Fprintf(out, "    %s\n", theme.Command(r.logsCommand(d), on))
@@ -158,14 +165,14 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 	return nil
 }
 
-// newestDeployment finds the latest deployment of superseded's resource that
-// was created after it and is not superseded itself.
-func newestDeployment(deployments []apiclient.ProjectDeployment, superseded apiclient.ProjectDeployment) (apiclient.ProjectDeployment, bool) {
+// newestDeployment finds the latest deployment of after's resource that was
+// created after it and is not superseded itself.
+func newestDeployment(deployments []apiclient.ProjectDeployment, after apiclient.ProjectDeployment) (apiclient.ProjectDeployment, bool) {
 	var newest apiclient.ProjectDeployment
 	found := false
 	for _, d := range deployments {
-		if d.Resource.Id != superseded.Resource.Id || d.Id == superseded.Id ||
-			d.Status == apiclient.ProjectDeploymentStatusSuperseded || d.CreatedAt.Before(superseded.CreatedAt) {
+		if d.Resource.Id != after.Resource.Id || d.Id == after.Id ||
+			d.Status == apiclient.ProjectDeploymentStatusSuperseded || d.CreatedAt.Before(after.CreatedAt) {
 			continue
 		}
 		if !found || d.CreatedAt.After(newest.CreatedAt) {

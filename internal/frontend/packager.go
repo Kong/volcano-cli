@@ -66,6 +66,9 @@ type PackageOptions struct {
 	// rules, so the server is never told to build a directory that is not
 	// in the upload.
 	AppRoot string
+	// ExcludeFiles are paths of files to leave out of the archive. Those
+	// outside the packaging root are ignored.
+	ExcludeFiles []string
 }
 
 // PackageDirectory builds a tar.gz archive of rootDir for upload, applying
@@ -90,7 +93,11 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 		return nil, err
 	}
 
-	data, skipped, err := buildArchive(packagingRoot, appPath, matcher)
+	excluded, err := archivePaths(packagingRoot, opts.ExcludeFiles)
+	if err != nil {
+		return nil, err
+	}
+	data, skipped, err := buildArchive(packagingRoot, appPath, matcher, excluded)
 	if err != nil {
 		return nil, err
 	}
@@ -126,15 +133,33 @@ func resolveRoots(rootDir string, opts PackageOptions) (packagingRoot, appPath s
 	return resolvePackagingRoot(selectedRoot)
 }
 
+// archivePaths maps files to their archive paths under root, leaving out the
+// ones outside it.
+func archivePaths(root string, files []string) (map[string]bool, error) {
+	paths := make(map[string]bool, len(files))
+	for _, file := range files {
+		abs, err := filepath.Abs(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve %s: %w", file, err)
+		}
+		rel, err := filepath.Rel(root, abs)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		paths[filepath.ToSlash(rel)] = true
+	}
+	return paths, nil
+}
+
 // buildArchive writes the project tree and optional app-path marker into a
 // gzip-compressed tar archive. It returns the raw bytes plus any
 // archive-relative paths whose symlinks were dropped.
-func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher) ([]byte, []string, error) {
+func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, []string, error) {
 	buf := new(bytes.Buffer)
 	gz := gzip.NewWriter(buf)
 	tw := tar.NewWriter(gz)
 
-	skipped, err := writeProjectTree(tw, packagingRoot, matcher)
+	skipped, err := writeProjectTree(tw, packagingRoot, matcher, excluded)
 	if err != nil {
 		_ = tw.Close()
 		_ = gz.Close()
@@ -155,11 +180,12 @@ func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher) ([]byt
 	return buf.Bytes(), skipped, nil
 }
 
-// writeProjectTree walks root and writes every regular file that matcher does
-// not exclude into the tar writer. It enforces maxFrontendPackageFiles so a
-// runaway tree (missing .gitignore, stray cache directory) cannot OOM the CLI,
-// and reports any symlinks it had to drop so callers can warn the user.
-func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher) ([]string, error) {
+// writeProjectTree walks root and writes every regular file that neither
+// matcher nor excluded leaves out into the tar writer. It enforces
+// maxFrontendPackageFiles so a runaway tree (missing .gitignore, stray cache
+// directory) cannot OOM the CLI, and reports any symlinks it had to drop so
+// callers can warn the user.
+func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) ([]string, error) {
 	fileCount := 0
 	var skippedSymlinks []string
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
@@ -182,6 +208,9 @@ func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher) ([]s
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if excluded[relPath] {
 			return nil
 		}
 
