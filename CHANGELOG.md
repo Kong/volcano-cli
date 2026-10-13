@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/Kong/volcano-cli/compare/v0.44.1...v0.44.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **localmode:** check Postgres health over TCP ([#303](https://github.com/Kong/volcano-cli/issues/303)) ([41b77dc](https://github.com/Kong/volcano-cli/commit/41b77dc7adec1d5839341bb8ebee6a22c592f64a))
+
 ## [0.44.1](https://github.com/Kong/volcano-cli/compare/v0.44.0...v0.44.1) (2026-10-13)
 
 
