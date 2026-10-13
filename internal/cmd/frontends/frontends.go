@@ -31,13 +31,12 @@ func New(deps cliruntime.Deps) *cobra.Command {
 }
 
 // NewLocal returns the frontends command for the local development server,
-// which builds and serves frontends but has no custom domains. Function routes
-// are declared in volcano-config.yaml locally, so both stay cloud commands.
+// which builds and serves frontends but has no custom domains.
 func NewLocal(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "frontends",
 		Short: "Manage frontends",
-		Long:  "Deploy, list, inspect, redeploy, delete, and view logs of frontends on the local development server.",
+		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage function routes of frontends on the local development server.",
 	}
 	cmd.AddCommand(newDeploy(deps))
 	cmd.AddCommand(newList(deps))
@@ -45,8 +44,8 @@ func NewLocal(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newDelete(deps))
 	cmd.AddCommand(newRedeploy(deps))
 	cmd.AddCommand(newLogs(deps))
+	cmd.AddCommand(newRoutes(deps))
 	cmd.AddCommand(newDomainCloudOnly())
-	cmd.AddCommand(newRoutesCloudOnly())
 	return cmd
 }
 

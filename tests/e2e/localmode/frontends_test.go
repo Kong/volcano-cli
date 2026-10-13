@@ -66,13 +66,16 @@ func requireLocalModeServesFrontends(t *testing.T, binary string, env []string, 
 	siteURL := awaitLocalModeE2EFrontendActive(t, binary, env, dir, "web")
 	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EFrontendMarker)
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "list"), "web")
+	requireLocalModeFrontendRoutes(t, binary, env, dir, siteURL)
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "redeploy", "web"),
 		"Frontend 'web' redeploy started")
 	awaitLocalModeE2EFrontendServes(t, awaitLocalModeE2EFrontendActive(t, binary, env, dir, "web"), localModeE2EFrontendMarker)
 
+	// npm echoes the script it runs, so this line comes only from the build's
+	// own output.
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "logs", "web", "--type", "build"),
-		"Fetching build logs for frontend web")
+		"next build")
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "delete", "web", "--yes"),
 		"Frontend 'web' deletion started")
@@ -82,23 +85,54 @@ func requireLocalModeServesFrontends(t *testing.T, binary string, env []string, 
 	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "frontend.env"))
 }
 
-// requireLocalModeLeavesFrontendDomainsAndRoutesToTheCloud checks that the
-// two frontend capabilities local development does not offer name the cloud
-// command instead of running.
-func requireLocalModeLeavesFrontendDomainsAndRoutesToTheCloud(t *testing.T, binary string, env []string, dir string) {
+// requireLocalModeFrontendRoutes forwards a path of the local frontend to a
+// function with the routes commands and checks it through the frontend.
+func requireLocalModeFrontendRoutes(t *testing.T, binary string, env []string, dir, siteURL string) {
 	t.Helper()
-	for _, args := range [][]string{
-		{"frontends", "routes", "list", "web"},
-		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "hello"},
-	} {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
-		if err == nil {
-			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
-		}
-		requireContains(t, output, `"frontends routes" is a cloud command`)
-		requireContains(t, output, "volcano cloud frontends routes")
-		requireContains(t, output, "declare function_routes in volcano-config.yaml")
-	}
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "route-echo.js"), `
+exports.handler = async () => ({
+  statusCode: 200,
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ routed: true }),
+});
+`)
+	writeLocalModeE2EFile(t, dir, filepath.Join("volcano", "volcano-config.yaml"), `
+version: 1
+functions:
+  - name: route-echo
+    invocation_mode: http
+    visibility: public
+`)
+	runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "-f", "route-echo")
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, "Status: active", "functions", "get", "route-echo")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "config", "deploy"), "Configuration deployed")
+	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, "Status: active", "functions", "get", "route-echo")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "list", "web"),
+		`No function routes on frontend "web"`)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+		"frontends", "routes", "create", "web", "--path", "/api/echo", "--function", "route-echo", "--strip-prefix"),
+		"Route /api/echo on frontend 'web' now forwards to function 'route-echo'")
+	routes := runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "list", "web")
+	requireContains(t, routes, "/api/echo")
+	requireContains(t, routes, "route-echo")
+	awaitLocalModeE2EFrontendServes(t, strings.TrimSuffix(siteURL, "/")+"/api/echo/ping", `"routed":true`)
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "delete", "web", "/api/echo", "--yes"),
+		"Route /api/echo deleted from frontend 'web'")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "list", "web"),
+		`No function routes on frontend "web"`)
+
+	runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "delete", "route-echo", "--yes")
+	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "volcano-config.yaml"))
+	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "functions", "route-echo.js"))
+}
+
+// requireLocalModeLeavesFrontendDomainsToTheCloud checks that frontend custom
+// domains, which local development does not offer, name the cloud command
+// instead of running.
+func requireLocalModeLeavesFrontendDomainsToTheCloud(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
 	for _, args := range [][]string{
 		{"frontends", "domain", "get", "web"},
 		{"frontends", "domain", "create", "web", "--domain", "app.example.com"},

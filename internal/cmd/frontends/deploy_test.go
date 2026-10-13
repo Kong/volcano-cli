@@ -68,6 +68,8 @@ func TestFrontendsDeployUploadsArchive(t *testing.T) {
 
 // A local frontend serves at its *.frontends.localhost URL, which exists once
 // its first build finishes. The cloud command's output stays as it was.
+// "volcano frontends deploy" used to deploy to the cloud, so a local run says
+// where it went.
 func TestFrontendsDeployNamesTheLocalSiteURL(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -128,6 +130,12 @@ func TestFrontendsDeployNamesTheLocalSiteURL(t *testing.T) {
 			out, err := executeFrontendsCommand(t, cmd, "deploy", "--name", "web", "--path", projectDir)
 			require.NoError(t, err, out)
 			assert.Contains(t, out, "Frontend 'web' deployment started")
+			const localNote = "Deploying to local development. To deploy to the cloud project, run 'volcano cloud frontends deploy'."
+			if tc.local {
+				assert.Contains(t, out, localNote)
+			} else {
+				assert.NotContains(t, out, localNote)
+			}
 			if tc.want != "" {
 				assert.Contains(t, out, tc.want)
 			}

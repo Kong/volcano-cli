@@ -56,6 +56,11 @@ Usage:
 			local := opts
 			local.deps = deps
 			local.out = cmd.OutOrStdout()
+			// "volcano frontends deploy" once deployed to the cloud; scripts
+			// written then are told where this one went.
+			if deps.LocalMode {
+				output.Note(cmd.ErrOrStderr(), "Deploying to local development. To deploy to the cloud project, run 'volcano cloud frontends deploy'.")
+			}
 			return runDeploy(cmd.Context(), local)
 		},
 	}

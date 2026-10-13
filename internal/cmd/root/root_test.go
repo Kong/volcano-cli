@@ -68,10 +68,9 @@ func TestAccessTokensAreCloudOnly(t *testing.T) {
 	}
 }
 
-// Local development serves no custom domains, and local function routes come
-// from volcano-config.yaml, so the local frontends tree refuses both without
-// reaching any server.
-func TestLocalFrontendsLeaveDomainsAndRoutesToTheCloud(t *testing.T) {
+// Local development serves no custom domains, so the local frontends tree
+// refuses them without reaching any server.
+func TestLocalFrontendsLeaveDomainsToTheCloud(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		http.NotFound(w, r)
@@ -79,15 +78,6 @@ func TestLocalFrontendsLeaveDomainsAndRoutesToTheCloud(t *testing.T) {
 	defer server.Close()
 	t.Setenv("VOLCANO_API_URL", server.URL)
 
-	for _, args := range [][]string{
-		{"frontends", "routes", "list", "web"},
-		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "session"},
-		{"frontends", "routes"},
-	} {
-		_, err := executeRootCommand(t, args...)
-		require.ErrorContains(t, err, `"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'`, "%v", args)
-		require.ErrorContains(t, err, "declare function_routes in volcano-config.yaml", "%v", args)
-	}
 	for _, args := range [][]string{
 		{"frontends", "domain", "get", "web"},
 		{"frontends", "domain", "create", "web", "--domain", "app.example.com"},
@@ -97,19 +87,57 @@ func TestLocalFrontendsLeaveDomainsAndRoutesToTheCloud(t *testing.T) {
 		require.ErrorContains(t, err, "volcano cloud frontends domain", "%v", args)
 	}
 
-	out, err := executeRootCommand(t, "frontends", "routes", "--help")
+	out, err := executeRootCommand(t, "frontends", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "This is a cloud command")
-
-	out, err = executeRootCommand(t, "frontends", "--help")
-	require.NoError(t, err)
-	assert.NotContains(t, out, "routes")
+	assert.Contains(t, out, "routes")
 	assert.NotContains(t, out, "domain")
+}
 
-	out, err = executeRootCommand(t, "cloud", "frontends", "routes", "--help")
+// The local server serves function routes like the cloud does, so the local
+// tree manages them against it.
+func TestLocalFrontendRoutesTargetTheLocalServer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	frontendID := "33333333-3333-4333-8333-333333333333"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Empty(t, r.Header.Get("Authorization"))
+		switch r.URL.Path {
+		case "/projects/22222222-2222-4222-8222-222222222222/frontends":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{rootFrontendPayload("web")},
+				"has_more": false,
+				"limit":    100,
+				"page":     1,
+			})
+		case "/projects/22222222-2222-4222-8222-222222222222/frontends/" + frontendID + "/function-routes":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+		case "/projects/22222222-2222-4222-8222-222222222222/functions":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+			})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		LocalCommandRunner: localmode.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte(rootLocalInfoJSON(server.URL)), nil
+		}),
+	}
+
+	out, err := executeRootCommandWithDeps(t, deps, "frontends", "routes", "list", "web")
 	require.NoError(t, err)
-	assert.Contains(t, out, "create")
-	assert.Contains(t, out, "delete")
+	assert.Contains(t, out, `No function routes on frontend "web"`)
+
+	out, err = executeRootCommand(t, "frontends", "routes", "create", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano frontends routes create web --path /api/session")
+	assert.NotContains(t, out, "volcano cloud frontends")
 }
 
 // "volcano frontends" used to be a deprecated alias for the cloud tree. It now

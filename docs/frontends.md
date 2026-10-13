@@ -22,9 +22,9 @@ optionally reachable at your own custom domain.
 
 `volcano frontends …` targets local development and `volcano cloud frontends …`
 targets the cloud project. The local server builds and serves each frontend at
-the `site_url` that `frontends get` prints. A local deploy prints that URL too,
+the `Site URL` that `frontends get` prints. A local deploy prints that URL too,
 except for a new frontend, which has a URL only once its first build finishes.
-Custom domains and function routes are cloud commands.
+Custom domains are a cloud command.
 
 ## CLI operations
 
@@ -37,7 +37,7 @@ Custom domains and function routes are cloud commands.
 | Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
 | Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
 | Custom domains | — | `volcano cloud frontends domain create\|list\|get\|delete …` |
-| Function routes | `function_routes` in `volcano-config.yaml` | `volcano cloud frontends routes list\|create\|update\|delete …` |
+| Function routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
@@ -67,7 +67,7 @@ apply to the whole workspace; pass `--app-root` to archive only `--path`.
 ## Examples
 
 ```bash
-# Deploy a frontend to local development and print its local URL
+# Deploy a frontend to local development, then print its local URL once built
 volcano frontends deploy --name web --path ./web
 volcano frontends get web
 
@@ -133,8 +133,8 @@ the longest matching prefix wins.
 A path prefix starts with `/`, does not end with `/`, has no `?`, `#`, or `\`,
 and is 2 to 512 characters long. The CLI checks this before calling Volcano.
 
-Declare `function_routes` in [`volcano-config.yaml`](project-configuration.md)
-to manage the whole set at once. That is also how a local project gets routes:
-`volcano frontends routes` refuses and points to `volcano config deploy`. See
+The same commands without `cloud` manage routes on a local frontend. Declare
+`function_routes` in [`volcano-config.yaml`](project-configuration.md) to manage
+the whole set at once. See
 [Frontend Function routes](/platform/frontends/function-routes) for how
 requests are matched and how to keep a session in cookies.
