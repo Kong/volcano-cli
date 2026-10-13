@@ -397,7 +397,7 @@ func TestDeployRefusesProjectsThatDeployFromGit(t *testing.T) {
 			// hold the local server's values; name the file this run vetted.
 			require.ErrorContains(t, err, "deploy variables and configuration with:\n"+
 				"  volcano cloud variables deploy -f volcano/volcano.env\n"+
-				"  volcano cloud config deploy")
+				"  volcano cloud config deploy -f volcano/volcano-config.yaml")
 			assert.Empty(t, fake.recorded())
 		})
 	}
@@ -475,6 +475,40 @@ func TestDeployStopsAtTheFailingStep(t *testing.T) {
 			assert.NotContains(t, out, "Waiting for")
 		})
 	}
+}
+
+// The standalone function commands sort kinds by the default manifest, so
+// with another first manifest they could create a durable function as a
+// standard one; the hint offers only the re-run.
+func TestDeployResumeHintOnlyRerunsWhenTheFirstManifestIsNotTheDefault(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/functions/hello.js", `exports.handler = async () => ({});`)
+	writeDeployProjectFile(t, "volcano/functions/order-pipeline.js", `exports.handler = async () => ({});`)
+	writeDeployProjectFile(t, "volcano/prod.yaml", "version: 1\nfunctions:\n  - name: order-pipeline\n    kind: durable\n")
+	fake := newFakeVolcano(t)
+	fake.failPath = "/functions/batch"
+	server := fake.start()
+
+	_, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "-c", "volcano/prod.yaml")
+	require.Error(t, err)
+
+	assert.True(t, strings.HasSuffix(err.Error(), "\n\nFix the cause and run the command again."), err.Error())
+	assert.NotContains(t, err.Error(), "functions deploy --all")
+}
+
+// Without functions to deploy, kinds don't matter, so a default manifest the
+// run doesn't read can't refuse it.
+func TestDeployWithoutFunctionsIgnoresTheDefaultManifest(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano-config.yaml", "version: [\n")
+	writeDeployProjectFile(t, "volcano/auth.yaml", "version: 1\nauth:\n  email:\n    enabled: true\n")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "-c", "volcano/auth.yaml", "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Equal(t, []string{"config"}, fake.recorded())
 }
 
 // After the migrations ran, the hint says to leave them out of the next run.

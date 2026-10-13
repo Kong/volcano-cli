@@ -56,7 +56,10 @@ manifests, and `.volcano/source-layout.json`. A missing file named by a flag, a
 broken manifest, or one of the refusals below stops the run with the project
 untouched. Function sources and frontend directories are packaged later, in
 their own steps. The run stops at the first step that fails, names the steps
-that already ran, and lists the commands that finish the rest by hand.
+that already ran, and lists the commands that finish the rest by hand. When
+the first manifest isn't the default one, it only says to run it again:
+`functions deploy` and `durable deploy` read the default manifest, so run by
+hand they could deploy a durable function as a standard one.
 
 A deployment can be redeployed while the run waits, for example when the config
 step changes a function's regions. The run then waits for the newer deployment,
@@ -81,8 +84,9 @@ each frontend's variable selection come from it. A later manifest that declares
 `kind: durable` or a frontend's `variable_scope` or `variables` is refused:
 deployed from the wrong manifest, a durable function would be created as a
 standard one, and a function's kind can't change. For the same reason, when
-`-c` leaves out the default manifest and it declares durable functions the
-first manifest doesn't, the run is refused.
+the project has a `volcano/functions` directory and `-c` leaves out the
+default manifest while it declares durable functions the first manifest
+doesn't, the run is refused.
 
 ```bash
 volcano deploy --with-migrations --env-file volcano/volcano.local.env \
@@ -184,7 +188,9 @@ When a cloud project's code deploys from its connected repository, functions
 and frontends can't be deployed directly. `volcano cloud deploy` refuses before
 it changes anything. Push to the repository to deploy code, and use
 `volcano cloud variables deploy -f volcano/cloud.env` and
-`volcano cloud config deploy` for the rest. Name the env file: without `-f`,
+`volcano cloud config deploy -f <manifest>`, once per manifest, for the rest.
+The refusal prints those commands for the files the run read. Name the env
+file: without `-f`,
 `variables deploy` reads `volcano/volcano.env`, the local server's values.
 
 ## Related

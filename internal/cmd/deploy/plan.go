@@ -76,8 +76,14 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 	if err := checkLaterManifests(manifests); err != nil {
 		return nil, err
 	}
-	if err := checkDefaultManifest(manifests); err != nil {
+	hasFunctions, err := isDir(functionsDir)
+	if err != nil {
 		return nil, err
+	}
+	if hasFunctions {
+		if err := checkDefaultManifest(manifests); err != nil {
+			return nil, err
+		}
 	}
 	envFile, err := resolveEnvFile(opts.envFile, opts.noEnvFile)
 	if err != nil {
@@ -90,10 +96,6 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 		if err := refuseLocalValues(envFile); err != nil {
 			return nil, err
 		}
-	}
-	hasFunctions, err := isDir(functionsDir)
-	if err != nil {
-		return nil, err
 	}
 	var durable []string
 	if len(manifests) > 0 {
@@ -120,7 +122,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 			return nil, err
 		}
 		if mode != apiclient.ProjectSourceExportStateModePlatform {
-			return nil, gitSourceError(opts.deps, target, mode, envFile)
+			return nil, gitSourceError(opts.deps, target, mode, envFile, manifests)
 		}
 	}
 
@@ -128,7 +130,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 	if len(manifests) > 0 {
 		primaryPath = manifests[0].path
 	}
-	b := planBuilder{deps: opts.deps, manifests: manifests}
+	b := planBuilder{deps: opts.deps, manifests: manifests, defaultKinds: readsDefaultManifest(manifests)}
 	frontendsStep, warnings := b.frontends(frontends, layoutFound, opts.noFrontends, envFile)
 	return &plan{
 		local:  opts.deps.LocalMode,
@@ -147,14 +149,21 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 
 // gitSourceError refuses to deploy code to a project that builds from its Git
 // repository, and names the commands that still apply.
-func gitSourceError(deps cliruntime.Deps, target project.Target, mode apiclient.ProjectSourceExportStateMode, envFile string) error {
-	commands := []string{cliruntime.CommandPath(deps, "config deploy")}
+func gitSourceError(deps cliruntime.Deps, target project.Target, mode apiclient.ProjectSourceExportStateMode, envFile string, manifests []manifestFile) error {
+	var commands []string
 	if envFile != "" {
-		commands = append([]string{cliruntime.CommandPath(deps, "variables deploy -f "+envFile)}, commands...)
+		commands = append(commands, cliruntime.CommandPath(deps, "variables deploy -f "+envFile))
 	}
-	return fmt.Errorf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n"+
-		"Push to the repository to deploy code, and deploy variables and configuration with:\n  %s",
-		targetLabel(target), mode, strings.Join(commands, "\n  "))
+	for _, m := range manifests {
+		commands = append(commands, cliruntime.CommandPath(deps, "config deploy -f "+m.path))
+	}
+	refusal := fmt.Sprintf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n",
+		targetLabel(target), mode)
+	if len(commands) == 0 {
+		return errors.New(refusal + "Push to the repository to deploy code")
+	}
+	return fmt.Errorf("%sPush to the repository to deploy code, and deploy variables and configuration with:\n  %s",
+		refusal, strings.Join(commands, "\n  "))
 }
 
 func (p *plan) print(w, errOut io.Writer) {
@@ -241,8 +250,7 @@ func checkLaterManifests(manifests []manifestFile) error {
 
 // checkDefaultManifest refuses a -c list that leaves out the default manifest
 // when it declares durable functions the first manifest doesn't. The functions
-// step would create them as standard functions, and the commands that finish a
-// failed run by hand read the default manifest.
+// step would create them as standard functions.
 func checkDefaultManifest(manifests []manifestFile) error {
 	if len(manifests) == 0 {
 		return nil
@@ -276,6 +284,17 @@ func checkDefaultManifest(manifests []manifestFile) error {
 		"this deploy would create them as standard functions, and a function's kind can't change.\n"+
 		"Pass %s first, or declare them durable in %s",
 		path, strings.Join(missing, ", "), primary.path, path, primary.path)
+}
+
+// readsDefaultManifest reports whether the first manifest is the one
+// `functions deploy` and `durable deploy` read on their own, so they sort
+// function kinds the way this run does.
+func readsDefaultManifest(manifests []manifestFile) bool {
+	if len(manifests) == 0 {
+		return true
+	}
+	path, err := projectconfig.ResolveManifestPath("")
+	return err == nil && samePath(path, manifests[0].path)
 }
 
 func samePath(a, b string) bool {
@@ -464,6 +483,10 @@ func isDir(path string) (bool, error) {
 type planBuilder struct {
 	deps      cliruntime.Deps
 	manifests []manifestFile
+	// defaultKinds is false when the first manifest isn't the one the
+	// standalone function commands read; running them by hand could create a
+	// durable function as a standard one, so those steps offer no commands.
+	defaultKinds bool
 }
 
 func (b planBuilder) command(args string) string {
@@ -544,7 +567,9 @@ func (b planBuilder) functions(present bool, manifestPath string, durableFollows
 		return s
 	}
 	s.detail = functionsDir
-	s.manual = []string{b.command("functions deploy --all")}
+	if b.defaultKinds {
+		s.manual = []string{b.command("functions deploy --all")}
+	}
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := functionscmd.DeployAll(ctx, r.opts.deps, functionscmd.DeployAllOptions{
 			ManifestPath:   manifestPath,
@@ -572,7 +597,9 @@ func (b planBuilder) durable(names []string, manifestPath string) step {
 		return s
 	}
 	s.detail = strings.Join(names, ", ")
-	s.manual = []string{b.command("durable deploy --all")}
+	if b.defaultKinds {
+		s.manual = []string{b.command("durable deploy --all")}
+	}
 	s.run = func(ctx context.Context, r *runner) error {
 		started, err := durablecmd.DeployAll(ctx, r.opts.deps, durablecmd.DeployAllOptions{
 			ManifestPath: manifestPath,

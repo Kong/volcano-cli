@@ -162,9 +162,15 @@ func resumeHint(done []string, rest []step) string {
 	}
 	var manual []string
 	for _, s := range rest {
-		if !s.skipped {
-			manual = append(manual, s.manual...)
+		if s.skipped {
+			continue
 		}
+		if len(s.manual) == 0 {
+			// A partial list would leave this step out.
+			manual = nil
+			break
+		}
+		manual = append(manual, s.manual...)
 	}
 	if len(manual) == 0 {
 		b.WriteString(".")
