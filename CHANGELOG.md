@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/Kong/volcano-cli/compare/v0.44.0...v0.44.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **deps:** bump golang.org/x/text to v0.41.0 and Go to 1.26.9 for security fixes ([#299](https://github.com/Kong/volcano-cli/issues/299)) ([e79486f](https://github.com/Kong/volcano-cli/commit/e79486fd54a5446933d3e0ed154a280fcdbb00a9))
+
 ## [0.44.0](https://github.com/Kong/volcano-cli/compare/v0.43.3...v0.44.0) (2026-10-11)
 
 
