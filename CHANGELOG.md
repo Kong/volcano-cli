@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.45.0](https://github.com/Kong/volcano-cli/compare/v0.44.2...v0.45.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* "volcano frontends ..." was a hidden, deprecated alias for "volcano cloud frontends ...". It now acts on the local development server. Use "volcano cloud frontends ..." for cloud frontends.
+
+### Features
+
+* deploy and manage frontends in local development ([#297](https://github.com/Kong/volcano-cli/issues/297)) ([b1fb326](https://github.com/Kong/volcano-cli/commit/b1fb32609bb4446452519082123c1048a48d59f7))
+
 ## [0.44.2](https://github.com/Kong/volcano-cli/compare/v0.44.1...v0.44.2) (2026-10-13)
 
 
