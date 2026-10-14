@@ -350,8 +350,22 @@ func deployAPIURL(deps cliruntime.Deps) string {
 func sameOrigin(a, b string) bool {
 	ua, errA := url.Parse(strings.TrimSpace(a))
 	ub, errB := url.Parse(strings.TrimSpace(b))
-	return errA == nil && errB == nil && ua.Host != "" &&
-		strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
+	return errA == nil && errB == nil && ua.Hostname() != "" &&
+		strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Hostname(), ub.Hostname()) &&
+		effectivePort(ua) == effectivePort(ub)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	}
+	return ""
 }
 
 func isLoopbackURL(value string) bool {
