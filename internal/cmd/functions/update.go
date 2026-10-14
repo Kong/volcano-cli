@@ -95,19 +95,9 @@ func runUpdate(ctx context.Context, opts *updateOptions) error {
 	return nil
 }
 
-// routedFunctionHint names the routes that keep a function public. The CLI
-// manages routes only in the cloud; a local project's routes come from its
-// manifest.
+// routedFunctionHint names the routes that keep a function public.
 func routedFunctionHint(deps cliruntime.Deps, routed *clifunction.RoutedFunctionError) string {
 	var hint strings.Builder
-	if deps.LocalMode {
-		hint.WriteString("frontend routes forward to it; remove them from function_routes in volcano-config.yaml and run " +
-			cliruntime.CommandPath(deps, "config deploy") + ":")
-		for _, route := range routed.Routes {
-			fmt.Fprintf(&hint, "\n  %s %s", route.Frontend, route.PathPrefix)
-		}
-		return hint.String()
-	}
 	hint.WriteString("frontend routes forward to it; remove them first:")
 	for _, route := range routed.Routes {
 		fmt.Fprintf(&hint, "\n  %s", cliruntime.CommandPath(deps, "frontends routes delete "+route.Frontend+" "+route.PathPrefix))

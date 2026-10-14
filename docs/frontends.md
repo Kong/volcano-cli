@@ -20,20 +20,24 @@ optionally reachable at your own custom domain.
 - Frontend custom domains and function routes can also be declared in the
   [declarative config](project-configuration.md).
 
-Frontend commands live under the `cloud` group.
+`volcano frontends …` targets local development and `volcano cloud frontends …`
+targets the cloud project. The local server builds and serves each frontend at
+the `Site URL` that `frontends get` prints. A local deploy prints that URL too,
+except for a new frontend, which has a URL only once its first build finishes.
+Custom domains are a cloud command.
 
 ## CLI operations
 
-| Operation | Command |
-|---|---|
-| Deploy | `volcano cloud frontends deploy …` |
-| Redeploy | `volcano cloud frontends redeploy …` |
-| List | `volcano cloud frontends list` |
-| Get | `volcano cloud frontends get <name>` |
-| Delete | `volcano cloud frontends delete <name>` |
-| Logs | `volcano cloud frontends logs <name>` |
-| Custom domains | `volcano cloud frontends domain create\|list\|get\|delete …` |
-| Function routes | `volcano cloud frontends routes list\|create\|update\|delete …` |
+| Operation | Local | Cloud |
+|---|---|---|
+| Deploy | `volcano frontends deploy …` | `volcano cloud frontends deploy …` |
+| Redeploy | `volcano frontends redeploy …` | `volcano cloud frontends redeploy …` |
+| List | `volcano frontends list` | `volcano cloud frontends list` |
+| Get | `volcano frontends get <name>` | `volcano cloud frontends get <name>` |
+| Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
+| Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
+| Custom domains | — | `volcano cloud frontends domain create\|list\|get\|delete …` |
+| Function routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
@@ -45,17 +49,25 @@ selected variables. A scoped deploy with no `--variable` flags exposes no
 project variables. Omitting both flags preserves the current selection when the
 frontend exists.
 
+Builds never see variables named `VOLCANO_*`; the server runtime still gets
+them. Browser code reads values Next.js inlines at build time, so give it
+`NEXT_PUBLIC_*` copies, such as `NEXT_PUBLIC_VOLCANO_ANON_KEY`. See
+[Variables](/platform/frontends/overview#variables).
+
 `volcano cloud config deploy` never creates a frontend; an entry for one that
 does not exist yet is skipped. Deploy a new frontend with the variables its
 manifest entry selects, then run `volcano cloud config deploy`.
+[`volcano deploy`](deploy.md) does both for every frontend listed in
+`.volcano/source-layout.json`.
 
 The selected variables other than `NEXT_PUBLIC_*` must fit the frontend's
 4,096-byte runtime environment, of which Volcano uses about 900 bytes. See
 [Environment size](/platform/frontends/deploy#environment-size).
 
 `deploy` archives `--path` (default `.`) and leaves out `node_modules`, `.next`,
-`dist`, `build`, `.env*.local`, `.git`, editor files, `*.log`, and anything in
-the root `.gitignore`. Symbolic links are skipped with a warning, and more than
+`dist`, `build`, `.env*.local`, the Volcano env files (`volcano/*.env` and
+`volcano.env`), `.git`, editor files, `*.log`, and anything in the root
+`.gitignore`. Symbolic links are skipped with a warning, and more than
 10,000 files fails the deploy. When the app uses `workspace:` dependencies,
 `deploy` archives the workspace root instead, so these rules and the file limit
 apply to the whole workspace; pass `--app-root` to archive only `--path`.
@@ -63,7 +75,11 @@ apply to the whole workspace; pass `--app-root` to archive only `--path`.
 ## Examples
 
 ```bash
-# Deploy / redeploy a frontend
+# Deploy a frontend to local development, then print its local URL once built
+volcano frontends deploy --name web --path ./web
+volcano frontends get web
+
+# Deploy / redeploy a frontend in the cloud
 volcano cloud frontends deploy
 volcano cloud frontends deploy --variable-scope scoped --variable API_URL --variable API_KEY
 volcano cloud frontends redeploy my-site
@@ -125,9 +141,8 @@ the longest matching prefix wins.
 A path prefix starts with `/`, does not end with `/`, has no `?`, `#`, or `\`,
 and is 2 to 512 characters long. The CLI checks this before calling Volcano.
 
-Declare `function_routes` in [`volcano-config.yaml`](project-configuration.md)
-to manage the whole set at once. That is also how a local project gets routes:
-local development has no `frontends` commands, so `volcano frontends routes`
-refuses and points to `volcano cloud frontends routes`. See
+The same commands without `cloud` manage routes on a local frontend. Declare
+`function_routes` in [`volcano-config.yaml`](project-configuration.md) to manage
+the whole set at once. See
 [Frontend Function routes](/platform/frontends/function-routes) for how
 requests are matched and how to keep a session in cookies.

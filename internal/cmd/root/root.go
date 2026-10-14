@@ -65,7 +65,6 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(localmodecmd.NewRestart(deps))
 	root.AddCommand(localcmd.NewResourceCommands(deps)...)
 	root.AddCommand(cloudcmd.New(deps))
-	root.AddCommand(cloudcmd.NewDeprecatedFrontendAlias(deps))
 	root.AddCommand(localcmd.New(deps))
 	applyHelpTheme(root)
 	return root

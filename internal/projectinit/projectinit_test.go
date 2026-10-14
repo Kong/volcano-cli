@@ -36,17 +36,13 @@ func TestRunCreatesScaffold(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano-config.yaml"))
 
 	ignore := readProjectFile(t, dir, filepath.Join("volcano", ".gitignore"))
-	assert.Contains(t, ignore, "volcano.env")
+	assert.Contains(t, ignore, "*.env")
 
 	readme := readProjectFile(t, dir, filepath.Join("volcano", "README.md"))
-	assert.Contains(t, readme, "If this project includes volcano/functions:\n\n    volcano functions deploy --all")
-	assert.Contains(t, readme, "If this project includes volcano/functions:\n\n    volcano cloud functions deploy --all")
-	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml:\n\n    volcano config deploy")
-	assert.Contains(t, readme, "If this project includes volcano/volcano-config.yaml:\n\n    volcano cloud config deploy")
-	assert.Equal(t, 1, strings.Count(readme, "volcano functions deploy --all"))
-	assert.Equal(t, 1, strings.Count(readme, "volcano cloud functions deploy --all"))
-	assert.Equal(t, 1, strings.Count(readme, "volcano config deploy"))
-	assert.Equal(t, 1, strings.Count(readme, "volcano cloud config deploy"))
+	assert.Contains(t, readme, "Local development:\n\n    volcano start\n    volcano deploy --with-migrations\n")
+	assert.Contains(t, readme, "    volcano use <project-id-or-name>\n    volcano cloud deploy --env-file volcano/cloud.env\n")
+	assert.Equal(t, 1, strings.Count(readme, "volcano deploy --with-migrations"))
+	assert.NotContains(t, readme, "functions deploy --all")
 	assert.NotContains(t, readme, "configuration, functions, migrations")
 }
 
@@ -85,6 +81,8 @@ func TestRunTemplateCreatesNextJSStarter(t *testing.T) {
 	assert.Contains(t, readProjectFile(t, dir, filepath.Join("web", ".gitignore")), ".env*.local")
 	assert.NoFileExists(t, filepath.Join(dir, "volcano", "functions", "notes-summary.js"))
 	assert.NoFileExists(t, filepath.Join(dir, "volcano", "volcano-config.yaml"))
+	assert.Contains(t, result.Created(), ".volcano/source-layout.json")
+	assert.Contains(t, readProjectFile(t, dir, ".gitignore"), "volcano/*.env")
 }
 
 func TestRunTemplateCreatesNextJSNotesExample(t *testing.T) {
@@ -102,6 +100,8 @@ func TestRunTemplateCreatesNextJSNotesExample(t *testing.T) {
 	assert.Contains(t, readProjectFile(t, dir, filepath.Join("web", ".gitignore")), ".env*.local")
 	assert.Contains(t, readProjectFile(t, dir, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
 	assert.Contains(t, result.Created(), filepath.Join("volcano", "volcano-config.yaml"))
+	assert.Contains(t, result.Created(), ".volcano/source-layout.json")
+	assert.Contains(t, readProjectFile(t, dir, ".gitignore"), "volcano/*.env")
 }
 
 func TestRunTemplateCreatesLanguageStartersAndDemos(t *testing.T) {

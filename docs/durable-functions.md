@@ -93,6 +93,9 @@ match the deployed function.
 
 ## Examples
 
+[`volcano deploy`](deploy.md) deploys the durable functions after the
+standard ones, together with the rest of the project.
+
 ```bash
 # Deploy every function volcano-config.yaml declares durable
 volcano cloud durable deploy --all

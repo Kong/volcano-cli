@@ -49,11 +49,12 @@ mkdir volcano-quickstart
 cd volcano-quickstart
 volcano init javascript
 volcano start
-volcano variables deploy
-volcano functions deploy --all
-volcano config deploy
-volcano migrations deploy --all -d app
+volcano deploy --with-migrations
 ```
+
+`volcano deploy` deploys the project's variables, migrations, functions,
+durable functions, frontends, and configuration in one run. `volcano cloud
+deploy` does the same for a cloud project.
 
 `volcano init` without a template creates a base scaffold (environment
 files, migrations directory, and README). Use a template to add
@@ -64,6 +65,7 @@ More detail lives in `docs/`:
 
 - [Installation details](docs/installation.md)
 - [Authentication](docs/authentication.md)
+- [Deploy a project](docs/deploy.md)
 - [Project configuration](docs/project-configuration.md)
 - [CLI operations overview](docs/cli/overview.md)
 - [Documentation search (`volcano docs`)](docs/docs-search.md)

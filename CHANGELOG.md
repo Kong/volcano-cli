@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.46.1](https://github.com/Kong/volcano-cli/compare/v0.46.0...v0.46.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **deploy:** accept an env file that names the API the deploy targets ([#307](https://github.com/Kong/volcano-cli/issues/307)) ([1b74a61](https://github.com/Kong/volcano-cli/commit/1b74a61d628411ffb31bbb871132e74de739449f))
+
+## [0.46.0](https://github.com/Kong/volcano-cli/compare/v0.45.0...v0.46.0) (2026-10-14)
+
+
+### Features
+
+* add volcano deploy to deploy a whole project in one run ([#298](https://github.com/Kong/volcano-cli/issues/298)) ([84ce447](https://github.com/Kong/volcano-cli/commit/84ce4471d659823345190b9bc60940b279b0d713))
+
+## [0.45.0](https://github.com/Kong/volcano-cli/compare/v0.44.2...v0.45.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* "volcano frontends ..." was a hidden, deprecated alias for "volcano cloud frontends ...". It now acts on the local development server. Use "volcano cloud frontends ..." for cloud frontends.
+
+### Features
+
+* deploy and manage frontends in local development ([#297](https://github.com/Kong/volcano-cli/issues/297)) ([b1fb326](https://github.com/Kong/volcano-cli/commit/b1fb32609bb4446452519082123c1048a48d59f7))
+
+## [0.44.2](https://github.com/Kong/volcano-cli/compare/v0.44.1...v0.44.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **localmode:** check Postgres health over TCP ([#303](https://github.com/Kong/volcano-cli/issues/303)) ([41b77dc](https://github.com/Kong/volcano-cli/commit/41b77dc7adec1d5839341bb8ebee6a22c592f64a))
+
+## [0.44.1](https://github.com/Kong/volcano-cli/compare/v0.44.0...v0.44.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **deps:** bump golang.org/x/text to v0.41.0 and Go to 1.26.9 for security fixes ([#299](https://github.com/Kong/volcano-cli/issues/299)) ([e79486f](https://github.com/Kong/volcano-cli/commit/e79486fd54a5446933d3e0ed154a280fcdbb00a9))
+
 ## [0.44.0](https://github.com/Kong/volcano-cli/compare/v0.43.3...v0.44.0) (2026-10-11)
 
 

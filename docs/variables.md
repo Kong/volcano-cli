@@ -50,3 +50,7 @@ volcano variables deploy
 ```
 
 Deploying variables triggers a rollout to the affected functions and frontends.
+
+[`volcano deploy`](deploy.md) deploys the env file first, before the code
+that reads it. It refuses when a manifest also declares `variables`, because
+applying that section would delete the variables only the env file sets.

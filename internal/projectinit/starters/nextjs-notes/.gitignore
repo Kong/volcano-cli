@@ -1,1 +1,5 @@
 node_modules
+.next
+
+# Env files hold keys.
+volcano/*.env

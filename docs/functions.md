@@ -123,6 +123,10 @@ Routed from: web /api/session
 
 ## Examples
 
+[`volcano deploy`](deploy.md) deploys the functions together with the
+project's variables, durable functions, frontends, and configuration. Use
+`functions deploy` to deploy only functions.
+
 ```bash
 # Deploy everything, or a single function by name or path
 volcano functions deploy --all

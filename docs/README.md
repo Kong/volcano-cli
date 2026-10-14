@@ -84,12 +84,13 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
+| Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
-| Frontends | deploy, inspect, custom domains, function routes | `cloud frontends …` | [frontends.md](frontends.md) |
+| Frontends | deploy, inspect, custom domains, function routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
@@ -195,7 +196,11 @@ active-project precedence described above.
 volcano init javascript            # scaffold a local project (js/nextjs/python/ruby)
 volcano start                      # start the local dev environment
 volcano status                     # check it
+volcano deploy --with-migrations   # deploy the whole project to it
 ```
+
+See [deploy.md](deploy.md) for what `volcano deploy` and `volcano cloud deploy`
+read and the order they deploy in.
 
 `volcano start` runs the local stack from a bundled default server image.
 Override it with `--image` or `VOLCANO_IMAGE`; an explicitly selected image must

@@ -27,8 +27,44 @@ type deployOptions struct {
 	file     string
 	all      bool
 	batchAll bool
-	out      io.Writer
-	errOut   io.Writer
+	// manifest names the volcano-config.yaml to read; empty uses the default
+	// lookup.
+	manifest string
+	// durableFollows drops the hint to deploy the skipped durable functions,
+	// for a caller that deploys them next.
+	durableFollows bool
+	out            io.Writer
+	errOut         io.Writer
+}
+
+// DeployAllOptions configures DeployAll.
+type DeployAllOptions struct {
+	// ManifestPath names the volcano-config.yaml that declares function kinds
+	// and variable scopes. Empty uses the default lookup.
+	ManifestPath string
+	// Batch uploads up to 100 functions per request, as the cloud command does.
+	Batch bool
+	// DurableFollows is set by a caller that deploys the durable functions
+	// itself, so the output does not tell the user to.
+	DurableFollows bool
+	// Out and ErrOut are required.
+	Out    io.Writer
+	ErrOut io.Writer
+}
+
+// DeployAll deploys every standard function in volcano/functions, as
+// "functions deploy --all" does, and returns the functions whose deployment
+// started. On error it still returns the ones started before the failure.
+func DeployAll(ctx context.Context, deps cliruntime.Deps, opts DeployAllOptions) ([]apiclient.Function, error) {
+	return deploy(ctx, deployOptions{
+		deps:           deps,
+		all:            true,
+		batchAll:       opts.Batch,
+		manifest:       opts.ManifestPath,
+		durableFollows: opts.DurableFollows,
+		out:            opts.Out,
+		errOut:         opts.ErrOut,
+	})
 }
 
 func newDeploy(deps cliruntime.Deps, batchAll bool) *cobra.Command {
@@ -71,43 +107,48 @@ archive to Volcano. Cloud deploy-all uploads are split into batches of up to
 }
 
 func runDeploy(ctx context.Context, opts deployOptions) error {
+	_, err := deploy(ctx, opts)
+	return err
+}
+
+func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, error) {
 	if opts.all && opts.file != "" {
-		return errors.New("cannot use --all and --file together")
+		return nil, errors.New("cannot use --all and --file together")
 	}
 	if !opts.all && opts.file == "" {
-		return errors.New("specify either --all to deploy all functions or --file/-f to deploy a specific function")
+		return nil, errors.New("specify either --all to deploy all functions or --file/-f to deploy a specific function")
 	}
 
 	service := clifunction.NewService(opts.deps)
 	runtimeCatalog, err := service.RuntimeCatalog(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	baseDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
 	}
 
 	fmt.Fprintln(opts.out, "\nScanning volcano/functions/...")
 	allSources, err := clifunction.ScanSources(baseDir, runtimeCatalog)
 	if err != nil {
-		return fmt.Errorf("failed to scan functions: %w", err)
+		return nil, fmt.Errorf("failed to scan functions: %w", err)
 	}
 	if len(allSources) == 0 {
 		if !opts.all {
-			return fmt.Errorf("function %q not found in volcano/functions/", opts.file)
+			return nil, fmt.Errorf("function %q not found in volcano/functions/", opts.file)
 		}
 		fmt.Fprintln(opts.out, "No functions found in volcano/functions/")
 		fmt.Fprintln(opts.out, "\nMake sure your functions are in the volcano/functions/ directory")
-		return nil
+		return nil, nil
 	}
 
 	// Read before anything is packaged or uploaded. An existing but unreadable
 	// manifest aborts here rather than deploying with its scope declarations
 	// silently dropped, or its durable functions mistaken for standard ones.
-	manifest, err := projectconfig.ReadFunctionDeployManifest("")
+	manifest, err := projectconfig.ReadFunctionDeployManifest(opts.manifest)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, warning := range manifest.Deprecations {
 		output.Warning(opts.errOut, "%s", warning)
@@ -122,18 +163,22 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 			}
 		}
 		if len(sources) == 0 {
-			return fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
+			return nil, fmt.Errorf("function %q not found in volcano/functions/\navailable functions: %s", opts.file, clifunction.FormatSourceNames(allSources))
 		}
 		if manifest.DurableNames[sources[0].Name] {
-			return fmt.Errorf("%q is declared durable in volcano-config.yaml; deploy it with %q",
-				sources[0].Name, "volcano cloud durable deploy -f "+sources[0].Name)
+			return nil, fmt.Errorf("%q is declared durable in %s; deploy it with %q",
+				sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "durable deploy -f "+sources[0].Name))
 		}
 		fmt.Fprintf(opts.out, "Deploying function: %s\n", sources[0].Name)
 	} else {
-		sources = excludeDurable(allSources, manifest.DurableNames, opts.out)
+		durableDeploy := cliruntime.CommandPath(opts.deps, "durable deploy --all")
+		if opts.durableFollows {
+			durableDeploy = ""
+		}
+		sources = excludeDurable(allSources, manifest, durableDeploy, opts.out)
 		if len(sources) == 0 {
 			fmt.Fprintln(opts.out, "No standard functions found in volcano/functions/")
-			return nil
+			return nil, nil
 		}
 		fmt.Fprintf(opts.out, "Found %d function(s)\n", len(sources))
 	}
@@ -145,7 +190,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
 	}
 	report.finish(opts.out, opts.errOut)
-	return err
+	return report.started, err
 }
 
 // deployReport notes which deployed functions are new, so the output can say
@@ -158,6 +203,7 @@ type deployReport struct {
 	newPrivate []string
 	// unreported are new functions whose response had no visibility.
 	unreported []string
+	started    []apiclient.Function
 }
 
 // newDeployReport lists the project's functions before anything is uploaded.
@@ -183,6 +229,7 @@ func newDeployReport(
 }
 
 func (r *deployReport) deployed(out io.Writer, fn apiclient.Function) {
+	r.started = append(r.started, fn)
 	if r.existing == nil || r.existing[fn.Name] {
 		fmt.Fprintf(out, "  Deployed %s\n", fn.Name)
 		return
@@ -206,24 +253,28 @@ func (r *deployReport) finish(out, errOut io.Writer) {
 	r.hint.Print(out, r.newPrivate)
 }
 
-func excludeDurable(sources []clifunction.SourceInfo, durableNames map[string]bool, out io.Writer) []clifunction.SourceInfo {
-	if len(durableNames) == 0 {
+func excludeDurable(
+	sources []clifunction.SourceInfo, manifest projectconfig.FunctionDeployManifest, durableDeploy string, out io.Writer,
+) []clifunction.SourceInfo {
+	if len(manifest.DurableNames) == 0 {
 		return sources
 	}
 
 	kept := make([]clifunction.SourceInfo, 0, len(sources))
 	var skipped []string
 	for _, source := range sources {
-		if durableNames[source.Name] {
+		if manifest.DurableNames[source.Name] {
 			skipped = append(skipped, source.Name)
 			continue
 		}
 		kept = append(kept, source)
 	}
 	if len(skipped) > 0 {
-		fmt.Fprintf(out, "Skipping %d durable function(s) declared in volcano-config.yaml: %s\n",
-			len(skipped), strings.Join(skipped, ", "))
-		fmt.Fprintln(out, "Deploy them with \"volcano cloud durable deploy --all\"")
+		fmt.Fprintf(out, "Skipping %d durable function(s) declared in %s: %s\n",
+			len(skipped), manifest.Name, strings.Join(skipped, ", "))
+		if durableDeploy != "" {
+			fmt.Fprintf(out, "Deploy them with %q\n", durableDeploy)
+		}
 	}
 	return kept
 }

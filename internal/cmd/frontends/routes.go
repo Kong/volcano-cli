@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -64,34 +63,6 @@ has to authenticate its callers itself. The longest matching prefix wins.`,
 	cmd.AddCommand(newRoutesUpdate(deps))
 	cmd.AddCommand(newRoutesDelete(deps))
 	return cmd
-}
-
-// NewRoutesCloudOnly stands in for routes under the deprecated root
-// "volcano frontends" alias. The root is where local commands live, and the
-// alias would otherwise send a local project's route changes to the cloud.
-// Local development has no frontends commands, so routes there come only from
-// volcano-config.yaml. Flag parsing is off so any flags reach the refusal.
-func NewRoutesCloudOnly() *cobra.Command {
-	return &cobra.Command{
-		Use:   "routes",
-		Short: "Manage frontend function routes",
-		Long: `Manage the paths of a frontend that forward requests to functions.
-
-This is a cloud command: run 'volcano cloud frontends routes ...'. Local
-development has no frontends commands; declare function_routes in
-volcano-config.yaml and run 'volcano config deploy' instead.`,
-		Hidden:             true,
-		DisableFlagParsing: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Flag parsing is off, so cobra does not answer --help itself.
-			if slices.ContainsFunc(args, func(arg string) bool { return arg == "--help" || arg == "-h" }) {
-				return cmd.Help()
-			}
-			return errors.New(`"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'. ` +
-				"Local development has no frontends commands; declare function_routes in volcano-config.yaml " +
-				"and run 'volcano config deploy' instead")
-		},
-	}
 }
 
 func newRoutesList(deps cliruntime.Deps) *cobra.Command {

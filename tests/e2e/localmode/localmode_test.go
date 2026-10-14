@@ -57,8 +57,9 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
-	requireLocalModeRefusesFrontendRoutes(t, volcanoBin, env, projectDir)
+	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -133,6 +134,13 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 
 	deleteFunctionOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "delete", "hello", "--yes")
 	requireContains(t, deleteFunctionOutput, "deletion started")
+
+	// Each runs in a project directory of its own. They come after the config
+	// smoke, whose full variable sync would delete their variables.
+	requireLocalModeDeployRefusesTwoVariableSources(t, volcanoBin, env)
+	requireLocalModeDeploysWholeProject(t, volcanoBin, env)
+	requireLocalModeDeployHonorsItsFlagsAndReportsAFailedBuild(t, volcanoBin, env)
+	requireLocalModeDeploysStarter(t, volcanoBin, env)
 
 	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "reset", "--yes")
 	requireContains(t, resetOutput, "Local reset complete.")
@@ -431,6 +439,7 @@ exports.handler = withDurableExecution(async (input, ctx) => {
 	// deploying it as standard would be permanent.
 	skipOutput := runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "deploy", "--all")
 	requireContains(t, skipOutput, "Skipping 1 durable function(s) declared in volcano-config.yaml: order-pipeline")
+	requireContains(t, skipOutput, `Deploy them with "volcano durable deploy --all"`)
 	// This is hello's first deploy, so the output names its level and how to
 	// open it up.
 	requireContains(t, skipOutput, "Deployed hello (new, visibility private)")
@@ -524,26 +533,6 @@ func requireLocalModeOmitsAccessTokenCommands(t *testing.T, binary string, env [
 		}
 		requireContains(t, output, "is a cloud command")
 		requireContains(t, output, "volcano cloud access-tokens")
-	}
-}
-
-// requireLocalModeRefusesFrontendRoutes checks that the root "volcano
-// frontends" alias, which targets the cloud, does not take a local project's
-// route changes there. Local development has no frontends commands, so the
-// refusal names the cloud command and the manifest.
-func requireLocalModeRefusesFrontendRoutes(t *testing.T, binary string, env []string, dir string) {
-	t.Helper()
-	for _, args := range [][]string{
-		{"frontends", "routes", "list", "web"},
-		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "hello"},
-	} {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
-		if err == nil {
-			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
-		}
-		requireContains(t, output, `"frontends routes" is a cloud command`)
-		requireContains(t, output, "volcano cloud frontends routes")
-		requireContains(t, output, "declare function_routes in volcano-config.yaml")
 	}
 }
 
@@ -797,28 +786,29 @@ func invokeVolcanoLocalModeE2EFunction(t *testing.T, info localModeE2EInfo, func
 
 // signUpVolcanoLocalModeE2EUser creates one of the project's own users and
 // returns its access token. Signup answers without a session, so the token
-// comes from signing in afterwards.
+// comes from signing in afterwards. Signup is retried only while the
+// breached-password check is unavailable; see retryLocalModeE2ESignup.
 func signUpVolcanoLocalModeE2EUser(t *testing.T, info localModeE2EInfo) string {
 	t.Helper()
 	credentials := fmt.Sprintf(`{"email":"cli-visibility-%d@localmode-e2e.invalid","password":"V0lcano!%d"}`,
 		time.Now().UnixNano(), time.Now().UnixNano())
-	for _, path := range []string{"/auth/signup", "/auth/signin"} {
-		resp := requestVolcanoLocalModeE2EAPI(t, info, path, info.AnonKey, credentials)
-		if resp.status != http.StatusOK && resp.status != http.StatusCreated {
-			t.Fatalf("POST %s returned %d:\n%s", path, resp.status, resp.body)
-		}
-		if path != "/auth/signin" {
-			continue
-		}
-		var session struct {
-			AccessToken string `json:"access_token"`
-		}
-		if err := json.Unmarshal([]byte(resp.body), &session); err != nil || session.AccessToken == "" {
-			t.Fatalf("signin returned no access token (%v):\n%s", err, resp.body)
-		}
-		return session.AccessToken
+	signup := retryLocalModeE2ESignup(t, passwordCheckRetryWindow, passwordCheckRetryInterval, func() localModeE2EResponse {
+		return requestVolcanoLocalModeE2EAPI(t, info, "/auth/signup", info.AnonKey, credentials)
+	})
+	if signup.status != http.StatusOK && signup.status != http.StatusCreated {
+		t.Fatalf("POST /auth/signup returned %d:\n%s", signup.status, signup.body)
 	}
-	return ""
+	signin := requestVolcanoLocalModeE2EAPI(t, info, "/auth/signin", info.AnonKey, credentials)
+	if signin.status != http.StatusOK && signin.status != http.StatusCreated {
+		t.Fatalf("POST /auth/signin returned %d:\n%s", signin.status, signin.body)
+	}
+	var session struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal([]byte(signin.body), &session); err != nil || session.AccessToken == "" {
+		t.Fatalf("signin returned no access token (%v):\n%s", err, signin.body)
+	}
+	return session.AccessToken
 }
 
 // waitForVolcanoLocalModeE2EVisibility waits until every caller gets the answer

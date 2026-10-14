@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -28,6 +28,7 @@ type deployOptions struct {
 	appRoot       string
 	variableScope string
 	variables     []string
+	excludeFiles  []string
 	out           io.Writer
 }
 
@@ -55,6 +56,11 @@ Usage:
 			local := opts
 			local.deps = deps
 			local.out = cmd.OutOrStdout()
+			// "volcano frontends deploy" once deployed to the cloud; scripts
+			// written then are told where this one went.
+			if deps.LocalMode {
+				output.Note(cmd.ErrOrStderr(), "Deploying to local development. To deploy to the cloud project, run 'volcano cloud frontends deploy'.")
+			}
 			return runDeploy(cmd.Context(), local)
 		},
 	}
@@ -67,14 +73,66 @@ Usage:
 	return cmd
 }
 
+// DeployOptions configures Deploy. The fields up to Variables mirror the flags
+// of "frontends deploy".
+type DeployOptions struct {
+	Path          string
+	Name          string
+	AppRoot       string
+	VariableScope string
+	Variables     []string
+	// ExcludeFiles are files to leave out of the upload, such as an env file
+	// the caller deployed from inside the frontend's directory.
+	ExcludeFiles []string
+	// Out is required.
+	Out io.Writer
+}
+
+// Deploy packages and uploads one frontend, as "frontends deploy" does, and
+// returns the frontend whose deployment started.
+func Deploy(ctx context.Context, deps cliruntime.Deps, opts DeployOptions) (*apiclient.Frontend, error) {
+	return deploy(ctx, deployOptions{
+		deps:          deps,
+		path:          opts.Path,
+		name:          opts.Name,
+		appRoot:       opts.AppRoot,
+		variableScope: opts.VariableScope,
+		variables:     opts.Variables,
+		excludeFiles:  opts.ExcludeFiles,
+		out:           opts.Out,
+	})
+}
+
 func runDeploy(ctx context.Context, opts deployOptions) error {
+	deployed, err := deploy(ctx, opts)
+	if err != nil {
+		return err
+	}
+	if opts.deps.LocalMode {
+		printLocalSiteURL(opts, deployed)
+	}
+	return nil
+}
+
+// printLocalSiteURL names where the local frontend serves. A frontend's URL
+// exists only once its first build finishes, so a new one points at "get".
+func printLocalSiteURL(opts deployOptions, deployed *apiclient.Frontend) {
+	if deployed.SiteUrl != nil && *deployed.SiteUrl != "" {
+		fmt.Fprintf(opts.out, "Site URL: %s (serves the new build once it is active)\n", *deployed.SiteUrl)
+		return
+	}
+	fmt.Fprintf(opts.out, "Run '%s' for the site URL once the build finishes.\n",
+		cliruntime.CommandPath(opts.deps, "frontends get "+deployed.Name))
+}
+
+func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error) {
 	rawPath := strings.TrimSpace(opts.path)
 	if rawPath == "" {
 		rawPath = "."
 	}
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve frontend path: %w", err)
+		return nil, fmt.Errorf("failed to resolve frontend path: %w", err)
 	}
 
 	name := strings.TrimSpace(opts.name)
@@ -82,7 +140,7 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		name = strings.ToLower(filepath.Base(absPath))
 	}
 	if name == "" {
-		return errors.New("frontend name cannot be empty")
+		return nil, errors.New("frontend name cannot be empty")
 	}
 
 	framework := strings.TrimSpace(opts.framework)
@@ -90,25 +148,25 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		framework = defaultFrontendFramework
 	}
 	if framework != defaultFrontendFramework {
-		return fmt.Errorf("unsupported framework %q (only %s is currently supported)", framework, defaultFrontendFramework)
+		return nil, fmt.Errorf("unsupported framework %q (only %s is currently supported)", framework, defaultFrontendFramework)
 	}
 
 	variableScope := strings.TrimSpace(opts.variableScope)
 	if variableScope != "" && variableScope != "all" && variableScope != "scoped" {
-		return errors.New("--variable-scope must be all or scoped")
+		return nil, errors.New("--variable-scope must be all or scoped")
 	}
 	if len(opts.variables) > 0 && variableScope != "scoped" {
-		return errors.New("--variable requires --variable-scope scoped")
+		return nil, errors.New("--variable requires --variable-scope scoped")
 	}
 
 	appRoot, err := clifrontend.NormalizeAppRoot(opts.appRoot)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if appRoot != "" {
 		if err := clifrontend.ValidateAppRootExists(absPath, appRoot); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -116,23 +174,25 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 	if appRoot != "" {
 		appCheckRoot = filepath.Join(absPath, filepath.FromSlash(appRoot))
 	}
-	if _, err := os.Stat(filepath.Join(appCheckRoot, "package.json")); err != nil {
-		if os.IsNotExist(err) {
-			if appRoot != "" {
-				return fmt.Errorf("no package.json at --path/--app-root (%s); make sure --app-root points at the app directory", appCheckRoot)
-			}
-			return fmt.Errorf("no package.json at --path (%s); pass --app-root or run from the app directory", appCheckRoot)
+	found, err := clifrontend.HasBuildPackage(absPath, appCheckRoot)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		if appRoot != "" {
+			return nil, fmt.Errorf("no package.json at --path/--app-root (%s); make sure --app-root points at the app directory", appCheckRoot)
 		}
-		return fmt.Errorf("failed to read package.json at %s: %w", appCheckRoot, err)
+		return nil, fmt.Errorf("no package.json at --path (%s); pass --app-root or run from the app directory", appCheckRoot)
 	}
 
 	fmt.Fprintf(opts.out, "Packaging frontend directory: %s\n", absPath)
 	pkg, err := clifrontend.PackageDirectory(absPath, clifrontend.PackageOptions{
 		DisableWorkspacePromotion: appRoot != "",
 		AppRoot:                   appRoot,
+		ExcludeFiles:              opts.excludeFiles,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if pkg.PackagingRoot != absPath {
 		fmt.Fprintf(opts.out, "Packaging workspace root: %s\n", pkg.PackagingRoot)
@@ -155,9 +215,9 @@ func runDeploy(ctx context.Context, opts deployOptions) error {
 		Archive:       pkg.Archive,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	output.Success(opts.out, "Frontend '%s' deployment started", deployed.Name)
-	return nil
+	return deployed, nil
 }

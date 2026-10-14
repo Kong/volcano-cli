@@ -84,8 +84,7 @@ func TestFunctionsUpdateRefusesBeforeCallingTheAPI(t *testing.T) {
 }
 
 // Leaving public while a route forwards to the function is refused, and the
-// refusal names the routes to remove first. The CLI manages routes only in the
-// cloud, so a local project is pointed at its manifest instead.
+// refusal names the commands that remove the routes, in the tree it ran from.
 func TestFunctionsUpdateShowsTheRouteConflict(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -102,9 +101,9 @@ func TestFunctionsUpdateShowsTheRouteConflict(t *testing.T) {
 		{
 			name: "local",
 			deps: cliruntime.Deps{CommandPathPrefix: "volcano", LocalMode: true},
-			want: "frontend routes forward to it; remove them from function_routes in volcano-config.yaml and run volcano config deploy:\n" +
-				"  admin /hello\n" +
-				"  web /api/hello",
+			want: "frontend routes forward to it; remove them first:\n" +
+				"  volcano frontends routes delete admin /hello\n" +
+				"  volcano frontends routes delete web /api/hello",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
