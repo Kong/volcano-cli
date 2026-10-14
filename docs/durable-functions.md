@@ -288,7 +288,9 @@ messages nobody took are marked `dropped`.
 
 `--idempotency-key` makes a send safe to retry. Repeating it with a key the
 execution has already seen prints the first message and `Already sent with this
-idempotency key; nothing changed`.
+idempotency key; nothing changed`. Without the flag, `send` generates a key and
+prints it to stderr before sending, so a send whose outcome you did not see can
+be retried with that key.
 
 `list` reads both directions oldest first: `in` for messages sent to the
 execution, `out` for the ones it published. Each message has a `seq`; `--after`

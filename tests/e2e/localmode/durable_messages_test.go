@@ -41,22 +41,34 @@ const localModeE2EDurableMessageManifest = `{
 }
 `
 
-// requireLocalModeRunsDurableMessages is the cloud messages round trip against
-// the local stack: a wait the CLI sees open, a send it resumes with, and the
-// messages the execution published around it.
-func requireLocalModeRunsDurableMessages(t *testing.T, binary string, env []string, dir string) {
-	t.Helper()
+// TestLocalModeE2EDurableMessages is the cloud messages round trip against the
+// local stack: a wait the CLI sees open, a send it resumes with, and the
+// messages the execution published around it. It has its own stack and
+// project, so a failure here does not stop the smoke's later checks.
+func TestLocalModeE2EDurableMessages(t *testing.T) {
+	if os.Getenv("VOLCANO_LOCALMODE_E2E") != "1" {
+		t.Skip("set VOLCANO_LOCALMODE_E2E=1 to run disposable Docker acceptance")
+	}
+	requireDocker(t)
+	binary := buildLocalModeE2EBinary(t)
+	env, dir := localModeE2EEnv(t), localModeE2EProjectDir(t)
+	cleanup := func() {
+		_, _ = runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "stop", "--clean")
+	}
+	cleanup()
+	t.Cleanup(cleanup)
 
 	functionDir := filepath.Join("volcano", "functions", "message-pipeline")
 	writeLocalModeE2EFile(t, dir, "volcano-config.yaml", `
 version: 1
 functions:
-  - name: hello
   - name: message-pipeline
     kind: durable
 `)
 	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "index.js"), localModeE2EDurableMessageSource)
 	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "package.json"), localModeE2EDurableMessageManifest)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "start"),
+		"Volcano is ready for local development.")
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "deploy", "--all"),
 		"message-pipeline")
@@ -109,12 +121,7 @@ functions:
 		"durable", "messages", "send", "message-pipeline", executionID, "posted")
 	require.Error(t, err, "an ended execution has to refuse a message\n%s", ended)
 	requireContains(t, ended, "execution "+executionID+" has ended and takes no more messages")
-
-	runVolcanoLocalModeE2E(t, binary, env, dir, "durable", "delete", "message-pipeline", "--yes")
-
-	// Removed here for the reason requireLocalModeRunsDurableFunctions gives.
-	removeLocalModeE2EFile(t, dir, "volcano-config.yaml")
-	require.NoError(t, os.RemoveAll(filepath.Join(dir, functionDir)))
+	requireContains(t, ended, "to retry this send safely")
 }
 
 // waitForLocalModeE2EDurableMessageWait polls until the execution waits for a

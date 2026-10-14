@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,6 +65,27 @@ func TestSendPostsTheMessageAndReportsIt(t *testing.T) {
 	} {
 		assert.Contains(t, out, want)
 	}
+	assert.NotContains(t, out, "Idempotency key", "a key the user chose is not repeated back")
+}
+
+// The generated key is printed before the request, so it is there to retry
+// with when the send fails or its response never arrives.
+func TestSendWithoutAKeyGeneratesOneAndPrintsItFirst(t *testing.T) {
+	setMessagesTestHome(t)
+	var key string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key = r.Header.Get("Idempotency-Key")
+		respondJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
+	}))
+	defer server.Close()
+
+	_, stderr, err := executeCommandSplit(t, newMessagesCommand(server), "",
+		"send", "order-pipeline", executionID, "payment-confirmed")
+	require.Error(t, err)
+
+	_, parseErr := uuid.Parse(key)
+	require.NoError(t, parseErr, "the generated key is a UUID: %q", key)
+	assert.Contains(t, string(stderr), "Idempotency key "+key+"; rerun with --idempotency-key "+key)
 }
 
 // Data is any JSON value, not only an object, and leaving it out sends a

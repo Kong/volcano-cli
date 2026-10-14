@@ -27,6 +27,7 @@ type sendOptions struct {
 	idempotencyKey string
 	jsonOutput     bool
 	out            io.Writer
+	errOut         io.Writer
 }
 
 func newSend(deps cliruntime.Deps) *cobra.Command {
@@ -43,7 +44,9 @@ execution that has ended takes no messages.
 Without either the workflow receives null.
 
 --idempotency-key makes a send safe to retry: a repeat with a key the execution
-has already seen returns the first message and sends nothing.`,
+has already seen returns the first message and sends nothing. Without it, a key
+is generated and printed to stderr before the message is sent; pass it to
+--idempotency-key to retry a send whose outcome you did not see.`,
 		Example: fmt.Sprintf(`  %s
   %s`,
 			cliruntime.CommandPath(deps,
@@ -65,6 +68,7 @@ has already seen returns the first message and sends nothing.`,
 			opts.executionID = executionID
 			opts.name = args[2]
 			opts.out = cmd.OutOrStdout()
+			opts.errOut = cmd.ErrOrStderr()
 			return runSend(cmd.Context(), opts)
 		},
 	}
@@ -97,6 +101,13 @@ func messageData(cmd *cobra.Command, data, dataFile string) (json.RawMessage, er
 }
 
 func runSend(ctx context.Context, opts sendOptions) error {
+	if opts.idempotencyKey == "" {
+		opts.idempotencyKey = uuid.NewString()
+		// Printed before sending: when the response is lost, this is the only
+		// way to retry without queueing the message twice.
+		output.Note(opts.errOut, "Idempotency key %s; rerun with --idempotency-key %s to retry this send safely",
+			opts.idempotencyKey, opts.idempotencyKey)
+	}
 	message, created, err := clidurable.NewService(opts.deps).SendMessage(
 		ctx, opts.function, opts.executionID, opts.name, opts.data, opts.idempotencyKey)
 	if err != nil {

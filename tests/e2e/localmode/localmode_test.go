@@ -55,7 +55,6 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeOmitsProviderOnlyDatabaseCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableFunctions(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
-	requireLocalModeRunsDurableMessages(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeRefusesFrontendRoutes(t, volcanoBin, env, projectDir)
