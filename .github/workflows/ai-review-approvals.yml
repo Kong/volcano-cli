@@ -1,4 +1,4 @@
-name: Claude Review (approvals)
+name: AI Review (approvals)
 
 on:
   pull_request_review:
@@ -8,9 +8,9 @@ permissions: {}
 
 jobs:
   # A review runs the PR's own copy of this workflow, so it only finishes;
-  # Claude Review (human gate) then runs from the default branch.
+  # AI Review (human gate) then runs from the default branch.
   reviewed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "Claude Review (human gate) re-sets claude-review/human."
+      - run: echo "AI Review (human gate) re-sets ai-review/human."

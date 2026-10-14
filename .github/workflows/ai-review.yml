@@ -1,4 +1,4 @@
-name: Claude Review
+name: AI Review
 
 on:
   pull_request_target:
@@ -8,8 +8,8 @@ on:
 permissions: {}
 
 jobs:
-  claude-review:
-    uses: Kong/volcano-actions/.github/workflows/claude-review.yml@main
+  ai-review:
+    uses: Kong/volcano-actions/.github/workflows/ai-review.yml@main
     permissions:
       contents: read
       pull-requests: write

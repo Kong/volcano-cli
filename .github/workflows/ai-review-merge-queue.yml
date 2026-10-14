@@ -1,4 +1,4 @@
-name: Claude Review (merge queue)
+name: AI Review (merge queue)
 
 on:
   merge_group:
@@ -9,6 +9,6 @@ permissions: {}
 
 jobs:
   pass:
-    uses: Kong/volcano-actions/.github/workflows/claude-review-merge-queue.yml@main
+    uses: Kong/volcano-actions/.github/workflows/ai-review-merge-queue.yml@main
     permissions:
       statuses: write
