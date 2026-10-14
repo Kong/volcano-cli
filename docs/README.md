@@ -89,7 +89,7 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
-| Frontends | deploy, inspect, custom domains, function routes | `cloud frontends …` | [frontends.md](frontends.md) |
+| Frontends | deploy, inspect, custom domains, function routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |

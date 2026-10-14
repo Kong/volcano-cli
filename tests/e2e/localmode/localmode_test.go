@@ -57,8 +57,9 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeRunsDurableApprovals(t, volcanoBin, env, projectDir)
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
-	requireLocalModeRefusesFrontendRoutes(t, volcanoBin, env, projectDir)
+	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
 	requireContains(t, migrationOutput, "Applying 001_create_cli_contract.sql... ok")
@@ -525,26 +526,6 @@ func requireLocalModeOmitsAccessTokenCommands(t *testing.T, binary string, env [
 		}
 		requireContains(t, output, "is a cloud command")
 		requireContains(t, output, "volcano cloud access-tokens")
-	}
-}
-
-// requireLocalModeRefusesFrontendRoutes checks that the root "volcano
-// frontends" alias, which targets the cloud, does not take a local project's
-// route changes there. Local development has no frontends commands, so the
-// refusal names the cloud command and the manifest.
-func requireLocalModeRefusesFrontendRoutes(t *testing.T, binary string, env []string, dir string) {
-	t.Helper()
-	for _, args := range [][]string{
-		{"frontends", "routes", "list", "web"},
-		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "hello"},
-	} {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
-		if err == nil {
-			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
-		}
-		requireContains(t, output, `"frontends routes" is a cloud command`)
-		requireContains(t, output, "volcano cloud frontends routes")
-		requireContains(t, output, "declare function_routes in volcano-config.yaml")
 	}
 }
 

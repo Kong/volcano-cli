@@ -28,7 +28,7 @@ func newDelete(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <name-or-id>",
 		Short: "Delete a frontend",
-		Long: `Delete a frontend from the current cloud project.
+		Long: `Delete a frontend from the current project.
 
 By default this command prompts for confirmation.
 Use --yes to skip the prompt.`,

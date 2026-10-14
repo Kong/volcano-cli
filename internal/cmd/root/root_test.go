@@ -36,7 +36,7 @@ func TestRootHelp(t *testing.T) {
 	assert.Contains(t, out, "stop")
 	assert.Contains(t, out, "upgrade")
 	assert.Contains(t, out, "variables")
-	assert.NotContains(t, out, "frontends")
+	assert.Contains(t, out, "frontends")
 	assert.NotContains(t, out, "\n  local ")
 }
 
@@ -68,10 +68,9 @@ func TestAccessTokensAreCloudOnly(t *testing.T) {
 	}
 }
 
-// The root "volcano frontends" alias targets the cloud, but the root is where
-// local commands live. Routes came after that alias was deprecated, so it
-// refuses them instead of sending a local project's routes to the cloud.
-func TestFrontendRoutesAreCloudOnlyAtTheRoot(t *testing.T) {
+// Local development serves no custom domains, so the local frontends tree
+// refuses them without reaching any server.
+func TestLocalFrontendsLeaveDomainsToTheCloud(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		http.NotFound(w, r)
@@ -80,23 +79,101 @@ func TestFrontendRoutesAreCloudOnlyAtTheRoot(t *testing.T) {
 	t.Setenv("VOLCANO_API_URL", server.URL)
 
 	for _, args := range [][]string{
-		{"frontends", "routes", "list", "web"},
-		{"frontends", "routes", "create", "web", "--path", "/api", "--function", "session"},
-		{"frontends", "routes"},
+		{"frontends", "domain", "get", "web"},
+		{"frontends", "domain", "create", "web", "--domain", "app.example.com"},
 	} {
 		_, err := executeRootCommand(t, args...)
-		require.ErrorContains(t, err, `"frontends routes" is a cloud command: run 'volcano cloud frontends routes ...'`, "%v", args)
-		require.ErrorContains(t, err, "declare function_routes in volcano-config.yaml", "%v", args)
+		require.ErrorContains(t, err, `"frontends domain" is a cloud command`, "%v", args)
+		require.ErrorContains(t, err, "volcano cloud frontends domain", "%v", args)
 	}
 
-	out, err := executeRootCommand(t, "frontends", "routes", "--help")
+	out, err := executeRootCommand(t, "frontends", "--help")
 	require.NoError(t, err)
-	assert.Contains(t, out, "This is a cloud command")
+	assert.Contains(t, out, "routes")
+	assert.NotContains(t, out, "domain")
+}
 
-	out, err = executeRootCommand(t, "cloud", "frontends", "routes", "--help")
+// The local server serves function routes like the cloud does, so the local
+// tree manages them against it.
+func TestLocalFrontendRoutesTargetTheLocalServer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	frontendID := "33333333-3333-4333-8333-333333333333"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Empty(t, r.Header.Get("Authorization"))
+		switch r.URL.Path {
+		case "/projects/22222222-2222-4222-8222-222222222222/frontends":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{rootFrontendPayload("web")},
+				"has_more": false,
+				"limit":    100,
+				"page":     1,
+			})
+		case "/projects/22222222-2222-4222-8222-222222222222/frontends/" + frontendID + "/function-routes":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+		case "/projects/22222222-2222-4222-8222-222222222222/functions":
+			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{}, "has_more": false, "page": 1, "limit": 100, "total": 0,
+			})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		LocalCommandRunner: localmode.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte(rootLocalInfoJSON(server.URL)), nil
+		}),
+	}
+
+	out, err := executeRootCommandWithDeps(t, deps, "frontends", "routes", "list", "web")
 	require.NoError(t, err)
-	assert.Contains(t, out, "create")
-	assert.Contains(t, out, "delete")
+	assert.Contains(t, out, `No function routes on frontend "web"`)
+
+	out, err = executeRootCommand(t, "frontends", "routes", "create", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano frontends routes create web --path /api/session")
+	assert.NotContains(t, out, "volcano cloud frontends")
+}
+
+// "volcano frontends" used to be a deprecated alias for the cloud tree. It now
+// targets the local server like every other root resource command.
+func TestLocalFrontendsTargetTheLocalServer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/projects/22222222-2222-4222-8222-222222222222/frontends", r.URL.Path)
+		assert.Empty(t, r.Header.Get("Authorization"))
+		writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
+			"data":     []any{rootFrontendPayload("web")},
+			"has_more": false,
+			"limit":    100,
+			"page":     1,
+		})
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{
+		HTTPClient: server.Client(),
+		LocalCommandRunner: localmode.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte(rootLocalInfoJSON(server.URL)), nil
+		}),
+	}
+
+	out, err := executeRootCommandWithDeps(t, deps, "frontends", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "web")
+	assert.NotContains(t, out, "deprecated")
+
+	out, err = executeRootCommand(t, "frontends", "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano frontends deploy --name web --path ./apps/web")
+	assert.NotContains(t, out, "volcano cloud frontends")
 }
 
 func TestInitCommandPath(t *testing.T) {
@@ -372,6 +449,21 @@ func rootFunctionRuntimePayload(name string) map[string]any {
 			"handler":              "handler",
 			"dependency_manifests": []string{"package.json"},
 		},
+	}
+}
+
+func rootFrontendPayload(name string) map[string]any {
+	return map[string]any{
+		"created_at":       "2026-05-20T00:00:00Z",
+		"deployed_regions": []string{"local"},
+		"framework":        "nextjs",
+		"function_routes":  []any{},
+		"id":               "33333333-3333-4333-8333-333333333333",
+		"name":             name,
+		"project_id":       "22222222-2222-4222-8222-222222222222",
+		"site_url":         "http://33333333-3333-4333-8333-333333333333.frontends.localhost:8080",
+		"status":           "active",
+		"updated_at":       "2026-05-20T00:00:00Z",
 	}
 }
 
