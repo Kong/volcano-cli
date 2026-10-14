@@ -562,6 +562,25 @@ func TestDeployWaitsForEveryDeployment(t *testing.T) {
 	assert.Contains(t, out, "✓ web             active")
 }
 
+// The server re-syncs variables changed during a build after the deployment
+// completes, and the durable function refuses starts until that sync lands.
+func TestDeployWaitsForTheDurableFunctionToAcceptExecutions(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	fake.durableStatuses = map[string][]string{"order-pipeline": {"provisioning", "provisioning", "active"}}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps))
+	require.NoError(t, err, out)
+
+	assert.Equal(t, 3, fake.durableReads["order-pipeline"])
+	assert.Equal(t, 3, fake.polls)
+	assert.Contains(t, out, "✓ order-pipeline  active")
+}
+
 func TestDeployReportsAFailedDeployment(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeFullProject(t)
