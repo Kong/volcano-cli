@@ -1,0 +1,20 @@
+name: AI Review (human gate)
+
+on:
+  workflow_run:
+    workflows: [AI Review (approvals)]
+    types: [completed]
+  pull_request_target:
+    branches: [main]
+    types: [labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  human-gate:
+    if: github.event_name == 'workflow_run' || github.event.label.name == 'needs-human-review'
+    uses: Kong/volcano-actions/.github/workflows/ai-review-human.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write

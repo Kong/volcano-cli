@@ -1,0 +1,14 @@
+name: AI Review (merge queue)
+
+on:
+  merge_group:
+    branches: [main]
+    types: [checks_requested]
+
+permissions: {}
+
+jobs:
+  pass:
+    uses: Kong/volcano-actions/.github/workflows/ai-review-merge-queue.yml@main
+    permissions:
+      statuses: write
