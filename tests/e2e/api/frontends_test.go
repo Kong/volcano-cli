@@ -248,6 +248,7 @@ func waitForAPIE2EFrontendContent(t *testing.T, siteURL, expected string) {
 	}
 	deadline := time.Now().Add(apiE2EFrontendDeploymentTimeout)
 	client := &http.Client{Timeout: 15 * time.Second}
+	last := ""
 	for time.Now().Before(deadline) {
 		resp, err := client.Get(siteURL)
 		if err == nil {
@@ -256,8 +257,11 @@ func waitForAPIE2EFrontendContent(t *testing.T, siteURL, expected string) {
 			if readErr == nil && resp.StatusCode == http.StatusOK && strings.Contains(string(body), expected) {
 				return
 			}
+			last = fmt.Sprintf("status %d: %.400s", resp.StatusCode, body)
+		} else {
+			last = err.Error()
 		}
 		time.Sleep(apiE2EPollInterval)
 	}
-	t.Fatalf("frontend %s did not serve %q before timeout", siteURL, expected)
+	t.Fatalf("frontend %s did not serve %q before timeout; last: %s", siteURL, expected, last)
 }

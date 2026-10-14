@@ -37,6 +37,7 @@ func TestRootHelp(t *testing.T) {
 	assert.Contains(t, out, "upgrade")
 	assert.Contains(t, out, "variables")
 	assert.Contains(t, out, "frontends")
+	assert.Contains(t, out, "\n  deploy ")
 	assert.NotContains(t, out, "\n  local ")
 }
 
@@ -45,6 +46,7 @@ func TestCloudHelpIncludesCloudResources(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "access-tokens")
 	assert.Contains(t, out, "databases")
+	assert.Contains(t, out, "\n  deploy ")
 	assert.Contains(t, out, "frontends")
 	assert.Contains(t, out, "functions")
 	assert.Contains(t, out, "storage")
@@ -322,6 +324,21 @@ func TestCloudFrontendHelpUsesCloudPaths(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "volcano cloud frontends deploy --name web --path ./apps/web")
 	assert.NotContains(t, out, "volcano frontends deploy --name web")
+}
+
+func TestDeployHelpNamesTheTreeItRunsFrom(t *testing.T) {
+	out, err := executeRootCommand(t, "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano deploy --with-migrations\n")
+	assert.Contains(t, out, "Database to apply migrations to (default: app)")
+	assert.NotContains(t, out, "volcano cloud deploy")
+	assert.NotContains(t, out, "cloud.env")
+
+	out, err = executeRootCommand(t, "cloud", "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, out, "volcano cloud deploy --env-file volcano/cloud.env --with-migrations -d app")
+	assert.Contains(t, out, "volcano/volcano.env holds the local server's values")
+	assert.Contains(t, out, "default: the one the manifests declare")
 }
 
 func TestCloudFunctionPaginationUsesCloudPath(t *testing.T) {

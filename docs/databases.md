@@ -32,7 +32,12 @@ it using its connection string.
 Local migrations run from `volcano/migrations` against a local database. Cloud
 migrations use the cloud database command and connect through the managed
 database proxy; the local `migrations deploy` command does not have a cloud
-variant.
+variant. [`volcano deploy --with-migrations`](deploy.md) runs the same
+migrations as part of a whole-project deploy.
+
+Each file runs as a single query, and the database proxy refuses a query with
+more than one statement, so put one SQL statement in each file. Files run in
+name order.
 
 ## Branches
 

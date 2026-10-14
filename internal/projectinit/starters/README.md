@@ -86,10 +86,17 @@ version: 1
 functions: []
 ```
 
-If a starter does not create a valid config manifest, `volcano init` must not
-print `volcano config deploy` as a next step. The current implementation
-prints that step only when the init result includes `volcano/volcano-config.yaml`
-or `volcano-config.yaml`.
+`volcano init` points at `volcano deploy`, which skips the config step when a
+project has no manifest, so a starter without one needs no special next steps.
+
+## Frontends
+
+A starter with a frontend lists it in `.volcano/source-layout.json`, which is
+how `volcano deploy` and a connected Git repository find it. The frontend
+builds with only the project variables its `frontends:` entry selects in
+`volcano/volcano-config.yaml`. The source upload always leaves out
+`volcano/*.env`; a starter archiving the project root still lists them in its
+root `.gitignore` to keep them out of Git.
 
 ## Environment Files
 

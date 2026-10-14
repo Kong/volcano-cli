@@ -135,6 +135,13 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	deleteFunctionOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "functions", "delete", "hello", "--yes")
 	requireContains(t, deleteFunctionOutput, "deletion started")
 
+	// Each runs in a project directory of its own. They come after the config
+	// smoke, whose full variable sync would delete their variables.
+	requireLocalModeDeployRefusesTwoVariableSources(t, volcanoBin, env)
+	requireLocalModeDeploysWholeProject(t, volcanoBin, env)
+	requireLocalModeDeployHonorsItsFlagsAndReportsAFailedBuild(t, volcanoBin, env)
+	requireLocalModeDeploysStarter(t, volcanoBin, env)
+
 	resetOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "reset", "--yes")
 	requireContains(t, resetOutput, "Local reset complete.")
 	requireContains(t, resetOutput, "volcano migrations deploy --all -d app")

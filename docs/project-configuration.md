@@ -98,6 +98,8 @@ Key semantics:
   frontend, run `volcano cloud frontends deploy` with the `--variable-scope`
   and `--variable` flags its entry needs, then `volcano cloud config deploy`
   (locally, `volcano frontends deploy`, then `volcano config deploy`).
+  [`volcano deploy`](deploy.md) does this for you and applies the manifest
+  after the code.
   A frontend created without them starts with no project variables.
 - `${ENV_VAR}` references are interpolated before upload. A reference to an
   unset variable is an error, and `$$` produces a literal `$`.

@@ -187,6 +187,34 @@ func TestFrontendsDeployRequiresPackageJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "no package.json")
 }
 
+// volcano init nextjs keeps one package.json at the root that builds web/, and
+// the builders accept that app root, so deploy must too.
+func TestFrontendsDeployAcceptsAnAppRootTheRootPackageBuilds(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	projectDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "package.json"), []byte(`{"name":"notes","scripts":{"build":"next build web"}}`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(projectDir, "web", "app"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "web", "app", "page.js"), []byte("export default null"), 0o644))
+
+	var sawAppRoot string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/frontends" {
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			sawAppRoot = r.FormValue("app_root")
+			writeFrontendCommandJSON(t, w, http.StatusCreated, frontendCommandPayload(frontendID, "web"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	_, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"deploy", "--name", "web", "--path", projectDir, "--app-root", "web")
+	require.NoError(t, err)
+	assert.Equal(t, "web", sawAppRoot)
+}
+
 func TestFrontendsDeployRejectsUnsupportedFramework(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)

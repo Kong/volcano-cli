@@ -1,11 +1,22 @@
 version: 1
 
-# Deploy with `volcano config deploy` after `volcano functions deploy`.
-# Declared sections are the source of truth: schedulers listed under a
-# function are fully synced, and entries for functions that are not
-# deployed yet are skipped with a warning.
+# `volcano deploy` applies this after it deploys the functions and the
+# frontend. Declared sections are the source of truth: schedulers listed under
+# a function are fully synced, and entries for functions or frontends that are
+# not deployed yet are skipped with a warning.
 functions:
   # The dashboard calls notes-summary as the signed-in user, so it has to
   # accept the project's end users and not only server-side callers.
   - name: notes-summary
     visibility: authenticated
+
+frontends:
+  # The web app is built with only the variables it selects, so it never
+  # sees VOLCANO_SERVICE_KEY. Next.js inlines NEXT_PUBLIC_* values into the
+  # browser code; builds never see VOLCANO_* names.
+  - name: web
+    variable_scope: scoped
+    variables:
+      - NEXT_PUBLIC_VOLCANO_API_URL
+      - NEXT_PUBLIC_VOLCANO_ANON_KEY
+      - NEXT_PUBLIC_VOLCANO_DATABASE

@@ -5,27 +5,23 @@ This directory contains Volcano migrations and local variables.
 Local development:
 
     volcano start
-    volcano variables deploy
-    volcano migrations deploy --all -d app
+    volcano deploy --with-migrations
 
-If this project includes volcano/functions:
-
-    volcano functions deploy --all
-
-If this project includes volcano/volcano-config.yaml:
-
-    volcano config deploy
+`volcano deploy` deploys whatever the project has: the variables in
+volcano/volcano.env, the migrations in volcano/migrations, the functions in
+volcano/functions, the frontends listed in .volcano/source-layout.json, and
+volcano/volcano-config.yaml. Migrations run again on every --with-migrations
+run, so write them to be safe to repeat.
 
 Cloud deployment:
 
     volcano login                          # new to Volcano? run: volcano signup
     volcano use <project-id-or-name>
-    volcano cloud variables deploy
+    volcano cloud deploy --env-file volcano/cloud.env
 
-If this project includes volcano/functions:
-
-    volcano cloud functions deploy --all
-
-If this project includes volcano/volcano-config.yaml:
-
-    volcano cloud config deploy
+volcano/volcano.env holds the local server's URL and keys, which a cloud
+project can't use; `volcano cloud deploy` refuses it. Put the cloud project's
+variables in volcano/cloud.env, under the same names. Add
+--with-migrations -d <database> to apply the migrations to a cloud database.
+Run `volcano deploy --help` for every option and the commands that deploy one
+kind of resource at a time.

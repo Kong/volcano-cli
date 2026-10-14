@@ -1,14 +1,20 @@
 package initcmd
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
 )
 
@@ -45,9 +51,10 @@ func TestCreatesScaffoldAndPrintsCreatedFiles(t *testing.T) {
 	assert.Contains(t, out, "Volcano project initialized.")
 	assert.Contains(t, out, "Created:")
 	assert.Contains(t, out, "volcano/README.md")
-	assert.Contains(t, out, "volcano functions deploy --all")
-	assert.NotContains(t, out, "volcano config deploy")
-	assert.NotContains(t, out, "volcano cloud config deploy")
+	assert.Contains(t, out, "2. Run: volcano deploy --with-migrations")
+	assert.Contains(t, out, "Put the cloud project's variables in volcano/cloud.env")
+	assert.Contains(t, out, "Run: volcano cloud deploy --env-file volcano/cloud.env\n")
+	assert.NotContains(t, out, "Open the frontend URL")
 	assert.FileExists(t, filepath.Join("volcano", "README.md"))
 	assert.NoFileExists(t, filepath.Join("volcano", "functions", "hello.js"))
 	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
@@ -67,8 +74,8 @@ func TestCreatesNextJSStarter(t *testing.T) {
 	assert.Contains(t, readFile(t, ".gitignore"), "node_modules")
 	assert.NoFileExists(t, filepath.Join("volcano", "functions", "notes-summary.js"))
 	assert.NoFileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.NotContains(t, out, "volcano config deploy")
-	assert.NotContains(t, out, "volcano cloud config deploy")
+	assert.Contains(t, out, "3. Open the frontend URL the deploy prints")
+	assertStarterLayoutListsWeb(t)
 }
 
 func TestCreatesNextJSNotesExample(t *testing.T) {
@@ -84,10 +91,11 @@ func TestCreatesNextJSNotesExample(t *testing.T) {
 	assert.FileExists(t, ".gitignore")
 	assert.Contains(t, readFile(t, ".gitignore"), "node_modules")
 	assert.FileExists(t, filepath.Join("volcano", "volcano-config.yaml"))
-	assert.Contains(t, out, "volcano config deploy")
-	assert.Contains(t, out, "volcano cloud config deploy")
+	assert.Contains(t, out, "2. Run: volcano deploy --with-migrations")
+	assert.Contains(t, out, "Run: volcano cloud deploy --env-file volcano/cloud.env --with-migrations -d <database>")
 	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano init nextjs --example notes")
-	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano config deploy")
+	assert.Contains(t, readFile(t, filepath.Join("web", "README.md")), "volcano deploy --with-migrations")
+	assertStarterLayoutListsWeb(t)
 
 	// The dashboard invokes notes-summary as the signed-in user, which new
 	// functions refuse until they are authenticated.
@@ -98,6 +106,67 @@ func TestCreatesNextJSNotesExample(t *testing.T) {
 	assert.Equal(t, "notes-summary", (*manifest.Functions)[0].Name)
 	assertStarterFunctionVisibility(t, "notes-summary", "authenticated")
 	assert.Contains(t, readFile(t, filepath.Join("web", "app", "dashboard", "page.js")), `functions.invoke("notes-summary", { limit: 5 })`)
+
+	// The frontend archive is the project root, so the build must select its
+	// variables rather than receive the service key too.
+	require.NotNil(t, manifest.Frontends)
+	require.Len(t, *manifest.Frontends, 1)
+	web := (*manifest.Frontends)[0]
+	require.NotNil(t, web.VariableScope)
+	assert.Equal(t, "scoped", *web.VariableScope)
+	require.NotNil(t, web.Variables)
+	assert.Equal(t, []string{"NEXT_PUBLIC_VOLCANO_API_URL", "NEXT_PUBLIC_VOLCANO_ANON_KEY", "NEXT_PUBLIC_VOLCANO_DATABASE"}, *web.Variables)
+	// Frontend builds drop VOLCANO_* names, so the env file has to carry
+	// every name the frontend selects.
+	env := readFile(t, filepath.Join("volcano", "volcano.env"))
+	for _, name := range *web.Variables {
+		assert.Contains(t, env, name+"=")
+	}
+	assert.Contains(t, readFile(t, ".gitignore"), "volcano/*.env")
+
+	// The upload is the whole project, and the env files hold keys.
+	require.NoError(t, os.WriteFile(filepath.Join("volcano", "cloud.env"), []byte("VOLCANO_ANON_KEY=ak-cloud\n"), 0o600))
+	pkg, err := clifrontend.PackageDirectory(".", clifrontend.PackageOptions{AppRoot: "web"})
+	require.NoError(t, err)
+	entries := archiveEntries(t, pkg.Archive)
+	assert.Contains(t, entries, "web/next.config.js")
+	assert.Contains(t, entries, "volcano/_shared/volcano-client.js")
+	assert.NotContains(t, entries, "volcano/volcano.env")
+	assert.NotContains(t, entries, "volcano/cloud.env")
+	assert.NotContains(t, entries, "web/.env.local")
+}
+
+func archiveEntries(t *testing.T, archive []byte) []string {
+	t.Helper()
+	gz, err := gzip.NewReader(bytes.NewReader(archive))
+	require.NoError(t, err)
+	tr := tar.NewReader(gz)
+	var names []string
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return names
+		}
+		require.NoError(t, err)
+		names = append(names, strings.TrimPrefix(header.Name, "./"))
+	}
+}
+
+// assertStarterLayoutListsWeb checks that volcano deploy finds the starter's
+// app as the web frontend and can package it.
+func assertStarterLayoutListsWeb(t *testing.T) {
+	t.Helper()
+	layout, found, err := clifrontend.ReadSourceLayout(".")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Len(t, layout.Frontends, 1)
+	web := layout.Frontends[0]
+	assert.Equal(t, "web", web.Name)
+	assert.Empty(t, web.Dir())
+	assert.Equal(t, "web", web.AppRoot)
+	buildable, err := clifrontend.HasBuildPackage(".", web.AppRoot)
+	require.NoError(t, err)
+	assert.True(t, buildable)
 }
 
 func TestRejectsLegacyNextJSDemoAlias(t *testing.T) {

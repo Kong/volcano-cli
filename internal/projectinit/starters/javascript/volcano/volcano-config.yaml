@@ -1,9 +1,9 @@
 version: 1
 
-# Deploy with `volcano config deploy` after `volcano functions deploy`.
-# Declared sections are the source of truth: schedulers listed under a
-# function are fully synced, and entries for functions that are not
-# deployed yet are skipped with a warning.
+# `volcano deploy` applies this after it deploys the functions. Declared
+# sections are the source of truth: schedulers listed under a function are
+# fully synced, and entries for functions that are not deployed yet are
+# skipped with a warning.
 functions:
   # Anyone holding the project's anon key can invoke hello. Use authenticated
   # to keep it to signed-in users, or private for server-side callers only.

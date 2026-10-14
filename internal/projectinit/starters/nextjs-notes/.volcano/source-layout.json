@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "frontends": [
+    {
+      "name": "web",
+      "workspace": "",
+      "app_root": "web"
+    }
+  ]
+}
