@@ -26,6 +26,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/project"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -93,7 +94,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 		return nil, err
 	}
 	if !opts.deps.LocalMode && envFile != "" {
-		if err := refuseLocalValues(envFile); err != nil {
+		if err := refuseLocalValues(envFile, deployAPIURL(opts.deps)); err != nil {
 			return nil, err
 		}
 	}
@@ -312,14 +313,17 @@ var localServerKeys = []string{
 
 // refuseLocalValues keeps the local server's values out of a cloud project: its
 // keys, or an API URL on this machine, which a cloud frontend would compile in.
-func refuseLocalValues(path string) error {
+// An API URL on this machine that names apiURL, the API this deploy targets, is
+// the project's own, as when a cloud server runs on this machine.
+func refuseLocalValues(path, apiURL string) error {
 	file, err := envfile.Load(path)
 	if err != nil {
 		return err
 	}
 	var local []string
 	for name, value := range file.Variables {
-		if slices.Contains(localServerKeys, value) || (strings.HasSuffix(name, "VOLCANO_API_URL") && isLoopbackURL(value)) {
+		if slices.Contains(localServerKeys, value) ||
+			(strings.HasSuffix(name, "VOLCANO_API_URL") && isLoopbackURL(value) && !sameOrigin(value, apiURL)) {
 			local = append(local, name)
 		}
 	}
@@ -330,6 +334,38 @@ func refuseLocalValues(path string) error {
 	return fmt.Errorf("%s holds the local development server's values (%s), which do not work in a cloud project.\n"+
 		"Put the cloud project's values in another env file and pass it, for example --env-file volcano/cloud.env",
 		path, strings.Join(local, ", "))
+}
+
+// deployAPIURL is the API a cloud deploy talks to, or "" when the config can't
+// be read; the deploy reports that error when it first reaches the API.
+func deployAPIURL(deps cliruntime.Deps) string {
+	factory := session.NewFactory(deps)
+	cfg, err := factory.Config()
+	if err != nil {
+		return ""
+	}
+	return factory.APIURL(cfg)
+}
+
+func sameOrigin(a, b string) bool {
+	ua, errA := url.Parse(strings.TrimSpace(a))
+	ub, errB := url.Parse(strings.TrimSpace(b))
+	return errA == nil && errB == nil && ua.Hostname() != "" &&
+		strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Hostname(), ub.Hostname()) &&
+		effectivePort(ua) == effectivePort(ub)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	}
+	return ""
 }
 
 func isLoopbackURL(value string) bool {
