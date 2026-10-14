@@ -101,7 +101,7 @@ Session, preset, template, and file-write commands always return JSON, indented 
 
 Template creation requires an explicit `--preset` from `sandboxes presets`. Shell command lines may be up to 64 KiB. For commands longer than the 60-second one-shot limit, start a session and use `exec SESSION_ID --timeout SECONDS`.
 
-## Read preview usage
+## Read Sandbox usage
 
 ```bash
 volcano sandboxes usage --json
@@ -110,7 +110,10 @@ volcano sandboxes usage --json
 The response contains project totals and hourly/daily series for configured
 memory times observed running duration (MiB-seconds), suspended duration
 (seconds), and uncertain duration weighted by configured memory (MiB-seconds).
-These preview metrics do not debit credits and are not a price estimate.
+Confirmed cloud running usage consumes the account plan allowance and paid
+overage credits. Suspended and uncertain usage are uncharged; snapshot costs
+are included in runtime pricing. These project metrics are not an invoice:
+allowance and purchased capacity are shared across the account.
 Observation gaps and unconfirmed transitions remain uncertain. Local sessions
 contribute zero cloud usage. An older server without these metrics returns a
 clear error instead of showing zero.
