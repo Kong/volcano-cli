@@ -57,7 +57,7 @@ func (c *Client) DeployFunction(ctx context.Context, projectID uuid.UUID, fn Fun
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.CreateFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
+	resp, err := c.deployClient.CreateFunctionWithBodyWithResponse(ctx, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}

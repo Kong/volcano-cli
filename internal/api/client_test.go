@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -138,6 +141,72 @@ func TestNewClientPreservesAPIURLPathPrefix(t *testing.T) {
 	assert.Equal(t, "/volcano-api/projects", sawPath)
 	assert.Equal(t, "page=1&limit=100", sawQuery)
 	assert.Equal(t, "Bearer token", sawAuth)
+}
+
+// The local-mode server answers a function deploy only after installing the
+// function's dependencies, which it bounds at five minutes.
+func TestNewClientLetsFunctionDeploysOutlastLocalDependencyInstalls(t *testing.T) {
+	client, err := NewClient("http://localhost:8000", "token")
+	require.NoError(t, err)
+
+	assert.Equal(t, defaultTimeout, generatedClientTimeout(t, client.client))
+	assert.Greater(t, generatedClientTimeout(t, client.deployClient), 5*time.Minute)
+}
+
+func TestFunctionDeploysSendThroughTheDeployClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/durable-functions") {
+			writeAPIJSON(t, w, http.StatusCreated, durableFunctionAPIPayload())
+			return
+		}
+		writeAPIJSON(t, w, http.StatusCreated, functionResponse(
+			"33333333-3333-4333-8333-333333333333", durableTestProjectID.String(), "notes-summary"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	// Leave the deploy client as the only one that can reach the server.
+	client.client, err = newGeneratedClient(client.baseURL, "token", unreachableDoer{})
+	require.NoError(t, err)
+
+	_, err = client.DeployFunction(context.Background(), durableTestProjectID, FunctionDeployInput{
+		Name: "notes-summary", Runtime: "nodejs24.x", Handler: "index.handler", SourceArchive: []byte("archive"),
+	})
+	require.NoError(t, err)
+	_, _, err = client.DeployDurableFunction(context.Background(), durableTestProjectID, DurableFunctionDeployInput{
+		Name: "order-pipeline", Runtime: "nodejs24.x", Handler: "handler", SourceArchive: []byte("archive"),
+	})
+	require.NoError(t, err)
+}
+
+type unreachableDoer struct{}
+
+func (unreachableDoer) Do(*http.Request) (*http.Response, error) {
+	return nil, errors.New("request sent through the default client")
+}
+
+func generatedClientTimeout(t *testing.T, generated *apiclient.ClientWithResponses) time.Duration {
+	t.Helper()
+	inner, ok := generated.ClientInterface.(*apiclient.Client)
+	require.True(t, ok)
+	doer := inner.Client
+	for {
+		switch d := doer.(type) {
+		case networkErrorDoer:
+			doer = d.next
+		case refusalDoer:
+			doer = d.next
+		case versionProtocolDoer:
+			doer = d.next
+		case debugDoer:
+			doer = d.next
+		case *http.Client:
+			return d.Timeout
+		default:
+			require.Failf(t, "unexpected doer in the client chain", "%T", doer)
+		}
+	}
 }
 
 func TestListProjectsReturnsRequestedPage(t *testing.T) {
