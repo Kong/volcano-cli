@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/Kong/volcano-cli/compare/v0.45.0...v0.46.0) (2026-10-14)
+
+
+### Features
+
+* add volcano deploy to deploy a whole project in one run ([#298](https://github.com/Kong/volcano-cli/issues/298)) ([84ce447](https://github.com/Kong/volcano-cli/commit/84ce4471d659823345190b9bc60940b279b0d713))
+
 ## [0.45.0](https://github.com/Kong/volcano-cli/compare/v0.44.2...v0.45.0) (2026-10-14)
 
 
