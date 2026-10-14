@@ -117,6 +117,26 @@ func TestDeployAcceptsAFirstManifestThatDeclaresTheDurableFunctions(t *testing.T
 
 // A manifest that owns the project's variables still deploys in a project
 // whose volcano/volcano.env serves local runs.
+// A cloud server on this machine is the project's API, so an env file naming
+// it is the project's own values rather than the local development server's.
+func TestDeployAcceptsTheAPIURLItDeploysTo(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	fake := newFakeVolcano(t)
+	server := fake.start()
+	writeDeployProjectFile(t, "volcano/cloud.env", "API_URL=https://api.example.test\n"+
+		"VOLCANO_API_URL="+server.URL+"\nNEXT_PUBLIC_VOLCANO_API_URL="+server.URL+"\n")
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--env-file", "volcano/cloud.env")
+	require.NoError(t, err, out)
+	assert.Contains(t, out, "1. variables   volcano/cloud.env")
+
+	writeDeployProjectFile(t, "volcano/cloud.env", "VOLCANO_API_URL=http://localhost:1\n")
+	out, err = executeDeployCommand(t, New(fake.cloudDeps(server)), "--env-file", "volcano/cloud.env")
+	require.Error(t, err)
+	assert.Contains(t, err.Error()+out, "volcano/cloud.env holds the local development server's values (VOLCANO_API_URL)")
+}
+
 func TestDeployNoEnvFileLeavesTheEnvFileOut(t *testing.T) {
 	setDeployCommandTestHome(t)
 	writeDeployProjectFile(t, "volcano/volcano.env", "VOLCANO_API_URL=http://localhost:8000\n")
