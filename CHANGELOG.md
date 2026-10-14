@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/Kong/volcano-cli/compare/v0.46.0...v0.46.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **deploy:** accept an env file that names the API the deploy targets ([#307](https://github.com/Kong/volcano-cli/issues/307)) ([1b74a61](https://github.com/Kong/volcano-cli/commit/1b74a61d628411ffb31bbb871132e74de739449f))
+
 ## [0.46.0](https://github.com/Kong/volcano-cli/compare/v0.45.0...v0.46.0) (2026-10-14)
 
 
