@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.2](https://github.com/Kong/volcano-cli/compare/v0.46.1...v0.46.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **sandboxes:** describe billable runtime usage ([#309](https://github.com/Kong/volcano-cli/issues/309)) ([5f21d90](https://github.com/Kong/volcano-cli/commit/5f21d90f6de66d0c5f6580e74b481363d15b3c97))
+
 ## [0.46.1](https://github.com/Kong/volcano-cli/compare/v0.46.0...v0.46.1) (2026-10-14)
 
 
