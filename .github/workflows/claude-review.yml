@@ -16,3 +16,4 @@ jobs:
       statuses: write
     secrets:
       anthropic_api_key: ${{ secrets.ANTHROPIC_CI_API_KEY }}
+      openai_api_key: ${{ secrets.OPENAI_CI_API_KEY }}
