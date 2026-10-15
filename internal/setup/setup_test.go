@@ -945,27 +945,3 @@ func TestRenderReportAligns(t *testing.T) {
 			col(installedAt), col(failedAt), out)
 	}
 }
-
-func TestCallingAgent(t *testing.T) {
-	cases := []struct {
-		name string
-		env  map[string]string
-		want string
-	}{
-		{name: "none", env: map[string]string{}, want: ""},
-		{name: "claude code", env: map[string]string{"CLAUDECODE": "1"}, want: "claude-code"},
-		{name: "codex", env: map[string]string{"CODEX_THREAD_ID": "019a"}, want: "codex"},
-		{name: "opencode", env: map[string]string{"OPENCODE": "1"}, want: "opencode"},
-		{name: "pi", env: map[string]string{"PI_CODING_AGENT": "true"}, want: "pi"},
-		{name: "unexpected value", env: map[string]string{"CLAUDECODE": "0"}, want: ""},
-		{name: "unrelated codex variable", env: map[string]string{"CLAUDECODE": "1", "CODEX_HOME": "/x"}, want: "claude-code"},
-		{name: "nested agents are ambiguous", env: map[string]string{"CLAUDECODE": "1", "CODEX_THREAD_ID": "019a"}, want: ""},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := CallingAgent(func(k string) string { return tc.env[k] }); got != tc.want {
-				t.Errorf("CallingAgent() = %q, want %q", got, tc.want)
-			}
-		})
-	}
-}

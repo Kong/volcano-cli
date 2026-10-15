@@ -31,28 +31,10 @@ On a real terminal, `setup` shows a picker of detected harnesses (an installed
 harness that is behind its latest version is marked `[outdated]`). If it finds
 no coding agents, it shows a message with supported examples instead of a picker,
 then installs the manual fallback under `~/.volcano`. It runs
-non-interactively when stdin/stdout is piped, in CI, when
-`VOLCANO_NONINTERACTIVE` is set, or with `--yes`. Then it installs for the
-calling agent if there is one, and for all detected harnesses otherwise.
+non-interactively — installing all detected — when stdin/stdout is piped, in CI,
+when `VOLCANO_NONINTERACTIVE` is set, or with `--yes`.
 
 The picker wraps its heading and key hints in narrow terminals, including split tmux panes. Use the arrow keys to move, Space to toggle an agent, and Enter to confirm.
-
-## Run by a coding agent
-
-When a coding agent runs `volcano setup` without a terminal, it installs for
-that agent only, not for every agent on the machine, and prints which one it
-picked. Pass `--agent` to choose others. On a terminal, the picker still asks.
-
-| Agent | Detected from |
-|---|---|
-| Claude Code | `CLAUDECODE=1` |
-| Codex | `CODEX_THREAD_ID` |
-| opencode | `OPENCODE=1` |
-| pi | `PI_CODING_AGENT=true` |
-
-Cursor is not detected this way. When more than one of these is set, for
-example an agent started from inside another, `setup` behaves as if no agent
-ran it.
 
 ## Reruns keep things current
 

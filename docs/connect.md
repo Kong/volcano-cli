@@ -36,9 +36,9 @@ It runs these steps, and is safe to run again:
    `AGENTS.md` that tells the agent where the project link is, which skills to
    use, and how to deploy. The section names no project, so teammates can
    share it. A rerun replaces it instead of adding another.
-7. **Installs skills.** When a coding agent runs `connect`, it installs the
-   Volcano skills for that agent only. Run by hand, it points you at
-   `volcano setup`, which asks before installing. See [setup.md](setup.md).
+7. **Installs skills.** It installs the Volcano skills for every coding agent
+   it finds on the machine, as `volcano setup --yes` does. See
+   [setup.md](setup.md).
 
 It ends with the project's name and its dashboard link:
 

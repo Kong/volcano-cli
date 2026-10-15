@@ -369,35 +369,3 @@ func onPath(e environ, bin string) bool {
 	_, err := e.lookPath(bin)
 	return err == nil
 }
-
-// callingAgentEnv lists, per harness, the environment variable its agent sets
-// for the shells it runs commands in. Each is taken from the agent's own
-// source: Claude Code sets CLAUDECODE=1, Codex sets CODEX_THREAD_ID, opencode
-// sets OPENCODE=1, and pi sets PI_CODING_AGENT=true. An empty value matches any
-// non-empty one. Cursor sets nothing documented, so it is never detected here.
-var callingAgentEnv = []struct {
-	harness, key, value string
-}{
-	{harness: "claude-code", key: "CLAUDECODE", value: "1"},
-	{harness: "codex", key: "CODEX_THREAD_ID"},
-	{harness: "opencode", key: "OPENCODE", value: "1"},
-	{harness: "pi", key: "PI_CODING_AGENT", value: "true"},
-}
-
-// CallingAgent returns the harness whose agent is running this process, or ""
-// when none is, or when more than one matches (an agent started from inside
-// another), since then the caller can't tell which one is asking.
-func CallingAgent(getenv func(string) string) string {
-	found := ""
-	for _, a := range callingAgentEnv {
-		v := strings.TrimSpace(getenv(a.key))
-		if v == "" || (a.value != "" && v != a.value) {
-			continue
-		}
-		if found != "" {
-			return ""
-		}
-		found = a.harness
-	}
-	return found
-}

@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/x/term"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
@@ -77,7 +76,7 @@ type result struct {
 	LinkFile     string     `json:"link_file"`
 	EnvFile      string     `json:"env_file"`
 	AgentsFile   string     `json:"agents_file"`
-	Skills       string     `json:"skills,omitempty"`
+	Skills       []string   `json:"skills,omitempty"`
 	DashboardURL string     `json:"dashboard_url"`
 }
 
@@ -107,7 +106,7 @@ connect:
   5. Writes the project's API URL and anon key to volcano/cloud.env.
   6. Gitignores the link and the env files, and adds a Volcano section to
      AGENTS.md.
-  7. Installs the Volcano skills for the coding agent running it.
+  7. Installs the Volcano skills for every coding agent on this machine.
 
 It ends with the project's name and its dashboard link.
 
@@ -139,7 +138,7 @@ With a directory argument, connect creates it and works there.
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
 	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
-	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills for the calling agent")
+	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
 	cmd.MarkFlagsMutuallyExclusive("token", "signup")
 	cmd.MarkFlagsMutuallyExclusive("project", "name")
@@ -507,32 +506,28 @@ func projectAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID
 	return key.KeyValue, nil
 }
 
-// installSkills installs the Volcano skills for the agent running connect and
-// returns its name, or "" when none was installed. With no calling agent, or
-// with a person at a terminal, it only points at `volcano setup`, which asks
-// before installing anywhere.
-func installSkills(ctx context.Context, opts options) string {
+// installSkills installs the Volcano skills for every coding agent detected on
+// this machine, as `volcano setup --yes` does, and returns the agents it
+// installed for. A failed install is a warning: connect has already done its
+// job.
+func installSkills(ctx context.Context, opts options) []string {
 	if opts.skipSkills {
-		return ""
+		return nil
 	}
-	agent := setup.CallingAgent(os.Getenv)
-	if agent == "" || isTerminal(opts.in) {
-		fmt.Fprintln(opts.log, "To install the Volcano skills for your coding agents, run `volcano setup`.")
-		return ""
-	}
-	report, err := setup.Run(ctx, setup.Options{HTTPDoer: opts.deps.HTTPClient, Only: []string{agent}, BestEffort: true})
+	report, err := setup.Run(ctx, setup.Options{HTTPDoer: opts.deps.HTTPClient})
 	if err != nil {
-		output.Warning(opts.log, "Could not install the Volcano skills for %s: %v", agent, err)
-		return ""
+		output.Warning(opts.log, "Could not install the Volcano skills: %v. Run `volcano setup` to retry.", err)
+		return nil
 	}
 	setup.RenderReport(opts.log, report)
+	var installed []string
 	for _, r := range report.Results {
 		switch r.Status {
 		case setup.StatusInstalled, setup.StatusUpdated, setup.StatusUpToDate:
-			return agent
+			installed = append(installed, r.Harness)
 		}
 	}
-	return ""
+	return installed
 }
 
 func relPath(base, path string) string {
@@ -545,12 +540,6 @@ func relPath(base, path string) string {
 // projectDashboardURL is the project's overview page in the dashboard.
 func projectDashboardURL(webURL string, projectID uuid.UUID) string {
 	return strings.TrimRight(webURL, "/") + "/dashboard/overview?" + url.Values{"project": []string{projectID.String()}}.Encode()
-}
-
-// isTerminal reports whether r is a terminal, so a person is there to answer.
-func isTerminal(r io.Reader) bool {
-	f, ok := r.(*os.File)
-	return ok && term.IsTerminal(f.Fd())
 }
 
 func exists(path string) bool {
