@@ -299,6 +299,9 @@ func TestListRefusesBadFlagsBeforeTheRequest(t *testing.T) {
 	}{
 		{name: "direction", args: []string{"--direction", "sideways"}, want: `unknown message direction "sideways": --direction takes in or out`},
 		{name: "after", args: []string{"--after", "-1"}, want: "invalid --after -1"},
+		{name: "zero limit", args: []string{"--limit", "0"}, want: "invalid --limit 0: expected 1 to 500"},
+		{name: "negative limit", args: []string{"--limit", "-5"}, want: "invalid --limit -5: expected 1 to 500"},
+		{name: "limit over the page size", args: []string{"--limit", "501"}, want: "invalid --limit 501: expected 1 to 500"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setMessagesTestHome(t)

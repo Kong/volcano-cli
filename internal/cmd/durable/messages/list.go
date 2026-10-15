@@ -22,7 +22,9 @@ import (
 
 const (
 	defaultListLimit = 100
-	followInterval   = 2 * time.Second
+	// maxListLimit matches the API's ceiling on a message page.
+	maxListLimit   = 500
+	followInterval = 2 * time.Second
 )
 
 type listOptions struct {
@@ -48,7 +50,9 @@ published (direction out), oldest first. Every message has a seq; --after reads
 only the messages after one.
 
 --follow keeps reading as messages arrive, until the execution ends. With
---json it prints one message per line.`,
+--json it prints one message per line. It prints each message once, with the
+status it had when first read: a sent message shown as queued stays that way
+after a wait takes it. List again without --follow to see where it got to.`,
 		Example: fmt.Sprintf(`  %s
   %s`,
 			cliruntime.CommandPath(deps, "durable messages list order-pipeline 6f1c2a9e-3b7d-4c8a-9e2f-1a5b7c9d0e3f"),
@@ -82,6 +86,9 @@ func runList(ctx context.Context, opts listOptions) error {
 	}
 	if opts.after < 0 {
 		return fmt.Errorf("invalid --after %d: a seq is never negative", opts.after)
+	}
+	if opts.limit < 1 || opts.limit > maxListLimit {
+		return fmt.Errorf("invalid --limit %d: expected 1 to %d", opts.limit, maxListLimit)
 	}
 	input := api.DurableMessageListInput{
 		Direction: direction,

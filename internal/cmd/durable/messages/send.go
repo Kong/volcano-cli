@@ -46,7 +46,10 @@ Without either the workflow receives null.
 --idempotency-key makes a send safe to retry: a repeat with a key the execution
 has already seen returns the first message and sends nothing. Without it, a key
 is generated and printed to stderr before the message is sent; pass it to
---idempotency-key to retry a send whose outcome you did not see.`,
+--idempotency-key to retry a send whose outcome you did not see.
+
+--json prints the message as the API returns it, so a repeat prints the first
+message just as the send that queued it did.`,
 		Example: fmt.Sprintf(`  %s
   %s`,
 			cliruntime.CommandPath(deps,

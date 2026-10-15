@@ -293,13 +293,16 @@ messages nobody took are marked `dropped`.
 execution has already seen prints the first message and `Already sent with this
 idempotency key; nothing changed`. Without the flag, `send` generates a key and
 prints it to stderr before sending, so a send whose outcome you did not see can
-be retried with that key.
+be retried with that key. `--json` prints the message as the API returns it, the
+same for a repeat as for the first send.
 
 `list` reads both directions oldest first: `in` for messages sent to the
 execution, `out` for the ones it published. Each message has a `seq`; `--after`
-reads only the ones after it, and a long list ends with the command for the rest.
-`--follow` keeps reading until the execution ends; with `--json` it prints one
-message per line.
+reads only the ones after it, `--limit` takes 1 to 500 per request, and a long
+list ends with the command for the rest. `--follow` keeps reading until the
+execution ends; with `--json` it prints one message per line. It prints each
+message once, with the status it had when first read, so a sent message shown
+as `queued` stays that way after a wait takes it.
 
 Anyone with access to the project can send and read messages, including a
 project access token. A read-only token can list but not send.
