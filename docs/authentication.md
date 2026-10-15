@@ -3,6 +3,9 @@ title: "Authentication"
 description: "Sign up, log in, and manage your Volcano credentials from the CLI."
 ---
 
+To sign in, create a project, and link the current directory to it in one
+step, use `volcano connect`. See [connect.md](connect.md).
+
 New to Volcano? Create an account from the CLI:
 
 ```bash
