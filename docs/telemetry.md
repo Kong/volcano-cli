@@ -67,6 +67,14 @@ is linked only to the random machine ID, stored in `~/.volcano/config.json`.
 Shell completion (`volcano completion` and pressing Tab), commands run with
 `--offline`, and `volcano telemetry` commands are never recorded.
 
+## Feedback reports
+
+Coding agents can also send a feedback report with `volcano feedback` when they
+hit a problem with Volcano. A report carries text the agent wrote, such as what
+it was doing, the commands it ran, and the error it got, along with the machine
+ID above. Feedback is off whenever telemetry is off. See
+[feedback.md](feedback.md).
+
 ## How it is sent
 
 The CLI starts a short background process that posts the event to the Volcano
@@ -75,7 +83,7 @@ a fixed list or pattern before it stores the event, and drops anything else.
 
 ## Turn it off
 
-Use either of these:
+Turning telemetry off also turns off feedback reports. Use either of these:
 
 ```bash
 volcano telemetry disable    # saved in ~/.volcano/config.json
