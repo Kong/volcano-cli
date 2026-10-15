@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.3](https://github.com/Kong/volcano-cli/compare/v0.46.2...v0.46.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **api:** let function deploys outlast local dependency installs ([#313](https://github.com/Kong/volcano-cli/issues/313)) ([776336d](https://github.com/Kong/volcano-cli/commit/776336d30f952273190d14aaa135ee9333b27d26))
+* **deploy:** wait for durable functions to accept executions ([#316](https://github.com/Kong/volcano-cli/issues/316)) ([caefccb](https://github.com/Kong/volcano-cli/commit/caefccb6f2cf50d30b03016b5535cd98c376751b))
+
 ## [0.46.2](https://github.com/Kong/volcano-cli/compare/v0.46.1...v0.46.2) (2026-10-14)
 
 
