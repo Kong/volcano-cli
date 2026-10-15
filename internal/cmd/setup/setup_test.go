@@ -79,3 +79,30 @@ func execSetup(t *testing.T, args ...string) error {
 	cmd.SetErr(io.Discard)
 	return cmd.Execute()
 }
+
+// Under a coding agent, setup targets that agent alone instead of every
+// harness on the machine, and says so.
+func TestSetupTargetsTheCallingAgent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDECODE", "1")
+	t.Setenv("CODEX_THREAD_ID", "")
+	t.Setenv("OPENCODE", "")
+	t.Setenv("PI_CODING_AGENT", "")
+
+	var out bytes.Buffer
+	cmd := New(cliruntime.Deps{})
+	cmd.SetArgs([]string{"--yes", "--dry-run"})
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if !strings.Contains(out.String(), "Running inside claude-code: installing for claude-code only.") {
+		t.Errorf("missing calling-agent note:\n%s", out.String())
+	}
+	for _, other := range []string{"codex", "cursor", "opencode"} {
+		if strings.Contains(out.String(), other) {
+			t.Errorf("report mentions %s, want claude-code only:\n%s", other, out.String())
+		}
+	}
+}
