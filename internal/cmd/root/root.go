@@ -11,6 +11,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	authcmd "github.com/Kong/volcano-cli/internal/cmd/auth"
 	cloudcmd "github.com/Kong/volcano-cli/internal/cmd/cloud"
+	connectcmd "github.com/Kong/volcano-cli/internal/cmd/connect"
 	docscmd "github.com/Kong/volcano-cli/internal/cmd/docs"
 	gitcmd "github.com/Kong/volcano-cli/internal/cmd/git"
 	initcmd "github.com/Kong/volcano-cli/internal/cmd/init"
@@ -52,6 +53,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewSignup(deps))
 	root.AddCommand(authcmd.NewLogout())
+	root.AddCommand(connectcmd.New(deps))
 	root.AddCommand(initcmd.New())
 	root.AddCommand(setupcmd.New(deps))
 	root.AddCommand(docscmd.New(deps))

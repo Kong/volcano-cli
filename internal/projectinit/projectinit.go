@@ -121,6 +121,11 @@ func RunStarter(starterName string, force bool) (*Result, error) {
 	return run("", starterName, force)
 }
 
+// RunStarterIn is RunStarter in dir instead of the current directory.
+func RunStarterIn(dir, starterName string, force bool) (*Result, error) {
+	return run(dir, starterName, force)
+}
+
 func run(rootDir, starterName string, force bool) (*Result, error) {
 	planned, err := buildPlan(rootDir, starterName, force)
 	if err != nil {

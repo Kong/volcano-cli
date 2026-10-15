@@ -19,10 +19,11 @@ import (
 )
 
 type listOptions struct {
-	deps  cliruntime.Deps
-	page  int
-	limit int
-	out   io.Writer
+	deps       cliruntime.Deps
+	page       int
+	limit      int
+	jsonOutput bool
+	out        io.Writer
 }
 
 type createOptions struct {
@@ -33,9 +34,10 @@ type createOptions struct {
 }
 
 type getOptions struct {
-	deps      cliruntime.Deps
-	projectID string
-	out       io.Writer
+	deps       cliruntime.Deps
+	projectID  string
+	jsonOutput bool
+	out        io.Writer
 }
 
 type renameOptions struct {
@@ -99,6 +101,7 @@ func NewProjects(deps cliruntime.Deps) *cobra.Command {
 func newList(deps cliruntime.Deps) *cobra.Command {
 	var page int
 	var limit int
+	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List projects",
@@ -106,15 +109,17 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), listOptions{
-				deps:  deps,
-				page:  page,
-				limit: limit,
-				out:   cmd.OutOrStdout(),
+				deps:       deps,
+				page:       page,
+				limit:      limit,
+				jsonOutput: jsonOutput,
+				out:        cmd.OutOrStdout(),
 			})
 		},
 	}
 	cmd.Flags().IntVar(&page, "page", api.DefaultPage, "Page number to fetch")
 	cmd.Flags().IntVar(&limit, "limit", api.DefaultLimit, "Number of projects per page")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
 
@@ -124,6 +129,9 @@ func runList(ctx context.Context, opts listOptions) error {
 		return err
 	}
 
+	if opts.jsonOutput {
+		return output.JSON(opts.out, projects)
+	}
 	output.Projects(opts.out, cfg, projects)
 	return nil
 }
@@ -166,18 +174,22 @@ func runCreate(ctx context.Context, opts createOptions) error {
 }
 
 func newGet(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "get [project-id]",
 		Short: "Get project details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), getOptions{
-				deps:      deps,
-				projectID: strings.TrimSpace(args[0]),
-				out:       cmd.OutOrStdout(),
+				deps:       deps,
+				projectID:  strings.TrimSpace(args[0]),
+				jsonOutput: jsonOutput,
+				out:        cmd.OutOrStdout(),
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Emit machine-readable JSON")
+	return cmd
 }
 
 func runGet(ctx context.Context, opts getOptions) error {
@@ -186,6 +198,9 @@ func runGet(ctx context.Context, opts getOptions) error {
 		return err
 	}
 
+	if opts.jsonOutput {
+		return output.JSON(opts.out, project)
+	}
 	output.Project(opts.out, project)
 	return nil
 }
@@ -369,12 +384,12 @@ Example:
 }
 
 func runUse(ctx context.Context, opts useOptions) error {
-	selected, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
+	selected, savedTo, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
 	if err != nil {
 		return err
 	}
 
 	output.Success(opts.out, "Now using project: %s (%s)", selected.Name, selected.Id.String())
-	output.Success(opts.out, "Saved to ~/.volcano/config.json")
+	output.Success(opts.out, "Saved to %s", savedTo)
 	return nil
 }

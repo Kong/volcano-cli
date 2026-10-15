@@ -34,13 +34,17 @@ const (
 	// ProjectTokenPrefix marks a project access token, which reaches only the
 	// project it was minted in.
 	ProjectTokenPrefix = "pt-"
+	// BootstrapTokenPrefix marks a one-time token from the dashboard's prompt.
+	// It only works once, exchanged for a normal CLI login.
+	BootstrapTokenPrefix = "vbt_"
 )
 
 var (
 	// ErrNotAuthenticated indicates no token is configured for cloud API calls.
-	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first")
+	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first, or 'volcano signup' if you're new to Volcano")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
-	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID. " +
+		"To create a project and link this directory to it, run 'volcano connect .'")
 	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
 	// access token, which cannot look a project up by name.
 	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
@@ -63,12 +67,20 @@ var (
 type Config struct {
 	// APIBaseURL overrides the compiled API URL for synthetic command configs.
 	// It is intentionally not persisted to the user's cloud config file.
-	APIBaseURL     string         `json:"-"`
-	UserToken      string         `json:"user_token,omitempty"`
-	UserID         string         `json:"user_id,omitempty"`
+	APIBaseURL string `json:"-"`
+	UserToken  string `json:"user_token,omitempty"`
+	UserID     string `json:"user_id,omitempty"`
+	// SessionAPIURL is the API the saved UserToken was issued by. Login records
+	// it so a session started against a non-default API keeps talking to that
+	// API, instead of sending its token to the compiled default and failing
+	// with a 401. Empty for configs saved before it existed.
+	SessionAPIURL  string         `json:"api_url,omitempty"`
 	AnonKey        string         `json:"-"`
 	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	// Link is the working directory's project link, found by Load. It is never
+	// saved here: the link lives in the linked directory.
+	Link *Link `json:"-"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
@@ -109,9 +121,22 @@ func Path() (string, error) {
 	return filepath.Join(homeDir, defaultConfigDirName, defaultConfigFileName), nil
 }
 
-// Load reads ~/.volcano/config.json. Missing config is not an error.
+// Load reads ~/.volcano/config.json and the working directory's project link.
+// Missing config is not an error.
 func Load() (*Config, error) {
-	return load()
+	cfg, err := load()
+	if err != nil {
+		return nil, err
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		// A working directory that no longer exists can't be linked.
+		return cfg, nil //nolint:nilerr // the link is optional; the config itself loaded
+	}
+	if cfg.Link, err = FindLink(wd); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func load() (*Config, error) {
@@ -254,14 +279,25 @@ func (c *Config) FunctionInvokeToken() string {
 }
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
+// Precedence: env > the working directory's link > the project `volcano use` saved.
 func (c *Config) ProjectID() string {
 	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
-	if c.CurrentProject != nil {
-		return c.CurrentProject.ID
+	if project := c.Project(); project != nil {
+		return project.ID
 	}
 	return ""
+}
+
+// Project returns the selected project without the VOLCANO_PROJECT_ID
+// override: the working directory's link, else the project `volcano use`
+// saved. Nil when neither is set.
+func (c *Config) Project() *ProjectConfig {
+	if c.Link != nil {
+		return &c.Link.Project
+	}
+	return c.CurrentProject
 }
 
 // ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a
@@ -279,7 +315,11 @@ func (c *Config) ProjectIDFromEnv() string {
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
-// Precedence: env > runtime override (APIBaseURL) > compiled default.
+// Precedence: env > runtime override (APIBaseURL) > the saved session's API > compiled default.
+//
+// The saved session's API only applies while the saved token is the one in
+// use: a VOLCANO_TOKEN from the environment was not issued by that API, so it
+// keeps the compiled default unless VOLCANO_API_URL says otherwise.
 func (c *Config) APIURL() string {
 	if apiURL := strings.TrimSpace(os.Getenv(envAPIURL)); !c.IgnoreEnv && apiURL != "" {
 		return apiURL
@@ -287,7 +327,21 @@ func (c *Config) APIURL() string {
 	if c.APIBaseURL != "" {
 		return c.APIBaseURL
 	}
+	if sessionURL := strings.TrimSpace(c.SessionAPIURL); sessionURL != "" && !c.tokenFromEnv() {
+		return sessionURL
+	}
 	return compiledDefaultAPIURL
+}
+
+// DefaultAPIURL returns the API the CLI talks to when nothing overrides it.
+func DefaultAPIURL() string {
+	return compiledDefaultAPIURL
+}
+
+// tokenFromEnv reports whether Token comes from VOLCANO_TOKEN rather than the
+// saved session.
+func (c *Config) tokenFromEnv() bool {
+	return !c.IgnoreEnv && strings.TrimSpace(os.Getenv(envToken)) != ""
 }
 
 // WebURL returns the Volcano web URL for c.APIURL(). See WebURLForAPIURL for
@@ -473,6 +527,11 @@ func (c *Config) RequireAccountToken() error {
 // let it past every guard here and fail as an opaque server error instead.
 func IsProjectToken(token string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), ProjectTokenPrefix)
+}
+
+// IsBootstrapToken reports whether token is a one-time bootstrap token.
+func IsBootstrapToken(token string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), BootstrapTokenPrefix)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.

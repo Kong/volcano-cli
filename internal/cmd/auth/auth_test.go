@@ -68,6 +68,7 @@ func TestLoginTokenSuccessSavesConfig(t *testing.T) {
 	cfg := loadAuthTestConfig(t)
 	assert.Equal(t, authTestAccountToken, cfg.UserToken)
 	assert.Empty(t, cfg.UserID)
+	assert.Equal(t, server.URL, cfg.SessionAPIURL, "login saves the API the token belongs to")
 }
 
 func TestLoginTokenInvalidFailsWithoutSavingConfig(t *testing.T) {

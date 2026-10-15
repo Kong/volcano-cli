@@ -81,6 +81,7 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
+| Get started | sign in, create a project, and link a directory in one step | `connect` | [connect.md](connect.md) |
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
@@ -95,6 +96,7 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
 | Documentation | search/read the docs | `docs …` | [docs-search.md](docs-search.md) |
+| Scripts and agents | exit codes, JSON output | `--json` | [scripting.md](scripting.md) |
 
 ## Projects
 
@@ -105,6 +107,7 @@ prerequisites for cloud operations.
 volcano projects create my-app     # create a project
 volcano projects list              # list your projects
 volcano use my-app                 # set the active project
+volcano connect                    # link this directory to a project
 volcano projects get               # details for the active project
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
 volcano projects keys anon list    # anon (publishable) API keys for the browser/SDK
@@ -112,6 +115,9 @@ volcano projects keys service list # backend service-key metadata for the active
 volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
+
+Inside a directory linked with `volcano connect`, commands use the linked
+project. See [connect.md](connect.md#linked-directories).
 
 ### Create a project from a cloud template
 

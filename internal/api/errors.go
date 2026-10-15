@@ -147,15 +147,20 @@ func apiError(statusCode int, body []byte) error {
 		Error            string `json:"error"`
 		ErrorDescription string `json:"error_description"`
 		Message          string `json:"message"`
+		Code             string `json:"code"`
 	}
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
+		var message string
 		switch {
 		case payload.ErrorDescription != "":
-			return apiErrorWithMessage(statusCode, payload.ErrorDescription)
+			message = payload.ErrorDescription
 		case payload.Error != "":
-			return apiErrorWithMessage(statusCode, payload.Error)
+			message = payload.Error
 		case payload.Message != "":
-			return apiErrorWithMessage(statusCode, payload.Message)
+			message = payload.Message
+		}
+		if message != "" {
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(payload.Code)}
 		}
 	}
 	message := cleanBody(body)

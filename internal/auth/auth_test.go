@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,7 +47,7 @@ func TestLoginWithTokenSuccess(t *testing.T) {
 	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "  valid-token\n", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer valid-token", sawAuth)
-	assert.Equal(t, Credentials{Token: "valid-token"}, credentials)
+	assert.Equal(t, Credentials{Token: "valid-token", APIURL: server.URL}, credentials)
 }
 
 func TestLoginWithProjectTokenValidatesAgainstTheProject(t *testing.T) {
@@ -225,6 +226,85 @@ func TestLoginWithTokenInvalid(t *testing.T) {
 	require.ErrorContains(t, err, "invalid token")
 }
 
+func TestLoginWithBootstrapTokenExchangesIt(t *testing.T) {
+	cfg := testAuthConfig(t)
+	var exchangeAuth, listAuth string
+	var exchangeBody map[string]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/auth/cli-bootstrap-tokens/exchange":
+			exchangeAuth = r.Header.Get("Authorization")
+			assert.NoError(t, json.NewDecoder(r.Body).Decode(&exchangeBody))
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
+		case "/projects":
+			listAuth = r.Header.Get("Authorization")
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 1, "total": 0})
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
+	require.NoError(t, err)
+	assert.Empty(t, exchangeAuth, "the bootstrap token is sent in the body, not as a bearer token")
+	assert.Equal(t, "vbt_one-time", exchangeBody["token"])
+	assert.Equal(t, "volcano-cli", exchangeBody["client_name"])
+	assert.Equal(t, "Bearer pk-exchanged", listAuth)
+	assert.Equal(t, Credentials{Token: "pk-exchanged", UserID: "user-1", APIURL: server.URL}, credentials)
+}
+
+func TestLoginWithBootstrapTokenNamesWhyItWasRefused(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		body   map[string]string
+		reason string
+	}{
+		{http.StatusUnauthorized, map[string]string{"error": "expired", "code": "bootstrap_token_expired"}, "has expired"},
+		{http.StatusUnauthorized, map[string]string{"error": "used", "code": "bootstrap_token_used"}, "was already used"},
+		{http.StatusUnauthorized, map[string]string{"error": "invalid", "code": "bootstrap_token_invalid"}, "is not valid"},
+		{http.StatusTooManyRequests, map[string]string{"error": "slow down", "code": "rate_limited"}, "was refused after too many attempts from this network"},
+		{http.StatusNotFound, map[string]string{"error": "not found"}, "can't be used with this API"},
+	} {
+		t.Run(tc.reason, func(t *testing.T) {
+			cfg := testAuthConfig(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeAuthJSON(t, w, tc.status, tc.body)
+			}))
+			defer server.Close()
+
+			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+				LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
+			refused, ok := errors.AsType[*BootstrapRefusedError](err)
+			require.True(t, ok, "got %v", err)
+			assert.Equal(t, tc.reason, refused.Reason)
+		})
+	}
+}
+
+func TestLoginWithBootstrapTokenNeverEchoesTheExchangedToken(t *testing.T) {
+	cfg := testAuthConfig(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`not json pk-secret`))
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "pk-secret")
+}
+
+func TestOfferSignInNeverPromptsWithoutATerminal(t *testing.T) {
+	testAuthConfig(t)
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}).OfferSignIn(context.Background(), strings.NewReader("y\n"), &out)
+	require.ErrorIs(t, err, config.ErrNotAuthenticated)
+	assert.Empty(t, out.String())
+}
+
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
 	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the
@@ -326,7 +406,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
-	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1"}, result.credentials)
+	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", APIURL: server.URL}, result.credentials)
 	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")

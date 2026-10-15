@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,16 +14,34 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/theme"
+)
+
+// Exit codes. Scripts and agents can branch on these without parsing the error
+// text. Anything else that fails exits 1, and `volcano sandboxes exec` passes
+// the remote command's own exit code through instead.
+const (
+	exitFailure          = 1
+	exitNotAuthenticated = 2
+	exitNoProject        = 3
+	exitNotFound         = 4
+	exitPermissionDenied = 5
 )
 
 func main() {
 	deps := cliruntime.Deps{}
+	// A command that needs a login offers one on a terminal instead of failing.
+	deps.SignIn = func() error {
+		return cliauth.NewService(deps).OfferSignIn(context.Background(), os.Stdin, os.Stderr)
+	}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
 
@@ -58,7 +77,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
-		return 1
+		return exitCode(err)
 	}
 
 	// Success: covers the non-blocking suggestion, and a deprecated CLI
@@ -68,6 +87,23 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	// network call.
 	upgradecmd.PrintAPIInstructionNotices(root, deps)
 	return 0
+}
+
+// exitCode maps a command error to one of the documented exit codes.
+func exitCode(err error) int {
+	status := api.Status(err)
+	switch {
+	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
+		return exitNotAuthenticated
+	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
+		return exitNoProject
+	case errors.Is(err, cliproject.ErrNotFound), status == http.StatusNotFound:
+		return exitNotFound
+	case errors.Is(err, config.ErrAccountTokenRequired), status == http.StatusForbidden:
+		return exitPermissionDenied
+	default:
+		return exitFailure
+	}
 }
 
 // printDeprecationError renders a require_version_upgrade 426 error together with
@@ -85,8 +121,39 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	fmt.Fprintln(w, theme.Error("Error:", theme.On(w)), err)
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
+	} else if api.Status(err) == http.StatusUnauthorized {
+		printUnauthorizedHint(w, deps)
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+}
+
+// printUnauthorizedHint names the API that refused the credential when it is
+// not the default one. A token is only valid on the API that issued it, so a
+// 401 from another API most often means the token and the API URL came from
+// different environments.
+func printUnauthorizedHint(w io.Writer, deps cliruntime.Deps) {
+	cfg, err := loadConfig(deps)
+	if err != nil {
+		return
+	}
+	apiURL := clisession.NewFactory(deps).APIURL(cfg)
+	if strings.TrimRight(apiURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
+		// A 401 from the default API is an expired or revoked login; the error
+		// already says so.
+		return
+	}
+	fmt.Fprintf(w, "The API at %s did not accept the credential. Run `%s` to sign in to it, or set VOLCANO_API_URL "+
+		"to the API the credential belongs to.\n", apiURL, cliruntime.CommandPath(deps, "login"))
+}
+
+// loadConfig loads the configuration through the runtime's loader, so a
+// command tree with its own configuration is answered from that rather than
+// from the user's cloud config.
+func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
+	if deps.ConfigLoader != nil {
+		return deps.ConfigLoader()
+	}
+	return config.Load()
 }
 
 // wrongProjectRefusal is how the platform names a project access token used
@@ -137,11 +204,7 @@ func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps)
 // the runtime's loader so a command tree with its own configuration is answered
 // from that rather than from the user's cloud config.
 func selectedProjectID(deps cliruntime.Deps) string {
-	loadConfig := config.Load
-	if deps.ConfigLoader != nil {
-		loadConfig = deps.ConfigLoader
-	}
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(deps)
 	if err != nil {
 		return ""
 	}

@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -31,6 +33,9 @@ type Credentials struct {
 	// Project is the project login validated the token against, to be saved as
 	// the active project. Nil when login resolved no project.
 	Project *config.ProjectConfig
+	// APIURL is the API that issued or validated Token, saved with it so later
+	// commands keep talking to the same API.
+	APIURL string
 }
 
 // Service performs Volcano authentication workflows.
@@ -65,7 +70,16 @@ const (
 func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
 	token = strings.TrimSpace(token)
 	project = strings.TrimSpace(project)
-	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
+	apiURL := s.apiURL(cfg)
+	var userID string
+	if config.IsBootstrapToken(token) {
+		exchange, err := s.exchangeBootstrapToken(ctx, apiURL, token)
+		if err != nil {
+			return Credentials{}, err
+		}
+		token, userID = exchange.Token, exchange.UserID
+	}
+	client, err := s.sessions.APIClient(apiURL, token)
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -85,7 +99,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 			}
 			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
 		}
-		return Credentials{Token: token}, nil
+		return Credentials{Token: token, UserID: userID, APIURL: apiURL}, nil
 	}
 
 	selected, err := resolveLoginProject(ctx, client, token, project, origin)
@@ -94,8 +108,56 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 	}
 	return Credentials{
 		Token:   token,
+		UserID:  userID,
 		Project: &config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name},
+		APIURL:  apiURL,
 	}, nil
+}
+
+// bootstrapClientName names the CLI to the API when it exchanges a bootstrap
+// token, so the new login is listed as this CLI on this machine.
+const bootstrapClientName = "volcano-cli"
+
+// BootstrapRefusedError is a one-time bootstrap token the API would not
+// exchange: expired, already used, not valid, rate limited, or not supported
+// by this API.
+type BootstrapRefusedError struct {
+	// Reason completes "The one-time token ...", e.g. "has expired".
+	Reason string
+	Err    error
+}
+
+func (e *BootstrapRefusedError) Error() string {
+	return "the one-time token " + e.Reason + ". Copy a new prompt from the dashboard, or sign in in the browser"
+}
+
+func (e *BootstrapRefusedError) Unwrap() error { return e.Err }
+
+// exchangeBootstrapToken trades a vbt_ token for a normal CLI login.
+func (s Service) exchangeBootstrapToken(ctx context.Context, apiURL, token string) (*api.BootstrapExchange, error) {
+	client, err := s.sessions.APIClient(apiURL, "")
+	if err != nil {
+		return nil, err
+	}
+	hostname, _ := os.Hostname()
+	exchange, err := client.ExchangeBootstrapToken(ctx, token, bootstrapClientName, hostname)
+	if err == nil {
+		return exchange, nil
+	}
+	switch {
+	case api.Code(err) == api.BootstrapTokenExpired:
+		return nil, &BootstrapRefusedError{Reason: "has expired", Err: err}
+	case api.Code(err) == api.BootstrapTokenUsed:
+		return nil, &BootstrapRefusedError{Reason: "was already used", Err: err}
+	case api.Code(err) == api.BootstrapTokenInvalid:
+		return nil, &BootstrapRefusedError{Reason: "is not valid", Err: err}
+	case api.Status(err) == http.StatusTooManyRequests:
+		return nil, &BootstrapRefusedError{Reason: "was refused after too many attempts from this network", Err: err}
+	case api.Status(err) == http.StatusNotFound:
+		// An API without the exchange endpoint.
+		return nil, &BootstrapRefusedError{Reason: "can't be used with this API", Err: err}
+	}
+	return nil, err
 }
 
 // unnamedProject falls back to the project the CLI already has for a project
@@ -190,7 +252,12 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	}
 
 	fmt.Fprintln(w, "\nInitiating browser signup...")
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
+	credentials, err := s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
+	if err != nil {
+		return Credentials{}, err
+	}
+	credentials.APIURL = apiURL
+	return credentials, nil
 }
 
 // LoginWithBrowser runs the OAuth device flow and opens the browser at the
@@ -221,7 +288,12 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 	if verificationURL == "" {
 		verificationURL = strings.TrimSpace(deviceAuth.VerificationUri)
 	}
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
+	credentials, err := s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
+	if err != nil {
+		return Credentials{}, err
+	}
+	credentials.APIURL = apiURL
+	return credentials, nil
 }
 
 // deviceApprovalPath is the same-origin path Volcano Web's own /device page
@@ -248,6 +320,35 @@ func resolveDeviceClientID(apiURL string) (string, error) {
 // isLocalAPIURL reports whether apiURL points at a loopback address.
 func isLocalAPIURL(apiURL string) bool {
 	return config.IsLoopbackAPIURL(apiURL)
+}
+
+// SaveCredentials saves a login's credentials to ~/.volcano/config.json.
+func SaveCredentials(credentials Credentials) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.UserToken = credentials.Token
+		cfg.UserID = credentials.UserID
+		cfg.SessionAPIURL = credentials.APIURL
+		if credentials.Project != nil {
+			cfg.CurrentProject = credentials.Project
+		}
+		return true, nil
+	})
+}
+
+// GitEmail returns `git config --global user.email`, or "" when it is unset
+// or git fails. Signup offers it as the default email address.
+func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
+	runner := deps.GitCommandRunner
+	if runner == nil {
+		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
+		})
+	}
+	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // Logout deletes local authentication state.

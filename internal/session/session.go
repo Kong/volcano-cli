@@ -109,7 +109,18 @@ func (f Factory) Authenticated() (*Session, error) {
 	}
 
 	if err := cfg.RequireAuth(); err != nil {
-		return nil, err
+		if f.deps.SignIn == nil {
+			return nil, err
+		}
+		if err := f.deps.SignIn(); err != nil {
+			return nil, err
+		}
+		if cfg, err = f.Config(); err != nil {
+			return nil, err
+		}
+		if err := cfg.RequireAuth(); err != nil {
+			return nil, err
+		}
 	}
 
 	apiURL := f.APIURL(cfg)

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -94,11 +93,12 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		}
 	}
 
-	if err := saveCredentials(credentials); err != nil {
+	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	output.Success(opts.out, "Logged in successfully")
+	printNonDefaultAPI(opts.out, credentials)
 	if credentials.Project != nil {
 		output.Success(opts.out, "Now using project: %s (%s)", credentials.Project.Name, credentials.Project.ID)
 	}
@@ -143,28 +143,18 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return fmt.Errorf("signup failed: %w", err)
 	}
 
-	if err := saveCredentials(credentials); err != nil {
+	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	output.Success(opts.out, "Signed up and logged in successfully")
+	printNonDefaultAPI(opts.out, credentials)
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }
 
-func saveCredentials(credentials cliauth.Credentials) error {
-	return config.Update(func(cfg *config.Config) (bool, error) {
-		cfg.UserToken = credentials.Token
-		cfg.UserID = credentials.UserID
-		if credentials.Project != nil {
-			cfg.CurrentProject = credentials.Project
-		}
-		return true, nil
-	})
-}
-
 func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.Reader, out io.Writer) (string, error) {
-	defaultEmail := gitConfigEmail(ctx, deps)
+	defaultEmail := cliauth.GitEmail(ctx, deps)
 	if defaultEmail != "" {
 		fmt.Fprintf(out, "Enter your email address (press enter to continue) [%s]: ", defaultEmail)
 	} else {
@@ -189,18 +179,13 @@ func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.
 	return parsed.Address, nil
 }
 
-func gitConfigEmail(ctx context.Context, deps cliruntime.Deps) string {
-	runner := deps.GitCommandRunner
-	if runner == nil {
-		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
-		})
+// printNonDefaultAPI names the API a login signed in to when it isn't the
+// default. Later commands keep using that API, so the user should know.
+func printNonDefaultAPI(w io.Writer, credentials cliauth.Credentials) {
+	if credentials.APIURL == "" || strings.TrimRight(credentials.APIURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
+		return
 	}
-	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	output.Note(w, "Signed in to %s. Commands use this API until you log out or log in elsewhere.", credentials.APIURL)
 }
 
 // NewLogout returns the logout command.
