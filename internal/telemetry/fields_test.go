@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // executed runs a one-command tree with use as the leaf's usage line and
@@ -105,6 +107,8 @@ func TestErrorMessage(t *testing.T) {
 	assert.Equal(t, "a/b", errorMessage(errors.New("a/b"), "/"), "a home of / is not replaced")
 	assert.Equal(t, "Bearer [redacted] rejected", errorMessage(errors.New("Bearer\u00a0abc123 rejected"), ""), "a Unicode space does not hide a token")
 	assert.Equal(t, "failed: bad input", errorMessage(errors.New("\x1b[31mfailed:\x1b[0m bad\x00input"), ""))
+	assert.Equal(t, "failed to read ~/app/volcano.env: [redacted]",
+		errorMessage(fmt.Errorf("failed to read /home/dev/app/volcano.env: %w", sensitive.Wrap(errors.New(`unterminated quoted value "hunter2`))), "/home/dev"))
 	long := errorMessage(errors.New(strings.Repeat("é ", 400)), "")
 	assert.Len(t, []rune(long), maxErrorMessageRunes)
 }

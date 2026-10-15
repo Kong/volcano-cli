@@ -8,6 +8,8 @@ import (
 	"unicode"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // resourcePlaceholders are the usage-line placeholders (`get <database>
@@ -101,7 +103,8 @@ const maxErrorMessageRunes = 500
 // ansiEscape matches a terminal escape sequence, such as a color code.
 var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[\x20-\x2f]*[\x40-\x7e]`)
 
-// errorMessage is err's text as sent: the home directory replaced with "~",
+// errorMessage is err's text as sent: sensitive parts replaced with
+// "[redacted]", the home directory replaced with "~",
 // terminal escapes and control characters removed, whitespace collapsed,
 // secrets redacted, and cut to maxErrorMessageRunes. Whitespace is collapsed
 // before redacting so a Unicode space cannot hide a secret from the patterns.
@@ -110,6 +113,14 @@ func errorMessage(err error, home string) string {
 		return ""
 	}
 	msg := err.Error()
+	// Text a parser quoted from a file never leaves the machine. If the outer
+	// message does not contain it verbatim, send nothing of it.
+	if text := sensitive.Text(err); text != "" {
+		if !strings.Contains(msg, text) {
+			return redacted
+		}
+		msg = strings.ReplaceAll(msg, text, redacted)
+	}
 	if len(home) > 1 {
 		msg = strings.ReplaceAll(msg, home, "~")
 	}

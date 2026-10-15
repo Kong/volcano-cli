@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // ErrNotFound is returned when no path is given and neither default location
@@ -49,7 +51,8 @@ func Load(fileArg string) (*File, error) {
 func loadPath(path string) (*File, error) {
 	variables, err := godotenv.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+		// The parser quotes the file's text, which holds the variable values.
+		return nil, fmt.Errorf("failed to read %s: %w", path, sensitive.Wrap(err))
 	}
 	for name := range variables {
 		if name == "" {

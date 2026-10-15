@@ -1,0 +1,21 @@
+package sensitive
+
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestWrap(t *testing.T) {
+	assert.NoError(t, Wrap(nil))
+
+	inner := errors.New(`unterminated quoted value "hunter2`)
+	err := fmt.Errorf("failed to read volcano.env: %w", Wrap(inner))
+
+	assert.Equal(t, `failed to read volcano.env: unterminated quoted value "hunter2`, err.Error(), "the terminal still shows the text")
+	assert.ErrorIs(t, err, inner)
+	assert.Equal(t, inner.Error(), Text(err))
+	assert.Empty(t, Text(inner))
+}
