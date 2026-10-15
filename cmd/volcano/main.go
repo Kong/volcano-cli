@@ -25,6 +25,7 @@ import (
 )
 
 func main() {
+	api.SetAgentReporting(telemetry.Enabled(os.Getenv, telemetry.FileStateStore{}))
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
 }

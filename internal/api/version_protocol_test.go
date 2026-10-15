@@ -394,3 +394,21 @@ func TestVersionProtocolDoer_NoAgentSendsNoAgentHeaders(t *testing.T) {
 		assert.NotContains(t, got, h)
 	}
 }
+
+func TestVersionProtocolDoer_AgentReportingOffSendsNoAgentHeaders(t *testing.T) {
+	resetInstructions(t)
+	stubDetectAgent(t, agent.Result{Name: "codex", Source: agent.SourceMarker, Markers: []string{"codex"}})
+	SetAgentReporting(false)
+	t.Cleanup(func() { SetAgentReporting(true) })
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.NotContains(t, got, headerAgent)
+	assert.NotEmpty(t, got.Get(headerCLIVersion), "the version protocol itself is not telemetry")
+}

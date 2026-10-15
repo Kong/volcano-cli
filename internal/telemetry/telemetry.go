@@ -132,6 +132,17 @@ func DisabledByEnv(getenv func(string) string) string {
 	return ""
 }
 
+// Enabled reports whether telemetry is on: no env opt-out and not turned off
+// with `volcano telemetry disable`. A state file that cannot be read counts as
+// off.
+func Enabled(getenv func(string) string, store StateStore) bool {
+	if DisabledByEnv(getenv) != "" {
+		return false
+	}
+	state, err := store.Load()
+	return err == nil && !state.Disabled
+}
+
 // Record records one invocation. It never fails the command: every error is
 // swallowed, since telemetry must not change what the CLI does.
 func (r Recorder) Record(inv Invocation) {

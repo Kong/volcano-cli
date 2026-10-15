@@ -335,3 +335,13 @@ func TestFlush_ReportsServerError(t *testing.T) {
 
 	require.ErrorContains(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()), "429")
 }
+
+func TestEnabled(t *testing.T) {
+	env := func(vars map[string]string) func(string) string {
+		return func(k string) string { return vars[k] }
+	}
+	assert.True(t, Enabled(env(nil), &memStore{}))
+	assert.False(t, Enabled(env(map[string]string{EnvDoNotTrack: "1"}), &memStore{}))
+	assert.False(t, Enabled(env(nil), &memStore{state: State{Disabled: true}}))
+	assert.False(t, Enabled(env(nil), FileStateStore{Path: t.TempDir()}), "an unreadable state file counts as off")
+}

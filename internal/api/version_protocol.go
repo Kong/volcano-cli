@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -213,6 +214,15 @@ func isHex(value string) bool {
 // change during a CLI invocation. Tests replace it.
 var detectAgent = sync.OnceValue(func() agent.Result { return agent.Detect(os.LookupEnv) })
 
+// agentReportingOff gates the agent headers (zero value: on). The entry point
+// sets it when the user opted out of telemetry, since the API forwards these
+// headers to product analytics too.
+var agentReportingOff atomic.Bool
+
+// SetAgentReporting turns the X-Volcano-Agent* request headers on or off for
+// this process.
+func SetAgentReporting(enabled bool) { agentReportingOff.Store(!enabled) }
+
 // setAgentHeaders reports the detected agent. It sends nothing when no agent
 // was detected, so a missing header means a person (or an unrecognized
 // harness) ran the command.
@@ -243,7 +253,9 @@ type versionProtocolDoer struct {
 func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set(headerCLIVersion, reportedCLIVersion())
 	req.Header.Set("User-Agent", userAgent())
-	setAgentHeaders(req.Header, detectAgent())
+	if !agentReportingOff.Load() {
+		setAgentHeaders(req.Header, detectAgent())
+	}
 	resp, err := d.next.Do(req)
 	if resp != nil {
 		recordInstructions(resp.Header)

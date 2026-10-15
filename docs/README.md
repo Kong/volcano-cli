@@ -77,6 +77,13 @@ no credits left. The notice includes the billing page address when available.
 Open that page to add credits. These notices do not prompt or open a browser.
 Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 
+## Telemetry
+
+The CLI sends one usage event per command: the command and flag names, CLI
+version, platform, and which coding agent ran it. It never sends flag values or
+arguments. Turn it off with `volcano telemetry disable`, `VOLCANO_TELEMETRY_DISABLED=1`,
+or `DO_NOT_TRACK=1`. See [telemetry.md](telemetry.md).
+
 ## Element → CLI ability at a glance
 
 | Element | CLI can… | Commands | Details |

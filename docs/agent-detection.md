@@ -13,6 +13,9 @@ does, and it is never used to allow or block a request.
 The CLI reads environment variables only. It does not read files, inspect other
 processes, or send command arguments.
 
+The agent name is also part of the CLI's usage telemetry. Turning telemetry off
+stops the headers below too. See [telemetry.md](telemetry.md).
+
 ## How the agent is detected
 
 Most coding agents set marker environment variables in the shell they run
