@@ -253,12 +253,15 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	}
 	auth := cliauth.NewService(opts.deps)
 
+	// A refused one-time token falls back to browser login, not to the saved
+	// login: that may be another account, and the user who copied the prompt
+	// expects the project in theirs.
+	refused := false
 	if token := strings.TrimSpace(opts.token); token != "" {
 		credentials, err := auth.LoginWithToken(ctx, cfg, token, opts.project)
-		// A refused one-time token falls back to the saved login or browser
-		// login, so an agent with a stale prompt still gets the user signed in.
-		if refused, ok := errors.AsType[*cliauth.BootstrapRefusedError](err); ok {
-			output.Warning(opts.log, "The one-time token %s. Signing in another way.", refused.Reason)
+		if refusal, ok := errors.AsType[*cliauth.BootstrapRefusedError](err); ok {
+			output.Warning(opts.log, "The one-time token %s. Signing in in the browser instead.", refusal.Reason)
+			refused = true
 		} else {
 			if err != nil {
 				return fmt.Errorf("token authentication failed: %w", err)
@@ -271,7 +274,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 		}
 	}
 
-	if token := cfg.Token(); token != "" && !opts.signup {
+	if token := cfg.Token(); token != "" && !opts.signup && !refused {
 		// A project access token can't be checked without a project; the
 		// project lookup below reports it if it is wrong.
 		if config.IsProjectToken(token) {

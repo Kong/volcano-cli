@@ -43,6 +43,8 @@ type fakeAPI struct {
 	// exchanges it for pk-exchanged.
 	exchangeStatus int
 	exchangeCode   string
+	// deviceAuthorize records that browser login started. The fake refuses it.
+	deviceAuthorize bool
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +53,9 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
 			"data": f.projects, "has_more": false, "page": 1, "limit": 100, "total": len(f.projects),
 		})
+	case r.Method == http.MethodPost && r.URL.Path == "/auth/device/authorize":
+		f.deviceAuthorize = true
+		writeConnectJSON(f.t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
 	case r.Method == http.MethodPost && r.URL.Path == "/auth/cli-bootstrap-tokens/exchange":
 		if f.exchangeStatus != 0 {
 			writeConnectJSON(f.t, w, f.exchangeStatus, map[string]any{"error": "refused", "code": f.exchangeCode})
@@ -345,7 +350,7 @@ func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	assert.Equal(t, "user-1", cfg.UserID)
 }
 
-func TestConnectWithARefusedBootstrapTokenFallsBackToTheSavedLogin(t *testing.T) {
+func TestConnectWithARefusedBootstrapTokenGoesToBrowserLogin(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")
 	fake := &fakeAPI{t: t, exchangeStatus: http.StatusUnauthorized, exchangeCode: api.BootstrapTokenUsed}
@@ -354,9 +359,12 @@ func TestConnectWithARefusedBootstrapTokenFallsBackToTheSavedLogin(t *testing.T)
 	chdirTemp(t)
 
 	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
-	require.NoError(t, err)
-	assert.Contains(t, out, "The one-time token was already used. Signing in another way.")
-	assert.Equal(t, "Bearer pk-connect", fake.createAuth)
+	// The fake refuses device authorization, so browser login fails; what
+	// matters is that connect went there instead of to the saved login.
+	require.ErrorContains(t, err, "browser authentication failed")
+	assert.Contains(t, out, "The one-time token was already used. Signing in in the browser instead.")
+	assert.True(t, fake.deviceAuthorize, "browser login started")
+	assert.Zero(t, fake.creates, "the saved login, possibly another account, is never used")
 }
 
 func TestGenerateProjectName(t *testing.T) {
