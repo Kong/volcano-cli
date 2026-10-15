@@ -92,6 +92,8 @@ func TestRedact(t *testing.T) {
 		"function hello not found (11111111-2222-3333-4444-555555555555)":              "function hello not found (11111111-2222-3333-4444-555555555555)",
 		"pk-short": "pk-short",
 		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":     "aws [redacted] denied",
+		"dial postgres://admin:p@ss@db:5432/app failed":           "dial postgres://[redacted]@db:5432/app failed",
+		"GET https://cdn.example.com/pkg/@scope/name":             "GET https://cdn.example.com/pkg/@scope/name",
 		"dial postgres://app:hunter2@db.internal:5432/app failed": "dial postgres://[redacted]@db.internal:5432/app failed",
 		"run with password=hunter2 and API_KEY=abc":               "run with password=[redacted] and API_KEY=[redacted]",
 		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:     `unknown command "DB_PASSWORD=[redacted] for "volcano"`,

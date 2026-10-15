@@ -154,7 +154,7 @@ var (
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
 	keyPattern    = regexp.MustCompile(`\b(?:pk|pt|sk|ak)-[A-Za-z0-9_-]{16,}`)
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
-	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/@]+@`)
+	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/]*@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
 	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=\S+`)
 	// Long opaque runs. "/" is left out so file paths survive.
