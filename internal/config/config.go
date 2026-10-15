@@ -329,6 +329,11 @@ func (c *Config) APIURL() string {
 	return compiledDefaultAPIURL
 }
 
+// DefaultAPIURL returns the API the CLI talks to when nothing overrides it.
+func DefaultAPIURL() string {
+	return compiledDefaultAPIURL
+}
+
 // tokenFromEnv reports whether Token comes from VOLCANO_TOKEN rather than the
 // saved session.
 func (c *Config) tokenFromEnv() bool {

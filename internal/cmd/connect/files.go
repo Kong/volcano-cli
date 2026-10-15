@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 type envVar struct {
@@ -111,12 +109,16 @@ const (
 	agentsEndMarker   = "<!-- volcano:connect:end -->"
 )
 
-func agentsSection(project *apiclient.Project, dashboardURL string) string {
+// agentsSection is the same for every developer: AGENTS.md is usually
+// committed, while the project it would name is each developer's own, in the
+// gitignored link.
+func agentsSection(dashboardURL string) string {
 	return fmt.Sprintf(`%s
 ## Volcano
 
-This directory is linked to the Volcano cloud project %s (%s) in
-.volcano/project.json. Volcano CLI commands run here use that project.
+This directory is linked to a Volcano cloud project in .volcano/project.json
+(gitignored). Volcano CLI commands run here use that project. If the file is
+missing, run `+"`volcano connect`"+`.
 
 - Before writing code for this project, read the volcano-platform and
   volcano-sdk skills. If they are missing, run `+"`volcano setup`"+`.
@@ -125,7 +127,7 @@ This directory is linked to the Volcano cloud project %s (%s) in
 - Deploy to the cloud project: `+"`volcano cloud deploy --env-file volcano/cloud.env`"+`.
 - Dashboard: %s
 %s
-`, agentsStartMarker, project.Name, project.Id, dashboardURL, agentsEndMarker)
+`, agentsStartMarker, dashboardURL, agentsEndMarker)
 }
 
 // writeAgentsSection puts section in the AGENTS.md at path, replacing the one

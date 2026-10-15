@@ -44,8 +44,8 @@ to install. It stays non-interactive (installs all detected) when stdin/stdout
 is piped, when CI or VOLCANO_NONINTERACTIVE is set, or when --yes is passed, so
 agents and scripts never block on a prompt.
 
-Run by a coding agent (Claude Code, Codex, opencode, or pi), setup installs for
-that agent only and says so. Pass --agent to choose others.
+Run by a coding agent (Claude Code, Codex, opencode, or pi) without a terminal,
+setup installs for that agent only and says so. Pass --agent to choose others.
 
   volcano setup                       Autodetect; prompt on a terminal, install all otherwise
   volcano setup --yes                 No prompt: the calling agent only, else all detected
@@ -60,17 +60,20 @@ that agent only and says so. Pass --agent to choose others.
 				Manual:   manual,
 				DryRun:   dryRun,
 			}
-			if len(harnesses) == 0 && !manual {
+			prompt := interactive(cmd, harnesses, manual, dryRun, yes)
+			// A terminal keeps its picker even when its shell carries an agent's
+			// variable (one started from inside an agent): a person is there to
+			// choose.
+			if !prompt && len(harnesses) == 0 && !manual {
 				if agent := setup.CallingAgent(os.Getenv); agent != "" {
 					fmt.Fprintf(cmd.OutOrStdout(), "Running inside %s: installing for %s only. Pass --agent to choose others.\n", agent, agent)
 					opts.Only = []string{agent}
 					// Same failure policy as autodetect: report a failed install
 					// without failing the command.
 					opts.BestEffort = true
-					harnesses = opts.Only
 				}
 			}
-			if interactive(cmd, harnesses, manual, dryRun, yes) {
+			if prompt {
 				// On a TTY, honor NO_COLOR for the whole interactive path (picker theme
 				// and animated report); lipgloss/huh don't strip color on their own.
 				color := os.Getenv("NO_COLOR") == ""

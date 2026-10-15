@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/term"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
@@ -207,10 +208,10 @@ func run(ctx context.Context, opts options) error {
 
 	dashboardURL := strings.TrimRight(authenticated.Config.WebURLForAPIURL(apiURL), "/") + "/dashboard/overview"
 	agentsPath := filepath.Join(dir, agentsFileName)
-	if err := writeAgentsSection(agentsPath, agentsSection(project, dashboardURL)); err != nil {
+	if err := writeAgentsSection(agentsPath, agentsSection(dashboardURL)); err != nil {
 		return err
 	}
-	output.Success(opts.log, "Added the Volcano section to %s", agentsFileName)
+	output.Success(opts.log, "Updated the Volcano section in %s", agentsFileName)
 
 	skills := installSkills(ctx, opts)
 
@@ -340,11 +341,13 @@ func pickProject(ctx context.Context, opts options, session *clisession.Session,
 	}
 	switch {
 	case api.Status(err) == http.StatusConflict:
-		// Ours already, from an earlier run or by hand: link it.
+		// Ours already, from an earlier run or by hand: link it. A fresh
+		// clone has no link, since the link is gitignored.
 		project, findErr := cliproject.Find(ctx, client, name)
 		if findErr != nil {
 			return nil, false, fmt.Errorf("failed to create project %q: %w", name, err)
 		}
+		output.Note(opts.log, "You already have a project named %s, so connect linked it. Pass --name to create a new one instead.", name)
 		return project, false, nil
 	case isProjectLimit(err):
 		project, err := existingProjectAtLimit(ctx, opts, client, err)
@@ -518,14 +521,15 @@ func projectAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID
 }
 
 // installSkills installs the Volcano skills for the agent running connect and
-// returns its name, or "" when none was installed. With no calling agent it
-// only points at `volcano setup`, which asks before installing anywhere.
+// returns its name, or "" when none was installed. With no calling agent, or
+// with a person at a terminal, it only points at `volcano setup`, which asks
+// before installing anywhere.
 func installSkills(ctx context.Context, opts options) string {
 	if opts.skipSkills {
 		return ""
 	}
 	agent := setup.CallingAgent(os.Getenv)
-	if agent == "" {
+	if agent == "" || isTerminal(opts.in) {
 		fmt.Fprintln(opts.log, "To install the Volcano skills for your coding agents, run `volcano setup`.")
 		return ""
 	}
@@ -549,6 +553,12 @@ func relPath(base, path string) string {
 		return rel
 	}
 	return path
+}
+
+// isTerminal reports whether r is a terminal, so a person is there to answer.
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	return ok && term.IsTerminal(f.Fd())
 }
 
 func exists(path string) bool {

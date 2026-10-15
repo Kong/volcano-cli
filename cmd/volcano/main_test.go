@@ -183,6 +183,17 @@ func TestPrintError_UnauthorizedNamesTheAPI(t *testing.T) {
 	assert.NotContains(t, out.String(), "re-authenticate")
 }
 
+func TestPrintError_UnauthorizedFromTheDefaultAPIHasNoHint(t *testing.T) {
+	withInstructions(t, "", "")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusUnauthorized, Message: "invalid token"}, cliruntime.Deps{
+		ConfigLoader: func() (*cliconfig.Config, error) { return &cliconfig.Config{IgnoreEnv: true}, nil },
+	})
+
+	assert.NotContains(t, out.String(), "did not accept the credential")
+}
+
 const (
 	mainTestProjectAlpha = "11111111-1111-4111-8111-111111111111"
 	mainTestProjectBeta  = "22222222-2222-4222-8222-222222222222"

@@ -121,15 +121,21 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	printProjectTokenMismatchHint(w, err, deps)
 }
 
-// printUnauthorizedHint names the API that refused the credential. A token is
-// only valid on the API that issued it, so a 401 most often means the token
-// and the API URL came from different environments.
+// printUnauthorizedHint names the API that refused the credential when it is
+// not the default one. A token is only valid on the API that issued it, so a
+// 401 from another API most often means the token and the API URL came from
+// different environments.
 func printUnauthorizedHint(w io.Writer, deps cliruntime.Deps) {
 	cfg, err := loadConfig(deps)
 	if err != nil {
 		return
 	}
 	apiURL := clisession.NewFactory(deps).APIURL(cfg)
+	if strings.TrimRight(apiURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
+		// A 401 from the default API is an expired or revoked login; the error
+		// already says so.
+		return
+	}
 	fmt.Fprintf(w, "The API at %s did not accept the credential. Run `%s` to sign in to it, or set VOLCANO_API_URL "+
 		"to the API the credential belongs to.\n", apiURL, cliruntime.CommandPath(deps, "login"))
 }

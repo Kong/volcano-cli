@@ -115,7 +115,8 @@ func TestConnectCreatesAProjectNamedAfterTheDirectoryAndLinksIt(t *testing.T) {
 
 	assert.FileExists(t, filepath.Join(dir, "volcano", "volcano.env"), "the base scaffold is created")
 	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
-	assert.Contains(t, agents, "linked to the Volcano cloud project my-app ("+connectProjectID+")")
+	assert.Contains(t, agents, "linked to a Volcano cloud project in .volcano/project.json")
+	assert.NotContains(t, agents, connectProjectID, "AGENTS.md is shared; the project is each developer's own")
 
 	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
 }
@@ -153,6 +154,8 @@ func TestConnectRerunReusesTheLinkAndUpdatesFilesInPlace(t *testing.T) {
 	assert.True(t, strings.HasPrefix(gitignore, "node_modules\n"), gitignore)
 	assert.Equal(t, 1, strings.Count(gitignore, ".volcano/project.json"), gitignore)
 	assert.NoDirExists(t, filepath.Join(dir, "volcano", "migrations"), "an existing volcano/ directory is left alone")
+	// No scaffold ran, so only the root .gitignore entries connect adds keep these out.
+	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
 }
 
 // The free plan allows one project and signup creates it, so a new user's
@@ -198,6 +201,22 @@ func TestConnectAtTheProjectLimitWithSeveralProjectsNamesThem(t *testing.T) {
 	require.ErrorContains(t, err, "Pass --project with one of your projects")
 	require.ErrorContains(t, err, "shop ("+connectProjectID+")")
 	require.ErrorContains(t, err, "blog ("+connectOtherProjectID+")")
+}
+
+func TestConnectLinksAnExistingProjectWithTheSameName(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{
+		t:            t,
+		projects:     []map[string]any{connectProjectPayload(connectOtherProjectID, "shop")},
+		createStatus: http.StatusConflict,
+		createError:  "project name already exists",
+	}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	out, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"))
+	require.NoError(t, err)
+	assert.Contains(t, out, "You already have a project named shop, so connect linked it.")
 }
 
 func TestConnectWithProjectLinksIt(t *testing.T) {

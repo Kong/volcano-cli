@@ -31,8 +31,9 @@ It runs these steps, and is safe to run again:
    kept.
 6. **Updates `.gitignore` and `AGENTS.md`.** It gitignores
    `.volcano/project.json` and `volcano/*.env`, and adds a Volcano section to
-   `AGENTS.md` that tells the agent which project it is on and how to deploy.
-   A rerun replaces that section instead of adding another.
+   `AGENTS.md` that tells the agent where the project link is, which skills to
+   use, and how to deploy. The section names no project, so teammates can
+   share it. A rerun replaces it instead of adding another.
 7. **Installs skills.** When a coding agent runs `connect`, it installs the
    Volcano skills for that agent only. Run by hand, it points you at
    `volcano setup`, which asks before installing. See [setup.md](setup.md).

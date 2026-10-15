@@ -12,10 +12,10 @@ failures apart without parsing the error text.
 |---|---|---|
 | `0` | Success | |
 | `1` | Any other failure | Read the error on stderr |
-| `2` | Not logged in, or the API rejected the credential | Run `volcano login` |
-| `3` | No project selected | Run `volcano connect`, or `volcano use <project>` |
-| `4` | The project or resource was not found | Check the name or ID |
-| `5` | The API refused the request, or the command needs an account token | Check the credential's access and the plan's limits |
+| `2` | No credential is set, or the API answered HTTP 401 | Run `volcano login` |
+| `3` | No project is selected | Run `volcano connect`, or `volcano use <project>` |
+| `4` | The API answered HTTP 404, or no project matched the name or ID | Check the name or ID |
+| `5` | The API answered HTTP 403, or the command needs an account token | Check the credential's access and the plan's limits |
 
 `volcano sandboxes exec` and `volcano sandboxes shell` return the guest
 process's exit code instead, and `124` on timeout. See

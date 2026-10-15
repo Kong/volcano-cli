@@ -98,6 +98,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	}
 
 	output.Success(opts.out, "Logged in successfully")
+	printNonDefaultAPI(opts.out, credentials)
 	if credentials.Project != nil {
 		output.Success(opts.out, "Now using project: %s (%s)", credentials.Project.Name, credentials.Project.ID)
 	}
@@ -147,6 +148,7 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 	}
 
 	output.Success(opts.out, "Signed up and logged in successfully")
+	printNonDefaultAPI(opts.out, credentials)
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
 	return nil
 }
@@ -175,6 +177,15 @@ func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.
 		return "", fmt.Errorf("invalid email address: %w", err)
 	}
 	return parsed.Address, nil
+}
+
+// printNonDefaultAPI names the API a login signed in to when it isn't the
+// default. Later commands keep using that API, so the user should know.
+func printNonDefaultAPI(w io.Writer, credentials cliauth.Credentials) {
+	if credentials.APIURL == "" || strings.TrimRight(credentials.APIURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
+		return
+	}
+	output.Note(w, "Signed in to %s. Commands use this API until you log out or log in elsewhere.", credentials.APIURL)
 }
 
 // NewLogout returns the logout command.

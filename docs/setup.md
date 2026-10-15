@@ -39,9 +39,9 @@ The picker wraps its heading and key hints in narrow terminals, including split 
 
 ## Run by a coding agent
 
-When a coding agent runs `volcano setup`, it installs for that agent only, not
-for every agent on the machine, and prints which one it picked. Pass `--agent`
-to choose others.
+When a coding agent runs `volcano setup` without a terminal, it installs for
+that agent only, not for every agent on the machine, and prints which one it
+picked. Pass `--agent` to choose others. On a terminal, the picker still asks.
 
 | Agent | Detected from |
 |---|---|
