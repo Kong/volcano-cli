@@ -24,6 +24,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -266,9 +267,10 @@ func (r *Recorder) initialize() (state State, firstRun bool, err error) {
 }
 
 // skipped reports whether an invocation of cmd is never recorded: commands
-// under a SkipAnnotation (`volcano telemetry`), shell completion requests (run
-// on every Tab press with stderr discarded), and runs that promised not to
-// touch the network (`--offline`).
+// under a SkipAnnotation (`volcano telemetry`), shell completion (the script
+// `volcano completion` prints, and the requests run on every Tab press with
+// stderr discarded), and runs that promised not to touch the network
+// (`--offline`).
 func skipped(cmd *cobra.Command, args []string) bool {
 	if offlineArg(args) {
 		return true
@@ -278,6 +280,11 @@ func skipped(cmd *cobra.Command, args []string) bool {
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Annotations[SkipAnnotation] != "" {
+			return true
+		}
+		// cobra's `volcano completion <shell>` prints the completion script,
+		// often from a shell rc file on every new shell.
+		if c.Name() == "completion" && c.HasParent() && !c.Parent().HasParent() {
 			return true
 		}
 	}
@@ -346,6 +353,11 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 	}
 	if detected.Name != "" {
 		event.PluginInstalled, event.PluginVersion = r.PluginStatus(harnessFor(detected.Name))
+		// The version is read from a harness's own files; send it only when it
+		// looks like a version.
+		if !pluginVersionPattern.MatchString(event.PluginVersion) {
+			event.PluginVersion = ""
+		}
 	}
 	if inv.Err != nil {
 		event.ErrorKind = errorKind(inv.Err)
@@ -356,6 +368,9 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 	}
 	return event
 }
+
+// pluginVersionPattern is the plugin version shape the API accepts.
+var pluginVersionPattern = regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]{1,32})?$`)
 
 // commandPath is the executed command's path without the root name, e.g.
 // "cloud functions deploy"; "" for the root itself.

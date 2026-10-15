@@ -279,6 +279,26 @@ func TestRecord_FalsyEnvDoesNotOptOut(t *testing.T) {
 	assert.Len(t, h.sent, 1)
 }
 
+func TestRecord_SkipsCompletionScript(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	root := &cobra.Command{Use: "volcano"}
+	docs := &cobra.Command{Use: "docs"}
+	nested := &cobra.Command{Use: "completion"}
+	docs.AddCommand(nested)
+	root.AddCommand(docs)
+	root.InitDefaultCompletionCmd()
+	zsh, _, err := root.Find([]string{"completion", "zsh"})
+	require.NoError(t, err)
+	require.Equal(t, "volcano completion zsh", zsh.CommandPath())
+
+	h.recorder().Record(Invocation{Command: zsh})
+	assert.Empty(t, h.sent)
+
+	h.recorder().Record(Invocation{Command: nested})
+	assert.Len(t, h.sent, 1, "only the root's completion command is skipped")
+}
+
 func TestRecord_SkipAnnotation(t *testing.T) {
 	h := newHarness()
 	parent := &cobra.Command{Use: "telemetry", Annotations: map[string]string{SkipAnnotation: "true"}}
@@ -342,6 +362,19 @@ func TestRecord_ProjectAndResources(t *testing.T) {
 	e := h.lastEvent(t)
 	assert.Equal(t, "11111111-2222-3333-4444-555555555555", e.ProjectID)
 	assert.Equal(t, map[string]string{"name": "hello"}, e.Resources)
+}
+
+func TestRecord_DropsPluginVersionThatIsNotAVersion(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.env["CLAUDECODE"] = "1"
+	h.plugins["claude-code"] = "see /Users/alice/notes: hunter2"
+
+	h.recorder().Record(Invocation{})
+
+	e := h.lastEvent(t)
+	assert.True(t, e.PluginInstalled)
+	assert.Empty(t, e.PluginVersion)
 }
 
 func TestRecord_AgentRunReportsPluginAndError(t *testing.T) {

@@ -30,7 +30,8 @@ error message with tokens and keys removed. Events are linked to your account
 when you are logged in, and otherwise to a random ID for this machine.
 
 Nothing is sent on the first run, which shows a notice instead. Shell
-completion, --offline runs, and volcano telemetry commands are never recorded.
+completion (volcano completion and pressing Tab), --offline runs, and volcano
+telemetry commands are never recorded.
 
 Turn it off with ` + "`volcano telemetry disable`" + ` or VOLCANO_TELEMETRY_DISABLED=1. A
 change applies from the next command. Set VOLCANO_TELEMETRY_DEBUG=1 to print
