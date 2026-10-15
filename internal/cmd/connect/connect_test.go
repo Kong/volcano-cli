@@ -34,7 +34,9 @@ type fakeAPI struct {
 	// createStatus and createError make POST /projects fail; 0 creates.
 	createStatus int
 	createError  string
-	creates      int
+	// takenNames answer POST /projects with 409 for these names.
+	takenNames map[string]bool
+	creates    int
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +55,10 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Name string `json:"name"`
 		}
 		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
+		if f.takenNames[body.Name] {
+			writeConnectJSON(f.t, w, http.StatusConflict, map[string]any{"error": "project name already exists"})
+			return
+		}
 		project := connectProjectPayload(connectProjectID, body.Name)
 		f.projects = append(f.projects, project)
 		writeConnectJSON(f.t, w, http.StatusCreated, project)
@@ -93,7 +99,7 @@ func TestConnectCreatesAProjectNamedAfterTheDirectoryAndLinksIt(t *testing.T) {
 	assert.Equal(t, projectRef{ID: connectProjectID, Name: "my-app"}, res.Project)
 	assert.True(t, res.Created)
 	assert.Equal(t, 1, fake.creates)
-	assert.Equal(t, "http://localhost:3000/dashboard/overview", res.DashboardURL)
+	assert.Equal(t, "http://localhost:3000/dashboard/overview?project="+connectProjectID, res.DashboardURL)
 
 	link, err := cliconfig.FindLink(dir)
 	require.NoError(t, err)
@@ -158,9 +164,9 @@ func TestConnectRerunReusesTheLinkAndUpdatesFilesInPlace(t *testing.T) {
 	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
 }
 
-// The free plan allows one project and signup creates it, so a new user's
-// create always hits the limit. connect links that project instead.
-func TestConnectAtTheProjectLimitLinksTheOnlyProject(t *testing.T) {
+// connect always creates a project. At the plan's limit it fails and names
+// the projects that --project could link instead.
+func TestConnectAtTheProjectLimitNamesTheProjectsToLink(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{
 		t:            t,
@@ -172,51 +178,41 @@ func TestConnectAtTheProjectLimitLinksTheOnlyProject(t *testing.T) {
 	defer server.Close()
 	dir := t.TempDir()
 
-	out, err := runConnect(t, server, dir, "--json")
+	_, err := runConnect(t, server, dir, "--json")
+	require.Error(t, err)
+	assert.Equal(t, http.StatusForbidden, api.Status(err))
+	require.ErrorContains(t, err, "project limit exceeded")
+	require.ErrorContains(t, err, "first-project: volcano connect --project "+connectOtherProjectID)
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	assert.Nil(t, link, "nothing is linked when no project was created")
+}
+
+func TestConnectAddsASuffixWhenTheNameIsTaken(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, takenNames: map[string]bool{"shop": true, "shop-2": true}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	out, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"), "--json")
 	require.NoError(t, err)
 
 	var res result
 	require.NoError(t, json.Unmarshal([]byte(out), &res), out)
-	assert.Equal(t, projectRef{ID: connectOtherProjectID, Name: "first-project"}, res.Project)
-	assert.False(t, res.Created)
+	assert.Equal(t, "shop-3", res.Project.Name)
+	assert.True(t, res.Created)
+	assert.Equal(t, 3, fake.creates)
 }
 
-func TestConnectAtTheProjectLimitWithSeveralProjectsNamesThem(t *testing.T) {
+func TestConnectProjectFlagTakesAnID(t *testing.T) {
 	setConnectTestHome(t)
-	fake := &fakeAPI{
-		t: t,
-		projects: []map[string]any{
-			connectProjectPayload(connectProjectID, "shop"),
-			connectProjectPayload(connectOtherProjectID, "blog"),
-		},
-		createStatus: http.StatusForbidden,
-		createError:  "project limit exceeded (max 2 projects per user)",
-	}
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 
-	_, err := runConnect(t, server, t.TempDir(), "--json")
-	require.Error(t, err)
-	assert.Equal(t, http.StatusForbidden, api.Status(err))
-	require.ErrorContains(t, err, "Pass --project with one of your projects")
-	require.ErrorContains(t, err, "shop ("+connectProjectID+")")
-	require.ErrorContains(t, err, "blog ("+connectOtherProjectID+")")
-}
-
-func TestConnectLinksAnExistingProjectWithTheSameName(t *testing.T) {
-	setConnectTestHome(t)
-	fake := &fakeAPI{
-		t:            t,
-		projects:     []map[string]any{connectProjectPayload(connectOtherProjectID, "shop")},
-		createStatus: http.StatusConflict,
-		createError:  "project name already exists",
-	}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-
-	out, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"))
-	require.NoError(t, err)
-	assert.Contains(t, out, "You already have a project named shop, so connect linked it.")
+	_, err := runConnect(t, server, t.TempDir(), "--project", "blog")
+	require.ErrorContains(t, err, "--project takes a project ID")
+	assert.Zero(t, fake.creates)
 }
 
 func TestConnectWithProjectLinksIt(t *testing.T) {
@@ -226,8 +222,9 @@ func TestConnectWithProjectLinksIt(t *testing.T) {
 	defer server.Close()
 	dir := t.TempDir()
 
-	_, err := runConnect(t, server, dir, "--project", "blog")
+	out, err := runConnect(t, server, dir, "--project", connectOtherProjectID)
 	require.NoError(t, err)
+	assert.Contains(t, out, "Project:   blog\nDashboard: http://localhost:3000/dashboard/overview?project="+connectOtherProjectID+"\n")
 
 	assert.Zero(t, fake.creates)
 	link, err := cliconfig.FindLink(dir)

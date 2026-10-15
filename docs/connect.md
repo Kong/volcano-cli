@@ -17,9 +17,11 @@ It runs these steps, and is safe to run again:
 1. **Signs in.** It reuses a login that still works, takes `--token`, or runs
    browser login. Browser login prints a code and a link. Open the link and
    approve, and the command continues.
-2. **Picks the project.** It creates a project named after the directory, or
-   `--name`. With `--project` it links an existing project instead. A
-   directory that is already linked keeps its project.
+2. **Creates a project.** It always creates a new project, named after the
+   directory or `--name`. If you already have a project with that name, it
+   adds `-2`, `-3`, and so on. With `--project <project-id>` it links that
+   project instead. A rerun in a directory that is already linked keeps the
+   linked project.
 3. **Links the directory.** It writes `.volcano/project.json`. CLI commands
    run inside the directory use this project. See
    [Linked directories](#linked-directories).
@@ -38,7 +40,12 @@ It runs these steps, and is safe to run again:
    Volcano skills for that agent only. Run by hand, it points you at
    `volcano setup`, which asks before installing. See [setup.md](setup.md).
 
-It ends with the dashboard link.
+It ends with the project's name and its dashboard link:
+
+```text
+Project:   my-app
+Dashboard: https://volcano.dev/dashboard/overview?project=<project-id>
+```
 
 ## Usage
 
@@ -46,7 +53,7 @@ It ends with the dashboard link.
 volcano connect                        # link this directory
 volcano connect my-app                 # create ./my-app and link it
 volcano connect --name shop            # name the new project
-volcano connect --project my-existing  # link an existing project by name or ID
+volcano connect --project <project-id> # link an existing project
 volcano connect --template nextjs      # also add the Next.js starter
 volcano connect --signup               # new to Volcano: create an account first
 volcano connect --token pk-xxxxxxxxxx  # sign in with a token, no browser
@@ -55,7 +62,7 @@ volcano connect --json                 # print the result as JSON
 
 | Flag | Meaning |
 |---|---|
-| `--project` | Link this existing project instead of creating one |
+| `--project` | Link the existing project with this ID instead of creating one |
 | `--name` | Name for the new project. Defaults to the directory name |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
 | `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email` |
@@ -69,9 +76,12 @@ Run `volcano connect --signup` if you don't have an account yet. It opens
 the signup page, and the CLI is signed in when you finish.
 
 The free plan allows one project, and signup creates it. When the plan's
-limit is reached, `connect` links your existing project instead of creating
-one. If you have several, it asks which one. With no terminal to ask on, it
-fails and lists them, so you can pass one with `--project`.
+limit is reached, `connect` fails and lists your projects with the command to
+link each one:
+
+```bash
+volcano connect --project <project-id>
+```
 
 ## Linked directories
 

@@ -11,10 +11,10 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -97,9 +97,10 @@ directory to it, ready for a coding agent to build on. Safe to run again.
 
 connect:
   1. Signs in: reuses a valid login, takes --token, or runs browser login.
-  2. Creates a project named after the directory (or --name). With --project it
-     links an existing project instead. If your plan's project limit is
-     reached, it links your existing project.
+  2. Creates a new project named after the directory (or --name), adding -2,
+     -3, ... if you already have a project with that name. With --project
+     <project-id> it links that project instead. A rerun in a linked
+     directory keeps the linked project.
   3. Links the directory in .volcano/project.json. Commands run inside the
      directory use this project.
   4. Creates the volcano/ scaffold if it is missing (or --template's starter).
@@ -108,11 +109,13 @@ connect:
      AGENTS.md.
   7. Installs the Volcano skills for the coding agent running it.
 
+It ends with the project's name and its dashboard link.
+
 With a directory argument, connect creates it and works there.
 
   volcano connect                          Link this directory
   volcano connect my-app                   Create ./my-app and link it
-  volcano connect --project my-existing    Link an existing project
+  volcano connect --project <project-id>   Link an existing project
   volcano connect --signup                 New to Volcano: create an account first
   npx -y @volcano.dev/cli connect          No install needed`,
 		Args: cobra.MaximumNArgs(1),
@@ -131,7 +134,7 @@ With a directory argument, connect creates it and works there.
 		},
 	}
 	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with an account token (pk-) instead of the browser")
-	cmd.Flags().StringVar(&opts.project, "project", "", "Link this existing project (ID or name) instead of creating one")
+	cmd.Flags().StringVar(&opts.project, "project", "", "Link the existing project with this ID instead of creating one")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
@@ -206,9 +209,11 @@ func run(ctx context.Context, opts options) error {
 		return err
 	}
 
-	dashboardURL := strings.TrimRight(authenticated.Config.WebURLForAPIURL(apiURL), "/") + "/dashboard/overview"
+	dashboardURL := projectDashboardURL(authenticated.Config.WebURLForAPIURL(apiURL), project.Id)
 	agentsPath := filepath.Join(dir, agentsFileName)
-	if err := writeAgentsSection(agentsPath, agentsSection(dashboardURL)); err != nil {
+	// The shared AGENTS.md gets the dashboard's root, not this developer's project.
+	dashboardRoot := strings.TrimRight(authenticated.Config.WebURLForAPIURL(apiURL), "/") + "/dashboard"
+	if err := writeAgentsSection(agentsPath, agentsSection(dashboardRoot)); err != nil {
 		return err
 	}
 	output.Success(opts.log, "Updated the Volcano section in %s", agentsFileName)
@@ -229,7 +234,9 @@ func run(ctx context.Context, opts options) error {
 		return output.JSON(opts.out, res)
 	}
 	fmt.Fprintln(opts.out)
-	fmt.Fprintf(opts.out, "Dashboard: %s (project %s)\n", dashboardURL, project.Name)
+	fmt.Fprintf(opts.out, "Project:   %s\n", project.Name)
+	fmt.Fprintf(opts.out, "Dashboard: %s\n", dashboardURL)
+	fmt.Fprintln(opts.out)
 	fmt.Fprintln(opts.out, "Next: read AGENTS.md and use the Volcano skills to build.")
 	return nil
 }
@@ -300,13 +307,25 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	return nil
 }
 
+// maxNameSuffix bounds the -2, -3, ... suffixes tried when the project name
+// is taken.
+const maxNameSuffix = 20
+
 // pickProject returns the project to link and whether connect created it:
-// --project, else the directory's existing link, else a new project.
+// the --project ID, else the project this directory's link already records
+// (so a rerun doesn't create another), else a new project.
 func pickProject(ctx context.Context, opts options, session *clisession.Session, dir string) (*apiclient.Project, bool, error) {
 	client := session.API
-	if identifier := strings.TrimSpace(opts.project); identifier != "" {
-		project, err := findProject(ctx, session, identifier)
-		return project, false, err
+	if raw := strings.TrimSpace(opts.project); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, false, fmt.Errorf("--project takes a project ID, got %q. Run `volcano projects list` to find it", raw)
+		}
+		project, err := client.GetProject(ctx, id)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to get project %s: %w", raw, err)
+		}
+		return project, false, nil
 	}
 
 	link, err := config.FindLink(dir)
@@ -335,40 +354,33 @@ func pickProject(ctx context.Context, opts options, session *clisession.Session,
 	if err != nil {
 		return nil, false, err
 	}
-	project, err := client.CreateProject(ctx, name, "")
-	if err == nil {
-		return project, true, nil
+	project, err := createProject(ctx, opts, client, name)
+	if err != nil {
+		return nil, false, err
 	}
-	switch {
-	case api.Status(err) == http.StatusConflict:
-		// Ours already, from an earlier run or by hand: link it. A fresh
-		// clone has no link, since the link is gitignored.
-		project, findErr := cliproject.Find(ctx, client, name)
-		if findErr != nil {
-			return nil, false, fmt.Errorf("failed to create project %q: %w", name, err)
-		}
-		output.Note(opts.log, "You already have a project named %s, so connect linked it. Pass --name to create a new one instead.", name)
-		return project, false, nil
-	case isProjectLimit(err):
-		project, err := existingProjectAtLimit(ctx, opts, client, err)
-		return project, false, err
-	default:
-		return nil, false, fmt.Errorf("failed to create project %q: %w", name, err)
-	}
+	return project, true, nil
 }
 
-func findProject(ctx context.Context, session *clisession.Session, identifier string) (*apiclient.Project, error) {
-	if id, err := uuid.Parse(identifier); err == nil {
-		project, err := session.API.GetProject(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get project %s: %w", identifier, err)
+// createProject creates a project named name. When the name is taken it tries
+// name-2, name-3, and so on, so connect always gets a new project.
+func createProject(ctx context.Context, opts options, client *api.Client, name string) (*apiclient.Project, error) {
+	candidate := name
+	for suffix := 2; ; suffix++ {
+		project, err := client.CreateProject(ctx, candidate, "")
+		switch {
+		case err == nil:
+			if candidate != name {
+				output.Note(opts.log, "You already have a project named %s, so the new one is %s.", name, candidate)
+			}
+			return project, nil
+		case api.Status(err) == http.StatusConflict && suffix <= maxNameSuffix:
+			candidate = fmt.Sprintf("%s-%d", name, suffix)
+		case isProjectLimit(err):
+			return nil, projectLimitError(ctx, client, err)
+		default:
+			return nil, fmt.Errorf("failed to create project %q: %w", candidate, err)
 		}
-		return project, nil
 	}
-	if err := session.Config.RequireAccountToken(); err != nil {
-		return nil, err
-	}
-	return cliproject.Find(ctx, session.API, identifier)
 }
 
 // projectName is --name, else what the user types at a prompt, else the
@@ -407,44 +419,19 @@ func isProjectLimit(err error) bool {
 	return api.Status(err) == http.StatusForbidden && strings.Contains(strings.ToLower(api.Message(err)), "project limit")
 }
 
-// existingProjectAtLimit picks an existing project when the plan allows no
-// more. The free plan allows one, and signup creates it, so a new user always
-// lands here.
-func existingProjectAtLimit(ctx context.Context, opts options, client *api.Client, limitErr error) (*apiclient.Project, error) {
+// projectLimitError explains a create refused by the plan's project limit and
+// lists the projects the user could link instead. The free plan allows one
+// project, and signup creates it.
+func projectLimitError(ctx context.Context, client *api.Client, limitErr error) error {
 	page, err := client.ListProjects(ctx, api.DefaultPage, api.DefaultLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-	projects := page.Data
-	switch {
-	case len(projects) == 1:
-		output.Note(opts.log, "Your plan's project limit is reached, so connect links your existing project.")
-		return &projects[0], nil
-	case len(projects) > 1 && !opts.jsonOutput && confirm.CanPrompt(opts.in):
-		return chooseProject(opts, projects)
+	if err != nil || len(page.Data) == 0 {
+		return fmt.Errorf("%w\nDelete a project or upgrade your plan to create another", limitErr)
 	}
 	var list strings.Builder
-	for _, p := range projects {
-		fmt.Fprintf(&list, "\n  - %s (%s)", p.Name, p.Id)
+	for _, p := range page.Data {
+		fmt.Fprintf(&list, "\n  - %s: volcano connect --project %s", p.Name, p.Id)
 	}
-	return nil, fmt.Errorf("%w\nPass --project with one of your projects:%s", limitErr, list.String())
-}
-
-func chooseProject(opts options, projects []apiclient.Project) (*apiclient.Project, error) {
-	fmt.Fprintln(opts.log, "Your plan's project limit is reached. Link an existing project:")
-	for i, p := range projects {
-		fmt.Fprintf(opts.log, "  %d. %s (%s)\n", i+1, p.Name, p.Id)
-	}
-	fmt.Fprint(opts.log, "Number: ")
-	line, err := bufio.NewReader(opts.in).ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	n, err := strconv.Atoi(strings.TrimSpace(line))
-	if err != nil || n < 1 || n > len(projects) {
-		return nil, fmt.Errorf("invalid choice %q", strings.TrimSpace(line))
-	}
-	return &projects[n-1], nil
+	return fmt.Errorf("%w\nDelete a project or upgrade your plan to create another, or link an existing project:%s", limitErr, list.String())
 }
 
 func waitUntilActive(ctx context.Context, client *api.Client, project *apiclient.Project) error {
@@ -553,6 +540,11 @@ func relPath(base, path string) string {
 		return rel
 	}
 	return path
+}
+
+// projectDashboardURL is the project's overview page in the dashboard.
+func projectDashboardURL(webURL string, projectID uuid.UUID) string {
+	return strings.TrimRight(webURL, "/") + "/dashboard/overview?" + url.Values{"project": []string{projectID.String()}}.Encode()
 }
 
 // isTerminal reports whether r is a terminal, so a person is there to answer.
