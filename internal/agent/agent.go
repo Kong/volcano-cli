@@ -113,7 +113,7 @@ var markers = []marker{
 //
 // The API forwards only names on its own allowlist to analytics and reports
 // any other name as "other" (volcano-hosting
-// internal/productanalytics/allowlist.go allowedAgents). Keep the canonical
+// internal/productanalytics/allowlist.go isAllowedAgent). Keep the canonical
 // names here, that allowlist, and the harness list in the volcano-skills
 // AGENTS.md in step.
 var aliases = map[string]string{

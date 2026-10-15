@@ -35,9 +35,11 @@ code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
 removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
 access key IDs, passwords in URLs, URL query strings, values of `password=`,
-`token=`, and similar pairs, and other long opaque strings. When reading
-`volcano.yaml` or `volcano.env` fails, the part of the error that quotes the
-file is replaced with `[redacted]`. It then cuts the message to 500 characters.
+`token=`, `DB_PASSWORD=`, and similar pairs, and other long opaque strings.
+When reading `volcano-config.yaml` or an env file such as `volcano.env` fails,
+the part of the error that quotes the file is replaced with `[redacted]`. So is
+the error body a function returns to `volcano functions invoke`, which can hold
+your application's data; only its HTTP status is sent. It then cuts the message to 500 characters.
 
 An error message can contain what you typed, such as an unknown command, a flag
 value the CLI rejected, a file path, or a resource name. Redaction removes the
@@ -62,8 +64,8 @@ known agent names to analytics and reports any other as `other`. See
 If you are logged in, the event is linked to your Volcano account. Otherwise it
 is linked only to the random machine ID, stored in `~/.volcano/config.json`.
 
-Shell completion (pressing Tab), commands run with `--offline`, and `volcano
-telemetry` commands are never recorded.
+Shell completion (`volcano completion` and pressing Tab), commands run with
+`--offline`, and `volcano telemetry` commands are never recorded.
 
 ## How it is sent
 
