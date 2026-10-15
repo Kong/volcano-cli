@@ -11,9 +11,10 @@
 //  3. VOLCANO_AGENT: set by the Volcano skills when the harness sets nothing
 //     the CLI recognizes.
 //  4. A bare truthy AI_AGENT or AGENT: reported as Unknown.
-//  5. Host markers: variables that only show the terminal or workspace the
-//     command ran in. A person typing there sets them too, and any agent
-//     started there inherits them, so they are the weakest signal.
+//  5. Weak (host) markers: variables that show the terminal or workspace the
+//     command ran in, or agent settings people export in their own profile.
+//     A person typing there sets them too, and any agent started there
+//     inherits them, so they are the weakest signal.
 //
 // The result is advisory telemetry. Any process can set these variables, so
 // nothing may use it to grant or deny anything.
@@ -64,8 +65,9 @@ type Result struct {
 // marker maps one harness-specific environment variable to an agent. When
 // value is set, the variable must equal it; otherwise any non-empty value
 // matches. Names are matched exactly, never by prefix: a user's own
-// CODEX_AGENT variable must not read as Codex. host marks a variable that
-// only shows the terminal or workspace, not that an agent ran the command.
+// CODEX_AGENT variable must not read as Codex. host marks a weak marker: a
+// variable that shows the terminal or workspace, or a setting people export
+// themselves, rather than that an agent ran the command.
 type marker struct {
 	env   string
 	value string
@@ -94,13 +96,15 @@ var markers = []marker{
 	{env: "OPENCODE_CLIENT", agent: "opencode"},
 	{env: "AUGMENT_AGENT", agent: "augment"},
 	{env: "ANTIGRAVITY_AGENT", agent: "antigravity"},
-	// COPILOT_GITHUB_TOKEN is left out on purpose: people export it in their
-	// own shell profile, so it does not show an agent ran the command.
-	{env: "COPILOT_MODEL", agent: "github-copilot"},
-	{env: "COPILOT_ALLOW_ALL", agent: "github-copilot"},
 
+	// Weak markers (host: true). The terminal or workspace only:
 	{env: "CURSOR_TRACE_ID", agent: "cursor", host: true},
 	{env: "REPL_ID", agent: "replit", host: true},
+	// Copilot CLI settings people can export in their own shell profile, so
+	// they show the user has Copilot, not that Copilot ran this command.
+	// COPILOT_GITHUB_TOKEN is left out entirely for the same reason.
+	{env: "COPILOT_MODEL", agent: "github-copilot", host: true},
+	{env: "COPILOT_ALLOW_ALL", agent: "github-copilot", host: true},
 }
 
 // aliases maps lowercase AI_AGENT / AGENT / VOLCANO_AGENT values (or their
@@ -144,6 +148,7 @@ var aliases = map[string]string{
 	"junie":              "junie",
 	"devin":              "devin",
 	"v0":                 "v0",
+	"pi":                 "pi",
 }
 
 // Detect reports the agent that ran this process. lookup is os.LookupEnv in

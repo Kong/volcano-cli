@@ -25,12 +25,21 @@ import (
 )
 
 type memStore struct {
-	state State
-	saves int
+	state    State
+	saves    int
+	failSave bool
 }
 
 func (m *memStore) Load() (State, error) { return m.state, nil }
-func (m *memStore) Save(s State) error   { m.state = s; m.saves++; return nil }
+func (m *memStore) Update(fn func(*State) bool) error {
+	if m.failSave {
+		return errors.New("read-only home")
+	}
+	if fn(&m.state) {
+		m.saves++
+	}
+	return nil
+}
 
 type harness struct {
 	env     map[string]string
@@ -94,24 +103,81 @@ func commandTree(t *testing.T, args ...string) *cobra.Command {
 	return cmd
 }
 
-func TestRecord_FirstRunPrintsNoticeOnceAndKeepsDeviceID(t *testing.T) {
+func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	h := newHarness()
 	var stderr bytes.Buffer
 
 	h.recorder().Record(Invocation{Stderr: &stderr})
 	assert.Contains(t, stderr.String(), "collects usage data")
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
-	require.Len(t, h.sent, 1)
-	first := h.lastEvent(t).DeviceID
-	assert.NotEmpty(t, first)
+	assert.Contains(t, stderr.String(), "volcano docs get cli/telemetry.md")
+	assert.Empty(t, h.sent, "the run that shows the notice sends nothing")
 	assert.True(t, h.store.state.NoticeShown)
+	deviceID := h.store.state.DeviceID
+	assert.NotEmpty(t, deviceID)
 
 	stderr.Reset()
 	h.recorder().Record(Invocation{Stderr: &stderr})
 	assert.Empty(t, stderr.String())
-	require.Len(t, h.sent, 2)
-	assert.Equal(t, first, h.lastEvent(t).DeviceID)
+	require.Len(t, h.sent, 1)
+	assert.Equal(t, deviceID, h.lastEvent(t).DeviceID)
 	assert.Equal(t, 1, h.store.saves)
+}
+
+func TestRecord_UnwritableStatePrintsNoNoticeAndSendsNothing(t *testing.T) {
+	h := newHarness()
+	h.store.failSave = true
+	var stderr bytes.Buffer
+
+	for range 3 {
+		h.recorder().Record(Invocation{Stderr: &stderr})
+	}
+	assert.Empty(t, stderr.String(), "a notice that can never be marked shown would print on every run")
+	assert.Empty(t, h.sent)
+}
+
+func TestRecord_SkipsCompletionAndOffline(t *testing.T) {
+	h := newHarness()
+	h.store.state = State{DeviceID: "d", NoticeShown: true}
+
+	complete := &cobra.Command{Use: cobra.ShellCompRequestCmd}
+	h.recorder().Record(Invocation{Command: complete})
+	completeNoDesc := &cobra.Command{Use: cobra.ShellCompNoDescRequestCmd}
+	h.recorder().Record(Invocation{Command: completeNoDesc})
+
+	docs := &cobra.Command{Use: "list", RunE: func(*cobra.Command, []string) error { return nil }}
+	docs.Flags().Bool("offline", false, "")
+	require.NoError(t, docs.ParseFlags([]string{"--offline"}))
+	h.recorder().Record(Invocation{Command: docs})
+	assert.Empty(t, h.sent)
+
+	online := &cobra.Command{Use: "list"}
+	online.Flags().Bool("offline", false, "")
+	h.recorder().Record(Invocation{Command: online})
+	assert.Len(t, h.sent, 1, "--offline unset still records")
+}
+
+// staleStore returns the state as it was before a concurrent
+// `volcano telemetry disable`, while Update sees the file as it is now.
+type staleStore struct{ FileStateStore }
+
+func (staleStore) Load() (State, error) { return State{}, nil }
+
+func TestRecord_FirstRunKeepsConcurrentOptOut(t *testing.T) {
+	file := FileStateStore{Path: filepath.Join(t.TempDir(), "telemetry.json")}
+	require.NoError(t, file.Update(func(s *State) bool { s.Disabled = true; return true }))
+	var stderr bytes.Buffer
+	r := Recorder{State: staleStore{file}, Getenv: func(string) string { return "" }, Send: func([]byte) error {
+		t.Fatal("must not send after opt-out")
+		return nil
+	}}
+
+	r.Record(Invocation{Stderr: &stderr})
+
+	got, err := file.Load()
+	require.NoError(t, err)
+	assert.Equal(t, State{Disabled: true}, got, "the first-run write must not clobber the opt-out")
+	assert.Empty(t, stderr.String())
 }
 
 func TestRecord_OptOuts(t *testing.T) {
@@ -134,6 +200,7 @@ func TestRecord_OptOuts(t *testing.T) {
 
 func TestRecord_FalsyEnvDoesNotOptOut(t *testing.T) {
 	h := newHarness()
+	h.store.state = State{DeviceID: "d", NoticeShown: true}
 	h.env[EnvDisabled] = "0"
 	h.env[EnvDoNotTrack] = "false"
 	h.recorder().Record(Invocation{})
@@ -248,6 +315,7 @@ func TestHarnessFor(t *testing.T) {
 		"cursor":      "cursor",
 		"cursor-cli":  "cursor",
 		"opencode":    "opencode",
+		"pi":          "pi",
 		"gemini-cli":  "",
 		"windsurf":    "",
 	}
@@ -274,7 +342,7 @@ func TestFileStateStore_RoundTrip(t *testing.T) {
 	assert.Equal(t, State{}, got)
 
 	want := State{DeviceID: "abc", Disabled: true, NoticeShown: true}
-	require.NoError(t, store.Save(want))
+	require.NoError(t, store.Update(func(s *State) bool { *s = want; return true }))
 	got, err = store.Load()
 	require.NoError(t, err)
 	assert.Equal(t, want, got)

@@ -1,12 +1,16 @@
 package telemetry
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/gofrs/flock"
 
 	"github.com/Kong/volcano-cli/internal/config"
 )
@@ -20,10 +24,13 @@ type State struct {
 	NoticeShown bool   `json:"notice_shown,omitempty"`
 }
 
-// StateStore loads and saves State.
+// StateStore loads and updates State.
 type StateStore interface {
 	Load() (State, error)
-	Save(State) error
+	// Update reloads the state under a lock, applies fn, and saves when fn
+	// reports a change, so concurrent CLI processes never lose each other's
+	// writes.
+	Update(fn func(*State) (changed bool)) error
 }
 
 // FileStateStore stores State next to config.json. Path overrides the location
@@ -63,8 +70,11 @@ func (s FileStateStore) Load() (State, error) {
 	return state, nil
 }
 
-// Save writes the state file atomically.
-func (s FileStateStore) Save(state State) error {
+// lockTimeout bounds how long Update waits for another CLI process.
+const lockTimeout = 2 * time.Second
+
+// Update implements StateStore with an advisory lock on telemetry.json.lock.
+func (s FileStateStore) Update(fn func(*State) bool) error {
 	path, err := s.path()
 	if err != nil {
 		return err
@@ -72,6 +82,30 @@ func (s FileStateStore) Save(state State) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
+	lock := flock.New(path+".lock", flock.SetPermissions(0o600))
+	ctx, cancel := context.WithTimeout(context.Background(), lockTimeout)
+	defer cancel()
+	locked, err := lock.TryLockContext(ctx, 25*time.Millisecond)
+	if err != nil {
+		return err
+	}
+	if !locked {
+		return errors.New("telemetry state is locked by another process")
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	state, err := s.Load()
+	if err != nil {
+		return err
+	}
+	if !fn(&state) {
+		return nil
+	}
+	return s.save(path, state)
+}
+
+// save writes the state file atomically.
+func (s FileStateStore) save(path string, state State) error {
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err

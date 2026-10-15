@@ -147,7 +147,7 @@ func Enabled(getenv func(string) string, store StateStore) bool {
 // swallowed, since telemetry must not change what the CLI does.
 func (r Recorder) Record(inv Invocation) {
 	r = r.withDefaults()
-	if inv.Command != nil && inv.Command.Annotations[SkipAnnotation] != "" {
+	if skipped(inv.Command) {
 		return
 	}
 	// An env opt-out also means the user already knows: no notice.
@@ -159,14 +159,17 @@ func (r Recorder) Record(inv Invocation) {
 		return
 	}
 	if state.DeviceID == "" || !state.NoticeShown {
-		if state.DeviceID == "" {
-			state.DeviceID = uuid.NewString()
+		var firstRun bool
+		state, firstRun, err = r.initialize()
+		if err != nil || state.Disabled {
+			return
 		}
-		if !state.NoticeShown && inv.Stderr != nil {
-			printNotice(inv.Stderr)
-			state.NoticeShown = true
-		}
-		if err := r.State.Save(state); err != nil {
+		if firstRun {
+			// The run that shows the notice sends nothing, so the user can
+			// opt out before any event leaves the machine.
+			if inv.Stderr != nil {
+				printNotice(inv.Stderr)
+			}
 			return
 		}
 	}
@@ -182,6 +185,54 @@ func (r Recorder) Record(inv Invocation) {
 		return
 	}
 	_ = r.Send(payload)
+}
+
+// initialize gives the machine a device id and marks the notice as shown, under
+// the state file's lock so a concurrent `volcano telemetry disable` is never
+// overwritten. firstRun reports whether this call marked the notice. When the
+// state cannot be saved (a read-only home, a sandbox) it returns an error, so
+// the caller neither prints the notice nor sends anything: printing it on every
+// run would only add noise.
+func (r Recorder) initialize() (state State, firstRun bool, err error) {
+	err = r.State.Update(func(s *State) bool {
+		if s.Disabled {
+			state = *s
+			return false
+		}
+		changed := false
+		if s.DeviceID == "" {
+			s.DeviceID = uuid.NewString()
+			changed = true
+		}
+		if !s.NoticeShown {
+			s.NoticeShown = true
+			firstRun = true
+			changed = true
+		}
+		state = *s
+		return changed
+	})
+	return state, firstRun, err
+}
+
+// skipped reports whether an invocation of cmd is never recorded: the hidden
+// flush command, shell completion requests (run on every Tab press with stderr
+// discarded), and runs that promised not to touch the network (`--offline`).
+func skipped(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	if cmd.Annotations[SkipAnnotation] != "" {
+		return true
+	}
+	switch cmd.Name() {
+	case cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+		return true
+	}
+	if f := cmd.Flags().Lookup("offline"); f != nil && f.Changed && f.Value.String() == "true" {
+		return true
+	}
+	return false
 }
 
 func (r Recorder) build(inv Invocation, deviceID string) Event {
@@ -260,6 +311,8 @@ func harnessFor(agentName string) string {
 		return "cursor"
 	case "opencode":
 		return "opencode"
+	case "pi":
+		return "pi"
 	}
 	return ""
 }
@@ -302,7 +355,7 @@ func isUsageError(err error) bool {
 
 func printNotice(w io.Writer) {
 	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use (never their values), CLI version, platform, and which coding agent ran it. This helps us improve the CLI.")
-	fmt.Fprintf(w, "Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano docs get telemetry`.\n", EnvDisabled)
+	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano docs get cli/telemetry.md`.\n", EnvDisabled)
 }
 
 func isTruthy(v string) bool {

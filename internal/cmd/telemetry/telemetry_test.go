@@ -13,7 +13,10 @@ import (
 type memStore struct{ state telemetry.State }
 
 func (m *memStore) Load() (telemetry.State, error) { return m.state, nil }
-func (m *memStore) Save(s telemetry.State) error   { m.state = s; return nil }
+func (m *memStore) Update(fn func(*telemetry.State) bool) error {
+	fn(&m.state)
+	return nil
+}
 
 func runCmd(t *testing.T, store telemetry.StateStore, args ...string) (string, string) {
 	t.Helper()

@@ -73,14 +73,13 @@ func printStatus(cmd *cobra.Command, store telemetry.StateStore) error {
 }
 
 func setDisabled(cmd *cobra.Command, store telemetry.StateStore, disabled bool) error {
-	state, err := store.Load()
+	err := store.Update(func(state *telemetry.State) bool {
+		state.Disabled = disabled
+		// Choosing a setting means the user has seen what telemetry is.
+		state.NoticeShown = true
+		return true
+	})
 	if err != nil {
-		return err
-	}
-	state.Disabled = disabled
-	// Choosing a setting means the user has seen what telemetry is.
-	state.NoticeShown = true
-	if err := store.Save(state); err != nil {
 		return err
 	}
 	if disabled {

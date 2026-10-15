@@ -8,7 +8,8 @@ description: "What usage data the Volcano CLI collects, how it is sent, and how 
 The Volcano CLI sends one usage event to the Volcano API each time you run a
 command. The Volcano team uses it to see which commands people use, where they
 fail, and which coding agents run them. Telemetry is on by default. The first
-time you run a command, the CLI prints a notice that explains this.
+time you run a command, the CLI prints a notice that explains this and sends
+nothing, so you can turn telemetry off before any event is sent.
 
 ## What is collected
 
@@ -31,13 +32,18 @@ failure (`api`, `network`, `local_not_running`, `usage`, or `other`) and, for an
 API error, its HTTP status and error code.
 
 The CLI never sends flag values, command arguments, file contents, project or
-resource names, environment variable values, or error messages.
+resource names, error messages, or environment variable values, with one
+exception: the agent name and its raw value come from `AI_AGENT`, `AGENT`, or
+`VOLCANO_AGENT` when one of those is set. The CLI limits them to letters,
+digits, and `._-/@+:` and to 64 characters, and the Volcano API forwards only
+known agent names to analytics and reports any other as `other`. See
+[agent-detection.md](agent-detection.md).
 
 If you are logged in, the event is linked to your Volcano account. Otherwise it
 is linked only to the random machine ID, stored in `~/.volcano/telemetry.json`.
 
-See [agent-detection.md](agent-detection.md) for how the CLI detects the coding
-agent.
+Shell completion (pressing Tab) and commands run with `--offline` are never
+recorded.
 
 ## How it is sent
 

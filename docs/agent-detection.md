@@ -35,19 +35,20 @@ an agent:
    | Claude Code | `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT` |
    | Codex | `CODEX_THREAD_ID`, `CODEX_SANDBOX`, `CODEX_CI` |
    | Gemini CLI | `GEMINI_CLI` |
-   | Cursor | `CURSOR_EXTENSION_HOST_ROLE=agent-exec` |
    | Cursor CLI | `CURSOR_AGENT` |
+   | Cursor | `CURSOR_EXTENSION_HOST_ROLE=agent-exec` |
    | OpenCode | `OPENCODE_CLIENT` |
    | Augment | `AUGMENT_AGENT` |
    | Antigravity | `ANTIGRAVITY_AGENT` |
-   | GitHub Copilot | `COPILOT_MODEL`, `COPILOT_ALLOW_ALL` |
 
 3. `VOLCANO_AGENT`, for agents that set none of the variables above.
-4. `AI_AGENT` or `AGENT` set to `1`, `true`, `yes`, or `on`, with no name found in the steps
-   above. The CLI reports the agent as `unknown`.
-5. A variable that shows only the terminal or workspace the command ran in:
-   `CURSOR_TRACE_ID` (Cursor) or `REPL_ID` (Replit). A person typing in that
-   terminal sets these too, so this step is the weakest signal.
+4. `AI_AGENT` or `AGENT` set to `1`, `true`, `yes`, or `on`, with no name found
+   in the steps above. The CLI reports the agent as `unknown`.
+5. A weak signal: a variable that shows the terminal or workspace the command
+   ran in, `CURSOR_TRACE_ID` (Cursor) or `REPL_ID` (Replit), or a GitHub Copilot
+   CLI setting people can export in their own shell profile, `COPILOT_MODEL` or
+   `COPILOT_ALLOW_ALL` (GitHub Copilot). A person typing in that terminal, or
+   with those settings, matches too.
 
 If nothing matches, the CLI reports nothing.
 
@@ -73,6 +74,8 @@ Each API request carries these headers when an agent is detected:
 | `X-Volcano-Agent-Raw` | `claude-code_2-1-299_agent` | The original value of `AI_AGENT`, `AGENT`, or `VOLCANO_AGENT`, when it differs from the name |
 | `X-Volcano-Agent-Markers` | `claude-code,cursor` | Every agent whose step 2 or step 5 variables are set. More than one means one agent ran inside another, for example Claude Code run from a Cursor terminal |
 
-Values are limited to letters, digits, and `._-/@+:`, and to 64 characters.
+The name and raw values are limited to letters, digits, and `._-/@+:`, and to
+64 characters. The markers header is a comma-separated list of names from the
+table above, so it is not free text.
 
 To see the headers the CLI sends, run any command with `--debug`.

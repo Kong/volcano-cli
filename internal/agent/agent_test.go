@@ -141,6 +141,16 @@ func TestDetect(t *testing.T) {
 			want: Result{Name: "claude-code", Raw: "Claude", Source: SourceVolcanoAgent},
 		},
 		{
+			name: "Copilot settings in a profile are a weak signal",
+			env:  map[string]string{"COPILOT_MODEL": "gpt-5"},
+			want: Result{Name: "github-copilot", Source: SourceHost, Markers: []string{"github-copilot"}},
+		},
+		{
+			name: "VOLCANO_AGENT wins over an exported Copilot setting",
+			env:  map[string]string{"COPILOT_ALLOW_ALL": "1", "VOLCANO_AGENT": "pi"},
+			want: Result{Name: "pi", Raw: "pi", Source: SourceVolcanoAgent, Markers: []string{"github-copilot"}},
+		},
+		{
 			name: "COPILOT_GITHUB_TOKEN alone is not an agent",
 			env:  map[string]string{"COPILOT_GITHUB_TOKEN": "ghp_x"},
 			want: Result{},
