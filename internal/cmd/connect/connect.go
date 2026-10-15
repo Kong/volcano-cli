@@ -133,7 +133,7 @@ It ends with the project's name, its directory, and its dashboard link.
 			return run(cmd.Context(), opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with an account token (pk-) instead of the browser")
+	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with a token instead of the browser")
 	cmd.Flags().StringVar(&opts.project, "project", "", "Link the existing project with this ID instead of creating one")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
@@ -255,14 +255,20 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 
 	if token := strings.TrimSpace(opts.token); token != "" {
 		credentials, err := auth.LoginWithToken(ctx, cfg, token, opts.project)
-		if err != nil {
-			return fmt.Errorf("token authentication failed: %w", err)
+		// A refused one-time token falls back to the saved login or browser
+		// login, so an agent with a stale prompt still gets the user signed in.
+		if refused, ok := errors.AsType[*cliauth.BootstrapRefusedError](err); ok {
+			output.Warning(opts.log, "The one-time token %s. Signing in another way.", refused.Reason)
+		} else {
+			if err != nil {
+				return fmt.Errorf("token authentication failed: %w", err)
+			}
+			if err := cliauth.SaveCredentials(credentials); err != nil {
+				return fmt.Errorf("failed to save credentials: %w", err)
+			}
+			output.Success(opts.log, "Signed in with the token")
+			return nil
 		}
-		if err := cliauth.SaveCredentials(credentials); err != nil {
-			return fmt.Errorf("failed to save credentials: %w", err)
-		}
-		output.Success(opts.log, "Signed in with the token")
-		return nil
 	}
 
 	if token := cfg.Token(); token != "" && !opts.signup {

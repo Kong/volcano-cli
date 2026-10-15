@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -70,6 +71,14 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 	token = strings.TrimSpace(token)
 	project = strings.TrimSpace(project)
 	apiURL := s.apiURL(cfg)
+	var userID string
+	if config.IsBootstrapToken(token) {
+		exchange, err := s.exchangeBootstrapToken(ctx, apiURL, token)
+		if err != nil {
+			return Credentials{}, err
+		}
+		token, userID = exchange.Token, exchange.UserID
+	}
 	client, err := s.sessions.APIClient(apiURL, token)
 	if err != nil {
 		return Credentials{}, err
@@ -90,7 +99,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 			}
 			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
 		}
-		return Credentials{Token: token, APIURL: apiURL}, nil
+		return Credentials{Token: token, UserID: userID, APIURL: apiURL}, nil
 	}
 
 	selected, err := resolveLoginProject(ctx, client, token, project, origin)
@@ -99,9 +108,53 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 	}
 	return Credentials{
 		Token:   token,
+		UserID:  userID,
 		Project: &config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name},
 		APIURL:  apiURL,
 	}, nil
+}
+
+// bootstrapClientName names the CLI to the API when it exchanges a bootstrap
+// token, so the new login is listed as this CLI on this machine.
+const bootstrapClientName = "volcano-cli"
+
+// BootstrapRefusedError is a one-time bootstrap token the API would not
+// exchange: expired, already used, not valid, or not supported by this API.
+type BootstrapRefusedError struct {
+	// Reason completes "The one-time token ...", e.g. "has expired".
+	Reason string
+	Err    error
+}
+
+func (e *BootstrapRefusedError) Error() string {
+	return "the one-time token " + e.Reason + ". Copy a new prompt from the dashboard, or sign in in the browser"
+}
+
+func (e *BootstrapRefusedError) Unwrap() error { return e.Err }
+
+// exchangeBootstrapToken trades a vbt_ token for a normal CLI login.
+func (s Service) exchangeBootstrapToken(ctx context.Context, apiURL, token string) (*api.BootstrapExchange, error) {
+	client, err := s.sessions.APIClient(apiURL, "")
+	if err != nil {
+		return nil, err
+	}
+	hostname, _ := os.Hostname()
+	exchange, err := client.ExchangeBootstrapToken(ctx, token, bootstrapClientName, hostname)
+	if err == nil {
+		return exchange, nil
+	}
+	switch {
+	case api.Code(err) == api.BootstrapTokenExpired:
+		return nil, &BootstrapRefusedError{Reason: "has expired", Err: err}
+	case api.Code(err) == api.BootstrapTokenUsed:
+		return nil, &BootstrapRefusedError{Reason: "was already used", Err: err}
+	case api.Code(err) == api.BootstrapTokenInvalid:
+		return nil, &BootstrapRefusedError{Reason: "is not valid", Err: err}
+	case api.Status(err) == http.StatusNotFound:
+		// An API without the exchange endpoint.
+		return nil, &BootstrapRefusedError{Reason: "can't be used with this API", Err: err}
+	}
+	return nil, err
 }
 
 // unnamedProject falls back to the project the CLI already has for a project

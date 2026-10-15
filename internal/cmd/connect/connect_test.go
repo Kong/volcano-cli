@@ -37,6 +37,12 @@ type fakeAPI struct {
 	// takenNames answer POST /projects with 409 for these names.
 	takenNames map[string]bool
 	creates    int
+	// createAuth is the Authorization header of the last POST /projects.
+	createAuth string
+	// exchangeStatus and exchangeCode refuse the bootstrap token exchange; 0
+	// exchanges it for pk-exchanged.
+	exchangeStatus int
+	exchangeCode   string
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,8 +51,15 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
 			"data": f.projects, "has_more": false, "page": 1, "limit": 100, "total": len(f.projects),
 		})
+	case r.Method == http.MethodPost && r.URL.Path == "/auth/cli-bootstrap-tokens/exchange":
+		if f.exchangeStatus != 0 {
+			writeConnectJSON(f.t, w, f.exchangeStatus, map[string]any{"error": "refused", "code": f.exchangeCode})
+			return
+		}
+		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
 	case r.Method == http.MethodPost && r.URL.Path == "/projects":
 		f.creates++
+		f.createAuth = r.Header.Get("Authorization")
 		if f.createStatus != 0 {
 			writeConnectJSON(f.t, w, f.createStatus, map[string]any{"error": f.createError})
 			return
@@ -311,6 +324,39 @@ func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, link)
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
+}
+
+func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Signed in with the token")
+	assert.Equal(t, "Bearer pk-exchanged", fake.createAuth)
+
+	cfg, err := cliconfig.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-exchanged", cfg.UserToken)
+	assert.Equal(t, "user-1", cfg.UserID)
+}
+
+func TestConnectWithARefusedBootstrapTokenFallsBackToTheSavedLogin(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t, exchangeStatus: http.StatusUnauthorized, exchangeCode: api.BootstrapTokenUsed}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
+	require.NoError(t, err)
+	assert.Contains(t, out, "The one-time token was already used. Signing in another way.")
+	assert.Equal(t, "Bearer pk-connect", fake.createAuth)
 }
 
 func TestGenerateProjectName(t *testing.T) {

@@ -34,6 +34,9 @@ const (
 	// ProjectTokenPrefix marks a project access token, which reaches only the
 	// project it was minted in.
 	ProjectTokenPrefix = "pt-"
+	// BootstrapTokenPrefix marks a one-time token from the dashboard's prompt.
+	// It only works once, exchanged for a normal CLI login.
+	BootstrapTokenPrefix = "vbt_"
 )
 
 var (
@@ -523,6 +526,11 @@ func (c *Config) RequireAccountToken() error {
 // let it past every guard here and fail as an opaque server error instead.
 func IsProjectToken(token string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), ProjectTokenPrefix)
+}
+
+// IsBootstrapToken reports whether token is a one-time bootstrap token.
+func IsBootstrapToken(token string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(token)), BootstrapTokenPrefix)
 }
 
 // FirstPartyDeviceClientID resolves the first-party OAuth device client ID.
