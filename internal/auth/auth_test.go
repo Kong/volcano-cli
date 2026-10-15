@@ -46,7 +46,7 @@ func TestLoginWithTokenSuccess(t *testing.T) {
 	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "  valid-token\n", "")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer valid-token", sawAuth)
-	assert.Equal(t, Credentials{Token: "valid-token"}, credentials)
+	assert.Equal(t, Credentials{Token: "valid-token", APIURL: server.URL}, credentials)
 }
 
 func TestLoginWithProjectTokenValidatesAgainstTheProject(t *testing.T) {
@@ -326,7 +326,7 @@ func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 
 	result := <-done
 	require.NoError(t, result.err, "output:\n%s", out.String())
-	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1"}, result.credentials)
+	assert.Equal(t, Credentials{Token: "platform-token", UserID: "platform-user-1", APIURL: server.URL}, result.credentials)
 	assert.Equal(t, "https://volcano.dev/device?user_code=ABCD-EFGH", openedURL)
 	assert.Equal(t, "Bearer auth-access-token", exchangeAuth)
 	assert.Contains(t, out.String(), "Code: ABCD-EFGH")

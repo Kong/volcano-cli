@@ -18,6 +18,7 @@ import (
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	clisession "github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -85,8 +86,33 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	fmt.Fprintln(w, theme.Error("Error:", theme.On(w)), err)
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
+	} else if api.Status(err) == http.StatusUnauthorized {
+		printUnauthorizedHint(w, deps)
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+}
+
+// printUnauthorizedHint names the API that refused the credential. A token is
+// only valid on the API that issued it, so a 401 most often means the token
+// and the API URL came from different environments.
+func printUnauthorizedHint(w io.Writer, deps cliruntime.Deps) {
+	cfg, err := loadConfig(deps)
+	if err != nil {
+		return
+	}
+	apiURL := clisession.NewFactory(deps).APIURL(cfg)
+	fmt.Fprintf(w, "The API at %s did not accept the credential. Run `%s` to sign in to it, or set VOLCANO_API_URL "+
+		"to the API the credential belongs to.\n", apiURL, cliruntime.CommandPath(deps, "login"))
+}
+
+// loadConfig loads the configuration through the runtime's loader, so a
+// command tree with its own configuration is answered from that rather than
+// from the user's cloud config.
+func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
+	if deps.ConfigLoader != nil {
+		return deps.ConfigLoader()
+	}
+	return config.Load()
 }
 
 // wrongProjectRefusal is how the platform names a project access token used
@@ -137,11 +163,7 @@ func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps)
 // the runtime's loader so a command tree with its own configuration is answered
 // from that rather than from the user's cloud config.
 func selectedProjectID(deps cliruntime.Deps) string {
-	loadConfig := config.Load
-	if deps.ConfigLoader != nil {
-		loadConfig = deps.ConfigLoader
-	}
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(deps)
 	if err != nil {
 		return ""
 	}

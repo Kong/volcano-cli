@@ -31,6 +31,9 @@ type Credentials struct {
 	// Project is the project login validated the token against, to be saved as
 	// the active project. Nil when login resolved no project.
 	Project *config.ProjectConfig
+	// APIURL is the API that issued or validated Token, saved with it so later
+	// commands keep talking to the same API.
+	APIURL string
 }
 
 // Service performs Volcano authentication workflows.
@@ -65,7 +68,8 @@ const (
 func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
 	token = strings.TrimSpace(token)
 	project = strings.TrimSpace(project)
-	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
+	apiURL := s.apiURL(cfg)
+	client, err := s.sessions.APIClient(apiURL, token)
 	if err != nil {
 		return Credentials{}, err
 	}
@@ -85,7 +89,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 			}
 			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
 		}
-		return Credentials{Token: token}, nil
+		return Credentials{Token: token, APIURL: apiURL}, nil
 	}
 
 	selected, err := resolveLoginProject(ctx, client, token, project, origin)
@@ -95,6 +99,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 	return Credentials{
 		Token:   token,
 		Project: &config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name},
+		APIURL:  apiURL,
 	}, nil
 }
 
@@ -190,7 +195,12 @@ func (s Service) Signup(ctx context.Context, cfg *config.Config, email string, w
 	}
 
 	fmt.Fprintln(w, "\nInitiating browser signup...")
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
+	credentials, err := s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, signupURL)
+	if err != nil {
+		return Credentials{}, err
+	}
+	credentials.APIURL = apiURL
+	return credentials, nil
 }
 
 // LoginWithBrowser runs the OAuth device flow and opens the browser at the
@@ -221,7 +231,12 @@ func (s Service) LoginWithBrowser(ctx context.Context, cfg *config.Config, w io.
 	if verificationURL == "" {
 		verificationURL = strings.TrimSpace(deviceAuth.VerificationUri)
 	}
-	return s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
+	credentials, err := s.completeBrowserLogin(ctx, client, clientID, deviceAuth, w, verificationURL)
+	if err != nil {
+		return Credentials{}, err
+	}
+	credentials.APIURL = apiURL
+	return credentials, nil
 }
 
 // deviceApprovalPath is the same-origin path Volcano Web's own /device page

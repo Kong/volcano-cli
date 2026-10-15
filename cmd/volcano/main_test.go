@@ -136,6 +136,20 @@ func TestPrintError_NoReauthHintWithoutSignal(t *testing.T) {
 	assert.NotContains(t, out.String(), "re-authenticate")
 }
 
+func TestPrintError_UnauthorizedNamesTheAPI(t *testing.T) {
+	withInstructions(t, "", "")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusUnauthorized, Message: "invalid token"}, cliruntime.Deps{
+		APIBaseURL:   "https://api.staging.example",
+		ConfigLoader: func() (*cliconfig.Config, error) { return &cliconfig.Config{}, nil },
+	})
+
+	assert.Contains(t, out.String(), "Error: HTTP 401: invalid token")
+	assert.Contains(t, out.String(), "The API at https://api.staging.example did not accept the credential.")
+	assert.NotContains(t, out.String(), "re-authenticate")
+}
+
 const (
 	mainTestProjectAlpha = "11111111-1111-4111-8111-111111111111"
 	mainTestProjectBeta  = "22222222-2222-4222-8222-222222222222"
