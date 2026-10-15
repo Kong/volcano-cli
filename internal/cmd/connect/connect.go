@@ -134,7 +134,7 @@ It ends with the project's name, its directory, and its dashboard link.
 		},
 	}
 	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with a token instead of the browser")
-	cmd.Flags().StringVar(&opts.project, "project", "", "Link the existing project with this ID instead of creating one")
+	cmd.Flags().StringVar(&opts.project, "project", "", "Use the existing project with this ID instead of creating one")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
