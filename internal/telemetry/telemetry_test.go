@@ -38,6 +38,8 @@ func (m *memConfig) load() (*config.Config, error) {
 		return nil, errors.New("parse config.json")
 	}
 	cfg := m.cfg
+	// The real VOLCANO_PROJECT_ID must not leak into events built in tests.
+	cfg.IgnoreEnv = true
 	if m.cfg.Telemetry != nil {
 		state := *m.cfg.Telemetry
 		cfg.Telemetry = &state
@@ -208,6 +210,30 @@ func TestRecord_FirstRunKeepsConcurrentOptOut(t *testing.T) {
 	assert.Empty(t, h.sent)
 }
 
+func TestRecord_ConcurrentFirstRunSendsNothing(t *testing.T) {
+	h := newHarness()
+	r := h.recorder()
+	require.False(t, r.Reporting())
+	// Another process shows the notice while this one runs.
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	var stderr bytes.Buffer
+
+	r.Record(Invocation{Stderr: &stderr})
+
+	assert.Empty(t, h.sent, "this process started before the notice")
+	assert.Empty(t, stderr.String(), "the other process printed the notice")
+}
+
+func TestRecord_MissingDeviceIDAfterNoticeStillSends(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{NoticeShown: true}) // `volcano telemetry enable` on a fresh machine
+
+	h.recorder().Record(Invocation{})
+
+	require.Len(t, h.sent, 1)
+	assert.NotEmpty(t, h.lastEvent(t).DeviceID)
+}
+
 func TestRecorder_ReadsConfigOncePerProcess(t *testing.T) {
 	h := newHarness()
 	h.store.setState(State{DeviceID: "d", NoticeShown: true})
@@ -310,7 +336,6 @@ func TestRecord_ProjectAndResources(t *testing.T) {
 	h := newHarness()
 	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
 	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "11111111-2222-3333-4444-555555555555", Name: "app"}
-	t.Setenv("VOLCANO_PROJECT_ID", "")
 
 	h.recorder().Record(Invocation{Command: commandTree(t, "--name", "hello")})
 

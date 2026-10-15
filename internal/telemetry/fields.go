@@ -52,8 +52,14 @@ func resources(cmd *cobra.Command) map[string]string {
 		found[key] = value
 	}
 	args := cmd.Flags().Args()
-	if dash := cmd.ArgsLenAtDash(); dash >= 0 && dash <= len(args) {
+	dash := cmd.ArgsLenAtDash()
+	switch {
+	case dash >= 0 && dash <= len(args):
 		args = args[:dash]
+	case slices.Contains(strings.Fields(cmd.Use), "--"):
+		// Without the "--" the usage line expects, positions no longer line
+		// up: `exec "echo hi"` would put a sandbox command under session-id.
+		args = nil
 	}
 	for i, placeholder := range placeholders(cmd.Use) {
 		if i >= len(args) {

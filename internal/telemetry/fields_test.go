@@ -41,6 +41,7 @@ func TestResources(t *testing.T) {
 		{"paths are not resources", "upload <bucket> <local-path> <remote-path>", []string{"media", "/tmp/a.png", "a.png"}, map[string]string{"bucket": "media"}},
 		{"queries are not resources", "search <query>", []string{"how to deploy"}, nil},
 		{"stops at --", "exec [session-id] -- <command> [args...]", []string{"s1", "--", "env"}, map[string]string{"session-id": "s1"}},
+		{"missing -- sends no positional", "exec [session-id] -- <command> [args...]", []string{"echo hunter2"}, nil},
 		{"resource flag", "invoke [name]", []string{"--function", "hello", "--payload", "{}"}, map[string]string{"function": "hello"}},
 		{"positional wins over flag", "get <function>", []string{"a", "--function", "b"}, map[string]string{"function": "a"}},
 		{"slice flag value is dropped", "list", []string{"--database", "a,b"}, nil},

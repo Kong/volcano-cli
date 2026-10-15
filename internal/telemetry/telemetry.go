@@ -202,18 +202,20 @@ func (r *Recorder) Record(inv Invocation) {
 		return
 	}
 	if state.DeviceID == "" || !state.NoticeShown {
+		startedBeforeNotice := !state.NoticeShown
 		var firstRun bool
 		var err error
 		state, firstRun, err = r.initialize()
 		if err != nil || state.Disabled {
 			return
 		}
-		if firstRun {
-			// The run that shows the notice sends nothing, so the user can
-			// opt out before any event leaves the machine.
-			if inv.Stderr != nil {
-				printNotice(inv.Stderr)
-			}
+		if firstRun && inv.Stderr != nil {
+			printNotice(inv.Stderr)
+		}
+		// A process that started before the notice was shown sends nothing,
+		// even when a concurrent process showed it first: the user had no
+		// chance to opt out before this command ran.
+		if startedBeforeNotice {
 			return
 		}
 	}
