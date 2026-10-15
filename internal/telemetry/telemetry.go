@@ -3,15 +3,18 @@
 // POST /cli/telemetry).
 //
 // What is sent is fixed by Event: command path, the names of flags the user
-// set (never values or arguments), CLI version, platform, CI vendor, whether
-// stdin is a terminal, the coding agent that ran the CLI, whether the Volcano
-// plugin is installed for that agent, the exit code and duration, and for
-// failed agent runs the API error status and code.
+// set, the selected project and the resource names the command addressed (see
+// resources), CLI version, platform, CI vendor, whether stdin is a terminal, the
+// coding agent that ran the CLI, whether the Volcano plugin is installed for
+// that agent, the exit code and duration, and for failed runs the error type,
+// API status and code, and the redacted error message.
 //
-// Telemetry is on by default. VOLCANO_TELEMETRY_DISABLED, DO_NOT_TRACK, or
-// `volcano telemetry disable` turn it off. The first recorded invocation prints
-// a one-time notice. Sending happens in a detached `volcano telemetry flush`
-// process so a command never waits on the network.
+// Telemetry is on by default. VOLCANO_TELEMETRY_DISABLED or `volcano telemetry
+// disable` turn it off. The settings live in the telemetry block of
+// ~/.volcano/config.json, read once when the process starts: a change applies
+// from the next command. The first recorded invocation prints a one-time
+// notice. Sending happens in a detached `volcano telemetry flush` process so a
+// command never waits on the network.
 package telemetry
 
 import (
@@ -24,6 +27,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,6 +36,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/setup"
 	"github.com/Kong/volcano-cli/internal/version"
@@ -39,14 +44,19 @@ import (
 
 // Environment variables that control telemetry.
 const (
-	EnvDisabled   = "VOLCANO_TELEMETRY_DISABLED"
-	EnvDoNotTrack = "DO_NOT_TRACK"
-	EnvDebug      = "VOLCANO_TELEMETRY_DEBUG"
+	// EnvDisabled turns telemetry off.
+	EnvDisabled = "VOLCANO_TELEMETRY_DISABLED"
+	// EnvDebug prints each event to stderr instead of sending it. Off unless
+	// set.
+	EnvDebug = "VOLCANO_TELEMETRY_DEBUG"
 )
 
-// SkipAnnotation marks a command whose invocations are never recorded (the
-// hidden flush command itself).
+// SkipAnnotation marks a command whose invocations, and its subcommands', are
+// never recorded (`volcano telemetry`, so an opt-out is not itself reported).
 const SkipAnnotation = "telemetry.skip"
+
+// State is the telemetry block of ~/.volcano/config.json.
+type State = config.TelemetryConfig
 
 // Event is the request body of POST /cli/telemetry. Field names are the wire
 // contract with volcano-hosting; the server re-validates every value.
@@ -72,6 +82,11 @@ type Event struct {
 	ErrorKind       string   `json:"error_kind,omitempty"`
 	ErrorStatus     int      `json:"error_status,omitempty"`
 	ErrorCode       string   `json:"error_code,omitempty"`
+	ErrorMessage    string   `json:"error_message,omitempty"`
+	ProjectID       string   `json:"project_id,omitempty"`
+	// Resources maps a usage-line placeholder or flag name to the resource
+	// name or ID the command was given.
+	Resources map[string]string `json:"resources,omitempty"`
 }
 
 // Invocation is what the entry point knows about the command that just ran.
@@ -87,84 +102,108 @@ type Invocation struct {
 	Args []string
 }
 
-// Recorder records invocations. The zero value uses the real environment,
-// state file, and flush process; tests replace the fields.
+// Recorder records the invocation of one CLI process. It reads the config once,
+// on first use, and answers both Reporting and Record from that read. The zero
+// value uses the real environment, config, and flush process; tests replace the
+// fields. A Recorder must not be copied after first use.
 type Recorder struct {
 	Getenv    func(string) string
 	LookupEnv func(string) (string, bool)
 	Now       func() time.Time
-	State     StateStore
-	Send      func(payload []byte) error
+	// LoadConfig reads the CLI config (config.Load).
+	LoadConfig func() (*config.Config, error)
+	// UpdateConfig changes the config under its lock (config.Update).
+	UpdateConfig func(mutate func(*config.Config) (bool, error)) error
+	// HomeDir is replaced with "~" in error messages (os.UserHomeDir).
+	HomeDir func() (string, error)
+	Send    func(payload []byte) error
 	// PluginStatus reports whether the Volcano plugin is installed for a
 	// setup harness name; see setup.PluginStatus.
 	PluginStatus func(harness string) (bool, string)
+
+	once   sync.Once
+	cfg    *config.Config
+	cfgErr error
 }
 
-func (r Recorder) withDefaults() Recorder {
-	if r.Getenv == nil {
-		r.Getenv = os.Getenv
-	}
-	if r.LookupEnv == nil {
-		r.LookupEnv = os.LookupEnv
-	}
-	if r.Now == nil {
-		r.Now = time.Now
-	}
-	if r.State == nil {
-		r.State = FileStateStore{}
-	}
-	if r.Send == nil {
-		r.Send = spawnFlush
-	}
-	if r.PluginStatus == nil {
-		r.PluginStatus = func(harness string) (bool, string) {
-			return setup.PluginStatus(setup.Options{}, harness)
+// setup fills in the defaults and reads the config, once.
+func (r *Recorder) setup() {
+	r.once.Do(func() {
+		if r.Getenv == nil {
+			r.Getenv = os.Getenv
 		}
-	}
-	return r
-}
-
-// DisabledByEnv returns the name of the environment variable that turns
-// telemetry off, or "" when none does.
-func DisabledByEnv(getenv func(string) string) string {
-	for _, name := range []string{EnvDisabled, EnvDoNotTrack} {
-		if isTruthy(getenv(name)) {
-			return name
+		if r.LookupEnv == nil {
+			r.LookupEnv = os.LookupEnv
 		}
-	}
-	return ""
+		if r.Now == nil {
+			r.Now = time.Now
+		}
+		if r.LoadConfig == nil {
+			r.LoadConfig = config.Load
+		}
+		if r.UpdateConfig == nil {
+			r.UpdateConfig = config.Update
+		}
+		if r.HomeDir == nil {
+			r.HomeDir = os.UserHomeDir
+		}
+		if r.Send == nil {
+			r.Send = spawnFlush
+		}
+		if r.PluginStatus == nil {
+			r.PluginStatus = func(harness string) (bool, string) {
+				return setup.PluginStatus(setup.Options{}, harness)
+			}
+		}
+		r.cfg, r.cfgErr = r.LoadConfig()
+	})
 }
 
-// Reporting reports whether this run may send usage data, including the agent
-// request headers: no env opt-out, not turned off with `volcano telemetry
-// disable`, and the first-run notice already shown on an earlier run. A state
-// file that cannot be read, or a run before the notice (including every run in
-// a home where the notice can never be saved), counts as off.
-func Reporting(getenv func(string) string, store StateStore) bool {
-	if DisabledByEnv(getenv) != "" {
+// state is the telemetry block as the process found it at start.
+func (r *Recorder) state() State {
+	if r.cfg == nil || r.cfg.Telemetry == nil {
+		return State{}
+	}
+	return *r.cfg.Telemetry
+}
+
+// DisabledByEnv reports whether VOLCANO_TELEMETRY_DISABLED turns telemetry off.
+func DisabledByEnv(getenv func(string) string) bool {
+	return isTruthy(getenv(EnvDisabled))
+}
+
+// Reporting reports whether this process may send usage data, including the
+// agent request headers: no env opt-out, not turned off with `volcano telemetry
+// disable`, and the first-run notice already shown by an earlier process. A
+// config that cannot be read, or a run before the notice (including every run
+// in a home where the notice can never be saved), counts as off.
+func (r *Recorder) Reporting() bool {
+	r.setup()
+	if DisabledByEnv(r.Getenv) || r.cfgErr != nil {
 		return false
 	}
-	state, err := store.Load()
-	return err == nil && !state.Disabled && state.NoticeShown
+	state := r.state()
+	return !state.Disabled && state.NoticeShown
 }
 
 // Record records one invocation. It never fails the command: every error is
 // swallowed, since telemetry must not change what the CLI does.
-func (r Recorder) Record(inv Invocation) {
-	r = r.withDefaults()
+func (r *Recorder) Record(inv Invocation) {
+	r.setup()
 	if skipped(inv.Command, inv.Args) {
 		return
 	}
 	// An env opt-out also means the user already knows: no notice.
-	if DisabledByEnv(r.Getenv) != "" {
+	if DisabledByEnv(r.Getenv) || r.cfgErr != nil {
 		return
 	}
-	state, err := r.State.Load()
-	if err != nil || state.Disabled {
+	state := r.state()
+	if state.Disabled {
 		return
 	}
 	if state.DeviceID == "" || !state.NoticeShown {
 		var firstRun bool
+		var err error
 		state, firstRun, err = r.initialize()
 		if err != nil || state.Disabled {
 			return
@@ -193,16 +232,20 @@ func (r Recorder) Record(inv Invocation) {
 }
 
 // initialize gives the machine a device id and marks the notice as shown, under
-// the state file's lock so a concurrent `volcano telemetry disable` is never
+// the config's lock so a concurrent `volcano telemetry disable` is never
 // overwritten. firstRun reports whether this call marked the notice. When the
-// state cannot be saved (a read-only home, a sandbox) it returns an error, so
+// config cannot be saved (a read-only home, a sandbox) it returns an error, so
 // the caller neither prints the notice nor sends anything: printing it on every
 // run would only add noise.
-func (r Recorder) initialize() (state State, firstRun bool, err error) {
-	err = r.State.Update(func(s *State) bool {
+func (r *Recorder) initialize() (state State, firstRun bool, err error) {
+	err = r.UpdateConfig(func(cfg *config.Config) (bool, error) {
+		if cfg.Telemetry == nil {
+			cfg.Telemetry = &State{}
+		}
+		s := cfg.Telemetry
 		if s.Disabled {
 			state = *s
-			return false
+			return false, nil
 		}
 		changed := false
 		if s.DeviceID == "" {
@@ -215,14 +258,15 @@ func (r Recorder) initialize() (state State, firstRun bool, err error) {
 			changed = true
 		}
 		state = *s
-		return changed
+		return changed, nil
 	})
 	return state, firstRun, err
 }
 
-// skipped reports whether an invocation of cmd is never recorded: the hidden
-// flush command, shell completion requests (run on every Tab press with stderr
-// discarded), and runs that promised not to touch the network (`--offline`).
+// skipped reports whether an invocation of cmd is never recorded: commands
+// under a SkipAnnotation (`volcano telemetry`), shell completion requests (run
+// on every Tab press with stderr discarded), and runs that promised not to
+// touch the network (`--offline`).
 func skipped(cmd *cobra.Command, args []string) bool {
 	if offlineArg(args) {
 		return true
@@ -230,8 +274,10 @@ func skipped(cmd *cobra.Command, args []string) bool {
 	if cmd == nil {
 		return false
 	}
-	if cmd.Annotations[SkipAnnotation] != "" {
-		return true
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Annotations[SkipAnnotation] != "" {
+			return true
+		}
 	}
 	switch cmd.Name() {
 	case cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
@@ -262,7 +308,7 @@ func offlineArg(args []string) bool {
 	return offline
 }
 
-func (r Recorder) build(inv Invocation, deviceID string) Event {
+func (r *Recorder) build(inv Invocation, deviceID string) Event {
 	start := inv.Start
 	if start.IsZero() {
 		start = r.Now()
@@ -285,6 +331,10 @@ func (r Recorder) build(inv Invocation, deviceID string) Event {
 		AgentMarkers: detected.Markers,
 		ExitCode:     inv.ExitCode,
 		DurationMS:   r.Now().Sub(start).Milliseconds(),
+		Resources:    resources(inv.Command),
+	}
+	if r.cfg != nil {
+		event.ProjectID = r.cfg.ProjectID()
 	}
 	if event.Flags == nil {
 		event.Flags = []string{}
@@ -294,11 +344,13 @@ func (r Recorder) build(inv Invocation, deviceID string) Event {
 	}
 	if detected.Name != "" {
 		event.PluginInstalled, event.PluginVersion = r.PluginStatus(harnessFor(detected.Name))
-		if inv.Err != nil {
-			event.ErrorKind = errorKind(inv.Err)
-			event.ErrorStatus = api.Status(inv.Err)
-			event.ErrorCode = api.Code(inv.Err)
-		}
+	}
+	if inv.Err != nil {
+		event.ErrorKind = errorKind(inv.Err)
+		event.ErrorStatus = api.Status(inv.Err)
+		event.ErrorCode = api.Code(inv.Err)
+		home, _ := r.HomeDir()
+		event.ErrorMessage = errorMessage(inv.Err, home)
 	}
 	return event
 }
@@ -381,7 +433,7 @@ func isUsageError(err error) bool {
 }
 
 func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use (never their values), CLI version, platform, and which coding agent ran it. This helps us improve the CLI.")
+	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. This helps us improve the CLI.")
 	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 }
 

@@ -25,8 +25,12 @@ import (
 )
 
 func main() {
-	// Agent headers count as usage data: none before the first-run notice.
-	api.SetAgentReporting(telemetry.Reporting(os.Getenv, telemetry.FileStateStore{}))
+	// One recorder per process: it reads the telemetry setting once, and both
+	// the agent headers and the usage event follow that read. Agent headers
+	// count as usage data: none before the first-run notice.
+	recorder := &telemetry.Recorder{}
+	api.SetAgentReporting(recorder.Reporting())
+	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
@@ -53,9 +57,10 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	return code
 }
 
-// recordTelemetry records the invocation (see package telemetry). Tests
-// replace it so they never write the state file or start a flush process.
-var recordTelemetry = telemetry.Recorder{}.Record
+// recordTelemetry records the invocation (see package telemetry). main sets
+// it; tests replace it so they never write the config or start a flush
+// process.
+var recordTelemetry = func(telemetry.Invocation) {}
 
 // finish prints the command's error and any pending API notices, and returns
 // the exit code.

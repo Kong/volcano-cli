@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -20,30 +19,63 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
-type memStore struct {
-	state    State
+// memConfig is an in-memory config.json. load returns a copy, as reading the
+// file would.
+type memConfig struct {
+	cfg      config.Config
 	saves    int
 	failSave bool
+	failLoad bool
 }
 
-func (m *memStore) Load() (State, error) { return m.state, nil }
-func (m *memStore) Update(fn func(*State) bool) error {
+func (m *memConfig) load() (*config.Config, error) {
+	if m.failLoad {
+		return nil, errors.New("parse config.json")
+	}
+	cfg := m.cfg
+	if m.cfg.Telemetry != nil {
+		state := *m.cfg.Telemetry
+		cfg.Telemetry = &state
+	}
+	return &cfg, nil
+}
+
+func (m *memConfig) update(fn func(*config.Config) (bool, error)) error {
 	if m.failSave {
 		return errors.New("read-only home")
 	}
-	if fn(&m.state) {
-		m.saves++
+	cfg, err := m.load()
+	if err != nil {
+		return err
 	}
+	changed, err := fn(cfg)
+	if err != nil || !changed {
+		return err
+	}
+	m.cfg = *cfg
+	m.saves++
 	return nil
 }
 
+// state is the saved telemetry block.
+func (m *memConfig) state() State {
+	if m.cfg.Telemetry == nil {
+		return State{}
+	}
+	return *m.cfg.Telemetry
+}
+
+func (m *memConfig) setState(state State) { m.cfg.Telemetry = &state }
+
 type harness struct {
 	env     map[string]string
-	store   *memStore
+	store   *memConfig
+	home    string
 	sent    [][]byte
 	plugins map[string]string // harness -> version; present means installed
 	now     time.Time
@@ -52,22 +84,26 @@ type harness struct {
 func newHarness() *harness {
 	return &harness{
 		env:     map[string]string{},
-		store:   &memStore{},
+		store:   &memConfig{},
+		home:    "/home/dev",
 		plugins: map[string]string{},
 		now:     time.Date(2026, 10, 15, 3, 0, 0, 0, time.UTC),
 	}
 }
 
-func (h *harness) recorder() Recorder {
-	return Recorder{
+// recorder returns a fresh Recorder, as a new CLI process would have.
+func (h *harness) recorder() *Recorder {
+	return &Recorder{
 		Getenv: func(k string) string { return h.env[k] },
 		LookupEnv: func(k string) (string, bool) {
 			v, ok := h.env[k]
 			return v, ok
 		},
-		Now:   func() time.Time { return h.now },
-		State: h.store,
-		Send:  func(p []byte) error { h.sent = append(h.sent, p); return nil },
+		Now:          func() time.Time { return h.now },
+		LoadConfig:   h.store.load,
+		UpdateConfig: h.store.update,
+		HomeDir:      func() (string, error) { return h.home, nil },
+		Send:         func(p []byte) error { h.sent = append(h.sent, p); return nil },
 		PluginStatus: func(name string) (bool, string) {
 			v, ok := h.plugins[name]
 			return ok, v
@@ -112,8 +148,8 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
 	assert.Contains(t, stderr.String(), "volcano telemetry --help")
 	assert.Empty(t, h.sent, "the run that shows the notice sends nothing")
-	assert.True(t, h.store.state.NoticeShown)
-	deviceID := h.store.state.DeviceID
+	assert.True(t, h.store.state().NoticeShown)
+	deviceID := h.store.state().DeviceID
 	assert.NotEmpty(t, deviceID)
 
 	stderr.Reset()
@@ -138,7 +174,7 @@ func TestRecord_UnwritableStatePrintsNoNoticeAndSendsNothing(t *testing.T) {
 
 func TestRecord_SkipsCompletionAndOffline(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "d", NoticeShown: true}
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
 
 	complete := &cobra.Command{Use: cobra.ShellCompRequestCmd}
 	h.recorder().Record(Invocation{Command: complete})
@@ -157,34 +193,44 @@ func TestRecord_SkipsCompletionAndOffline(t *testing.T) {
 	assert.Len(t, h.sent, 1, "--offline unset still records")
 }
 
-// staleStore returns the state as it was before a concurrent
-// `volcano telemetry disable`, while Update sees the file as it is now.
-type staleStore struct{ FileStateStore }
-
-func (staleStore) Load() (State, error) { return State{}, nil }
-
 func TestRecord_FirstRunKeepsConcurrentOptOut(t *testing.T) {
-	file := FileStateStore{Path: filepath.Join(t.TempDir(), "telemetry.json")}
-	require.NoError(t, file.Update(func(s *State) bool { s.Disabled = true; return true }))
+	h := newHarness()
+	r := h.recorder()
+	require.False(t, r.Reporting(), "the process starts before the opt-out")
+	// `volcano telemetry disable` in another process, while this one runs.
+	h.store.setState(State{Disabled: true})
 	var stderr bytes.Buffer
-	r := Recorder{State: staleStore{file}, Getenv: func(string) string { return "" }, Send: func([]byte) error {
-		t.Fatal("must not send after opt-out")
-		return nil
-	}}
 
 	r.Record(Invocation{Stderr: &stderr})
 
-	got, err := file.Load()
-	require.NoError(t, err)
-	assert.Equal(t, State{Disabled: true}, got, "the first-run write must not clobber the opt-out")
+	assert.Equal(t, State{Disabled: true}, h.store.state(), "the first-run write must not clobber the opt-out")
 	assert.Empty(t, stderr.String())
+	assert.Empty(t, h.sent)
+}
+
+func TestRecorder_ReadsConfigOncePerProcess(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	loads := 0
+	r := h.recorder()
+	r.LoadConfig = func() (*config.Config, error) { loads++; return h.store.load() }
+
+	require.True(t, r.Reporting())
+	// A later opt-out applies from the next process.
+	h.store.setState(State{DeviceID: "d", NoticeShown: true, Disabled: true})
+	r.Record(Invocation{})
+
+	assert.Equal(t, 1, loads)
+	assert.Len(t, h.sent, 1)
+	h.recorder().Record(Invocation{})
+	assert.Len(t, h.sent, 1, "the next process sees the opt-out")
 }
 
 func TestRecord_OptOuts(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"VOLCANO_TELEMETRY_DISABLED": func(h *harness) { h.env[EnvDisabled] = "1" },
-		"DO_NOT_TRACK":               func(h *harness) { h.env[EnvDoNotTrack] = "true" },
-		"telemetry disable":          func(h *harness) { h.store.state = State{Disabled: true} },
+		"telemetry disable":          func(h *harness) { h.store.setState(State{Disabled: true}) },
+		"unreadable config":          func(h *harness) { h.store.failLoad = true },
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness()
@@ -200,16 +246,18 @@ func TestRecord_OptOuts(t *testing.T) {
 
 func TestRecord_FalsyEnvDoesNotOptOut(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "d", NoticeShown: true}
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
 	h.env[EnvDisabled] = "0"
-	h.env[EnvDoNotTrack] = "false"
+	h.env["DO_NOT_TRACK"] = "1" // not an opt-out the CLI reads
 	h.recorder().Record(Invocation{})
 	assert.Len(t, h.sent, 1)
 }
 
 func TestRecord_SkipAnnotation(t *testing.T) {
 	h := newHarness()
-	cmd := &cobra.Command{Use: "flush", Annotations: map[string]string{SkipAnnotation: "true"}}
+	parent := &cobra.Command{Use: "telemetry", Annotations: map[string]string{SkipAnnotation: "true"}}
+	cmd := &cobra.Command{Use: "disable"}
+	parent.AddCommand(cmd)
 	h.recorder().Record(Invocation{Command: cmd})
 	assert.Empty(t, h.sent)
 	assert.Zero(t, h.store.saves)
@@ -217,7 +265,7 @@ func TestRecord_SkipAnnotation(t *testing.T) {
 
 func TestRecord_DebugPrintsInsteadOfSending(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "d", NoticeShown: true}
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
 	h.env[EnvDebug] = "1"
 	var stderr bytes.Buffer
 	h.recorder().Record(Invocation{Stderr: &stderr})
@@ -227,7 +275,7 @@ func TestRecord_DebugPrintsInsteadOfSending(t *testing.T) {
 
 func TestRecord_EventFields(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "dev-1", NoticeShown: true}
+	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
 	h.env["GITHUB_ACTIONS"] = "true"
 	cmd := commandTree(t, "--all", "--name", "secret-value", "--debug")
 
@@ -244,7 +292,7 @@ func TestRecord_EventFields(t *testing.T) {
 	assert.Equal(t, "2026-10-15T02:59:58Z", e.Timestamp)
 	assert.Equal(t, "cloud functions deploy", e.Command)
 	assert.Equal(t, []string{"all", "debug", "name"}, e.Flags)
-	assert.NotContains(t, string(h.sent[0]), "secret-value", "flag values are never sent")
+	assert.Equal(t, map[string]string{"name": "secret-value"}, e.Resources)
 	assert.Equal(t, version.Version, e.CLIVersion)
 	assert.Equal(t, runtime.GOOS, e.OS)
 	assert.Equal(t, runtime.GOARCH, e.Arch)
@@ -258,9 +306,22 @@ func TestRecord_EventFields(t *testing.T) {
 	assert.Empty(t, e.ErrorKind)
 }
 
+func TestRecord_ProjectAndResources(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
+	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "11111111-2222-3333-4444-555555555555", Name: "app"}
+	t.Setenv("VOLCANO_PROJECT_ID", "")
+
+	h.recorder().Record(Invocation{Command: commandTree(t, "--name", "hello")})
+
+	e := h.lastEvent(t)
+	assert.Equal(t, "11111111-2222-3333-4444-555555555555", e.ProjectID)
+	assert.Equal(t, map[string]string{"name": "hello"}, e.Resources)
+}
+
 func TestRecord_AgentRunReportsPluginAndError(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "dev-1", NoticeShown: true}
+	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
 	h.env["CLAUDECODE"] = "1"
 	h.plugins["claude-code"] = "0.2.16"
 	apiErr := fmt.Errorf("deploy: %w", &api.Error{StatusCode: http.StatusForbidden, Code: "project_access_denied", Message: "no"})
@@ -279,19 +340,29 @@ func TestRecord_AgentRunReportsPluginAndError(t *testing.T) {
 	assert.Equal(t, "project_access_denied", e.ErrorCode)
 }
 
-func TestRecord_HumanRunSendsNoErrorDetails(t *testing.T) {
+func TestRecord_HumanRunReportsError(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "dev-1", NoticeShown: true}
+	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
 	h.plugins[""] = "" // a manual install must not be reported without an agent
-	h.recorder().Record(Invocation{Err: &api.Error{StatusCode: 500, Code: "internal"}, ExitCode: 1})
+	err := fmt.Errorf("read /home/dev/app/volcano.yaml with Bearer abc.def: %w", &api.Error{StatusCode: 500, Code: "internal", Message: "boom"})
+	h.recorder().Record(Invocation{Err: err, ExitCode: 1})
 
 	e := h.lastEvent(t)
 	assert.Equal(t, 1, e.ExitCode)
-	assert.Empty(t, e.ErrorKind)
-	assert.Zero(t, e.ErrorStatus)
-	assert.Empty(t, e.ErrorCode)
+	assert.Equal(t, "api", e.ErrorKind)
+	assert.Equal(t, 500, e.ErrorStatus)
+	assert.Equal(t, "internal", e.ErrorCode)
+	assert.True(t, strings.HasPrefix(e.ErrorMessage, "read ~/app/volcano.yaml with Bearer [redacted] "), e.ErrorMessage)
 	assert.False(t, e.PluginInstalled)
-	assert.NotContains(t, string(h.sent[0]), "error_kind")
+}
+
+func TestRecord_SuccessSendsNoErrorFields(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
+	h.recorder().Record(Invocation{})
+	assert.NotContains(t, string(h.sent[0]), "error_")
+	assert.NotContains(t, string(h.sent[0]), "resources")
+	assert.NotContains(t, string(h.sent[0]), "project_id")
 }
 
 func TestErrorKind(t *testing.T) {
@@ -335,17 +406,21 @@ func TestCIVendor(t *testing.T) {
 	assert.Equal(t, "buildkite", CIVendor(env(map[string]string{"BUILDKITE": "true"})))
 }
 
-func TestFileStateStore_RoundTrip(t *testing.T) {
-	store := FileStateStore{Path: filepath.Join(t.TempDir(), "nested", "telemetry.json")}
-	got, err := store.Load()
-	require.NoError(t, err)
-	assert.Equal(t, State{}, got)
+func TestRecord_SavesStateInConfigFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.UserToken = "keep-me"
+		return true, nil
+	}))
 
-	want := State{DeviceID: "abc", Disabled: true, NoticeShown: true}
-	require.NoError(t, store.Update(func(s *State) bool { *s = want; return true }))
-	got, err = store.Load()
+	(&Recorder{Getenv: func(string) string { return "" }, Send: func([]byte) error { return nil }}).Record(Invocation{})
+
+	cfg, err := config.Load()
 	require.NoError(t, err)
-	assert.Equal(t, want, got)
+	assert.Equal(t, "keep-me", cfg.UserToken)
+	require.NotNil(t, cfg.Telemetry)
+	assert.True(t, cfg.Telemetry.NoticeShown)
+	assert.NotEmpty(t, cfg.Telemetry.DeviceID)
 }
 
 func TestFlush_PostsPayloadWithToken(t *testing.T) {
@@ -359,7 +434,7 @@ func TestFlush_PostsPayloadWithToken(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)
-	seedReporting(t)
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 	t.Setenv("VOLCANO_TOKEN", "tok-123")
 
@@ -372,27 +447,6 @@ func TestFlush_PostsPayloadWithToken(t *testing.T) {
 	assert.True(t, strings.HasPrefix(gotHeader.Get("User-Agent"), "volcano-cli/"))
 }
 
-// seedReporting gives the test a fresh HOME whose telemetry state already
-// showed the notice, so Flush uploads.
-func seedReporting(t *testing.T) {
-	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	store := FileStateStore{Path: filepath.Join(home, ".volcano", "telemetry.json")}
-	require.NoError(t, store.Update(func(s *State) bool { *s = State{DeviceID: "d", NoticeShown: true}; return true }))
-}
-
-func TestFlush_RechecksOptOutBeforeUploading(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Error("must not upload after an opt-out")
-	}))
-	t.Cleanup(srv.Close)
-	seedReporting(t)
-	t.Setenv("VOLCANO_API_URL", srv.URL)
-	require.NoError(t, FileStateStore{}.Update(func(s *State) bool { s.Disabled = true; return true }))
-
-	require.NoError(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()))
-}
 
 func TestFlush_NoTokenSendsNoAuthorization(t *testing.T) {
 	var gotAuth string
@@ -401,7 +455,7 @@ func TestFlush_NoTokenSendsNoAuthorization(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)
-	seedReporting(t)
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 	t.Setenv("VOLCANO_TOKEN", "")
 
@@ -420,22 +474,27 @@ func TestFlush_ReportsServerError(t *testing.T) {
 		w.WriteHeader(http.StatusTooManyRequests)
 	}))
 	t.Cleanup(srv.Close)
-	seedReporting(t)
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 
 	require.ErrorContains(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()), "429")
 }
 
 func TestReporting(t *testing.T) {
-	env := func(vars map[string]string) func(string) string {
-		return func(k string) string { return vars[k] }
+	reporting := func(state State, setup func(h *harness)) bool {
+		h := newHarness()
+		h.store.setState(state)
+		if setup != nil {
+			setup(h)
+		}
+		return h.recorder().Reporting()
 	}
 	shown := State{DeviceID: "d", NoticeShown: true}
-	assert.True(t, Reporting(env(nil), &memStore{state: shown}))
-	assert.False(t, Reporting(env(nil), &memStore{}), "nothing before the first-run notice")
-	assert.False(t, Reporting(env(map[string]string{EnvDoNotTrack: "1"}), &memStore{state: shown}))
-	assert.False(t, Reporting(env(nil), &memStore{state: State{DeviceID: "d", NoticeShown: true, Disabled: true}}))
-	assert.False(t, Reporting(env(nil), FileStateStore{Path: t.TempDir()}), "an unreadable state file counts as off")
+	assert.True(t, reporting(shown, nil))
+	assert.False(t, reporting(State{}, nil), "nothing before the first-run notice")
+	assert.False(t, reporting(shown, func(h *harness) { h.env[EnvDisabled] = "1" }))
+	assert.False(t, reporting(State{DeviceID: "d", NoticeShown: true, Disabled: true}, nil))
+	assert.False(t, reporting(shown, func(h *harness) { h.store.failLoad = true }), "an unreadable config counts as off")
 }
 
 func TestOfflineArg(t *testing.T) {
@@ -457,7 +516,7 @@ func TestOfflineArg(t *testing.T) {
 
 func TestRecord_SkipsOfflineWhenFlagParsingFailed(t *testing.T) {
 	h := newHarness()
-	h.store.state = State{DeviceID: "d", NoticeShown: true}
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
 	h.recorder().Record(Invocation{Args: []string{"docs", "list", "--bogus", "--offline"}, Err: errors.New("unknown flag: --bogus"), ExitCode: 1})
 	assert.Empty(t, h.sent)
 }

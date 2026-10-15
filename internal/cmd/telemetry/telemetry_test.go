@@ -7,20 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
-type memStore struct{ state telemetry.State }
-
-func (m *memStore) Load() (telemetry.State, error) { return m.state, nil }
-func (m *memStore) Update(fn func(*telemetry.State) bool) error {
-	fn(&m.state)
-	return nil
-}
-
-func runCmd(t *testing.T, store telemetry.StateStore, args ...string) (string, string) {
+func runCmd(t *testing.T, args ...string) (string, string) {
 	t.Helper()
-	cmd := New(store)
+	cmd := New()
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
@@ -29,41 +22,57 @@ func runCmd(t *testing.T, store telemetry.StateStore, args ...string) (string, s
 	return stdout.String(), stderr.String()
 }
 
-func TestTelemetryCommand(t *testing.T) {
-	t.Setenv(telemetry.EnvDisabled, "")
-	t.Setenv(telemetry.EnvDoNotTrack, "")
-	store := &memStore{state: telemetry.State{DeviceID: "d"}}
+func savedState(t *testing.T) config.TelemetryConfig {
+	t.Helper()
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Telemetry)
+	return *cfg.Telemetry
+}
 
-	out, _ := runCmd(t, store)
+func TestTelemetryCommand(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(telemetry.EnvDisabled, "")
+	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.UserToken = "keep-me"
+		cfg.Telemetry = &config.TelemetryConfig{DeviceID: "d"}
+		return true, nil
+	}))
+
+	out, _ := runCmd(t)
 	assert.Contains(t, out, "Telemetry is enabled.")
 
-	out, _ = runCmd(t, store, "disable")
+	out, _ = runCmd(t, "disable")
 	assert.Equal(t, "Telemetry is disabled.\n", out)
-	assert.Equal(t, telemetry.State{DeviceID: "d", Disabled: true, NoticeShown: true}, store.state)
+	assert.Equal(t, config.TelemetryConfig{DeviceID: "d", Disabled: true, NoticeShown: true}, savedState(t))
 
-	out, _ = runCmd(t, store, "status")
+	out, _ = runCmd(t, "status")
 	assert.Contains(t, out, "Telemetry is disabled.")
 
-	out, _ = runCmd(t, store, "enable")
+	out, _ = runCmd(t, "enable")
 	assert.Equal(t, "Telemetry is enabled.\n", out)
-	assert.False(t, store.state.Disabled)
+	assert.False(t, savedState(t).Disabled)
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "keep-me", cfg.UserToken, "the rest of config.json is kept")
 }
 
 func TestTelemetryCommand_EnvOptOut(t *testing.T) {
-	t.Setenv(telemetry.EnvDisabled, "")
-	t.Setenv(telemetry.EnvDoNotTrack, "1")
-	store := &memStore{}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(telemetry.EnvDisabled, "1")
 
-	out, _ := runCmd(t, store, "status")
-	assert.Equal(t, "Telemetry is disabled by DO_NOT_TRACK.\n", out)
+	out, _ := runCmd(t, "status")
+	assert.Equal(t, "Telemetry is disabled by VOLCANO_TELEMETRY_DISABLED.\n", out)
 
-	_, stderr := runCmd(t, store, "enable")
-	assert.Contains(t, stderr, "DO_NOT_TRACK is set")
+	_, stderr := runCmd(t, "enable")
+	assert.Contains(t, stderr, "VOLCANO_TELEMETRY_DISABLED is set")
 }
 
-func TestFlushIsHiddenAndNeverRecorded(t *testing.T) {
-	flush, _, err := New(&memStore{}).Find([]string{"flush"})
+func TestTelemetryCommandsAreNeverRecorded(t *testing.T) {
+	cmd := New()
+	assert.NotEmpty(t, cmd.Annotations[telemetry.SkipAnnotation])
+	flush, _, err := cmd.Find([]string{"flush"})
 	require.NoError(t, err)
 	assert.True(t, flush.Hidden)
-	assert.NotEmpty(t, flush.Annotations[telemetry.SkipAnnotation])
 }
