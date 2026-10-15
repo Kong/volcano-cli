@@ -172,22 +172,51 @@ func TestUseByNameByIDAndNotFound(t *testing.T) {
 	defer server.Close()
 	service := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
 
-	selected, err := service.Use(context.Background(), "Beta")
+	selected, _, err := service.Use(context.Background(), "Beta")
 	require.NoError(t, err)
 	assert.Equal(t, projectBetaID, selected.Id.String())
 	assert.Equal(t, 1, listRequests)
 	assertCurrentProject(t, projectBetaID, "Beta")
 
-	selected, err = service.Use(context.Background(), projectAlphaID)
+	selected, _, err = service.Use(context.Background(), projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, projectAlphaID, selected.Id.String())
 	assert.Equal(t, 1, getRequests)
 	assert.Equal(t, 1, listRequests, "successful ID lookup should not list projects")
 	assertCurrentProject(t, projectAlphaID, "Alpha")
 
-	_, err = service.Use(context.Background(), "Missing")
+	_, _, err = service.Use(context.Background(), "Missing")
 	require.ErrorContains(t, err, "project not found: Missing")
 	assert.Equal(t, 2, listRequests)
+}
+
+func TestUseInsideALinkedDirectoryUpdatesTheLink(t *testing.T) {
+	setProjectTestHome(t)
+	saveProjectTestConfig(t, &config.Config{UserToken: "token"})
+	dir := t.TempDir()
+	_, err := config.WriteLink(dir, config.ProjectConfig{ID: projectAlphaID, Name: "Alpha"})
+	require.NoError(t, err)
+	t.Chdir(dir)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/projects/"+projectBetaID {
+			http.NotFound(w, r)
+			return
+		}
+		writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectBetaID, "Beta", "active"))
+	}))
+	defer server.Close()
+
+	_, savedTo, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+	require.NoError(t, err)
+
+	link, err := config.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, link.Path(), savedTo)
+	assert.Equal(t, config.ProjectConfig{ID: projectBetaID, Name: "Beta"}, link.Project)
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Nil(t, cfg.CurrentProject, "the global selection is left alone")
 }
 
 func TestUseByNameScansPagesWithoutCollectingAllProjects(t *testing.T) {
@@ -219,7 +248,7 @@ func TestUseByNameScansPagesWithoutCollectingAllProjects(t *testing.T) {
 	}))
 	defer server.Close()
 
-	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), "Beta")
+	selected, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), "Beta")
 	require.NoError(t, err)
 	assert.Equal(t, projectBetaID, selected.Id.String())
 	assert.Equal(t, []string{"page=1&limit=100", "page=2&limit=100"}, queries)
@@ -242,7 +271,7 @@ func TestUseByNameErrorsWhenPaginationDoesNotAdvance(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), "Missing")
+	_, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), "Missing")
 	require.ErrorContains(t, err, "project pagination did not advance at page 1")
 	assert.Equal(t, 1, requests)
 }
@@ -276,7 +305,7 @@ func TestUseFallsBackToUUIDShapedNameAfterIDNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), uuidShapedName)
+	selected, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), uuidShapedName)
 	require.NoError(t, err)
 	assert.Equal(t, projectBetaID, selected.Id.String())
 	assert.Equal(t, uuidShapedName, selected.Name)
@@ -311,7 +340,7 @@ func TestUsePrefersIDOverSameStringName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
+	selected, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, projectAlphaID, selected.Id.String())
 	assert.Equal(t, "Alpha", selected.Name)
@@ -335,7 +364,7 @@ func TestAccountWideCommandsRejectAProjectToken(t *testing.T) {
 			return err
 		},
 		"use by name": func(s Service) error {
-			_, err := s.Use(context.Background(), "Alpha")
+			_, _, err := s.Use(context.Background(), "Alpha")
 			return err
 		},
 		"rename": func(s Service) error {
@@ -370,7 +399,7 @@ func TestUseReportsAMissingIDForAProjectToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), missingID)
+	_, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), missingID)
 	require.ErrorContains(t, err, "project not found: "+missingID)
 	assert.NotErrorIs(t, err, config.ErrAccountTokenRequired)
 }
@@ -415,7 +444,7 @@ func TestUseByIDWorksWithAProjectToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	selected, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
+	selected, _, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
 	require.NoError(t, err)
 	assert.Equal(t, projectAlphaID, selected.Id.String())
 	assertCurrentProject(t, projectAlphaID, "Alpha")

@@ -74,6 +74,9 @@ type Config struct {
 	AnonKey        string         `json:"-"`
 	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	// Link is the working directory's project link, found by Load. It is never
+	// saved here: the link lives in the linked directory.
+	Link *Link `json:"-"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
@@ -114,9 +117,22 @@ func Path() (string, error) {
 	return filepath.Join(homeDir, defaultConfigDirName, defaultConfigFileName), nil
 }
 
-// Load reads ~/.volcano/config.json. Missing config is not an error.
+// Load reads ~/.volcano/config.json and the working directory's project link.
+// Missing config is not an error.
 func Load() (*Config, error) {
-	return load()
+	cfg, err := load()
+	if err != nil {
+		return nil, err
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		// A working directory that no longer exists can't be linked.
+		return cfg, nil
+	}
+	if cfg.Link, err = FindLink(wd); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func load() (*Config, error) {
@@ -259,14 +275,25 @@ func (c *Config) FunctionInvokeToken() string {
 }
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
+// Precedence: env > the working directory's link > the project `volcano use` saved.
 func (c *Config) ProjectID() string {
 	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
-	if c.CurrentProject != nil {
-		return c.CurrentProject.ID
+	if project := c.Project(); project != nil {
+		return project.ID
 	}
 	return ""
+}
+
+// Project returns the selected project without the VOLCANO_PROJECT_ID
+// override: the working directory's link, else the project `volcano use`
+// saved. Nil when neither is set.
+func (c *Config) Project() *ProjectConfig {
+	if c.Link != nil {
+		return &c.Link.Project
+	}
+	return c.CurrentProject
 }
 
 // ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a

@@ -36,7 +36,7 @@ func (s Service) CurrentTarget(ctx context.Context) (Target, error) {
 	target := Target{ID: authenticated.ProjectID}
 	if project, err := authenticated.API.GetProject(ctx, authenticated.ProjectID); err == nil {
 		target.Name = project.Name
-	} else if saved := authenticated.Config.CurrentProject; saved != nil && saved.ID == authenticated.ProjectID.String() {
+	} else if saved := authenticated.Config.Project(); saved != nil && saved.ID == authenticated.ProjectID.String() {
 		target.Name = saved.Name
 	}
 	return target, nil

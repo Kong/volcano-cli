@@ -154,7 +154,7 @@ func (s Service) Project() (ProjectRef, error) {
 	ref := ProjectRef{ID: authenticated.ProjectID}
 	// Only trust the stored name when it belongs to the selected project: an
 	// environment override changes the id without changing the name beside it.
-	if current := authenticated.Config.CurrentProject; current != nil && current.ID == ref.ID.String() {
+	if current := authenticated.Config.Project(); current != nil && current.ID == ref.ID.String() {
 		ref.Name = current.Name
 	}
 	return ref, nil

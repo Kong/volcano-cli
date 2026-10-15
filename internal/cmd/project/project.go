@@ -369,12 +369,12 @@ Example:
 }
 
 func runUse(ctx context.Context, opts useOptions) error {
-	selected, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
+	selected, savedTo, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
 	if err != nil {
 		return err
 	}
 
 	output.Success(opts.out, "Now using project: %s (%s)", selected.Name, selected.Id.String())
-	output.Success(opts.out, "Saved to ~/.volcano/config.json")
+	output.Success(opts.out, "Saved to %s", savedTo)
 	return nil
 }
