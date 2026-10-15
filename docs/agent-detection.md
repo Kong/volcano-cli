@@ -21,9 +21,8 @@ an agent:
 
 1. `AI_AGENT`, then `AGENT`. These are generic variables an agent can set to
    its own name, such as `AI_AGENT=claude-code`. A value of `1`, `true`, `yes`,
-   or `on` means
-   "an agent is running" without naming it, so the CLI keeps looking for a
-   name. A value of `0`, `false`, `no`, or `off` is ignored.
+   or `on` means "an agent is running" without naming it, so the CLI keeps
+   looking for a name. A value of `0`, `false`, `no`, or `off` is ignored.
 2. A variable set by one specific agent. If several are set, the first row in
    this table wins:
 
