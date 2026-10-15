@@ -25,8 +25,7 @@ func (e *Error) Unwrap() error { return e.err }
 // Text returns the text of the first sensitive error in err's chain, or ""
 // when there is none.
 func Text(err error) string {
-	var sensitiveErr *Error
-	if errors.As(err, &sensitiveErr) {
+	if sensitiveErr, ok := errors.AsType[*Error](err); ok {
 		return sensitiveErr.Error()
 	}
 	return ""
