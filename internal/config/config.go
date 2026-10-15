@@ -127,7 +127,7 @@ func Load() (*Config, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		// A working directory that no longer exists can't be linked.
-		return cfg, nil
+		return cfg, nil //nolint:nilerr // the link is optional; the config itself loaded
 	}
 	if cfg.Link, err = FindLink(wd); err != nil {
 		return nil, err

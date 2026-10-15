@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -50,7 +51,7 @@ func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
 		{name: "missing resource", err: fmt.Errorf("get: %w", &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
 		{name: "refused", err: fmt.Errorf("delete: %w", &api.Error{StatusCode: http.StatusForbidden}), want: exitPermissionDenied},
 		{name: "account token required", err: cliconfig.ErrAccountTokenRequired, want: exitPermissionDenied},
-		{name: "anything else", err: fmt.Errorf("boom"), want: exitFailure},
+		{name: "anything else", err: errors.New("boom"), want: exitFailure},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

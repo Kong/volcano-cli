@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -94,7 +93,7 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		}
 	}
 
-	if err := saveCredentials(credentials); err != nil {
+	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
@@ -143,7 +142,7 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 		return fmt.Errorf("signup failed: %w", err)
 	}
 
-	if err := saveCredentials(credentials); err != nil {
+	if err := cliauth.SaveCredentials(credentials); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
@@ -152,20 +151,8 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 	return nil
 }
 
-func saveCredentials(credentials cliauth.Credentials) error {
-	return config.Update(func(cfg *config.Config) (bool, error) {
-		cfg.UserToken = credentials.Token
-		cfg.UserID = credentials.UserID
-		cfg.SessionAPIURL = credentials.APIURL
-		if credentials.Project != nil {
-			cfg.CurrentProject = credentials.Project
-		}
-		return true, nil
-	})
-}
-
 func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.Reader, out io.Writer) (string, error) {
-	defaultEmail := gitConfigEmail(ctx, deps)
+	defaultEmail := cliauth.GitEmail(ctx, deps)
 	if defaultEmail != "" {
 		fmt.Fprintf(out, "Enter your email address (press enter to continue) [%s]: ", defaultEmail)
 	} else {
@@ -188,20 +175,6 @@ func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.
 		return "", fmt.Errorf("invalid email address: %w", err)
 	}
 	return parsed.Address, nil
-}
-
-func gitConfigEmail(ctx context.Context, deps cliruntime.Deps) string {
-	runner := deps.GitCommandRunner
-	if runner == nil {
-		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
-		})
-	}
-	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // NewLogout returns the logout command.

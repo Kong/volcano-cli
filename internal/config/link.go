@@ -56,11 +56,11 @@ func FindLink(start string) (*Link, error) {
 			return link, err
 		}
 		if dir == home || exists(filepath.Join(dir, ".git")) {
-			return nil, nil
+			return nil, nil //nolint:nilnil // an unlinked directory is an outcome, not a failure
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return nil, nil
+			return nil, nil //nolint:nilnil // an unlinked directory is an outcome, not a failure
 		}
 		dir = parent
 	}
@@ -79,7 +79,7 @@ func readLink(dir string) (*Link, error) {
 	path := filepath.Join(dir, LinkRelPath)
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return nil, nil //nolint:nilnil // no link here is an outcome, not a failure
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read project link %s: %w", path, err)

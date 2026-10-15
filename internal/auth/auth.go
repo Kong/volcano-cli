@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -263,6 +264,35 @@ func resolveDeviceClientID(apiURL string) (string, error) {
 // isLocalAPIURL reports whether apiURL points at a loopback address.
 func isLocalAPIURL(apiURL string) bool {
 	return config.IsLoopbackAPIURL(apiURL)
+}
+
+// SaveCredentials saves a login's credentials to ~/.volcano/config.json.
+func SaveCredentials(credentials Credentials) error {
+	return config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.UserToken = credentials.Token
+		cfg.UserID = credentials.UserID
+		cfg.SessionAPIURL = credentials.APIURL
+		if credentials.Project != nil {
+			cfg.CurrentProject = credentials.Project
+		}
+		return true, nil
+	})
+}
+
+// GitEmail returns `git config --global user.email`, or "" when it is unset
+// or git fails. Signup offers it as the default email address.
+func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
+	runner := deps.GitCommandRunner
+	if runner == nil {
+		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
+		})
+	}
+	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // Logout deletes local authentication state.
