@@ -79,10 +79,10 @@ Piped, CI, and `NO_COLOR` output remains plain. Machine output is unchanged.
 
 ## Telemetry
 
-The CLI sends one usage event per command: the command and flag names, CLI
-version, platform, and which coding agent ran it. It never sends flag values or
-arguments. Turn it off with `volcano telemetry disable`, `VOLCANO_TELEMETRY_DISABLED=1`,
-or `DO_NOT_TRACK=1`. See [telemetry.md](telemetry.md).
+The CLI sends one usage event per command: the command and flag names, the
+project and resource names it acts on, error messages, CLI version, platform,
+and which coding agent ran it. Turn it off with `volcano telemetry disable` or
+`VOLCANO_TELEMETRY_DISABLED=1`. See [telemetry.md](telemetry.md).
 
 ## Element → CLI ability at a glance
 
