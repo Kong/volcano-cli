@@ -119,7 +119,8 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 const bootstrapClientName = "volcano-cli"
 
 // BootstrapRefusedError is a one-time bootstrap token the API would not
-// exchange: expired, already used, not valid, or not supported by this API.
+// exchange: expired, already used, not valid, rate limited, or not supported
+// by this API.
 type BootstrapRefusedError struct {
 	// Reason completes "The one-time token ...", e.g. "has expired".
 	Reason string
@@ -150,6 +151,8 @@ func (s Service) exchangeBootstrapToken(ctx context.Context, apiURL, token strin
 		return nil, &BootstrapRefusedError{Reason: "was already used", Err: err}
 	case api.Code(err) == api.BootstrapTokenInvalid:
 		return nil, &BootstrapRefusedError{Reason: "is not valid", Err: err}
+	case api.Status(err) == http.StatusTooManyRequests:
+		return nil, &BootstrapRefusedError{Reason: "was refused after too many attempts from this network", Err: err}
 	case api.Status(err) == http.StatusNotFound:
 		// An API without the exchange endpoint.
 		return nil, &BootstrapRefusedError{Reason: "can't be used with this API", Err: err}

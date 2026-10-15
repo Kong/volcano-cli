@@ -264,6 +264,7 @@ func TestLoginWithBootstrapTokenNamesWhyItWasRefused(t *testing.T) {
 		{http.StatusUnauthorized, map[string]string{"error": "expired", "code": "bootstrap_token_expired"}, "has expired"},
 		{http.StatusUnauthorized, map[string]string{"error": "used", "code": "bootstrap_token_used"}, "was already used"},
 		{http.StatusUnauthorized, map[string]string{"error": "invalid", "code": "bootstrap_token_invalid"}, "is not valid"},
+		{http.StatusTooManyRequests, map[string]string{"error": "slow down", "code": "rate_limited"}, "was refused after too many attempts from this network"},
 		{http.StatusNotFound, map[string]string{"error": "not found"}, "can't be used with this API"},
 	} {
 		t.Run(tc.reason, func(t *testing.T) {
