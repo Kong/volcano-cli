@@ -3,8 +3,15 @@ title: "Authentication"
 description: "Sign up, log in, and manage your Volcano credentials from the CLI."
 ---
 
-To sign in, create a project, and link the current directory to it in one
-step, use `volcano connect`. See [connect.md](connect.md).
+To sign in, create a project, and set up a directory for it in one step, use
+`volcano connect`. See [connect.md](connect.md).
+
+Local development needs no account: `volcano init`, `volcano start`, and the
+local deploy commands work without signing in. When you first run a command
+that needs an account, such as a `volcano cloud` command, the CLI asks whether
+you already have one, then runs browser login or signup and carries on with
+the command. It only asks on a terminal. Run by a script or a coding agent,
+the command fails with exit code `2` instead. See [scripting.md](scripting.md).
 
 New to Volcano? Create an account from the CLI:
 

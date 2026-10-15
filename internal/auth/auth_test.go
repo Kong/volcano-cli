@@ -296,6 +296,14 @@ func TestLoginWithBootstrapTokenNeverEchoesTheExchangedToken(t *testing.T) {
 	assert.NotContains(t, err.Error(), "pk-secret")
 }
 
+func TestOfferSignInNeverPromptsWithoutATerminal(t *testing.T) {
+	testAuthConfig(t)
+	var out bytes.Buffer
+	err := NewService(cliruntime.Deps{}).OfferSignIn(context.Background(), strings.NewReader("y\n"), &out)
+	require.ErrorIs(t, err, config.ErrNotAuthenticated)
+	assert.Empty(t, out.String())
+}
+
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
 	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the

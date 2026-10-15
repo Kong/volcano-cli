@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
@@ -36,6 +38,10 @@ const (
 
 func main() {
 	deps := cliruntime.Deps{}
+	// A command that needs a login offers one on a terminal instead of failing.
+	deps.SignIn = func() error {
+		return cliauth.NewService(deps).OfferSignIn(context.Background(), os.Stdin, os.Stderr)
+	}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
 

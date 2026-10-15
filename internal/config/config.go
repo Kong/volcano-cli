@@ -41,9 +41,10 @@ const (
 
 var (
 	// ErrNotAuthenticated indicates no token is configured for cloud API calls.
-	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first")
+	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first, or 'volcano signup' if you're new to Volcano")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
-	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID. " +
+		"To create a project and link this directory to it, run 'volcano connect .'")
 	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
 	// access token, which cannot look a project up by name.
 	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
