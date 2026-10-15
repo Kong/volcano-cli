@@ -99,7 +99,7 @@ func placeholders(use string) []string {
 const maxErrorMessageRunes = 500
 
 // ansiEscape matches a terminal escape sequence, such as a color code.
-var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[\x20-\x2f]*[\x40-\x7e]`)
 
 // errorMessage is err's text as sent: the home directory replaced with "~",
 // terminal escapes and control characters removed, whitespace collapsed,
