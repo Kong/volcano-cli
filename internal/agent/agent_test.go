@@ -96,6 +96,26 @@ func TestDetect(t *testing.T) {
 			want: Result{Name: "cowork", Source: SourceMarker, Markers: []string{"cowork", "claude-code"}},
 		},
 		{
+			name: "Cursor terminal alone is a host signal",
+			env:  map[string]string{"CURSOR_TRACE_ID": "abc"},
+			want: Result{Name: "cursor", Source: SourceHost, Markers: []string{"cursor"}},
+		},
+		{
+			name: "VOLCANO_AGENT wins over a host marker, which stays in markers",
+			env:  map[string]string{"CURSOR_TRACE_ID": "abc", "VOLCANO_AGENT": "cline"},
+			want: Result{Name: "cline", Raw: "cline", Source: SourceVolcanoAgent, Markers: []string{"cursor"}},
+		},
+		{
+			name: "AGENT=1 in a Replit shell is unknown, host kept in markers",
+			env:  map[string]string{"AGENT": "1", "REPL_ID": "r1"},
+			want: Result{Name: Unknown, Source: SourceAgent, Markers: []string{"replit"}},
+		},
+		{
+			name: "AI_AGENT name keeps host markers",
+			env:  map[string]string{"AI_AGENT": "goose", "CURSOR_TRACE_ID": "abc"},
+			want: Result{Name: "goose", Raw: "goose", Source: SourceAIAgent, Markers: []string{"cursor"}},
+		},
+		{
 			name: "Claude Code in a Cursor terminal reports Claude Code and both markers",
 			env:  map[string]string{"CLAUDECODE": "1", "CURSOR_TRACE_ID": "abc"},
 			want: Result{Name: "claude-code", Source: SourceMarker, Markers: []string{"claude-code", "cursor"}},
@@ -145,8 +165,12 @@ func TestDetect_EveryMarkerIsRecognized(t *testing.T) {
 			value = m.value
 		}
 		got := Detect(env(map[string]string{m.env: value}))
+		want := SourceMarker
+		if m.host {
+			want = SourceHost
+		}
 		assert.Equal(t, m.agent, got.Name, m.env)
-		assert.Equal(t, SourceMarker, got.Source, m.env)
+		assert.Equal(t, want, got.Source, m.env)
 	}
 }
 

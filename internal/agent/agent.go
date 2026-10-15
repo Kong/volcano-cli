@@ -10,6 +10,10 @@
 //  2. Harness-specific markers (see markers), for harnesses that set neither.
 //  3. VOLCANO_AGENT: set by the Volcano skills when the harness sets nothing
 //     the CLI recognizes.
+//  4. A bare truthy AI_AGENT or AGENT: reported as Unknown.
+//  5. Host markers: variables that only show the terminal or workspace the
+//     command ran in. A person typing there sets them too, and any agent
+//     started there inherits them, so they are the weakest signal.
 //
 // The result is advisory telemetry. Any process can set these variables, so
 // nothing may use it to grant or deny anything.
@@ -29,6 +33,7 @@ const (
 	SourceAgent        Source = "agent"
 	SourceMarker       Source = "marker"
 	SourceVolcanoAgent Source = "volcano_agent"
+	SourceHost         Source = "host"
 )
 
 // Unknown is the name reported when AI_AGENT or AGENT says an agent is
@@ -49,27 +54,27 @@ type Result struct {
 	Raw string
 	// Source is the rule that produced Name.
 	Source Source
-	// Markers lists the canonical agent name of every harness-specific marker
-	// present, deduplicated, in table order. More than one entry means agents
-	// are nested (e.g. Claude Code started from a Cursor terminal).
+	// Markers lists the canonical agent name of every marker present, host
+	// markers included, deduplicated, in table order. It is filled whatever
+	// rule produced Name. More than one entry means agents are nested (e.g.
+	// Claude Code started from a Cursor terminal).
 	Markers []string
 }
 
 // marker maps one harness-specific environment variable to an agent. When
 // value is set, the variable must equal it; otherwise any non-empty value
 // matches. Names are matched exactly, never by prefix: a user's own
-// CODEX_AGENT variable must not read as Codex.
+// CODEX_AGENT variable must not read as Codex. host marks a variable that
+// only shows the terminal or workspace, not that an agent ran the command.
 type marker struct {
 	env   string
 	value string
 	agent string
+	host  bool
 }
 
 // markers is ordered so the first match is the best guess for the agent
-// that ran this command. Variables a harness sets in its own command shell
-// come first. Variables that only identify the host terminal or workspace
-// come last, because a human typing in that terminal sets them too, and an
-// agent started from that terminal inherits them.
+// that ran this command. Host markers go last.
 //
 // Keep this list in step with the harnesses' release notes. Cross-check with
 // other public detectors (Vercel detect-agent, Laravel agent-detector,
@@ -94,9 +99,8 @@ var markers = []marker{
 	{env: "COPILOT_MODEL", agent: "github-copilot"},
 	{env: "COPILOT_ALLOW_ALL", agent: "github-copilot"},
 
-	// Host terminal or workspace only.
-	{env: "CURSOR_TRACE_ID", agent: "cursor"},
-	{env: "REPL_ID", agent: "replit"},
+	{env: "CURSOR_TRACE_ID", agent: "cursor", host: true},
+	{env: "REPL_ID", agent: "replit", host: true},
 }
 
 // aliases maps lowercase AI_AGENT / AGENT / VOLCANO_AGENT values (or their
@@ -133,13 +137,16 @@ func Detect(lookup func(string) (string, bool)) Result {
 	}
 
 	var found []string
-	var first string
+	var first, firstHost string
 	for _, m := range markers {
 		v := get(m.env)
 		if v == "" || (m.value != "" && v != m.value) {
 			continue
 		}
-		if first == "" {
+		switch {
+		case m.host && firstHost == "":
+			firstHost = m.agent
+		case !m.host && first == "":
 			first = m.agent
 		}
 		if !slices.Contains(found, m.agent) {
@@ -173,11 +180,15 @@ func Detect(lookup func(string) (string, bool)) Result {
 	}
 
 	if raw := sanitize(get("VOLCANO_AGENT")); raw != "" {
-		return Result{Name: canonical(raw), Raw: raw, Source: SourceVolcanoAgent}
+		return Result{Name: canonical(raw), Raw: raw, Source: SourceVolcanoAgent, Markers: found}
 	}
 
 	if presence != "" {
-		return Result{Name: Unknown, Source: presence}
+		return Result{Name: Unknown, Source: presence, Markers: found}
+	}
+
+	if firstHost != "" {
+		return Result{Name: firstHost, Source: SourceHost, Markers: found}
 	}
 	return Result{}
 }
