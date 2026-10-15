@@ -106,6 +106,12 @@ var markers = []marker{
 // aliases maps lowercase AI_AGENT / AGENT / VOLCANO_AGENT values (or their
 // leading word) to a canonical name, so "claude-code_2-1-299_agent" and
 // "claude" both report as "claude-code". Longer aliases are tried first.
+//
+// The API forwards only names on its own allowlist to analytics and reports
+// any other name as "other" (volcano-hosting
+// internal/productanalytics/allowlist.go allowedAgents). Keep the canonical
+// names here, that allowlist, and the harness list in the volcano-skills
+// AGENTS.md in step.
 var aliases = map[string]string{
 	"claude-code":        "claude-code",
 	"claude":             "claude-code",
@@ -125,6 +131,19 @@ var aliases = map[string]string{
 	"replit":             "replit",
 	"goose":              "goose",
 	"amp":                "amp",
+	"windsurf":           "windsurf",
+	"cline":              "cline",
+	"roo-code":           "roo-code",
+	"roo":                "roo-code",
+	"kilo-code":          "kilo-code",
+	"kilo":               "kilo-code",
+	"kiro":               "kiro",
+	"zed":                "zed",
+	"aider":              "aider",
+	"warp":               "warp",
+	"junie":              "junie",
+	"devin":              "devin",
+	"v0":                 "v0",
 }
 
 // Detect reports the agent that ran this process. lookup is os.LookupEnv in

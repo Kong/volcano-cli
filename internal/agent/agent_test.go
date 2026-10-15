@@ -199,6 +199,9 @@ func TestCanonical(t *testing.T) {
 		"cursor":                    "cursor",
 		"Gemini":                    "gemini-cli",
 		"amp@0.1":                   "amp",
+		"windsurf_1-2":              "windsurf",
+		"roo":                       "roo-code",
+		"kilo-code/0.9":             "kilo-code",
 		"ampersand":                 "ampersand",
 	}
 	for in, want := range cases {
