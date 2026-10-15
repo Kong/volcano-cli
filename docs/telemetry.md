@@ -35,19 +35,26 @@ code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
 removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
 access key IDs, passwords in URLs, URL query strings, values of `password=`,
-`token=`, and similar pairs, and other long opaque strings. It then cuts the
-message to 500 characters.
+`token=`, and similar pairs, and other long opaque strings. When reading
+`volcano.yaml` or `volcano.env` fails, the part of the error that quotes the
+file is replaced with `[redacted]`. It then cuts the message to 500 characters.
+
+An error message can contain what you typed, such as an unknown command, a flag
+value the CLI rejected, a file path, or a resource name. Redaction removes the
+secret shapes listed above but cannot recognize every secret, so avoid putting
+secrets in command arguments.
 
 Resource names come from the arguments that name a resource, such as
 `<database>` in `volcano databases get <database>`, and from the `--name`,
 `--function`, `--database`, `--project`, `--topic`, and `--bucket` flags. Other
 arguments and flag values, such as file paths, search queries, payloads, and
-commands run in a sandbox, are never sent. A name that looks like a token or
-key is dropped.
+commands run in a sandbox, are not sent as resource names, though they can
+appear in an error message. A name that looks like a token or key is dropped.
 
-The CLI never sends file contents or environment variable values, with one
-exception: the agent name and its raw value come from `AI_AGENT`, `AGENT`, or
-`VOLCANO_AGENT` when one of those is set. The CLI limits them to letters,
+The CLI does not send file contents or environment variable values, except in
+two cases. The selected project ID can come from `VOLCANO_PROJECT_ID`. The agent
+name and its raw value come from `AI_AGENT`, `AGENT`, or `VOLCANO_AGENT` when
+one of those is set. The CLI limits them to letters,
 digits, and `._-/@+:` and to 64 characters, and the Volcano API forwards only
 known agent names to analytics and reports any other as `other`. See
 [agent-detection.md](agent-detection.md).
