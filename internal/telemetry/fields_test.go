@@ -94,6 +94,9 @@ func TestRedact(t *testing.T) {
 		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":     "aws [redacted] denied",
 		"dial postgres://app:hunter2@db.internal:5432/app failed": "dial postgres://[redacted]@db.internal:5432/app failed",
 		"run with password=hunter2 and API_KEY=abc":               "run with password=[redacted] and API_KEY=[redacted]",
+		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:     `unknown command "DB_PASSWORD=[redacted] for "volcano"`,
+		"PGPASSWORD=a GITHUB_TOKEN=b MY_API_KEY=c":                "PGPASSWORD=[redacted] GITHUB_TOKEN=[redacted] MY_API_KEY=[redacted]",
+		"tokens=5 MAX_TOKENS=100 TOKEN_TTL=60":                    "tokens=5 MAX_TOKENS=100 TOKEN_TTL=60",
 		"invalid token: signature mismatch":                       "invalid token: signature mismatch",
 	}
 	for in, want := range cases {

@@ -147,7 +147,8 @@ func errorMessage(err error, home string) string {
 const redacted = "[redacted]"
 
 // Redaction rules, applied in order. volcano-hosting applies the same rules
-// again before the event reaches analytics.
+// again before the event reaches analytics; its
+// docs/internal/guides/cli-telemetry.md is the wire contract both sides follow.
 var (
 	bearerPattern = regexp.MustCompile(`(?i)\bbearer\s+\S+`)
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
@@ -155,7 +156,7 @@ var (
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/@]+@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)=\S+`)
+	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=\S+`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
