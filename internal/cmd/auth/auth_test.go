@@ -176,7 +176,7 @@ func TestLoginProjectFlagNeedsAToken(t *testing.T) {
 	require.ErrorContains(t, err, "--project applies to --token login")
 }
 
-func TestLogoutDeletesConfig(t *testing.T) {
+func TestLogoutDeletesConfigWithOnlyCredentials(t *testing.T) {
 	setAuthTestHome(t)
 	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "token"})
 
@@ -188,6 +188,25 @@ func TestLogoutDeletesConfig(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "config exists after logout: %v", err)
+}
+
+func TestLogoutKeepsMachineSettings(t *testing.T) {
+	setAuthTestHome(t)
+	telemetry := &cliconfig.TelemetryConfig{DeviceID: "device", Disabled: true, NoticeShown: true}
+	docs := &cliconfig.DocsSourceConfig{Repo: "Kong/volcano-docs"}
+	saveAuthTestConfig(t, &cliconfig.Config{
+		UserToken:       "token",
+		UserID:          "user",
+		CurrentProject:  &cliconfig.ProjectConfig{ID: "p1", Name: "app"},
+		FunctionAliases: map[string]map[string]string{"scope": {"a": "f1"}},
+		DocsSource:      docs,
+		Telemetry:       telemetry,
+	})
+
+	_, err := executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	assert.Equal(t, &cliconfig.Config{DocsSource: docs, Telemetry: telemetry}, loadAuthTestConfig(t))
 }
 
 func TestSignupUsesGitEmailDefault(t *testing.T) {
