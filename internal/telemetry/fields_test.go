@@ -53,12 +53,13 @@ func TestResources(t *testing.T) {
 }
 
 func TestResources_Capped(t *testing.T) {
-	use := "set"
+	fields := []string{"set"}
 	var args []string
 	for i := range maxResources + 2 {
-		use += fmt.Sprintf(" <k%02d>", i)
+		fields = append(fields, fmt.Sprintf("<k%02d>", i))
 		args = append(args, "v")
 	}
+	use := strings.Join(fields, " ")
 	for i := range maxResources + 2 {
 		resourcePlaceholders[fmt.Sprintf("k%02d", i)] = true
 	}
@@ -99,5 +100,5 @@ func TestErrorMessage(t *testing.T) {
 	assert.Equal(t, "read ~/app/x.yaml: bad indent", errorMessage(errors.New("read /home/dev/app/x.yaml:\n  bad   indent"), "/home/dev"))
 	assert.Equal(t, "a/b", errorMessage(errors.New("a/b"), "/"), "a home of / is not replaced")
 	long := errorMessage(errors.New(strings.Repeat("é ", 400)), "")
-	assert.Equal(t, maxErrorMessageRunes, len([]rune(long)))
+	assert.Len(t, []rune(long), maxErrorMessageRunes)
 }

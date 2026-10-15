@@ -447,7 +447,6 @@ func TestFlush_PostsPayloadWithToken(t *testing.T) {
 	assert.True(t, strings.HasPrefix(gotHeader.Get("User-Agent"), "volcano-cli/"))
 }
 
-
 func TestFlush_NoTokenSendsNoAuthorization(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
