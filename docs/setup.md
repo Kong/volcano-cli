@@ -50,3 +50,8 @@ on the latest version, and the report says what happened per harness:
 For the marketplace harnesses (`claude-code`, `codex`) the plugin loads only
 after you **restart the agent**, so an install/update row ends with
 `(restart your agent to apply)`.
+
+## Agent detection
+
+Once set up, the CLI reports which agent ran each command to the Volcano API.
+See [agent-detection.md](agent-detection.md) for what is detected and sent.
