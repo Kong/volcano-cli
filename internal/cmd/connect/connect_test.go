@@ -224,13 +224,104 @@ func TestConnectWithProjectLinksIt(t *testing.T) {
 
 	out, err := runConnect(t, server, dir, "--project", connectOtherProjectID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Project:   blog\nDashboard: http://localhost:3000/dashboard/overview?project="+connectOtherProjectID+"\n")
+	assert.Contains(t, out, "Project:   blog\n")
+	assert.Contains(t, out, "Dashboard: http://localhost:3000/dashboard/overview?project="+connectOtherProjectID+"\n")
 
 	assert.Zero(t, fake.creates)
 	link, err := cliconfig.FindLink(dir)
 	require.NoError(t, err)
 	require.NotNil(t, link)
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
+}
+
+func TestConnectWithNoDirectoryCreatesOneNamedAfterTheProject(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+
+	out, err := runConnectHere(t, server)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Project:   fuji-amber-42\nDirectory: ./fuji-amber-42\nDashboard: http://localhost:3000/dashboard/overview?project="+connectProjectID+"\n")
+	assert.Contains(t, out, "Next: cd ./fuji-amber-42, read AGENTS.md there")
+
+	dir := filepath.Join(parent, "fuji-amber-42")
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, cliconfig.ProjectConfig{ID: connectProjectID, Name: "fuji-amber-42"}, link.Project)
+	assert.FileExists(t, filepath.Join(dir, "AGENTS.md"))
+	assert.NoFileExists(t, filepath.Join(parent, "AGENTS.md"), "the working directory is left alone")
+}
+
+func TestConnectWithNoDirectorySkipsNamesWhoseDirectoryExists(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t, takenNames: map[string]bool{"fuji-amber-42-2": true}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	require.NoError(t, os.Mkdir(filepath.Join(parent, "fuji-amber-42"), 0o755))
+
+	out, err := runConnectHere(t, server, "--json")
+	require.NoError(t, err)
+
+	var res result
+	require.NoError(t, json.Unmarshal([]byte(out), &res), out)
+	assert.Equal(t, "fuji-amber-42-3", res.Project.Name)
+	assert.Equal(t, filepath.Join(parent, "fuji-amber-42-3"), res.Directory)
+	assert.Equal(t, 2, fake.creates, "the existing directory's name is never sent")
+}
+
+func TestConnectInsideALinkedDirectoryKeepsItsProject(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+
+	_, err := runConnectHere(t, server)
+	require.NoError(t, err)
+	dir := filepath.Join(parent, "fuji-amber-42")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "web"), 0o755))
+	t.Chdir(filepath.Join(dir, "web"))
+
+	out, err := runConnectHere(t, server)
+	require.NoError(t, err)
+	assert.Equal(t, 1, fake.creates)
+	assert.Contains(t, out, "Directory: "+dir+"\n")
+	assert.NoDirExists(t, filepath.Join(dir, "web", "fuji-amber-42"))
+}
+
+func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+
+	out, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Directory: ./blog\n")
+	assert.Zero(t, fake.creates)
+	link, err := cliconfig.FindLink(filepath.Join(parent, "blog"))
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, connectOtherProjectID, link.Project.ID)
+}
+
+func TestGenerateProjectName(t *testing.T) {
+	assert.Regexp(t, `^[a-z]+-[a-z]+-\d{2}$`, generateProjectName())
+}
+
+func TestDisplayDir(t *testing.T) {
+	assert.Equal(t, ".", displayDir("/w", "/w"))
+	assert.Equal(t, "./app", displayDir("/w", "/w/app"))
+	assert.Equal(t, "/other", displayDir("/w", "/other"))
+	assert.Equal(t, "./..x", displayDir("/w", "/w/..x"))
 }
 
 func TestDefaultProjectName(t *testing.T) {
@@ -249,6 +340,36 @@ func runConnect(t *testing.T, server *httptest.Server, dir string, args ...strin
 	cmd.SetArgs(append([]string{dir, "--skip-skills"}, args...))
 	err := cmd.Execute()
 	return stdout.String(), err
+}
+
+// runConnectHere runs connect with no directory argument.
+func runConnectHere(t *testing.T, server *httptest.Server, args ...string) (string, error) {
+	t.Helper()
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetArgs(append([]string{"--skip-skills"}, args...))
+	err := cmd.Execute()
+	return stdout.String(), err
+}
+
+// chdirTemp moves into a new temp directory and returns its path as Getwd
+// reports it, which on macOS resolves the /var symlink.
+func chdirTemp(t *testing.T) string {
+	t.Helper()
+	t.Chdir(t.TempDir())
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	return wd
+}
+
+func useGeneratedName(t *testing.T, name string) {
+	t.Helper()
+	previous := generateName
+	generateName = func() string { return name }
+	t.Cleanup(func() { generateName = previous })
 }
 
 func setConnectTestHome(t *testing.T) {

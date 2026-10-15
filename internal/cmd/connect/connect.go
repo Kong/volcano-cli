@@ -91,15 +91,17 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect [directory]",
 		Short: "Sign in and link a directory to a new cloud project",
-		Long: `Sign in, create a cloud project named after the directory, and link the
-directory to it, ready for a coding agent to build on. Safe to run again.
+		Long: `Sign in, create a cloud project, and set up a directory for it, ready for a
+coding agent to build on.
 
 connect:
   1. Signs in: reuses a valid login, takes --token, or runs browser login.
-  2. Creates a new project named after the directory (or --name), adding -2,
-     -3, ... if you already have a project with that name. With --project
-     <project-id> it links that project instead. A rerun in a linked
-     directory keeps the linked project.
+  2. Picks the project. With no directory argument, it creates a new project
+     (--name, or a generated name like fuji-amber-42) and a new directory
+     named after it. With a directory argument, the new project is named after
+     the directory. If the name is taken it adds -2, -3, and so on. With
+     --project <project-id> it uses that project instead. Run inside a linked
+     directory, it keeps the linked project.
   3. Links the directory in .volcano/project.json. Commands run inside the
      directory use this project.
   4. Creates the volcano/ scaffold if it is missing (or --template's starter).
@@ -108,18 +110,17 @@ connect:
      AGENTS.md.
   7. Installs the Volcano skills for every coding agent on this machine.
 
-It ends with the project's name and its dashboard link.
+It ends with the project's name, its directory, and its dashboard link.
 
-With a directory argument, connect creates it and works there.
-
-  volcano connect                          Link this directory
+  volcano connect                          New project in a new directory
+  volcano connect --name shop              New project and directory named shop
+  volcano connect .                        Link this directory to a new project
   volcano connect my-app                   Create ./my-app and link it
-  volcano connect --project <project-id>   Link an existing project
+  volcano connect --project <project-id>   Set up an existing project
   volcano connect --signup                 New to Volcano: create an account first
   npx -y @volcano.dev/cli connect          No install needed`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.dir = "."
 			if len(args) > 0 {
 				opts.dir = args[0]
 			}
@@ -134,7 +135,7 @@ With a directory argument, connect creates it and works there.
 	}
 	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with an account token (pk-) instead of the browser")
 	cmd.Flags().StringVar(&opts.project, "project", "", "Link the existing project with this ID instead of creating one")
-	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory name)")
+	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
 	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
@@ -146,13 +147,6 @@ With a directory argument, connect creates it and works there.
 }
 
 func run(ctx context.Context, opts options) error {
-	dir, err := filepath.Abs(opts.dir)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(dir, dirMode); err != nil {
-		return fmt.Errorf("failed to create %s: %w", dir, err)
-	}
 	starter, err := initcmd.ResolveStarter(opts.template, "")
 	if err != nil {
 		return err
@@ -168,7 +162,11 @@ func run(ctx context.Context, opts options) error {
 	}
 	apiURL := sessions.APIURL(authenticated.Config)
 
-	project, created, err := pickProject(ctx, opts, authenticated, dir)
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	dir, project, created, err := resolveTarget(ctx, opts, authenticated, wd)
 	if err != nil {
 		return err
 	}
@@ -232,11 +230,17 @@ func run(ctx context.Context, opts options) error {
 	if opts.jsonOutput {
 		return output.JSON(opts.out, res)
 	}
+	shown := displayDir(wd, dir)
 	fmt.Fprintln(opts.out)
 	fmt.Fprintf(opts.out, "Project:   %s\n", project.Name)
+	fmt.Fprintf(opts.out, "Directory: %s\n", shown)
 	fmt.Fprintf(opts.out, "Dashboard: %s\n", dashboardURL)
 	fmt.Fprintln(opts.out)
-	fmt.Fprintln(opts.out, "Next: read AGENTS.md and use the Volcano skills to build.")
+	if shown == "." {
+		fmt.Fprintln(opts.out, "Next: read AGENTS.md and use the Volcano skills to build.")
+	} else {
+		fmt.Fprintf(opts.out, "Next: cd %s, read AGENTS.md there, and use the Volcano skills to build.\n", shown)
+	}
 	return nil
 }
 
@@ -310,23 +314,84 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 // is taken.
 const maxNameSuffix = 20
 
-// pickProject returns the project to link and whether connect created it:
-// the --project ID, else the project this directory's link already records
-// (so a rerun doesn't create another), else a new project.
-func pickProject(ctx context.Context, opts options, session *clisession.Session, dir string) (*apiclient.Project, bool, error) {
-	client := session.API
-	if raw := strings.TrimSpace(opts.project); raw != "" {
-		id, err := uuid.Parse(raw)
+// resolveTarget returns the directory to set up, its project, and whether
+// connect created the project.
+//
+// A directory argument is used as given: --project links that project, a
+// rerun keeps the project the directory is linked to, and otherwise a new
+// project is named after the directory. Without a directory argument, a
+// linked directory around the working directory keeps its project. Otherwise
+// connect picks the project first, --project or a new one, and sets it up in
+// a new directory named after it.
+func resolveTarget(ctx context.Context, opts options, session *clisession.Session, wd string) (string, *apiclient.Project, bool, error) {
+	if opts.dir != "" {
+		dir, err := makeDir(opts.dir)
 		if err != nil {
-			return nil, false, fmt.Errorf("--project takes a project ID, got %q. Run `volcano projects list` to find it", raw)
+			return "", nil, false, err
 		}
-		project, err := client.GetProject(ctx, id)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to get project %s: %w", raw, err)
+		if strings.TrimSpace(opts.project) != "" {
+			project, err := existingProject(ctx, session.API, opts.project)
+			return dir, project, false, err
 		}
-		return project, false, nil
+		project, created, err := linkedOrNewProject(ctx, opts, session, dir)
+		return dir, project, created, err
 	}
 
+	if strings.TrimSpace(opts.project) != "" {
+		project, err := existingProject(ctx, session.API, opts.project)
+		if err != nil {
+			return "", nil, false, err
+		}
+		dir, err := makeDir(filepath.Join(wd, dirName(project.Name)))
+		return dir, project, false, err
+	}
+
+	link, err := config.FindLink(wd)
+	if err != nil {
+		return "", nil, false, err
+	}
+	if link != nil {
+		project, created, err := linkedOrNewProject(ctx, opts, session, link.Dir)
+		return link.Dir, project, created, err
+	}
+
+	taken := func(name string) bool { return exists(filepath.Join(wd, dirName(name))) }
+	project, err := newProject(ctx, opts, session, generateName(), taken)
+	if err != nil {
+		return "", nil, false, err
+	}
+	dir, err := makeDir(filepath.Join(wd, dirName(project.Name)))
+	return dir, project, true, err
+}
+
+func makeDir(path string) (string, error) {
+	dir, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return "", fmt.Errorf("failed to create %s: %w", dir, err)
+	}
+	return dir, nil
+}
+
+// existingProject is the project --project names. It takes an ID only.
+func existingProject(ctx context.Context, client *api.Client, raw string) (*apiclient.Project, error) {
+	raw = strings.TrimSpace(raw)
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("--project takes a project ID, got %q. Run `volcano projects list` to find it", raw)
+	}
+	project, err := client.GetProject(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project %s: %w", raw, err)
+	}
+	return project, nil
+}
+
+// linkedOrNewProject returns the project dir is linked to, so a rerun doesn't
+// create another, else a new project named after dir.
+func linkedOrNewProject(ctx context.Context, opts options, session *clisession.Session, dir string) (*apiclient.Project, bool, error) {
 	link, err := config.FindLink(dir)
 	if err != nil {
 		return nil, false, err
@@ -336,7 +401,7 @@ func pickProject(ctx context.Context, opts options, session *clisession.Session,
 		if parseErr != nil {
 			return nil, false, fmt.Errorf("project link %s has an invalid project ID %q", link.Path(), link.Project.ID)
 		}
-		project, err := client.GetProject(ctx, id)
+		project, err := session.API.GetProject(ctx, id)
 		if err == nil {
 			return project, false, nil
 		}
@@ -345,31 +410,42 @@ func pickProject(ctx context.Context, opts options, session *clisession.Session,
 		}
 		output.Warning(opts.log, "The linked project %s no longer exists. Creating a new one.", link.Project.ID)
 	}
-
-	if err := session.Config.RequireAccountToken(); err != nil {
-		return nil, false, fmt.Errorf("%w. To link the token's project, pass --project <project-id>", err)
-	}
-	name, err := projectName(opts, dir)
-	if err != nil {
-		return nil, false, err
-	}
-	project, err := createProject(ctx, opts, client, name)
+	project, err := newProject(ctx, opts, session, defaultProjectName(dir), nil)
 	if err != nil {
 		return nil, false, err
 	}
 	return project, true, nil
 }
 
-// createProject creates a project named name. When the name is taken it tries
-// name-2, name-3, and so on, so connect always gets a new project.
-func createProject(ctx context.Context, opts options, client *api.Client, name string) (*apiclient.Project, error) {
+// newProject creates a project named --name, else what the user types at a
+// prompt, else fallback. A name taken() reports, or one the API says exists,
+// gets a suffix.
+func newProject(ctx context.Context, opts options, session *clisession.Session, fallback string, taken func(string) bool) (*apiclient.Project, error) {
+	if err := session.Config.RequireAccountToken(); err != nil {
+		return nil, fmt.Errorf("%w. To link the token's project, pass --project <project-id>", err)
+	}
+	name, err := projectName(opts, fallback)
+	if err != nil {
+		return nil, err
+	}
+	return createProject(ctx, opts, session.API, name, taken)
+}
+
+// createProject creates a project named name. When the name is taken, by an
+// existing project or by taken(), it tries name-2, name-3, and so on, so
+// connect always gets a new project.
+func createProject(ctx context.Context, opts options, client *api.Client, name string, taken func(string) bool) (*apiclient.Project, error) {
 	candidate := name
 	for suffix := 2; ; suffix++ {
+		if taken != nil && taken(candidate) && suffix <= maxNameSuffix {
+			candidate = fmt.Sprintf("%s-%d", name, suffix)
+			continue
+		}
 		project, err := client.CreateProject(ctx, candidate, "")
 		switch {
 		case err == nil:
 			if candidate != name {
-				output.Note(opts.log, "You already have a project named %s, so the new one is %s.", name, candidate)
+				output.Note(opts.log, "%s is taken, so the new project is %s.", name, candidate)
 			}
 			return project, nil
 		case api.Status(err) == http.StatusConflict && suffix <= maxNameSuffix:
@@ -382,13 +458,11 @@ func createProject(ctx context.Context, opts options, client *api.Client, name s
 	}
 }
 
-// projectName is --name, else what the user types at a prompt, else the
-// directory's name made safe for a project name.
-func projectName(opts options, dir string) (string, error) {
+// projectName is --name, else what the user types at a prompt, else fallback.
+func projectName(opts options, fallback string) (string, error) {
 	if name := strings.TrimSpace(opts.name); name != "" {
 		return name, nil
 	}
-	fallback := defaultProjectName(dir)
 	if opts.jsonOutput || !confirm.CanPrompt(opts.in) {
 		return fallback, nil
 	}
@@ -405,8 +479,15 @@ func projectName(opts options, dir string) (string, error) {
 
 var unsafeNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 
+// defaultProjectName is dir's name made safe for a project name.
 func defaultProjectName(dir string) string {
-	name := unsafeNameChars.ReplaceAllString(strings.ToLower(filepath.Base(dir)), "-")
+	return dirName(filepath.Base(dir))
+}
+
+// dirName makes name safe as a project name and a directory name: lowercase
+// letters, digits and dashes.
+func dirName(name string) string {
+	name = unsafeNameChars.ReplaceAllString(strings.ToLower(name), "-")
 	name = strings.Trim(name, "-")
 	if len(name) < 2 {
 		return "my-app"
@@ -528,6 +609,20 @@ func installSkills(ctx context.Context, opts options) []string {
 		}
 	}
 	return installed
+}
+
+// displayDir is dir as the user would type it from wd: "." for wd itself,
+// ./name below it, and the absolute path elsewhere.
+func displayDir(wd, dir string) string {
+	rel, err := filepath.Rel(wd, dir)
+	switch {
+	case err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)):
+		return dir
+	case rel == ".":
+		return "."
+	default:
+		return "." + string(filepath.Separator) + rel
+	}
 }
 
 func relPath(base, path string) string {
