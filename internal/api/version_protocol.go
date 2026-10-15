@@ -2,10 +2,12 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -21,6 +23,13 @@ const (
 	headerCLILatestVersion  = "X-Volcano-CLI-Latest-Version"
 	headerCreditURL         = "X-Volcano-Credit-URL"
 	headerDeviceInstruction = "X-Volcano-Device-Instruction"
+
+	// Agent attribution: which coding agent ran this CLI, if any (see package
+	// agent). Advisory telemetry like the version header; never a privilege.
+	headerAgent        = "X-Volcano-Agent"
+	headerAgentSource  = "X-Volcano-Agent-Source"
+	headerAgentRaw     = "X-Volcano-Agent-Raw"
+	headerAgentMarkers = "X-Volcano-Agent-Markers"
 
 	// CLIInstructionSuggestionVersionUpgrade signals a newer CLI is published; non-blocking.
 	CLIInstructionSuggestionVersionUpgrade = "suggestion_version_upgrade"
@@ -200,12 +209,33 @@ func isHex(value string) bool {
 	return true
 }
 
+// detectAgent runs agent detection once per process; the environment does not
+// change during a CLI invocation. Tests replace it.
+var detectAgent = sync.OnceValue(func() agent.Result { return agent.Detect(os.LookupEnv) })
+
+// setAgentHeaders reports the detected agent. It sends nothing when no agent
+// was detected, so a missing header means a person (or an unrecognized
+// harness) ran the command.
+func setAgentHeaders(h http.Header, a agent.Result) {
+	if a.Name == "" {
+		return
+	}
+	h.Set(headerAgent, a.Name)
+	h.Set(headerAgentSource, string(a.Source))
+	if a.Raw != "" && a.Raw != a.Name {
+		h.Set(headerAgentRaw, a.Raw)
+	}
+	if len(a.Markers) > 0 {
+		h.Set(headerAgentMarkers, strings.Join(a.Markers, ","))
+	}
+}
+
 // versionProtocolDoer wraps an apiclient.HttpRequestDoer to speak the VOL-180
-// CLI version protocol on every request: it reports this CLI's version and
-// identity, and records whatever instructions the API returns so callers can
-// act on them via LastInstructions. It never alters the request/response
-// beyond adding headers — bodies and errors pass through untouched, and it
-// never retries.
+// CLI version protocol on every request: it reports this CLI's version,
+// identity, and the coding agent that ran it, and records whatever
+// instructions the API returns so callers can act on them via
+// LastInstructions. It never alters the request/response beyond adding
+// headers — bodies and errors pass through untouched, and it never retries.
 type versionProtocolDoer struct {
 	next apiclient.HttpRequestDoer
 }
@@ -213,6 +243,7 @@ type versionProtocolDoer struct {
 func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set(headerCLIVersion, reportedCLIVersion())
 	req.Header.Set("User-Agent", userAgent())
+	setAgentHeaders(req.Header, detectAgent())
 	resp, err := d.next.Do(req)
 	if resp != nil {
 		recordInstructions(resp.Header)
