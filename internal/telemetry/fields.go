@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 )
@@ -97,8 +98,13 @@ func placeholders(use string) []string {
 // maxErrorMessageRunes bounds the error message one event carries.
 const maxErrorMessageRunes = 500
 
+// ansiEscape matches a terminal escape sequence, such as a color code.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
 // errorMessage is err's text as sent: the home directory replaced with "~",
-// secrets redacted, whitespace collapsed, and cut to maxErrorMessageRunes.
+// terminal escapes and control characters removed, whitespace collapsed,
+// secrets redacted, and cut to maxErrorMessageRunes. Whitespace is collapsed
+// before redacting so a Unicode space cannot hide a secret from the patterns.
 func errorMessage(err error, home string) string {
 	if err == nil {
 		return ""
@@ -107,7 +113,14 @@ func errorMessage(err error, home string) string {
 	if len(home) > 1 {
 		msg = strings.ReplaceAll(msg, home, "~")
 	}
-	msg = strings.Join(strings.Fields(redact(msg)), " ")
+	msg = ansiEscape.ReplaceAllString(msg, "")
+	msg = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, msg)
+	msg = redact(strings.Join(strings.Fields(msg), " "))
 	if runes := []rune(msg); len(runes) > maxErrorMessageRunes {
 		msg = string(runes[:maxErrorMessageRunes])
 	}
@@ -122,7 +135,10 @@ var (
 	bearerPattern = regexp.MustCompile(`(?i)\bbearer\s+\S+`)
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
 	keyPattern    = regexp.MustCompile(`\b(?:pk|pt|sk|ak)-[A-Za-z0-9_-]{16,}`)
+	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
+	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/@]+@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
+	pairPattern   = regexp.MustCompile(`(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)=\S+`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
@@ -132,6 +148,9 @@ func redact(s string) string {
 	s = bearerPattern.ReplaceAllString(s, "Bearer "+redacted)
 	s = jwtPattern.ReplaceAllString(s, redacted)
 	s = keyPattern.ReplaceAllString(s, redacted)
+	s = awsKeyPattern.ReplaceAllString(s, redacted)
+	s = userPattern.ReplaceAllString(s, "${1}"+redacted+"@")
 	s = queryPattern.ReplaceAllString(s, "${1}?"+redacted)
+	s = pairPattern.ReplaceAllString(s, "${1}="+redacted)
 	return opaquePattern.ReplaceAllString(s, redacted)
 }

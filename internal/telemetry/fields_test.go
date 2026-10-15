@@ -88,6 +88,10 @@ func TestRedact(t *testing.T) {
 		"open /Users/someone/workspace/my-really-long-project-name/functions/index.ts": "open /Users/someone/workspace/my-really-long-project-name/functions/index.ts",
 		"function hello not found (11111111-2222-3333-4444-555555555555)":              "function hello not found (11111111-2222-3333-4444-555555555555)",
 		"pk-short": "pk-short",
+		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":     "aws [redacted] denied",
+		"dial postgres://app:hunter2@db.internal:5432/app failed": "dial postgres://[redacted]@db.internal:5432/app failed",
+		"run with password=hunter2 and API_KEY=abc":               "run with password=[redacted] and API_KEY=[redacted]",
+		"invalid token: signature mismatch":                       "invalid token: signature mismatch",
 	}
 	for in, want := range cases {
 		assert.Equal(t, want, redact(in), in)
@@ -99,6 +103,8 @@ func TestErrorMessage(t *testing.T) {
 	assert.Empty(t, errorMessage(nil, "/home/dev"))
 	assert.Equal(t, "read ~/app/x.yaml: bad indent", errorMessage(errors.New("read /home/dev/app/x.yaml:\n  bad   indent"), "/home/dev"))
 	assert.Equal(t, "a/b", errorMessage(errors.New("a/b"), "/"), "a home of / is not replaced")
+	assert.Equal(t, "Bearer [redacted] rejected", errorMessage(errors.New("Bearer\u00a0abc123 rejected"), ""), "a Unicode space does not hide a token")
+	assert.Equal(t, "failed: bad input", errorMessage(errors.New("\x1b[31mfailed:\x1b[0m bad\x00input"), ""))
 	long := errorMessage(errors.New(strings.Repeat("é ", 400)), "")
 	assert.Len(t, []rune(long), maxErrorMessageRunes)
 }

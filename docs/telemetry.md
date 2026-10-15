@@ -32,9 +32,11 @@ nothing, so you can turn telemetry off before any event is sent.
 When a command fails, the event also carries the type of failure (`api`,
 `network`, `local_not_running`, `usage`, or `other`), the HTTP status and error
 code of an API error, and the error message. Before sending the message, the
-CLI replaces your home directory with `~`, removes bearer tokens, JWTs, Volcano
-keys (`pk-`, `pt-`, `sk-`, `ak-`), URL query strings, and other long opaque
-strings, and cuts it to 500 characters.
+CLI replaces your home directory with `~`, strips terminal color codes, and
+removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
+access key IDs, passwords in URLs, URL query strings, values of `password=`,
+`token=`, and similar pairs, and other long opaque strings. It then cuts the
+message to 500 characters.
 
 Resource names come from the arguments that name a resource, such as
 `<database>` in `volcano databases get <database>`, and from the `--name`,
