@@ -19,7 +19,22 @@ func New(store telemetry.StateStore) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "telemetry",
 		Short: "Show or change whether the CLI sends usage data",
-		Args:  cobra.NoArgs,
+		Long: `The CLI sends one usage event to the Volcano API per command: the command
+and the names of the flags you set (never their values or arguments), CLI
+version, OS, architecture, CPU count, CI vendor, whether stdin is a terminal,
+the coding agent that ran it, whether the Volcano plugin is installed for that
+agent, the exit code, and the duration. When a command run by a coding agent
+fails, the event also carries the failure type and the API error status and
+code. Events are linked to your account when you are logged in, and otherwise
+to a random ID for this machine.
+
+Nothing is sent on the first run, which shows a notice instead. Shell
+completion and --offline runs are never recorded.
+
+Turn it off with ` + "`volcano telemetry disable`" + `, VOLCANO_TELEMETRY_DISABLED=1, or
+DO_NOT_TRACK=1. Set VOLCANO_TELEMETRY_DEBUG=1 to print each event instead of
+sending it. Full details: ` + "`volcano docs get cli/telemetry.md`" + `.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return printStatus(cmd, store)
 		},

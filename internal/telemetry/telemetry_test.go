@@ -110,7 +110,7 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	h.recorder().Record(Invocation{Stderr: &stderr})
 	assert.Contains(t, stderr.String(), "collects usage data")
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
-	assert.Contains(t, stderr.String(), "volcano docs get cli/telemetry.md")
+	assert.Contains(t, stderr.String(), "volcano telemetry --help")
 	assert.Empty(t, h.sent, "the run that shows the notice sends nothing")
 	assert.True(t, h.store.state.NoticeShown)
 	deviceID := h.store.state.DeviceID
@@ -359,7 +359,7 @@ func TestFlush_PostsPayloadWithToken(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv("HOME", t.TempDir())
+	seedReporting(t)
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 	t.Setenv("VOLCANO_TOKEN", "tok-123")
 
@@ -372,6 +372,28 @@ func TestFlush_PostsPayloadWithToken(t *testing.T) {
 	assert.True(t, strings.HasPrefix(gotHeader.Get("User-Agent"), "volcano-cli/"))
 }
 
+// seedReporting gives the test a fresh HOME whose telemetry state already
+// showed the notice, so Flush uploads.
+func seedReporting(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	store := FileStateStore{Path: filepath.Join(home, ".volcano", "telemetry.json")}
+	require.NoError(t, store.Update(func(s *State) bool { *s = State{DeviceID: "d", NoticeShown: true}; return true }))
+}
+
+func TestFlush_RechecksOptOutBeforeUploading(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("must not upload after an opt-out")
+	}))
+	t.Cleanup(srv.Close)
+	seedReporting(t)
+	t.Setenv("VOLCANO_API_URL", srv.URL)
+	require.NoError(t, FileStateStore{}.Update(func(s *State) bool { s.Disabled = true; return true }))
+
+	require.NoError(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()))
+}
+
 func TestFlush_NoTokenSendsNoAuthorization(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -379,7 +401,7 @@ func TestFlush_NoTokenSendsNoAuthorization(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv("HOME", t.TempDir())
+	seedReporting(t)
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 	t.Setenv("VOLCANO_TOKEN", "")
 
@@ -398,7 +420,7 @@ func TestFlush_ReportsServerError(t *testing.T) {
 		w.WriteHeader(http.StatusTooManyRequests)
 	}))
 	t.Cleanup(srv.Close)
-	t.Setenv("HOME", t.TempDir())
+	seedReporting(t)
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 
 	require.ErrorContains(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()), "429")
@@ -418,13 +440,15 @@ func TestReporting(t *testing.T) {
 
 func TestOfflineArg(t *testing.T) {
 	cases := map[string]bool{
-		"docs list --offline":             true,
-		"docs list --bogus --offline":     true,
-		"docs list --offline=true":        true,
-		"docs list --offline=false":       false,
-		"docs list":                       false,
-		"functions invoke x -- --offline": false,
-		"docs list --offline-cache":       false,
+		"docs list --offline":                 true,
+		"docs list --bogus --offline":         true,
+		"docs list --offline=true":            true,
+		"docs list --offline=false":           false,
+		"docs list --offline=false --offline": true,
+		"docs list --offline --offline=0":     false,
+		"docs list":                           false,
+		"functions invoke x -- --offline":     false,
+		"docs list --offline-cache":           false,
 	}
 	for args, want := range cases {
 		assert.Equal(t, want, offlineArg(strings.Fields(args)), args)

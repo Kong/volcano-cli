@@ -247,18 +247,19 @@ func skipped(cmd *cobra.Command, args []string) bool {
 // flag parsing failed before cobra read the flag still keeps its promise not to
 // touch the network. Arguments after "--" are positional and do not count.
 func offlineArg(args []string) bool {
+	offline := false
 	for _, arg := range args {
 		if arg == "--" {
-			return false
+			break
 		}
+		// The last occurrence wins, as it does for cobra.
 		if arg == "--offline" {
-			return true
-		}
-		if value, ok := strings.CutPrefix(arg, "--offline="); ok {
-			return isTruthy(value)
+			offline = true
+		} else if value, ok := strings.CutPrefix(arg, "--offline="); ok {
+			offline = isTruthy(value)
 		}
 	}
-	return false
+	return offline
 }
 
 func (r Recorder) build(inv Invocation, deviceID string) Event {
@@ -381,7 +382,7 @@ func isUsageError(err error) bool {
 
 func printNotice(w io.Writer) {
 	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use (never their values), CLI version, platform, and which coding agent ran it. This helps us improve the CLI.")
-	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano docs get cli/telemetry.md`.\n", EnvDisabled)
+	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 }
 
 func isTruthy(v string) bool {

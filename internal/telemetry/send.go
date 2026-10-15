@@ -62,6 +62,10 @@ func Flush(ctx context.Context, r io.Reader, client *http.Client) error {
 	if len(payload) == 0 || len(payload) > maxPayloadBytes {
 		return fmt.Errorf("telemetry payload is empty or over %d bytes", maxPayloadBytes)
 	}
+	// The user may have opted out between the command and this upload.
+	if !Reporting(os.Getenv, FileStateStore{}) {
+		return nil
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return err
