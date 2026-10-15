@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -401,4 +402,18 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
+}
+
+func TestLogoutRemovesUnparseableConfig(t *testing.T) {
+	setAuthTestHome(t)
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte(`{"user_token": "token"`), 0o600))
+
+	_, err = executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "a damaged config with a token is removed: %v", err)
 }
