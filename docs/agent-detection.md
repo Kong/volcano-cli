@@ -13,8 +13,9 @@ does, and it is never used to allow or block a request.
 The CLI reads environment variables only. It does not read files, inspect other
 processes, or send command arguments.
 
-The agent name is also part of the CLI's usage telemetry. Turning telemetry off
-stops the headers below too. See [telemetry.md](telemetry.md).
+The agent name is also part of the CLI's usage telemetry. The headers below are
+not sent before the first-run telemetry notice, and turning telemetry off stops
+them. See [telemetry.md](telemetry.md).
 
 ## How the agent is detected
 

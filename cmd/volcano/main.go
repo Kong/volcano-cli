@@ -25,7 +25,8 @@ import (
 )
 
 func main() {
-	api.SetAgentReporting(telemetry.Enabled(os.Getenv, telemetry.FileStateStore{}))
+	// Agent headers count as usage data: none before the first-run notice.
+	api.SetAgentReporting(telemetry.Reporting(os.Getenv, telemetry.FileStateStore{}))
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
@@ -47,6 +48,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		Start:    start,
 		Stderr:   root.ErrOrStderr(),
 		StdinTTY: confirm.CanPrompt(os.Stdin),
+		Args:     os.Args[1:],
 	})
 	return code
 }

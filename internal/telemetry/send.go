@@ -32,6 +32,9 @@ func spawnFlush(payload []byte) error {
 	// Background context: the child must outlive this process, so nothing may
 	// cancel it.
 	cmd := exec.CommandContext(context.Background(), exe, "telemetry", "flush") //nolint:gosec // re-runs this same binary with fixed args
+	// Run from the temp dir, not the caller's working directory, so the flush
+	// never holds open a directory the user may be about to delete (Windows).
+	cmd.Dir = os.TempDir()
 	detach(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

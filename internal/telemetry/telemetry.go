@@ -82,6 +82,9 @@ type Invocation struct {
 	Start    time.Time
 	Stderr   io.Writer // receives the first-run notice and debug output
 	StdinTTY bool
+	// Args are the raw command-line arguments, checked for --offline when
+	// flag parsing failed before cobra read it.
+	Args []string
 }
 
 // Recorder records invocations. The zero value uses the real environment,
@@ -132,22 +135,24 @@ func DisabledByEnv(getenv func(string) string) string {
 	return ""
 }
 
-// Enabled reports whether telemetry is on: no env opt-out and not turned off
-// with `volcano telemetry disable`. A state file that cannot be read counts as
-// off.
-func Enabled(getenv func(string) string, store StateStore) bool {
+// Reporting reports whether this run may send usage data, including the agent
+// request headers: no env opt-out, not turned off with `volcano telemetry
+// disable`, and the first-run notice already shown on an earlier run. A state
+// file that cannot be read, or a run before the notice (including every run in
+// a home where the notice can never be saved), counts as off.
+func Reporting(getenv func(string) string, store StateStore) bool {
 	if DisabledByEnv(getenv) != "" {
 		return false
 	}
 	state, err := store.Load()
-	return err == nil && !state.Disabled
+	return err == nil && !state.Disabled && state.NoticeShown
 }
 
 // Record records one invocation. It never fails the command: every error is
 // swallowed, since telemetry must not change what the CLI does.
 func (r Recorder) Record(inv Invocation) {
 	r = r.withDefaults()
-	if skipped(inv.Command) {
+	if skipped(inv.Command, inv.Args) {
 		return
 	}
 	// An env opt-out also means the user already knows: no notice.
@@ -218,7 +223,10 @@ func (r Recorder) initialize() (state State, firstRun bool, err error) {
 // skipped reports whether an invocation of cmd is never recorded: the hidden
 // flush command, shell completion requests (run on every Tab press with stderr
 // discarded), and runs that promised not to touch the network (`--offline`).
-func skipped(cmd *cobra.Command) bool {
+func skipped(cmd *cobra.Command, args []string) bool {
+	if offlineArg(args) {
+		return true
+	}
 	if cmd == nil {
 		return false
 	}
@@ -231,6 +239,24 @@ func skipped(cmd *cobra.Command) bool {
 	}
 	if f := cmd.Flags().Lookup("offline"); f != nil && f.Changed && f.Value.String() == "true" {
 		return true
+	}
+	return false
+}
+
+// offlineArg reports whether the raw arguments ask for --offline, so a run whose
+// flag parsing failed before cobra read the flag still keeps its promise not to
+// touch the network. Arguments after "--" are positional and do not count.
+func offlineArg(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
+		if arg == "--offline" {
+			return true
+		}
+		if value, ok := strings.CutPrefix(arg, "--offline="); ok {
+			return isTruthy(value)
+		}
 	}
 	return false
 }

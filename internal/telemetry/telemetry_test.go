@@ -404,12 +404,36 @@ func TestFlush_ReportsServerError(t *testing.T) {
 	require.ErrorContains(t, Flush(t.Context(), strings.NewReader(`{}`), srv.Client()), "429")
 }
 
-func TestEnabled(t *testing.T) {
+func TestReporting(t *testing.T) {
 	env := func(vars map[string]string) func(string) string {
 		return func(k string) string { return vars[k] }
 	}
-	assert.True(t, Enabled(env(nil), &memStore{}))
-	assert.False(t, Enabled(env(map[string]string{EnvDoNotTrack: "1"}), &memStore{}))
-	assert.False(t, Enabled(env(nil), &memStore{state: State{Disabled: true}}))
-	assert.False(t, Enabled(env(nil), FileStateStore{Path: t.TempDir()}), "an unreadable state file counts as off")
+	shown := State{DeviceID: "d", NoticeShown: true}
+	assert.True(t, Reporting(env(nil), &memStore{state: shown}))
+	assert.False(t, Reporting(env(nil), &memStore{}), "nothing before the first-run notice")
+	assert.False(t, Reporting(env(map[string]string{EnvDoNotTrack: "1"}), &memStore{state: shown}))
+	assert.False(t, Reporting(env(nil), &memStore{state: State{DeviceID: "d", NoticeShown: true, Disabled: true}}))
+	assert.False(t, Reporting(env(nil), FileStateStore{Path: t.TempDir()}), "an unreadable state file counts as off")
+}
+
+func TestOfflineArg(t *testing.T) {
+	cases := map[string]bool{
+		"docs list --offline":             true,
+		"docs list --bogus --offline":     true,
+		"docs list --offline=true":        true,
+		"docs list --offline=false":       false,
+		"docs list":                       false,
+		"functions invoke x -- --offline": false,
+		"docs list --offline-cache":       false,
+	}
+	for args, want := range cases {
+		assert.Equal(t, want, offlineArg(strings.Fields(args)), args)
+	}
+}
+
+func TestRecord_SkipsOfflineWhenFlagParsingFailed(t *testing.T) {
+	h := newHarness()
+	h.store.state = State{DeviceID: "d", NoticeShown: true}
+	h.recorder().Record(Invocation{Args: []string{"docs", "list", "--bogus", "--offline"}, Err: errors.New("unknown flag: --bogus"), ExitCode: 1})
+	assert.Empty(t, h.sent)
 }
