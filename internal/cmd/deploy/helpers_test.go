@@ -101,6 +101,9 @@ type fakeVolcano struct {
 	// queuedBehind names resources with a newer deployment queued behind the
 	// one this run started, with the newer one's statuses per poll.
 	queuedBehind map[string][]string
+	// durableStatuses are the statuses a durable function read reports per
+	// name, one per read; the last one repeats. Unlisted names are active.
+	durableStatuses map[string][]string
 
 	mu        sync.Mutex
 	calls     []string
@@ -113,18 +116,21 @@ type fakeVolcano struct {
 	resources   map[string]uuid.UUID
 	polls       int
 	reads       []string
+	// durableReads counts the reads of each durable function.
+	durableReads map[string]int
 }
 
 func newFakeVolcano(t *testing.T) *fakeVolcano {
 	t.Helper()
 	return &fakeVolcano{
-		t:           t,
-		sourceMode:  "platform",
-		frontends:   map[string]map[string][]string{},
-		archives:    map[string][]string{},
-		deployments: map[string]uuid.UUID{},
-		successors:  map[string]uuid.UUID{},
-		resources:   map[string]uuid.UUID{},
+		t:            t,
+		sourceMode:   "platform",
+		frontends:    map[string]map[string][]string{},
+		archives:     map[string][]string{},
+		deployments:  map[string]uuid.UUID{},
+		successors:   map[string]uuid.UUID{},
+		resources:    map[string]uuid.UUID{},
+		durableReads: map[string]int{},
 	}
 }
 
@@ -236,6 +242,24 @@ func (f *fakeVolcano) serve(w http.ResponseWriter, r *http.Request) {
 			f.reads = append(f.reads, "frontend "+name)
 			payload := f.deployed(name)
 			payload["site_url"] = "https://" + name + ".frontends.example.test"
+			f.writeJSON(w, http.StatusOK, payload)
+			return
+		}
+		http.NotFound(w, r)
+	case r.Method == http.MethodGet && strings.HasPrefix(path, project+"/durable-functions/"):
+		id := strings.TrimPrefix(path, project+"/durable-functions/")
+		for name, resource := range f.resources {
+			if resource.String() != id {
+				continue
+			}
+			read := f.durableReads[name]
+			f.durableReads[name]++
+			payload := f.deployed(name)
+			payload["visibility"] = "private"
+			payload["status"] = "active"
+			if sequence := f.durableStatuses[name]; len(sequence) > 0 {
+				payload["status"] = sequence[min(read, len(sequence)-1)]
+			}
 			f.writeJSON(w, http.StatusOK, payload)
 			return
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/project"
@@ -127,6 +128,13 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 					fmt.Fprintf(out, "  - %-*s  %s\n", width, d.name, theme.Dim("superseded by a newer deployment", on))
 					break
 				}
+				provisioning, err := r.durableStillProvisioning(ctx, d)
+				if err != nil {
+					return err
+				}
+				if provisioning {
+					continue
+				}
 				fmt.Fprintf(out, "  %s %-*s  %s\n", theme.Success("✓", on), width, d.name, deployment.Status)
 				succeeded = append(succeeded, d)
 			case apiclient.ProjectDeploymentStatusDeleted:
@@ -163,6 +171,25 @@ func (r *runner) wait(ctx context.Context, start time.Time) error {
 		return fmt.Errorf("%d deployment(s) failed: %s", len(failed), strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// durableStillProvisioning reports whether a durable function whose deployment
+// is active still refuses executions. A deployment completes before the server
+// re-syncs variables changed while it built, and that sync holds the function
+// in provisioning, where a start is refused.
+func (r *runner) durableStillProvisioning(ctx context.Context, d startedDeployment) (bool, error) {
+	if d.kind != kindDurable {
+		return false, nil
+	}
+	identifier := d.name
+	if d.resource != uuid.Nil {
+		identifier = d.resource.String()
+	}
+	fn, err := clidurable.NewService(r.opts.deps).Get(ctx, identifier)
+	if err != nil {
+		return false, err
+	}
+	return fn.Status == apiclient.DurableFunctionStatusProvisioning, nil
 }
 
 // newestDeployment finds the latest deployment of after's resource that was
