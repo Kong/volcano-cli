@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	feedbackcmd "github.com/Kong/volcano-cli/internal/cmd/feedback"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
@@ -30,6 +31,7 @@ func main() {
 	// count as usage data: none before the first-run notice.
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
+	feedbackcmd.SetRecorder(recorder)
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
