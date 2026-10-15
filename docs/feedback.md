@@ -26,7 +26,7 @@ volcano feedback \
 ```
 
 On success the CLI prints the report ID. When telemetry is off it prints
-`Feedback not sent`, sends nothing, and exits 0.
+`Feedback not sent`, sends nothing, and exits 0. So does the first command after install, which shows the telemetry notice.
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|

@@ -87,7 +87,7 @@ func TestFeedback_TelemetryOffSendsNothing(t *testing.T) {
 			stdout, stderr, err := run(t, reportArgs...)
 			require.NoError(t, err, "exit 0, so an agent does not retry")
 			assert.Empty(t, stdout)
-			assert.Contains(t, stderr, "Feedback not sent: telemetry is off")
+			assert.Contains(t, stderr, "Feedback not sent: telemetry is off, or this is the first command")
 			assert.Empty(t, *reports)
 		})
 	}

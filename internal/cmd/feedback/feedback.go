@@ -75,7 +75,7 @@ command then sends nothing and exits 0.`,
 			}
 			client, reporting := recorder.Client()
 			if !reporting && !dryRun {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: telemetry is off. See `volcano telemetry --help`.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: telemetry is off, or this is the first command since install. See `volcano telemetry --help`.")
 				return nil
 			}
 			report := feedback.Build(in, client, recorder.Home(), time.Now())
