@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,7 +18,9 @@ import (
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/confirm"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/telemetry"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -33,7 +36,27 @@ func main() {
 // (defaults to os.Stderr, same as before this extraction) so tests can
 // redirect it via root.SetErr.
 func run(root *cobra.Command, deps cliruntime.Deps) int {
-	err := root.Execute()
+	start := time.Now()
+	cmd, err := root.ExecuteC()
+	code := finish(root, deps, err)
+	recordTelemetry(telemetry.Invocation{
+		Command:  cmd,
+		Err:      err,
+		ExitCode: code,
+		Start:    start,
+		Stderr:   root.ErrOrStderr(),
+		StdinTTY: confirm.CanPrompt(os.Stdin),
+	})
+	return code
+}
+
+// recordTelemetry records the invocation (see package telemetry). Tests
+// replace it so they never write the state file or start a flush process.
+var recordTelemetry = telemetry.Recorder{}.Record
+
+// finish prints the command's error and any pending API notices, and returns
+// the exit code.
+func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 	stderr := root.ErrOrStderr()
 	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
