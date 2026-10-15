@@ -17,6 +17,9 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
+// ErrNotFound reports that no project matched an ID or name.
+var ErrNotFound = errors.New("project not found")
+
 // Service performs authenticated Volcano project workflows.
 type Service struct {
 	sessions clisession.Factory
@@ -221,7 +224,7 @@ func resolveProject(ctx context.Context, authenticated *clisession.Session, iden
 		// project with that ID is not there. Reporting the missing account token
 		// instead sends the user to log in again over a mistyped ID.
 		if idNotFound {
-			return nil, fmt.Errorf("project not found: %s", identifier)
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, identifier)
 		}
 		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
 	}
@@ -261,7 +264,7 @@ func Find(ctx context.Context, client *api.Client, identifier string) (*apiclien
 		page++
 	}
 
-	return nil, fmt.Errorf("project not found: %s", identifier)
+	return nil, fmt.Errorf("%w: %s", ErrNotFound, identifier)
 }
 
 func saveCurrentProject(project *apiclient.Project) error {

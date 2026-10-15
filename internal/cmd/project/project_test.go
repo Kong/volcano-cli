@@ -103,6 +103,52 @@ func TestProjectsListSubcommandFetchesRequestedPage(t *testing.T) {
 	assert.Contains(t, out, "Showing 1 of 21 project(s) (page 3, limit 10)")
 }
 
+func TestProjectsListAndGetEmitJSON(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects":
+			writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{projectCommandPayload(projectBetaID, "Beta", "active", nil)},
+				"has_more": false,
+				"page":     1,
+				"limit":    100,
+				"total":    1,
+			})
+		case "/projects/" + projectBetaID:
+			writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectBetaID, "Beta", "active", nil))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	out, err := executeProjectCommand(t, NewProjects(deps), "list", "--json")
+	require.NoError(t, err)
+	var page struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+		Total int `json:"total"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &page), out)
+	require.Len(t, page.Data, 1)
+	assert.Equal(t, projectBetaID, page.Data[0].ID)
+	assert.Equal(t, 1, page.Total)
+
+	out, err = executeProjectCommand(t, NewProjects(deps), "get", projectBetaID, "--json")
+	require.NoError(t, err)
+	var project struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &project), out)
+	assert.Equal(t, "Beta", project.Name)
+}
+
 func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
 	setProjectCommandTestHome(t)
 	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})

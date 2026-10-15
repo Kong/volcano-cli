@@ -20,6 +20,7 @@ import (
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -33,6 +34,37 @@ func TestRunSandboxExitPreservesStatus(t *testing.T) {
 	root.SetErr(&stderr)
 	assert.Equal(t, 7, run(root, cliruntime.Deps{}))
 	assert.Empty(t, stderr.String())
+}
+
+func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "not logged in", err: cliconfig.ErrNotAuthenticated, want: exitNotAuthenticated},
+		{name: "rejected credential", err: fmt.Errorf("list: %w", &api.Error{StatusCode: http.StatusUnauthorized}), want: exitNotAuthenticated},
+		{name: "no project", err: cliconfig.ErrNoProjectSelected, want: exitNoProject},
+		{name: "no project for a project token", err: cliconfig.ErrNoProjectSelectedForProjectToken, want: exitNoProject},
+		{name: "unknown project", err: fmt.Errorf("%w: my-app", cliproject.ErrNotFound), want: exitNotFound},
+		{name: "missing resource", err: fmt.Errorf("get: %w", &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
+		{name: "refused", err: fmt.Errorf("delete: %w", &api.Error{StatusCode: http.StatusForbidden}), want: exitPermissionDenied},
+		{name: "account token required", err: cliconfig.ErrAccountTokenRequired, want: exitPermissionDenied},
+		{name: "anything else", err: fmt.Errorf("boom"), want: exitFailure},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetInstructions(t)
+			root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+				return tc.err
+			}}
+			root.SetArgs(nil)
+			root.SetErr(&bytes.Buffer{})
+			assert.Equal(t, tc.want, run(root, cliruntime.Deps{
+				ConfigLoader: func() (*cliconfig.Config, error) { return &cliconfig.Config{}, nil },
+			}))
+		})
+	}
 }
 
 func TestRunSubprocessFailurePrintsDiagnostic(t *testing.T) {
@@ -525,7 +557,7 @@ func TestRun_NonBlockingErrorPrintsErrorBeforeNotice(t *testing.T) {
 
 	code := run(root, deps)
 
-	assert.Equal(t, 1, code)
+	assert.Equal(t, exitNotFound, code)
 	text := stderr.String()
 	require.Contains(t, text, "Error:")
 	require.Contains(t, text, "newer Volcano CLI version is available")
@@ -552,7 +584,7 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 
 	code := run(root, deps)
 
-	assert.Equal(t, 1, code)
+	assert.Equal(t, exitNotAuthenticated, code)
 	text := stderr.String()
 	require.Contains(t, text, "Error:")
 	require.Contains(t, text, "Run `volcano login` to re-authenticate.")
@@ -604,7 +636,7 @@ func TestRun_ProjectTokenHintNamesTheArgumentProject(t *testing.T) {
 
 			code := run(root, deps)
 
-			assert.Equal(t, 1, code)
+			assert.Equal(t, exitPermissionDenied, code)
 			assert.Contains(t, stderr.String(), "This ran against project "+mainTestProjectBeta)
 			assert.NotContains(t, stderr.String(), mainTestProjectAlpha,
 				"the hint must not name the selected project over the one the command was given: %q", stderr.String())

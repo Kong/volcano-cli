@@ -17,9 +17,21 @@ import (
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/theme"
+)
+
+// Exit codes. Scripts and agents can branch on these without parsing the error
+// text. Anything else that fails exits 1, and `volcano sandboxes exec` passes
+// the remote command's own exit code through instead.
+const (
+	exitFailure          = 1
+	exitNotAuthenticated = 2
+	exitNoProject        = 3
+	exitNotFound         = 4
+	exitPermissionDenied = 5
 )
 
 func main() {
@@ -59,7 +71,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
-		return 1
+		return exitCode(err)
 	}
 
 	// Success: covers the non-blocking suggestion, and a deprecated CLI
@@ -69,6 +81,23 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	// network call.
 	upgradecmd.PrintAPIInstructionNotices(root, deps)
 	return 0
+}
+
+// exitCode maps a command error to one of the documented exit codes.
+func exitCode(err error) int {
+	status := api.Status(err)
+	switch {
+	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
+		return exitNotAuthenticated
+	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
+		return exitNoProject
+	case errors.Is(err, cliproject.ErrNotFound), status == http.StatusNotFound:
+		return exitNotFound
+	case errors.Is(err, config.ErrAccountTokenRequired), status == http.StatusForbidden:
+		return exitPermissionDenied
+	default:
+		return exitFailure
+	}
 }
 
 // printDeprecationError renders a require_version_upgrade 426 error together with

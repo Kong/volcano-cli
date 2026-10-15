@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -178,4 +179,11 @@ func projectPlan(project apiclient.Project) string {
 		return "-"
 	}
 	return plan
+}
+
+// JSON writes value as indented JSON, for a command's --json output.
+func JSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
