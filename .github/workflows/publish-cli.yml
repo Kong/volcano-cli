@@ -159,6 +159,9 @@ jobs:
 
       - name: Smoke-test Linux binary
         if: matrix.target.id == 'linux-amd64'
+        env:
+          # Release checks are not usage; keep them out of telemetry.
+          VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --help
           dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --version
