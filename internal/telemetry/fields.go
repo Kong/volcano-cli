@@ -158,7 +158,7 @@ var (
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\\"(?:[^"\\]|\\[^"])*\\"|\S+)`)
+	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\\"(?:[^"\\]|\\[^"])*\\"|\S+)`)
 	// A JSON field, also inside a %q-quoted string where its quotes are
 	// escaped. The value runs to the next unescaped quote, so an escaped
 	// quote inside it, or the rest of an escaped object, is removed too.

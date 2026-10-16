@@ -120,6 +120,7 @@ func TestRedact(t *testing.T) {
 		`{"password":"\"hunter2"}`:                                  `{"password":"[redacted]"}`,
 		`run password="a\"b" next`:                                  `run password=[redacted] next`,
 		`run password=\"a b\" next`:                                 `run password=[redacted] next`,
+		`run password='first\'second secret' next`:                  `run password=[redacted] next`,
 		"GET https://example.com?email=a@b.com&key=x failed":        "GET https://example.com?[redacted] failed",
 		"invalid token: signature mismatch":                         "invalid token: signature mismatch",
 	}
