@@ -442,12 +442,11 @@ func errorKind(err error) string {
 // wait or the login poll, is not one; an HTTP request that times out still
 // counts, since the client wraps it in *url.Error.
 func isNetworkError(err error) bool {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
+	if _, ok := errors.AsType[*url.Error](err); ok {
 		return true
 	}
-	var netErr net.Error
-	return errors.As(err, &netErr) && !errors.Is(err, context.DeadlineExceeded)
+	_, ok := errors.AsType[net.Error](err)
+	return ok && !errors.Is(err, context.DeadlineExceeded)
 }
 
 // isUsageError matches cobra's own argument and flag parsing errors, which are
