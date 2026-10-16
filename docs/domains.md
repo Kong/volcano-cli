@@ -53,7 +53,9 @@ volcano cloud domains verify example.com
 Note: Attach example.com or any name below it to your frontends. Keep the TXT record published.
 ```
 
-The value is tied to your account and the domain, and it never changes.
+The value is tied to your account and the domain. It stays the same until Volcano
+rotates the key it is derived from; if verification starts failing after a
+rotation, run `volcano cloud domains verify` again and publish the new record.
 
 Verify a subdomain such as `team.example.com` when only that part of the zone
 is yours. A domain another account verified moves to yours once DNS serves your

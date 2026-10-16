@@ -86,10 +86,10 @@ A template saves a preset and memory size. Custom image builds are not supported
 |---|---|---|
 | `--preset` | `exec`, `run`, template creation | Choose an available preset |
 | `--template` | `exec`, `run` | Use a saved template ID instead of a preset |
-| `--memory` | `exec`, `run` | Override memory with 1024 or 2048 MB; otherwise inherit the preset or template |
+| `--memory` | `exec`, `run` | Override memory with 1024 or 2048 MB (cloud HOBBY supports 1024 only); otherwise inherit the preset or template |
 | `--region` | `exec`, `run` | Select a region; defaults to `us-east-1` |
 | `--timeout` | `exec` | Command deadline: 1–60 seconds for one-shot execution, 1–3600 for session execution; defaults to 60 |
-| `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800; local 0 (unlimited) or positive. Omitted inherits the template |
+| `--duration` | `run` | Override session lifetime in seconds: cloud 30–28800 (HOBBY 30–3600); local 0 (unlimited) or positive. Omitted inherits the template |
 | `--request-id` | `exec`, `run` | UUID used to retry the same request safely |
 | `--json` | All except `deployments source` | Print compact JSON; `exec`, `shell`, and `files read` return structured results |
 

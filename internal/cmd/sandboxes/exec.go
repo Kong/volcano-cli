@@ -23,7 +23,7 @@ func (o *launchOptions) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.template, "template", "", "Saved Sandbox template ID")
 	cmd.Flags().StringVar(&o.region, "region", "us-east-1", "Sandbox region")
 	cmd.Flags().StringVar(&o.key, "request-id", "", "UUID idempotency key; reuse when retrying the same request")
-	cmd.Flags().IntVar(&o.memory, "memory", 0, "Memory in MB (1024 or 2048; defaults to the preset or template)")
+	cmd.Flags().IntVar(&o.memory, "memory", 0, "Memory in MB (1024 or 2048, cloud HOBBY supports 1024 only; defaults to the preset or template)")
 }
 
 func (o launchOptions) request() (apiclient.CreateSandboxSessionRequest, uuid.UUID, error) {
@@ -180,7 +180,7 @@ func (c *commands) run() *cobra.Command {
 		return c.write(cmd, value)
 	}}
 	opts.flags(cmd)
-	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800; local: 0 for unlimited or positive)")
+	cmd.Flags().IntVar(&opts.duration, "duration", 0, "Maximum session lifetime in seconds; omitted inherits the template (cloud: 30–28800, HOBBY 30–3600; local: 0 for unlimited or positive)")
 	return cmd
 }
 
