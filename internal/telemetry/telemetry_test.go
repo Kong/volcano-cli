@@ -464,6 +464,8 @@ func TestErrorKind(t *testing.T) {
 		{"network", fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")})},
 		{"network", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.DeadlineExceeded})},
 		{"other", fmt.Errorf("wait: %w", context.DeadlineExceeded)},
+		{"other", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.Canceled})},
+		{"other", fmt.Errorf("api url: %w", &url.Error{Op: "parse", URL: "http://[::1", Err: errors.New("missing ']' in host")})},
 		{"usage", errors.New(`unknown flag: --nope`)},
 		{"other", errors.New("docker failed")},
 	}

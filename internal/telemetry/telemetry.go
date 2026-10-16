@@ -440,10 +440,14 @@ func errorKind(err error) string {
 // isNetworkError reports a failure to reach a server. context.DeadlineExceeded
 // satisfies net.Error, but a command's own wait running out, as in a deploy
 // wait or the login poll, is not one; an HTTP request that times out still
-// counts, since the client wraps it in *url.Error.
+// counts, since the client wraps it in *url.Error. A cancelled command and a
+// URL that does not parse are not network failures either.
 func isNetworkError(err error) bool {
-	if _, ok := errors.AsType[*url.Error](err); ok {
-		return true
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if urlErr, ok := errors.AsType[*url.Error](err); ok {
+		return urlErr.Op != "parse"
 	}
 	_, ok := errors.AsType[net.Error](err)
 	return ok && !errors.Is(err, context.DeadlineExceeded)
