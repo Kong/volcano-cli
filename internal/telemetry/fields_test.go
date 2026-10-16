@@ -129,6 +129,8 @@ func TestErrorMessage(t *testing.T) {
 	assert.Empty(t, errorMessage(nil, "/home/dev"))
 	assert.Equal(t, "read ~/app/x.yaml: bad indent", errorMessage(errors.New("read /home/dev/app/x.yaml:\n  bad   indent"), "/home/dev"))
 	assert.Equal(t, "a/b", errorMessage(errors.New("a/b"), "/"), "a home of / is not replaced")
+	assert.Equal(t, `open ~\a.txt: failed to open file "~\\a.txt"`,
+		errorMessage(fmt.Errorf("open %s: failed to open file %q", `C:\Users\dev\a.txt`, `C:\Users\dev\a.txt`), `C:\Users\dev`), "a Windows home quoted with %q is replaced")
 	assert.Equal(t, "Bearer [redacted] rejected", errorMessage(errors.New("Bearer\u00a0abc123 rejected"), ""), "a Unicode space does not hide a token")
 	assert.Equal(t, "failed: bad input", errorMessage(errors.New("\x1b[31mfailed:\x1b[0m bad\x00input"), ""))
 	assert.Equal(t, "failed to read ~/app/volcano.env: [redacted]",

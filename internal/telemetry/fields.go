@@ -138,6 +138,10 @@ func errorMessage(err error, home string) string {
 		msg = strings.ReplaceAll(msg, text, redacted)
 	}
 	if len(home) > 1 {
+		// %q doubles each backslash in a Windows path.
+		if strings.Contains(home, `\`) {
+			msg = strings.ReplaceAll(msg, strings.ReplaceAll(home, `\`, `\\`), "~")
+		}
 		msg = strings.ReplaceAll(msg, home, "~")
 	}
 	msg = ansiEscape.ReplaceAllString(msg, "")
