@@ -37,11 +37,9 @@ When a command fails, the event also carries the type of failure (`api`,
 `network`, `local_not_running`, `usage`, or `other`), the HTTP status and error
 code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
-removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
-access key IDs, passwords in URLs, email addresses, URL query strings, and
-other long opaque strings. After a `password=`, `token=`, `DB_PASSWORD=`, or
-similar pair, or a JSON field such as `"token": "..."`, it removes the rest of
-the message. It then cuts the message to 500 characters.
+removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`),
+passwords in URLs, email addresses, and URL query strings. It then cuts the
+message to 500 characters.
 
 Some errors can quote your files or data, so the CLI replaces that part with
 `[redacted]`:
@@ -54,9 +52,10 @@ Some errors can quote your files or data, so the CLI replaces that part with
 - an execution name passed where `volcano durable` expects an execution ID
 
 An error message can contain what you typed, such as an unknown command, a flag
-value the CLI rejected, a file path, or a resource name. Redaction removes the
-secret shapes listed above but cannot recognize every secret, so avoid putting
-secrets in command arguments.
+value the CLI rejected, a file path, or a resource name. The CLI does not look
+for secrets in what you typed beyond the shapes listed above, so pass secrets
+only through the inputs meant for them, such as `volcano login --token` or an
+env file.
 
 Resource names come from the arguments that name a resource, such as
 `<database>` and `<branch>` in `volcano databases branch get <database>
@@ -65,7 +64,7 @@ Resource names come from the arguments that name a resource, such as
 since it is an idempotency key that can hold your application's data. Other arguments and flag values, such as file
 paths, search queries, payloads, and commands run in a sandbox, are not sent as
 resource names, though they can appear in an error message. A name that looks
-like a path, token, or key is dropped.
+like a path or a Volcano token or key is dropped.
 
 The CLI does not send file contents or environment variable values, except in
 two cases. The selected cloud project ID can come from `VOLCANO_PROJECT_ID`. The agent
