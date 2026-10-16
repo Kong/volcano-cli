@@ -11,6 +11,10 @@ fail, and which coding agents run them. Telemetry is on by default. The first
 time you run a command, the CLI prints a notice that explains this and sends
 nothing, so you can turn telemetry off before any event is sent.
 
+The CLI saves that the notice was shown in `~/.volcano/config.json`. If it
+can't write there, as in a sandbox with a read-only home directory, it shows no
+notice and sends nothing, on that run and every later one.
+
 ## What is collected
 
 | Field | Example |
