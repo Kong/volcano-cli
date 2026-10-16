@@ -112,6 +112,7 @@ func TestRedact(t *testing.T) {
 		"dial postgres://admin:p@ss@db:5432/app failed":                                    "dial postgres://[redacted]@db:5432/app failed",
 		"dial postgres://app:hunter2@db.internal:5432/app failed":                          "dial postgres://[redacted]@db.internal:5432/app failed",
 		"git clone https://deploy@git.example.com/repo":                                    "git clone https://[redacted]@git.example.com/repo",
+		"open ~/app/public/images/logo@2x.png: no such file":                               "open ~/app/public/images/logo@2x.png: no such file",
 		"GET https://cdn.example.com/pkg/@scope/name":                                      "GET https://cdn.example.com/pkg/@scope/name",
 		"approval a1 was already approved by bob.smith+ops@corp.example.com at 2026-10-16": "approval a1 was already approved by [redacted] at 2026-10-16",
 		"open /Users/someone/workspace/my-really-long-project-name/functions/index.ts":     "open /Users/someone/workspace/my-really-long-project-name/functions/index.ts",
