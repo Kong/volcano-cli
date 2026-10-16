@@ -29,6 +29,9 @@ event also carries the failure type, the API error status and code, and the
 error message with tokens and keys removed. Events are linked to your account
 when you are logged in, and otherwise to a random ID for this machine.
 
+Turning telemetry off also turns off ` + "`volcano feedback`" + ` reports, which carry
+text a coding agent wrote about a problem it hit, with this machine's ID.
+
 Nothing is sent on the first run, which shows a notice instead. Shell
 completion (volcano completion and pressing Tab), --offline runs, and volcano
 telemetry commands are never recorded.
