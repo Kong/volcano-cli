@@ -18,11 +18,13 @@
 package telemetry
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime"
@@ -435,9 +437,17 @@ func errorKind(err error) string {
 	return "other"
 }
 
+// isNetworkError reports a failure to reach a server. context.DeadlineExceeded
+// satisfies net.Error, but a command's own wait running out, as in a deploy
+// wait or the login poll, is not one; an HTTP request that times out still
+// counts, since the client wraps it in *url.Error.
 func isNetworkError(err error) bool {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return true
+	}
 	var netErr net.Error
-	return errors.As(err, &netErr)
+	return errors.As(err, &netErr) && !errors.Is(err, context.DeadlineExceeded)
 }
 
 // isUsageError matches cobra's own argument and flag parsing errors, which are

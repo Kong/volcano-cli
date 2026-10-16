@@ -160,8 +160,8 @@ func errorMessage(err error, home string) string {
 
 const redacted = "[redacted]"
 
-// Redaction rules, applied in order. They cover the token formats Volcano
-// issues and the places a documented command puts a credential or email
+// Redaction rules, applied in order. They cover the Volcano token formats the
+// CLI handles and the places a documented command puts a credential or email
 // address: auth headers, URLs, and API error text. A secret typed where no
 // command expects one is not looked for. Errors that quote file contents or
 // application data are marked at the source with the sensitive package

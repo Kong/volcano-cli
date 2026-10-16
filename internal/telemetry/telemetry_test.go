@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"runtime"
 	"strings"
 	"testing"
@@ -453,15 +455,20 @@ func TestRecord_SuccessSendsNoErrorFields(t *testing.T) {
 }
 
 func TestErrorKind(t *testing.T) {
-	cases := map[string]error{
-		"api":               &api.Error{StatusCode: 404},
-		"local_not_running": fmt.Errorf("x: %w", cliruntime.ErrLocalNotRunning),
-		"network":           fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")}),
-		"usage":             errors.New(`unknown flag: --nope`),
-		"other":             errors.New("docker failed"),
+	cases := []struct {
+		want string
+		err  error
+	}{
+		{"api", &api.Error{StatusCode: 404}},
+		{"local_not_running", fmt.Errorf("x: %w", cliruntime.ErrLocalNotRunning)},
+		{"network", fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")})},
+		{"network", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.DeadlineExceeded})},
+		{"other", fmt.Errorf("wait: %w", context.DeadlineExceeded)},
+		{"usage", errors.New(`unknown flag: --nope`)},
+		{"other", errors.New("docker failed")},
 	}
-	for want, err := range cases {
-		assert.Equal(t, want, errorKind(err), err.Error())
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, errorKind(tc.err), tc.err.Error())
 	}
 }
 
