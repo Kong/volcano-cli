@@ -12,6 +12,7 @@ package feedback
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -54,15 +55,39 @@ const maxPayloadBytes = 64 << 10
 // sendTimeout bounds the one HTTP request.
 const sendTimeout = 10 * time.Second
 
-// Input is what the reporter wrote.
+// Input is what the reporter wrote, from flags or from the JSON object
+// `volcano feedback --input` reads.
 type Input struct {
-	Category   string
-	Summary    string
-	Details    string
-	Expected   string
-	Actual     string
-	Workaround string
-	Commands   []string
+	Category   string   `json:"category"`
+	Summary    string   `json:"summary"`
+	Details    string   `json:"details"`
+	Expected   string   `json:"expected"`
+	Actual     string   `json:"actual"`
+	Workaround string   `json:"workaround"`
+	Commands   []string `json:"commands"`
+}
+
+// ParseInput reads one JSON object with Input's keys from r. Unknown keys and
+// anything after the object are errors, so a misspelled key is not silently
+// dropped.
+func ParseInput(r io.Reader) (Input, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxPayloadBytes+1))
+	if err != nil {
+		return Input{}, err
+	}
+	if len(data) > maxPayloadBytes {
+		return Input{}, fmt.Errorf("input is over %d bytes", maxPayloadBytes)
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	var in Input
+	if err := dec.Decode(&in); err != nil {
+		return Input{}, fmt.Errorf("parse input: %w", err)
+	}
+	if dec.More() {
+		return Input{}, errors.New("parse input: expected one JSON object")
+	}
+	return in, nil
 }
 
 // Report is the request body of POST /cli/feedback. Field names are the wire
@@ -97,10 +122,10 @@ type Report struct {
 func (in Input) Validate() error {
 	var errs []error
 	if !slices.Contains(Categories, in.Category) {
-		errs = append(errs, fmt.Errorf("--category must be one of %s", strings.Join(Categories, ", ")))
+		errs = append(errs, fmt.Errorf("category must be one of %s", strings.Join(Categories, ", ")))
 	}
 	for _, f := range []struct {
-		flag     string
+		name     string
 		value    string
 		max      int
 		required bool
@@ -114,17 +139,17 @@ func (in Input) Validate() error {
 		n := utf8.RuneCountInString(strings.TrimSpace(f.value))
 		switch {
 		case f.required && n == 0:
-			errs = append(errs, fmt.Errorf("--%s is required", f.flag))
+			errs = append(errs, fmt.Errorf("%s is required", f.name))
 		case n > f.max:
-			errs = append(errs, fmt.Errorf("--%s is %d characters; the limit is %d", f.flag, n, f.max))
+			errs = append(errs, fmt.Errorf("%s is %d characters; the limit is %d", f.name, n, f.max))
 		}
 	}
 	if len(in.Commands) > MaxCommands {
-		errs = append(errs, fmt.Errorf("--command is given %d times; the limit is %d", len(in.Commands), MaxCommands))
+		errs = append(errs, fmt.Errorf("commands has %d entries; the limit is %d", len(in.Commands), MaxCommands))
 	}
 	for _, c := range in.Commands {
 		if n := utf8.RuneCountInString(strings.TrimSpace(c)); n > MaxCommand {
-			errs = append(errs, fmt.Errorf("a --command is %d characters; the limit is %d", n, MaxCommand))
+			errs = append(errs, fmt.Errorf("a command is %d characters; the limit is %d", n, MaxCommand))
 		}
 	}
 	return errors.Join(errs...)

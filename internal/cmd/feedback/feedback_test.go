@@ -6,6 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,8 +57,14 @@ func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 
 func run(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
+	return runWithStdin(t, "", args...)
+}
+
+func runWithStdin(t *testing.T, stdin string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
 	cmd := New()
 	var out, errOut bytes.Buffer
+	cmd.SetIn(strings.NewReader(stdin))
 	cmd.SetOut(&out)
 	cmd.SetErr(&errOut)
 	cmd.SetArgs(args)
@@ -129,8 +138,8 @@ func TestFeedback_InvalidInput(t *testing.T) {
 
 	_, _, err := run(t, "--category", "other", "--summary", "s")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--category must be one of")
-	assert.Contains(t, err.Error(), "--details is required")
+	assert.Contains(t, err.Error(), "category must be one of")
+	assert.Contains(t, err.Error(), "details is required")
 	assert.Empty(t, *reports)
 }
 
@@ -144,4 +153,55 @@ func TestFeedback_SendFailureFails(t *testing.T) {
 
 	_, _, err := run(t, reportArgs...)
 	assert.EqualError(t, err, "send feedback: feedback endpoint returned HTTP 404")
+}
+
+const inputJSON = `{
+  "category": "missing_capability",
+  "summary": "no command sets a function's timeout",
+  "details": "Needed a longer timeout.\nEdited volcano-config.yaml by hand.",
+  "commands": ["volcano functions update hello --timeout 60"],
+  "workaround": "edited the manifest"
+}`
+
+func TestFeedback_InputFromStdin(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	stdout, _, err := runWithStdin(t, inputJSON, "--input", "-")
+	require.NoError(t, err)
+	require.Len(t, *reports, 1)
+	r := (*reports)[0]
+	assert.Contains(t, stdout, r.FeedbackID)
+	assert.Equal(t, "missing_capability", r.Category)
+	assert.Equal(t, "Needed a longer timeout.\nEdited volcano-config.yaml by hand.", r.Details)
+	assert.Equal(t, []string{"volcano functions update hello --timeout 60"}, r.Commands)
+	assert.Equal(t, "d", r.DeviceID)
+}
+
+func TestFeedback_InputFromFile(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	path := filepath.Join(t.TempDir(), "report.json")
+	require.NoError(t, os.WriteFile(path, []byte(inputJSON), 0o600))
+
+	_, _, err := run(t, "--input", path, "--dry-run")
+	require.NoError(t, err)
+	assert.Empty(t, *reports)
+
+	_, _, err = run(t, "--input", path)
+	require.NoError(t, err)
+	assert.Len(t, *reports, 1)
+}
+
+func TestFeedback_InputErrors(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	_, _, err := runWithStdin(t, `{"category":"cli_bug","title":"s"}`, "--input", "-")
+	require.ErrorContains(t, err, `unknown field "title"`)
+
+	_, _, err = runWithStdin(t, `{"category":"cli_bug"}`, "--input", "-")
+	require.ErrorContains(t, err, "summary is required")
+
+	_, _, err = runWithStdin(t, inputJSON, "--input", "-", "--summary", "x")
+	require.ErrorContains(t, err, "none of the others can be")
+
+	assert.Empty(t, *reports)
 }

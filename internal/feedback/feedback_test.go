@@ -25,17 +25,39 @@ func TestValidate(t *testing.T) {
 
 	err := Input{Category: "nope", Summary: " ", Details: strings.Repeat("x", MaxDetails+1)}.Validate()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--category must be one of cli_bug, docs_mismatch")
-	assert.Contains(t, err.Error(), "--summary is required")
-	assert.Contains(t, err.Error(), "--details is 4001 characters; the limit is 4000")
+	assert.Contains(t, err.Error(), "category must be one of cli_bug, docs_mismatch")
+	assert.Contains(t, err.Error(), "summary is required")
+	assert.Contains(t, err.Error(), "details is 4001 characters; the limit is 4000")
 
 	in := validInput()
 	in.Commands = make([]string, MaxCommands+1)
-	require.ErrorContains(t, in.Validate(), "--command is given 11 times")
+	require.ErrorContains(t, in.Validate(), "commands has 11 entries")
 
 	in = validInput()
 	in.Commands = []string{strings.Repeat("é", MaxCommand+1)}
-	assert.ErrorContains(t, in.Validate(), "a --command is 501 characters")
+	assert.ErrorContains(t, in.Validate(), "a command is 501 characters")
+}
+
+func TestParseInput(t *testing.T) {
+	in, err := ParseInput(strings.NewReader(`{"category":"cli_bug","summary":"s","details":"line 1\nline 2","commands":["volcano deploy"]}`))
+	require.NoError(t, err)
+	assert.Equal(t, Input{Category: "cli_bug", Summary: "s", Details: "line 1\nline 2", Commands: []string{"volcano deploy"}}, in)
+
+	for name, body := range map[string]string{
+		"unknown key":   `{"category":"cli_bug","title":"s"}`,
+		"two objects":   `{"category":"cli_bug"} {}`,
+		"not an object": `["cli_bug"]`,
+		"wrong type":    `{"commands":"volcano deploy"}`,
+		"empty":         ``,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseInput(strings.NewReader(body))
+			require.Error(t, err)
+		})
+	}
+
+	_, err = ParseInput(strings.NewReader(strings.Repeat(" ", maxPayloadBytes+1)))
+	require.ErrorContains(t, err, "input is over")
 }
 
 func TestBuild(t *testing.T) {

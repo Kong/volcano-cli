@@ -37,7 +37,32 @@ On success the CLI prints the report ID. When telemetry is off it prints
 | `--expected` | no | 1000 characters | What you expected |
 | `--actual` | no | 4000 characters | What happened, with the exact error text |
 | `--workaround` | no | 2000 characters | What you did instead |
+| `--input` | no | | Read the report as JSON from a file, or `-` for stdin, instead of the flags above |
 | `--dry-run` | no | | Print the report and send nothing |
+
+## Send a report as JSON
+
+`--input` reads one JSON object instead of the flags. This avoids shell quoting
+for long or multi-line text. The keys are `category`, `summary`, `details`,
+`commands` (a list), `expected`, `actual`, and `workaround`, with the same
+limits as the flags. An unknown key is an error, and `--input` cannot be
+combined with the other report flags.
+
+```bash
+volcano feedback --input - <<'EOF'
+{
+  "category": "docs_mismatch",
+  "summary": "volcano-platform skill passes --json to functions list; the CLI rejects it",
+  "details": "Listing functions to check a deploy, I ran the command the skill shows.",
+  "commands": ["volcano functions list --json"],
+  "expected": "JSON list of functions",
+  "actual": "Error: unknown flag: --json",
+  "workaround": "Parsed the table output instead."
+}
+EOF
+```
+
+You can also save the object to a file and run `volcano feedback --input report.json`.
 
 ## Categories
 
