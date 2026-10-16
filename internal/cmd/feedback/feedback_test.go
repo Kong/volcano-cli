@@ -177,6 +177,15 @@ func TestFeedback_InputFromStdin(t *testing.T) {
 	assert.Equal(t, "d", r.DeviceID)
 }
 
+func TestFeedback_InputInline(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	_, _, err := run(t, "--input", `  {"category":"cli_bug","summary":"s","details":"can\u0027t deploy"}`)
+	require.NoError(t, err)
+	require.Len(t, *reports, 1)
+	assert.Equal(t, "can't deploy", (*reports)[0].Details)
+}
+
 func TestFeedback_InputFromFile(t *testing.T) {
 	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
 	path := filepath.Join(t.TempDir(), "report.json")

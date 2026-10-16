@@ -36,9 +36,10 @@ func New() *cobra.Command {
 the platform, the docs, or the agent skills. Coding agents run this after a
 task, so the user's work is not held up.
 
-Give the report as flags, or as one JSON object with --input <file> (- reads
-stdin). The object's keys are category, summary, details, commands (a list),
-expected, actual, and workaround, with the same limits as the flags.
+Give the report as flags, or as one JSON object with --input. --input takes
+the object itself, a file that holds it, or - for stdin. The object's keys are
+category, summary, details, commands (a list), expected, actual, and
+workaround, with the same limits as the flags.
 
 Report:
   cli_bug               the CLI crashed, returned the wrong exit code, or printed
@@ -75,17 +76,10 @@ command then sends nothing and exits 0.`,
     --actual "Error: unknown flag: --json" \
     --workaround "Parsed the table output instead."
 
-  volcano feedback --input - <<'EOF'
-  {
-    "category": "docs_mismatch",
-    "summary": "volcano-platform skill passes --json to functions list; the CLI rejects it",
-    "details": "Listing functions to check a deploy, I ran the command the skill shows.",
-    "commands": ["volcano functions list --json"],
-    "expected": "JSON list of functions",
-    "actual": "Error: unknown flag: --json",
-    "workaround": "Parsed the table output instead."
-  }
-  EOF`,
+  # The same report as JSON: inline, from a file, or on stdin
+  volcano feedback --input '{"category": "docs_mismatch", "summary": "...", "details": "..."}'
+  volcano feedback --input report.json
+  cat report.json | volcano feedback --input -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if input != "" {
@@ -131,7 +125,7 @@ command then sends nothing and exits 0.`,
 	f.StringVar(&in.Expected, "expected", "", fmt.Sprintf("What you expected, up to %d characters", feedback.MaxExpected))
 	f.StringVar(&in.Actual, "actual", "", fmt.Sprintf("What happened, with the exact error text, up to %d characters", feedback.MaxActual))
 	f.StringVar(&in.Workaround, "workaround", "", fmt.Sprintf("What you did instead, up to %d characters", feedback.MaxWorkaround))
-	f.StringVar(&input, "input", "", "Read the report as a JSON object from a file, or - for stdin, instead of the flags above")
+	f.StringVar(&input, "input", "", "The report as a JSON object, a file that holds it, or - for stdin, instead of the flags above")
 	f.BoolVar(&dryRun, "dry-run", false, "Print the report that would be sent, and send nothing")
 	for _, name := range []string{"category", "summary", "details", "command", "expected", "actual", "workaround"} {
 		cmd.MarkFlagsMutuallyExclusive("input", name)
@@ -139,12 +133,17 @@ command then sends nothing and exits 0.`,
 	return cmd
 }
 
-// readInput parses the JSON report at path, or stdin when path is "-".
-func readInput(cmd *cobra.Command, path string) (feedback.Input, error) {
-	if path == "-" {
+// readInput parses the JSON report given to --input: the object itself when
+// the value starts with "{", stdin when it is "-", and otherwise the file it
+// names.
+func readInput(cmd *cobra.Command, value string) (feedback.Input, error) {
+	if strings.HasPrefix(strings.TrimSpace(value), "{") {
+		return feedback.ParseInput(strings.NewReader(value))
+	}
+	if value == "-" {
 		return feedback.ParseInput(cmd.InOrStdin())
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(value)
 	if err != nil {
 		return feedback.Input{}, err
 	}

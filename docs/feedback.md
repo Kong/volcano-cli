@@ -37,19 +37,20 @@ On success the CLI prints the report ID. When telemetry is off it prints
 | `--expected` | no | 1000 characters | What you expected |
 | `--actual` | no | 4000 characters | What happened, with the exact error text |
 | `--workaround` | no | 2000 characters | What you did instead |
-| `--input` | no | | Read the report as JSON from a file, or `-` for stdin, instead of the flags above |
+| `--input` | no | | The report as a JSON object, a file that holds it, or `-` for stdin, instead of the flags above |
 | `--dry-run` | no | | Print the report and send nothing |
 
 ## Send a report as JSON
 
-`--input` reads one JSON object instead of the flags. This avoids shell quoting
-for long or multi-line text. The keys are `category`, `summary`, `details`,
-`commands` (a list), `expected`, `actual`, and `workaround`, with the same
-limits as the flags. An unknown key is an error, and `--input` cannot be
-combined with the other report flags.
+`--input` takes one JSON object instead of the flags: the object itself, a
+file that holds it, or `-` for stdin. The keys are `category`, `summary`,
+`details`, `commands` (a list), `expected`, `actual`, and `workaround`, with
+the same limits as the flags. An unknown key is an error, and `--input` cannot
+be combined with the other report flags.
 
-```bash
-volcano feedback --input - <<'EOF'
+For example, `report.json` holds:
+
+```json
 {
   "category": "docs_mismatch",
   "summary": "volcano-platform skill passes --json to functions list; the CLI rejects it",
@@ -59,10 +60,19 @@ volcano feedback --input - <<'EOF'
   "actual": "Error: unknown flag: --json",
   "workaround": "Parsed the table output instead."
 }
-EOF
 ```
 
-You can also save the object to a file and run `volcano feedback --input report.json`.
+Send it in any of these forms:
+
+```bash
+volcano feedback --input '{"category": "docs_mismatch", "summary": "...", "details": "..."}'
+volcano feedback --input report.json
+cat report.json | volcano feedback --input -
+```
+
+An inline object is the shortest form, but it breaks when a value contains a
+single quote, such as `can't`, because the quote ends the shell string. A file
+needs no shell quoting, so any text works. Use `\n` for a line break inside a JSON value.
 
 ## Categories
 
