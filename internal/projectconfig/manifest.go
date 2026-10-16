@@ -481,8 +481,8 @@ func Load(filePath string) (*Manifest, string, error) {
 
 // Parse interpolates ${ENV} references through lookupEnv, decodes the manifest
 // strictly (unknown fields are errors), and validates it. YAML, interpolation,
-// and decode errors can quote manifest values, including interpolated secrets,
-// so they are marked sensitive.
+// decode, and validation errors can quote manifest values, including
+// interpolated secrets, so they are marked sensitive.
 func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
@@ -508,8 +508,9 @@ func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error
 		return nil, fmt.Errorf("invalid manifest: %w", sensitive.Wrap(err))
 	}
 
+	// Validation runs on interpolated values and quotes rejected ones.
 	if err := manifest.Validate(); err != nil {
-		return nil, err
+		return nil, sensitive.Wrap(err)
 	}
 
 	// Capture the interpolated manifest as a generic shape for upload so omitted

@@ -30,3 +30,10 @@ func Text(err error) string {
 	}
 	return ""
 }
+
+// Contains reports whether the first sensitive error in err's chain yields a
+// non-empty value from get, for example an API error code inside it.
+func Contains(err error, get func(error) string) bool {
+	sensitiveErr, ok := errors.AsType[*Error](err)
+	return ok && get(sensitiveErr.err) != ""
+}

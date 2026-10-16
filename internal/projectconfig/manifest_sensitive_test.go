@@ -15,6 +15,7 @@ func TestParseMarksValueQuotingErrorsSensitive(t *testing.T) {
 		"interpolation": "auth:\n  smtp:\n    password: 'hunter2${'\n",
 		"yaml syntax":   "auth: [hunter2\n",
 		"decode":        "functions: hunter2\n",
+		"validation":    "functions:\n  - name: hello\n    kind: hunter2\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := Parse([]byte(manifest), noEnv)
