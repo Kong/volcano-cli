@@ -72,7 +72,7 @@ func resources(cmd *cobra.Command) map[string]string {
 		}
 	}
 	for _, name := range resourceFlags {
-		if f := cmd.Flags().Lookup(name); f != nil && f.Changed {
+		if f := cmd.Flags().Lookup(name); f != nil && f.Changed && f.Annotations[sensitive.FlagAnnotation] == nil {
 			add(name, f.Value.String())
 		}
 	}
@@ -158,8 +158,11 @@ var (
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"[^"]*"|'[^']*'|\S+)`)
-	jsonPattern   = regexp.MustCompile(`(?i)("[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)"\s*:\s*)"[^"]*"`)
+	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"(?:[^"\\]|\\.)*"|'[^']*'|\\"(?:[^"\\]|\\[^"])*\\"|\S+)`)
+	// A JSON field, also inside a %q-quoted string where its quotes are
+	// escaped. The value runs to the next unescaped quote, so an escaped
+	// quote inside it, or the rest of an escaped object, is removed too.
+	jsonPattern = regexp.MustCompile(`(?i)(\\*"[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\\*"\s*:\s*\\*")(?:[^"\\]|\\.)*`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
@@ -173,6 +176,6 @@ func redact(s string) string {
 	s = userPattern.ReplaceAllString(s, "${1}"+redacted+"@")
 	s = queryPattern.ReplaceAllString(s, "${1}?"+redacted)
 	s = pairPattern.ReplaceAllString(s, "${1}="+redacted)
-	s = jsonPattern.ReplaceAllString(s, "${1}\""+redacted+"\"")
+	s = jsonPattern.ReplaceAllString(s, "${1}"+redacted)
 	return opaquePattern.ReplaceAllString(s, redacted)
 }

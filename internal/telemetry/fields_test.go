@@ -56,6 +56,19 @@ func TestResources(t *testing.T) {
 	}
 }
 
+func TestResources_SkipsSensitiveFlag(t *testing.T) {
+	root := &cobra.Command{Use: "volcano"}
+	start := &cobra.Command{Use: "start <function>", RunE: func(*cobra.Command, []string) error { return nil }}
+	start.Flags().String("name", "", "")
+	require.NoError(t, start.Flags().SetAnnotation("name", sensitive.FlagAnnotation, []string{"true"}))
+	root.AddCommand(start)
+	root.SetArgs([]string{"start", "hello", "--name", "order-4417"})
+	cmd, err := root.ExecuteC()
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{"function": "hello"}, resources(cmd))
+}
+
 func TestResources_Capped(t *testing.T) {
 	fields := []string{"set"}
 	var args []string
@@ -92,19 +105,23 @@ func TestRedact(t *testing.T) {
 		"open /Users/someone/workspace/my-really-long-project-name/functions/index.ts": "open /Users/someone/workspace/my-really-long-project-name/functions/index.ts",
 		"function hello not found (11111111-2222-3333-4444-555555555555)":              "function hello not found (11111111-2222-3333-4444-555555555555)",
 		"pk-short": "pk-short",
-		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":     "aws [redacted] denied",
-		"dial postgres://admin:p@ss@db:5432/app failed":           "dial postgres://[redacted]@db:5432/app failed",
-		"GET https://cdn.example.com/pkg/@scope/name":             "GET https://cdn.example.com/pkg/@scope/name",
-		"dial postgres://app:hunter2@db.internal:5432/app failed": "dial postgres://[redacted]@db.internal:5432/app failed",
-		"run with password=hunter2 and API_KEY=abc":               "run with password=[redacted] and API_KEY=[redacted]",
-		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:     `unknown command "DB_PASSWORD=[redacted] for "volcano"`,
-		"PGPASSWORD=a GITHUB_TOKEN=b MY_API_KEY=c":                "PGPASSWORD=[redacted] GITHUB_TOKEN=[redacted] MY_API_KEY=[redacted]",
-		"tokens=5 MAX_TOKENS=100 TOKEN_TTL=60":                    "tokens=5 MAX_TOKENS=100 TOKEN_TTL=60",
-		"run with password='a b' and token=\"c d\" now":           "run with password=[redacted] and token=[redacted] now",
-		`body {"user":"al","password": "a b","apiKey":"c"}`:       `body {"user":"al","password": "[redacted]","apiKey":"[redacted]"}`,
-		`{"tokens": 5, "name": "x"}`:                              `{"tokens": 5, "name": "x"}`,
-		"GET https://example.com?email=a@b.com&key=x failed":      "GET https://example.com?[redacted] failed",
-		"invalid token: signature mismatch":                       "invalid token: signature mismatch",
+		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":       "aws [redacted] denied",
+		"dial postgres://admin:p@ss@db:5432/app failed":             "dial postgres://[redacted]@db:5432/app failed",
+		"GET https://cdn.example.com/pkg/@scope/name":               "GET https://cdn.example.com/pkg/@scope/name",
+		"dial postgres://app:hunter2@db.internal:5432/app failed":   "dial postgres://[redacted]@db.internal:5432/app failed",
+		"run with password=hunter2 and API_KEY=abc":                 "run with password=[redacted] and API_KEY=[redacted]",
+		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:       `unknown command "DB_PASSWORD=[redacted] for "volcano"`,
+		"PGPASSWORD=a GITHUB_TOKEN=b MY_API_KEY=c":                  "PGPASSWORD=[redacted] GITHUB_TOKEN=[redacted] MY_API_KEY=[redacted]",
+		"tokens=5 MAX_TOKENS=100 TOKEN_TTL=60":                      "tokens=5 MAX_TOKENS=100 TOKEN_TTL=60",
+		"run with password='a b' and token=\"c d\" now":             "run with password=[redacted] and token=[redacted] now",
+		`body {"user":"al","password": "a b","apiKey":"c"}`:         `body {"user":"al","password": "[redacted]","apiKey":"[redacted]"}`,
+		`{"tokens": 5, "name": "x"}`:                                `{"tokens": 5, "name": "x"}`,
+		`invalid --since "{\"token\":\"hunter2\"}": use a duration`: `invalid --since "{\"token\":\"[redacted]": use a duration`,
+		`{"password":"\"hunter2"}`:                                  `{"password":"[redacted]"}`,
+		`run password="a\"b" next`:                                  `run password=[redacted] next`,
+		`run password=\"a b\" next`:                                 `run password=[redacted] next`,
+		"GET https://example.com?email=a@b.com&key=x failed":        "GET https://example.com?[redacted] failed",
+		"invalid token: signature mismatch":                         "invalid token: signature mismatch",
 	}
 	for in, want := range cases {
 		assert.Equal(t, want, redact(in), in)

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -416,4 +417,24 @@ func TestLogoutRemovesUnparseableConfig(t *testing.T) {
 
 	_, err = os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "a damaged config with a token is removed: %v", err)
+}
+
+func TestLogoutRemovesUnreadableConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes do not block reads on Windows")
+	}
+	setAuthTestHome(t)
+	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(path, 0o000))
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("running as a user that can read any file")
+	}
+
+	_, err = executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "an unreadable config with a token is removed: %v", err)
 }

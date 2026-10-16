@@ -5,6 +5,11 @@ package sensitive
 
 import "errors"
 
+// FlagAnnotation marks a flag whose value usage telemetry never sends, even
+// when its name is one telemetry would otherwise report as a resource name.
+// Set it with cmd.Flags().SetAnnotation(name, FlagAnnotation, []string{"true"}).
+const FlagAnnotation = "volcano_sensitive"
+
 // Error wraps an error whose text must not leave the machine.
 type Error struct {
 	err error

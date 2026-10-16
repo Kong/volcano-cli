@@ -56,7 +56,8 @@ secrets in command arguments.
 Resource names come from the arguments that name a resource, such as
 `<database>` and `<branch>` in `volcano databases branch get <database>
 <branch>`, and from the `--name`, `--function`, `--database`, `--project`,
-`--topic`, and `--bucket` flags. Other arguments and flag values, such as file
+`--topic`, and `--bucket` flags. `volcano durable start --name` is not sent,
+since it is an idempotency key that can hold your application's data. Other arguments and flag values, such as file
 paths, search queries, payloads, and commands run in a sandbox, are not sent as
 resource names, though they can appear in an error message. A name that looks
 like a path, token, or key is dropped.
