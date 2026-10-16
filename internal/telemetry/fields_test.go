@@ -103,6 +103,8 @@ func TestRedact(t *testing.T) {
 		"key pk-0123456789abcdefABCD rejected":                  "key [redacted] rejected",
 		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD": "used [redacted], [redacted]",
 		"pk-short": "pk-short",
+		"proxy sbp1.v2:0123456789abcdef:AbC+dEf/GhI=jKl= denied":                           "proxy [redacted] denied",
+		"proxy sbp1.AbC+dEf/GhI0123456789= denied":                                         "proxy [redacted] denied",
 		"exchange vbt_0123456789abcdefABCD failed":                                         "exchange [redacted] failed",
 		"login vpg_0123456789abcdef_ABCD-xyz refused":                                      "login [redacted] refused",
 		"GET https://x.dev/o/a.png?X-Amz-Signature=abc&b=1 failed":                         "GET https://x.dev/o/a.png?[redacted] failed",

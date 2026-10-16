@@ -20,14 +20,17 @@ func New() *cobra.Command {
 		Use:   "telemetry",
 		Short: "Show or change whether the CLI sends usage data",
 		Long: `The CLI sends one usage event to the Volcano API per command: the command,
-the names of the flags you set, the selected project ID, the resource names
+the names of the flags you set, the selected project ID (volcano cloud
+commands only), the resource names
 and IDs the command was given (such as function, database, or bucket names),
 CLI version, OS, architecture, CPU count, CI vendor, whether stdin is a
 terminal, the coding agent that ran it, whether the Volcano plugin is installed
 for that agent, the exit code, and the duration. When a command fails, the
 event also carries the failure type, the API error status and code, and the
-error message with tokens and keys removed. Events are linked to your account
-when you are logged in, and otherwise to a random ID for this machine.
+error message with tokens and keys removed. Every event carries a random ID
+for this machine, which volcano logout keeps. When you are logged in, events
+are also linked to your account, so events sent after logout can be linked to
+the account last used on this machine.
 
 Nothing is sent on the first run, which shows a notice instead. Shell
 completion (volcano completion and pressing Tab), --offline runs, and volcano

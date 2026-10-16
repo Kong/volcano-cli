@@ -470,7 +470,7 @@ func isUsageError(err error) bool {
 }
 
 func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. When you are logged in, it is linked to your Volcano account. This helps us improve the CLI.")
+	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI.")
 	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 }
 
