@@ -12,8 +12,10 @@ time you run a command, the CLI prints a notice that explains this and sends
 nothing, so you can turn telemetry off before any event is sent.
 
 The CLI saves that the notice was shown in `~/.volcano/config.json`. If it
-can't write there, as in a sandbox with a read-only home directory, it shows no
-notice and sends nothing, on that run and every later one.
+can't save that, as in a sandbox with a read-only home directory that has never
+run the CLI, it shows no notice and sends nothing, on that run and every later
+one. A home where the notice was already saved keeps sending even when it is
+mounted read-only; turn telemetry off with `VOLCANO_TELEMETRY_DISABLED=1` there.
 
 ## What is collected
 
