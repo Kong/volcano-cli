@@ -507,10 +507,10 @@ class PublishTests(unittest.TestCase):
 class DownloadVerificationTests(unittest.TestCase):
     def test_install_check_pins_only_when_asked(self):
         installs = []
+        version_checks = []
 
         def run(args, env=None, **_kwargs):
-            if env is not None:
-                installs.append(env)
+            (installs if args[0] == "sh" else version_checks).append(env)
             return SimpleNamespace(stdout="volcano v1.2.2 (abc1234, 2026-10-01T00:00:00Z)\n")
         inherited = {"VOLCANO_VERSION": "v9.9.9", "VOLCANO_SKIP_SIGNATURE_VERIFICATION": "1",
                      "VOLCANO_GITHUB_RELEASES_URL": "https://legacy.example/releases"}
@@ -526,6 +526,8 @@ class DownloadVerificationTests(unittest.TestCase):
             self.assertEqual(env["VOLCANO_CLI_RELEASES_URL"], BASE_URL)
             self.assertNotIn("VOLCANO_SKIP_SIGNATURE_VERIFICATION", env)
             self.assertNotIn("VOLCANO_GITHUB_RELEASES_URL", env)
+        for env in installs + version_checks:
+            self.assertEqual(env["VOLCANO_TELEMETRY_DISABLED"], "1")
 
     def test_retries_truncated_cdn_reads(self):
         import io
