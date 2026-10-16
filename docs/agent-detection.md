@@ -10,8 +10,10 @@ was and reports the name to the Volcano API with each request. This tells the
 Volcano team which agents people build with. It never changes what a command
 does, and it is never used to allow or block a request.
 
-The CLI reads environment variables only. It does not read files, inspect other
-processes, or send command arguments.
+Detection reads environment variables only. It does not read files or inspect
+other processes, and the headers below carry no command arguments. The usage
+event sends more, such as resource names and whether the Volcano plugin is
+installed; see [telemetry.md](telemetry.md).
 
 The agent name is also part of the CLI's usage telemetry. The headers below are
 not sent before the first-run telemetry notice, and turning telemetry off stops
