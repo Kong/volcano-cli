@@ -165,11 +165,12 @@ var (
 	keyPattern    = regexp.MustCompile(`\b(?:pk|pt|sk|ak)-[A-Za-z0-9_-]{16,}`)
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
+	emailPattern  = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	// A quoted pair value, or any JSON secret field, also inside a %q-quoted
-	// string, is redacted to the end of the message: quoting and escaping can
-	// nest any number of times, so no pattern can find where the value ends.
-	pairPattern = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:["'\\].*|\S+)`)
+	// A secret pair or JSON secret field is redacted to the end of the message:
+	// quoting and escaping, by the user or by an error formatter such as %q,
+	// can nest any number of times, so no pattern can find where a value ends.
+	pairPattern = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=.*`)
 	jsonPattern = regexp.MustCompile(`(?i)(\\*"[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\\*"\s*:\s*).*`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
@@ -182,6 +183,7 @@ func redact(s string) string {
 	s = keyPattern.ReplaceAllString(s, redacted)
 	s = awsKeyPattern.ReplaceAllString(s, redacted)
 	s = userPattern.ReplaceAllString(s, "${1}"+redacted+"@")
+	s = emailPattern.ReplaceAllString(s, redacted)
 	s = queryPattern.ReplaceAllString(s, "${1}?"+redacted)
 	s = pairPattern.ReplaceAllString(s, "${1}="+redacted)
 	s = jsonPattern.ReplaceAllString(s, "${1}"+redacted)

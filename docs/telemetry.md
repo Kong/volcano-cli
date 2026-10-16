@@ -38,11 +38,10 @@ When a command fails, the event also carries the type of failure (`api`,
 code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
 removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
-access key IDs, passwords in URLs, URL query strings, values of `password=`,
-`token=`, `DB_PASSWORD=`, and similar pairs, JSON fields such as `"token":
-"..."`, and other long opaque strings. When a secret's value is quoted, or is a
-JSON field, everything after it in the message is removed too. It then cuts the
-message to 500 characters.
+access key IDs, passwords in URLs, email addresses, URL query strings, and
+other long opaque strings. After a `password=`, `token=`, `DB_PASSWORD=`, or
+similar pair, or a JSON field such as `"token": "..."`, it removes the rest of
+the message. It then cuts the message to 500 characters.
 
 Some errors can quote your files or data, so the CLI replaces that part with
 `[redacted]`:
@@ -52,6 +51,7 @@ Some errors can quote your files or data, so the CLI replaces that part with
 - a failed database migration, whose PostgreSQL error can quote row values
 - the error a function returns to `volcano functions invoke`, which can hold
   your application's data; only its HTTP status is sent
+- an execution name passed where `volcano durable` expects an execution ID
 
 An error message can contain what you typed, such as an unknown command, a flag
 value the CLI rejected, a file path, or a resource name. Redaction removes the
