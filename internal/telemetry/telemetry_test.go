@@ -21,6 +21,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -375,6 +376,34 @@ func TestRecord_DropsPluginVersionThatIsNotAVersion(t *testing.T) {
 	e := h.lastEvent(t)
 	assert.True(t, e.PluginInstalled)
 	assert.Empty(t, e.PluginVersion)
+}
+
+func TestRecord_LocalCommandSendsNoCloudProject(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "11111111-2222-3333-4444-555555555555", Name: "app"}
+	root := &cobra.Command{Use: "volcano"}
+	functions := &cobra.Command{Use: "functions"}
+	get := &cobra.Command{Use: "get <name-or-id>"}
+	functions.AddCommand(get)
+	root.AddCommand(functions)
+
+	h.recorder().Record(Invocation{Command: get})
+
+	assert.Empty(t, h.lastEvent(t).ProjectID)
+}
+
+func TestRecord_DropsErrorCodeFromSensitiveError(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	err := fmt.Errorf("invoke: %w", sensitive.Wrap(&api.Error{StatusCode: 400, Code: "private_customer_4411", Message: "failed"}))
+
+	h.recorder().Record(Invocation{Err: err, ExitCode: 1})
+
+	e := h.lastEvent(t)
+	assert.Equal(t, 400, e.ErrorStatus)
+	assert.Empty(t, e.ErrorCode)
+	assert.Equal(t, "invoke: [redacted]", e.ErrorMessage)
 }
 
 func TestRecord_AgentRunReportsPluginAndError(t *testing.T) {

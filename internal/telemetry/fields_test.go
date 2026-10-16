@@ -43,6 +43,7 @@ func TestResources(t *testing.T) {
 		{"stops at --", "exec [session-id] -- <command> [args...]", []string{"s1", "--", "env"}, map[string]string{"session-id": "s1"}},
 		{"missing -- sends no positional", "exec [session-id] -- <command> [args...]", []string{"echo hunter2"}, nil},
 		{"resource flag", "invoke [name]", []string{"--function", "hello", "--payload", "{}"}, map[string]string{"function": "hello"}},
+		{"a path is not a name", "invoke [name]", []string{"./src/hello.js"}, nil},
 		{"positional wins over flag", "get <function>", []string{"a", "--function", "b"}, map[string]string{"function": "a"}},
 		{"slice flag value is dropped", "list", []string{"--database", "a,b"}, nil},
 		{"secret-shaped value is dropped", "get <name>", []string{"pk-abcdefghijklmnopqrstuvwx"}, nil},
@@ -99,6 +100,10 @@ func TestRedact(t *testing.T) {
 		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:     `unknown command "DB_PASSWORD=[redacted] for "volcano"`,
 		"PGPASSWORD=a GITHUB_TOKEN=b MY_API_KEY=c":                "PGPASSWORD=[redacted] GITHUB_TOKEN=[redacted] MY_API_KEY=[redacted]",
 		"tokens=5 MAX_TOKENS=100 TOKEN_TTL=60":                    "tokens=5 MAX_TOKENS=100 TOKEN_TTL=60",
+		"run with password='a b' and token=\"c d\" now":           "run with password=[redacted] and token=[redacted] now",
+		`body {"user":"al","password": "a b","apiKey":"c"}`:       `body {"user":"al","password": "[redacted]","apiKey":"[redacted]"}`,
+		`{"tokens": 5, "name": "x"}`:                              `{"tokens": 5, "name": "x"}`,
+		"GET https://example.com?email=a@b.com&key=x failed":      "GET https://example.com?[redacted] failed",
 		"invalid token: signature mismatch":                       "invalid token: signature mismatch",
 	}
 	for in, want := range cases {

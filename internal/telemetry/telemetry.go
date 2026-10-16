@@ -39,6 +39,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/setup"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -342,7 +343,9 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 		DurationMS:   r.Now().Sub(start).Milliseconds(),
 		Resources:    resources(inv.Command),
 	}
-	if r.cfg != nil {
+	// The saved project is the cloud project; local commands run against the
+	// local sandbox's project instead, so only cloud commands report it.
+	if r.cfg != nil && strings.HasPrefix(event.Command+" ", "cloud ") {
 		event.ProjectID = r.cfg.ProjectID()
 	}
 	if event.Flags == nil {
@@ -362,7 +365,11 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 	if inv.Err != nil {
 		event.ErrorKind = errorKind(inv.Err)
 		event.ErrorStatus = api.Status(inv.Err)
-		event.ErrorCode = api.Code(inv.Err)
+		// An error code inside a sensitive error came from the same untrusted
+		// text, such as a function's own response body.
+		if !sensitive.Contains(inv.Err, api.Code) {
+			event.ErrorCode = api.Code(inv.Err)
+		}
 		home, _ := r.HomeDir()
 		event.ErrorMessage = errorMessage(inv.Err, home)
 	}
@@ -450,7 +457,7 @@ func isUsageError(err error) bool {
 }
 
 func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. This helps us improve the CLI.")
+	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. When you are logged in, it is linked to your Volcano account. This helps us improve the CLI.")
 	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 }
 

@@ -31,8 +31,10 @@ var resourceFlags = []string{"bucket", "database", "function", "name", "project"
 // maxResources bounds the resources one event carries.
 const maxResources = 10
 
-// resourceValue is the shape of a resource name or ID the server accepts.
-var resourceValue = regexp.MustCompile(`^[A-Za-z0-9 ._\-/:@]{1,100}$`)
+// resourceValue is the shape of a resource name or ID the CLI sends. It admits
+// no "/" so a path given where a name is expected, such as
+// `functions invoke ./src/hello.js`, is never sent.
+var resourceValue = regexp.MustCompile(`^[A-Za-z0-9 ._\-:@]{1,100}$`)
 
 // resources returns the resource names and IDs cmd was given: each positional
 // argument under a placeholder in resourcePlaceholders, keyed by the
@@ -154,9 +156,10 @@ var (
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
 	keyPattern    = regexp.MustCompile(`\b(?:pk|pt|sk|ak)-[A-Za-z0-9_-]{16,}`)
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
-	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/]*@`)
+	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=\S+`)
+	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"[^"]*"|'[^']*'|\S+)`)
+	jsonPattern   = regexp.MustCompile(`(?i)("[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)"\s*:\s*)"[^"]*"`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
@@ -170,5 +173,6 @@ func redact(s string) string {
 	s = userPattern.ReplaceAllString(s, "${1}"+redacted+"@")
 	s = queryPattern.ReplaceAllString(s, "${1}?"+redacted)
 	s = pairPattern.ReplaceAllString(s, "${1}="+redacted)
+	s = jsonPattern.ReplaceAllString(s, "${1}\""+redacted+"\"")
 	return opaquePattern.ReplaceAllString(s, redacted)
 }
