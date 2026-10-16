@@ -74,8 +74,10 @@ digits, and `._-/@+:` and to 64 characters, and the Volcano API forwards only
 known agent names to analytics and reports any other as `other`. See
 [agent-detection.md](agent-detection.md).
 
-If you are logged in, the event is linked to your Volcano account. Otherwise it
-is linked only to the random machine ID, stored in `~/.volcano/config.json`.
+If you are logged in, the event is linked to your Volcano account. Every event
+also carries a random machine ID, stored in `~/.volcano/config.json`. The ID
+is kept after `volcano logout`, so events sent while logged out can be linked
+to the account last used on that machine.
 
 Shell completion (`volcano completion` and pressing Tab), commands run with
 `--offline`, and `volcano telemetry` commands are never recorded.
