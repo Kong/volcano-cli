@@ -35,9 +35,10 @@ code of an API error, and the error message. Before sending the message, the
 CLI replaces your home directory with `~`, strips terminal color codes, and
 removes bearer tokens, JWTs, Volcano keys (`pk-`, `pt-`, `sk-`, `ak-`), AWS
 access key IDs, passwords in URLs, URL query strings, values of `password=`,
-`token=`, `DB_PASSWORD=`, and similar pairs (quoted or not), JSON fields such as
-`"token": "..."`, and other long opaque strings. It then cuts the message to
-500 characters.
+`token=`, `DB_PASSWORD=`, and similar pairs, JSON fields such as `"token":
+"..."`, and other long opaque strings. When a secret's value is quoted, or is a
+JSON field, everything after it in the message is removed too. It then cuts the
+message to 500 characters.
 
 Some errors can quote your files or data, so the CLI replaces that part with
 `[redacted]`:

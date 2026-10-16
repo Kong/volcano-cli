@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/sensitive"
@@ -49,6 +50,11 @@ func resources(cmd *cobra.Command) map[string]string {
 	add := func(key, value string) {
 		value = strings.TrimSpace(value)
 		if _, ok := found[key]; ok || !resourceValue.MatchString(value) || redact(value) != value {
+			return
+		}
+		// An execution name, which can hold application data, is sometimes
+		// passed where the ID belongs; send only a real ID.
+		if _, err := uuid.Parse(value); key == "execution-id" && err != nil {
 			return
 		}
 		found[key] = value
@@ -158,11 +164,11 @@ var (
 	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\\"(?:[^"\\]|\\\\\\"|\\\\|\\[^"\\])*\\"|\S+)`)
-	// A JSON field, also inside a %q-quoted string where its quotes are
-	// escaped. The value runs to the next unescaped quote, so an escaped
-	// quote inside it, or the rest of an escaped object, is removed too.
-	jsonPattern = regexp.MustCompile(`(?i)(\\*"[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\\*"\s*:\s*\\*")(?:[^"\\]|\\.)*`)
+	// A quoted pair value, or any JSON secret field, also inside a %q-quoted
+	// string, is redacted to the end of the message: quoting and escaping can
+	// nest any number of times, so no pattern can find where the value ends.
+	pairPattern = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=(?:["'\\].*|\S+)`)
+	jsonPattern = regexp.MustCompile(`(?i)(\\*"[A-Za-z0-9_-]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\\*"\s*:\s*).*`)
 	// Long opaque runs. "/" is left out so file paths survive.
 	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
