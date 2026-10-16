@@ -16,7 +16,9 @@ import (
 // resourcePlaceholders are the usage-line placeholders (`get <database>
 // <branch>`) whose positional arguments name or identify a resource. Anything
 // else, such as paths, queries, URLs, or commands run in a sandbox, is never
-// sent.
+// sent. volcano-hosting accepts only these keys and resourceFlags'
+// (isCLIResourceKey in internal/productanalytics/allowlist.go); keep them in
+// step.
 var resourcePlaceholders = map[string]bool{
 	"alias": true, "approval-id": true, "backup": true, "branch": true,
 	"bucket": true, "database": true, "deployment-id": true, "domain": true,
