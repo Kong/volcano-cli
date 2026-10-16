@@ -37,6 +37,8 @@ tags:
     description: Service keys for function invocation and database admin access
   - name: Variables
     description: Environment variable management
+  - name: Variable Environments
+    description: Project-owned variable Environment identity and lifecycle management
   - name: Databases
     description: PostgreSQL database provisioning and management
   - name: Database Branches
@@ -594,7 +596,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxSession'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation.
           content:
             application/json:
               schema:
@@ -635,7 +637,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxExecutionResult'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation.
           content:
             application/json:
               schema:
@@ -751,7 +753,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SandboxSession'
         default:
-          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment.
+          description: Request refused or unavailable. Errors include invalid input (400), unauthenticated (401), forbidden (403), not found (404), conflicting retry (409), capacity exhausted (429), and temporarily unavailable (503). Code `feature_unavailable` with 404 means sandboxes are not available in this environment. Code `sandbox_plan_limit_exceeded` (403) means the requested resources exceed the plan. Code `sandbox_allowance_exhausted` (429) means the remaining allowance or credits cannot admit the operation.
           content:
             application/json:
               schema:
@@ -1839,13 +1841,15 @@ paths:
         Publish a TXT record named `_volcano.<domain>`, then send this request.
         Without the record, the response is `409` with
         `code: ownership_verification_required` and the `required_record` to
-        publish. Its value is the same on every request. The record must be
-        served at that name itself; a record reached through a CNAME does not
-        count.
+        publish. Its value stays the same until Volcano rotates the key it is
+        derived from. The record must be served at that name itself; a record
+        reached through a CNAME does not count.
 
         When another account verified the domain, publishing your record moves
         the domain to your account once that account's record is no longer
-        published. Keep your record published so the domain stays yours.
+        published. Keep your record published so the domain stays yours. After
+        Volcano rotates the key the value is derived from, only a record with
+        the new value counts.
 
         Verifying a domain the account already verified returns `200`.
       operationId: verifyDomain
@@ -4468,6 +4472,178 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /durable-functions/{functionId}/executions/{executionId}/messages:
+    post:
+      tags:
+        - Durable Functions
+      summary: Send a message to a durable execution from an application
+      description: |
+        Sends a named message to a running execution. The workflow receives it
+        from `ctx.waitForMessage` with the same name. A message sent before
+        anything waits for its name is kept, and each wait takes the oldest
+        one, so messages arrive in the order they were sent.
+
+        Messages never decide an approval: a workflow waiting in
+        `ctx.waitForApproval` is not resumed by one.
+
+        **With a service key:** any execution in the project.
+
+        **With an auth user token:** an execution the user started, or one
+        whose `X-Volcano-Client-Token` the request carries, of a durable
+        function whose `visibility` is `authenticated` or `public`.
+
+        **With an anon key:** an execution whose `X-Volcano-Client-Token` the
+        request carries, of a function with `visibility: public`.
+
+        Any other execution answers `404`, as a missing one does.
+
+        Send `Idempotency-Key` to make a retry safe: a repeat with a key the
+        execution has seen returns the first message with `200` and sends
+        nothing.
+      operationId: sendDurableMessageFromApplication
+      security:
+        - AnonKey: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+        - $ref: '#/components/parameters/DurableMessageIdempotencyKey'
+        - $ref: '#/components/parameters/DurableClientToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendDurableMessageRequest'
+      responses:
+        '200':
+          description: A message with this `Idempotency-Key` was already sent; it is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '201':
+          description: |
+            Message sent. `status` is `delivered` when a wait took it at once,
+            and `queued` when it is kept for the next wait.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '400':
+          description: The name, data or idempotency key is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            The function is `authenticated` and the request carries an anon
+            key, or the request's origin is refused by the project's CORS
+            policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Durable function or execution not found, or the credential cannot
+            reach the execution. A `private` function answers every credential
+            but a service key this way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The message cannot be sent. `code` says why:
+
+            - `execution_not_running`: the execution has finished.
+            - `too_many_queued_messages`: the execution already holds the
+              maximum number of messages nothing has taken.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many messages sent to this execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Durable Functions
+      summary: List a durable execution's messages from an application
+      description: |
+        Lists the messages sent to and published by an execution, oldest
+        first. Pass the last `seq` you read as `after` to read only what came
+        next; that is how a client catches up after a live subscription
+        reconnects.
+
+        Access follows the same rules as sending.
+      operationId: listDurableMessagesFromApplication
+      security:
+        - AnonKey: []
+        - ServiceRoleKey: []
+        - AuthUserAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+        - $ref: '#/components/parameters/DurableClientToken'
+        - $ref: '#/components/parameters/DurableMessageDirectionFilter'
+        - $ref: '#/components/parameters/DurableMessageNameFilter'
+        - $ref: '#/components/parameters/DurableMessageAfter'
+        - $ref: '#/components/parameters/DurableMessageLimit'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageList'
+        '400':
+          description: A filter is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing or invalid credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            The function is `authenticated` and the request carries an anon
+            key, or the request's origin is refused by the project's CORS
+            policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Durable function or execution not found, or the credential cannot
+            reach the execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /functions/resolve:
     get:
       tags:
@@ -5799,6 +5975,387 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/executions/{executionId}/messages:
+    post:
+      tags:
+        - Durable Functions
+      summary: Send a message to a durable execution
+      description: |
+        Sends a named message to a running execution, as
+        `POST /durable-functions/{functionId}/executions/{executionId}/messages`
+        does for an application. The workflow receives it from
+        `ctx.waitForMessage` with the same name; until then it is kept, and
+        waits take messages oldest first.
+
+        Project access tokens can send messages, but read-only ones cannot.
+        A message never decides an approval.
+      operationId: sendDurableMessage
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+        - $ref: '#/components/parameters/DurableMessageIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendDurableMessageRequest'
+      responses:
+        '200':
+          description: A message with this `Idempotency-Key` was already sent; it is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '400':
+          description: The name, data or idempotency key is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The message cannot be sent. `code` is `execution_not_running` or
+            `too_many_queued_messages`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many messages sent to this execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Durable Functions
+      summary: List a durable execution's messages
+      description: |
+        Lists the messages sent to and published by an execution, oldest
+        first. Pass the last `seq` you read as `after` to read only what came
+        next.
+
+        Project access tokens can list messages, including read-only ones.
+      operationId: listDurableMessages
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+        - $ref: '#/components/parameters/DurableMessageDirectionFilter'
+        - $ref: '#/components/parameters/DurableMessageNameFilter'
+        - $ref: '#/components/parameters/DurableMessageAfter'
+        - $ref: '#/components/parameters/DurableMessageLimit'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageList'
+        '400':
+          description: A filter is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Durable function or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/durable-functions/{functionId}/executions/{executionId}/message-waits:
+    get:
+      tags:
+        - Durable Functions
+      summary: List a durable execution's open message waits
+      description: |
+        Lists the waits an execution has open in `ctx.waitForMessage`, oldest
+        first, so you can see which message names it is waiting for.
+
+        Project access tokens can list waits, including read-only ones.
+      operationId: listDurableMessageWaits
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DurableFunctionId'
+        - $ref: '#/components/parameters/DurableExecutionId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageWaitList'
+        '404':
+          description: Durable function or execution not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-messages/waits:
+    post:
+      tags:
+        - Durable Functions
+      summary: Wait for a message from inside a workflow
+      description: |
+        Registers a wait for a named message. The Volcano SDK calls this from
+        `ctx.waitForMessage`; applications do not call it directly.
+
+        `execution_ref` and `callback_id` are opaque values the SDK reads from
+        the running workflow. Together they are the request's credential, so
+        the operation takes no other authentication. When a message for the
+        name is already queued, the wait takes the oldest one at once.
+
+        Retrying is safe: a request for a wait that is already registered
+        returns it with `200`.
+      operationId: registerDurableMessageWait
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDurableMessageWaitRequest'
+      responses:
+        '200':
+          description: The wait was already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageWaitRegistration'
+        '201':
+          description: Wait registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageWaitRegistration'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No running durable execution matches `execution_ref`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The wait cannot be registered now. `code` says why:
+
+            - `callback_not_ready`: the workflow has not finished opening the
+              wait yet. Retry with a short backoff; the SDK does.
+            - `callback_closed`: the workflow is no longer waiting on it, or
+              it is an approval's.
+            - `execution_ended`: the execution has finished.
+            - `too_many_message_waits`: the execution already has the maximum
+              number of open waits.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 8 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests from this execution or address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            The wait could not be confirmed with the workflow right now. Retry
+            with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-messages/sessions:
+    post:
+      tags:
+        - Durable Functions
+      summary: Open a messages session from inside a workflow
+      description: |
+        Opens the session a workflow publishes messages with. The Volcano SDK
+        calls this once per workflow context, on its first `ctx.publish`;
+        applications do not call it directly.
+
+        As for a wait, `execution_ref` and `callback_id` are the credential.
+        The session's token is delivered to the workflow itself and never
+        appears in a response.
+
+        Retrying is safe: a request for a session that is already registered
+        returns it with `200`.
+      operationId: openDurableMessageSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenDurableMessageSessionRequest'
+      responses:
+        '200':
+          description: The session was already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageSessionRegistration'
+        '201':
+          description: Session opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessageSessionRegistration'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No running durable execution matches `execution_ref`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The session cannot be opened now. `code` is `callback_not_ready`,
+            `callback_closed`, `execution_ended`, or
+            `too_many_message_sessions`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 8 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests from this execution or address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: |
+            The session could not be confirmed with the workflow right now.
+            Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-messages/publish:
+    post:
+      tags:
+        - Durable Functions
+      summary: Publish a message from inside a workflow
+      description: |
+        Publishes a named message from a running workflow. The Volcano SDK
+        calls this from `ctx.publish`; applications do not call it directly.
+
+        The message is stored, listed with the execution's messages, and
+        delivered live to clients subscribed to the execution. Live delivery
+        counts against the project's Realtime messages.
+
+        The SDK sends an `Idempotency-Key` that a rerun of the publishing step
+        repeats, so a step that runs again returns the first message with
+        `200` and publishes nothing.
+      operationId: publishDurableMessage
+      security: []
+      parameters:
+        - name: X-Volcano-Durable-Session
+          in: header
+          required: true
+          description: The session token the workflow received when its session opened.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - $ref: '#/components/parameters/DurableMessageIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishDurableMessageRequest'
+      responses:
+        '200':
+          description: A message with this `Idempotency-Key` was already published; it is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '201':
+          description: Message published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableMessage'
+        '400':
+          description: The name, data or idempotency key is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The session token is missing or not valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The message cannot be published. `code` is
+            `execution_not_running` or `too_many_published_messages`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /durable-approvals:
     post:
       tags:
@@ -6637,7 +7194,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - ownership not verified, custom domain owned or reserved by another account, already in use, still detaching, or frontend already has a custom domain
+          description: 'Conflict - ownership not verified, custom domain owned or reserved by another account, already in use, still detaching, or frontend already has a custom domain. While a removed domain detaches and Volcano releases it (about a minute for BYOC, a few minutes for managed TLS), adding its hostname to any frontend, or any domain to its frontend, returns `code: custom_domain_releasing` and a `Retry-After` header; send the same request again after that many seconds. A release that will not finish within a few minutes returns the conflict without `code`.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before sending the same request again. Sent only with code `custom_domain_releasing`.
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -7012,6 +7574,262 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Failed to delete Function route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/variable-environments:
+    get:
+      tags:
+        - Variable Environments
+      summary: List variable Environments
+      operationId: listVariableEnvironments
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Variable Environments, with Global first and custom Environments ordered by name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironmentList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list variable Environments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Variable Environments
+      summary: Create a variable Environment
+      operationId: createVariableEnvironment
+      description: Creates a custom variable Environment. Global is reserved and already exists. A Project may have at most 100 custom Environments.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVariableEnvironmentRequest'
+      responses:
+        '201':
+          description: Variable Environment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '400':
+          description: |
+            Invalid name, or the reserved Global name. Schema-invalid names
+            return the generic invalid-request error; a reserved name returns
+            `invalid_variable_environment`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A case-insensitive name conflict or the 100-custom-Environment
+            limit has been reached, or the Project is being deleted. Tell them
+            apart with `code`, which is `variable_environment_conflict`,
+            `variable_environment_limit_reached`, or `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/variable-environments/{environmentId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/VariableEnvironmentId'
+    get:
+      tags:
+        - Variable Environments
+      summary: Get a variable Environment
+      operationId: getVariableEnvironment
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: Variable Environment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Variable Environments
+      summary: Rename a variable Environment
+      operationId: renameVariableEnvironment
+      description: Renames a custom Environment without changing its stable ID. Global cannot be renamed.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameVariableEnvironmentRequest'
+      responses:
+        '200':
+          description: Variable Environment renamed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariableEnvironment'
+        '400':
+          description: |
+            Invalid name, or the reserved Global name. Schema-invalid names
+            return the generic invalid-request error; a reserved name returns
+            `invalid_variable_environment`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A case-insensitive name conflict, an attempt to rename Global, or
+            a Project being deleted. Tell them apart with `code`, which is
+            `variable_environment_conflict`,
+            `variable_environment_immutable`, or `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to rename the variable Environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Variable Environments
+      summary: Delete a variable Environment
+      operationId: deleteVariableEnvironment
+      description: Deletes a custom Environment. Global cannot be deleted.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Variable Environment deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Variable Environment not found in this Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Global is protected, or the Project is being deleted. Tell them
+            apart with `code`, which is `variable_environment_immutable` or
+            `project_deleting`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete the variable Environment
           content:
             application/json:
               schema:
@@ -10317,14 +11135,22 @@ paths:
       summary: Get auth user insights
       description: |
         Returns current and deleted auth-user totals, rolling 24-hour and 30-day
-        active users, and zero-filled signup, deletion, net-growth, and successful
-        sign-in counts for an inclusive UTC date range. Weeks start on Monday.
-        Signups remain counted after deletion; net growth is signups minus
-        deletions. Deleted users contribute to active counts until their last
-        activity leaves the rolling window. Token refreshes affect active users
-        but not the sign-in series. Collection starts at deployment, with signup
-        history backfilled from accounts still present then. Earlier hard-deleted
-        accounts cannot be recovered.
+        active users, and zero-filled daily activity and account-retention counts
+        for an inclusive UTC date range. Weeks start on Monday.
+        The existing deletions series counts accounts by deletion date; net_growth
+        remains signups minus deletions and is not affected by bans.
+        The banned_users, deleted_users, and available_users fields describe the
+        current state of users registered in each bucket. Banned users exclude
+        deleted users and expired bans. Available users are signups minus
+        banned_users minus deleted_users. Unban and expiry restore availability in
+        the original signup bucket. These current-state cohorts can change after
+        the requested dates have passed, without rewriting activity counts.
+        Sign-in counts remain grouped by session creation date. Deleted users
+        contribute to active counts until their last activity leaves the rolling
+        window. Token refreshes affect active users but not the sign-in series.
+        Signup history is backfilled from accounts present when collection was
+        deployed. Accounts hard-deleted before deletion-history collection cannot
+        be recovered. Current bans require no separate event-history collection.
       operationId: getAuthInsights
       security:
         - UserToken: []
@@ -10372,6 +11198,9 @@ paths:
                     signups: 12
                     signins: 97
                     deletions: 3
+                    banned_users: 2
+                    deleted_users: 3
+                    available_users: 7
                     net_growth: 9
                     is_partial: true
         '400':
@@ -15041,6 +15870,14 @@ components:
         type: string
         format: uuid
       description: Frontend deployment ID
+    VariableEnvironmentId:
+      name: environmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Variable Environment ID
     FrontendId:
       name: frontendId
       in: path
@@ -15100,6 +15937,62 @@ components:
         Only approvals requested by this durable function, given by id or by
         name. A name also matches approvals from a deleted function of that
         name.
+    DurableMessageIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Makes a send safe to retry. A repeat with a key the execution has
+        already seen returns the first message and sends nothing. Up to 255
+        characters.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 255
+    DurableClientToken:
+      name: X-Volcano-Client-Token
+      in: header
+      required: false
+      description: |
+        The `client_token` the execution's start returned. Lets an anon key,
+        or a user who did not start the execution, reach it.
+      schema:
+        type: string
+        maxLength: 128
+    DurableMessageDirectionFilter:
+      name: direction
+      in: query
+      required: false
+      description: Return only messages travelling this way.
+      schema:
+        $ref: '#/components/schemas/DurableMessageDirection'
+    DurableMessageNameFilter:
+      name: name
+      in: query
+      required: false
+      description: Return only messages with this name.
+      schema:
+        $ref: '#/components/schemas/DurableMessageName'
+    DurableMessageAfter:
+      name: after
+      in: query
+      required: false
+      description: Return only messages whose `seq` is greater than this.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+        default: 0
+    DurableMessageLimit:
+      name: limit
+      in: query
+      required: false
+      description: Most messages to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
     Limit:
       name: limit
       in: query
@@ -15516,6 +16409,7 @@ components:
           type: string
           format: uuid
         memory_mb:
+          description: Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
           type: integer
           enum:
             - 1024
@@ -15528,7 +16422,7 @@ components:
           type: integer
           minimum: 0
           maximum: 2147483647
-          description: Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
+          description: Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime.
       required:
         - region
       oneOf:
@@ -15573,6 +16467,7 @@ components:
           type: string
           format: uuid
         memory_mb:
+          description: Baseline memory in MiB. Cloud HOBBY supports 1024; SUPERAGENT supports 1024 or 2048. Omission uses the preset or template default; a template requiring more than the plan permits is rejected. Local sessions are exempt from cloud plan limits.
           type: integer
           enum:
             - 1024
@@ -15585,7 +16480,7 @@ components:
           type: integer
           minimum: 0
           maximum: 2147483647
-          description: Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
+          description: Absolute VM lifetime including startup, bounded by environment capacity policy. Inherits the template TTL when omitted (cloud default 3600 seconds; local default 0, unlimited). Cloud HOBBY accepts 30–3600 seconds; SUPERAGENT accepts 30–28800 seconds. Inherited template defaults are clamped to the plan limit; explicit values above it are rejected. Local accepts 0 for unlimited or a positive lifetime. The VM is reclaimed early when the command finishes.
         command:
           type: string
           minLength: 1
@@ -15980,6 +16875,10 @@ components:
           type: integer
           description: Refresh token lifetime in seconds
           default: 2592000
+        refresh_token_reuse_interval:
+          type: integer
+          description: A refresh within this many seconds of the refresh token being issued returns the same refresh token instead of rotating it, so concurrent refreshes from several tabs all succeed
+          default: 10
         inactivity_timeout:
           type: integer
           description: Force re-login after inactivity (seconds, 0=never)
@@ -16028,6 +16927,10 @@ components:
           type: integer
           description: Refreshes per hour per IP
           default: 1000
+        rate_limit_password_reset:
+          type: integer
+          description: Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+          default: 10
         cors_enabled:
           type: boolean
           default: false
@@ -16164,6 +17067,12 @@ components:
             the built-in managed device page. Lets a CLI surface the project's
             own RFC 8628 approval page. Empty falls back to the managed page.
           example: https://app.acme.com/device
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
       required:
         - password_policy
     AuthInsightsInterval:
@@ -16213,6 +17122,21 @@ components:
           format: int64
           minimum: 0
           description: Successful session creations during the bucket.
+        banned_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Users registered in this bucket who are currently banned. Excludes deleted users, lifted bans, expired temporary bans, and internal test identities.
+        deleted_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Users registered in this bucket who are now deleted, counted once across soft and hard deletion. Grouped by signup date, not deletion date.
+        available_users:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Currently available users registered in this bucket (signups minus banned_users minus deleted_users). Unban or expiry restores availability in the original signup bucket. This measures account availability, not return activity.
         deletions:
           type: integer
           format: int64
@@ -16221,7 +17145,7 @@ components:
         net_growth:
           type: integer
           format: int64
-          description: Registrations minus deletions during this bucket. May be negative.
+          description: Registrations minus deletions during this bucket. May be negative. Bans do not affect this value.
         is_partial:
           type: boolean
           description: Whether the requested window or observation time clips this bucket.
@@ -16231,6 +17155,9 @@ components:
         - signins
         - is_partial
         - deletions
+        - banned_users
+        - deleted_users
+        - available_users
         - net_growth
     AuthInsightsSummary:
       type: object
@@ -17142,6 +18069,67 @@ components:
       required:
         - name
         - value
+    VariableEnvironment:
+      type: object
+      description: Stable identity for a Project-owned variable Environment.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+          minLength: 1
+          maxLength: 64
+        is_global:
+          type: boolean
+          description: Whether this is the reserved Global Environment.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - name
+        - is_global
+        - created_at
+        - updated_at
+    VariableEnvironmentList:
+      type: object
+      properties:
+        data:
+          type: array
+          maxItems: 101
+          items:
+            $ref: '#/components/schemas/VariableEnvironment'
+      required:
+        - data
+    CreateVariableEnvironmentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+          pattern: ^[ \t\n\f\r]*[A-Za-z0-9_-]{1,64}[ \t\n\f\r]*$
+      required:
+        - name
+    RenameVariableEnvironmentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: Leading and trailing ASCII whitespace is trimmed before validating 1–64 ASCII letters, digits, underscores, or hyphens. Global is reserved.
+          pattern: ^[ \t\n\f\r]*[A-Za-z0-9_-]{1,64}[ \t\n\f\r]*$
+      required:
+        - name
     Database:
       type: object
       description: |
@@ -18788,6 +19776,10 @@ components:
             Paths on this frontend that forward to a public function, ordered
             from most to least specific. Anyone who can load the frontend can
             reach the target function at these paths without a credential.
+        last_deployed_at:
+          type: string
+          format: date-time
+          description: Recorded completion time of the most recent deploy or redeploy with status active. Omitted when no such deployment has a recorded completion time. Site traffic, pending deployments, degraded deployments, failed deployments, and deletion do not change this value.
         last_invoked_at:
           type: string
           format: date-time
@@ -19097,7 +20089,7 @@ components:
         - type
         - value
     FrontendCustomDomainConflictError:
-      description: 'Domain ownership conflict. With `code: ownership_verification_required`, the account has not proven it owns the domain: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. Other conflicts omit both fields.'
+      description: 'Domain ownership conflict. With `code: ownership_verification_required`, the account has not proven it owns the domain: publish `required_record` in DNS and send the same request again. The retry succeeds once Volcano can see the record. With `code: custom_domain_releasing`, a removed domain still holds the hostname or the frontend while Volcano releases it: send the same request again after the response''s `Retry-After` seconds. A release that will not finish within a few minutes is a plain conflict. Other conflicts omit both fields.'
       allOf:
         - $ref: '#/components/schemas/Error'
         - type: object
@@ -19642,6 +20634,12 @@ components:
           type: string
           format: date-time
           description: Present once the execution has reached a terminal status.
+        client_token:
+          type: string
+          description: |
+            Lets a browser read and send the execution's messages. Returned only
+            by the start that created the execution, never by a repeat under the
+            same name or by a read. Send it as `X-Volcano-Client-Token`.
       required:
         - id
         - function_id
@@ -20449,12 +21447,19 @@ components:
             at times the time it spent running, in megabyte-seconds; the allowance for it is
             published in gigabyte-seconds, which is 1024 of these.
             "Sandbox Running (MiB-Seconds)", "Sandbox Suspended (Seconds)", and
-            "Sandbox Uncertain (MiB-Seconds)" are preview-only usage; they do not
-            debit credits. Running reports configured memory times observed runtime,
-            not measured CPU or elastic memory consumption. Uncertain includes
-            observation gaps and unconfirmed state transitions. Suspended reports
-            duration, not snapshot size. Local sessions do not contribute.
-            Totals are rounded down after aggregating millisecond measurements.
+            "Sandbox Uncertain (MiB-Seconds)" report cloud Sandbox usage. Running
+            reports configured baseline memory times confirmed runtime, not measured
+            CPU or elastic memory consumption. For sessions admitted after the pricing
+            release, confirmed running time consumes the account's runtime allowance;
+            SUPERAGENT overage debits credits according to the account's pricing terms.
+            Suspended time and uncertain usage do not consume runtime allowance or
+            debit credits. Uncertain includes observation gaps and unconfirmed state
+            transitions. Suspended reports duration, not snapshot size; snapshot costs
+            are included in runtime pricing. Local and platform image-validation
+            sessions do not contribute. Existing preview sessions remain unbilled,
+            and preview history is never charged retroactively. Displayed totals are
+            rounded down after aggregating millisecond measurements; billing uses
+            unrounded measurements in the monthly account billing cycle.
             "Database Storage (Bytes)" is a current observed gauge,
             not a cumulative counter. It is the sum of the latest samples exposed as
             `storage_bytes` by the project's database list, so it includes what each
@@ -20937,9 +21942,14 @@ components:
           type: string
           maxLength: 4000
         details:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
           description: |
-            Any JSON value to show the person deciding. The whole request is
-            limited to 64 KiB.
+            Any JSON value to show the person deciding. A number's exponent must
+            be between -324 and 324, and a number too large or too precise to
+            store is refused with `400`. Numbers are read back written out in
+            full, so the exponents' absolute values may total at most 65,536.
+            The whole request is limited to 64 KiB.
       required:
         - execution_ref
         - callback_id
@@ -20971,6 +21981,213 @@ components:
         - limit
         - total
         - has_more
+    DurableMessageName:
+      type: string
+      minLength: 1
+      maxLength: 237
+      pattern: ^[ -~]+$
+      description: |
+        The name a workflow waits on or publishes under: up to 237 printable
+        ASCII characters.
+    DurableMessageDirection:
+      type: string
+      enum:
+        - in
+        - out
+      description: |
+        `in` is a message sent to the execution. `out` is one the execution
+        published.
+    DurableMessage:
+      type: object
+      description: A message sent to, or published by, a durable execution.
+      properties:
+        id:
+          type: string
+          format: uuid
+        execution_id:
+          type: string
+          format: uuid
+        direction:
+          $ref: '#/components/schemas/DurableMessageDirection'
+        seq:
+          type: integer
+          format: int64
+          description: |
+            Orders the execution's messages in both directions. It increases
+            with every message but can skip numbers. Pass the last one you read
+            as `after` to read what came next.
+        name:
+          type: string
+        data:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          nullable: true
+          description: The JSON value sent or published, or null.
+        sender:
+          $ref: '#/components/schemas/DurableMessageSender'
+        status:
+          $ref: '#/components/schemas/DurableMessageStatus'
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the execution received the message. Null until then, and for `out` messages.
+        sent_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - execution_id
+        - direction
+        - seq
+        - name
+        - data
+        - sender
+        - status
+        - delivered_at
+        - sent_at
+    DurableMessageList:
+      type: object
+      properties:
+        data:
+          type: array
+          description: Messages after `after`, oldest first.
+          items:
+            $ref: '#/components/schemas/DurableMessage'
+        has_more:
+          type: boolean
+          description: |
+            Whether more messages follow. Read them with `after` set to the
+            last message's `seq`.
+      required:
+        - data
+        - has_more
+    DurableMessageWait:
+      type: object
+      description: A wait an execution has open for a message.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/DurableMessageWaitStatus'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the wait times out. Null when the workflow set no timeout.
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - status
+        - expires_at
+        - created_at
+    DurableMessageWaitList:
+      type: object
+      properties:
+        data:
+          type: array
+          description: Open waits, oldest first.
+          items:
+            $ref: '#/components/schemas/DurableMessageWait'
+      required:
+        - data
+    SendDurableMessageRequest:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/DurableMessageName'
+        data:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          nullable: true
+          description: Any JSON value, up to 64 KiB. Omitted means null.
+      required:
+        - name
+      additionalProperties: false
+    RegisterDurableMessageWaitRequest:
+      type: object
+      properties:
+        execution_ref:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Opaque reference to the running execution, supplied by the SDK.
+        callback_id:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Opaque wait reference, supplied by the SDK.
+        name:
+          $ref: '#/components/schemas/DurableMessageName'
+      required:
+        - execution_ref
+        - callback_id
+        - name
+      additionalProperties: false
+    DurableMessageWaitRegistration:
+      type: object
+      description: The registered wait, as the waiting workflow sees it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/DurableMessageWaitStatus'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - status
+        - expires_at
+    OpenDurableMessageSessionRequest:
+      type: object
+      properties:
+        execution_ref:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Opaque reference to the running execution, supplied by the SDK.
+        callback_id:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Opaque session reference, supplied by the SDK.
+      required:
+        - execution_ref
+        - callback_id
+      additionalProperties: false
+    DurableMessageSessionRegistration:
+      type: object
+      description: |
+        The registered session. Its token reaches the workflow through the
+        workflow itself, never in this response.
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+        - id
+    PublishDurableMessageRequest:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/DurableMessageName'
+        data:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          nullable: true
+          description: Any JSON value, up to 64 KiB. Omitted means null.
+      required:
+        - name
+      additionalProperties: false
     PaginatedProjectCustomDomains:
       type: object
       properties:
@@ -23082,10 +24299,17 @@ components:
           type: integer
         refresh_token_lifetime:
           type: integer
+        refresh_token_reuse_interval:
+          type: integer
         inactivity_timeout:
           type: integer
         max_session_duration:
           type: integer
+        platform_token_ttl:
+          type: integer
+          description: TTL in seconds for platform tokens minted via `/auth/platform/exchange`. From 3600 (1 hour) to 31536000 (365 days).
+          minimum: 3600
+          maximum: 31536000
         min_password_length:
           type: integer
           minimum: 15
@@ -23110,6 +24334,19 @@ components:
           type: integer
         rate_limit_token_refresh:
           type: integer
+        rate_limit_password_reset:
+          type: integer
+          description: Password reset requests per hour per IP. Unlike the other limits, 0 applies the default of 10 instead of turning the limit off.
+        cors_enabled:
+          type: boolean
+        cors_allowed_origins:
+          type: array
+          description: Replaces the allowed origins list.
+          items:
+            type: string
+          example:
+            - https://myapp.com
+            - http://localhost:3000
         cors_allow_credentials:
           type: boolean
         cors_max_age:
@@ -23752,7 +24989,7 @@ components:
           type: integer
           minimum: 0
           maximum: 2147483647
-          description: Default absolute lifetime for new sessions when the caller omits it. Cloud accepts 30–28800 seconds; local accepts 0 for unlimited or a positive lifetime.
+          description: Default absolute lifetime for new sessions when the caller omits it. Cloud templates accept 30–28800 seconds; inherited lifetimes are clamped to the session plan limit (3600 for HOBBY, 28800 for SUPERAGENT). Local accepts 0 for unlimited or a positive lifetime.
     DatabaseQueryPerformanceDatabase:
       type: object
       properties:
@@ -23882,6 +25119,42 @@ components:
         - elapsed_seconds
         - phases
         - updated_at
+    DurableMessageSender:
+      type: object
+      description: Who sent the message.
+      properties:
+        type:
+          type: string
+          enum:
+            - service_key
+            - user
+            - anon
+            - project
+            - execution
+          description: |
+            The credential the message was sent with. `project` is the
+            project's owner or one of its access tokens, and `execution` is the
+            execution itself publishing.
+        user_id:
+          type: string
+          nullable: true
+          description: The auth user who sent it. Null unless `type` is `user`.
+      required:
+        - type
+        - user_id
+    DurableMessageStatus:
+      type: string
+      enum:
+        - queued
+        - delivering
+        - delivered
+        - dropped
+        - published
+      description: |
+        An `in` message is `queued` until a wait for its name takes it,
+        `delivering` while it is handed over, and `delivered` once the
+        execution has it. It is `dropped` if the execution ended before any
+        wait took it. Every `out` message is `published`.
     LogDeploymentRequestSelector:
       type: object
       description: Deployment log selector for deployable resources.
@@ -24012,6 +25285,19 @@ components:
           description: Deployment stage that produced the log event, when available.
       required:
         - id
+    DurableMessageWaitStatus:
+      type: string
+      enum:
+        - waiting
+        - matched
+        - delivered
+        - expired
+        - cancelled
+      description: |
+        `waiting` until a message for its name arrives, `matched` while that
+        message is handed over, then `delivered`. `expired` means the wait's
+        timeout passed first, and `cancelled` that the execution stopped
+        waiting.
     DurableApprovalFunction:
       type: object
       description: |

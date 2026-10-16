@@ -6,6 +6,7 @@ import (
 
 	approvalscmd "github.com/Kong/volcano-cli/internal/cmd/durable/approvals"
 	executionscmd "github.com/Kong/volcano-cli/internal/cmd/durable/executions"
+	messagescmd "github.com/Kong/volcano-cli/internal/cmd/durable/messages"
 	schedulerscmd "github.com/Kong/volcano-cli/internal/cmd/durable/schedulers"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -41,5 +42,6 @@ collections never accept each other's names or ids.`,
 	cmd.AddCommand(executionscmd.New(deps))
 	cmd.AddCommand(schedulerscmd.New(deps))
 	cmd.AddCommand(approvalscmd.New(deps))
+	cmd.AddCommand(messagescmd.New(deps))
 	return cmd
 }
