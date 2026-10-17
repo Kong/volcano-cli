@@ -77,6 +77,9 @@ type Config struct {
 	// without repeating --repo/--ref/--path flags. Nil means "use the compiled
 	// default source".
 	DocsSource *DocsSourceConfig `json:"docs_source,omitempty"`
+	// Telemetry holds the usage-data settings (see internal/telemetry). Logout
+	// keeps it, so an opt-out survives logging out.
+	Telemetry *TelemetryConfig `json:"telemetry,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
 }
@@ -87,6 +90,16 @@ type DocsSourceConfig struct {
 	Repo string `json:"repo,omitempty"`
 	Ref  string `json:"ref,omitempty"`
 	Path string `json:"path,omitempty"`
+}
+
+// TelemetryConfig persists the usage-data settings.
+type TelemetryConfig struct {
+	// DeviceID is the random ID usage events are linked to when not logged in.
+	DeviceID string `json:"device_id,omitempty"`
+	// Disabled is set by `volcano telemetry disable`.
+	Disabled bool `json:"disabled,omitempty"`
+	// NoticeShown records that the first-run notice was printed.
+	NoticeShown bool `json:"notice_shown,omitempty"`
 }
 
 // ProjectConfig represents the currently selected Volcano project.
@@ -186,18 +199,42 @@ func Update(mutate func(*Config) (bool, error)) error {
 	})
 }
 
+// ClearLogin removes the login and everything tied to the account (the current
+// project and function aliases) from ~/.volcano/config.json, and keeps the
+// settings that belong to the machine (docs source, telemetry). The file is
+// removed when nothing is left in it, or when it cannot be read or parsed, so
+// logout still removes the token from a damaged or unreadable file.
+func ClearLogin() error {
+	return withLock(func() error {
+		cfg, err := load()
+		if err != nil {
+			return remove()
+		}
+		cfg.UserToken = ""
+		cfg.UserID = ""
+		cfg.CurrentProject = nil
+		cfg.FunctionAliases = nil
+		if cfg.DocsSource == nil && cfg.Telemetry == nil {
+			return remove()
+		}
+		return cfg.save()
+	})
+}
+
 // Delete removes ~/.volcano/config.json. A missing file is considered success.
 func Delete() error {
-	return withLock(func() error {
-		configPath, err := Path()
-		if err != nil {
-			return err
-		}
-		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to delete config file: %w", err)
-		}
-		return nil
-	})
+	return withLock(remove)
+}
+
+func remove() error {
+	configPath, err := Path()
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete config file: %w", err)
+	}
+	return nil
 }
 
 func withLock(run func() error) (err error) {

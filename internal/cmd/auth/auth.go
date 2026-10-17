@@ -208,7 +208,8 @@ func NewLogout() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Log out of Volcano",
-		Long: `Log out by deleting local credentials from ~/.volcano/config.json.
+		Long: `Log out by removing local credentials, the current project, and function
+aliases from ~/.volcano/config.json. Other settings, such as telemetry, stay.
 
 This does not revoke the token - to fully revoke access, delete the token in the Volcano dashboard.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -219,8 +220,8 @@ This does not revoke the token - to fully revoke access, delete the token in the
 
 func runLogout(w io.Writer) error {
 	if err := cliauth.NewService(cliruntime.Deps{}).Logout(); err != nil {
-		return fmt.Errorf("failed to delete config: %w", err)
+		return fmt.Errorf("failed to clear credentials: %w", err)
 	}
-	output.Success(w, "Logged out (deleted ~/.volcano/config.json)")
+	output.Success(w, "Logged out (removed credentials from ~/.volcano/config.json)")
 	return nil
 }

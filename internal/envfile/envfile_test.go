@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 func TestLoadDefaultsToNestedFile(t *testing.T) {
@@ -152,4 +154,14 @@ func TestLoadErrorsOnEmptyVariableName(t *testing.T) {
 
 	_, err := Load("volcano.env")
 	require.ErrorContains(t, err, "empty variable name")
+}
+
+func TestLoadMarksParseErrorsSensitive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "volcano.env")
+	require.NoError(t, os.WriteFile(path, []byte("API_KEY=\"hunter2\n"), 0o600))
+
+	_, err := Load(path)
+
+	require.Error(t, err)
+	assert.Contains(t, sensitive.Text(err), "hunter2", "the parser's quoted text is marked sensitive")
 }

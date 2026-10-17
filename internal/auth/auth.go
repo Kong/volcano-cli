@@ -250,9 +250,10 @@ func isLocalAPIURL(apiURL string) bool {
 	return config.IsLoopbackAPIURL(apiURL)
 }
 
-// Logout deletes local authentication state.
+// Logout removes the login, the current project, and function aliases from the
+// local config. Machine settings such as telemetry stay.
 func (s Service) Logout() error {
-	return config.Delete()
+	return config.ClearLogin()
 }
 
 func (s Service) apiURL(cfg *config.Config) string {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // FunctionDeployInput contains one packaged function source archive. A nil
@@ -132,7 +133,11 @@ func (c *Client) InvokeFunction(ctx context.Context, functionID uuid.UUID, input
 	if resp.JSONDefault != nil && resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
 		return resp.JSONDefault, nil
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429, resp.JSON503)
+	// The function's own status and body pass through, so the error text can
+	// carry application data. It still reaches the terminal; usage telemetry
+	// never sends it.
+	result, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON429, resp.JSON503)
+	return result, sensitive.Wrap(err)
 }
 
 // ListFunctionRuntimes returns the function runtime catalog.

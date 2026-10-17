@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,11 +18,19 @@ import (
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/confirm"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/telemetry"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 func main() {
+	// One recorder per process: it reads the telemetry setting once, and both
+	// the agent headers and the usage event follow that read. Agent headers
+	// count as usage data: none before the first-run notice.
+	recorder := &telemetry.Recorder{}
+	api.SetAgentReporting(recorder.Reporting())
+	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
@@ -33,7 +42,29 @@ func main() {
 // (defaults to os.Stderr, same as before this extraction) so tests can
 // redirect it via root.SetErr.
 func run(root *cobra.Command, deps cliruntime.Deps) int {
-	err := root.Execute()
+	start := time.Now()
+	cmd, err := root.ExecuteC()
+	code := finish(root, deps, err)
+	recordTelemetry(telemetry.Invocation{
+		Command:  cmd,
+		Err:      err,
+		ExitCode: code,
+		Start:    start,
+		Stderr:   root.ErrOrStderr(),
+		StdinTTY: confirm.CanPrompt(os.Stdin),
+		Args:     os.Args[1:],
+	})
+	return code
+}
+
+// recordTelemetry records the invocation (see package telemetry). main sets
+// it; tests replace it so they never write the config or start a flush
+// process.
+var recordTelemetry = func(telemetry.Invocation) {}
+
+// finish prints the command's error and any pending API notices, and returns
+// the exit code.
+func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 	stderr := root.ErrOrStderr()
 	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -176,7 +178,7 @@ func TestLoginProjectFlagNeedsAToken(t *testing.T) {
 	require.ErrorContains(t, err, "--project applies to --token login")
 }
 
-func TestLogoutDeletesConfig(t *testing.T) {
+func TestLogoutDeletesConfigWithOnlyCredentials(t *testing.T) {
 	setAuthTestHome(t)
 	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "token"})
 
@@ -188,6 +190,25 @@ func TestLogoutDeletesConfig(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "config exists after logout: %v", err)
+}
+
+func TestLogoutKeepsMachineSettings(t *testing.T) {
+	setAuthTestHome(t)
+	telemetry := &cliconfig.TelemetryConfig{DeviceID: "device", Disabled: true, NoticeShown: true}
+	docs := &cliconfig.DocsSourceConfig{Repo: "Kong/volcano-docs"}
+	saveAuthTestConfig(t, &cliconfig.Config{
+		UserToken:       "token",
+		UserID:          "user",
+		CurrentProject:  &cliconfig.ProjectConfig{ID: "p1", Name: "app"},
+		FunctionAliases: map[string]map[string]string{"scope": {"a": "f1"}},
+		DocsSource:      docs,
+		Telemetry:       telemetry,
+	})
+
+	_, err := executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	assert.Equal(t, &cliconfig.Config{DocsSource: docs, Telemetry: telemetry}, loadAuthTestConfig(t))
 }
 
 func TestSignupUsesGitEmailDefault(t *testing.T) {
@@ -382,4 +403,38 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
+}
+
+func TestLogoutRemovesUnparseableConfig(t *testing.T) {
+	setAuthTestHome(t)
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte(`{"user_token": "token"`), 0o600))
+
+	_, err = executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "a damaged config with a token is removed: %v", err)
+}
+
+func TestLogoutRemovesUnreadableConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes do not block reads on Windows")
+	}
+	setAuthTestHome(t)
+	saveAuthTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(path, 0o000))
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("running as a user that can read any file")
+	}
+
+	_, err = executeAuthCommand(t, NewLogout())
+	require.NoError(t, err)
+
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "an unreadable config with a token is removed: %v", err)
 }
