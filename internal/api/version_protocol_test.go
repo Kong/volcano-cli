@@ -334,7 +334,11 @@ func stubDetectAgent(t *testing.T, a agent.Result) {
 	t.Helper()
 	old := detectAgent
 	detectAgent = func() agent.Result { return a }
-	t.Cleanup(func() { detectAgent = old })
+	SetAgentReporting(true)
+	t.Cleanup(func() {
+		detectAgent = old
+		SetAgentReporting(false)
+	})
 }
 
 func TestVersionProtocolDoer_SetsAgentHeaders(t *testing.T) {
@@ -395,11 +399,30 @@ func TestVersionProtocolDoer_NoAgentSendsNoAgentHeaders(t *testing.T) {
 	}
 }
 
+func TestVersionProtocolDoer_SendsNoAgentHeadersUntilReportingIsOn(t *testing.T) {
+	resetInstructions(t)
+	old := detectAgent
+	detectAgent = func() agent.Result {
+		return agent.Result{Name: "codex", Source: agent.SourceMarker, Markers: []string{"codex"}}
+	}
+	t.Cleanup(func() { detectAgent = old })
+	require.False(t, agentReportingOn.Load(), "agent reporting starts off")
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.NotContains(t, got, headerAgent)
+}
+
 func TestVersionProtocolDoer_AgentReportingOffSendsNoAgentHeaders(t *testing.T) {
 	resetInstructions(t)
 	stubDetectAgent(t, agent.Result{Name: "codex", Source: agent.SourceMarker, Markers: []string{"codex"}})
 	SetAgentReporting(false)
-	t.Cleanup(func() { SetAgentReporting(true) })
 
 	var got http.Header
 	inner := doerFunc(func(req *http.Request) (*http.Response, error) {

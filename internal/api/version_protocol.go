@@ -214,14 +214,14 @@ func isHex(value string) bool {
 // change during a CLI invocation. Tests replace it.
 var detectAgent = sync.OnceValue(func() agent.Result { return agent.Detect(os.LookupEnv) })
 
-// agentReportingOff gates the agent headers (zero value: on). The entry point
-// sets it when the user opted out of telemetry, since the API forwards these
-// headers to product analytics too.
-var agentReportingOff atomic.Bool
+// agentReportingOn gates the agent headers (zero value: off). The entry point
+// turns it on only when telemetry is reporting, since the API forwards these
+// headers to product analytics too; a caller that never sets it sends none.
+var agentReportingOn atomic.Bool
 
 // SetAgentReporting turns the X-Volcano-Agent* request headers on or off for
 // this process.
-func SetAgentReporting(enabled bool) { agentReportingOff.Store(!enabled) }
+func SetAgentReporting(enabled bool) { agentReportingOn.Store(enabled) }
 
 // setAgentHeaders reports the detected agent. It sends nothing when no agent
 // was detected, so a missing header means a person (or an unrecognized
@@ -253,7 +253,7 @@ type versionProtocolDoer struct {
 func (d versionProtocolDoer) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set(headerCLIVersion, reportedCLIVersion())
 	req.Header.Set("User-Agent", userAgent())
-	if !agentReportingOff.Load() {
+	if agentReportingOn.Load() {
 		setAgentHeaders(req.Header, detectAgent())
 	}
 	resp, err := d.next.Do(req)
