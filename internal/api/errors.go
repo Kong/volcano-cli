@@ -22,8 +22,9 @@ type Error struct {
 	Code string
 }
 
-// Status returns the HTTP status code carried by an *Error wrapped in err, or
-// 0 if err is nil or does not wrap an *Error.
+// Status returns the HTTP status code carried by an *Error wrapped in err, 422
+// for a wrapped *ProjectConfigValidationError, or 0 if err is nil or wraps
+// neither.
 func Status(err error) int {
 	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.StatusCode
