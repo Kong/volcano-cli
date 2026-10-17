@@ -70,6 +70,6 @@ Log out at any time:
 volcano logout
 ```
 
-This removes local credentials and the selected project but does not revoke the
-token. Revoke it in the
-Volcano dashboard to fully cut off access.
+This removes local credentials, the selected project, and function aliases,
+but does not revoke the token. Revoke it in the Volcano dashboard to fully cut
+off access.
