@@ -468,10 +468,40 @@ func TestErrorKind(t *testing.T) {
 		{"other", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.Canceled})},
 		{"other", fmt.Errorf("api url: %w", &url.Error{Op: "parse", URL: "http://[::1", Err: errors.New("missing ']' in host")})},
 		{"usage", errors.New(`unknown flag: --nope`)},
+		{"usage", errors.New("at least one of the flags in the group [backup to] is required")},
+		{"usage", errors.New("if any flags in the group [public private] are set none of the others can be; [private public] were all set")},
+		{"usage", errors.New("if any flags in the group [cert key] are set they must all be set; missing [key]")},
 		{"other", errors.New("docker failed")},
 	}
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, errorKind(tc.err), tc.err.Error())
+	}
+}
+
+func TestErrorKind_CobraFlagGroups(t *testing.T) {
+	cases := map[string]func(*cobra.Command){
+		"one required":       func(c *cobra.Command) { c.MarkFlagsOneRequired("a", "b") },
+		"required together":  func(c *cobra.Command) { c.MarkFlagsRequiredTogether("a", "b") },
+		"mutually exclusive": func(c *cobra.Command) { c.MarkFlagsMutuallyExclusive("a", "b") },
+	}
+	args := map[string][]string{
+		"one required":       {"run"},
+		"required together":  {"run", "--a", "x"},
+		"mutually exclusive": {"run", "--a", "x", "--b", "y"},
+	}
+	for name, mark := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := &cobra.Command{Use: "volcano", SilenceErrors: true, SilenceUsage: true}
+			run := &cobra.Command{Use: "run", RunE: func(*cobra.Command, []string) error { return nil }}
+			run.Flags().String("a", "", "")
+			run.Flags().String("b", "", "")
+			mark(run)
+			root.AddCommand(run)
+			root.SetArgs(args[name])
+			err := root.Execute()
+			require.Error(t, err)
+			assert.Equal(t, "usage", errorKind(err), err.Error())
+		})
 	}
 }
 

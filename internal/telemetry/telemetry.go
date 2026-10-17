@@ -461,6 +461,9 @@ func isUsageError(err error) bool {
 		"unknown command", "unknown flag", "unknown shorthand flag",
 		"required flag", "invalid argument", "flag needs an argument",
 		"accepts ", "requires at least", "requires at most", "requires exactly",
+		// Flag groups (MarkFlagsRequiredTogether, MarkFlagsOneRequired,
+		// MarkFlagsMutuallyExclusive).
+		"if any flags in the group", "at least one of the flags in the group",
 	} {
 		if strings.HasPrefix(msg, prefix) {
 			return true
