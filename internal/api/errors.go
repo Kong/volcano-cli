@@ -28,6 +28,9 @@ func Status(err error) int {
 	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.StatusCode
 	}
+	if _, ok := errors.AsType[*ProjectConfigValidationError](err); ok {
+		return http.StatusUnprocessableEntity
+	}
 	return 0
 }
 

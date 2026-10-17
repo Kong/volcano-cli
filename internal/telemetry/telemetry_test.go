@@ -460,6 +460,7 @@ func TestErrorKind(t *testing.T) {
 		err  error
 	}{
 		{"api", &api.Error{StatusCode: 404}},
+		{"api", fmt.Errorf("deploy: %w", &api.ProjectConfigValidationError{})},
 		{"local_not_running", fmt.Errorf("x: %w", cliruntime.ErrLocalNotRunning)},
 		{"network", fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")})},
 		{"network", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.DeadlineExceeded})},
