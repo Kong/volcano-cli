@@ -190,6 +190,9 @@ func run(ctx context.Context, opts options) error {
 	if err := refuseBadLink(opts, wd); err != nil {
 		return err
 	}
+	if err := refuseNameForLink(opts, wd); err != nil {
+		return err
+	}
 
 	// A link connect can't use must not stop it signing in: resolveTarget
 	// decides what to do about it.
@@ -637,6 +640,37 @@ func refuseBadLink(opts options, wd string) error {
 		return nil
 	}
 	return badLinkError(wd, bad)
+}
+
+// refuseNameForLink fails when --name asks for a new project but the
+// directory connect sets up is linked, so connect would keep the linked
+// project and drop --name. Checked before sign-in.
+func refuseNameForLink(opts options, wd string) error {
+	if strings.TrimSpace(opts.name) == "" {
+		return nil
+	}
+	start := wd
+	if opts.dir != "" {
+		dir, err := filepath.Abs(opts.dir)
+		if err != nil {
+			return err
+		}
+		start = dir
+	}
+	// A link that can't be used is one --name replaces, so only a valid one
+	// stops connect.
+	link, _ := config.FindLink(start)
+	if link == nil {
+		return nil
+	}
+	// With a directory argument, a link above it doesn't stop a new project
+	// in it.
+	if opts.dir != "" && link.Dir != start {
+		return nil
+	}
+	return fmt.Errorf("%s is linked to %s, and connect keeps a linked directory's project, so --name would be ignored. "+
+		"Run connect without --name to set it up, or outside the linked directory to create a new project",
+		displayDir(wd, link.Dir), projectLabel(link.Project))
 }
 
 func badLinkError(wd string, bad *config.LinkError) error {

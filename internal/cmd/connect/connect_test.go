@@ -524,6 +524,31 @@ func TestConnectInsideALinkedDirectoryKeepsItsProject(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(dir, "web", "fuji-amber-42"))
 }
 
+// A linked directory keeps its project, so --name would be dropped without a
+// word. connect refuses before it signs in.
+func TestConnectRefusesNameInsideALinkedDirectory(t *testing.T) {
+	for name, args := range map[string][]string{
+		"no directory":       {},
+		"directory argument": {"."},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "blog")}}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			dir := chdirTemp(t)
+			_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "blog"})
+			require.NoError(t, err)
+
+			_, err = runConnectHere(t, server, append(args, "--name", "shop", "--device-code", connectDeviceCode)...)
+			require.ErrorContains(t, err, ". is linked to blog ("+connectProjectID+"), and connect keeps a linked directory's project, "+
+				"so --name would be ignored")
+			assert.Zero(t, fake.polls)
+			assert.Zero(t, fake.creates)
+		})
+	}
+}
+
 const badLink = "<<<<<<< HEAD\n"
 
 // writeBadLink gives dir a project link that can't be parsed and returns its

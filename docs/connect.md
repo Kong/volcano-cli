@@ -86,7 +86,7 @@ volcano connect --json                 # print the result as JSON
 | Flag | Meaning |
 |---|---|
 | `--project` | Use the existing project with this ID instead of creating one |
-| `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name |
+| `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name. Fails in a linked directory, which keeps its project |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
 | `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
 | `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
