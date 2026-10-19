@@ -35,6 +35,7 @@ type Result struct {
 	created     []string
 	unchanged   []string
 	overwritten []string
+	merged      []string
 }
 
 // Created returns paths created by init.
@@ -50,6 +51,11 @@ func (r *Result) Unchanged() []string {
 // Overwritten returns paths replaced because force mode was enabled.
 func (r *Result) Overwritten() []string {
 	return slices.Clone(r.overwritten)
+}
+
+// Merged returns the .gitignore files RunStarterIn added starter lines to.
+func (r *Result) Merged() []string {
+	return slices.Clone(r.merged)
 }
 
 type conflict struct {
@@ -109,6 +115,9 @@ type plan struct {
 	dirSet map[string]struct{}
 	files  []plannedFile
 	result Result
+	// adding is RunStarterIn's mode: existing base scaffold files are kept,
+	// and a .gitignore that differs gets the starter's missing lines.
+	adding bool
 }
 
 // Run creates the Volcano project scaffold in the current directory.
@@ -121,13 +130,13 @@ func RunStarter(starterName string, force bool) (*Result, error) {
 	return run("", starterName, force)
 }
 
-// RunStarterIn is RunStarter in dir instead of the current directory.
-func RunStarterIn(dir, starterName string, force bool) (*Result, error) {
-	return run(dir, starterName, force)
-}
-
-func run(rootDir, starterName string, force bool) (*Result, error) {
-	planned, err := buildPlan(rootDir, starterName, force)
+// RunStarterIn adds the base scaffold and a starter to dir, a directory that
+// may already hold some of it, as one `volcano connect` set up does. Unlike
+// RunStarter, it keeps existing base scaffold files, which belong to the user
+// once created, and appends the starter's missing lines to a .gitignore that
+// differs. Other starter files that differ are conflicts. It never overwrites.
+func RunStarterIn(dir, starterName string) (*Result, error) {
+	planned, err := buildPlan(dir, starterName, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +146,31 @@ func run(rootDir, starterName string, force bool) (*Result, error) {
 	return &planned.result, nil
 }
 
-func buildPlan(rootDir, starterName string, force bool) (*plan, error) {
+// CheckStarterIn returns the error RunStarterIn would return, without
+// changing any file.
+func CheckStarterIn(dir, starterName string) error {
+	_, err := buildPlan(dir, starterName, false, true)
+	return err
+}
+
+func run(rootDir, starterName string, force bool) (*Result, error) {
+	planned, err := buildPlan(rootDir, starterName, force, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := planned.apply(); err != nil {
+		return nil, err
+	}
+	return &planned.result, nil
+}
+
+func buildPlan(rootDir, starterName string, force, adding bool) (*plan, error) {
 	root, err := resolveRootDir(rootDir)
 	if err != nil {
 		return nil, err
 	}
 
-	planned := &plan{root: root, dirSet: make(map[string]struct{})}
+	planned := &plan{root: root, dirSet: make(map[string]struct{}), adding: adding}
 	starterNames := []string{baseStarter}
 	starterName = strings.TrimSpace(starterName)
 	if starterName == "" {
@@ -160,7 +187,7 @@ func buildPlan(rootDir, starterName string, force bool) (*plan, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := planned.walkStarter(starter, force); err != nil {
+		if err := planned.walkStarter(starter, force, starterName == baseStarter); err != nil {
 			return nil, err
 		}
 	}
@@ -240,7 +267,7 @@ func openStarter(name string) (fs.FS, error) {
 	return starter, nil
 }
 
-func (p *plan) walkStarter(starter fs.FS, force bool) error {
+func (p *plan) walkStarter(starter fs.FS, force, base bool) error {
 	var conflicts []conflict
 	err := fs.WalkDir(starter, ".", func(relativePath string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -261,7 +288,7 @@ func (p *plan) walkStarter(starter fs.FS, force bool) error {
 			return nil
 		}
 
-		conflict, hasConflict, err := p.planFile(starter, relativePath, force)
+		conflict, hasConflict, err := p.planFile(starter, relativePath, force, base)
 		if err != nil {
 			return err
 		}
@@ -301,7 +328,7 @@ func (p *plan) planDirectory(relativePath string) (conflict, bool, error) {
 	return conflict{}, false, nil
 }
 
-func (p *plan) planFile(starter fs.FS, relativePath string, force bool) (conflict, bool, error) {
+func (p *plan) planFile(starter fs.FS, relativePath string, force, base bool) (conflict, bool, error) {
 	shouldWrite, err := p.shouldWriteStarterFile(relativePath)
 	if err != nil {
 		return conflict{}, false, err
@@ -328,8 +355,12 @@ func (p *plan) planFile(starter fs.FS, relativePath string, force bool) (conflic
 		if err != nil {
 			return conflict{}, false, fmt.Errorf("failed to read %s: %w", relativePath, err)
 		}
-		if bytes.Equal(current, content) {
+		if bytes.Equal(current, content) || (p.adding && base) {
 			p.result.unchanged = append(p.result.unchanged, relativePath)
+			return conflict{}, false, nil
+		}
+		if p.adding && path.Base(relativePath) == ".gitignore" {
+			p.planGitignoreMerge(relativePath, current, content)
 			return conflict{}, false, nil
 		}
 		if !force {
@@ -347,6 +378,35 @@ func (p *plan) planFile(starter fs.FS, relativePath string, force bool) (conflic
 	p.files = append(p.files, plannedFile{path: relativePath, content: content})
 	p.result.created = append(p.result.created, relativePath)
 	return conflict{}, false, nil
+}
+
+// planGitignoreMerge appends the lines of starter's .gitignore that current
+// lacks. Blank lines and comments are not copied.
+func (p *plan) planGitignoreMerge(relativePath string, current, starter []byte) {
+	present := map[string]bool{}
+	for line := range strings.SplitSeq(string(current), "\n") {
+		present[strings.TrimSpace(line)] = true
+	}
+	var missing []string
+	for line := range strings.SplitSeq(string(starter), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || present[line] {
+			continue
+		}
+		present[line] = true
+		missing = append(missing, line)
+	}
+	if len(missing) == 0 {
+		p.result.unchanged = append(p.result.unchanged, relativePath)
+		return
+	}
+	merged := slices.Clone(bytes.TrimRight(current, "\n"))
+	if len(merged) > 0 {
+		merged = append(merged, "\n\n"...)
+	}
+	merged = append(merged, strings.Join(missing, "\n")+"\n"...)
+	p.files = append(p.files, plannedFile{path: relativePath, content: merged})
+	p.result.merged = append(p.result.merged, relativePath)
 }
 
 func (p *plan) shouldWriteStarterFile(relativePath string) (bool, error) {

@@ -255,6 +255,82 @@ func TestConnectRejectsAnUnknownTemplateBeforeCreatingAProject(t *testing.T) {
 	assert.Zero(t, fake.creates)
 }
 
+// connect's first run wrote a root .gitignore that differs from the starter's.
+// A later --template still adds the starter.
+func TestConnectAddsATemplateToAConnectedDirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "shop")
+
+	_, err := runConnect(t, server, dir)
+	require.NoError(t, err)
+	for range 2 {
+		out, err := runConnect(t, server, dir, "--template", "nextjs")
+		require.NoError(t, err)
+		assert.NotContains(t, out, "Skipped the scaffold")
+	}
+
+	assert.Equal(t, 1, fake.creates)
+	assert.FileExists(t, filepath.Join(dir, "package.json"))
+	assert.FileExists(t, filepath.Join(dir, ".volcano", "source-layout.json"))
+	gitignore := readFile(t, filepath.Join(dir, ".gitignore"))
+	for _, entry := range []string{"node_modules", ".volcano/project.json", "volcano/*.env"} {
+		assert.Equal(t, 1, strings.Count(gitignore, entry+"\n"), gitignore)
+	}
+}
+
+// A --template that can't be added fails before sign-in, instead of
+// connecting without the starter.
+func TestConnectRefusesATemplateThatConflictsBeforeSigningIn(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
+
+	_, err := runConnect(t, server, dir, "--template", "nextjs", "--token", "vbt_one-time")
+	require.ErrorContains(t, err, "can't add the nextjs starter")
+	require.ErrorContains(t, err, "package.json (has different content)")
+	assert.Zero(t, fake.exchanges, "the one-time token is not spent")
+	assert.Zero(t, fake.creates)
+	assert.NoDirExists(t, filepath.Join(dir, ".volcano"))
+}
+
+// --name replaces a link connect can't use with a new project, so the check
+// must come before the project is created.
+func TestConnectWithNameRefusesATemplateThatConflictsBeforeCreatingAProject(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	writeBadLink(t, dir)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
+
+	_, err := runConnectHere(t, server, "--name", "shop", "--template", "nextjs")
+	require.ErrorContains(t, err, "can't add the nextjs starter")
+	assert.Zero(t, fake.creates)
+}
+
+// With --project and no directory argument, the directory is known only once
+// the project is: the check runs then, before anything is linked.
+func TestConnectWithProjectRefusesATemplateThatConflicts(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(chdirTemp(t), "blog")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
+
+	_, err := runConnectHere(t, server, "--project", connectOtherProjectID, "--template", "nextjs")
+	require.ErrorContains(t, err, "can't add the nextjs starter")
+	assert.NoDirExists(t, filepath.Join(dir, ".volcano"))
+}
+
 func TestConnectFindsTheDefaultAnonKeyOnALaterPage(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{

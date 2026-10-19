@@ -251,3 +251,47 @@ func countPath(paths []string, wanted string) int {
 	}
 	return count
 }
+
+// A directory volcano connect set up already has the base scaffold, maybe
+// edited, and a root .gitignore of its own. Adding a starter keeps both.
+func TestRunStarterInKeepsTheBaseScaffoldAndMergesGitignore(t *testing.T) {
+	dir := t.TempDir()
+	_, err := run(dir, "", false)
+	require.NoError(t, err)
+	envPath := filepath.Join(dir, "volcano", "volcano.env")
+	require.NoError(t, os.WriteFile(envPath, []byte("MY_KEY=1\n"), 0o644))
+	gitignorePath := filepath.Join(dir, ".gitignore")
+	require.NoError(t, os.WriteFile(gitignorePath, []byte("dist\nvolcano/*.env\n"), 0o644))
+
+	require.NoError(t, CheckStarterIn(dir, "nextjs"))
+	result, err := RunStarterIn(dir, "nextjs")
+	require.NoError(t, err)
+
+	assert.Contains(t, result.Created(), "package.json")
+	assert.Contains(t, result.Merged(), ".gitignore")
+	assert.FileExists(t, filepath.Join(dir, "web", "app", "page.js"))
+	env, err := os.ReadFile(envPath)
+	require.NoError(t, err)
+	assert.Equal(t, "MY_KEY=1\n", string(env), "an edited base file is kept")
+	gitignore, err := os.ReadFile(gitignorePath)
+	require.NoError(t, err)
+	assert.Equal(t, "dist\nvolcano/*.env\n\nnode_modules\n", string(gitignore))
+
+	// Adding it again changes nothing.
+	result, err = RunStarterIn(dir, "nextjs")
+	require.NoError(t, err)
+	assert.Empty(t, result.Created())
+	assert.Empty(t, result.Merged())
+}
+
+func TestCheckStarterInReportsAConflictAndWritesNothing(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
+
+	err := CheckStarterIn(dir, "nextjs")
+	conflicts, ok := ConflictMessages(err)
+	require.True(t, ok, err)
+	assert.Equal(t, []string{"package.json (has different content)"}, conflicts)
+	assert.NoDirExists(t, filepath.Join(dir, "volcano"))
+	assert.NoDirExists(t, filepath.Join(dir, "web"))
+}

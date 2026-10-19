@@ -99,7 +99,9 @@ connect:
      directory, it keeps the linked project.
   3. Links the directory in .volcano/project.json. Commands run inside the
      directory use this project.
-  4. Creates the volcano/ scaffold if it is missing (or --template's starter).
+  4. Creates the volcano/ scaffold if it is missing, and adds --template's
+     starter. A starter file that differs from one already there stops
+     connect before it changes anything.
   5. Writes the project's API URL and anon key to volcano/cloud.env.
   6. Gitignores the link and the env files, and adds a Volcano section to
      AGENTS.md.
@@ -185,6 +187,12 @@ func run(ctx context.Context, opts options) error {
 	if err := refuseProjectOverride(opts, cfg, wd); err != nil {
 		return err
 	}
+	// The directory is known now unless connect names it after a project.
+	if dir := knownTarget(opts, wd); dir != "" {
+		if err := checkStarter(dir, starter); err != nil {
+			return err
+		}
+	}
 	if err := ensureSession(ctx, opts, sessions); err != nil {
 		return err
 	}
@@ -208,6 +216,11 @@ func run(ctx context.Context, opts options) error {
 	} else {
 		output.Success(opts.log, "Using project %s (%s)", project.Name, project.Id)
 	}
+	// Checked again for the directory named after the project, before the
+	// link or any file changes.
+	if err := checkStarter(dir, starter); err != nil {
+		return err
+	}
 	if err := waitUntilActive(ctx, authenticated.API, project); err != nil {
 		return err
 	}
@@ -218,7 +231,9 @@ func run(ctx context.Context, opts options) error {
 	}
 	output.Success(opts.log, "Linked %s", relPath(dir, link.Path()))
 
-	scaffold(opts.log, dir, starter)
+	if err := scaffold(opts, dir, starter); err != nil {
+		return err
+	}
 
 	anonKey, err := cliproject.DefaultAnonKey(ctx, authenticated.API, project.Id)
 	if err != nil {
@@ -727,25 +742,85 @@ func waitUntilActive(ctx context.Context, client *api.Client, project *apiclient
 	return nil
 }
 
-// scaffold creates the volcano/ scaffold when it is missing, or the starter
-// --template names. A rerun leaves an existing scaffold alone: init treats
-// files the user changed as conflicts.
-func scaffold(log io.Writer, dir, starter string) {
+// scaffold creates the volcano/ scaffold when it is missing, and adds the
+// starter --template names. A rerun without --template leaves an existing
+// scaffold alone. Base scaffold files that exist are kept either way, and the
+// starter's .gitignore lines are merged into one connect wrote; see
+// projectinit.RunStarterIn.
+//
+// A failed --template fails connect, which checkStarter makes happen before
+// any change. The base scaffold is a convenience, so a failure is a warning.
+func scaffold(opts options, dir, starter string) error {
 	if starter == "" && exists(filepath.Join(dir, "volcano")) {
-		return
+		return nil
 	}
-	result, err := projectinit.RunStarterIn(dir, starter, false)
+	result, err := projectinit.RunStarterIn(dir, starter)
+	if err != nil && starter != "" {
+		return starterError(dir, starter, err)
+	}
 	if err != nil {
 		if conflicts, ok := projectinit.ConflictMessages(err); ok {
-			output.Warning(log, "Skipped the scaffold: %s. Run `volcano init` to see the conflicts.", strings.Join(conflicts, "; "))
-			return
+			output.Warning(opts.log, "Skipped the scaffold: %s. Run `volcano init` to see the conflicts.", strings.Join(conflicts, "; "))
+			return nil
 		}
-		output.Warning(log, "Skipped the scaffold: %v", err)
-		return
+		output.Warning(opts.log, "Skipped the scaffold: %v", err)
+		return nil
 	}
 	if created := result.Created(); len(created) > 0 {
-		output.Success(log, "Created the scaffold (%d files)", len(created))
+		output.Success(opts.log, "Created the scaffold (%d files)", len(created))
 	}
+	return nil
+}
+
+// checkStarter fails when --template's starter can't be added to dir, before
+// connect changes anything there. A directory that doesn't exist yet can't
+// conflict.
+func checkStarter(dir, starter string) error {
+	if starter == "" || !exists(dir) {
+		return nil
+	}
+	if err := projectinit.CheckStarterIn(dir, starter); err != nil {
+		return starterError(dir, starter, err)
+	}
+	return nil
+}
+
+func starterError(dir, starter string, err error) error {
+	conflicts, ok := projectinit.ConflictMessages(err)
+	if !ok {
+		return fmt.Errorf("can't add the %s starter to %s: %w", starter, dir, err)
+	}
+	return fmt.Errorf("can't add the %s starter to %s, because these files differ from it: %s. "+
+		"Run connect without --template to keep them, or move them and try again",
+		starter, dir, strings.Join(conflicts, "; "))
+}
+
+// knownTarget is the directory connect will set up when it is known before
+// sign-in: the directory argument, or the linked directory around the working
+// directory that connect keeps. It is "" when connect names the directory
+// after a project.
+func knownTarget(opts options, wd string) string {
+	if opts.dir != "" {
+		dir, err := filepath.Abs(opts.dir)
+		if err != nil {
+			return ""
+		}
+		return dir
+	}
+	link, err := config.FindLink(wd)
+	if bad, ok := errors.AsType[*config.LinkError](err); ok && strings.TrimSpace(opts.project) == "" {
+		// resolveTarget sets up the directory that holds a link it can't use.
+		return bad.Dir
+	}
+	if link == nil {
+		return ""
+	}
+	if raw := strings.TrimSpace(opts.project); raw != "" {
+		if id, err := uuid.Parse(raw); err != nil || id.String() != link.Project.ID {
+			return ""
+		}
+	}
+	return link.Dir
 }
 
 // installSkills installs the Volcano skills for every coding agent detected on
