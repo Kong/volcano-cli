@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -139,6 +140,21 @@ func TestLoginWithProjectTokenNamesWhereAnUnmentionedProjectCameFrom(t *testing.
 	require.ErrorContains(t, err, "token is not valid for project "+authAlphaProjectID)
 	require.ErrorContains(t, err, "taken from the project 'volcano use' last selected")
 	require.ErrorContains(t, err, "pass --project")
+}
+
+func TestLoginWithProjectTokenNamesTheLinkAsTheProjectSource(t *testing.T) {
+	cfg := testAuthConfig(t)
+	cfg.CurrentProject = &config.ProjectConfig{ID: "22222222-2222-4222-8222-222222222222", Name: "Beta"}
+	cfg.Link = &config.Link{Dir: "/work/app", Project: config.ProjectConfig{ID: authAlphaProjectID, Name: "Alpha"}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAuthJSON(t, w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+	}))
+	defer server.Close()
+
+	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
+	require.ErrorContains(t, err, "token is not valid for project "+authAlphaProjectID)
+	require.ErrorContains(t, err, "taken from this directory's project link, "+filepath.Join("/work/app", ".volcano", "project.json"))
 }
 
 func TestLoginWithProjectTokenNamesTheEnvironmentProject(t *testing.T) {

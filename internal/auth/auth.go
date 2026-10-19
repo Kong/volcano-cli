@@ -166,6 +166,9 @@ func unnamedProject(cfg *config.Config) (string, projectOrigin) {
 	if fromEnv := strings.TrimSpace(cfg.ProjectIDFromEnv()); fromEnv != "" {
 		return fromEnv, projectFromEnvironment
 	}
+	if cfg.Link != nil {
+		return strings.TrimSpace(cfg.Link.Project.ID), projectOrigin("this directory's project link, " + cfg.Link.Path())
+	}
 	return strings.TrimSpace(cfg.ProjectID()), projectFromSelection
 }
 
