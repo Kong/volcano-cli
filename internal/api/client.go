@@ -49,7 +49,6 @@ type Client struct {
 	client           *apiclient.ClientWithResponses
 	baseURL          string
 	token            string
-	httpClient       apiclient.HttpRequestDoer
 	streamHTTPClient apiclient.HttpRequestDoer
 	// deployClient sends function source uploads, which can outlast defaultTimeout.
 	deployClient *apiclient.ClientWithResponses
@@ -96,7 +95,6 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 		client:           generated,
 		baseURL:          baseURL,
 		token:            token,
-		httpClient:       wrapDoer(apiURL, cfg.httpClient),
 		streamHTTPClient: wrapDoer(apiURL, cfg.streamHTTPClient),
 		deployClient:     deployGenerated,
 	}, nil
