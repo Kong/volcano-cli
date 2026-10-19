@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -89,6 +90,10 @@ func resetInstructions(t *testing.T) {
 	t.Helper()
 	api.ResetLastInstructionsForTest()
 	t.Cleanup(api.ResetLastInstructionsForTest)
+	// A use of VOLCANO_PROJECT_ID is process-global state too: an earlier test
+	// that read the variable would add the deprecation warning to this one.
+	cliconfig.ConsumeProjectEnvUse()
+	t.Cleanup(func() { cliconfig.ConsumeProjectEnvUse() })
 }
 
 // withInstructions drives api.LastInstructions() through a real api.Client
@@ -684,3 +689,125 @@ func (t *mainTestTicker) C() <-chan time.Time { return t.ch }
 func (t *mainTestTicker) Stop()               {}
 func (t *mainTestTicker) Reset(time.Duration) {}
 func (t *mainTestTicker) tick()               { t.ch <- time.Now() }
+
+// envProjectDeps is runDeps with the environment honored, so
+// VOLCANO_PROJECT_ID reaches the command.
+func envProjectDeps(server *httptest.Server) cliruntime.Deps {
+	return cliruntime.Deps{
+		HTTPClient: server.Client(),
+		ConfigLoader: func() (*cliconfig.Config, error) {
+			return &cliconfig.Config{APIBaseURL: server.URL, UserToken: "test-token"}, nil
+		},
+	}
+}
+
+// VOLCANO_PROJECT_ID is deprecated but still chooses the project. The command
+// reads it more than once, and warns once.
+func TestRun_WarnsOnceWhenVolcanoProjectIDChoosesTheProject(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	var path string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	deps := envProjectDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "keys", "anon", "list"})
+
+	code := run(root, deps)
+
+	assert.Equal(t, 0, code, stderr.String())
+	assert.Equal(t, "/projects/"+mainTestProjectAlpha+"/anon-keys", path, "the variable still chooses the project")
+	assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation+"\n", stderr.String())
+	assert.NotContains(t, stdout.String(), "VOLCANO_PROJECT_ID")
+}
+
+// The warning goes to stderr, so --json output on stdout stays parseable, and
+// a failed command still prints its error first.
+func TestRun_VolcanoProjectIDWarningKeepsStdoutAndTheErrorFirst(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err      error
+		wantCode int
+	}{
+		"success": {wantCode: 0},
+		"failure": {err: errors.New("boom"), wantCode: exitFailure},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resetInstructions(t)
+			t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+			root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(cmd *cobra.Command, _ []string) error {
+				cfg := &cliconfig.Config{}
+				fmt.Fprintf(cmd.OutOrStdout(), "{\"project\":%q}\n", cfg.ProjectID())
+				return tc.err
+			}}
+			root.SetArgs(nil)
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+
+			assert.Equal(t, tc.wantCode, run(root, cliruntime.Deps{}))
+
+			var decoded map[string]string
+			require.NoError(t, json.Unmarshal(stdout.Bytes(), &decoded))
+			assert.Equal(t, mainTestProjectAlpha, decoded["project"])
+			lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+			if tc.err != nil {
+				require.Len(t, lines, 2, stderr.String())
+				assert.Equal(t, "Error: boom", lines[0])
+			}
+			assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation, lines[len(lines)-1])
+		})
+	}
+}
+
+// A command that never needs a project doesn't read the variable, so it
+// doesn't warn about it.
+func TestRun_NoVolcanoProjectIDWarningWhenNoProjectIsNeeded(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	defer server.Close()
+
+	deps := envProjectDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "list"})
+
+	assert.Equal(t, 0, run(root, deps))
+	assert.Empty(t, stderr.String())
+}
+
+// The 403 hint looks up the selected project after the command failed. A
+// command that named its project as an argument never used the variable, and
+// that lookup must not make it warn.
+func TestRun_NoVolcanoProjectIDWarningFromTheRefusalHint(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped", mainTestProjectBeta)
+	root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+		return &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}
+	}}
+	root.SetArgs(nil)
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+
+	assert.Equal(t, exitPermissionDenied, run(root, cliruntime.Deps{}))
+	assert.Contains(t, stderr.String(), mainTestProjectBeta, "the hint ran")
+	assert.NotContains(t, stderr.String(), cliconfig.ProjectEnvDeprecation)
+}

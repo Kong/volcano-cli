@@ -19,6 +19,7 @@ import (
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/output"
 	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
@@ -54,8 +55,12 @@ func main() {
 func run(root *cobra.Command, deps cliruntime.Deps) int {
 	err := root.Execute()
 	stderr := root.ErrOrStderr()
+	// Read before printError: its 403 hint looks up the selected project, which
+	// would record a use of VOLCANO_PROJECT_ID the command never made.
+	projectEnvUsed := config.ConsumeProjectEnvUse()
 	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return commandExit.ExitCode()
 	}
 
@@ -65,6 +70,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// target when the API provided one, and stop — printing the
 		// suggestion/deprecation notice below too would repeat ourselves.
 		printDeprecationError(stderr, err, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return 1
 	}
 
@@ -77,6 +83,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return exitCode(err)
 	}
 
@@ -86,7 +93,17 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	// through. Reads only in-process state (api.LastInstructions); adds no
 	// network call.
 	upgradecmd.PrintAPIInstructionNotices(root, deps)
+	printProjectEnvDeprecation(stderr, projectEnvUsed)
 	return 0
+}
+
+// printProjectEnvDeprecation warns, once per run, that the deprecated
+// VOLCANO_PROJECT_ID chose the project, when used says it did. It goes to
+// stderr so --json output on stdout stays valid.
+func printProjectEnvDeprecation(w io.Writer, used bool) {
+	if used {
+		output.Warning(w, "%s", config.ProjectEnvDeprecation)
+	}
 }
 
 // exitCode maps a command error to one of the documented exit codes.

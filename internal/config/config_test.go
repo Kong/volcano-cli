@@ -488,6 +488,26 @@ func TestProjectIDTrimsTheEnvironmentValue(t *testing.T) {
 	assert.Equal(t, "22222222-2222-4222-8222-222222222222", cfg.ProjectID())
 }
 
+// VOLCANO_PROJECT_ID is deprecated. A read that returns it is recorded so the
+// CLI can warn; an empty value, or a config that ignores the environment,
+// is not a use.
+func TestProjectIDFromEnvRecordsAUse(t *testing.T) {
+	ConsumeProjectEnvUse()
+	t.Cleanup(func() { ConsumeProjectEnvUse() })
+
+	t.Setenv(envProjectID, " \n")
+	(&Config{}).ProjectIDFromEnv()
+	assert.False(t, ConsumeProjectEnvUse(), "a blank value is not a use")
+
+	t.Setenv(envProjectID, "22222222-2222-4222-8222-222222222222")
+	(&Config{IgnoreEnv: true}).ProjectID()
+	assert.False(t, ConsumeProjectEnvUse(), "a config that ignores the environment doesn't read it")
+
+	(&Config{}).ProjectID()
+	assert.True(t, ConsumeProjectEnvUse())
+	assert.False(t, ConsumeProjectEnvUse(), "consuming clears the record")
+}
+
 func TestIsProjectToken(t *testing.T) {
 	for token, want := range map[string]bool{
 		ProjectTokenPrefix + "abc":       true,

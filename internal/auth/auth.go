@@ -56,7 +56,7 @@ type projectOrigin string
 const (
 	// projectNamed is --project, which the user typed and does not need naming.
 	projectNamed projectOrigin = ""
-	// projectFromEnvironment is VOLCANO_PROJECT_ID.
+	// projectFromEnvironment is VOLCANO_PROJECT_ID, which is deprecated.
 	projectFromEnvironment projectOrigin = "VOLCANO_PROJECT_ID"
 	// projectFromSelection is the project a previous `volcano use` saved, which
 	// belongs to whatever credential was logged in before this one.
@@ -114,7 +114,7 @@ func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, 
 		project, origin = unnamedProject(cfg)
 		if project == "" {
 			return Credentials{}, fmt.Errorf("a project access token (%s) is scoped to one project: pass --project <project-id> "+
-				"with the project it was minted in, or set VOLCANO_PROJECT_ID", config.ProjectTokenPrefix)
+				"with the project it was minted in", config.ProjectTokenPrefix)
 		}
 	}
 	if project == "" {

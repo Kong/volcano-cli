@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gofrs/flock"
 )
@@ -43,12 +44,12 @@ var (
 	// ErrNotAuthenticated indicates no token is configured for cloud API calls.
 	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first, or 'volcano signup' if you're new to Volcano")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
-	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID. " +
+	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>'. " +
 		"To create a project and link this directory to it, run 'volcano connect .'")
 	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
 	// access token, which cannot look a project up by name.
 	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
-		") is scoped to one project: set VOLCANO_PROJECT_ID to that project's ID, or run 'volcano use <project-id>'")
+		") is scoped to one project: run 'volcano use <project-id>' with that project's ID")
 	// ErrAccountTokenRequired indicates a command needs account-wide access but
 	// the configured credential only reaches a single project.
 	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
@@ -328,14 +329,36 @@ func (c *Config) Project() *ProjectConfig {
 // previous 'volcano use' saved. Callers that have to tell the two apart — a
 // failure that names the project it ran against — need the distinction.
 //
-// Trimmed for the same reason as Token: this is the documented CI path, where
-// the value is as likely to arrive with a trailing newline, and untrimmed it
+// Trimmed for the same reason as Token: CI sets it the same way, where the
+// value is as likely to arrive with a trailing newline, and untrimmed it
 // failed UUID parsing as "invalid UUID length: 37".
+//
+// The variable is deprecated. A non-empty value is recorded so the CLI can
+// warn once, after the command, that it was used; see ConsumeProjectEnvUse.
 func (c *Config) ProjectIDFromEnv() string {
 	if c.IgnoreEnv {
 		return ""
 	}
-	return strings.TrimSpace(os.Getenv(envProjectID))
+	projectID := strings.TrimSpace(os.Getenv(envProjectID))
+	if projectID != "" {
+		projectEnvUsed.Store(true)
+	}
+	return projectID
+}
+
+// ProjectEnvDeprecation is the warning printed when VOLCANO_PROJECT_ID chose
+// the project a command ran against.
+const ProjectEnvDeprecation = "VOLCANO_PROJECT_ID is deprecated and will be removed in a future release. " +
+	"Run 'volcano use <project-id>' to select the project instead, or 'volcano login --token <token> --project <project-id>' in CI."
+
+// projectEnvUsed records that VOLCANO_PROJECT_ID was read for a project in
+// this process.
+var projectEnvUsed atomic.Bool
+
+// ConsumeProjectEnvUse reports whether VOLCANO_PROJECT_ID was read for a
+// project since the last call, and clears the record.
+func ConsumeProjectEnvUse() bool {
+	return projectEnvUsed.Swap(false)
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
