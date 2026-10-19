@@ -2,6 +2,7 @@ package connectcmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -56,6 +58,9 @@ type fakeAPI struct {
 	// anonKeyPages, when set, replace the default anon-key list, one entry per
 	// page.
 	anonKeyPages [][]any
+	// createdStatus, when set, is the status of the projects POST /projects
+	// creates, instead of active.
+	createdStatus string
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +107,9 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		project := connectProjectPayload(connectProjectID, body.Name)
+		if f.createdStatus != "" {
+			project["status"] = f.createdStatus
+		}
 		f.projects = append(f.projects, project)
 		writeConnectJSON(f.t, w, http.StatusCreated, project)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/anon-keys") && f.anonKeyPages != nil:
@@ -679,6 +687,64 @@ func TestConnectLeavesNoDirectoryWhenTheProjectIsNotCreated(t *testing.T) {
 	_, err := runConnect(t, server, dir)
 	require.ErrorContains(t, err, "project limit exceeded")
 	assert.NoDirExists(t, dir)
+}
+
+// A directory connect can't create would otherwise fail only after the
+// project was created, and after the device code was spent.
+func TestConnectRefusesADirectoryUnderAFileBeforeSigningIn(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := filepath.Join(t.TempDir(), "parent")
+	require.NoError(t, os.WriteFile(parent, []byte("x"), 0o644))
+
+	_, err := runConnect(t, server, filepath.Join(parent, "app"), "--name", "app", "--device-code", connectDeviceCode)
+	require.ErrorContains(t, err, parent+" is not a directory")
+	assert.Zero(t, fake.polls)
+	assert.Zero(t, fake.creates)
+}
+
+func TestConnectNamesTheCreatedProjectWhenItsDirectoryCantBeCreated(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a directory the test can't write to")
+	}
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	readOnly := filepath.Join(t.TempDir(), "read-only")
+	require.NoError(t, os.Mkdir(readOnly, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(readOnly, 0o755) })
+	dir := filepath.Join(readOnly, "my-app")
+
+	_, err := runConnect(t, server, dir)
+	require.ErrorContains(t, err, "failed to create "+dir)
+	require.ErrorContains(t, err, "Created project my-app ("+connectProjectID+"), but did not link it. "+
+		"To set it up, run: volcano connect "+dir+" --project "+connectProjectID)
+	assert.Equal(t, 1, fake.creates)
+}
+
+// A stopped wait leaves a created project with no link, so a rerun of the same
+// command would create another.
+func TestConnectNamesTheCreatedProjectWhenTheWaitStops(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, createdStatus: "provisioning"}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "my-app")
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetArgs([]string{dir, "--skip-skills"})
+	err := cmd.ExecuteContext(ctx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "To set it up, run: volcano connect "+dir+" --project "+connectProjectID)
+	assert.Equal(t, 1, fake.creates)
 }
 
 // The dashboard approved the code before the user pasted the prompt, so

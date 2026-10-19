@@ -180,6 +180,11 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
+	// A directory that can't be created would fail only after the project
+	// was created.
+	if err := checkTargetPath(opts); err != nil {
+		return err
+	}
 	// Checked before sign-in too: a device code spent on a run that then
 	// stops at the link can't be used again.
 	if err := refuseBadLink(opts, wd); err != nil {
@@ -225,6 +230,9 @@ func run(ctx context.Context, opts options) error {
 		return err
 	}
 	if err := waitUntilActive(ctx, authenticated.API, project); err != nil {
+		if created && project.Status != apiclient.ProjectStatusFailed && project.Status != apiclient.ProjectStatusDeleting {
+			return createdProjectError(opts, wd, dir, project, err)
+		}
 		return err
 	}
 
@@ -415,9 +423,6 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		if err != nil {
 			return "", nil, false, err
 		}
-		if info, err := os.Stat(dir); err == nil && !info.IsDir() {
-			return "", nil, false, fmt.Errorf("%s is not a directory", dir)
-		}
 		var project *apiclient.Project
 		created := false
 		if strings.TrimSpace(opts.project) != "" {
@@ -433,7 +438,13 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		}
 		// Created only now, so a failed project lookup or create leaves no
 		// empty directory behind.
-		return dir, project, created, makeDir(dir)
+		if err := makeDir(dir); err != nil {
+			if created {
+				return "", nil, false, createdProjectError(opts, wd, dir, project, err)
+			}
+			return "", nil, false, err
+		}
+		return dir, project, created, nil
 	}
 
 	if strings.TrimSpace(opts.project) != "" {
@@ -481,7 +492,10 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		return "", nil, false, err
 	}
 	dir := filepath.Join(wd, dirName(project.Name))
-	return dir, project, true, makeDir(dir)
+	if err := makeDir(dir); err != nil {
+		return "", nil, false, createdProjectError(opts, wd, dir, project, err)
+	}
+	return dir, project, true, nil
 }
 
 func makeDir(dir string) error {
@@ -489,6 +503,43 @@ func makeDir(dir string) error {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 	return nil
+}
+
+// checkTargetPath fails when the directory argument, or the nearest of its
+// parents that exists, is not a directory, so connect can't create it.
+func checkTargetPath(opts options) error {
+	if opts.dir == "" {
+		return nil
+	}
+	dir, err := filepath.Abs(opts.dir)
+	if err != nil {
+		return err
+	}
+	for path := dir; ; {
+		info, err := os.Stat(path)
+		if err == nil {
+			if info.IsDir() {
+				return nil
+			}
+			if path == dir {
+				return fmt.Errorf("%s is not a directory", dir)
+			}
+			return fmt.Errorf("can't create %s: %s is not a directory", dir, path)
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return nil
+		}
+		path = parent
+	}
+}
+
+// createdProjectError is err, a failure after connect created project and
+// before it linked dir, with the command that sets the project up, so a rerun
+// doesn't create another.
+func createdProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
+	return fmt.Errorf("%w\nCreated project %s (%s), but did not link it. To set it up, run: %s", err,
+		project.Name, project.Id, cliruntime.CommandPath(opts.deps, "connect "+displayDir(wd, dir)+" --project "+project.Id.String()))
 }
 
 // existingProject is the project --project names. It takes an ID only.
