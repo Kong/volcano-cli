@@ -127,7 +127,8 @@ in the current directory and its parents, up to the repository root.
 
 The project a command uses comes from, in order:
 
-1. `VOLCANO_PROJECT_ID`
+1. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
+   release. A command that uses it prints a warning on stderr.
 2. The directory's link
 3. The project `volcano use` saved
 
@@ -140,10 +141,12 @@ variable names. Unset it, or set it to the new project's ID, and run
 
 `volcano login --token <token> --project <project>` run inside a linked
 directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
-check. `volcano connect` checks it too, before it signs in or creates a
-project: when `VOLCANO_PROJECT_ID` is set, it only links the project the
-variable names, with `--project` or through an existing link. If the link named another project, it warns and prints the command that
+check. If the link named another project, it warns and prints the command that
 links it back.
+
+`volcano connect` fails when `VOLCANO_PROJECT_ID` is set, whatever project it
+names, before it signs in or changes anything, and exits `1`. Unset it, and
+pass `--project <project-id>` to set up an existing project.
 
 If the linked directory already has a `volcano/cloud.env` with an anon key,
 `volcano use` and `volcano login --project` also rewrite the values `connect`

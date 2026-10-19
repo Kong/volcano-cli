@@ -45,7 +45,7 @@ whether that recording still works.
 
 A project with nothing connected is not an error: it says so and exits 0, so the
 command is usable in a conditional. A project that does not exist — a deleted
-one, or a `VOLCANO_PROJECT_ID` naming nothing — is an error, and is reported as
+one, or a deprecated `VOLCANO_PROJECT_ID` naming nothing — is an error, and is reported as
 one rather than as an unbound project.
 
 ## Connecting

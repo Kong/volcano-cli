@@ -66,10 +66,14 @@ list projects, tell the CLI which project it belongs to, by ID:
 ```bash
 volcano login --token pt-xxxxxxxxxx --project <project-id>
 
-# Or, without logging in
+# Or keep the token in VOLCANO_TOKEN and save only the project
 export VOLCANO_TOKEN=pt-xxxxxxxxxx
-export VOLCANO_PROJECT_ID=<project-id>
+volcano use <project-id>
 ```
+
+`VOLCANO_PROJECT_ID` still selects the project, but it is deprecated and will
+be removed in a future release. A command that uses it prints a warning on
+stderr.
 
 `--project` also selects the project for an account token, and there it takes a
 name as well as an ID, the same as `volcano use`:
@@ -80,8 +84,9 @@ volcano login --token pk-xxxxxxxxxx --project my-app
 
 Inside a [linked directory](connect.md#linked-directories), `--project` updates
 the link, the same as `volcano use`. If the link named another project, login
-warns and prints the command that links it back. If `VOLCANO_PROJECT_ID` names
-a different project there, login fails and leaves the link as it was.
+warns and prints the command that links it back. If the deprecated
+`VOLCANO_PROJECT_ID` names a different project there, login fails and leaves
+the link as it was.
 
 Commands that reach past one project — `volcano projects list`, `volcano
 projects create`, `volcano projects rename`, `volcano projects delete`,

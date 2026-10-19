@@ -155,8 +155,11 @@ volcano projects delete <project-id>
 `volcano projects list` and `volcano projects get` show the project plan as
 `HOBBY` or `SUPERAGENT` when the API provides it.
 
-`VOLCANO_PROJECT_ID` overrides the active project for a single invocation
-(useful in CI).
+`VOLCANO_PROJECT_ID` overrides the active project for a single invocation.
+It is deprecated and will be removed in a future release, and a command that
+uses it prints a warning on stderr. Select the project with `volcano use
+<project-id>`, or `volcano login --token <token> --project <project-id>` in CI.
+See [access-tokens.md](access-tokens.md#use-a-token).
 
 ### Project keys
 
@@ -184,9 +187,9 @@ the two can be combined. Omitting both gives the key full access. Empty or blank
 permission values are rejected so an intended restricted key cannot silently
 fall back to full access.
 
-An explicit `[project-id]` takes precedence over `VOLCANO_PROJECT_ID` and the
-active project. Without it, `VOLCANO_PROJECT_ID` takes precedence over the
-active project. Paginated list output includes a next-page command that retains
+An explicit `[project-id]` takes precedence over the active project. Without
+it, the deprecated `VOLCANO_PROJECT_ID` takes precedence over the active
+project. Paginated list output includes a next-page command that retains
 an explicit project ID.
 
 ### Project usage
