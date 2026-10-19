@@ -422,77 +422,136 @@ func (s Service) completeBrowserLogin(ctx context.Context, client *api.Client, c
 	}
 
 	fmt.Fprint(w, "\nWaiting for authentication")
+	return s.pollDeviceLogin(ctx, client, clientID, devicePoll{
+		deviceCode: deviceAuth.DeviceCode,
+		expiresIn:  time.Duration(deviceAuth.ExpiresIn) * time.Second,
+		interval:   time.Duration(deviceAuth.Interval) * time.Second,
+	}, w)
+}
 
-	authTimeout := time.Duration(deviceAuth.ExpiresIn) * time.Second
-	timeout := cliruntime.NewTimer(s.deps, authTimeout)
-	defer timeout.Stop()
-	pollInterval := time.Duration(deviceAuth.Interval) * time.Second
-	if pollInterval <= 0 {
-		pollInterval = 5 * time.Second
+// devicePoll is a device code to poll for a login, and how.
+type devicePoll struct {
+	deviceCode string
+	// expiresIn bounds the wait; zero or less times out at once.
+	expiresIn time.Duration
+	// interval is the time between polls; zero or less means 5 seconds.
+	interval time.Duration
+	// pollNow polls once before the first interval, for a code that is
+	// already approved.
+	pollNow bool
+}
+
+// errDeviceLoginTimeout is a device login that was still pending when its
+// wait ran out.
+var errDeviceLoginTimeout = errors.New("authentication timeout")
+
+// deviceTokenRefusal is a device token poll the API answered with an OAuth
+// error that ends the login, such as expired_token or access_denied.
+type deviceTokenRefusal struct {
+	code        string
+	description string
+}
+
+func (e *deviceTokenRefusal) Error() string {
+	switch e.code {
+	case "access_denied":
+		return "authorization denied"
+	case "expired_token":
+		return "device code expired"
 	}
-	pollTicker := cliruntime.NewTicker(s.deps, pollInterval)
-	defer pollTicker.Stop()
+	if e.description != "" {
+		return e.description
+	}
+	return "authentication failed: " + e.code
+}
+
+// pollDeviceLogin polls the device token endpoint until the code is approved,
+// then exchanges the token for a platform login. It prints a dot each second
+// and ends the line before it returns.
+func (s Service) pollDeviceLogin(ctx context.Context, client *api.Client, clientID string, poll devicePoll, w io.Writer) (Credentials, error) {
+	credentials, err := s.waitForDeviceToken(ctx, client, clientID, poll, w)
+	fmt.Fprintln(w)
+	return credentials, err
+}
+
+func (s Service) waitForDeviceToken(ctx context.Context, client *api.Client, clientID string, poll devicePoll, w io.Writer) (Credentials, error) {
+	timeout := cliruntime.NewTimer(s.deps, poll.expiresIn)
+	defer timeout.Stop()
+	poller := devicePoller{client: client, clientID: clientID, deviceCode: poll.deviceCode, interval: poll.interval}
+	if poller.interval <= 0 {
+		poller.interval = 5 * time.Second
+	}
+	poller.ticker = cliruntime.NewTicker(s.deps, poller.interval)
+	defer poller.ticker.Stop()
 	dotTicker := cliruntime.NewTicker(s.deps, time.Second)
 	defer dotTicker.Stop()
 
-	consecutivePollFailures := 0
+	if poll.pollNow {
+		if credentials, done, err := poller.poll(ctx); done {
+			return credentials, err
+		}
+		// The API answers slow_down to a poll that comes sooner than the
+		// interval after the last one, so count the interval from this poll.
+		poller.ticker.Reset(poller.interval)
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintln(w)
 			return Credentials{}, ctx.Err()
 		case <-timeout.C():
-			fmt.Fprintln(w)
-			if authTimeout <= 0 {
-				return Credentials{}, errors.New("authentication timeout")
+			if poll.expiresIn <= 0 {
+				return Credentials{}, errDeviceLoginTimeout
 			}
-			return Credentials{}, fmt.Errorf("authentication timeout (%s)", authTimeout.Round(time.Second))
+			return Credentials{}, fmt.Errorf("%w (%s)", errDeviceLoginTimeout, poll.expiresIn.Round(time.Second))
 		case <-dotTicker.C():
 			fmt.Fprint(w, ".")
-		case <-pollTicker.C():
-			status, err := client.PollDeviceToken(ctx, clientID, deviceAuth.DeviceCode)
-			if err != nil {
-				consecutivePollFailures++
-				if consecutivePollFailures >= maxConsecutiveDevicePollFailures {
-					fmt.Fprintln(w)
-					return Credentials{}, fmt.Errorf("failed to poll device token: %w", err)
-				}
-				continue
-			}
-			consecutivePollFailures = 0
-
-			if status.AccessToken != "" {
-				exchange, err := client.ExchangePlatformToken(ctx, status.AccessToken, clientID)
-				if err != nil {
-					fmt.Fprintln(w)
-					return Credentials{}, fmt.Errorf("failed to exchange platform token: %w", err)
-				}
-				fmt.Fprintln(w)
-				return Credentials{Token: exchange.Token, UserID: exchange.UserId}, nil
-			}
-
-			switch status.Error {
-			case "authorization_pending":
-				continue
-			case "slow_down":
-				pollInterval += 5 * time.Second
-				pollTicker.Reset(pollInterval)
-				continue
-			case "access_denied":
-				fmt.Fprintln(w)
-				return Credentials{}, errors.New("authorization denied")
-			case "expired_token":
-				fmt.Fprintln(w)
-				return Credentials{}, errors.New("device code expired")
-			case "":
-				continue
-			default:
-				fmt.Fprintln(w)
-				if status.ErrorDescription != "" {
-					return Credentials{}, errors.New(status.ErrorDescription)
-				}
-				return Credentials{}, fmt.Errorf("authentication failed: %s", status.Error)
+		case <-poller.ticker.C():
+			if credentials, done, err := poller.poll(ctx); done {
+				return credentials, err
 			}
 		}
+	}
+}
+
+// devicePoller polls one device code and keeps the state between polls.
+type devicePoller struct {
+	client     *api.Client
+	clientID   string
+	deviceCode string
+	interval   time.Duration
+	ticker     cliruntime.Ticker
+	failures   int
+}
+
+// poll polls the device token endpoint once. done is false while the login is
+// still pending.
+func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done bool, err error) {
+	status, err := p.client.PollDeviceToken(ctx, p.clientID, p.deviceCode)
+	if err != nil {
+		p.failures++
+		if p.failures >= maxConsecutiveDevicePollFailures {
+			return Credentials{}, true, fmt.Errorf("failed to poll device token: %w", err)
+		}
+		return Credentials{}, false, nil
+	}
+	p.failures = 0
+
+	if status.AccessToken != "" {
+		exchange, err := p.client.ExchangePlatformToken(ctx, status.AccessToken, p.clientID)
+		if err != nil {
+			return Credentials{}, true, fmt.Errorf("failed to exchange platform token: %w", err)
+		}
+		return Credentials{Token: exchange.Token, UserID: exchange.UserId}, true, nil
+	}
+
+	switch status.Error {
+	case "", "authorization_pending":
+		return Credentials{}, false, nil
+	case "slow_down":
+		p.interval += 5 * time.Second
+		p.ticker.Reset(p.interval)
+		return Credentials{}, false, nil
+	default:
+		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription}
 	}
 }
