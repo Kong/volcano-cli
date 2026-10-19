@@ -121,6 +121,11 @@ func WriteLink(dir string, project ProjectConfig) (*Link, error) {
 		return nil, err
 	}
 	link := &Link{Dir: abs, Project: project}
+	// Writing through a symlink would replace whatever it points at, such as
+	// ~/.volcano/config.json in a cloned repository.
+	if info, err := os.Lstat(link.Path()); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("project link %s is a symlink, and the CLI doesn't write through one. Remove it and try again", link.Path())
+	}
 	if err := os.MkdirAll(filepath.Dir(link.Path()), linkDirMode); err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", filepath.Dir(link.Path()), err)
 	}

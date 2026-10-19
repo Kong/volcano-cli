@@ -171,6 +171,9 @@ one in a parent of the directory it sets up. For one in that directory, it
 stops unless `--project <project-id>` or `--name <name>` (for a new project)
 says what replaces it.
 
+If `.volcano/project.json` is a symlink, `connect`, `volcano use`, and
+`volcano login --project` fail and name it instead of writing through it.
+
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
 
