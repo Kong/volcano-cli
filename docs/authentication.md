@@ -43,15 +43,21 @@ export VOLCANO_TOKEN=pk-xxxxxxxxxx
 
 ## Account tokens and project access tokens
 
-The CLI accepts two kinds of credential:
+The CLI accepts three kinds of credential:
 
 | Credential | Reaches | Get one with |
 |---|---|---|
 | Account token (`pk-`) | Every project you own | `volcano login` |
 | Project access token (`pt-`) | One project | `volcano cloud access-tokens create` |
+| One-time token (`vbt_`) | Exchanged for an account token on first use | The prompt on the dashboard's Projects page |
 
-Both work with `volcano login --token` and with `VOLCANO_TOKEN`. A project
-access token is the one to give CI: it is scoped to a single project, carries
+Account and project access tokens work with `volcano login --token` and with
+`VOLCANO_TOKEN`. A one-time token works only with `--token` on `volcano login`
+or `volcano connect`: it can be used once, within 15 minutes, and the CLI saves
+the account token it gets in exchange. See
+[One-time tokens from the dashboard](connect.md#one-time-tokens-from-the-dashboard).
+
+A project access token is the one to give CI: it is scoped to a single project, carries
 `full` or `read_only` access, and can be revoked on its own. Because it cannot
 list projects, tell the CLI which project it belongs to, by ID:
 
