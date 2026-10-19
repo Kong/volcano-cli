@@ -72,20 +72,42 @@ func TestSendPostsTheMessageAndReportsIt(t *testing.T) {
 // with when the send fails or its response never arrives.
 func TestSendWithoutAKeyGeneratesOneAndPrintsItFirst(t *testing.T) {
 	setMessagesTestHome(t)
-	var key string
+	stderr := &lockedBuffer{}
+	var key, printedBeforeRequest string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key = r.Header.Get("Idempotency-Key")
+		printedBeforeRequest = stderr.String()
 		respondJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
 	}))
 	defer server.Close()
 
-	_, stderr, err := executeCommandSplit(t, newMessagesCommand(server), "",
-		"send", "order-pipeline", executionID, "payment-confirmed")
-	require.Error(t, err)
+	cmd := newMessagesCommand(server)
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"send", "order-pipeline", executionID, "payment-confirmed"})
+	require.Error(t, cmd.Execute())
 
 	_, parseErr := uuid.Parse(key)
 	require.NoError(t, parseErr, "the generated key is a UUID: %q", key)
-	assert.Contains(t, string(stderr), "Idempotency key "+key+"; rerun with --idempotency-key "+key)
+	assert.Contains(t, printedBeforeRequest, "Idempotency key "+key+"; rerun with --idempotency-key "+key)
+}
+
+// lockedBuffer is a writer a test server can read while the command writes.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // Data is any JSON value, not only an object, and leaving it out sends a
