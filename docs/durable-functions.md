@@ -169,6 +169,11 @@ Ticks draw on the same durable execution and operation allowances and the same
 concurrency cap a manual start does; a tick that would exceed the cap fails that
 run rather than queueing.
 
+A tick's run counts as failed when its execution fails, times out, or is
+stopped. `schedulers list` shows each scheduler's health and how many runs in a
+row have failed, and the project is alerted when the failures continue; see
+[notifications.md](notifications.md).
+
 `schedulers disable` stops the ticks and leaves the scheduler in place;
 executions it already started keep running. `schedulers delete` removes the
 scheduler and its run history, and also leaves running executions alone — stop

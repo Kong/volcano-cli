@@ -61,6 +61,47 @@ func TestSchedulersList(t *testing.T) {
 	assert.Contains(t, out, "enabled")
 }
 
+// A scheduler that keeps failing has to stand out in the list, with why, or it
+// fails unnoticed run after run.
+func TestSchedulersListShowsHealth(t *testing.T) {
+	setTestHome(t)
+	saveTestConfig(t)
+
+	failing := schedulerPayload(testSchedulerID, testFunctionID, testProjectID, "nightly export", true)
+	failing["health"] = "failing"
+	failing["consecutive_failures"] = 49
+	failing["last_run_status"] = "failed"
+	failing["last_error"] = "Runtime.ImportModuleError: Cannot find module 'pg'\x1b[31m"
+	healthy := schedulerPayload("55555555-5555-4555-8555-555555555555", testFunctionID, testProjectID, "hourly sync", true)
+	healthy["health"] = "healthy"
+	healthy["consecutive_failures"] = 0
+	healthy["last_error"] = "an old failure the scheduler has recovered from"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+testProjectID+"/functions":
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{functionPayload(testFunctionID, "hello")}, "has_more": false, "page": 1, "limit": 25, "total": 1,
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/projects/"+testProjectID+"/functions/"+testFunctionID+"/schedulers":
+			writeJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{failing, healthy}, "has_more": false, "page": 1, "limit": 25, "total": 2,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	out, err := executeSchedulersCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "list", "hello")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Health    Fails")
+	assert.Regexp(t, `nightly export\s+enabled\s+failing\s+49\s`, out)
+	assert.Regexp(t, `hourly sync\s+enabled\s+healthy\s+0\s`, out)
+	assert.Contains(t, out, "last error: Runtime.ImportModuleError: Cannot find module 'pg'")
+	assert.NotContains(t, out, "\x1b[31m", "an error the function raised cannot write terminal escapes")
+	assert.NotContains(t, out, "an old failure", "a healthy scheduler's last error is history, not news")
+}
+
 func TestSchedulersListEmpty(t *testing.T) {
 	setTestHome(t)
 	saveTestConfig(t)

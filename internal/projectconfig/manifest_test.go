@@ -766,3 +766,39 @@ func TestDefaultPullPath(t *testing.T) {
 		})
 	})
 }
+
+// A pulled manifest carries the server's notifications section, so deploying it
+// back has to parse; the signing secret is never part of it.
+func TestManifestNotificationsSection(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+notifications:
+  email:
+    enabled: true
+    recipients: []
+  webhook:
+    url: https://example.com/hooks/volcano
+  scheduler_failures:
+    notify_on: consecutive_failures
+    threshold: 5
+    notify_on_recovery: false
+`), noEnv)
+	require.NoError(t, err)
+	require.NotNil(t, manifest.Notifications)
+	assert.Equal(t, 5, *manifest.Notifications.SchedulerFailures.Threshold)
+
+	encoded, err := manifest.uploadBody()
+	require.NoError(t, err)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &body))
+	assert.Equal(t, map[string]any{
+		"email":   map[string]any{"enabled": true, "recipients": []any{}},
+		"webhook": map[string]any{"url": "https://example.com/hooks/volcano"},
+		"scheduler_failures": map[string]any{
+			"notify_on": "consecutive_failures", "threshold": float64(5), "notify_on_recovery": false,
+		},
+	}, body["notifications"], "an empty recipient list uploads as [], which emails the owner")
+
+	_, err = Parse([]byte("version: 1\nnotifications:\n  webhook:\n    url: https://example.com/hook\n    secret: whsec_x\n"), noEnv)
+	require.Error(t, err, "the signing secret cannot be declared")
+	assert.Contains(t, err.Error(), "secret")
+}

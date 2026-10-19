@@ -60,10 +60,13 @@ type Manifest struct {
 	Variables *[]VariableManifest `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Buckets   *[]BucketManifest   `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Realtime  *RealtimeManifest   `yaml:"realtime,omitempty" json:"realtime,omitempty"`
-	Auth      *AuthManifest       `yaml:"auth,omitempty" json:"auth,omitempty"`
-	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
-	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
-	Sandboxes *[]SandboxManifest  `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
+	// Notifications never carries the webhook signing secret; the server
+	// generates it and returns it only from the notifications API.
+	Notifications *NotificationsManifest `yaml:"notifications,omitempty" json:"notifications,omitempty"`
+	Auth          *AuthManifest          `yaml:"auth,omitempty" json:"auth,omitempty"`
+	Functions     *[]FunctionManifest    `yaml:"functions,omitempty" json:"functions,omitempty"`
+	Frontends     *[]FrontendManifest    `yaml:"frontends,omitempty" json:"frontends,omitempty"`
+	Sandboxes     *[]SandboxManifest     `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
 
 	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
 	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
@@ -128,6 +131,34 @@ type RealtimeManifest struct {
 	BroadcastEnabled       *bool `yaml:"broadcast_enabled,omitempty" json:"broadcast_enabled,omitempty"`
 	PresenceEnabled        *bool `yaml:"presence_enabled,omitempty" json:"presence_enabled,omitempty"`
 	PostgresChangesEnabled *bool `yaml:"postgres_changes_enabled,omitempty" json:"postgres_changes_enabled,omitempty"`
+}
+
+// NotificationsManifest declares where project alerts go and when a failing
+// scheduler is announced. Nil fields keep their current values.
+type NotificationsManifest struct {
+	Email             *NotificationEmailManifest   `yaml:"email,omitempty" json:"email,omitempty"`
+	Webhook           *NotificationWebhookManifest `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+	SchedulerFailures *SchedulerFailuresManifest   `yaml:"scheduler_failures,omitempty" json:"scheduler_failures,omitempty"`
+}
+
+// NotificationEmailManifest declares email alerts. Recipients replaces the
+// list; an empty list emails the project owner.
+type NotificationEmailManifest struct {
+	Enabled    *bool     `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Recipients *[]string `yaml:"recipients,omitempty" json:"recipients,omitempty"`
+}
+
+// NotificationWebhookManifest declares the alert webhook. An empty URL removes
+// it.
+type NotificationWebhookManifest struct {
+	URL *string `yaml:"url,omitempty" json:"url,omitempty"`
+}
+
+// SchedulerFailuresManifest declares when a failing scheduler is announced.
+type SchedulerFailuresManifest struct {
+	NotifyOn         *string `yaml:"notify_on,omitempty" json:"notify_on,omitempty"`
+	Threshold        *int    `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+	NotifyOnRecovery *bool   `yaml:"notify_on_recovery,omitempty" json:"notify_on_recovery,omitempty"`
 }
 
 // AuthManifest groups authentication settings like the dashboard tabs.

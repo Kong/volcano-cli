@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 // The endpoints that mint a credential must never put it in an error.
@@ -94,6 +96,51 @@ func TestCreateServiceKeyNeverPutsTheKeyInAnError(t *testing.T) {
 	assert.Nil(t, key)
 	assert.NotContains(t, err.Error(), redactionTestSecret,
 		"a created service key's value must not reach an error message")
+}
+
+func TestNotificationSettingsNeverPutTheWebhookSecretInAnError(t *testing.T) {
+	const secret = "whsec_DO-NOT-LEAK-THIS-VALUE"
+	body := `{"project_id":"eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550",` +
+		`"email":{"enabled":true,"recipients":[]},` +
+		`"webhook":{"url":"https://example.com/hook","secret_configured":true,"secret":"` + secret + `"},` +
+		`"scheduler_failures":{"notify_on":"first_failure","threshold":3,"notify_on_recovery":true}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClient(server.URL, "pk-account", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	url := "https://example.com/hook"
+	_, err = client.UpdateNotificationSettings(context.Background(), redactionTestProjectID(t),
+		apiclient.UpdateNotificationSettingsRequest{Webhook: &apiclient.UpdateNotificationWebhook{Url: &url}})
+	require.Error(t, err, "an unparseable response must not read as success")
+	assert.NotContains(t, err.Error(), secret)
+	assert.NotContains(t, err.Error(), "whsec_")
+
+	_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "whsec_")
+}
+
+// Dropping the body must not cost a refusal its message: a read-only token's
+// 403 is not declared on these endpoints, so its message comes from the body.
+func TestNotificationSettingsKeepTheRefusalMessage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"project access token is read-only"}`))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewClient(server.URL, "pt-readonly", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
+	require.Error(t, err)
+	assert.Equal(t, http.StatusForbidden, Status(err))
+	assert.Contains(t, err.Error(), "project access token is read-only")
 }
 
 // The redaction must not cost the caller the status, which is the part they need

@@ -12,6 +12,7 @@ validates and applies the full project configuration:
 - Variables and function or frontend shared variable names
 - Buckets and policies
 - Realtime
+- Notifications: where scheduler failure alerts go and when they are sent
 - Auth configuration, including providers, email, templates, and managed pages
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
@@ -38,6 +39,16 @@ variables:
     value: ${STRIPE_SECRET_KEY}  # interpolated from the CLI environment
 realtime:
   enabled: true
+notifications:
+  email:
+    enabled: true
+    recipients: []             # empty emails the project owner
+  webhook:
+    url: https://example.com/hooks/volcano
+  scheduler_failures:
+    notify_on: consecutive_failures   # or first_failure
+    threshold: 3
+    notify_on_recovery: true
 functions:
   - name: hello
     visibility: public         # private, authenticated, or public; omit to keep the current level
@@ -112,6 +123,10 @@ Key semantics:
   changes are not rolled back. Re-running `config deploy` with the same file
   is always safe: entries that already landed report `unchanged`, and only
   the entries that failed or still differ are retried.
+- The notifications webhook signing secret is never part of the manifest. The
+  first `notifications.webhook.url` a deploy sets generates one; read it with
+  `volcano cloud notifications rotate-webhook-secret`. See
+  [notifications.md](notifications.md).
 - Variable values and write-only secrets, such as SMTP passwords, OAuth client
   secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation. If a server does
