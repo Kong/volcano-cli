@@ -349,7 +349,7 @@ func (c *Config) ProjectIDFromEnv() string {
 // ProjectEnvDeprecation is the warning printed when VOLCANO_PROJECT_ID chose
 // the project a command ran against.
 const ProjectEnvDeprecation = "VOLCANO_PROJECT_ID is deprecated and will be removed in a future release. " +
-	"Run 'volcano use <project-id>' to select the project instead, or 'volcano login --token <token> --project <project-id>' in CI."
+	"Unset it and run 'volcano use <project-id>', or 'volcano login --token <token> --project <project-id>' in CI."
 
 // projectEnvUsed records that VOLCANO_PROJECT_ID was read for a project in
 // this process.

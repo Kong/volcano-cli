@@ -225,8 +225,8 @@ func CheckProjectOverride(cfg *config.Config, selectedID string, link *config.Li
 		return nil
 	}
 	return fmt.Errorf("VOLCANO_PROJECT_ID is set to %s and overrides this directory's link, so commands would keep "+
-		"using that project. Unset it, or set it to %s, and try again. The link at %s is unchanged",
-		fromEnv, selectedID, link.Path())
+		"using that project. Unset it and try again. The link at %s is unchanged",
+		fromEnv, link.Path())
 }
 
 // SelectInLink links link's directory to selected and rewrites the anon key

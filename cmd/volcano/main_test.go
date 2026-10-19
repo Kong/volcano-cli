@@ -811,3 +811,38 @@ func TestRun_NoVolcanoProjectIDWarningFromTheRefusalHint(t *testing.T) {
 	assert.Contains(t, stderr.String(), mainTestProjectBeta, "the hint ran")
 	assert.NotContains(t, stderr.String(), cliconfig.ProjectEnvDeprecation)
 }
+
+// `volcano use` inside a linked directory reads VOLCANO_PROJECT_ID to check
+// it doesn't override the link. When it names the same project, use succeeds
+// and warns once.
+func TestRun_UseInALinkedDirectoryWarnsAboutVolcanoProjectID(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "")
+	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	require.NoError(t, (&cliconfig.Config{UserToken: "pk-test"}).Save())
+	dir := t.TempDir()
+	t.Chdir(dir)
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: mainTestProjectAlpha, Name: "alpha"})
+	require.NoError(t, err)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+mainTestProjectAlpha, r.URL.Path)
+		now := time.Now().UTC().Format(time.RFC3339)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"id":%q,"name":"alpha","status":"active","all_regions":true,"selected_regions":[],"created_at":%q,"updated_at":%q}`,
+			mainTestProjectAlpha, now, now)
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"use", mainTestProjectAlpha})
+
+	assert.Equal(t, 0, run(root, deps), stderr.String())
+	assert.Contains(t, stdout.String(), "Now using project: alpha")
+	assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation+"\n", stderr.String())
+}

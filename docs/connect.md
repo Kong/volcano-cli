@@ -136,8 +136,7 @@ The project a command uses comes from, in order:
 saves the project for every directory without a link. Inside a linked
 directory, if `VOLCANO_PROJECT_ID` names a different project, `volcano use`
 fails and changes nothing, because commands would keep using the project the
-variable names. Unset it, or set it to the new project's ID, and run
-`volcano use` again.
+variable names. Unset it and run `volcano use` again.
 
 `volcano login --token <token> --project <project>` run inside a linked
 directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
