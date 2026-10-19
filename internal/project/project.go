@@ -217,27 +217,16 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 // that project, and the cloud env file would deploy the selected project's
 // anon key to it.
 func CheckProjectOverride(cfg *config.Config, selectedID string, link *config.Link) error {
-	fromEnv, overrides := EnvProjectOverride(cfg, selectedID)
-	if !overrides {
+	fromEnv := cfg.ProjectIDFromEnv()
+	if fromEnv == "" {
+		return nil
+	}
+	if id, err := uuid.Parse(fromEnv); err == nil && id.String() == selectedID {
 		return nil
 	}
 	return fmt.Errorf("VOLCANO_PROJECT_ID is set to %s and overrides this directory's link, so commands would keep "+
 		"using that project. Unset it, or set it to %s, and try again. The link at %s is unchanged",
 		fromEnv, selectedID, link.Path())
-}
-
-// EnvProjectOverride returns VOLCANO_PROJECT_ID, and whether it is set and names
-// a project other than selectedID. An empty selectedID is a project not
-// created yet, which it always overrides.
-func EnvProjectOverride(cfg *config.Config, selectedID string) (string, bool) {
-	fromEnv := cfg.ProjectIDFromEnv()
-	if fromEnv == "" {
-		return "", false
-	}
-	if id, err := uuid.Parse(fromEnv); err == nil && selectedID != "" && id.String() == selectedID {
-		return fromEnv, false
-	}
-	return fromEnv, true
 }
 
 // SelectInLink links link's directory to selected and rewrites the anon key

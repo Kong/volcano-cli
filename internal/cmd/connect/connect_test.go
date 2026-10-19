@@ -739,31 +739,30 @@ func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
 	assert.Equal(t, "pk-connect", cfg.UserToken, "the saved login is unchanged")
 }
 
-// Every command run in the directory would use the project VOLCANO_PROJECT_ID
-// names, not the one connect links, so connect refuses before signing in.
-func TestConnectRefusesAProjectThatVolcanoProjectIDWouldOverride(t *testing.T) {
+// VOLCANO_PROJECT_ID is deprecated, and would override the link connect
+// writes. Connect refuses it whatever it names, before it signs in, so a
+// one-time token isn't spent, and before it calls the API or changes a file.
+func TestConnectRefusesVolcanoProjectID(t *testing.T) {
 	for name, tc := range map[string]struct {
+		env    string
 		args   []string
 		linked bool
-		want   string
 	}{
-		"another --project": {
-			args: []string{"--project", connectProjectID},
-			want: "Unset it, or set it to " + connectProjectID + ", and try again",
-		},
-		"a new project": {
-			want: "Unset it, or pass --project " + connectOtherProjectID + " to set up that project, and try again",
-		},
-		"a directory linked to another project": {
-			linked: true,
-			want:   "Unset it, or set it to " + connectProjectID + ", and try again",
-		},
+		"another project than --project": {env: connectOtherProjectID, args: []string{"--project", connectProjectID}},
+		"the project --project names":    {env: connectProjectID, args: []string{"--project", connectProjectID}},
+		"a new project":                  {env: connectProjectID},
+		"a linked directory":             {env: connectProjectID, linked: true},
+		"a value that is not an ID":      {env: "not-a-project\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			setConnectTestHome(t)
-			t.Setenv("VOLCANO_PROJECT_ID", connectOtherProjectID)
+			t.Setenv("VOLCANO_PROJECT_ID", tc.env)
 			fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}
-			server := httptest.NewServer(fake)
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				fake.ServeHTTP(w, r)
+			}))
 			defer server.Close()
 			dir := filepath.Join(chdirTemp(t), "shop")
 			if tc.linked {
@@ -772,10 +771,12 @@ func TestConnectRefusesAProjectThatVolcanoProjectIDWouldOverride(t *testing.T) {
 			}
 
 			_, err := runConnect(t, server, dir, append([]string{"--token", "vbt_one-time"}, tc.args...)...)
-			require.ErrorContains(t, err, "VOLCANO_PROJECT_ID is set to "+connectOtherProjectID)
-			require.ErrorContains(t, err, tc.want)
-			assert.Zero(t, fake.exchanges, "the one-time token is not spent")
+			require.EqualError(t, err, "VOLCANO_PROJECT_ID is set, and volcano connect does not use it. "+
+				"Unset it, and pass --project <project-id> to set up an existing project")
+			assert.Zero(t, requests, "no API call, so the one-time token is not spent")
+			assert.Zero(t, fake.exchanges)
 			assert.Zero(t, fake.creates)
+			assert.False(t, fake.deviceAuthorize)
 			assert.NoFileExists(t, filepath.Join(dir, "volcano", "cloud.env"))
 			if !tc.linked {
 				assert.NoDirExists(t, dir)
@@ -784,45 +785,21 @@ func TestConnectRefusesAProjectThatVolcanoProjectIDWouldOverride(t *testing.T) {
 	}
 }
 
-func TestConnectUsesTheProjectVolcanoProjectIDNames(t *testing.T) {
+// A blank VOLCANO_PROJECT_ID, as `VOLCANO_PROJECT_ID=` leaves it, is unset.
+func TestConnectIgnoresABlankVolcanoProjectID(t *testing.T) {
 	setConnectTestHome(t)
-	t.Setenv("VOLCANO_PROJECT_ID", connectProjectID)
+	t.Setenv("VOLCANO_PROJECT_ID", " \n")
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 	dir := filepath.Join(chdirTemp(t), "shop")
 
-	// The first run links it with --project; the rerun keeps the link.
 	_, err := runConnect(t, server, dir, "--project", connectProjectID)
 	require.NoError(t, err)
-	_, err = runConnect(t, server, dir)
-	require.NoError(t, err)
-	assert.Zero(t, fake.creates)
 	link, err := cliconfig.FindLink(dir)
 	require.NoError(t, err)
 	require.NotNil(t, link)
 	assert.Equal(t, connectProjectID, link.Project.ID)
-}
-
-// The linked project is gone, so connect would create a new one, which
-// VOLCANO_PROJECT_ID can't name.
-func TestConnectRefusesToReplaceADeletedProjectVolcanoProjectIDNames(t *testing.T) {
-	setConnectTestHome(t)
-	t.Setenv("VOLCANO_PROJECT_ID", connectProjectID)
-	fake := &fakeAPI{t: t}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	dir := t.TempDir()
-	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
-	require.NoError(t, err)
-
-	_, err = runConnect(t, server, dir)
-	require.ErrorContains(t, err, "VOLCANO_PROJECT_ID is set to "+connectProjectID)
-	assert.Zero(t, fake.creates)
-	link, err := cliconfig.FindLink(dir)
-	require.NoError(t, err)
-	require.NotNil(t, link)
-	assert.Equal(t, connectProjectID, link.Project.ID, "the link is unchanged")
 }
 
 func TestConnectWithARefusedBootstrapTokenGoesToBrowserLogin(t *testing.T) {

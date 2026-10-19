@@ -161,6 +161,12 @@ func run(ctx context.Context, opts options) error {
 	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" && (strings.TrimSpace(opts.token) != "" || opts.signup) {
 		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. Unset it, or run connect without --token and --signup to use it")
 	}
+	// VOLCANO_PROJECT_ID is deprecated, and would override the link connect
+	// writes. Checked before sign-in, so a one-time token isn't spent.
+	if strings.TrimSpace(os.Getenv("VOLCANO_PROJECT_ID")) != "" {
+		return errors.New("VOLCANO_PROJECT_ID is set, and volcano connect does not use it. " +
+			"Unset it, and pass --project <project-id> to set up an existing project")
+	}
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -181,13 +187,6 @@ func run(ctx context.Context, opts options) error {
 		}
 	}
 	sessions := clisession.NewFactory(opts.deps)
-	cfg, err := sessions.Config()
-	if err != nil {
-		return err
-	}
-	if err := refuseProjectOverride(opts, cfg, wd); err != nil {
-		return err
-	}
 	// The directory is known now unless connect names it after a project.
 	if dir := knownTarget(opts, wd); dir != "" {
 		if err := checkStarter(dir, starter); err != nil {
@@ -205,11 +204,6 @@ func run(ctx context.Context, opts options) error {
 
 	dir, project, created, err := resolveTarget(ctx, opts, authenticated, wd)
 	if err != nil {
-		return err
-	}
-	// The check before sign-in predicted the project from the flags and the
-	// link. This one checks the project connect got.
-	if err := projectOverrideError(authenticated.Config, project.Id.String()); err != nil {
 		return err
 	}
 	if created {
@@ -563,51 +557,6 @@ func refuseBadLink(opts options, wd string) error {
 	return badLinkError(wd, bad)
 }
 
-// refuseProjectOverride is projectOverrideError, checked before sign-in for
-// the project connect will link: --project, else the project of a link connect
-// keeps, else a new one. A one-time token spent on a run that then stops here
-// can't be used again.
-func refuseProjectOverride(opts options, cfg *config.Config, wd string) error {
-	if raw := strings.TrimSpace(opts.project); raw != "" {
-		id, err := uuid.Parse(raw)
-		if err != nil {
-			// existingProject reports it.
-			return nil //nolint:nilerr // not this check's error
-		}
-		return projectOverrideError(cfg, id.String())
-	}
-	start := wd
-	if opts.dir != "" {
-		dir, err := filepath.Abs(opts.dir)
-		if err != nil {
-			return err
-		}
-		start = dir
-	}
-	// A link connect can't use is refuseBadLink's, and means a new project.
-	link, _ := config.FindLink(start)
-	if link != nil && (opts.dir == "" || link.Dir == start) {
-		return projectOverrideError(cfg, link.Project.ID)
-	}
-	return projectOverrideError(cfg, "")
-}
-
-// projectOverrideError refuses to link selectedID, or a new project when it is
-// "", while VOLCANO_PROJECT_ID names another project: commands run in the
-// directory would keep using that one, as cliproject.CheckProjectOverride
-// explains for `volcano use`.
-func projectOverrideError(cfg *config.Config, selectedID string) error {
-	fromEnv, overrides := cliproject.EnvProjectOverride(cfg, selectedID)
-	if !overrides {
-		return nil
-	}
-	const prefix = "VOLCANO_PROJECT_ID is set to %s and would override the directory's link, so commands there would keep using that project. "
-	if selectedID == "" {
-		return fmt.Errorf(prefix+"Unset it, or pass --project %s to set up that project, and try again", fromEnv, fromEnv)
-	}
-	return fmt.Errorf(prefix+"Unset it, or set it to %s, and try again", fromEnv, selectedID)
-}
-
 func badLinkError(wd string, bad *config.LinkError) error {
 	shown := displayDir(wd, bad.Dir)
 	return fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
@@ -620,10 +569,6 @@ func badLinkError(wd string, bad *config.LinkError) error {
 func newProject(ctx context.Context, opts options, session *clisession.Session, fallback string, taken func(string) bool) (*apiclient.Project, error) {
 	if err := session.Config.RequireAccountToken(); err != nil {
 		return nil, fmt.Errorf("%w. To link the token's project, pass --project <project-id>", err)
-	}
-	// Checked before the project exists: VOLCANO_PROJECT_ID can't name it.
-	if err := projectOverrideError(session.Config, ""); err != nil {
-		return nil, err
 	}
 	name, err := projectName(opts, fallback)
 	if err != nil {
