@@ -146,7 +146,7 @@ func TestUseRefusesToRelinkWhileVolcanoProjectIDNamesAnotherProject(t *testing.T
 			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
 			require.ErrorContains(t, err, "VOLCANO_PROJECT_ID is set to "+fromEnv)
 			assert.Zero(t, api.Status(err), "a refusal, not an API failure")
-			assert.NotErrorIs(t, err, ErrNotFound)
+			require.NotErrorIs(t, err, ErrNotFound)
 
 			assert.Zero(t, anonKeyRequests)
 			data, err := os.ReadFile(CloudEnvPath(dir))
