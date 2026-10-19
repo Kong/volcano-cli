@@ -57,9 +57,11 @@ check in --help, a network error that worked on retry, documented behavior
 (volcano login waiting for browser approval, rate limits), or style
 preferences.
 
-Write only what Volcano printed and what you did. Do not include file
-contents, environment variable values, application data, or customer or
-business names. Before sending, the CLI replaces your home directory with ~
+Write only what Volcano printed and what you did. Replace project, function,
+database, and bucket names, file paths, and payload values with placeholders
+such as <function> or <path>. Do not include file contents, environment
+variable values, application data, or customer or business names. Before
+sending, the CLI replaces your home directory with ~
 and removes tokens, keys, and passwords, as it does for usage data.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,

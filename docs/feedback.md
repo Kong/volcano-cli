@@ -26,7 +26,8 @@ volcano feedback \
 ```
 
 On success the CLI prints the report ID. When telemetry is off it prints
-`Feedback not sent`, sends nothing, and exits 0. So does the first command after install, which shows the telemetry notice.
+`Feedback not sent`, sends nothing, and exits 0. So does the first command
+after install, which shows the telemetry notice.
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|
@@ -72,7 +73,8 @@ cat report.json | volcano feedback --input -
 
 An inline object is the shortest form, but it breaks when a value contains a
 single quote, such as `can't`, because the quote ends the shell string. A file
-needs no shell quoting, so any text works. Use `\n` for a line break inside a JSON value.
+needs no shell quoting, so any text works. Use `\n` for a line break inside a
+JSON value.
 
 ## Categories
 
@@ -107,8 +109,10 @@ Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes the same secret shapes it removes from telemetry error
 messages: bearer tokens, JWTs, Volcano keys, AWS access key IDs, passwords in
 URLs, URL query strings, values of `password=`, `token=`, and similar pairs,
-and other long opaque strings. Redaction cannot recognize every secret, so do
-not put file contents, environment variable values, application data, or
+and other long opaque strings. Redaction cannot recognize every secret or
+name, so write placeholders such as `<function>`, `<path>`, or `<payload>` for
+project, function, database, and bucket names, file paths, and payload values.
+Do not put file contents, environment variable values, application data, or
 customer names in a report.
 
 Use `--dry-run` to see the exact report before sending it.
