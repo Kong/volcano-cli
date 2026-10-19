@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -281,13 +282,16 @@ func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
 // workflowJSON renders a JSON value a workflow or a sender wrote, indented.
 // The encoder escapes C0 controls inside strings but passes DEL and C1
 // through, so each line is stripped too. The only raw line breaks are the
-// indentation's.
+// indentation's. HTML escaping is off so a URL's & reads as written.
 func workflowJSON(value any) string {
-	encoded, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
+	var encoded bytes.Buffer
+	encoder := json.NewEncoder(&encoded)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
 		return theme.StripControl(fmt.Sprint(value))
 	}
-	lines := strings.Split(string(encoded), "\n")
+	lines := strings.Split(strings.TrimSuffix(encoded.String(), "\n"), "\n")
 	for i := range lines {
 		lines[i] = theme.StripControl(lines[i])
 	}
