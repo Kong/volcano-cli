@@ -146,15 +146,20 @@ func FormatTimeAgo(t time.Time) string {
 	return fmt.Sprintf("%dd ago", int(duration.Hours()/24))
 }
 
-// Truncate shortens value to maxLen using an ellipsis when practical.
+// Truncate shortens value to maxLen characters using an ellipsis when
+// practical. It counts runes so a cut never splits a multi-byte character.
 func Truncate(value string, maxLen int) string {
 	if len(value) <= maxLen {
 		return value
 	}
-	if maxLen < 3 {
-		return value[:maxLen]
+	runes := []rune(value)
+	if len(runes) <= maxLen {
+		return value
 	}
-	return value[:maxLen-3] + "..."
+	if maxLen < 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 func projectStatus(project apiclient.Project) string {

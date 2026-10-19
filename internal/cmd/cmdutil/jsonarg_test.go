@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -79,6 +80,49 @@ func TestParseJSONObjectRejectsAStrayClosingDelimiter(t *testing.T) {
 		require.Errorf(t, err, "input %q is malformed", input)
 		assert.Contains(t, err.Error(), "unexpected data after the JSON object")
 	}
+}
+
+// A message's data is any JSON value, sent as it was typed.
+func TestParseJSONValueKeepsAnyValueAsWritten(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{`42`, `"done"`, `null`, `[1,2]`, `{"id":9007199254740993}`, " true\n"} {
+		value, err := ParseJSONValue("data", []byte(input))
+		require.NoErrorf(t, err, "input %q", input)
+		assert.Equal(t, strings.TrimSpace(input), string(value))
+	}
+}
+
+func TestParseJSONValueRejectsWhatIsNotOneValue(t *testing.T) {
+	t.Parallel()
+
+	for input, want := range map[string]string{
+		``:       "data must be JSON: EOF",
+		`{`:      "data must be JSON: unexpected EOF",
+		`1 2`:    "unexpected data after the JSON value",
+		`"a"]`:   "unexpected data after the JSON value",
+		`posted`: "data must be JSON: invalid character",
+	} {
+		_, err := ParseJSONValue("data", []byte(input))
+		require.Errorf(t, err, "input %q is not one JSON value", input)
+		assert.Contains(t, err.Error(), want)
+	}
+}
+
+func TestReadJSONFileReadsOnlyARegularFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "post.json")
+	require.NoError(t, os.WriteFile(path, []byte(`"posted"`), 0o600))
+
+	data, err := ReadJSONFile("data", path)
+	require.NoError(t, err)
+	assert.Equal(t, `"posted"`, string(data))
+
+	_, err = ReadJSONFile("data", t.TempDir())
+	require.ErrorContains(t, err, `data file "`)
+	require.ErrorContains(t, err, "must be a regular file")
+
+	_, err = ReadJSONFile("data", filepath.Join(t.TempDir(), "missing.json"))
+	require.ErrorContains(t, err, "failed to read data file")
 }
 
 func remarshal(t *testing.T, object map[string]any) string {

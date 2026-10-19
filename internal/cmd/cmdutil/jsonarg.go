@@ -15,16 +15,10 @@ import (
 // object".
 func ParseJSONObject(subject, value string) (map[string]any, error) {
 	data := []byte(value)
-	if info, err := os.Stat(value); err == nil {
-		// Only a regular file is read. A directory, a device or a fifo named here
-		// is a mistake in the command line, and reading one of the last two
-		// blocks or returns something that is not the caller's JSON either way.
-		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("%s file %q must be a regular file", subject, value)
-		}
-		fileBytes, readErr := os.ReadFile(value)
+	if _, err := os.Stat(value); err == nil {
+		fileBytes, readErr := ReadJSONFile(subject, value)
 		if readErr != nil {
-			return nil, fmt.Errorf("failed to read %s file %q: %w", subject, value, readErr)
+			return nil, readErr
 		}
 		data = fileBytes
 	}
@@ -40,6 +34,41 @@ func ParseJSONObject(subject, value string) (map[string]any, error) {
 		return nil, fmt.Errorf("%s must be a JSON object, not null", subject)
 	}
 	return object, nil
+}
+
+// ReadJSONFile reads the file a flag names for its JSON. subject names the flag
+// in errors.
+func ReadJSONFile(subject, path string) ([]byte, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s file %q: %w", subject, path, err)
+	}
+	// Only a regular file is read. A directory, a device or a fifo named here
+	// is a mistake in the command line, and reading one of the last two
+	// blocks or returns something that is not the caller's JSON either way.
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s file %q must be a regular file", subject, path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s file %q: %w", subject, path, err)
+	}
+	return data, nil
+}
+
+// ParseJSONValue checks that data is exactly one JSON value of any type and
+// returns it as written, so numbers keep their literal.
+func ParseJSONValue(subject string, data []byte) (json.RawMessage, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	var value json.RawMessage
+	if err := decoder.Decode(&value); err != nil {
+		return nil, fmt.Errorf("%s must be JSON: %w", subject, err)
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("%s must be JSON: %w", subject, errTrailingJSONValue)
+	}
+	return value, nil
 }
 
 // decodeJSONObject decodes the object with its numbers left as they were
@@ -71,4 +100,7 @@ func decodeJSONObject(data []byte) (map[string]any, error) {
 	return object, nil
 }
 
-var errTrailingJSON = errors.New("unexpected data after the JSON object")
+var (
+	errTrailingJSON      = errors.New("unexpected data after the JSON object")
+	errTrailingJSONValue = errors.New("unexpected data after the JSON value")
+)
