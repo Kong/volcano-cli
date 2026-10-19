@@ -28,11 +28,11 @@ include:
 
 - `volcano projects list` and `volcano projects get`
 - `volcano connect`
-- `volcano cloud access-tokens …`
+- `volcano cloud access-tokens` `create`, `get`, `list`, and `usage`
 - `volcano cloud domains list` and `volcano cloud domains verify`
 - `volcano durable approvals …`
 - `volcano functions invoke`
-- `volcano projects keys service …`
+- `volcano projects keys service create`
 - `volcano sandboxes …`
 
 Run `volcano <command> --help` to check whether a command has `--json`.

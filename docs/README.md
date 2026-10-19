@@ -107,7 +107,7 @@ prerequisites for cloud operations.
 volcano projects create my-app     # create a project
 volcano projects list              # list your projects
 volcano use my-app                 # set the active project
-volcano connect                    # link this directory to a project
+volcano connect .                  # link this directory to a new project
 volcano projects get               # details for the active project
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
 volcano projects keys anon list    # anon (publishable) API keys for the browser/SDK

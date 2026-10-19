@@ -13,7 +13,9 @@ yourself:
 npx -y @volcano.dev/cli connect
 ```
 
-It runs these steps, and is safe to run again:
+It runs these steps. A rerun inside the linked directory, or with the same
+directory argument, keeps the project and updates the files in place. A rerun
+with no directory argument outside a linked directory creates another project.
 
 1. **Signs in.** It reuses a login that still works, takes `--token`, or runs
    browser login. Browser login prints a code and a link. Open the link and
@@ -73,8 +75,8 @@ volcano connect --json                 # print the result as JSON
 | `--project` | Use the existing project with this ID instead of creating one |
 | `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
-| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email` |
-| `--token` | Sign in with an account token instead of the browser |
+| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
+| `--token` | Sign in with an account token instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
 | `--json` | Print the result as JSON on stdout. Progress goes to stderr |
 

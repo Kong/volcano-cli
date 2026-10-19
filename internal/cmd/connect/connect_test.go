@@ -157,6 +157,7 @@ func TestConnectCreatesAProjectNamedAfterTheDirectoryAndLinksIt(t *testing.T) {
 	assert.FileExists(t, filepath.Join(dir, "volcano", "volcano.env"), "the base scaffold is created")
 	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
 	assert.Contains(t, agents, "linked to a Volcano cloud project in .volcano/project.json")
+	assert.Contains(t, agents, "If the file is\nmissing, run `volcano connect .` here.", "a bare connect would set up a new directory instead")
 	assert.NotContains(t, agents, connectProjectID, "AGENTS.md is shared; the project is each developer's own")
 
 	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
