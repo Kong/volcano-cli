@@ -607,21 +607,28 @@ func scaffold(log io.Writer, dir, starter string) {
 
 // projectAnonKey returns the project's default anon key, the publishable key
 // the SDK and frontends use. It creates one only when the project has none.
+// The API lists the newest keys first, so the default, usually the oldest, can
+// be on the last page.
 func projectAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID) (string, error) {
-	keys, err := client.ListAnonKeys(ctx, projectID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get the project's anon key: %w", err)
-	}
 	var fallback string
-	for _, key := range keys {
-		if key.KeyValue == "" {
-			continue
+	for page := api.DefaultPage; ; page++ {
+		keys, more, err := client.ListAnonKeysPage(ctx, projectID, page, api.DefaultLimit)
+		if err != nil {
+			return "", fmt.Errorf("failed to get the project's anon key: %w", err)
 		}
-		if key.IsDefault != nil && *key.IsDefault {
-			return key.KeyValue, nil
+		for _, key := range keys {
+			if key.KeyValue == "" {
+				continue
+			}
+			if key.IsDefault != nil && *key.IsDefault {
+				return key.KeyValue, nil
+			}
+			if fallback == "" {
+				fallback = key.KeyValue
+			}
 		}
-		if fallback == "" {
-			fallback = key.KeyValue
+		if !more || len(keys) == 0 {
+			break
 		}
 	}
 	if fallback != "" {

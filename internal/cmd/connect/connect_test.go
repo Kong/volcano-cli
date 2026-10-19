@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,9 @@ type fakeAPI struct {
 	exchanges      int
 	// deviceAuthorize records that browser login started. The fake refuses it.
 	deviceAuthorize bool
+	// anonKeyPages, when set, replace the default anon-key list, one entry per
+	// page.
+	anonKeyPages [][]any
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +87,16 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		project := connectProjectPayload(connectProjectID, body.Name)
 		f.projects = append(f.projects, project)
 		writeConnectJSON(f.t, w, http.StatusCreated, project)
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/anon-keys") && f.anonKeyPages != nil:
+		page := 1
+		if raw := r.URL.Query().Get("page"); raw != "" {
+			var err error
+			page, err = strconv.Atoi(raw)
+			require.NoError(f.t, err)
+		}
+		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
+			"data": f.anonKeyPages[page-1], "has_more": page < len(f.anonKeyPages),
+		})
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/anon-keys"):
 		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
 			"data": []any{
@@ -234,6 +248,27 @@ func TestConnectRejectsAnUnknownTemplateBeforeCreatingAProject(t *testing.T) {
 	_, err := runConnect(t, server, t.TempDir(), "--template", "nextjss")
 	require.ErrorContains(t, err, `unknown starter "nextjss"`)
 	assert.Zero(t, fake.creates)
+}
+
+func TestConnectFindsTheDefaultAnonKeyOnALaterPage(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{
+		t:        t,
+		projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")},
+		anonKeyPages: [][]any{
+			{map[string]any{"id": "33333333-3333-4333-8333-333333333333", "name": "newest", "key_value": "ak-newest", "is_default": false}},
+			{map[string]any{"id": "44444444-4444-4444-8444-444444444444", "name": "default", "key_value": connectAnonKey, "is_default": true}},
+		},
+	}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := t.TempDir()
+
+	_, err := runConnect(t, server, dir, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	env := readFile(t, filepath.Join(dir, "volcano", "cloud.env"))
+	assert.Contains(t, env, "VOLCANO_ANON_KEY="+connectAnonKey+"\n")
+	assert.NotContains(t, env, "ak-newest")
 }
 
 func TestConnectProjectFlagTakesAnID(t *testing.T) {
