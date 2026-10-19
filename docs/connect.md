@@ -134,7 +134,9 @@ variable names. Unset it, or set it to the new project's ID, and run
 
 `volcano login --token <token> --project <project>` run inside a linked
 directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
-check. If the link named another project, it warns and prints the command that
+check. `volcano connect` checks it too, before it signs in or creates a
+project: when `VOLCANO_PROJECT_ID` is set, it only links the project the
+variable names, with `--project` or through an existing link. If the link named another project, it warns and prints the command that
 links it back.
 
 If the linked directory already has a `volcano/cloud.env` with an anon key,
