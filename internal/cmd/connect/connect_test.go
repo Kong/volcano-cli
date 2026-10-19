@@ -222,6 +222,17 @@ func TestConnectAddsASuffixWhenTheNameIsTaken(t *testing.T) {
 	assert.Equal(t, 3, fake.creates)
 }
 
+func TestConnectRejectsAnUnknownTemplateBeforeCreatingAProject(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	_, err := runConnect(t, server, t.TempDir(), "--template", "nextjss")
+	require.ErrorContains(t, err, `unknown starter "nextjss"`)
+	assert.Zero(t, fake.creates)
+}
+
 func TestConnectProjectFlagTakesAnID(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}

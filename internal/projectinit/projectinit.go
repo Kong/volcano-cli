@@ -149,11 +149,8 @@ func buildPlan(rootDir, starterName string, force bool) (*plan, error) {
 	if starterName == "" {
 		starterName = baseStarter
 	}
-	if !validStarterName(starterName) {
-		return nil, fmt.Errorf("invalid starter name %q", starterName)
-	}
-	if !starterExists(starterName) {
-		return nil, fmt.Errorf("unknown starter %q", starterName)
+	if err := CheckStarter(starterName); err != nil {
+		return nil, err
 	}
 	if starterName != baseStarter {
 		starterNames = append(starterNames, starterName)
@@ -168,6 +165,22 @@ func buildPlan(rootDir, starterName string, force bool) (*plan, error) {
 		}
 	}
 	return planned, nil
+}
+
+// CheckStarter returns the error RunStarter would return for starterName
+// before it touches any file. Empty names the base scaffold.
+func CheckStarter(starterName string) error {
+	starterName = strings.TrimSpace(starterName)
+	if starterName == "" {
+		return nil
+	}
+	if !validStarterName(starterName) {
+		return fmt.Errorf("invalid starter name %q", starterName)
+	}
+	if !starterExists(starterName) {
+		return fmt.Errorf("unknown starter %q", starterName)
+	}
+	return nil
 }
 
 func validStarterName(name string) bool {

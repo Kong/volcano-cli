@@ -151,6 +151,11 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return err
 	}
+	// Checked before sign-in: a typo found at the scaffold step would leave a
+	// new project behind.
+	if err := projectinit.CheckStarter(starter); err != nil {
+		return fmt.Errorf("--template: %w (supported: nextjs, javascript, python, ruby)", err)
+	}
 
 	sessions := clisession.NewFactory(opts.deps)
 	if err := ensureSession(ctx, opts, sessions); err != nil {
