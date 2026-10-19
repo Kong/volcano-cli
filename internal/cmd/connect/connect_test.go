@@ -362,6 +362,43 @@ func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
 }
 
+func TestConnectWithProjectAndNoDirectoryKeepsAnotherProjectsDirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{
+		connectProjectPayload(connectProjectID, "my_app"),
+		connectProjectPayload(connectOtherProjectID, "my-app"),
+	}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+
+	// A rerun for the same project reuses its directory.
+	for range 2 {
+		_, err := runConnectHere(t, server, "--project", connectProjectID)
+		require.NoError(t, err)
+	}
+
+	// my-app makes the same directory name as my_app, which is linked to it.
+	_, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.ErrorContains(t, err, "./my-app is linked to another project")
+	link, err := cliconfig.FindLink(filepath.Join(parent, "my-app"))
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, connectProjectID, link.Project.ID, "the link is unchanged")
+}
+
+func TestConnectLeavesNoDirectoryWhenTheProjectIsNotCreated(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, createStatus: http.StatusForbidden, createError: "project limit exceeded (max 1 projects per user)"}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "my-app")
+
+	_, err := runConnect(t, server, dir)
+	require.ErrorContains(t, err, "project limit exceeded")
+	assert.NoDirExists(t, dir)
+}
+
 func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")

@@ -346,16 +346,26 @@ const maxNameSuffix = 20
 // a new directory named after it.
 func resolveTarget(ctx context.Context, opts options, session *clisession.Session, wd string) (string, *apiclient.Project, bool, error) {
 	if opts.dir != "" {
-		dir, err := makeDir(opts.dir)
+		dir, err := filepath.Abs(opts.dir)
 		if err != nil {
 			return "", nil, false, err
 		}
-		if strings.TrimSpace(opts.project) != "" {
-			project, err := existingProject(ctx, session.API, opts.project)
-			return dir, project, false, err
+		if info, err := os.Stat(dir); err == nil && !info.IsDir() {
+			return "", nil, false, fmt.Errorf("%s is not a directory", dir)
 		}
-		project, created, err := linkedOrNewProject(ctx, opts, session, dir)
-		return dir, project, created, err
+		var project *apiclient.Project
+		created := false
+		if strings.TrimSpace(opts.project) != "" {
+			project, err = existingProject(ctx, session.API, opts.project)
+		} else {
+			project, created, err = linkedOrNewProject(ctx, opts, session, dir)
+		}
+		if err != nil {
+			return "", nil, false, err
+		}
+		// Created only now, so a failed project lookup or create leaves no
+		// empty directory behind.
+		return dir, project, created, makeDir(dir)
 	}
 
 	if strings.TrimSpace(opts.project) != "" {
@@ -363,8 +373,18 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		if err != nil {
 			return "", nil, false, err
 		}
-		dir, err := makeDir(filepath.Join(wd, dirName(project.Name)))
-		return dir, project, false, err
+		dir := filepath.Join(wd, dirName(project.Name))
+		// Two project names can make the same directory name. Never relink a
+		// directory that belongs to another project.
+		link, err := config.FindLink(dir)
+		if err != nil {
+			return "", nil, false, err
+		}
+		if link != nil && link.Dir == dir && link.Project.ID != project.Id.String() {
+			return "", nil, false, fmt.Errorf("%s is linked to another project (%s). Pass a directory for %s: volcano connect <directory> --project %s",
+				displayDir(wd, dir), link.Project.ID, project.Name, project.Id)
+		}
+		return dir, project, false, makeDir(dir)
 	}
 
 	link, err := config.FindLink(wd)
@@ -381,19 +401,15 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 	if err != nil {
 		return "", nil, false, err
 	}
-	dir, err := makeDir(filepath.Join(wd, dirName(project.Name)))
-	return dir, project, true, err
+	dir := filepath.Join(wd, dirName(project.Name))
+	return dir, project, true, makeDir(dir)
 }
 
-func makeDir(path string) (string, error) {
-	dir, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
+func makeDir(dir string) error {
 	if err := os.MkdirAll(dir, dirMode); err != nil {
-		return "", fmt.Errorf("failed to create %s: %w", dir, err)
+		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
-	return dir, nil
+	return nil
 }
 
 // existingProject is the project --project names. It takes an ID only.
