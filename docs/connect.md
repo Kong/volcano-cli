@@ -19,6 +19,8 @@ with no directory argument outside a linked directory creates another project.
 If `connect` stops after it creates a project but before it links the
 directory, the error names the project and the
 `volcano connect <directory> --project <project-id>` command that sets it up.
+Commands `connect` prints put a directory with spaces or other shell
+characters in single quotes, so you can paste them as they are.
 
 1. **Signs in.** It signs in with `--device-code` or `--token` when given.
    Otherwise it reuses a login that still works, or runs browser login.

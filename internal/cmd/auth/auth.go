@@ -181,7 +181,7 @@ func loadConfig(deps cliruntime.Deps, errOut io.Writer) (*config.Config, error) 
 	if linkErr != nil {
 		output.Warning(errOut, "Ignoring a project link that can't be used: %v. Commands that use a project fail in this "+
 			"directory until it is fixed. To relink it, run: %s", linkErr,
-			cliruntime.CommandPath(deps, "connect "+linkErr.Dir+" --project <project-id>"))
+			cliruntime.CommandPath(deps, "connect "+cliruntime.ShellQuote(linkErr.Dir)+" --project <project-id>"))
 	}
 	return cfg, nil
 }

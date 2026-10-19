@@ -445,6 +445,37 @@ func TestConnectWithProjectWarnsWhenItRelinksADirectory(t *testing.T) {
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
 }
 
+// The printed commands must paste as one argument for a directory with a space.
+func TestConnectQuotesADirectoryWithASpaceInPrintedCommands(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{
+		connectProjectPayload(connectProjectID, "shop"), connectProjectPayload(connectOtherProjectID, "blog"),
+	}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(chdirTemp(t), "My App")
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
+	require.NoError(t, err)
+
+	out, err := runConnect(t, server, "My App", "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	shown := "." + string(filepath.Separator) + "My App"
+	assert.Contains(t, out, "To undo, run: volcano connect '"+shown+"' --project "+connectProjectID)
+	assert.Contains(t, out, "Next: cd '"+shown+"', read AGENTS.md there")
+}
+
+func TestConnectQuotesADirectoryWithASpaceInTheBadLinkError(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(chdirTemp(t), "My App")
+	writeBadLink(t, dir)
+
+	_, err := runConnect(t, server, "My App")
+	require.ErrorContains(t, err, "run: volcano connect '."+string(filepath.Separator)+"My App' --project <project-id>")
+}
+
 func TestConnectWithNoDirectoryCreatesOneNamedAfterTheProject(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")
@@ -845,6 +876,24 @@ func TestConnectNamesTheCreatedProjectWhenTheWaitStops(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.ErrorContains(t, err, "To set it up, run: volcano connect "+dir+" --project "+connectProjectID)
 	assert.Equal(t, 1, fake.creates)
+}
+
+func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, createdStatus: "provisioning"}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "My App")
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetArgs([]string{dir, "--skip-skills"})
+	err := cmd.ExecuteContext(ctx)
+	require.ErrorContains(t, err, "To set it up, run: volcano connect '"+dir+"' --project "+connectProjectID)
 }
 
 // The dashboard approved the code before the user pasted the prompt, so

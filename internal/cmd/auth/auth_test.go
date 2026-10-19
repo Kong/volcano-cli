@@ -424,6 +424,22 @@ func writeBadLink(t *testing.T) string {
 	return path
 }
 
+func TestLoginQuotesADirectoryWithASpaceInTheBadLinkWarning(t *testing.T) {
+	setAuthTestHome(t)
+	dir := filepath.Join(t.TempDir(), "My App")
+	path := filepath.Join(dir, ".volcano", "project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("<<<<<<< HEAD\n"), 0o644))
+	t.Chdir(dir)
+	server := betaServer(t)
+
+	_, stderr, err := executeLogin(t, server, "--token", "pk-account", "--project", authOtherProjectID)
+	require.NoError(t, err)
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "volcano connect '"+wd+"' --project <project-id>")
+}
+
 func TestLoginWarnsAboutABadProjectLinkAndIgnoresIt(t *testing.T) {
 	setAuthTestHome(t)
 	path := writeBadLink(t)

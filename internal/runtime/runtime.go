@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os/exec"
 	goruntime "runtime"
+	"strings"
 	"time"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -60,6 +61,19 @@ type Deps struct {
 	// when nobody is there to sign in. The CLI entry point sets it; tests
 	// leave it nil.
 	SignIn func() error
+}
+
+// ShellQuote returns s as one argument for a POSIX shell, so a printed
+// command can be pasted as is. It leaves s as it is when no character needs
+// quoting, such as ./app, and otherwise wraps it in single quotes.
+func ShellQuote(s string) string {
+	safe := func(r rune) bool {
+		return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_@%+=:,./-", r)
+	}
+	if s != "" && strings.IndexFunc(s, func(r rune) bool { return !safe(r) }) < 0 {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // CommandPath returns a user-facing command path for the current command tree.

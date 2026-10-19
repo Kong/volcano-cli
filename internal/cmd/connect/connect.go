@@ -254,7 +254,7 @@ func run(ctx context.Context, opts options) error {
 		shown := displayDir(wd, dir)
 		output.Warning(opts.log, "%s was linked to %s. It is now linked to %s. To undo, run: %s",
 			shown, projectLabel(previous.Project), projectLabel(config.ProjectConfig{ID: project.Id.String(), Name: project.Name}),
-			cliruntime.CommandPath(opts.deps, "connect "+shown+" --project "+previous.Project.ID))
+			cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(shown)+" --project "+previous.Project.ID))
 	}
 
 	if err := scaffold(opts, dir, starter); err != nil {
@@ -308,7 +308,7 @@ func run(ctx context.Context, opts options) error {
 	if shown == "." {
 		fmt.Fprintln(opts.out, "Next: read AGENTS.md and use the Volcano skills to build.")
 	} else {
-		fmt.Fprintf(opts.out, "Next: cd %s, read AGENTS.md there, and use the Volcano skills to build.\n", shown)
+		fmt.Fprintf(opts.out, "Next: cd %s, read AGENTS.md there, and use the Volcano skills to build.\n", cliruntime.ShellQuote(shown))
 	}
 	return nil
 }
@@ -554,7 +554,7 @@ func checkTargetPath(opts options) error {
 // doesn't create another.
 func createdProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
 	return fmt.Errorf("%w\nCreated project %s (%s), but did not link it. To set it up, run: %s", err,
-		project.Name, project.Id, cliruntime.CommandPath(opts.deps, "connect "+displayDir(wd, dir)+" --project "+project.Id.String()))
+		project.Name, project.Id, cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))+" --project "+project.Id.String()))
 }
 
 // existingProject is the project --project names. It takes an ID only.
@@ -679,7 +679,7 @@ func refuseNameForLink(opts options, wd string) error {
 func badLinkError(wd string, bad *config.LinkError) error {
 	shown := displayDir(wd, bad.Dir)
 	return fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
-		"To link it to a new project, add --name <name>, or delete %s", bad, shown, shown, bad.Path())
+		"To link it to a new project, add --name <name>, or delete %s", bad, shown, cliruntime.ShellQuote(shown), bad.Path())
 }
 
 // newProject creates a project named --name, else what the user types at a
