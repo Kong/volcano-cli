@@ -17,10 +17,11 @@ It runs these steps. A rerun inside the linked directory, or with the same
 directory argument, keeps the project and updates the files in place. A rerun
 with no directory argument outside a linked directory creates another project.
 
-1. **Signs in.** It reuses a login that still works, takes `--token`, or runs
-   browser login. Browser login prints a code and a link. Open the link and
-   approve, and the command continues. See
-   [One-time tokens from the dashboard](#one-time-tokens-from-the-dashboard).
+1. **Signs in.** It signs in with `--device-code` or `--token` when given.
+   Otherwise it reuses a login that still works, or runs browser login.
+   Browser login prints a code and a link. Open the link and approve, and the
+   command continues. See
+   [Device codes from the dashboard](#device-codes-from-the-dashboard).
 2. **Creates a project and its directory.** It always creates a new project.
    With no directory argument, it uses `--name` or a generated name such as
    `fuji-amber-42`, and creates a directory with the same name in the current
@@ -74,7 +75,7 @@ volcano connect my-app                 # create ./my-app and link it
 volcano connect --project <project-id> # set up an existing project
 volcano connect --template nextjs      # also add the Next.js starter
 volcano connect --signup               # new to Volcano: create an account first
-volcano connect --token vbt_xxxxxxxx  # sign in with the dashboard's one-time token
+volcano connect --device-code <code>   # sign in with the code in the dashboard's prompt
 volcano connect --token pk-xxxxxxxxxx  # sign in with an account token, no browser
 volcano connect --json                 # print the result as JSON
 ```
@@ -85,27 +86,34 @@ volcano connect --json                 # print the result as JSON
 | `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
 | `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
-| `--token` | Sign in with a one-time `vbt_` token from the dashboard, or an account token, instead of the browser. Fails when `VOLCANO_TOKEN` is set |
+| `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
+| `--token` | Sign in with a token instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
 | `--json` | Print the result as JSON on stdout. Progress goes to stderr |
 
-## One-time tokens from the dashboard
+## Device codes from the dashboard
 
 When you have no projects, the dashboard's Projects page shows a prompt to
-paste into your coding agent. Each copy of the prompt holds a new one-time
-token that starts with `vbt_`:
+paste into your coding agent. Each time you copy it, the dashboard starts a
+new CLI login, approves it for the account you are signed in with, and puts
+its device code in the prompt:
 
 ```bash
-volcano connect --token vbt_xxxxxxxx
+volcano connect --device-code <code>
 ```
 
-`connect` trades the token for a normal CLI login and saves it, so later
-commands stay signed in. The token works once and expires 15 minutes after
-you copy the prompt. If it has expired, was already used, or is refused, `connect`
-warns and runs browser login instead. Copy the prompt again for a new token.
+`connect` signs in with the code without opening the browser, and saves the
+login, so later commands stay signed in. The code works once and expires 10
+minutes after you copy the prompt. Until then it signs in as you, so don't
+share the prompt. If the code has expired, was already used, or is refused,
+`connect` warns and runs browser login instead. Copy the prompt again for a
+new code.
 
-The login is saved as soon as the token is exchanged. If a later step fails,
-the CLI is still signed in: run the command again without `--token`.
+The login is saved as soon as the code is used. If a later step fails, the
+CLI is still signed in: run the command again without `--device-code`.
+
+`volcano login --device-code <code>` signs in the same way. When the code is
+refused it fails with exit code `2` instead of running browser login.
 
 ## New accounts and the project limit
 

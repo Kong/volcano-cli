@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -63,44 +62,140 @@ const (
 	projectFromSelection projectOrigin = "the project 'volcano use' last selected"
 )
 
-// LoginWithToken validates token and returns credentials to persist. project
-// names the project to validate against and select, by ID or by name; it is
-// optional for an account token and required for a project access token, which
-// cannot list projects and so cannot tell the CLI which project it belongs to.
-//
-// A one-time bootstrap token is exchanged first, and the login it returns is
-// saved right away: the exchange spends the token, so a failure after it must
-// not throw the login away. Such a failure is a *LoginSavedError.
+// LoginWithToken validates token, an account or project access token, and
+// returns credentials to persist. project names the project to validate
+// against and select, by ID or by name; it is optional for an account token
+// and required for a project access token, which cannot list projects and so
+// cannot tell the CLI which project it belongs to.
 func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
-	token = strings.TrimSpace(token)
-	if !config.IsBootstrapToken(token) {
-		return s.loginWithToken(ctx, cfg, token, "", project)
+	return s.loginWithToken(ctx, cfg, strings.TrimSpace(token), "", project)
+}
+
+// dashboardDeviceCodeTTL is how long a device code the dashboard started
+// lives: the API's device grant TTL. The dashboard has already approved it, so
+// polling ends long before this unless the API is slow to see the approval.
+const dashboardDeviceCodeTTL = 10 * time.Minute
+
+// LoginWithDeviceCode signs in with a device code the dashboard started and
+// already approved, so it skips device authorization and the browser and goes
+// straight to polling. project is validated and selected as LoginWithToken does.
+//
+// The login is saved as soon as the API trades the code for it: the code works
+// once, so a failure after that must not throw the login away. Such a failure
+// is a *LoginSavedError. A code the API refuses is a *DeviceCodeRefusedError.
+// The code is a secret: it is never printed, and errors have it redacted.
+func (s Service) LoginWithDeviceCode(ctx context.Context, cfg *config.Config, deviceCode, project string, w io.Writer) (Credentials, error) {
+	deviceCode = strings.TrimSpace(deviceCode)
+	credentials, err := s.loginWithDeviceCode(ctx, cfg, deviceCode, project, w)
+	if err != nil {
+		return Credentials{}, redactSecret(err, deviceCode)
 	}
+	return credentials, nil
+}
+
+func (s Service) loginWithDeviceCode(ctx context.Context, cfg *config.Config, deviceCode, project string, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
-	exchange, err := s.exchangeBootstrapToken(ctx, apiURL, token)
+	clientID, err := resolveDeviceClientID(apiURL)
 	if err != nil {
 		return Credentials{}, err
 	}
-	if err := SaveCredentials(Credentials{Token: exchange.Token, UserID: exchange.UserID, APIURL: apiURL}); err != nil {
+	client, err := s.sessions.APIClient(apiURL, "")
+	if err != nil {
+		return Credentials{}, err
+	}
+
+	fmt.Fprint(w, "Signing in with the code from the dashboard")
+	login, err := s.pollDeviceLogin(ctx, client, clientID, devicePoll{
+		deviceCode: deviceCode,
+		expiresIn:  dashboardDeviceCodeTTL,
+		pollNow:    true,
+	}, w)
+	if err != nil {
+		if refusal, ok := errors.AsType[*deviceTokenRefusal](err); ok {
+			return Credentials{}, deviceCodeRefused(refusal)
+		}
+		if errors.Is(err, errDeviceLoginTimeout) {
+			return Credentials{}, &DeviceCodeRefusedError{Reason: "has expired", Err: err}
+		}
+		return Credentials{}, err
+	}
+	login.APIURL = apiURL
+	if err := SaveCredentials(login); err != nil {
 		return Credentials{}, fmt.Errorf("failed to save credentials: %w", err)
 	}
-	credentials, err := s.loginWithToken(ctx, cfg, exchange.Token, exchange.UserID, project)
+	credentials, err := s.loginWithToken(ctx, cfg, login.Token, login.UserID, project)
 	if err != nil {
 		return Credentials{}, &LoginSavedError{Err: err}
 	}
 	return credentials, nil
 }
 
-// LoginSavedError is a failure after a one-time token was exchanged and its
-// login saved. The token is spent, but the saved login works without it.
+// LoginSavedError is a failure after the API traded a device code from the
+// dashboard for a login, and that login was saved. The code is spent, but the
+// saved login works without it.
 type LoginSavedError struct{ Err error }
 
 func (e *LoginSavedError) Error() string { return e.Err.Error() }
 
 func (e *LoginSavedError) Unwrap() error { return e.Err }
 
+// DeviceCodeRefusedError is a device code from the dashboard that the API
+// would not trade for a login: expired, denied, already used, or not valid.
+// It counts as not signed in for the exit code.
+type DeviceCodeRefusedError struct {
+	// Reason completes "The code from the dashboard ...", e.g. "has expired".
+	Reason string
+	Err    error
+}
+
+func (e *DeviceCodeRefusedError) Error() string {
+	return "the code from the dashboard " + e.Reason + ". Copy a new prompt from the dashboard, or sign in in the browser"
+}
+
+func (e *DeviceCodeRefusedError) Unwrap() error { return e.Err }
+
+// Is makes a refused code exit as not signed in.
+func (e *DeviceCodeRefusedError) Is(target error) bool { return target == config.ErrNotAuthenticated }
+
+// deviceCodeRefused names why the API refused a device code. The API sends
+// one generic description for every invalid_grant, so an unknown code and a
+// used one can't be told apart.
+func deviceCodeRefused(refusal *deviceTokenRefusal) *DeviceCodeRefusedError {
+	switch refusal.code {
+	case "expired_token":
+		return &DeviceCodeRefusedError{Reason: "has expired", Err: refusal}
+	case "access_denied":
+		return &DeviceCodeRefusedError{Reason: "was denied", Err: refusal}
+	case "invalid_grant":
+		return &DeviceCodeRefusedError{Reason: "is not valid or was already used", Err: refusal}
+	default:
+		return &DeviceCodeRefusedError{Reason: "was refused", Err: refusal}
+	}
+}
+
+// redactSecret replaces secret in err's text, keeping err for errors.As and
+// errors.Is.
+func redactSecret(err error, secret string) error {
+	if secret == "" || !strings.Contains(err.Error(), secret) {
+		return err
+	}
+	return redactedError{err: err, secret: secret}
+}
+
+type redactedError struct {
+	err    error
+	secret string
+}
+
+func (e redactedError) Error() string {
+	return strings.ReplaceAll(e.err.Error(), e.secret, "[redacted]")
+}
+
+func (e redactedError) Unwrap() error { return e.err }
+
 // loginWithToken validates token, an account or project access token, for
-// LoginWithToken. userID is the user a bootstrap exchange named, if any.
+// LoginWithToken and LoginWithDeviceCode. userID is the user a device login
+// named, if any.
 func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, userID, project string) (Credentials, error) {
 	project = strings.TrimSpace(project)
 	apiURL := s.apiURL(cfg)
@@ -137,52 +232,6 @@ func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, 
 		Project: &config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name},
 		APIURL:  apiURL,
 	}, nil
-}
-
-// bootstrapClientName names the CLI to the API when it exchanges a bootstrap
-// token, so the new login is listed as this CLI on this machine.
-const bootstrapClientName = "volcano-cli"
-
-// BootstrapRefusedError is a one-time bootstrap token the API would not
-// exchange: expired, already used, not valid, rate limited, or not supported
-// by this API.
-type BootstrapRefusedError struct {
-	// Reason completes "The one-time token ...", e.g. "has expired".
-	Reason string
-	Err    error
-}
-
-func (e *BootstrapRefusedError) Error() string {
-	return "the one-time token " + e.Reason + ". Copy a new prompt from the dashboard, or sign in in the browser"
-}
-
-func (e *BootstrapRefusedError) Unwrap() error { return e.Err }
-
-// exchangeBootstrapToken trades a vbt_ token for a normal CLI login.
-func (s Service) exchangeBootstrapToken(ctx context.Context, apiURL, token string) (*api.BootstrapExchange, error) {
-	client, err := s.sessions.APIClient(apiURL, "")
-	if err != nil {
-		return nil, err
-	}
-	hostname, _ := os.Hostname()
-	exchange, err := client.ExchangeBootstrapToken(ctx, token, bootstrapClientName, hostname)
-	if err == nil {
-		return exchange, nil
-	}
-	switch {
-	case api.Code(err) == api.BootstrapTokenExpired:
-		return nil, &BootstrapRefusedError{Reason: "has expired", Err: err}
-	case api.Code(err) == api.BootstrapTokenUsed:
-		return nil, &BootstrapRefusedError{Reason: "was already used", Err: err}
-	case api.Code(err) == api.BootstrapTokenInvalid:
-		return nil, &BootstrapRefusedError{Reason: "is not valid", Err: err}
-	case api.Status(err) == http.StatusTooManyRequests:
-		return nil, &BootstrapRefusedError{Reason: "was refused after too many attempts from this network", Err: err}
-	case api.Status(err) == http.StatusNotFound:
-		// An API without the exchange endpoint.
-		return nil, &BootstrapRefusedError{Reason: "can't be used with this API", Err: err}
-	}
-	return nil, err
 }
 
 // unnamedProject falls back to the project the CLI already has for a project

@@ -22,11 +22,12 @@ import (
 )
 
 type loginOptions struct {
-	deps      cliruntime.Deps
-	token     string
-	projectID string
-	out       io.Writer
-	errOut    io.Writer
+	deps       cliruntime.Deps
+	token      string
+	deviceCode string
+	projectID  string
+	out        io.Writer
+	errOut     io.Writer
 }
 
 type signupOptions struct {
@@ -39,6 +40,7 @@ type signupOptions struct {
 // NewLogin returns the login command.
 func NewLogin(deps cliruntime.Deps) *cobra.Command {
 	var tokenFlag string
+	var deviceCodeFlag string
 	var projectFlag string
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -54,22 +56,28 @@ Token-based login (for CI/CD):
 Project access tokens (pt-) reach one project only, so name it by ID:
   volcano login --token pt-xxxxxxxxxx --project <project-id>
 
+With the code in the dashboard's prompt, which works once within 10 minutes:
+  volcano login --device-code <code>
+
 Environment variable (no login needed):
   export VOLCANO_TOKEN=pk-xxxxxxxxxx
   volcano cloud functions deploy --all`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runLogin(cmd.Context(), loginOptions{
-				deps:      deps,
-				token:     tokenFlag,
-				projectID: projectFlag,
-				out:       cmd.OutOrStdout(),
-				errOut:    cmd.ErrOrStderr(),
+				deps:       deps,
+				token:      tokenFlag,
+				deviceCode: deviceCodeFlag,
+				projectID:  projectFlag,
+				out:        cmd.OutOrStdout(),
+				errOut:     cmd.ErrOrStderr(),
 			})
 		},
 	}
 	cmd.Flags().StringVar(&tokenFlag, "token", "", "User token for authentication")
+	cmd.Flags().StringVar(&deviceCodeFlag, "device-code", "", "Sign in with the code in the dashboard's prompt instead of the browser")
 	cmd.Flags().StringVar(&projectFlag, "project", "",
-		"Project ID or name to validate the token against and select (required for a pt- token, which must use the ID)")
+		"Project ID or name to validate the login against and select (required for a pt- token, which must use the ID)")
+	cmd.MarkFlagsMutuallyExclusive("token", "device-code")
 	return cmd
 }
 
@@ -82,32 +90,43 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	service := cliauth.NewService(opts.deps)
 	var credentials cliauth.Credentials
 	token := strings.TrimSpace(opts.token)
+	deviceCode := strings.TrimSpace(opts.deviceCode)
 	// --project inside a linked directory selects the project in the link, as
 	// `volcano use` does there: the link would otherwise keep overriding it.
-	inLink := token != "" && strings.TrimSpace(opts.projectID) != "" && cfg.Link != nil
-	if token != "" {
-		credentials, err = service.LoginWithToken(ctx, cfg, token, opts.projectID)
+	inLink := (token != "" || deviceCode != "") && strings.TrimSpace(opts.projectID) != "" && cfg.Link != nil
+	switch {
+	case deviceCode != "":
+		credentials, err = service.LoginWithDeviceCode(ctx, cfg, deviceCode, opts.projectID, opts.out)
 		if err == nil && inLink {
-			// Checked before anything is saved, so a refusal changes nothing. A
-			// one-time token's login is saved by now, so say that it is.
-			if err = cliproject.CheckProjectOverride(cfg, credentials.Project.ID, cfg.Link); err != nil && config.IsBootstrapToken(token) {
+			// The device code's login is saved by now, so say that it is.
+			if err = cliproject.CheckProjectOverride(cfg, credentials.Project.ID, cfg.Link); err != nil {
 				err = &cliauth.LoginSavedError{Err: err}
 			}
 		}
 		if err != nil {
 			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
-				output.Note(opts.out, "The one-time token is spent, but its login is saved, so you are logged in.")
+				output.Note(opts.out, "The code from the dashboard is spent, but its login is saved, so you are logged in.")
 				if strings.TrimSpace(opts.projectID) != "" {
 					output.Note(opts.out, "Run `%s` to select a project.", cliruntime.CommandPath(opts.deps, "use <project>"))
 				}
 			}
+			return fmt.Errorf("device code authentication failed: %w", err)
+		}
+		output.Success(opts.out, "Signed in with the code from the dashboard")
+	case token != "":
+		credentials, err = service.LoginWithToken(ctx, cfg, token, opts.projectID)
+		if err == nil && inLink {
+			// Checked before anything is saved, so a refusal changes nothing.
+			err = cliproject.CheckProjectOverride(cfg, credentials.Project.ID, cfg.Link)
+		}
+		if err != nil {
 			return fmt.Errorf("token authentication failed: %w", err)
 		}
 		fmt.Fprintln(opts.out)
 		output.Success(opts.out, "Token validated")
-	} else {
+	default:
 		if strings.TrimSpace(opts.projectID) != "" {
-			return errors.New("--project applies to --token login; run 'volcano use <project-id>' after a browser login")
+			return errors.New("--project applies to --token and --device-code login; run 'volcano use <project-id>' after a browser login")
 		}
 		credentials, err = service.LoginWithBrowser(ctx, cfg, opts.out)
 		if err != nil {

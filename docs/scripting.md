@@ -12,7 +12,7 @@ failures apart without parsing the error text.
 |---|---|---|
 | `0` | Success | |
 | `1` | Any other failure | Read the error on stderr |
-| `2` | No credential is set, or the API answered HTTP 401 | Run `volcano login`, or `volcano signup` for a new account |
+| `2` | No credential is set, the API answered HTTP 401, or it refused the `--device-code` code | Run `volcano login`, or `volcano signup` for a new account |
 | `3` | No project is selected | Run `volcano connect .` to create a project for this directory, or `volcano use <project>` |
 | `4` | The API answered HTTP 404, or no project or other cloud resource matched the name or ID | Check the name or ID |
 | `5` | The API answered HTTP 403, or the command needs an account token | Check the credential's access and the plan's limits |

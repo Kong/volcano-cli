@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
@@ -46,6 +47,7 @@ func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
 	}{
 		{name: "not logged in", err: cliconfig.ErrNotAuthenticated, want: exitNotAuthenticated},
 		{name: "rejected credential", err: fmt.Errorf("list: %w", &api.Error{StatusCode: http.StatusUnauthorized}), want: exitNotAuthenticated},
+		{name: "refused device code", err: fmt.Errorf("login: %w", &cliauth.DeviceCodeRefusedError{Reason: "has expired"}), want: exitNotAuthenticated},
 		{name: "no project", err: cliconfig.ErrNoProjectSelected, want: exitNoProject},
 		{name: "no project for a project token", err: cliconfig.ErrNoProjectSelectedForProjectToken, want: exitNoProject},
 		{name: "unknown project", err: fmt.Errorf("%w: my-app", cliproject.ErrNotFound), want: exitNotFound},

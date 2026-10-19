@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -245,65 +246,232 @@ func TestLoginWithTokenInvalid(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, api.Status(err), "a rejected token keeps the API's 401 for the exit code")
 }
 
-func TestLoginWithBootstrapTokenExchangesIt(t *testing.T) {
-	cfg := testAuthConfig(t)
-	var exchangeAuth, listAuth string
-	var exchangeBody map[string]string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/auth/cli-bootstrap-tokens/exchange":
-			exchangeAuth = r.Header.Get("Authorization")
-			assert.NoError(t, json.NewDecoder(r.Body).Decode(&exchangeBody))
-			writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
-		case "/projects":
-			listAuth = r.Header.Get("Authorization")
-			writeAuthJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 1, "total": 0})
-		default:
-			t.Errorf("unexpected request %s", r.URL.Path)
-		}
-	}))
-	defer server.Close()
+// authDeviceCode is the device code the dashboard put in the prompt. It is
+// distinctive so a test can check it never shows up anywhere.
+const authDeviceCode = "dc-dashboard-secret-7f3a"
 
-	credentials, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
-		LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
-	require.NoError(t, err)
-	assert.Empty(t, exchangeAuth, "the bootstrap token is sent in the body, not as a bearer token")
-	assert.Equal(t, "vbt_one-time", exchangeBody["token"])
-	assert.Equal(t, "volcano-cli", exchangeBody["client_name"])
-	assert.Equal(t, "Bearer pk-exchanged", listAuth)
-	assert.Equal(t, Credentials{Token: "pk-exchanged", UserID: "user-1", APIURL: server.URL}, credentials)
+// deviceCodeServer answers the device token poll with each of polls in turn,
+// repeating the last, and the platform exchange and token check after it. It
+// fails the test on device authorization: the dashboard already did that.
+type deviceCodeServer struct {
+	t     *testing.T
+	polls []func(w http.ResponseWriter)
+	// listStatus makes the token check fail; 0 answers it.
+	listStatus int
+	pollCount  atomic.Int32
 }
 
-// The exchange spends the one-time token, so its login is saved even when the
-// check after it fails, and the failure keeps its API status for the exit code.
-func TestLoginWithBootstrapTokenSavesTheLoginWhenALaterCheckFails(t *testing.T) {
+func (d *deviceCodeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/auth/device/token":
+		var body map[string]string
+		assert.NoError(d.t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(d.t, localmode.DeviceClientID, body["client_id"])
+		assert.Equal(d.t, authDeviceCode, body["device_code"])
+		n := int(d.pollCount.Add(1))
+		d.polls[min(n, len(d.polls))-1](w)
+	case "/auth/platform/exchange":
+		assert.Equal(d.t, "Bearer auth-access-token", r.Header.Get("Authorization"))
+		writeAuthJSON(d.t, w, http.StatusOK, map[string]any{
+			"token": "pk-device", "user_id": "user-1", "token_id": "33333333-3333-4333-8333-333333333333",
+			"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
+		})
+	case "/projects":
+		if d.listStatus != 0 {
+			writeAuthJSON(d.t, w, d.listStatus, map[string]string{"error": "failed"})
+			return
+		}
+		assert.Equal(d.t, "Bearer pk-device", r.Header.Get("Authorization"))
+		writeAuthJSON(d.t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false, "page": 1, "limit": 1, "total": 0})
+	case "/projects/" + authAlphaProjectID:
+		writeAuthJSON(d.t, w, http.StatusNotFound, map[string]string{"error": "project not found"})
+	default:
+		d.t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		http.NotFound(w, r)
+	}
+}
+
+func approvedPoll(t *testing.T) func(http.ResponseWriter) {
+	t.Helper()
+	return func(w http.ResponseWriter) {
+		writeAuthJSON(t, w, http.StatusOK, map[string]any{
+			"access_token": "auth-access-token", "token_type": "bearer", "expires_in": 3600, "refresh_token": "auth-refresh-token",
+		})
+	}
+}
+
+func oauthErrorPoll(t *testing.T, code, description string) func(http.ResponseWriter) {
+	t.Helper()
+	return func(w http.ResponseWriter) {
+		writeAuthJSON(t, w, http.StatusBadRequest, map[string]string{"error": code, "error_description": description})
+	}
+}
+
+// deviceCodeClock hands out fake timers and tickers for a device-code login,
+// and checks the durations it asks for.
+type deviceCodeClock struct {
+	timeout, poll, dot *authFakeTicker
+}
+
+func newDeviceCodeClock(t *testing.T) (*deviceCodeClock, cliruntime.Deps) {
+	t.Helper()
+	clock := &deviceCodeClock{timeout: newAuthFakeTicker(), poll: newAuthFakeTicker(), dot: newAuthFakeTicker()}
+	return clock, cliruntime.Deps{
+		OpenBrowser: func(string) error {
+			t.Error("a device code from the dashboard never opens the browser")
+			return nil
+		},
+		NewTimer: func(duration time.Duration) cliruntime.Timer {
+			assert.Equal(t, 10*time.Minute, duration)
+			return clock.timeout
+		},
+		NewTicker: func(duration time.Duration) cliruntime.Ticker {
+			switch duration {
+			case 5 * time.Second:
+				return clock.poll
+			case time.Second:
+				return clock.dot
+			}
+			require.FailNowf(t, "unexpected ticker duration", "%s", duration)
+			return nil
+		},
+	}
+}
+
+func deviceCodeDeps(deps cliruntime.Deps, server *httptest.Server) cliruntime.Deps {
+	deps.HTTPClient = server.Client()
+	deps.APIBaseURL = server.URL
+	return deps
+}
+
+// The dashboard approved the code before the user pasted the prompt, so the
+// first poll, made before any tick, signs in.
+func TestLoginWithDeviceCodeSignsInOnTheFirstPoll(t *testing.T) {
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){approvedPoll(t)}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	_, deps := newDeviceCodeClock(t)
+
+	var out bytes.Buffer
+	credentials, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, " "+authDeviceCode+"\n", "", &out)
+	require.NoError(t, err)
+	assert.Equal(t, Credentials{Token: "pk-device", UserID: "user-1", APIURL: server.URL}, credentials)
+	assert.Equal(t, int32(1), fake.pollCount.Load())
+	assert.Equal(t, "Signing in with the code from the dashboard\n", out.String())
+
+	loaded, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-device", loaded.UserToken)
+	assert.Equal(t, "user-1", loaded.UserID)
+	assert.Equal(t, server.URL, loaded.SessionAPIURL)
+	assertDeviceCodeNotSaved(t)
+}
+
+func TestLoginWithDeviceCodeWaitsWhileAuthorizationIsPending(t *testing.T) {
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){
+		oauthErrorPoll(t, "authorization_pending", "authorization is still pending"),
+		oauthErrorPoll(t, "authorization_pending", "authorization is still pending"),
+		approvedPoll(t),
+	}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	clock, deps := newDeviceCodeClock(t)
+	clock.poll.tick()
+	clock.poll.tick()
+
+	credentials, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	require.NoError(t, err)
+	assert.Equal(t, "pk-device", credentials.Token)
+	assert.Equal(t, int32(3), fake.pollCount.Load())
+}
+
+// Hosting answers every unknown or used code with invalid_grant and one
+// generic description, so the CLI can't say which it was.
+func TestLoginWithDeviceCodeNamesWhyItWasRefused(t *testing.T) {
+	for _, tc := range []struct {
+		code, description, reason string
+	}{
+		{"expired_token", "device code expired", "has expired"},
+		{"access_denied", "The resource owner or authorization server denied the request.", "was denied"},
+		{"invalid_grant", "The provided authorization grant (e.g., authorization code, resource owner credentials) or " +
+			"refresh token is invalid, expired, revoked, does not match the redirection URI used in the authorization " +
+			"request, or was issued to another client.", "is not valid or was already used"},
+		{"unsupported_grant_type", "unsupported grant " + authDeviceCode, "was refused"},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			cfg := testAuthConfig(t)
+			fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){oauthErrorPoll(t, tc.code, tc.description)}}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			_, deps := newDeviceCodeClock(t)
+
+			var out bytes.Buffer
+			_, err := NewService(deviceCodeDeps(deps, server)).
+				LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &out)
+			refused, ok := errors.AsType[*DeviceCodeRefusedError](err)
+			require.True(t, ok, "got %v", err)
+			assert.Equal(t, tc.reason, refused.Reason)
+			assert.Equal(t, "the code from the dashboard "+tc.reason+
+				". Copy a new prompt from the dashboard, or sign in in the browser", err.Error())
+			require.ErrorIs(t, err, config.ErrNotAuthenticated, "a refused code exits as not signed in")
+			assert.NotContains(t, out.String(), authDeviceCode)
+
+			loaded, err := config.Load()
+			require.NoError(t, err)
+			assert.Empty(t, loaded.UserToken, "nothing is saved")
+		})
+	}
+}
+
+func TestLoginWithDeviceCodeStillPendingWhenTheCodeExpiresIsRefused(t *testing.T) {
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){
+		oauthErrorPoll(t, "authorization_pending", "authorization is still pending"),
+	}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	clock, deps := newDeviceCodeClock(t)
+	clock.timeout.tick()
+
+	_, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	refused, ok := errors.AsType[*DeviceCodeRefusedError](err)
+	require.True(t, ok, "got %v", err)
+	assert.Equal(t, "has expired", refused.Reason)
+}
+
+// The API spends the code when it issues the token, so the login is saved
+// even when the check after it fails, and the failure keeps its API status
+// for the exit code.
+func TestLoginWithDeviceCodeSavesTheLoginWhenALaterCheckFails(t *testing.T) {
 	for name, tc := range map[string]struct {
-		project string
-		status  int
+		project    string
+		listStatus int
+		status     int
 	}{
 		"project not found": {project: authAlphaProjectID, status: http.StatusNotFound},
-		"validation fails":  {status: http.StatusInternalServerError},
+		"validation fails":  {listStatus: http.StatusInternalServerError, status: http.StatusInternalServerError},
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := testAuthConfig(t)
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/auth/cli-bootstrap-tokens/exchange" {
-					writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
-					return
-				}
-				writeAuthJSON(t, w, tc.status, map[string]string{"error": "failed"})
-			}))
+			fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){approvedPoll(t)}, listStatus: tc.listStatus}
+			server := httptest.NewServer(fake)
 			defer server.Close()
+			_, deps := newDeviceCodeClock(t)
 
-			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
-				LoginWithToken(context.Background(), cfg, "vbt_one-time", tc.project)
+			_, err := NewService(deviceCodeDeps(deps, server)).
+				LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, tc.project, &bytes.Buffer{})
 			_, saved := errors.AsType[*LoginSavedError](err)
 			require.True(t, saved, "got %v", err)
 			assert.Equal(t, tc.status, api.Status(err))
 
 			loaded, err := config.Load()
 			require.NoError(t, err)
-			assert.Equal(t, "pk-exchanged", loaded.UserToken)
+			assert.Equal(t, "pk-device", loaded.UserToken)
 			assert.Equal(t, "user-1", loaded.UserID)
 			assert.Equal(t, server.URL, loaded.SessionAPIURL)
 			assert.Nil(t, loaded.CurrentProject, "a project that failed the check is not selected")
@@ -311,46 +479,34 @@ func TestLoginWithBootstrapTokenSavesTheLoginWhenALaterCheckFails(t *testing.T) 
 	}
 }
 
-func TestLoginWithBootstrapTokenNamesWhyItWasRefused(t *testing.T) {
-	for _, tc := range []struct {
-		status int
-		body   map[string]string
-		reason string
-	}{
-		{http.StatusUnauthorized, map[string]string{"error": "expired", "code": "bootstrap_token_expired"}, "has expired"},
-		{http.StatusUnauthorized, map[string]string{"error": "used", "code": "bootstrap_token_used"}, "was already used"},
-		{http.StatusUnauthorized, map[string]string{"error": "invalid", "code": "bootstrap_token_invalid"}, "is not valid"},
-		{http.StatusTooManyRequests, map[string]string{"error": "slow down", "code": "rate_limited"}, "was refused after too many attempts from this network"},
-		{http.StatusNotFound, map[string]string{"error": "not found"}, "can't be used with this API"},
-	} {
-		t.Run(tc.reason, func(t *testing.T) {
-			cfg := testAuthConfig(t)
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				writeAuthJSON(t, w, tc.status, tc.body)
-			}))
-			defer server.Close()
+// An API that echoes the code in a failure never gets it printed.
+func TestLoginWithDeviceCodeRedactsTheCodeInErrors(t *testing.T) {
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){func(w http.ResponseWriter) {
+		writeAuthJSON(t, w, http.StatusInternalServerError, map[string]string{"error": "no grant for " + authDeviceCode})
+	}}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	clock, deps := newDeviceCodeClock(t)
+	clock.poll.tick()
+	clock.poll.tick()
 
-			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
-				LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
-			refused, ok := errors.AsType[*BootstrapRefusedError](err)
-			require.True(t, ok, "got %v", err)
-			assert.Equal(t, tc.reason, refused.Reason)
-		})
-	}
+	_, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	require.ErrorContains(t, err, "failed to poll device token")
+	assert.Contains(t, err.Error(), "[redacted]")
+	assert.NotContains(t, err.Error(), authDeviceCode)
+	assert.Equal(t, http.StatusInternalServerError, api.Status(err), "the redacted error keeps the API status")
 }
 
-func TestLoginWithBootstrapTokenNeverEchoesTheExchangedToken(t *testing.T) {
-	cfg := testAuthConfig(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`not json pk-secret`))
-	}))
-	defer server.Close()
-
-	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
-		LoginWithToken(context.Background(), cfg, "vbt_one-time", "")
-	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "pk-secret")
+// assertDeviceCodeNotSaved checks the config file never holds the device code.
+func assertDeviceCodeNotSaved(t *testing.T) {
+	t.Helper()
+	path, err := config.Path()
+	require.NoError(t, err)
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), authDeviceCode)
 }
 
 func TestOfferSignInNeverPromptsWithoutATerminal(t *testing.T) {

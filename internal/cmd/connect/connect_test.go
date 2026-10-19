@@ -19,6 +19,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -26,6 +27,9 @@ const (
 	connectProjectID      = "11111111-1111-4111-8111-111111111111"
 	connectOtherProjectID = "22222222-2222-4222-8222-222222222222"
 	connectAnonKey        = "ak-connect-default"
+	// connectDeviceCode is the device code the dashboard put in the prompt. It
+	// is distinctive so a test can check it never shows up anywhere.
+	connectDeviceCode = "dc-dashboard-secret-7f3a"
 )
 
 // fakeAPI serves the endpoints connect calls. Every project it knows starts
@@ -41,11 +45,10 @@ type fakeAPI struct {
 	creates    int
 	// createAuth is the Authorization header of the last POST /projects.
 	createAuth string
-	// exchangeStatus and exchangeCode refuse the bootstrap token exchange; 0
-	// exchanges it for pk-exchanged.
-	exchangeStatus int
-	exchangeCode   string
-	exchanges      int
+	// pollError refuses the device code with this OAuth error; "" approves
+	// it, and the platform exchange gives pk-exchanged.
+	pollError string
+	polls     int
 	// listStatus makes GET /projects fail; 0 lists f.projects.
 	listStatus int
 	// deviceAuthorize records that browser login started. The fake refuses it.
@@ -66,13 +69,23 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && r.URL.Path == "/auth/device/authorize":
 		f.deviceAuthorize = true
 		writeConnectJSON(f.t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
-	case r.Method == http.MethodPost && r.URL.Path == "/auth/cli-bootstrap-tokens/exchange":
-		f.exchanges++
-		if f.exchangeStatus != 0 {
-			writeConnectJSON(f.t, w, f.exchangeStatus, map[string]any{"error": "refused", "code": f.exchangeCode})
+	case r.Method == http.MethodPost && r.URL.Path == "/auth/device/token":
+		f.polls++
+		var body map[string]string
+		require.NoError(f.t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(f.t, localmode.DeviceClientID, body["client_id"])
+		assert.Equal(f.t, connectDeviceCode, body["device_code"])
+		if f.pollError != "" {
+			writeConnectJSON(f.t, w, http.StatusBadRequest, map[string]any{"error": f.pollError, "error_description": "refused"})
 			return
 		}
-		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
+		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{"access_token": "auth-access-token", "token_type": "bearer", "expires_in": 3600})
+	case r.Method == http.MethodPost && r.URL.Path == "/auth/platform/exchange":
+		assert.Equal(f.t, "Bearer auth-access-token", r.Header.Get("Authorization"))
+		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
+			"token": "pk-exchanged", "user_id": "user-1", "token_id": "33333333-3333-4333-8333-333333333333",
+			"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
+		})
 	case r.Method == http.MethodPost && r.URL.Path == "/projects":
 		f.creates++
 		f.createAuth = r.Header.Get("Authorization")
@@ -310,10 +323,10 @@ func TestConnectRefusesATemplateThatConflictsBeforeSigningIn(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
 
-	_, err := runConnect(t, server, dir, "--template", "nextjs", "--token", "vbt_one-time")
+	_, err := runConnect(t, server, dir, "--template", "nextjs", "--device-code", connectDeviceCode)
 	require.ErrorContains(t, err, "can't add the nextjs starter")
 	require.ErrorContains(t, err, "package.json (has different content)")
-	assert.Zero(t, fake.exchanges, "the one-time token is not spent")
+	assert.Zero(t, fake.polls, "the device code is not spent")
 	assert.Zero(t, fake.creates)
 	assert.NoDirExists(t, filepath.Join(dir, ".volcano"))
 }
@@ -521,7 +534,7 @@ func TestConnectRefusesToGuessPastABadLink(t *testing.T) {
 	}
 }
 
-// The refusal comes before sign-in, so it doesn't spend a one-time token the
+// The refusal comes before sign-in, so it doesn't spend a device code the
 // user needs for the rerun.
 func TestConnectRefusesABadLinkBeforeSigningIn(t *testing.T) {
 	setConnectTestHome(t)
@@ -530,9 +543,9 @@ func TestConnectRefusesABadLinkBeforeSigningIn(t *testing.T) {
 	defer server.Close()
 	path := writeBadLink(t, chdirTemp(t))
 
-	_, err := runConnect(t, server, ".", "--token", "vbt_one-time")
+	_, err := runConnect(t, server, ".", "--device-code", connectDeviceCode)
 	require.ErrorContains(t, err, "failed to parse project link "+path)
-	assert.Zero(t, fake.exchanges)
+	assert.Zero(t, fake.polls)
 	cfg, err := cliconfig.LoadWithoutLink()
 	require.NoError(t, err)
 	assert.Equal(t, "pk-connect", cfg.UserToken)
@@ -668,7 +681,9 @@ func TestConnectLeavesNoDirectoryWhenTheProjectIsNotCreated(t *testing.T) {
 	assert.NoDirExists(t, dir)
 }
 
-func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
+// The dashboard approved the code before the user pasted the prompt, so
+// connect signs in without device authorization or the browser.
+func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")
 	fake := &fakeAPI{t: t}
@@ -676,10 +691,13 @@ func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	defer server.Close()
 	chdirTemp(t)
 
-	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
+	stdout, stderr, err := runConnectHereWithStderr(t, server, "--device-code", connectDeviceCode)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Signed in with the token")
+	assert.Contains(t, stdout, "Signed in with the code from the dashboard")
+	assert.Equal(t, 1, fake.polls)
+	assert.False(t, fake.deviceAuthorize, "the dashboard already started the device login")
 	assert.Equal(t, "Bearer pk-exchanged", fake.createAuth)
+	assertDeviceCodeHidden(t, stdout, stderr)
 
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
@@ -687,37 +705,37 @@ func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	assert.Equal(t, "user-1", cfg.UserID)
 }
 
-func TestConnectSavesTheExchangedLoginWhenProjectIsWrong(t *testing.T) {
+func TestConnectSavesTheDeviceLoginWhenProjectIsWrong(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 	chdirTemp(t)
 
-	_, err := runConnectHere(t, server, "--token", "vbt_one-time", "--project", connectOtherProjectID)
+	_, err := runConnectHere(t, server, "--device-code", connectDeviceCode, "--project", connectOtherProjectID)
 	require.ErrorContains(t, err, "failed to get project "+connectOtherProjectID)
 
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
-	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the one-time token's login is kept for the next run")
+	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the device code's login is kept for the next run")
 	assert.Nil(t, cfg.CurrentProject, "connect leaves the volcano use selection alone")
 }
 
-func TestConnectSavesTheExchangedLoginWhenItsCheckFails(t *testing.T) {
+func TestConnectSavesTheDeviceLoginWhenItsCheckFails(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, listStatus: http.StatusInternalServerError}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 	chdirTemp(t)
 
-	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
-	require.ErrorContains(t, err, "token authentication failed")
-	assert.Contains(t, out, "The one-time token is spent, but its login is saved. Run the command again without --token.")
+	out, err := runConnectHere(t, server, "--device-code", connectDeviceCode)
+	require.ErrorContains(t, err, "device code authentication failed")
+	assert.Contains(t, out, "The code from the dashboard is spent, but its login is saved. Run the command again without --device-code.")
 	assert.Zero(t, fake.creates)
 
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
-	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the one-time token's login is kept for the next run")
+	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the device code's login is kept for the next run")
 }
 
 func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
@@ -727,11 +745,11 @@ func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
 	server := httptest.NewServer(fake)
 	defer server.Close()
 
-	for _, flags := range [][]string{{"--token", "vbt_one-time"}, {"--signup", "--email", "a@example.com"}} {
+	for _, flags := range [][]string{{"--device-code", connectDeviceCode}, {"--token", "pk-other"}, {"--signup", "--email", "a@example.com"}} {
 		_, err := runConnect(t, server, t.TempDir(), flags...)
 		require.ErrorContains(t, err, "VOLCANO_TOKEN is set", flags)
 	}
-	assert.Zero(t, fake.exchanges, "the one-time token is not spent")
+	assert.Zero(t, fake.polls, "the device code is not spent")
 	assert.Zero(t, fake.creates)
 	assert.False(t, fake.deviceAuthorize)
 	cfg, err := cliconfig.Load()
@@ -740,8 +758,8 @@ func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
 }
 
 // VOLCANO_PROJECT_ID is deprecated, and would override the link connect
-// writes. Connect refuses it whatever it names, before it signs in, so a
-// one-time token isn't spent, and before it calls the API or changes a file.
+// writes. Connect refuses it whatever it names, before it signs in, so the
+// device code isn't spent, and before it calls the API or changes a file.
 func TestConnectRefusesVolcanoProjectID(t *testing.T) {
 	for name, tc := range map[string]struct {
 		env    string
@@ -770,11 +788,11 @@ func TestConnectRefusesVolcanoProjectID(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			_, err := runConnect(t, server, dir, append([]string{"--token", "vbt_one-time"}, tc.args...)...)
+			_, err := runConnect(t, server, dir, append([]string{"--device-code", connectDeviceCode}, tc.args...)...)
 			require.EqualError(t, err, "VOLCANO_PROJECT_ID is set, and volcano connect does not use it. "+
 				"Unset it, and pass --project <project-id> to set up an existing project")
-			assert.Zero(t, requests, "no API call, so the one-time token is not spent")
-			assert.Zero(t, fake.exchanges)
+			assert.Zero(t, requests, "no API call, so the device code is not spent")
+			assert.Zero(t, fake.polls)
 			assert.Zero(t, fake.creates)
 			assert.False(t, fake.deviceAuthorize)
 			assert.NoFileExists(t, filepath.Join(dir, "volcano", "cloud.env"))
@@ -802,21 +820,42 @@ func TestConnectIgnoresABlankVolcanoProjectID(t *testing.T) {
 	assert.Equal(t, connectProjectID, link.Project.ID)
 }
 
-func TestConnectWithARefusedBootstrapTokenGoesToBrowserLogin(t *testing.T) {
-	setConnectTestHome(t)
-	useGeneratedName(t, "fuji-amber-42")
-	fake := &fakeAPI{t: t, exchangeStatus: http.StatusUnauthorized, exchangeCode: api.BootstrapTokenUsed}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	chdirTemp(t)
+func TestConnectWithARefusedDeviceCodeGoesToBrowserLogin(t *testing.T) {
+	for _, tc := range []struct{ pollError, reason string }{
+		{"expired_token", "has expired"},
+		{"access_denied", "was denied"},
+		{"invalid_grant", "is not valid or was already used"},
+	} {
+		t.Run(tc.pollError, func(t *testing.T) {
+			setConnectTestHome(t)
+			useGeneratedName(t, "fuji-amber-42")
+			fake := &fakeAPI{t: t, pollError: tc.pollError}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			chdirTemp(t)
 
-	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
-	// The fake refuses device authorization, so browser login fails; what
-	// matters is that connect went there instead of to the saved login.
-	require.ErrorContains(t, err, "browser authentication failed")
-	assert.Contains(t, out, "The one-time token was already used. Signing in in the browser instead.")
-	assert.True(t, fake.deviceAuthorize, "browser login started")
-	assert.Zero(t, fake.creates, "the saved login, possibly another account, is never used")
+			stdout, stderr, err := runConnectHereWithStderr(t, server, "--device-code", connectDeviceCode)
+			// The fake refuses device authorization, so browser login fails;
+			// what matters is that connect went there instead of to the saved
+			// login.
+			require.ErrorContains(t, err, "browser authentication failed")
+			assert.Contains(t, stdout, "The code from the dashboard "+tc.reason+". Signing in in the browser instead.")
+			assert.True(t, fake.deviceAuthorize, "browser login started")
+			assert.Zero(t, fake.creates, "the saved login, possibly another account, is never used")
+			assertDeviceCodeHidden(t, stdout+err.Error(), stderr)
+		})
+	}
+}
+
+// assertDeviceCodeHidden checks the device code is in neither output nor the
+// saved config.
+func assertDeviceCodeHidden(t *testing.T, stdout, stderr string) {
+	t.Helper()
+	assert.NotContains(t, stdout, connectDeviceCode)
+	assert.NotContains(t, stderr, connectDeviceCode)
+	path, err := cliconfig.Path()
+	require.NoError(t, err)
+	assert.NotContains(t, readFile(t, path), connectDeviceCode)
 }
 
 func TestProjectNameAsksOnlyWhenNothingMarksTheRunNonInteractive(t *testing.T) {
@@ -871,14 +910,25 @@ func runConnect(t *testing.T, server *httptest.Server, dir string, args ...strin
 // runConnectHere runs connect with no directory argument.
 func runConnectHere(t *testing.T, server *httptest.Server, args ...string) (string, error) {
 	t.Helper()
-	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	stdout, _, err := runConnectHereWithStderr(t, server, args...)
+	return stdout, err
+}
+
+// runConnectHereWithStderr runs connect with no directory argument, and
+// returns stdout and stderr apart. Browser login is never opened.
+func runConnectHereWithStderr(t *testing.T, server *httptest.Server, args ...string) (string, string, error) {
+	t.Helper()
+	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, OpenBrowser: func(string) error {
+		t.Error("connect opened the browser")
+		return nil
+	}})
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 	cmd.SetIn(strings.NewReader(""))
 	cmd.SetArgs(append([]string{"--skip-skills"}, args...))
 	err := cmd.Execute()
-	return stdout.String(), err
+	return stdout.String(), stderr.String(), err
 }
 
 // chdirTemp moves into a new temp directory and returns its path as Getwd

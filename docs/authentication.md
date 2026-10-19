@@ -37,27 +37,30 @@ volcano login
 # Token-based login (for CI/CD)
 volcano login --token pk-xxxxxxxxxx
 
+# With the code in the dashboard's prompt
+volcano login --device-code <code>
+
 # Or skip login entirely with an environment variable
 export VOLCANO_TOKEN=pk-xxxxxxxxxx
 ```
 
 ## Account tokens and project access tokens
 
-The CLI accepts three kinds of credential:
+The CLI accepts two kinds of credential:
 
 | Credential | Reaches | Get one with |
 |---|---|---|
 | Account token (`pk-`) | Every project you own | `volcano login` |
 | Project access token (`pt-`) | One project | `volcano cloud access-tokens create` |
-| One-time token (`vbt_`) | Exchanged for an account token on first use | The prompt on the dashboard's Projects page |
 
-Account and project access tokens work with `volcano login --token` and with
-`VOLCANO_TOKEN`. A one-time token works only with `--token` on `volcano login`
-or `volcano connect`: it can be used once, within 15 minutes, and the CLI saves
-the account token it gets in exchange. It saves that token before any other
-check, so a failure after the exchange, such as a wrong `--project`, leaves
-you signed in. See
-[One-time tokens from the dashboard](connect.md#one-time-tokens-from-the-dashboard).
+Both work with `volcano login --token` and with `VOLCANO_TOKEN`.
+
+The prompt on the dashboard's Projects page holds a device code instead of a
+token. It works with `--device-code` on `volcano login` or `volcano connect`:
+it can be used once, within 10 minutes, and the CLI saves the account token it
+signs in with. It saves that token before any other check, so a failure after
+sign-in, such as a wrong `--project`, leaves you signed in. See
+[Device codes from the dashboard](connect.md#device-codes-from-the-dashboard).
 
 A project access token is the one to give CI: it is scoped to a single project, carries
 `full` or `read_only` access, and can be revoked on its own. Because it cannot

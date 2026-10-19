@@ -49,6 +49,7 @@ type options struct {
 	deps       cliruntime.Deps
 	dir        string
 	token      string
+	deviceCode string
 	project    string
 	name       string
 	template   string
@@ -90,7 +91,8 @@ func New(deps cliruntime.Deps) *cobra.Command {
 coding agent to build on.
 
 connect:
-  1. Signs in: reuses a valid login, takes --token, or runs browser login.
+  1. Signs in: takes --device-code from the dashboard's prompt or --token,
+     reuses a valid login, or runs browser login.
   2. Picks the project. With no directory argument, it creates a new project
      (--name, or a generated name like fuji-amber-42) and a new directory
      named after it. With a directory argument, the new project is named after
@@ -132,6 +134,8 @@ It ends with the project's name, its directory, and its dashboard link.
 		},
 	}
 	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with a token instead of the browser")
+	cmd.Flags().StringVar(&opts.deviceCode, "device-code", "",
+		"Sign in with the code in the dashboard's prompt instead of the browser")
 	cmd.Flags().StringVar(&opts.project, "project", "", "Use the existing project with this ID instead of creating one")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
@@ -140,6 +144,8 @@ It ends with the project's name, its directory, and its dashboard link.
 	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
 	cmd.MarkFlagsMutuallyExclusive("token", "signup")
+	cmd.MarkFlagsMutuallyExclusive("device-code", "token")
+	cmd.MarkFlagsMutuallyExclusive("device-code", "signup")
 	cmd.MarkFlagsMutuallyExclusive("project", "name")
 	return cmd
 }
@@ -157,12 +163,14 @@ func run(ctx context.Context, opts options) error {
 
 	// Every command after sign-in takes VOLCANO_TOKEN over the saved login, so
 	// a new login would be saved and then not used. Checked before the
-	// one-time token is spent.
-	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" && (strings.TrimSpace(opts.token) != "" || opts.signup) {
-		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. Unset it, or run connect without --token and --signup to use it")
+	// dashboard's device code is spent.
+	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" &&
+		(strings.TrimSpace(opts.token) != "" || strings.TrimSpace(opts.deviceCode) != "" || opts.signup) {
+		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. " +
+			"Unset it, or run connect without --token, --device-code, and --signup to use it")
 	}
 	// VOLCANO_PROJECT_ID is deprecated, and would override the link connect
-	// writes. Checked before sign-in, so a one-time token isn't spent.
+	// writes. Checked before sign-in, so the dashboard's device code isn't spent.
 	if strings.TrimSpace(os.Getenv("VOLCANO_PROJECT_ID")) != "" {
 		return errors.New("VOLCANO_PROJECT_ID is set, and volcano connect does not use it. " +
 			"Unset it, and pass --project <project-id> to set up an existing project")
@@ -172,7 +180,7 @@ func run(ctx context.Context, opts options) error {
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
-	// Checked before sign-in too: a one-time token spent on a run that then
+	// Checked before sign-in too: a device code spent on a run that then
 	// stops at the link can't be used again.
 	if err := refuseBadLink(opts, wd); err != nil {
 		return err
@@ -282,8 +290,8 @@ func run(ctx context.Context, opts options) error {
 	return nil
 }
 
-// ensureSession leaves a valid login saved: the --token given, the saved
-// login if the API still accepts it, or a new browser login.
+// ensureSession leaves a valid login saved: the --device-code or --token
+// given, the saved login if the API still accepts it, or a new browser login.
 func ensureSession(ctx context.Context, opts options, sessions clisession.Factory) error {
 	cfg, err := sessions.Config()
 	if err != nil {
@@ -291,36 +299,50 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	}
 	auth := cliauth.NewService(opts.deps)
 
-	// A refused one-time token falls back to browser login, not to the saved
+	// A refused device code falls back to browser login, not to the saved
 	// login: that may be another account, and the user who copied the prompt
 	// expects the project in theirs.
 	refused := false
+	if deviceCode := strings.TrimSpace(opts.deviceCode); deviceCode != "" {
+		// The project is looked up after sign-in, so a wrong --project fails
+		// there with the login saved. LoginWithDeviceCode saves the login of
+		// a spent code even when its own checks fail.
+		credentials, err := auth.LoginWithDeviceCode(ctx, cfg, deviceCode, "", opts.log)
+		if refusal, ok := errors.AsType[*cliauth.DeviceCodeRefusedError](err); ok {
+			output.Warning(opts.log, "The code from the dashboard %s. Signing in in the browser instead.", refusal.Reason)
+			refused = true
+		} else {
+			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
+				output.Note(opts.log, "The code from the dashboard is spent, but its login is saved. Run the command again without --device-code.")
+			}
+			if err != nil {
+				return fmt.Errorf("device code authentication failed: %w", err)
+			}
+			if err := cliauth.SaveCredentials(credentials); err != nil {
+				return fmt.Errorf("failed to save credentials: %w", err)
+			}
+			output.Success(opts.log, "Signed in with the code from the dashboard")
+			return nil
+		}
+	}
+
 	if token := strings.TrimSpace(opts.token); token != "" {
 		// Only a project access token needs its project to sign in. Any other
 		// token signs in first, so a wrong --project fails at the project
-		// lookup with the login saved. LoginWithToken saves a spent one-time
-		// token's login even when its own checks fail.
+		// lookup.
 		project := ""
 		if config.IsProjectToken(token) {
 			project = opts.project
 		}
 		credentials, err := auth.LoginWithToken(ctx, cfg, token, project)
-		if refusal, ok := errors.AsType[*cliauth.BootstrapRefusedError](err); ok {
-			output.Warning(opts.log, "The one-time token %s. Signing in in the browser instead.", refusal.Reason)
-			refused = true
-		} else {
-			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
-				output.Note(opts.log, "The one-time token is spent, but its login is saved. Run the command again without --token.")
-			}
-			if err != nil {
-				return fmt.Errorf("token authentication failed: %w", err)
-			}
-			if err := cliauth.SaveCredentials(credentials); err != nil {
-				return fmt.Errorf("failed to save credentials: %w", err)
-			}
-			output.Success(opts.log, "Signed in with the token")
-			return nil
+		if err != nil {
+			return fmt.Errorf("token authentication failed: %w", err)
 		}
+		if err := cliauth.SaveCredentials(credentials); err != nil {
+			return fmt.Errorf("failed to save credentials: %w", err)
+		}
+		output.Success(opts.log, "Signed in with the token")
+		return nil
 	}
 
 	if token := cfg.Token(); token != "" && !opts.signup && !refused {
