@@ -23267,6 +23267,8 @@ components:
             $ref: '#/components/schemas/ProjectConfigBucket'
         realtime:
           $ref: '#/components/schemas/ProjectConfigRealtime'
+        notifications:
+          $ref: '#/components/schemas/ProjectConfigNotifications'
         auth:
           $ref: '#/components/schemas/ProjectConfigAuth'
         functions:
@@ -24037,6 +24039,23 @@ components:
           items:
             type: string
           description: Region subset (bare region names). Requires `all_regions=false`.
+    ProjectConfigNotifications:
+      type: object
+      additionalProperties: false
+      description: >-
+        Where the project's alerts go and when a failing scheduler is
+        announced. Omitted fields keep their current value. The webhook
+        signing secret is never part of the manifest: setting `webhook.url`
+        on a project without a webhook generates one that is never shown.
+        Rotate it with `POST /projects/{id}/notifications/webhook-secret` to
+        get a secret you can use.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
     ProjectConfigRealtime:
       type: object
       additionalProperties: false

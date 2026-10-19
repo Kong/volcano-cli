@@ -8594,6 +8594,9 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
+	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
+	Notifications *ProjectConfigNotifications `json:"notifications,omitempty"`
+
 	// Project Project-level settings. `name` renames the project.
 	Project  *ProjectConfigProject  `json:"project,omitempty"`
 	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
@@ -9113,6 +9116,13 @@ type ProjectConfigMissingResource struct {
 
 // ProjectConfigMissingResourceType defines model for ProjectConfigMissingResource.Type.
 type ProjectConfigMissingResourceType string
+
+// ProjectConfigNotifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
+type ProjectConfigNotifications struct {
+	Email             *UpdateNotificationEmail           `json:"email,omitempty"`
+	SchedulerFailures *UpdateSchedulerFailureAlertPolicy `json:"scheduler_failures,omitempty"`
+	Webhook           *UpdateNotificationWebhook         `json:"webhook,omitempty"`
+}
 
 // ProjectConfigOAuthProvider defines model for ProjectConfigOAuthProvider.
 type ProjectConfigOAuthProvider struct {

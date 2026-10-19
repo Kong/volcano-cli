@@ -21,6 +21,7 @@ type rotateOptions struct {
 	jsonOutput bool
 	in         io.Reader
 	out        io.Writer
+	prompt     io.Writer
 }
 
 func newRotateWebhookSecret(deps cliruntime.Deps) *cobra.Command {
@@ -41,6 +42,12 @@ Use --yes to skip the prompt.`,
 			opts.deps = deps
 			opts.in = cmd.InOrStdin()
 			opts.out = cmd.OutOrStdout()
+			// Under --json stdout carries the new secret, so the prompt
+			// goes to stderr to keep it parseable.
+			opts.prompt = opts.out
+			if opts.jsonOutput {
+				opts.prompt = cmd.ErrOrStderr()
+			}
 			return runRotate(cmd.Context(), opts)
 		},
 	}
@@ -51,7 +58,7 @@ Use --yes to skip the prompt.`,
 
 func runRotate(ctx context.Context, opts rotateOptions) error {
 	if !opts.yes {
-		confirmed, err := confirm.Action(opts.in, opts.out,
+		confirmed, err := confirm.Action(opts.in, opts.prompt,
 			"A receiver that checks the current signing secret will reject deliveries until it has the new one.",
 			"Rotate the webhook signing secret?")
 		if err != nil {

@@ -285,6 +285,28 @@ func TestNotificationsRotateAsksFirst(t *testing.T) {
 	assert.Contains(t, out, notificationsRotatedSecret)
 }
 
+// A script that answers the prompt still reads only the settings, and with
+// them the new secret, from stdout.
+func TestNotificationsRotateJSONKeepsThePromptOffStdout(t *testing.T) {
+	_, deps := newNotificationsServer(t)
+	_, err := executeNotificationsCommand(t, New(deps), "", "set", "--webhook-url", notificationsWebhook)
+	require.NoError(t, err)
+
+	cmd := New(deps)
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetIn(strings.NewReader("y\n"))
+	cmd.SetArgs([]string{"rotate-webhook-secret", "--json"})
+	require.NoError(t, cmd.Execute())
+
+	assert.Contains(t, stderr.String(), "Rotate the webhook signing secret?")
+	var settings map[string]any
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &settings), "stdout is only JSON: %s", stdout.String())
+	webhook, _ := settings["webhook"].(map[string]any)
+	assert.Equal(t, notificationsRotatedSecret, webhook["secret"])
+}
+
 func TestNotificationsRotateWithoutAWebhookSaysHowToSetOne(t *testing.T) {
 	_, deps := newNotificationsServer(t)
 

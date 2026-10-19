@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func noEnv(string) (string, bool) { return "", false }
@@ -797,6 +799,12 @@ notifications:
 			"notify_on": "consecutive_failures", "threshold": float64(5), "notify_on_recovery": false,
 		},
 	}, body["notifications"], "an empty recipient list uploads as [], which emails the owner")
+
+	var wire apiclient.ProjectConfig
+	require.NoError(t, json.Unmarshal(encoded, &wire))
+	require.NotNil(t, wire.Notifications, "the API contract has to carry the section the manifest uploads")
+	require.NotNil(t, wire.Notifications.SchedulerFailures)
+	assert.Equal(t, 5, *wire.Notifications.SchedulerFailures.Threshold)
 
 	_, err = Parse([]byte("version: 1\nnotifications:\n  webhook:\n    url: https://example.com/hook\n    secret: whsec_x\n"), noEnv)
 	require.Error(t, err, "the signing secret cannot be declared")

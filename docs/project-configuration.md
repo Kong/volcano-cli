@@ -124,9 +124,9 @@ Key semantics:
   is always safe: entries that already landed report `unchanged`, and only
   the entries that failed or still differ are retried.
 - The notifications webhook signing secret is never part of the manifest. The
-  first `notifications.webhook.url` a deploy sets generates one; read it with
-  `volcano cloud notifications rotate-webhook-secret`. See
-  [notifications.md](notifications.md).
+  first `notifications.webhook.url` a deploy sets generates one that is never
+  shown. To get a secret you can use, run `notifications rotate-webhook-secret`.
+  See [notifications.md](notifications.md).
 - Variable values and write-only secrets, such as SMTP passwords, OAuth client
   secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation. If a server does
