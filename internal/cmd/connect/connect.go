@@ -458,7 +458,10 @@ func newProject(ctx context.Context, opts options, session *clisession.Session, 
 func createProject(ctx context.Context, opts options, client *api.Client, name string, taken func(string) bool) (*apiclient.Project, error) {
 	candidate := name
 	for suffix := 2; ; suffix++ {
-		if taken != nil && taken(candidate) && suffix <= maxNameSuffix {
+		if taken != nil && taken(candidate) {
+			if suffix > maxNameSuffix {
+				return nil, fmt.Errorf("%s through %s are taken. Pass --name with another name", name, candidate)
+			}
 			candidate = fmt.Sprintf("%s-%d", name, suffix)
 			continue
 		}

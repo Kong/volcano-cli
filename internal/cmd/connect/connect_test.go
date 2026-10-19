@@ -3,6 +3,7 @@ package connectcmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -304,6 +305,23 @@ func TestConnectWithNoDirectorySkipsNamesWhoseDirectoryExists(t *testing.T) {
 	assert.Equal(t, "fuji-amber-42-3", res.Project.Name)
 	assert.Equal(t, filepath.Join(parent, "fuji-amber-42-3"), res.Directory)
 	assert.Equal(t, 2, fake.creates, "the existing directory's name is never sent")
+}
+
+func TestConnectWithNoDirectoryStopsWhenEveryNameHasADirectory(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "shop")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	require.NoError(t, os.Mkdir(filepath.Join(parent, "shop"), 0o755))
+	for suffix := 2; suffix <= maxNameSuffix; suffix++ {
+		require.NoError(t, os.Mkdir(filepath.Join(parent, fmt.Sprintf("shop-%d", suffix)), 0o755))
+	}
+
+	_, err := runConnectHere(t, server)
+	require.ErrorContains(t, err, "shop through shop-20 are taken")
+	assert.Zero(t, fake.creates, "an existing directory is never reused")
 }
 
 func TestConnectInsideALinkedDirectoryKeepsItsProject(t *testing.T) {
