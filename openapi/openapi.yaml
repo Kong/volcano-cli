@@ -7083,6 +7083,10 @@ paths:
       tags:
         - Frontends
       summary: Get frontend custom domain status
+      description: |
+        Deprecated: use `GET /projects/{id}/frontends/{frontendId}/domains`.
+        Returns the frontend's oldest domain that serves it rather than redirecting.
+      deprecated: true
       operationId: getFrontendCustomDomain
       security:
         - UserToken: []
@@ -7135,8 +7139,10 @@ paths:
       tags:
         - Frontends
       summary: Configure frontend custom domain
+      deprecated: true
       description: |
-        Configures one custom domain for a frontend.
+        Deprecated: use `POST /projects/{id}/frontends/{frontendId}/domains`, which adds a domain beside the frontend's others.
+        Configures one custom domain for a frontend. When the frontend already has a domain, a request for another hostname returns `409`.
         The default Volcano-generated frontend URL remains active.
         Wildcard Volcano frontend TLS remains valid and isolated from custom-domain certificate changes.
         The account must own the hostname: it must have verified the hostname or a domain above it (see `POST /user/domains`). A certificate does not prove ownership.
@@ -7182,7 +7188,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - the plan does not include custom domains, or a managed TLS request would exceed the account's managed TLS certificate limit
+          description: Forbidden - the plan does not include custom domains, the frontend has as many custom domains as the plan allows, or a managed TLS request would exceed the account's managed TLS certificate limit
           content:
             application/json:
               schema:
@@ -7220,6 +7226,10 @@ paths:
       tags:
         - Frontends
       summary: Delete frontend custom domain
+      description: |
+        Deprecated: use `DELETE /projects/{id}/frontends/{frontendId}/domains/{domain}`.
+        Deletes the frontend's oldest domain that serves it rather than redirecting.
+      deprecated: true
       operationId: deleteFrontendCustomDomain
       security:
         - UserToken: []
@@ -7256,6 +7266,290 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/domains:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+    get:
+      tags:
+        - Frontends
+      summary: List a frontend's custom domains
+      description: |
+        Lists the frontend's custom domains, oldest first. Each domain either
+        serves the frontend or, with `redirect` set, redirects every request to
+        another domain of the frontend.
+      operationId: listFrontendDomains
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: The frontend's custom domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list custom domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Add a custom domain to a frontend
+      description: |
+        Adds a custom domain beside the frontend's others, up to the plan's
+        custom domains per frontend. The domain serves the frontend, or, with
+        `redirect`, redirects every request to `redirect.to`, another domain of
+        the same frontend that serves it, keeping the path and query string.
+        A redirecting domain still needs TLS, so it takes `tls` like any other.
+
+        Ownership, verification records, TLS mode switches, and the `409` codes
+        work as on `POST /projects/{id}/frontends/{frontendId}/domain`. A
+        request for a hostname the frontend already has returns it with `200`,
+        or switches its TLS mode in place. When the request's redirect differs
+        from the domain's, it returns `409`; change a redirect with `PATCH`.
+      operationId: createFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendCustomDomainRequest'
+      responses:
+        '200':
+          description: The frontend already has this hostname, or its TLS mode was switched in place
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '201':
+          description: Custom domain provisioning started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '400':
+          description: Invalid domain, TLS, or redirect, such as a redirect to a hostname the frontend does not serve
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The plan does not include custom domains, the frontend has as many as the plan allows, or a managed TLS request would exceed the managed TLS certificate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Ownership not verified, the hostname is owned, reserved, or used elsewhere, the frontend already has the hostname with a different redirect, or a removed domain is still releasing it (`code: custom_domain_releasing` with `Retry-After`).'
+          headers:
+            Retry-After:
+              description: Seconds to wait before sending the same request again. Sent only with code `custom_domain_releasing`.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
+        '500':
+          description: Failed to add the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Custom domain provisioning is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/domains/{domain}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+      - $ref: '#/components/parameters/FrontendCustomDomainHostname'
+    get:
+      tags:
+        - Frontends
+      summary: Get a frontend custom domain
+      operationId: getFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: The custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Frontends
+      summary: Set or clear a custom domain's redirect
+      description: |
+        `{"redirect": {"to": "www.example.com", "status": 308}}` makes the
+        domain redirect to another domain of the frontend that serves it.
+        `{"redirect": null}` makes it serve the frontend again. A domain other
+        domains redirect to cannot become a redirect itself. `status` defaults
+        to `308`. Proxies apply the change within seconds.
+      operationId: updateFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFrontendCustomDomainRequest'
+      responses:
+        '200':
+          description: The updated custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '400':
+          description: 'Invalid redirect: the target is this domain, is not a domain of the frontend, or redirects itself'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Other domains of the frontend redirect to this one; the message names them
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to update the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Frontends
+      summary: Remove a custom domain from a frontend
+      description: |
+        Detaches the domain. A domain other domains redirect to cannot be
+        removed until those redirects are removed or retargeted.
+      operationId: deleteFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Custom domain detach scheduled
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Other domains of the frontend redirect to this one, and the message names them, or the domain switched TLS mode while the request ran
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to remove the custom domain
           content:
             application/json:
               schema:
@@ -15894,6 +16188,15 @@ components:
         type: string
         format: uuid
       description: Frontend Function route ID
+    FrontendCustomDomainHostname:
+      name: domain
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 253
+      description: The custom domain's hostname, such as `www.example.com`
     FunctionId:
       name: functionId
       in: path
@@ -17853,6 +18156,8 @@ components:
           example: app.example.com
         tls:
           $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
+        redirect:
+          $ref: '#/components/schemas/FrontendCustomDomainRedirectRequest'
       required:
         - domain
         - tls
@@ -19967,6 +20272,11 @@ components:
           type: array
           items:
             type: string
+        redirect:
+          allOf:
+            - $ref: '#/components/schemas/FrontendCustomDomainRedirect'
+          nullable: true
+          description: Where the domain redirects every request, or null when it serves the frontend.
         created_at:
           type: string
           format: date-time
@@ -19979,8 +20289,67 @@ components:
         - domain_status
         - verification_status
         - effective_urls
+        - redirect
         - created_at
         - updated_at
+    FrontendCustomDomainList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrontendCustomDomainResponse'
+      required:
+        - data
+    FrontendCustomDomainRedirect:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Hostname the domain redirects to.
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+      required:
+        - to
+        - status
+    FrontendCustomDomainRedirectRequest:
+      type: object
+      additionalProperties: false
+      description: Redirects every request for the domain to `to`, another domain of the same frontend that serves it, keeping the path and query string.
+      properties:
+        to:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Hostname of a domain of the same frontend that serves it.
+          example: www.example.com
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+          default: 308
+          description: Redirect status. 301 and 308 are permanent, 302 and 307 temporary; 307 and 308 keep the request method and body.
+      required:
+        - to
+    UpdateFrontendCustomDomainRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        redirect:
+          allOf:
+            - $ref: '#/components/schemas/FrontendCustomDomainRedirectRequest'
+          nullable: true
+          description: The redirect to set, or null to make the domain serve the frontend.
+      required:
+        - redirect
     FrontendDeployment:
       type: object
       properties:
@@ -22945,6 +23314,43 @@ components:
           $ref: '#/components/schemas/ProjectConfigFrontendCustomDomainTLSConfig'
       required:
         - domain
+    ProjectConfigFrontendCustomDomain:
+      type: object
+      additionalProperties: false
+      description: |
+        One of the frontend's custom domains. `domain` and `tls` behave as in
+        `custom_domain`. With `redirect`, the domain redirects every request to
+        another listed domain that serves the frontend.
+      properties:
+        domain:
+          type: string
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
+        tls:
+          $ref: '#/components/schemas/ProjectConfigFrontendCustomDomainTLSConfig'
+        redirect:
+          $ref: '#/components/schemas/ProjectConfigCustomDomainRedirect'
+      required:
+        - domain
+    ProjectConfigCustomDomainRedirect:
+      type: object
+      additionalProperties: false
+      properties:
+        to:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Another domain in the same `custom_domains` list, without `redirect`.
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+          default: 308
+      required:
+        - to
     ProjectConfigDatabase:
       type: object
       additionalProperties: false
@@ -23045,6 +23451,16 @@ components:
           minLength: 1
         custom_domain:
           $ref: '#/components/schemas/ProjectConfigCustomDomain'
+        custom_domains:
+          type: array
+          maxItems: 100
+          description: |
+            Complete set of the frontend's custom domains when declared.
+            Domains not listed are deleted; an empty list deletes all of them.
+            Omission leaves existing domains untouched. More than one domain
+            needs a plan that allows it.
+          items:
+            $ref: '#/components/schemas/ProjectConfigFrontendCustomDomain'
         function_routes:
           type: array
           maxItems: 64

@@ -88,6 +88,14 @@ func TestLocalFrontendsLeaveDomainsToTheCloud(t *testing.T) {
 		require.ErrorContains(t, err, `"frontends domain" is a cloud command`, "%v", args)
 		require.ErrorContains(t, err, "volcano cloud frontends domain", "%v", args)
 	}
+	for _, args := range [][]string{
+		{"frontends", "domains", "list", "web"},
+		{"frontends", "domains", "add", "web", "example.com", "--redirect-to", "www.example.com"},
+	} {
+		_, err := executeRootCommand(t, args...)
+		require.ErrorContains(t, err, `"frontends domains" is a cloud command`, "%v", args)
+		require.ErrorContains(t, err, "volcano cloud frontends domains ...", "%v", args)
+	}
 
 	out, err := executeRootCommand(t, "frontends", "--help")
 	require.NoError(t, err)

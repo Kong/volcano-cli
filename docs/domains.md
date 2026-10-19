@@ -15,7 +15,7 @@ projects, with no further record.
 - Belongs to your **account**, not a project, so the commands need an account
   token from `volcano login`. A project access token is refused.
 - Every **frontend custom domain** must sit at or below a domain your account
-  has verified. `volcano cloud frontends domain create` and `volcano cloud
+  has verified. `volcano cloud frontends domains add` and `volcano cloud
   config deploy` print the record to publish when it is missing.
 - Local development serves no custom domains, so these commands are cloud-only.
 

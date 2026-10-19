@@ -12,9 +12,9 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one **custom domain** (BYOC) attached, at or below a domain your
-  account has [verified](domains.md). A second, different domain is rejected
-  with `409`; serve another hostname from a separate frontend.
+- Can have several **custom domains**, as many as the plan allows, each at or
+  below a domain your account has [verified](domains.md). Each one serves the
+  frontend or redirects to another of its domains.
 - Can forward paths to public [functions](functions.md) through
   **function routes**.
 - Frontend custom domains and function routes can also be declared in the
@@ -36,7 +36,7 @@ Custom domains are a cloud command.
 | Get | `volcano frontends get <name>` | `volcano cloud frontends get <name>` |
 | Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
 | Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
-| Custom domains | — | `volcano cloud frontends domain create\|list\|get\|delete …` |
+| Custom domains | — | `volcano cloud frontends domains list\|get\|add\|update\|remove …` |
 | Function routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
@@ -87,19 +87,68 @@ volcano cloud frontends redeploy my-site
 # Inspect
 volcano cloud frontends list
 volcano cloud frontends logs my-site
-
-# Attach and check a custom domain
-volcano cloud frontends domain create my-site --domain app.example.com \
-  --cert ./fullchain-leaf.pem --key ./privkey.pem
-volcano cloud frontends domain get my-site
 ```
 
-Attaching a custom domain needs a [verified domain](domains.md) above it. When
-none exists, the command fails and prints the TXT record to publish.
+## Custom domains
 
-The domain command shows a DNS routing target hostname. Configure a CNAME only if
-your DNS provider confirms that your domain is not a zone apex. At an apex, use
-a provider-supported ALIAS, ANAME, or CNAME-flattening record with that target.
+```bash
+# Serve the frontend on www, with a certificate Volcano issues
+volcano cloud frontends domains add my-site www.example.com
+
+# Send the apex to www, keeping the path and query string
+volcano cloud frontends domains add my-site example.com --redirect-to www.example.com
+
+# Or serve your own certificate
+volcano cloud frontends domains add my-site app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem
+
+volcano cloud frontends domains list my-site
+volcano cloud frontends domains get my-site example.com
+```
+
+```text
+Domain             TLS       Status    Created   Redirects to
+www.example.com    managed   active    2m ago    -
+example.com        managed   active    1m ago    www.example.com (308)
+```
+
+Without `--cert` and `--key`, Volcano issues and renews the certificate once you
+publish the DNS records that `add` and `get` print. A BYOC domain needs a
+[verified domain](domains.md) above it first; when none exists, `add` fails and
+prints the TXT record to publish.
+
+`get` shows the DNS routing target hostname. Point every domain of the frontend
+at it, including the ones that redirect: the browser connects over HTTPS before
+it reads the redirect. Configure a CNAME only if your DNS provider confirms that
+your domain is not a zone apex. At an apex, use a provider-supported ALIAS,
+ANAME, or CNAME-flattening record with that target.
+
+### Redirects
+
+`--redirect-status` takes 301, 302, 307, or 308, and defaults to 308. 301 and
+308 are permanent and browsers cache them; use 302 while you test. A redirect
+must point at a domain of the same frontend that serves it, not at another
+redirect.
+
+```bash
+# Change the status, or make the domain serve the frontend again
+volcano cloud frontends domains update my-site example.com --redirect-to www.example.com --redirect-status 302
+volcano cloud frontends domains update my-site example.com --no-redirect
+
+volcano cloud frontends domains remove my-site example.com
+```
+
+A domain that others redirect to cannot be removed or become a redirect itself;
+Volcano refuses with `409` and names them. Retarget or remove those first. To
+swap which domain serves in one step, declare both in `custom_domains` in the
+[declarative config](project-configuration.md) and run
+`volcano cloud config deploy`.
+
+Adding a domain past the plan's limit per frontend fails with `403`. See
+[Plans and limits](/platform/guides/plans-and-limits#frontends).
+
+The older `volcano cloud frontends domain create|list|get|delete` commands still
+work and act on the frontend's oldest domain that serves it.
 
 ## Function routes
 

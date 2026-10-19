@@ -35,6 +35,7 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	waitForAPIE2EFrontendContent(t, siteURL, "Volcano CLI E2E v3")
 
 	requireAPIE2EFrontendRoutes(t, env, frontend, siteURL)
+	requireAPIE2EFrontendDomains(t, env, frontend)
 
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")
@@ -104,6 +105,49 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
+}
+
+// requireAPIE2EFrontendDomains walks the domains commands against a deployed
+// frontend. Nobody owns its hostnames, so managed TLS holds them for the
+// account without issuing a certificate; Kong/volcano-hosting's cloud E2E
+// serves a redirect through real DNS.
+func requireAPIE2EFrontendDomains(t *testing.T, env *apiE2E, frontend string) {
+	t.Helper()
+	apex := "cli-e2e-" + apiE2ESuffix(t) + ".example.com"
+	www := "www." + apex
+	env.runCloudCLI(t, "frontends", "domains", "list", frontend).
+		requireSuccess(t, fmt.Sprintf("No custom domains on frontend %q", frontend))
+
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, www).
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' added to frontend '%s'", www, frontend), "TLS mode: managed")
+	// HOBBY allows one domain per frontend.
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex, "--redirect-to", www).
+		requireFailure(t, "HTTP 403")
+
+	env.setUserPlan(t, "SUPERAGENT")
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex, "--redirect-to", www).
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' added to frontend '%s'", apex, frontend), "Redirects to: "+www+" (308)")
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, "go."+apex, "--redirect-to", apex).
+		requireFailure(t, "HTTP 400", "not one that redirects")
+	env.runCloudCLI(t, "frontends", "domains", "list", frontend).
+		requireSuccess(t, www+" (308)", "Total: 2 custom domain(s)")
+
+	env.runCloudCLI(t, "frontends", "domains", "update", frontend, apex, "--redirect-to", www, "--redirect-status", "302").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' now redirects to '%s' with 302", apex, www))
+	env.runCloudCLI(t, "frontends", "domains", "remove", frontend, www, "--yes").
+		requireFailure(t, "HTTP 409", www+" is the redirect target of "+apex)
+	env.runCloudCLI(t, "frontends", "domains", "update", frontend, www, "--redirect-to", apex).
+		requireFailure(t, "HTTP 409", www+" is the redirect target of "+apex)
+
+	env.runCloudCLI(t, "frontends", "domains", "update", frontend, apex, "--no-redirect").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' now serves frontend '%s'", apex, frontend))
+	env.runCloudCLI(t, "frontends", "domains", "get", frontend, apex).requireNotContains(t, "Redirects to:")
+	for _, domain := range []string{apex, www} {
+		env.runCloudCLI(t, "frontends", "domains", "remove", frontend, domain, "--yes").
+			requireSuccess(t, fmt.Sprintf("Custom domain '%s' removal started", domain))
+	}
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout,
+		fmt.Sprintf("No custom domains on frontend %q", frontend), "frontends", "domains", "list", frontend)
 }
 
 // writeAPIE2ERoutedFunction writes an HTTP-mode function that answers with the

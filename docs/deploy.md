@@ -180,9 +180,9 @@ with the selection it already has (none for a new frontend), and the config
 step applies the entry afterwards. The run warns about each such frontend; run
 the deploy again to rebuild it with the selection.
 
-In the cloud, a declared frontend entry without `custom_domain` removes the
-frontend's custom domain. Keep `custom_domain` in the entry if the frontend has
-one.
+In the cloud, a declared frontend entry without `custom_domain` or
+`custom_domains` leaves the frontend's domains alone. `custom_domain: null`
+removes its domain, and `custom_domains` replaces the whole set.
 
 ## Cloud projects that deploy from Git
 

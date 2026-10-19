@@ -31,6 +31,23 @@ type FrontendCustomDomainInput struct {
 	CertificateChainPEM string
 }
 
+// FrontendDomainInput adds one custom domain beside a frontend's others.
+// Without a certificate, Volcano issues one.
+type FrontendDomainInput struct {
+	Domain              string
+	CertificatePEM      string
+	PrivateKeyPEM       string
+	CertificateChainPEM string
+	Redirect            *FrontendDomainRedirect
+}
+
+// FrontendDomainRedirect sends every request for a domain to another domain of
+// the same frontend. A zero Status takes the server default, 308.
+type FrontendDomainRedirect struct {
+	To     string
+	Status int
+}
+
 // ListFrontends lists one frontend page for a project.
 func (c *Client) ListFrontends(ctx context.Context, projectID uuid.UUID, page, limit int) (*apiclient.PaginatedFrontends, error) {
 	resp, err := c.client.ListFrontendsWithResponse(ctx, projectID, &apiclient.ListFrontendsParams{
@@ -216,6 +233,103 @@ func (c *Client) DeleteFrontendCustomDomain(ctx context.Context, projectID, fron
 		return err
 	}
 	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
+
+// ListFrontendDomains lists a frontend's custom domains, oldest first.
+func (c *Client) ListFrontendDomains(ctx context.Context, projectID, frontendID uuid.UUID) ([]apiclient.FrontendCustomDomainResponse, error) {
+	resp, err := c.client.ListFrontendDomainsWithResponse(ctx, projectID, frontendID)
+	if err != nil {
+		return nil, err
+	}
+	list, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+	if err != nil {
+		return nil, err
+	}
+	return list.Data, nil
+}
+
+// CreateFrontendDomain adds a custom domain to a frontend.
+func (c *Client) CreateFrontendDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendDomainInput) (*apiclient.FrontendCustomDomainResponse, error) {
+	body := apiclient.CreateFrontendDomainJSONRequestBody{
+		Domain:   strings.TrimSpace(input.Domain),
+		Tls:      frontendDomainTLS(input),
+		Redirect: frontendDomainRedirectRequest(input.Redirect),
+	}
+	resp, err := c.client.CreateFrontendDomainWithResponse(ctx, projectID, frontendID, body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSON201 != nil {
+		return resp.JSON201, nil
+	}
+	if resp.JSON200 != nil {
+		return resp.JSON200, nil
+	}
+	if resp.JSON409 != nil {
+		return nil, conflictError(resp.StatusCode(), resp.JSON409)
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+}
+
+// GetFrontendDomain returns one custom domain of a frontend.
+func (c *Client) GetFrontendDomain(ctx context.Context, projectID, frontendID uuid.UUID, domain string) (*apiclient.FrontendCustomDomainResponse, error) {
+	resp, err := c.client.GetFrontendDomainWithResponse(ctx, projectID, frontendID, domain)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
+
+// SetFrontendDomainRedirect makes a custom domain redirect, or serve the
+// frontend again when redirect is nil.
+func (c *Client) SetFrontendDomainRedirect(
+	ctx context.Context, projectID, frontendID uuid.UUID, domain string, redirect *FrontendDomainRedirect,
+) (*apiclient.FrontendCustomDomainResponse, error) {
+	body := apiclient.UpdateFrontendDomainJSONRequestBody{Redirect: frontendDomainRedirectRequest(redirect)}
+	resp, err := c.client.UpdateFrontendDomainWithResponse(ctx, projectID, frontendID, domain, body)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+// DeleteFrontendDomain removes one custom domain from a frontend.
+func (c *Client) DeleteFrontendDomain(ctx context.Context, projectID, frontendID uuid.UUID, domain string) error {
+	resp, err := c.client.DeleteFrontendDomainWithResponse(ctx, projectID, frontendID, domain)
+	if err != nil {
+		return err
+	}
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+func frontendDomainTLS(input FrontendDomainInput) apiclient.FrontendCustomDomainTLSConfig {
+	certificate := strings.TrimSpace(input.CertificatePEM)
+	if certificate == "" {
+		return apiclient.FrontendCustomDomainTLSConfig{Mode: apiclient.FrontendCustomDomainTLSConfigModeManaged}
+	}
+	privateKey := strings.TrimSpace(input.PrivateKeyPEM)
+	tls := apiclient.FrontendCustomDomainTLSConfig{
+		Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
+		CertificatePem: &certificate,
+		PrivateKeyPem:  &privateKey,
+	}
+	if chain := strings.TrimSpace(input.CertificateChainPEM); chain != "" {
+		tls.CertificateChainPem = &chain
+	}
+	return tls
+}
+
+func frontendDomainRedirectRequest(redirect *FrontendDomainRedirect) *apiclient.FrontendCustomDomainRedirectRequest {
+	if redirect == nil {
+		return nil
+	}
+	request := &apiclient.FrontendCustomDomainRedirectRequest{To: strings.TrimSpace(redirect.To)}
+	if redirect.Status != 0 {
+		status := apiclient.FrontendCustomDomainRedirectRequestStatus(redirect.Status)
+		request.Status = &status
+	}
+	return request
 }
 
 // ListFrontendFunctionRoutes lists the paths a frontend forwards to functions.
