@@ -19,7 +19,7 @@ func (s Service) SendMessage(
 	ctx context.Context, identifier string, executionID uuid.UUID,
 	name string, data json.RawMessage, idempotencyKey string,
 ) (*apiclient.DurableMessage, bool, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, false, err
 	}
@@ -39,7 +39,7 @@ func (s Service) SendMessage(
 func (s Service) ListMessages(
 	ctx context.Context, identifier string, executionID uuid.UUID, input api.DurableMessageListInput,
 ) (*apiclient.DurableMessageList, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (s Service) ListMessages(
 func (s Service) ListMessageWaits(
 	ctx context.Context, identifier string, executionID uuid.UUID,
 ) (*apiclient.DurableMessageWaitList, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}

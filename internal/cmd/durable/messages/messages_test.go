@@ -357,6 +357,48 @@ func TestListFollowReadsEveryPageOfAPass(t *testing.T) {
 	assert.Contains(t, out, "Execution order-4417 failed")
 }
 
+// A follow outlives most commands, so a `volcano use` in another shell while it
+// runs must not move its reads to a project where the execution ID names
+// nothing.
+func TestListFollowStaysInTheProjectItStartedIn(t *testing.T) {
+	setMessagesTestHome(t)
+	const otherProjectID = "33333333-3333-4333-8333-333333333333"
+	var mu sync.Mutex
+	var paths []string
+	passes := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		paths = append(paths, r.URL.Path)
+		switch r.URL.Path {
+		case executionPath:
+			passes++
+			status := "running"
+			if passes > 1 {
+				status = "succeeded"
+			}
+			respondJSON(t, w, http.StatusOK, executionPayload(status))
+		case messagesPath:
+			switched := &cliconfig.Config{
+				UserToken:      "token",
+				CurrentProject: &cliconfig.ProjectConfig{ID: otherProjectID, Name: "Gamma"},
+			}
+			assert.NoError(t, switched.Save())
+			respondJSON(t, w, http.StatusOK, map[string]any{"data": []any{}, "has_more": false})
+		default:
+			respondJSON(t, w, http.StatusNotFound, map[string]any{"error": "durable execution not found"})
+		}
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newFollowCommand(server), "list", "order-pipeline", executionID, "--follow")
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, []string{executionPath, messagesPath, executionPath, messagesPath}, paths)
+}
+
 func TestListFollowJSONPrintsOneMessagePerLine(t *testing.T) {
 	setMessagesTestHome(t)
 	server, _ := newFollowServer(t, []followPass{
