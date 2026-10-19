@@ -385,6 +385,104 @@ func TestConnectInsideALinkedDirectoryKeepsItsProject(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(dir, "web", "fuji-amber-42"))
 }
 
+const badLink = "<<<<<<< HEAD\n"
+
+// writeBadLink gives dir a project link that can't be parsed and returns its
+// path.
+func writeBadLink(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, ".volcano", "project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(badLink), 0o644))
+	return path
+}
+
+// Replacing a bad link with a new project could leave the user with two, so
+// connect asks which project goes there.
+func TestConnectRefusesToGuessPastABadLink(t *testing.T) {
+	for name, run := range map[string]func(*httptest.Server) (string, error){
+		"directory argument": func(server *httptest.Server) (string, error) { return runConnect(t, server, ".") },
+		"no directory":       func(server *httptest.Server) (string, error) { return runConnectHere(t, server) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			dir := chdirTemp(t)
+			path := writeBadLink(t, dir)
+			require.NoError(t, os.MkdirAll(filepath.Join(dir, "web"), 0o755))
+			if name == "no directory" {
+				t.Chdir(filepath.Join(dir, "web"))
+			}
+
+			_, err := run(server)
+			require.ErrorContains(t, err, "failed to parse project link "+path)
+			require.ErrorContains(t, err, "--project <project-id>")
+			require.ErrorContains(t, err, "add --name <name>, or delete "+path)
+			assert.Zero(t, fake.creates)
+			assert.Equal(t, badLink, readFile(t, path))
+		})
+	}
+}
+
+func TestConnectWithProjectReplacesABadLink(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	path := writeBadLink(t, dir)
+
+	out, err := runConnect(t, server, ".", "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Warning: Replacing a project link that can't be used: failed to parse project link "+path)
+	assert.Zero(t, fake.creates)
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, connectOtherProjectID, link.Project.ID)
+}
+
+func TestConnectWithNameReplacesABadLinkWithANewProject(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	path := writeBadLink(t, dir)
+
+	out, err := runConnectHere(t, server, "--name", "shop")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Warning: Replacing a project link that can't be used: failed to parse project link "+path)
+	assert.Equal(t, 1, fake.creates)
+	assert.Contains(t, out, "Directory: .\n", "the directory that holds the link is the one set up")
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"}, link.Project)
+}
+
+func TestConnectIgnoresABadLinkAboveTheDirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	path := writeBadLink(t, parent)
+	dir := filepath.Join(parent, "my-app")
+
+	out, err := runConnect(t, server, dir)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Warning: Ignoring a project link that can't be used: failed to parse project link "+path)
+	assert.Equal(t, 1, fake.creates)
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, dir, link.Dir)
+	assert.Equal(t, badLink, readFile(t, path), "the parent's link is left alone")
+}
+
 func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}

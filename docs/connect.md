@@ -141,6 +141,11 @@ If the linked directory already has a `volcano/cloud.env` with an anon key,
 wrote there for the new project. If that fails, they warn, and
 `volcano connect .` refreshes the file.
 
+If the link can't be read, `volcano login`, `volcano signup`, and `volcano
+connect` warn and ignore it, and other commands fail and name the file. To
+replace it, run `volcano connect <directory> --project <project-id>`, or
+`--name <name>` for a new project.
+
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
 

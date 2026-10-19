@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,4 +72,27 @@ func TestLinkedProjectPrecedesSavedSelection(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(home, ".volcano", "config.json"))
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "linked", "the link is never written to the global config")
+}
+
+func TestLoadIgnoringBadLinkReturnsTheConfigWithoutTheLink(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	require.NoError(t, (&Config{UserToken: "pk-token"}).Save())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("{not-json"), 0o644))
+	t.Chdir(dir)
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	_, err = Load()
+	linkErr, ok := errors.AsType[*LinkError](err)
+	require.True(t, ok, "Load fails with a *LinkError: %v", err)
+	assert.Equal(t, filepath.Join(wd, ".volcano", "project.json"), linkErr.Path())
+
+	cfg, linkErr, err := LoadIgnoringBadLink()
+	require.NoError(t, err)
+	require.NotNil(t, linkErr)
+	assert.Equal(t, wd, linkErr.Dir)
+	assert.Nil(t, cfg.Link)
+	assert.Equal(t, "pk-token", cfg.UserToken)
 }

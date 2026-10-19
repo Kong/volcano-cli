@@ -327,6 +327,36 @@ func TestLoginProjectInsideALinkedDirectoryRefusesWhileVolcanoProjectIDNamesAnot
 	}
 }
 
+// writeBadLink gives a new directory a project link that can't be parsed, runs
+// the test from it, and returns the link's path.
+func writeBadLink(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".volcano", "project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("<<<<<<< HEAD\n"), 0o644))
+	t.Chdir(dir)
+	return path
+}
+
+func TestLoginWarnsAboutABadProjectLinkAndIgnoresIt(t *testing.T) {
+	setAuthTestHome(t)
+	path := writeBadLink(t)
+	server := betaServer(t)
+
+	stdout, stderr, err := executeLogin(t, server, "--token", "pk-account", "--project", authOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "Warning: Ignoring a project link that can't be used: failed to parse project link "+path)
+	assert.Contains(t, stderr, "volcano connect "+filepath.Dir(filepath.Dir(path))+" --project <project-id>")
+	assert.Contains(t, stdout, "Project saved to ~/.volcano/config.json", "with the link ignored, the selection is global")
+
+	cfg := loadAuthTestConfig(t)
+	assert.Equal(t, "pk-account", cfg.UserToken)
+	require.NotNil(t, cfg.CurrentProject)
+	assert.Equal(t, authOtherProjectID, cfg.CurrentProject.ID)
+	assert.Equal(t, "<<<<<<< HEAD\n", readAuthFile(t, path), "login leaves the link alone")
+}
+
 func TestLoginProjectFlagHelpNamesWhatItTakes(t *testing.T) {
 	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
@@ -375,6 +405,18 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 	cfg := loadAuthTestConfig(t)
 	assert.Equal(t, "platform-token", cfg.UserToken)
 	assert.Equal(t, "platform-user-1", cfg.UserID)
+}
+
+func TestSignupWarnsAboutABadProjectLinkAndIgnoresIt(t *testing.T) {
+	setAuthTestHome(t)
+	path := writeBadLink(t)
+	deps, _, pollTicker := signupBrowserDeps(t)
+
+	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "ted@example.com\n", pollTicker)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Warning: Ignoring a project link that can't be used: failed to parse project link "+path)
+	assert.Contains(t, out, "Signed up and logged in successfully")
+	assert.Equal(t, "platform-token", loadAuthTestConfig(t).UserToken)
 }
 
 func TestSignupAllowsEmailOverride(t *testing.T) {
@@ -556,7 +598,7 @@ func saveAuthTestConfig(t *testing.T, cfg *cliconfig.Config) {
 
 func loadAuthTestConfig(t *testing.T) *cliconfig.Config {
 	t.Helper()
-	cfg, err := cliconfig.Load()
+	cfg, err := cliconfig.LoadWithoutLink()
 	require.NoError(t, err)
 	return cfg
 }

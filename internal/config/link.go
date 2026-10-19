@@ -75,6 +75,23 @@ func FindLinkFromWorkingDir() (*Link, error) {
 	return FindLink(wd)
 }
 
+// LinkError is a project link that can't be used: unreadable, malformed, or
+// without a project ID.
+type LinkError struct {
+	// Dir is the directory holding the link.
+	Dir string
+	Err error
+}
+
+func (e *LinkError) Error() string { return e.Err.Error() }
+
+func (e *LinkError) Unwrap() error { return e.Err }
+
+// Path returns the link file's path.
+func (e *LinkError) Path() string {
+	return filepath.Join(e.Dir, LinkRelPath)
+}
+
 func readLink(dir string) (*Link, error) {
 	path := filepath.Join(dir, LinkRelPath)
 	data, err := os.ReadFile(path)
@@ -82,14 +99,14 @@ func readLink(dir string) (*Link, error) {
 		return nil, nil //nolint:nilnil // no link here is an outcome, not a failure
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read project link %s: %w", path, err)
+		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("failed to read project link %s: %w", path, err)}
 	}
 	var file linkFile
 	if err := json.Unmarshal(data, &file); err != nil {
-		return nil, fmt.Errorf("failed to parse project link %s: %w", path, err)
+		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("failed to parse project link %s: %w", path, err)}
 	}
 	if strings.TrimSpace(file.ProjectID) == "" {
-		return nil, fmt.Errorf("project link %s has no project_id", path)
+		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("project link %s has no project_id", path)}
 	}
 	return &Link{
 		Dir:     dir,

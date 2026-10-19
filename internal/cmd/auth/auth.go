@@ -29,9 +29,10 @@ type loginOptions struct {
 }
 
 type signupOptions struct {
-	deps cliruntime.Deps
-	in   io.Reader
-	out  io.Writer
+	deps   cliruntime.Deps
+	in     io.Reader
+	out    io.Writer
+	errOut io.Writer
 }
 
 // NewLogin returns the login command.
@@ -72,9 +73,9 @@ Environment variable (no login needed):
 }
 
 func runLogin(ctx context.Context, opts loginOptions) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig(opts.deps, opts.errOut)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
 	service := cliauth.NewService(opts.deps)
@@ -149,6 +150,22 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	return nil
 }
 
+// loadConfig loads the config for login and signup, which don't need the
+// working directory's project link: a link that can't be used is a warning,
+// not a failure.
+func loadConfig(deps cliruntime.Deps, errOut io.Writer) (*config.Config, error) {
+	cfg, linkErr, err := config.LoadIgnoringBadLink()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	if linkErr != nil {
+		output.Warning(errOut, "Ignoring a project link that can't be used: %v. Commands that use a project fail in this "+
+			"directory until it is fixed. To relink it, run: %s", linkErr,
+			cliruntime.CommandPath(deps, "connect "+linkErr.Dir+" --project <project-id>"))
+	}
+	return cfg, nil
+}
+
 // projectLabel is "name (id)", or the ID alone when the name is unknown.
 func projectLabel(project config.ProjectConfig) string {
 	if project.Name == "" {
@@ -178,18 +195,19 @@ then opens Volcano's web signup flow in your browser. After you finish signing u
 the CLI completes authentication and saves your credentials, leaving you logged in.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSignup(cmd.Context(), signupOptions{
-				deps: deps,
-				in:   cmd.InOrStdin(),
-				out:  cmd.OutOrStdout(),
+				deps:   deps,
+				in:     cmd.InOrStdin(),
+				out:    cmd.OutOrStdout(),
+				errOut: cmd.ErrOrStderr(),
 			})
 		},
 	}
 }
 
 func runSignup(ctx context.Context, opts signupOptions) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig(opts.deps, opts.errOut)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return err
 	}
 
 	reader := bufio.NewReader(opts.in)

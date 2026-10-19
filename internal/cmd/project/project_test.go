@@ -364,6 +364,21 @@ func TestUseInALinkedDirectoryReportsTheCloudEnv(t *testing.T) {
 	}
 }
 
+// Only login, signup and connect get past a link that can't be used. A
+// project command fails and names the file.
+func TestUseFailsOnABadProjectLink(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".volcano", "project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("{}"), 0o644))
+	t.Chdir(dir)
+
+	_, err := executeProjectCommand(t, NewUse(cliruntime.Deps{APIBaseURL: "http://127.0.0.1:1"}), projectBetaID)
+	require.ErrorContains(t, err, "failed to load config: project link "+path+" has no project_id")
+}
+
 func executeProjectCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	var out bytes.Buffer

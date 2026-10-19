@@ -122,21 +122,45 @@ func Path() (string, error) {
 }
 
 // Load reads ~/.volcano/config.json and the working directory's project link.
-// Missing config is not an error.
+// Missing config is not an error. A link that can't be used is a *LinkError.
 func Load() (*Config, error) {
-	cfg, err := load()
+	cfg, linkErr, err := LoadIgnoringBadLink()
 	if err != nil {
 		return nil, err
+	}
+	if linkErr != nil {
+		return nil, linkErr
+	}
+	return cfg, nil
+}
+
+// LoadIgnoringBadLink is Load for the commands that work without the link, or
+// replace it: login, signup and connect. A link that can't be used is left out
+// of the config and returned as linkErr instead of failing the load.
+func LoadIgnoringBadLink() (cfg *Config, linkErr *LinkError, err error) {
+	cfg, err = load()
+	if err != nil {
+		return nil, nil, err
 	}
 	wd, err := os.Getwd()
 	if err != nil {
 		// A working directory that no longer exists can't be linked.
-		return cfg, nil //nolint:nilerr // the link is optional; the config itself loaded
+		return cfg, nil, nil //nolint:nilerr // the link is optional; the config itself loaded
 	}
-	if cfg.Link, err = FindLink(wd); err != nil {
-		return nil, err
+	cfg.Link, err = FindLink(wd)
+	if bad, ok := errors.AsType[*LinkError](err); ok {
+		return cfg, bad, nil
 	}
-	return cfg, nil
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg, nil, nil
+}
+
+// LoadWithoutLink reads ~/.volcano/config.json alone, for configs that never
+// use a project link.
+func LoadWithoutLink() (*Config, error) {
+	return load()
 }
 
 func load() (*Config, error) {

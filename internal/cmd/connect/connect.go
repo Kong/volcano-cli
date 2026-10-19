@@ -159,6 +159,14 @@ func run(ctx context.Context, opts options) error {
 		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. Unset it, or run connect without --token and --signup to use it")
 	}
 
+	// A link connect can't use must not stop it signing in: resolveTarget
+	// decides what to do about it.
+	if opts.deps.ConfigLoader == nil {
+		opts.deps.ConfigLoader = func() (*config.Config, error) {
+			cfg, _, err := config.LoadIgnoringBadLink()
+			return cfg, err
+		}
+	}
 	sessions := clisession.NewFactory(opts.deps)
 	if err := ensureSession(ctx, opts, sessions); err != nil {
 		return err
@@ -345,6 +353,11 @@ const maxNameSuffix = 20
 // linked directory around the working directory keeps its project. Otherwise
 // connect picks the project first, --project or a new one, and sets it up in
 // a new directory named after it.
+//
+// A link that can't be used is replaced only when the user says which project
+// goes there: --project for an existing one, --name for a new one. Otherwise
+// connect would create a project the user may not want, beside the one the
+// link named.
 func resolveTarget(ctx context.Context, opts options, session *clisession.Session, wd string) (string, *apiclient.Project, bool, error) {
 	if opts.dir != "" {
 		dir, err := filepath.Abs(opts.dir)
@@ -357,9 +370,12 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		var project *apiclient.Project
 		created := false
 		if strings.TrimSpace(opts.project) != "" {
+			if _, err := findLink(opts, wd, dir); err != nil {
+				return "", nil, false, err
+			}
 			project, err = existingProject(ctx, session.API, opts.project)
 		} else {
-			project, created, err = linkedOrNewProject(ctx, opts, session, dir)
+			project, created, err = linkedOrNewProject(ctx, opts, session, wd, dir)
 		}
 		if err != nil {
 			return "", nil, false, err
@@ -377,7 +393,7 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		dir := filepath.Join(wd, dirName(project.Name))
 		// Two project names can make the same directory name. Never relink a
 		// directory that belongs to another project.
-		link, err := config.FindLink(dir)
+		link, err := findLink(opts, wd, dir)
 		if err != nil {
 			return "", nil, false, err
 		}
@@ -389,11 +405,17 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 	}
 
 	link, err := config.FindLink(wd)
+	if bad, ok := errors.AsType[*config.LinkError](err); ok {
+		// The tree is linked, but to nothing connect can read: set up the
+		// directory that holds the link, as a valid link would.
+		project, created, err := linkedOrNewProject(ctx, opts, session, wd, bad.Dir)
+		return bad.Dir, project, created, err
+	}
 	if err != nil {
 		return "", nil, false, err
 	}
 	if link != nil {
-		project, created, err := linkedOrNewProject(ctx, opts, session, link.Dir)
+		project, created, err := linkedOrNewProject(ctx, opts, session, wd, link.Dir)
 		return link.Dir, project, created, err
 	}
 
@@ -429,8 +451,8 @@ func existingProject(ctx context.Context, client *api.Client, raw string) (*apic
 
 // linkedOrNewProject returns the project dir is linked to, so a rerun doesn't
 // create another, else a new project named after dir.
-func linkedOrNewProject(ctx context.Context, opts options, session *clisession.Session, dir string) (*apiclient.Project, bool, error) {
-	link, err := config.FindLink(dir)
+func linkedOrNewProject(ctx context.Context, opts options, session *clisession.Session, wd, dir string) (*apiclient.Project, bool, error) {
+	link, err := findLink(opts, wd, dir)
 	if err != nil {
 		return nil, false, err
 	}
@@ -453,6 +475,29 @@ func linkedOrNewProject(ctx context.Context, opts options, session *clisession.S
 		return nil, false, err
 	}
 	return project, true, nil
+}
+
+// findLink is config.FindLink for dir, the directory connect sets up, with a
+// link it can't use in dir or a parent treated as no link. One in dir itself
+// is replaced only with --project or --name; without either, findLink fails
+// and names the file.
+func findLink(opts options, wd, dir string) (*config.Link, error) {
+	link, err := config.FindLink(dir)
+	bad, ok := errors.AsType[*config.LinkError](err)
+	if !ok {
+		return link, err
+	}
+	switch {
+	case bad.Dir != dir:
+		output.Warning(opts.log, "Ignoring a project link that can't be used: %v", bad)
+	case strings.TrimSpace(opts.project) != "" || strings.TrimSpace(opts.name) != "":
+		output.Warning(opts.log, "Replacing a project link that can't be used: %v", bad)
+	default:
+		shown := displayDir(wd, dir)
+		return nil, fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
+			"To link it to a new project, add --name <name>, or delete %s", bad, shown, shown, bad.Path())
+	}
+	return nil, nil //nolint:nilnil // the link is ignored, so there is none
 }
 
 // newProject creates a project named --name, else what the user types at a

@@ -91,8 +91,10 @@ func withLocalConfig(deps cliruntime.Deps, cache *infoCache) cliruntime.Deps {
 			return nil, err
 		}
 
+		// Local mode never uses a project link, so a bad one must not cost the
+		// user's function aliases.
 		var functionAliases map[string]map[string]string
-		if persisted, err := cliconfig.Load(); err == nil {
+		if persisted, err := cliconfig.LoadWithoutLink(); err == nil {
 			functionAliases = persisted.FunctionAliases
 		}
 
