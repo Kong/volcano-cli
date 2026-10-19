@@ -705,6 +705,26 @@ func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	assert.Equal(t, "user-1", cfg.UserID)
 }
 
+func TestConnectWithATokenSignsInWithIt(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	out, err := runConnectHere(t, server, "--token", "pk-given")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Signed in with the token")
+	assert.Equal(t, "Bearer pk-given", fake.createAuth)
+	assert.Zero(t, fake.polls)
+	assert.False(t, fake.deviceAuthorize)
+
+	cfg, err := cliconfig.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-given", cfg.UserToken)
+}
+
 func TestConnectSavesTheDeviceLoginWhenProjectIsWrong(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t}
