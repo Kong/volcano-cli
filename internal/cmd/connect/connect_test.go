@@ -46,6 +46,8 @@ type fakeAPI struct {
 	exchangeStatus int
 	exchangeCode   string
 	exchanges      int
+	// listStatus makes GET /projects fail; 0 lists f.projects.
+	listStatus int
 	// deviceAuthorize records that browser login started. The fake refuses it.
 	deviceAuthorize bool
 	// anonKeyPages, when set, replace the default anon-key list, one entry per
@@ -55,6 +57,8 @@ type fakeAPI struct {
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/projects" && f.listStatus != 0:
+		writeConnectJSON(f.t, w, f.listStatus, map[string]any{"error": "failed"})
 	case r.Method == http.MethodGet && r.URL.Path == "/projects":
 		writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
 			"data": f.projects, "has_more": false, "page": 1, "limit": 100, "total": len(f.projects),
@@ -468,6 +472,23 @@ func TestConnectSavesTheExchangedLoginWhenProjectIsWrong(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the one-time token's login is kept for the next run")
 	assert.Nil(t, cfg.CurrentProject, "connect leaves the volcano use selection alone")
+}
+
+func TestConnectSavesTheExchangedLoginWhenItsCheckFails(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, listStatus: http.StatusInternalServerError}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	out, err := runConnectHere(t, server, "--token", "vbt_one-time")
+	require.ErrorContains(t, err, "token authentication failed")
+	assert.Contains(t, out, "The one-time token is spent, but its login is saved. Run the command again without --token.")
+	assert.Zero(t, fake.creates)
+
+	cfg, err := cliconfig.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the one-time token's login is kept for the next run")
 }
 
 func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {

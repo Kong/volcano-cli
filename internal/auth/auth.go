@@ -67,18 +67,43 @@ const (
 // names the project to validate against and select, by ID or by name; it is
 // optional for an account token and required for a project access token, which
 // cannot list projects and so cannot tell the CLI which project it belongs to.
+//
+// A one-time bootstrap token is exchanged first, and the login it returns is
+// saved right away: the exchange spends the token, so a failure after it must
+// not throw the login away. Such a failure is a *LoginSavedError.
 func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, project string) (Credentials, error) {
 	token = strings.TrimSpace(token)
+	if !config.IsBootstrapToken(token) {
+		return s.loginWithToken(ctx, cfg, token, "", project)
+	}
+	apiURL := s.apiURL(cfg)
+	exchange, err := s.exchangeBootstrapToken(ctx, apiURL, token)
+	if err != nil {
+		return Credentials{}, err
+	}
+	if err := SaveCredentials(Credentials{Token: exchange.Token, UserID: exchange.UserID, APIURL: apiURL}); err != nil {
+		return Credentials{}, fmt.Errorf("failed to save credentials: %w", err)
+	}
+	credentials, err := s.loginWithToken(ctx, cfg, exchange.Token, exchange.UserID, project)
+	if err != nil {
+		return Credentials{}, &LoginSavedError{Err: err}
+	}
+	return credentials, nil
+}
+
+// LoginSavedError is a failure after a one-time token was exchanged and its
+// login saved. The token is spent, but the saved login works without it.
+type LoginSavedError struct{ Err error }
+
+func (e *LoginSavedError) Error() string { return e.Err.Error() }
+
+func (e *LoginSavedError) Unwrap() error { return e.Err }
+
+// loginWithToken validates token, an account or project access token, for
+// LoginWithToken. userID is the user a bootstrap exchange named, if any.
+func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, userID, project string) (Credentials, error) {
 	project = strings.TrimSpace(project)
 	apiURL := s.apiURL(cfg)
-	var userID string
-	if config.IsBootstrapToken(token) {
-		exchange, err := s.exchangeBootstrapToken(ctx, apiURL, token)
-		if err != nil {
-			return Credentials{}, err
-		}
-		token, userID = exchange.Token, exchange.UserID
-	}
 	client, err := s.sessions.APIClient(apiURL, token)
 	if err != nil {
 		return Credentials{}, err

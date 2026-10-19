@@ -262,7 +262,8 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if token := strings.TrimSpace(opts.token); token != "" {
 		// Only a project access token needs its project to sign in. Any other
 		// token signs in first, so a wrong --project fails at the project
-		// lookup with the login, and a spent one-time token's login, saved.
+		// lookup with the login saved. LoginWithToken saves a spent one-time
+		// token's login even when its own checks fail.
 		project := ""
 		if config.IsProjectToken(token) {
 			project = opts.project
@@ -272,6 +273,9 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			output.Warning(opts.log, "The one-time token %s. Signing in in the browser instead.", refusal.Reason)
 			refused = true
 		} else {
+			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
+				output.Note(opts.log, "The one-time token is spent, but its login is saved. Run the command again without --token.")
+			}
 			if err != nil {
 				return fmt.Errorf("token authentication failed: %w", err)
 			}

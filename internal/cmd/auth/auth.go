@@ -79,6 +79,10 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	if token != "" {
 		credentials, err = service.LoginWithToken(ctx, cfg, token, opts.projectID)
 		if err != nil {
+			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
+				output.Note(opts.out, "The one-time token is spent, but its login is saved, so you are logged in. "+
+					"Run `%s` to select a project.", cliruntime.CommandPath(opts.deps, "use <project>"))
+			}
 			return fmt.Errorf("token authentication failed: %w", err)
 		}
 		fmt.Fprintln(opts.out)

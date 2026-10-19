@@ -97,6 +97,9 @@ commands stay signed in. The token works once and expires 15 minutes after
 you copy the prompt. If it has expired, was already used, or is refused, `connect`
 warns and runs browser login instead. Copy the prompt again for a new token.
 
+The login is saved as soon as the token is exchanged. If a later step fails,
+the CLI is still signed in: run the command again without `--token`.
+
 ## New accounts and the project limit
 
 Run `volcano connect --signup` if you don't have an account yet. It opens

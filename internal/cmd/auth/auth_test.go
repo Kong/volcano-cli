@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -119,6 +120,29 @@ func TestLoginProjectTokenSelectsTheProject(t *testing.T) {
 // Nothing can discover which project a pt- token belongs to: listing projects
 // is exactly what it cannot do. Saying so beats saving a credential that then
 // fails on every command.
+func TestLoginWithABootstrapTokenKeepsTheLoginWhenTheProjectIsWrong(t *testing.T) {
+	setAuthTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/auth/cli-bootstrap-tokens/exchange" {
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
+			return
+		}
+		writeAuthJSON(t, w, http.StatusNotFound, map[string]string{"error": "project not found"})
+	}))
+	defer server.Close()
+
+	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+		"--token", "vbt_one-time", "--project", authProjectID)
+	require.ErrorContains(t, err, "token authentication failed: token is not valid for project "+authProjectID)
+	assert.Equal(t, http.StatusNotFound, api.Status(err), "the exit code still reports the missing project")
+	assert.Contains(t, out, "The one-time token is spent, but its login is saved")
+	assert.Contains(t, out, "volcano use <project>")
+
+	cfg := loadAuthTestConfig(t)
+	assert.Equal(t, "pk-exchanged", cfg.UserToken)
+	assert.Nil(t, cfg.CurrentProject)
+}
+
 func TestLoginProjectTokenWithoutAProjectFails(t *testing.T) {
 	setAuthTestHome(t)
 

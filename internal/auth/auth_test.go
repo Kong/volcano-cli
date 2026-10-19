@@ -274,6 +274,43 @@ func TestLoginWithBootstrapTokenExchangesIt(t *testing.T) {
 	assert.Equal(t, Credentials{Token: "pk-exchanged", UserID: "user-1", APIURL: server.URL}, credentials)
 }
 
+// The exchange spends the one-time token, so its login is saved even when the
+// check after it fails, and the failure keeps its API status for the exit code.
+func TestLoginWithBootstrapTokenSavesTheLoginWhenALaterCheckFails(t *testing.T) {
+	for name, tc := range map[string]struct {
+		project string
+		status  int
+	}{
+		"project not found": {project: authAlphaProjectID, status: http.StatusNotFound},
+		"validation fails":  {status: http.StatusInternalServerError},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := testAuthConfig(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/auth/cli-bootstrap-tokens/exchange" {
+					writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
+					return
+				}
+				writeAuthJSON(t, w, tc.status, map[string]string{"error": "failed"})
+			}))
+			defer server.Close()
+
+			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
+				LoginWithToken(context.Background(), cfg, "vbt_one-time", tc.project)
+			_, saved := errors.AsType[*LoginSavedError](err)
+			require.True(t, saved, "got %v", err)
+			assert.Equal(t, tc.status, api.Status(err))
+
+			loaded, err := config.Load()
+			require.NoError(t, err)
+			assert.Equal(t, "pk-exchanged", loaded.UserToken)
+			assert.Equal(t, "user-1", loaded.UserID)
+			assert.Equal(t, server.URL, loaded.SessionAPIURL)
+			assert.Nil(t, loaded.CurrentProject, "a project that failed the check is not selected")
+		})
+	}
+}
+
 func TestLoginWithBootstrapTokenNamesWhyItWasRefused(t *testing.T) {
 	for _, tc := range []struct {
 		status int

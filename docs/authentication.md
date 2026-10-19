@@ -54,7 +54,9 @@ The CLI accepts three kinds of credential:
 Account and project access tokens work with `volcano login --token` and with
 `VOLCANO_TOKEN`. A one-time token works only with `--token` on `volcano login`
 or `volcano connect`: it can be used once, within 15 minutes, and the CLI saves
-the account token it gets in exchange. See
+the account token it gets in exchange. It saves that token before any other
+check, so a failure after the exchange, such as a wrong `--project`, leaves
+you signed in. See
 [One-time tokens from the dashboard](connect.md#one-time-tokens-from-the-dashboard).
 
 A project access token is the one to give CI: it is scoped to a single project, carries
