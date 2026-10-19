@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -608,4 +609,13 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
+}
+
+func TestPrintNonDefaultAPIMasksThePassword(t *testing.T) {
+	var out bytes.Buffer
+
+	printNonDefaultAPI(&out, cliauth.Credentials{APIURL: "https://user:secret@api.staging.example"})
+
+	assert.Contains(t, out.String(), "Signed in to https://user:xxxxx@api.staging.example.")
+	assert.NotContains(t, out.String(), "secret")
 }

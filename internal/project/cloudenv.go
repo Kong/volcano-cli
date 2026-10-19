@@ -20,8 +20,11 @@ const CloudEnvRelPath = "volcano/cloud.env"
 var anonKeyKeys = []string{"VOLCANO_ANON_KEY", "NEXT_PUBLIC_VOLCANO_ANON_KEY"}
 
 // WriteCloudEnv sets the project's API URL and anon key in dir's cloud env
-// file, keeping every other line. It creates the file when it is missing.
+// file, keeping every other line. It creates the file when it is missing. The
+// URL is written without userinfo, query or fragment: a Next.js build puts
+// NEXT_PUBLIC_VOLCANO_API_URL in browser code.
 func WriteCloudEnv(dir, apiURL, anonKey string) error {
+	apiURL = api.PublicURL(apiURL)
 	return envfile.Upsert(CloudEnvPath(dir), []envfile.Var{
 		{Key: "VOLCANO_API_URL", Value: apiURL},
 		{Key: "VOLCANO_ANON_KEY", Value: anonKey},

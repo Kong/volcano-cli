@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	"github.com/Kong/volcano-cli/internal/config"
@@ -263,7 +264,7 @@ func printNonDefaultAPI(w io.Writer, credentials cliauth.Credentials) {
 	if credentials.APIURL == "" || strings.TrimRight(credentials.APIURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
 		return
 	}
-	output.Note(w, "Signed in to %s. Commands use this API until you log out or log in elsewhere.", credentials.APIURL)
+	output.Note(w, "Signed in to %s. Commands use this API until you log out or log in elsewhere.", api.RedactURL(credentials.APIURL))
 }
 
 // NewLogout returns the logout command.

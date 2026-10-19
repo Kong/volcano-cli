@@ -36,8 +36,9 @@ with no directory argument outside a linked directory creates another project.
    scaffold as `volcano init`. With `--template` it adds that starter.
 5. **Writes the env file.** It writes the project's API URL and anon key to
    `volcano/cloud.env`, as `VOLCANO_API_URL`, `VOLCANO_ANON_KEY`, and the
-   `NEXT_PUBLIC_` copies a Next.js frontend reads. Other lines in the file are
-   kept.
+   `NEXT_PUBLIC_` copies a Next.js frontend reads. The API URL is written
+   without a user name, password, query, or fragment, because a frontend build
+   makes it public. Other lines in the file are kept.
 6. **Updates `.gitignore` and `AGENTS.md`.** It gitignores
    `.volcano/project.json` and `volcano/*.env`, and adds a Volcano section to
    `AGENTS.md` that tells the agent where the project link is, which skills to

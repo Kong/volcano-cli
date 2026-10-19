@@ -143,7 +143,7 @@ func printUnauthorizedHint(w io.Writer, deps cliruntime.Deps) {
 		return
 	}
 	fmt.Fprintf(w, "The API at %s did not accept the credential. Run `%s` to sign in to it, or set VOLCANO_API_URL "+
-		"to the API the credential belongs to.\n", apiURL, cliruntime.CommandPath(deps, "login"))
+		"to the API the credential belongs to.\n", api.RedactURL(apiURL), cliruntime.CommandPath(deps, "login"))
 }
 
 // loadConfig loads the configuration through the runtime's loader, so a

@@ -175,3 +175,20 @@ func TestUseRelinksWhenVolcanoProjectIDNamesTheSelectedProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, projectBetaID, link.Project.ID)
 }
+
+// cloud.env feeds NEXT_PUBLIC_VOLCANO_API_URL into browser bundles, so
+// credentials or a query in the API URL must not reach it.
+func TestWriteCloudEnvLeavesCredentialsOutOfTheAPIURL(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, WriteCloudEnv(dir, "https://user:secret@api.example.com/v1?token=abc#frag", "ak-1"))
+
+	data, err := os.ReadFile(CloudEnvPath(dir))
+	require.NoError(t, err)
+	env := string(data)
+	assert.Contains(t, env, "VOLCANO_API_URL=https://api.example.com/v1\n")
+	assert.Contains(t, env, "NEXT_PUBLIC_VOLCANO_API_URL=https://api.example.com/v1\n")
+	for _, leaked := range []string{"user", "secret", "token=abc", "frag"} {
+		assert.NotContains(t, env, leaked)
+	}
+}

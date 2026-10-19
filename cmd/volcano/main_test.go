@@ -186,6 +186,19 @@ func TestPrintError_UnauthorizedNamesTheAPI(t *testing.T) {
 	assert.NotContains(t, out.String(), "re-authenticate")
 }
 
+func TestPrintError_UnauthorizedMasksThePasswordInTheAPI(t *testing.T) {
+	withInstructions(t, "", "")
+	var out bytes.Buffer
+
+	printError(&out, &api.Error{StatusCode: http.StatusUnauthorized, Message: "invalid token"}, cliruntime.Deps{
+		APIBaseURL:   "https://user:secret@api.staging.example",
+		ConfigLoader: func() (*cliconfig.Config, error) { return &cliconfig.Config{}, nil },
+	})
+
+	assert.Contains(t, out.String(), "The API at https://user:xxxxx@api.staging.example did not accept the credential.")
+	assert.NotContains(t, out.String(), "secret")
+}
+
 func TestPrintError_UnauthorizedFromTheDefaultAPIHasNoHint(t *testing.T) {
 	withInstructions(t, "", "")
 	var out bytes.Buffer
