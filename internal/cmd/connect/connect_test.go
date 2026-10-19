@@ -773,6 +773,28 @@ func TestConnectNamesTheCreatedProjectWhenItsDirectoryCantBeCreated(t *testing.T
 	assert.Equal(t, 1, fake.creates)
 }
 
+// A link connect can't write leaves the created project unlinked. A dangling
+// symlink reads as no link, so connect creates a project before it finds out.
+func TestConnectNamesTheCreatedProjectWhenItsLinkCantBeWritten(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	path := filepath.Join(dir, cliconfig.LinkRelPath)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.Symlink(filepath.Join(t.TempDir(), "missing.json"), path))
+
+	_, err := runConnect(t, server, ".")
+	require.ErrorContains(t, err, path+" is a symlink")
+	require.ErrorContains(t, err, "("+connectProjectID+"), but did not link it. "+
+		"To set it up, run: volcano connect . --project "+connectProjectID)
+	assert.Equal(t, 1, fake.creates)
+}
+
 // A stopped wait leaves a created project with no link, so a rerun of the same
 // command would create another.
 func TestConnectNamesTheCreatedProjectWhenTheWaitStops(t *testing.T) {

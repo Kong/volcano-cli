@@ -244,6 +244,9 @@ func run(ctx context.Context, opts options) error {
 	previous, _ := config.FindLink(dir)
 	link, err := cliproject.Link(dir, project)
 	if err != nil {
+		if created {
+			return createdProjectError(opts, wd, dir, project, err)
+		}
 		return err
 	}
 	output.Success(opts.log, "Linked %s", relPath(dir, link.Path()))
