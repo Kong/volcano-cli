@@ -36,6 +36,7 @@ type Result struct {
 	unchanged   []string
 	overwritten []string
 	merged      []string
+	kept        []string
 }
 
 // Created returns paths created by init.
@@ -56,6 +57,12 @@ func (r *Result) Overwritten() []string {
 // Merged returns the .gitignore files RunStarterIn added starter lines to.
 func (r *Result) Merged() []string {
 	return slices.Clone(r.merged)
+}
+
+// Kept returns the starter files RunStarterIn left changed, because the
+// starter was already in place.
+func (r *Result) Kept() []string {
+	return slices.Clone(r.kept)
 }
 
 type conflict struct {
@@ -134,7 +141,10 @@ func RunStarter(starterName string, force bool) (*Result, error) {
 // may already hold some of it, as one `volcano connect` set up does. Unlike
 // RunStarter, it keeps existing base scaffold files, which belong to the user
 // once created, and appends the starter's missing lines to a .gitignore that
-// differs. Other starter files that differ are conflicts. It never overwrites.
+// differs. Other starter files that differ are conflicts, unless every
+// starter file exists: then the starter is in place, and the files that
+// differ are the user's changes, kept and listed in Result.Kept. It never
+// overwrites.
 func RunStarterIn(dir, starterName string) (*Result, error) {
 	planned, err := buildPlan(dir, starterName, false, true)
 	if err != nil {
@@ -187,7 +197,13 @@ func buildPlan(rootDir, starterName string, force, adding bool) (*plan, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := planned.walkStarter(starter, force, starterName == baseStarter); err != nil {
+		base := starterName == baseStarter
+		createdBefore := len(planned.result.created)
+		err = planned.walkStarter(starter, force, base)
+		if adding && !base {
+			err = planned.keepChangesInPlace(err, createdBefore)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -378,6 +394,25 @@ func (p *plan) planFile(starter fs.FS, relativePath string, force, base bool) (c
 	p.files = append(p.files, plannedFile{path: relativePath, content: content})
 	p.result.created = append(p.result.created, relativePath)
 	return conflict{}, false, nil
+}
+
+// keepChangesInPlace turns err, the conflicts of the starter walked after
+// createdBefore paths were planned, into kept files when the walk planned no
+// new path: every starter file exists, so the starter is in place.
+func (p *plan) keepChangesInPlace(err error, createdBefore int) error {
+	var conflictErr *conflictError
+	if !errors.As(err, &conflictErr) || len(p.result.created) > createdBefore {
+		return err
+	}
+	kept := make([]string, 0, len(conflictErr.conflicts))
+	for _, conflict := range conflictErr.conflicts {
+		if conflict.Reason != "has different content" {
+			return err
+		}
+		kept = append(kept, conflict.Path)
+	}
+	p.result.kept = append(p.result.kept, kept...)
+	return nil
 }
 
 // planGitignoreMerge appends the lines of starter's .gitignore that current

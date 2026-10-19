@@ -295,3 +295,26 @@ func TestCheckStarterInReportsAConflictAndWritesNothing(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(dir, "volcano"))
 	assert.NoDirExists(t, filepath.Join(dir, "web"))
 }
+
+// Every starter file is there, so the starter is in place: files that differ
+// are the user's changes, and are kept.
+func TestRunStarterInKeepsChangedFilesOfAStarterInPlace(t *testing.T) {
+	dir := t.TempDir()
+	_, err := RunStarterIn(dir, "nextjs")
+	require.NoError(t, err)
+	packageJSON := filepath.Join(dir, "package.json")
+	require.NoError(t, os.WriteFile(packageJSON, []byte("{}\n"), 0o644))
+
+	result, err := RunStarterIn(dir, "nextjs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package.json"}, result.Kept())
+	data, err := os.ReadFile(packageJSON)
+	require.NoError(t, err)
+	assert.Equal(t, "{}\n", string(data))
+
+	// With a starter file missing, the starter is not in place.
+	require.NoError(t, os.Remove(filepath.Join(dir, "web", "app", "page.js")))
+	_, err = RunStarterIn(dir, "nextjs")
+	_, ok := ConflictMessages(err)
+	assert.True(t, ok, err)
+}

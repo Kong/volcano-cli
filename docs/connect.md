@@ -35,9 +35,11 @@ with no directory argument outside a linked directory creates another project.
 4. **Creates the scaffold.** If `volcano/` is missing, it creates the same
    scaffold as `volcano init`. With `--template` it adds that starter, also
    to a directory set up before. It keeps the scaffold files already there
-   and adds the starter's missing lines to an existing `.gitignore`. If
-   another starter file is already there with different content, `connect`
-   fails before it creates a project or changes a file, and names the file.
+   and adds the starter's missing lines to an existing `.gitignore`. When
+   every starter file is already there, as on a rerun, it keeps the ones you
+   changed and names them. Otherwise, if a starter file is already there with
+   different content, `connect` fails before it creates a project or changes
+   a file, and names the file.
 5. **Writes the env file.** It writes the project's API URL and anon key to
    `volcano/cloud.env`, as `VOLCANO_API_URL`, `VOLCANO_ANON_KEY`, and the
    `NEXT_PUBLIC_` copies a Next.js frontend reads. The API URL is written

@@ -100,8 +100,9 @@ connect:
   3. Links the directory in .volcano/project.json. Commands run inside the
      directory use this project.
   4. Creates the volcano/ scaffold if it is missing, and adds --template's
-     starter. A starter file that differs from one already there stops
-     connect before it changes anything.
+     starter. If some of the starter's files are missing and another differs
+     from the file already there, connect stops before it changes anything.
+     When every starter file is there, a rerun keeps the ones you changed.
   5. Writes the project's API URL and anon key to volcano/cloud.env.
   6. Gitignores the link and the env files, and adds a Volcano section to
      AGENTS.md.
@@ -768,6 +769,9 @@ func scaffold(opts options, dir, starter string) error {
 	}
 	if created := result.Created(); len(created) > 0 {
 		output.Success(opts.log, "Created the scaffold (%d files)", len(created))
+	}
+	if kept := result.Kept(); len(kept) > 0 {
+		output.Note(opts.log, "Kept the changed %s starter files: %s.", starter, strings.Join(kept, ", "))
 	}
 	return nil
 }

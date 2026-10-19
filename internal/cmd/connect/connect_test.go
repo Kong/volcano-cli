@@ -281,6 +281,25 @@ func TestConnectAddsATemplateToAConnectedDirectory(t *testing.T) {
 	}
 }
 
+// npm install rewrites package.json. Rerunning the pasted command with
+// --template must still work, and keep the user's version.
+func TestConnectRerunWithATemplateKeepsChangedStarterFiles(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "shop")
+	_, err := runConnect(t, server, dir, "--template", "nextjs")
+	require.NoError(t, err)
+	packageJSON := filepath.Join(dir, "package.json")
+	require.NoError(t, os.WriteFile(packageJSON, []byte(`{"name":"x"}`), 0o644))
+
+	out, err := runConnect(t, server, dir, "--template", "nextjs")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Kept the changed nextjs starter files: package.json")
+	assert.JSONEq(t, `{"name":"x"}`, readFile(t, packageJSON))
+}
+
 // A --template that can't be added fails before sign-in, instead of
 // connecting without the starter.
 func TestConnectRefusesATemplateThatConflictsBeforeSigningIn(t *testing.T) {
