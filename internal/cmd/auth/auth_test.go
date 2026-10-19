@@ -119,9 +119,6 @@ func TestLoginProjectTokenSelectsTheProject(t *testing.T) {
 	assert.Equal(t, "Alpha", cfg.CurrentProject.Name)
 }
 
-// Nothing can discover which project a pt- token belongs to: listing projects
-// is exactly what it cannot do. Saying so beats saving a credential that then
-// fails on every command.
 // authDeviceCode is the device code the dashboard put in the prompt. It is
 // distinctive so a test can check it never shows up anywhere.
 const authDeviceCode = "dc-dashboard-secret-7f3a"
@@ -226,6 +223,9 @@ func TestLoginRefusesATokenAndADeviceCodeTogether(t *testing.T) {
 	require.ErrorContains(t, err, "none of the others can be")
 }
 
+// Nothing can discover which project a pt- token belongs to: listing projects
+// is exactly what it cannot do. Saying so beats saving a credential that then
+// fails on every command.
 func TestLoginProjectTokenWithoutAProjectFails(t *testing.T) {
 	setAuthTestHome(t)
 
