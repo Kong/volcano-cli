@@ -159,6 +159,16 @@ func run(ctx context.Context, opts options) error {
 		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. Unset it, or run connect without --token and --signup to use it")
 	}
 
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	// Checked before sign-in too: a one-time token spent on a run that then
+	// stops at the link can't be used again.
+	if err := refuseBadLink(opts, wd); err != nil {
+		return err
+	}
+
 	// A link connect can't use must not stop it signing in: resolveTarget
 	// decides what to do about it.
 	if opts.deps.ConfigLoader == nil {
@@ -177,10 +187,6 @@ func run(ctx context.Context, opts options) error {
 	}
 	apiURL := sessions.APIURL(authenticated.Config)
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
 	dir, project, created, err := resolveTarget(ctx, opts, authenticated, wd)
 	if err != nil {
 		return err
@@ -493,11 +499,40 @@ func findLink(opts options, wd, dir string) (*config.Link, error) {
 	case strings.TrimSpace(opts.project) != "" || strings.TrimSpace(opts.name) != "":
 		output.Warning(opts.log, "Replacing a project link that can't be used: %v", bad)
 	default:
-		shown := displayDir(wd, dir)
-		return nil, fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
-			"To link it to a new project, add --name <name>, or delete %s", bad, shown, shown, bad.Path())
+		return nil, badLinkError(wd, bad)
 	}
 	return nil, nil //nolint:nilnil // the link is ignored, so there is none
+}
+
+// refuseBadLink is findLink's refusal, checked before sign-in: the directory
+// connect would set up holds a link it can't use, and neither --project nor
+// --name says what replaces it.
+func refuseBadLink(opts options, wd string) error {
+	if strings.TrimSpace(opts.project) != "" || strings.TrimSpace(opts.name) != "" {
+		return nil
+	}
+	start := wd
+	if opts.dir != "" {
+		dir, err := filepath.Abs(opts.dir)
+		if err != nil {
+			return err
+		}
+		start = dir
+	}
+	_, err := config.FindLink(start)
+	bad, ok := errors.AsType[*config.LinkError](err)
+	// Without a directory argument, connect sets up the directory holding the
+	// link, wherever it is. With one, a bad link above it is ignored.
+	if !ok || (opts.dir != "" && bad.Dir != start) {
+		return nil
+	}
+	return badLinkError(wd, bad)
+}
+
+func badLinkError(wd string, bad *config.LinkError) error {
+	shown := displayDir(wd, bad.Dir)
+	return fmt.Errorf("%w. To link %s to its project again, run: volcano connect %s --project <project-id>. "+
+		"To link it to a new project, add --name <name>, or delete %s", bad, shown, shown, bad.Path())
 }
 
 // newProject creates a project named --name, else what the user types at a

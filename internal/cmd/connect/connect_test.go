@@ -426,6 +426,23 @@ func TestConnectRefusesToGuessPastABadLink(t *testing.T) {
 	}
 }
 
+// The refusal comes before sign-in, so it doesn't spend a one-time token the
+// user needs for the rerun.
+func TestConnectRefusesABadLinkBeforeSigningIn(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	path := writeBadLink(t, chdirTemp(t))
+
+	_, err := runConnect(t, server, ".", "--token", "vbt_one-time")
+	require.ErrorContains(t, err, "failed to parse project link "+path)
+	assert.Zero(t, fake.exchanges)
+	cfg, err := cliconfig.LoadWithoutLink()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-connect", cfg.UserToken)
+}
+
 func TestConnectWithProjectReplacesABadLink(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
