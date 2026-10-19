@@ -125,6 +125,20 @@ func (c *Client) RedeployFrontend(ctx context.Context, projectID, frontendID uui
 	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
 }
 
+// CreateFrontendDeployment deploys the build of sourceDeploymentID, a
+// deployment of another frontend in the project, to frontendID without
+// compiling it again.
+func (c *Client) CreateFrontendDeployment(ctx context.Context, projectID, frontendID, sourceDeploymentID uuid.UUID) (*apiclient.Frontend, error) {
+	resp, err := c.client.CreateFrontendDeploymentWithResponse(ctx, projectID, frontendID, apiclient.CreateFrontendDeploymentRequest{
+		SourceDeploymentId: sourceDeploymentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON500, resp.JSON501, resp.JSON503)
+}
+
 // ListFrontendDeployments lists one deployment page for a frontend.
 func (c *Client) ListFrontendDeployments(ctx context.Context, projectID, frontendID uuid.UUID, page, limit int) (*apiclient.PaginatedFrontendDeployments, error) {
 	resp, err := c.client.ListFrontendDeploymentsWithResponse(ctx, projectID, frontendID, &apiclient.ListFrontendDeploymentsParams{

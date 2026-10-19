@@ -5483,6 +5483,12 @@ type CreateFrontendCustomDomainRequest struct {
 	Tls FrontendCustomDomainTLSConfig `json:"tls"`
 }
 
+// CreateFrontendDeploymentRequest Deploys the build of an existing deployment instead of compiling the frontend's source.
+type CreateFrontendDeploymentRequest struct {
+	// SourceDeploymentId An `active` or `degraded` deployment of another frontend in the same project. Its build is copied to this frontend and published without compiling it again.
+	SourceDeploymentId openapi_types.UUID `json:"source_deployment_id"`
+}
+
 // CreateFrontendDomainRequest defines model for CreateFrontendDomainRequest.
 type CreateFrontendDomainRequest struct {
 	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
@@ -7128,6 +7134,9 @@ type FrontendDeployment struct {
 	Progress  *DeploymentProgress `json:"progress,omitempty"`
 	ProjectId openapi_types.UUID  `json:"project_id"`
 	SiteUrl   *string             `json:"site_url,omitempty"`
+
+	// SourceDeploymentId The deployment whose build this deployment published instead of compiling its own source. Absent when the deployment compiled.
+	SourceDeploymentId *openapi_types.UUID `json:"source_deployment_id,omitempty"`
 
 	// Status Deployment lifecycle status. A `degraded` redeploy remains available while
 	// edge-only recovery is retried. A `failed` redeploy is recorded here while the
@@ -13051,6 +13060,9 @@ type ReplaceFrontendSharedVariablesJSONRequestBody ReplaceFrontendSharedVariable
 // CreateFrontendMultipartRequestBody defines body for CreateFrontend for multipart/form-data ContentType.
 type CreateFrontendMultipartRequestBody CreateFrontendMultipartBody
 
+// CreateFrontendDeploymentJSONRequestBody defines body for CreateFrontendDeployment for application/json ContentType.
+type CreateFrontendDeploymentJSONRequestBody = CreateFrontendDeploymentRequest
+
 // CreateFrontendCustomDomainJSONRequestBody defines body for CreateFrontendCustomDomain for application/json ContentType.
 type CreateFrontendCustomDomainJSONRequestBody = CreateFrontendCustomDomainRequest
 
@@ -15217,6 +15229,11 @@ type ClientInterface interface {
 
 	// ListFrontendDeployments request
 	ListFrontendDeployments(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFrontendDeploymentWithBody request with any body
+	CreateFrontendDeploymentWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFrontendDeployment(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFrontendCustomDomain request
 	DeleteFrontendCustomDomain(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18751,6 +18768,30 @@ func (c *Client) GetFrontend(ctx context.Context, id ProjectId, frontendId Front
 
 func (c *Client) ListFrontendDeployments(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListFrontendDeploymentsRequest(c.Server, id, frontendId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendDeploymentWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendDeploymentRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendDeployment(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendDeploymentRequest(c.Server, id, frontendId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -30992,6 +31033,60 @@ func NewListFrontendDeploymentsRequest(server string, id ProjectId, frontendId F
 	return req, nil
 }
 
+// NewCreateFrontendDeploymentRequest calls the generic CreateFrontendDeployment builder with application/json body
+func NewCreateFrontendDeploymentRequest(server string, id ProjectId, frontendId FrontendId, body CreateFrontendDeploymentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFrontendDeploymentRequestWithBody(server, id, frontendId, "application/json", bodyReader)
+}
+
+// NewCreateFrontendDeploymentRequestWithBody generates requests for CreateFrontendDeployment with any type of body
+func NewCreateFrontendDeploymentRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/deployments", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteFrontendCustomDomainRequest generates requests for DeleteFrontendCustomDomain
 func NewDeleteFrontendCustomDomainRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
 	var err error
@@ -38297,6 +38392,11 @@ type ClientWithResponsesInterface interface {
 	// ListFrontendDeploymentsWithResponse request
 	ListFrontendDeploymentsWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*ListFrontendDeploymentsClientResponse, error)
 
+	// CreateFrontendDeploymentWithBodyWithResponse request with any body
+	CreateFrontendDeploymentWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendDeploymentClientResponse, error)
+
+	CreateFrontendDeploymentWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendDeploymentClientResponse, error)
+
 	// DeleteFrontendCustomDomainWithResponse request
 	DeleteFrontendCustomDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*DeleteFrontendCustomDomainClientResponse, error)
 
@@ -45049,6 +45149,45 @@ func (r ListFrontendDeploymentsClientResponse) ContentType() string {
 	return ""
 }
 
+type CreateFrontendDeploymentClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Frontend
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFrontendDeploymentClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFrontendDeploymentClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFrontendDeploymentClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteFrontendCustomDomainClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -51443,6 +51582,23 @@ func (c *ClientWithResponses) ListFrontendDeploymentsWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseListFrontendDeploymentsClientResponse(rsp)
+}
+
+// CreateFrontendDeploymentWithBodyWithResponse request with arbitrary body returning *CreateFrontendDeploymentClientResponse
+func (c *ClientWithResponses) CreateFrontendDeploymentWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendDeploymentClientResponse, error) {
+	rsp, err := c.CreateFrontendDeploymentWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendDeploymentClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFrontendDeploymentWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendDeploymentClientResponse, error) {
+	rsp, err := c.CreateFrontendDeployment(ctx, id, frontendId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendDeploymentClientResponse(rsp)
 }
 
 // DeleteFrontendCustomDomainWithResponse request returning *DeleteFrontendCustomDomainClientResponse
@@ -61354,6 +61510,95 @@ func ParseListFrontendDeploymentsClientResponse(rsp *http.Response) (*ListFronte
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFrontendDeploymentClientResponse parses an HTTP response from a CreateFrontendDeploymentWithResponse call
+func ParseCreateFrontendDeploymentClientResponse(rsp *http.Response) (*CreateFrontendDeploymentClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFrontendDeploymentClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Frontend
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

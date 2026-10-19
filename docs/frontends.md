@@ -33,6 +33,7 @@ Custom domains are a cloud command.
 |---|---|---|
 | Deploy | `volcano frontends deploy …` | `volcano cloud frontends deploy …` |
 | Redeploy | `volcano frontends redeploy …` | `volcano cloud frontends redeploy …` |
+| Deploy another frontend's build | — | `volcano cloud frontends deploy <name> --from <frontend>[@<deployment-id>]` |
 | List | `volcano frontends list` | `volcano cloud frontends list` |
 | Get | `volcano frontends get <name>` | `volcano cloud frontends get <name>` |
 | Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
@@ -206,6 +207,43 @@ frontend holds one domain: `domains add` refuses a second one with `403` and
 with `404`. The `volcano cloud frontends domain
 create|list|get|delete` commands work on every server and act on the
 frontend's oldest domain that serves it.
+
+## Deploy one build to several frontends
+
+`--from` deploys the build another frontend of the project already serves,
+without uploading or compiling again. Both frontends must exist:
+
+```bash
+# Deploy the build web serves to web-eu
+volcano cloud frontends deploy web-eu --from web
+
+# Deploy one particular deployment of web
+volcano cloud frontends deploy web-eu --from web@3f6c2a1e-9b0d-4c51-8a39-0c6f2f1e8d42
+```
+
+```text
+✓ Frontend 'web-eu' deployment started with the build of 'web'
+Source deployment: 3f6c2a1e-9b0d-4c51-8a39-0c6f2f1e8d42
+Deployment: 8d0e4b7a-1c2f-4e6d-9a3b-5f1e0c2b7a64
+```
+
+Without `@`, the CLI picks the newest `active` or `degraded` deployment of the
+source frontend. `--from` takes no `--path`, `--name`, `--app-root`, or
+variable flags: the target keeps its own settings, and the build must match
+them. The deploy is refused when a build-time variable would have a different
+value on the target, naming the variables:
+
+```text
+build variables differ from the source build: NEXT_PUBLIC_API_URL
+```
+
+Redeploy the source if those variables changed since its build, or give the
+target the same variable selection. A deployment from before Volcano kept
+builds is refused until the source is redeployed once. Local development
+builds each frontend from its own source, so `volcano frontends deploy --from`
+fails and names the command to run instead. See
+[Deploy one build to several frontends](/platform/frontends/deploy#deploy-one-build-to-several-frontends)
+for what the target serves and what it costs.
 
 ## Function routes
 

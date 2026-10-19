@@ -29,13 +29,14 @@ type deployOptions struct {
 	variableScope string
 	variables     []string
 	excludeFiles  []string
+	from          string
 	out           io.Writer
 }
 
 func newDeploy(deps cliruntime.Deps) *cobra.Command {
 	opts := deployOptions{path: "."}
 	cmd := &cobra.Command{
-		Use:   "deploy",
+		Use:   "deploy [<frontend> --from <frontend>[@<deployment-id>]]",
 		Short: "Deploy a frontend",
 		Long: fmt.Sprintf(`Deploy a frontend from a local project directory.
 
@@ -46,13 +47,25 @@ workspace (pnpm-workspace.yaml or package.json "workspaces") and declares
 Pass --app-root to opt out of auto-promotion and take explicit control of the
 archive layout.
 
+With --from, deploy the build another frontend of the project already serves
+to an existing frontend, without uploading or compiling again. Name a
+deployment after @ to use that one instead of the one it serves. Both
+frontends must build with the same variable values.
+
 Usage:
+  %s
   %s
   %s`,
 			cliruntime.CommandPath(deps, "frontends deploy --name web --path ./apps/web"),
-			cliruntime.CommandPath(deps, "frontends deploy --name web --path . --app-root apps/web")),
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+			cliruntime.CommandPath(deps, "frontends deploy --name web --path . --app-root apps/web"),
+			cliruntime.CommandPath(deps, "frontends deploy web-eu --from web")),
+		Args: func(_ *cobra.Command, args []string) error {
+			return deployArgs(deps, opts.from, args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if opts.from != "" {
+				return runDeployBuild(cmd, deps, args[0], opts.from)
+			}
 			local := opts
 			local.deps = deps
 			local.out = cmd.OutOrStdout()
@@ -70,6 +83,7 @@ Usage:
 	cmd.Flags().StringVar(&opts.appRoot, "app-root", "", "Relative path inside the archive to the app to build (for monorepos)")
 	cmd.Flags().StringVar(&opts.variableScope, "variable-scope", "", "Project variable selection: all or scoped")
 	cmd.Flags().StringArrayVar(&opts.variables, "variable", nil, "Project variable name to include when --variable-scope is scoped (repeatable)")
+	cmd.Flags().StringVar(&opts.from, "from", "", "Deploy the build of another frontend, as <frontend>[@<deployment-id>], instead of uploading source")
 	return cmd
 }
 
