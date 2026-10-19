@@ -152,7 +152,8 @@ variable names. Unset it and run `volcano use` again.
 `volcano login --token <token> --project <project>` run inside a linked
 directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
 check. If the link named another project, it warns and prints the command that
-links it back.
+links it back. `volcano connect <directory> --project <project-id>` does the
+same when it relinks a directory linked to another project.
 
 `volcano connect` fails when `VOLCANO_PROJECT_ID` is set, whatever project it
 names, before it signs in or changes anything, and exits `1`. Unset it, and

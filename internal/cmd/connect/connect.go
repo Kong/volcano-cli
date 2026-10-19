@@ -236,11 +236,20 @@ func run(ctx context.Context, opts options) error {
 		return err
 	}
 
+	// Only `connect <directory> --project` relinks a directory linked to
+	// another project that still exists.
+	previous, _ := config.FindLink(dir)
 	link, err := cliproject.Link(dir, project)
 	if err != nil {
 		return err
 	}
 	output.Success(opts.log, "Linked %s", relPath(dir, link.Path()))
+	if previous != nil && previous.Dir == dir && previous.Project.ID != project.Id.String() && !created {
+		shown := displayDir(wd, dir)
+		output.Warning(opts.log, "%s was linked to %s. It is now linked to %s. To undo, run: %s",
+			shown, projectLabel(previous.Project), projectLabel(config.ProjectConfig{ID: project.Id.String(), Name: project.Name}),
+			cliruntime.CommandPath(opts.deps, "connect "+shown+" --project "+previous.Project.ID))
+	}
 
 	if err := scaffold(opts, dir, starter); err != nil {
 		return err
@@ -881,6 +890,14 @@ func displayDir(wd, dir string) string {
 	default:
 		return "." + string(filepath.Separator) + rel
 	}
+}
+
+// projectLabel is "name (id)", or the ID alone when the name is unknown.
+func projectLabel(project config.ProjectConfig) string {
+	if project.Name == "" {
+		return project.ID
+	}
+	return project.Name + " (" + project.ID + ")"
 }
 
 func relPath(base, path string) string {

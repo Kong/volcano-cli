@@ -422,6 +422,29 @@ func TestConnectWithProjectLinksIt(t *testing.T) {
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
 }
 
+// The user named both the directory and the project, so connect relinks it,
+// and says which project it replaced and how to go back, as login does.
+func TestConnectWithProjectWarnsWhenItRelinksADirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{
+		connectProjectPayload(connectProjectID, "shop"), connectProjectPayload(connectOtherProjectID, "blog"),
+	}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
+	require.NoError(t, err)
+
+	out, err := runConnect(t, server, ".", "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, out, ". was linked to shop ("+connectProjectID+"). It is now linked to blog ("+connectOtherProjectID+"). "+
+		"To undo, run: volcano connect . --project "+connectProjectID)
+	link, err := cliconfig.FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, connectOtherProjectID, link.Project.ID)
+}
+
 func TestConnectWithNoDirectoryCreatesOneNamedAfterTheProject(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")
