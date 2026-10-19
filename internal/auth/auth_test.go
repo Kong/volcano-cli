@@ -323,6 +323,39 @@ func TestOfferSignInNeverPromptsWithoutATerminal(t *testing.T) {
 	assert.Empty(t, out.String())
 }
 
+func TestOfferSignInWithClosedInputDoesNotSignUp(t *testing.T) {
+	testAuthConfig(t)
+	var signups atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		signups.Add(1)
+		http.Error(w, "unexpected", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	var out bytes.Buffer
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, GitCommandRunner: cliruntime.CommandRunnerFunc(
+		func(context.Context, string, ...string) ([]byte, error) { return []byte("dev@example.com\n"), nil })}
+
+	err := NewService(deps).offerSignIn(context.Background(), strings.NewReader(""), &out)
+	require.ErrorIs(t, err, config.ErrNotAuthenticated)
+	assert.Zero(t, signups.Load(), "no answer never starts signup")
+}
+
+func TestMarkedNonInteractive(t *testing.T) {
+	for _, env := range []map[string]string{{"CI": "true"}, {"VOLCANO_NONINTERACTIVE": "1"}, {"TERM": "dumb"}} {
+		t.Setenv("CI", "")
+		t.Setenv("VOLCANO_NONINTERACTIVE", "")
+		t.Setenv("TERM", "xterm-256color")
+		for key, value := range env {
+			t.Setenv(key, value)
+		}
+		assert.True(t, markedNonInteractive(), env)
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("CI", "")
+	t.Setenv("VOLCANO_NONINTERACTIVE", "")
+	assert.False(t, markedNonInteractive())
+}
+
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
 	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the

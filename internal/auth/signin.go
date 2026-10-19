@@ -22,6 +22,10 @@ func (s Service) OfferSignIn(ctx context.Context, in io.Reader, out io.Writer) e
 	if !canOfferSignIn(in, out) {
 		return config.ErrNotAuthenticated
 	}
+	return s.offerSignIn(ctx, in, out)
+}
+
+func (s Service) offerSignIn(ctx context.Context, in io.Reader, out io.Writer) error {
 	cfg, err := s.sessions.Config()
 	if err != nil {
 		return err
@@ -29,6 +33,11 @@ func (s Service) OfferSignIn(ctx context.Context, in io.Reader, out io.Writer) e
 	reader := bufio.NewReader(in)
 	fmt.Fprintln(out, "This command needs a Volcano account.")
 	hasAccount, err := ask(reader, out, "Do you already have one? [y/N]: ")
+	if errors.Is(err, io.EOF) {
+		// The input closed without an answer: nobody is there to sign up.
+		fmt.Fprintln(out)
+		return config.ErrNotAuthenticated
+	}
 	if err != nil {
 		return err
 	}
@@ -39,7 +48,7 @@ func (s Service) OfferSignIn(ctx context.Context, in io.Reader, out io.Writer) e
 	} else {
 		email := GitEmail(ctx, s.deps)
 		if email == "" {
-			if email, err = ask(reader, out, "Email for your new account: "); err != nil {
+			if email, err = ask(reader, out, "Email for your new account: "); err != nil && !errors.Is(err, io.EOF) {
 				return err
 			}
 		}
@@ -61,16 +70,28 @@ func (s Service) OfferSignIn(ctx context.Context, in io.Reader, out io.Writer) e
 // canOfferSignIn reports whether a person is there to answer: both ends are
 // terminals and nothing marks the run as non-interactive.
 func canOfferSignIn(in io.Reader, out io.Writer) bool {
-	if os.Getenv("CI") != "" || os.Getenv("VOLCANO_NONINTERACTIVE") != "" {
+	if markedNonInteractive() {
 		return false
 	}
 	outFile, ok := out.(*os.File)
 	return ok && confirm.CanPrompt(in) && confirm.CanPrompt(outFile)
 }
 
+// markedNonInteractive reports the signals `volcano setup` also treats as no
+// person at the terminal. Some agents run commands in a pseudo-terminal and
+// set TERM=dumb.
+func markedNonInteractive() bool {
+	return os.Getenv("CI") != "" || os.Getenv("VOLCANO_NONINTERACTIVE") != "" || os.Getenv("TERM") == "dumb"
+}
+
+// ask prints prompt and returns the trimmed answer. It returns io.EOF when
+// the input closed before any answer.
 func ask(r *bufio.Reader, w io.Writer, prompt string) (string, error) {
 	fmt.Fprint(w, prompt)
 	line, err := r.ReadString('\n')
+	if errors.Is(err, io.EOF) && strings.TrimSpace(line) == "" {
+		return "", io.EOF
+	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", err
 	}
