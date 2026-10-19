@@ -63,7 +63,9 @@ hand they could deploy a durable function as a standard one.
 
 A deployment can be redeployed while the run waits, for example when the config
 step changes a function's regions. The run then waits for the newer deployment,
-since that is the one that serves.
+since that is the one that serves. A durable function also has to accept
+executions before the run counts it as deployed, so the run also waits while
+its status is `provisioning`.
 
 ## Flags
 

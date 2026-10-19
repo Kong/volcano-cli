@@ -1,0 +1,20 @@
+name: AI Review (retarget and override)
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [edited, labeled]
+
+permissions: {}
+
+jobs:
+  retarget-or-override:
+    if: github.event.changes.base || github.event.label.name == 'ai-review-override'
+    uses: Kong/volcano-actions/.github/workflows/ai-review.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_CI_API_KEY }}
+      codex_access_token: ${{ secrets.CODEX_CI_ACCESS_TOKEN }}

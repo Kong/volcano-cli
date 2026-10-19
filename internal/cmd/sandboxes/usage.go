@@ -11,7 +11,7 @@ import (
 )
 
 func (c *commands) usage() *cobra.Command {
-	return &cobra.Command{Use: "usage", Short: "Show Sandbox preview usage; no credits are charged", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "usage", Short: "Show Sandbox runtime usage and uncharged diagnostics", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		project, err := session.NewFactory(c.usageDeps).CurrentProject()
 		if err != nil {
 			return err
@@ -28,7 +28,7 @@ func (c *commands) usage() *cobra.Command {
 			}
 		}
 		if len(metrics) != len(names) {
-			return errors.New("this server does not expose Sandbox preview usage yet")
+			return errors.New("this server does not expose Sandbox usage metrics yet")
 		}
 		value.Metrics = metrics
 		value.Frontends = nil
