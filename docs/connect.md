@@ -133,8 +133,9 @@ Remove the `.gitignore` entry to share it with your team.
 
 ## Running from an agent
 
-`connect` never waits on a prompt when stdin is not a terminal. When it would
-ask for a project name, it uses the default name.
+`connect` never waits on a prompt when stdin is not a terminal, or when `CI`,
+`VOLCANO_NONINTERACTIVE`, or `TERM=dumb` is set. When it would ask for a
+project name, it uses the default name.
 
 Without a directory argument, `connect` sets up a new directory below the
 current one. The agent should `cd` into the `Directory:` it prints (`directory`

@@ -341,22 +341,6 @@ func TestOfferSignInWithClosedInputDoesNotSignUp(t *testing.T) {
 	assert.Zero(t, signups.Load(), "no answer never starts signup")
 }
 
-func TestMarkedNonInteractive(t *testing.T) {
-	for _, env := range []map[string]string{{"CI": "true"}, {"VOLCANO_NONINTERACTIVE": "1"}, {"TERM": "dumb"}} {
-		t.Setenv("CI", "")
-		t.Setenv("VOLCANO_NONINTERACTIVE", "")
-		t.Setenv("TERM", "xterm-256color")
-		for key, value := range env {
-			t.Setenv(key, value)
-		}
-		assert.True(t, markedNonInteractive(), env)
-	}
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("CI", "")
-	t.Setenv("VOLCANO_NONINTERACTIVE", "")
-	assert.False(t, markedNonInteractive())
-}
-
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
 	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the

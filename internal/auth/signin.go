@@ -70,18 +70,11 @@ func (s Service) offerSignIn(ctx context.Context, in io.Reader, out io.Writer) e
 // canOfferSignIn reports whether a person is there to answer: both ends are
 // terminals and nothing marks the run as non-interactive.
 func canOfferSignIn(in io.Reader, out io.Writer) bool {
-	if markedNonInteractive() {
+	if confirm.MarkedNonInteractive() {
 		return false
 	}
 	outFile, ok := out.(*os.File)
 	return ok && confirm.CanPrompt(in) && confirm.CanPrompt(outFile)
-}
-
-// markedNonInteractive reports the signals `volcano setup` also treats as no
-// person at the terminal. Some agents run commands in a pseudo-terminal and
-// set TERM=dumb.
-func markedNonInteractive() bool {
-	return os.Getenv("CI") != "" || os.Getenv("VOLCANO_NONINTERACTIVE") != "" || os.Getenv("TERM") == "dumb"
 }
 
 // ask prints prompt and returns the trimmed answer. It returns io.EOF when

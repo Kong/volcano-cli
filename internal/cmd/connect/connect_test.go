@@ -506,6 +506,26 @@ func TestConnectWithARefusedBootstrapTokenGoesToBrowserLogin(t *testing.T) {
 	assert.Zero(t, fake.creates, "the saved login, possibly another account, is never used")
 }
 
+func TestProjectNameAsksOnlyWhenNothingMarksTheRunNonInteractive(t *testing.T) {
+	ask := func() string {
+		var log bytes.Buffer
+		name, err := projectName(options{in: strings.NewReader("typed\n"), log: &log}, "fallback")
+		require.NoError(t, err)
+		return name
+	}
+	t.Setenv("CI", "")
+	t.Setenv("VOLCANO_NONINTERACTIVE", "")
+	t.Setenv("TERM", "xterm-256color")
+	assert.Equal(t, "typed", ask())
+
+	for key, value := range map[string]string{"CI": "true", "VOLCANO_NONINTERACTIVE": "1", "TERM": "dumb"} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(key, value)
+			assert.Equal(t, "fallback", ask(), "an agent in a terminal is never asked")
+		})
+	}
+}
+
 func TestGenerateProjectName(t *testing.T) {
 	assert.Regexp(t, `^[a-z]+-[a-z]+-\d{2}$`, generateProjectName())
 }

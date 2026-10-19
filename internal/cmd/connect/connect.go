@@ -496,11 +496,13 @@ func createProject(ctx context.Context, opts options, client *api.Client, name s
 }
 
 // projectName is --name, else what the user types at a prompt, else fallback.
+// It asks only when stdin is a terminal and nothing marks the run as
+// non-interactive, the rule the sign-in offer also follows.
 func projectName(opts options, fallback string) (string, error) {
 	if name := strings.TrimSpace(opts.name); name != "" {
 		return name, nil
 	}
-	if opts.jsonOutput || !confirm.CanPrompt(opts.in) {
+	if opts.jsonOutput || confirm.MarkedNonInteractive() || !confirm.CanPrompt(opts.in) {
 		return fallback, nil
 	}
 	fmt.Fprintf(opts.log, "Project name [%s]: ", fallback)
