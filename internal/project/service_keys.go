@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -70,10 +69,10 @@ func (s Service) selectedProject(projectID, action string) (*clisession.Session,
 
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" {
-		projectID = authenticated.Config.ProjectID()
-		if projectID == "" {
-			return nil, uuid.Nil, errors.New("failed to " + action + ": no project ID given and no current project selected — pass a project ID or run `volcano use <id-or-name>`")
+		if err := authenticated.Config.RequireProject(); err != nil {
+			return nil, uuid.Nil, fmt.Errorf("failed to %s: no project ID given: %w", action, err)
 		}
+		projectID = authenticated.Config.ProjectID()
 	}
 
 	id, err := uuid.Parse(projectID)

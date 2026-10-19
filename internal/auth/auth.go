@@ -95,7 +95,7 @@ func (s Service) LoginWithToken(ctx context.Context, cfg *config.Config, token, 
 	if project == "" {
 		if err := client.ValidateToken(ctx); err != nil {
 			if api.Status(err) == http.StatusUnauthorized {
-				return Credentials{}, errors.New("invalid token")
+				return Credentials{}, invalidTokenError{err}
 			}
 			return Credentials{}, fmt.Errorf("failed to validate token: %w", err)
 		}
@@ -199,7 +199,7 @@ func resolveLoginProject(
 func projectTokenValidationError(projectID string, origin projectOrigin, err error) error {
 	switch api.Status(err) {
 	case http.StatusUnauthorized:
-		return errors.New("invalid token")
+		return invalidTokenError{err}
 	case http.StatusForbidden, http.StatusNotFound:
 		if origin == projectNamed {
 			return fmt.Errorf("token is not valid for project %s: %w", projectID, err)
@@ -212,6 +212,15 @@ func projectTokenValidationError(projectID string, origin projectOrigin, err err
 		return fmt.Errorf("failed to validate token: %w", err)
 	}
 }
+
+// invalidTokenError is a token the API refused with HTTP 401. It reads as
+// "invalid token" and unwraps to the API's error, so the exit code reports a
+// rejected credential.
+type invalidTokenError struct{ err error }
+
+func (e invalidTokenError) Error() string { return "invalid token" }
+
+func (e invalidTokenError) Unwrap() error { return e.err }
 
 // Signup routes the browser through Volcano Web's own signup page (account
 // creation isn't something the device-authorization response's verification

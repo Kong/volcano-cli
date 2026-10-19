@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -223,7 +224,8 @@ func TestLoginWithTokenInvalid(t *testing.T) {
 	defer server.Close()
 
 	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).LoginWithToken(context.Background(), cfg, "bad-token", "")
-	require.ErrorContains(t, err, "invalid token")
+	require.EqualError(t, err, "invalid token")
+	assert.Equal(t, http.StatusUnauthorized, api.Status(err), "a rejected token keeps the API's 401 for the exit code")
 }
 
 func TestLoginWithBootstrapTokenExchangesIt(t *testing.T) {

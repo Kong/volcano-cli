@@ -491,3 +491,15 @@ func projectTestPayload(id, name, status string) map[string]any {
 		"updated_at":       time.Now().Add(-30 * time.Minute).UTC().Format(time.RFC3339),
 	}
 }
+
+func TestKeysWithoutAProjectReportNoProjectSelected(t *testing.T) {
+	setProjectTestHome(t)
+	t.Chdir(t.TempDir())
+	saveProjectTestConfig(t, &config.Config{UserToken: "pk-token"})
+	s := NewService(cliruntime.Deps{APIBaseURL: "http://127.0.0.1:1"})
+
+	_, err := s.ListAnonKeys(context.Background(), "")
+	require.ErrorIs(t, err, config.ErrNoProjectSelected)
+	_, err = s.ListServiceKeys(context.Background(), "", 1, 10)
+	require.ErrorIs(t, err, config.ErrNoProjectSelected)
+}
