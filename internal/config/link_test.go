@@ -97,6 +97,16 @@ func TestLoadIgnoringBadLinkReturnsTheConfigWithoutTheLink(t *testing.T) {
 	assert.Equal(t, "pk-token", cfg.UserToken)
 }
 
+func TestWriteLinkRefusesASymlinkedLinkDirectory(t *testing.T) {
+	dir := t.TempDir()
+	target := t.TempDir()
+	require.NoError(t, os.Symlink(target, filepath.Join(dir, ".volcano")))
+
+	_, err := WriteLink(dir, ProjectConfig{ID: "11111111-1111-4111-8111-111111111111"})
+	require.ErrorContains(t, err, filepath.Join(dir, ".volcano")+", a symlink")
+	assert.NoFileExists(t, filepath.Join(target, "project.json"))
+}
+
 func TestWriteLinkRefusesASymlink(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(t.TempDir(), "config.json")
@@ -106,7 +116,7 @@ func TestWriteLinkRefusesASymlink(t *testing.T) {
 	require.NoError(t, os.Symlink(target, path))
 
 	_, err := WriteLink(dir, ProjectConfig{ID: "11111111-1111-4111-8111-111111111111"})
-	require.ErrorContains(t, err, "project link "+path+" is a symlink")
+	require.ErrorContains(t, err, path+" is a symlink")
 	data, err := os.ReadFile(target)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"token":"pk-keep"}`, string(data))

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
 const (
@@ -114,17 +116,16 @@ func readLink(dir string) (*Link, error) {
 	}, nil
 }
 
-// WriteLink links dir to project by writing dir/.volcano/project.json.
+// WriteLink links dir to project by writing dir/.volcano/project.json. It
+// refuses to write through a symlink.
 func WriteLink(dir string, project ProjectConfig) (*Link, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
 	link := &Link{Dir: abs, Project: project}
-	// Writing through a symlink would replace whatever it points at, such as
-	// ~/.volcano/config.json in a cloned repository.
-	if info, err := os.Lstat(link.Path()); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("project link %s is a symlink, and the CLI doesn't write through one. Remove it and try again", link.Path())
+	if err := symlink.Refuse(abs, LinkRelPath); err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(link.Path()), linkDirMode); err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", filepath.Dir(link.Path()), err)

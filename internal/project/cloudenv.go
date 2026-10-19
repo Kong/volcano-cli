@@ -9,6 +9,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/envfile"
+	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
 // CloudEnvRelPath is the env file cloud deploys read, as `volcano init` names
@@ -24,6 +25,9 @@ var anonKeyKeys = []string{"VOLCANO_ANON_KEY", "NEXT_PUBLIC_VOLCANO_ANON_KEY"}
 // URL is written without userinfo, query or fragment: a Next.js build puts
 // NEXT_PUBLIC_VOLCANO_API_URL in browser code.
 func WriteCloudEnv(dir, apiURL, anonKey string) error {
+	if err := symlink.Refuse(dir, filepath.FromSlash(CloudEnvRelPath)); err != nil {
+		return err
+	}
 	apiURL = api.PublicURL(apiURL)
 	return envfile.Upsert(CloudEnvPath(dir), []envfile.Var{
 		{Key: "VOLCANO_API_URL", Value: apiURL},

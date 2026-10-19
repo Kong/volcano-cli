@@ -279,7 +279,7 @@ func run(ctx context.Context, opts options) error {
 	agentsPath := filepath.Join(dir, agentsFileName)
 	// The shared AGENTS.md gets the dashboard's root, not this developer's project.
 	dashboardRoot := strings.TrimRight(authenticated.Config.WebURLForAPIURL(apiURL), "/") + "/dashboard"
-	if err := writeAgentsSection(agentsPath, agentsSection(dashboardRoot)); err != nil {
+	if err := writeAgentsSection(dir, agentsSection(dashboardRoot)); err != nil {
 		return err
 	}
 	output.Success(opts.log, "Updated the Volcano section in %s", agentsFileName)

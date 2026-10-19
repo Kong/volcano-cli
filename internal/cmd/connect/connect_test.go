@@ -795,6 +795,36 @@ func TestConnectNamesTheCreatedProjectWhenItsLinkCantBeWritten(t *testing.T) {
 	assert.Equal(t, 1, fake.creates)
 }
 
+// A cloned repository can commit any of the files connect writes as a symlink
+// to a user file, such as the CLI's own config. Connect names the symlink and
+// leaves the target as it was.
+func TestConnectRefusesToWriteThroughASymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	for _, rel := range []string{filepath.Join("volcano", "cloud.env"), ".gitignore", "AGENTS.md"} {
+		t.Run(rel, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			dir := chdirTemp(t)
+			// A volcano directory skips the scaffold, which would otherwise
+			// write volcano/ first.
+			require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+			configPath, err := cliconfig.Path()
+			require.NoError(t, err)
+			before := readFile(t, configPath)
+			path := filepath.Join(dir, rel)
+			require.NoError(t, os.Symlink(configPath, path))
+
+			_, err = runConnect(t, server, ".")
+			require.ErrorContains(t, err, path+" is a symlink, and the CLI doesn't write through one")
+			assert.Equal(t, before, readFile(t, configPath))
+		})
+	}
+}
+
 // A stopped wait leaves a created project with no link, so a rerun of the same
 // command would create another.
 func TestConnectNamesTheCreatedProjectWhenTheWaitStops(t *testing.T) {

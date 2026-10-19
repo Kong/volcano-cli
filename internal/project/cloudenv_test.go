@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -178,6 +179,30 @@ func TestUseRelinksWhenVolcanoProjectIDNamesTheSelectedProject(t *testing.T) {
 
 // cloud.env feeds NEXT_PUBLIC_VOLCANO_API_URL into browser bundles, so
 // credentials or a query in the API URL must not reach it.
+// The refresh refuses a symlinked cloud env file, so `volcano use` warns
+// instead of writing keys into the file it points at.
+func TestUseReportsASymlinkedCloudEnv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	dir := linkedToAlpha(t, "")
+	const target = "VOLCANO_ANON_KEY=ak-alpha\n"
+	targetPath := filepath.Join(t.TempDir(), "elsewhere.env")
+	require.NoError(t, os.WriteFile(targetPath, []byte(target), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+	require.NoError(t, os.Symlink(targetPath, CloudEnvPath(dir)))
+	var anonKeyRequests int
+	server := betaServer(t, betaAnonKeys(t), &anonKeyRequests)
+
+	used, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+	require.NoError(t, err, "the link is saved even when the env file is not")
+
+	require.ErrorContains(t, used.EnvErr, CloudEnvPath(dir)+" is a symlink")
+	data, err := os.ReadFile(targetPath)
+	require.NoError(t, err)
+	assert.Equal(t, target, string(data))
+}
+
 func TestWriteCloudEnvLeavesCredentialsOutOfTheAPIURL(t *testing.T) {
 	dir := t.TempDir()
 

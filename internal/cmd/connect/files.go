@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
 // gitignoreEntries keep the per-developer link and the env files, which hold
@@ -15,6 +17,9 @@ var gitignoreEntries = []string{".volcano/project.json", "volcano/*.env"}
 
 // ensureGitignored adds any missing gitignoreEntries to dir/.gitignore.
 func ensureGitignored(dir string) error {
+	if err := symlink.Refuse(dir, ".gitignore"); err != nil {
+		return err
+	}
 	path := filepath.Join(dir, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -75,9 +80,13 @@ missing, run `+"`volcano connect .`"+` here.
 `, agentsStartMarker, dashboardURL, agentsEndMarker)
 }
 
-// writeAgentsSection puts section in the AGENTS.md at path, replacing the one
-// an earlier run wrote and keeping the rest of the file.
-func writeAgentsSection(path, section string) error {
+// writeAgentsSection puts section in dir's AGENTS.md, replacing the one an
+// earlier run wrote and keeping the rest of the file.
+func writeAgentsSection(dir, section string) error {
+	if err := symlink.Refuse(dir, agentsFileName); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, agentsFileName)
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to read %s: %w", path, err)

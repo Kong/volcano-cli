@@ -171,8 +171,14 @@ one in a parent of the directory it sets up. For one in that directory, it
 stops unless `--project <project-id>` or `--name <name>` (for a new project)
 says what replaces it.
 
-If `.volcano/project.json` is a symlink, `connect`, `volcano use`, and
-`volcano login --project` fail and name it instead of writing through it.
+The CLI doesn't write through a symlink, which could change a file outside
+the directory, such as your CLI login. If `.volcano/project.json`,
+`volcano/cloud.env`, `.gitignore`, or `AGENTS.md`, or the `.volcano` or
+`volcano` directory, is a symlink, `connect` fails and names it. For
+`.volcano/project.json`, `volcano use` and `volcano login --project` fail
+too. For a `volcano/cloud.env` with an anon key, they switch the project and
+warn that the file was not refreshed. Replace the symlink with a regular file or directory and
+run the command again.
 
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
