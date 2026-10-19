@@ -418,6 +418,22 @@ func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	assert.Equal(t, "user-1", cfg.UserID)
 }
 
+func TestConnectSavesTheExchangedLoginWhenProjectIsWrong(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	_, err := runConnectHere(t, server, "--token", "vbt_one-time", "--project", connectOtherProjectID)
+	require.ErrorContains(t, err, "failed to get project "+connectOtherProjectID)
+
+	cfg, err := cliconfig.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the one-time token's login is kept for the next run")
+	assert.Nil(t, cfg.CurrentProject, "connect leaves the volcano use selection alone")
+}
+
 func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
 	setConnectTestHome(t)
 	t.Setenv("VOLCANO_TOKEN", "pk-from-env")
