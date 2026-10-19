@@ -43,6 +43,7 @@ type fakeAPI struct {
 	// exchanges it for pk-exchanged.
 	exchangeStatus int
 	exchangeCode   string
+	exchanges      int
 	// deviceAuthorize records that browser login started. The fake refuses it.
 	deviceAuthorize bool
 }
@@ -57,6 +58,7 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.deviceAuthorize = true
 		writeConnectJSON(f.t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
 	case r.Method == http.MethodPost && r.URL.Path == "/auth/cli-bootstrap-tokens/exchange":
+		f.exchanges++
 		if f.exchangeStatus != 0 {
 			writeConnectJSON(f.t, w, f.exchangeStatus, map[string]any{"error": "refused", "code": f.exchangeCode})
 			return
@@ -359,6 +361,25 @@ func TestConnectWithABootstrapTokenSignsInWithTheExchangedLogin(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "pk-exchanged", cfg.UserToken)
 	assert.Equal(t, "user-1", cfg.UserID)
+}
+
+func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
+	setConnectTestHome(t)
+	t.Setenv("VOLCANO_TOKEN", "pk-from-env")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	for _, flags := range [][]string{{"--token", "vbt_one-time"}, {"--signup", "--email", "a@example.com"}} {
+		_, err := runConnect(t, server, t.TempDir(), flags...)
+		require.ErrorContains(t, err, "VOLCANO_TOKEN is set", flags)
+	}
+	assert.Zero(t, fake.exchanges, "the one-time token is not spent")
+	assert.Zero(t, fake.creates)
+	assert.False(t, fake.deviceAuthorize)
+	cfg, err := cliconfig.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "pk-connect", cfg.UserToken, "the saved login is unchanged")
 }
 
 func TestConnectWithARefusedBootstrapTokenGoesToBrowserLogin(t *testing.T) {

@@ -157,6 +157,13 @@ func run(ctx context.Context, opts options) error {
 		return fmt.Errorf("--template: %w (supported: nextjs, javascript, python, ruby)", err)
 	}
 
+	// Every command after sign-in takes VOLCANO_TOKEN over the saved login, so
+	// a new login would be saved and then not used. Checked before the
+	// one-time token is spent.
+	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" && (strings.TrimSpace(opts.token) != "" || opts.signup) {
+		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. Unset it, or run connect without --token and --signup to use it")
+	}
+
 	sessions := clisession.NewFactory(opts.deps)
 	if err := ensureSession(ctx, opts, sessions); err != nil {
 		return err
