@@ -372,6 +372,22 @@ func SaveCredentials(credentials Credentials) error {
 	})
 }
 
+// SelectInLink saves the project a --project login selected to cfg's link, as
+// `volcano use` does inside a linked directory: the link would otherwise keep
+// overriding the selection. It talks to the API with the new login.
+func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentials Credentials) (cliproject.UseResult, error) {
+	id, err := uuid.Parse(credentials.Project.ID)
+	if err != nil {
+		return cliproject.UseResult{}, fmt.Errorf("invalid project ID %q: %w", credentials.Project.ID, err)
+	}
+	client, err := s.sessions.APIClient(credentials.APIURL, credentials.Token)
+	if err != nil {
+		return cliproject.UseResult{}, err
+	}
+	selected := &apiclient.Project{Id: id, Name: credentials.Project.Name}
+	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
+}
+
 // GitEmail returns `git config --global user.email`, or "" when it is unset
 // or git fails. Signup offers it as the default email address.
 func GitEmail(ctx context.Context, deps cliruntime.Deps) string {

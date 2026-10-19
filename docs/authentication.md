@@ -78,6 +78,11 @@ name as well as an ID, the same as `volcano use`:
 volcano login --token pk-xxxxxxxxxx --project my-app
 ```
 
+Inside a [linked directory](connect.md#linked-directories), `--project` updates
+the link, the same as `volcano use`. If the link named another project, login
+warns and prints the command that links it back. If `VOLCANO_PROJECT_ID` names
+a different project there, login fails and leaves the link as it was.
+
 Commands that reach past one project — `volcano projects list`, `volcano
 projects create`, `volcano projects rename`, `volcano projects delete`,
 selecting a project by name — need an account token, and say so when run with a

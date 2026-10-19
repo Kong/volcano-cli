@@ -393,13 +393,19 @@ func runUse(ctx context.Context, opts useOptions) error {
 
 	output.Success(opts.out, "Now using project: %s (%s)", result.Project.Name, result.Project.Id.String())
 	output.Success(opts.out, "Saved to %s", result.SavedTo)
+	ReportCloudEnv(opts.deps, opts.out, opts.errOut, result)
+	return nil
+}
+
+// ReportCloudEnv says whether selecting a project inside a linked directory
+// rewrote the anon key in the directory's cloud env file.
+func ReportCloudEnv(deps cliruntime.Deps, out, errOut io.Writer, result cliproject.UseResult) {
 	switch {
 	case result.EnvErr != nil:
-		output.Warning(opts.errOut, "Could not update the anon key in %s for this project: %v. Run `%s` in the linked "+
+		output.Warning(errOut, "Could not update the anon key in %s for this project: %v. Run `%s` in the linked "+
 			"directory to refresh it, or that file still deploys the previous project's key.",
-			result.EnvFile, result.EnvErr, cliruntime.CommandPath(opts.deps, "connect ."))
+			result.EnvFile, result.EnvErr, cliruntime.CommandPath(deps, "connect ."))
 	case result.EnvFile != "":
-		output.Success(opts.out, "Updated the anon key in %s", result.EnvFile)
+		output.Success(out, "Updated the anon key in %s", result.EnvFile)
 	}
-	return nil
 }

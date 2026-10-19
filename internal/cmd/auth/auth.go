@@ -13,8 +13,10 @@ import (
 	"github.com/spf13/cobra"
 
 	cliauth "github.com/Kong/volcano-cli/internal/auth"
+	projectcmd "github.com/Kong/volcano-cli/internal/cmd/project"
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/output"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -23,6 +25,7 @@ type loginOptions struct {
 	token     string
 	projectID string
 	out       io.Writer
+	errOut    io.Writer
 }
 
 type signupOptions struct {
@@ -58,6 +61,7 @@ Environment variable (no login needed):
 				token:     tokenFlag,
 				projectID: projectFlag,
 				out:       cmd.OutOrStdout(),
+				errOut:    cmd.ErrOrStderr(),
 			})
 		},
 	}
@@ -76,8 +80,18 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	service := cliauth.NewService(opts.deps)
 	var credentials cliauth.Credentials
 	token := strings.TrimSpace(opts.token)
+	// --project inside a linked directory selects the project in the link, as
+	// `volcano use` does there: the link would otherwise keep overriding it.
+	inLink := token != "" && strings.TrimSpace(opts.projectID) != "" && cfg.Link != nil
 	if token != "" {
 		credentials, err = service.LoginWithToken(ctx, cfg, token, opts.projectID)
+		if err == nil && inLink {
+			// Checked before anything is saved, so a refusal changes nothing. A
+			// one-time token's login is saved by now, so say that it is.
+			if err = cliproject.CheckProjectOverride(cfg, credentials.Project.ID, cfg.Link); err != nil && config.IsBootstrapToken(token) {
+				err = &cliauth.LoginSavedError{Err: err}
+			}
+		}
 		if err != nil {
 			if _, saved := errors.AsType[*cliauth.LoginSavedError](err); saved {
 				output.Note(opts.out, "The one-time token is spent, but its login is saved, so you are logged in.")
@@ -99,17 +113,57 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		}
 	}
 
-	if err := cliauth.SaveCredentials(credentials); err != nil {
+	saved := credentials
+	if inLink {
+		// The link holds the selection. The global one stays as it is, as with
+		// `volcano use`.
+		saved.Project = nil
+	}
+	if err := cliauth.SaveCredentials(saved); err != nil {
 		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	output.Success(opts.out, "Logged in successfully")
 	printNonDefaultAPI(opts.out, credentials)
-	if credentials.Project != nil {
-		output.Success(opts.out, "Now using project: %s (%s)", credentials.Project.Name, credentials.Project.ID)
+	if credentials.Project == nil {
+		output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
+		return nil
 	}
+	output.Success(opts.out, "Now using project: %s (%s)", credentials.Project.Name, credentials.Project.ID)
+	if !inLink {
+		output.Success(opts.out, "Project saved to ~/.volcano/config.json")
+		output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
+		return nil
+	}
+	result, err := service.SelectInLink(ctx, cfg, credentials)
+	if err != nil {
+		return fmt.Errorf("logged in, but failed to select the project in this directory's link: %w", err)
+	}
+	output.Success(opts.out, "Project saved to %s", result.SavedTo)
+	projectcmd.ReportCloudEnv(opts.deps, opts.out, opts.errOut, result)
 	output.Success(opts.out, "Credentials saved to ~/.volcano/config.json")
+	if previous := result.Previous; previous != nil {
+		output.Warning(opts.errOut, "This directory was linked to %s. It is now linked to %s. To undo, run: %s",
+			projectLabel(*previous), projectLabel(*credentials.Project), undoCommand(opts.deps, credentials, previous.ID))
+	}
 	return nil
+}
+
+// projectLabel is "name (id)", or the ID alone when the name is unknown.
+func projectLabel(project config.ProjectConfig) string {
+	if project.Name == "" {
+		return project.ID
+	}
+	return project.Name + " (" + project.ID + ")"
+}
+
+// undoCommand links the directory back to projectID. A project access token
+// reaches only its own project, so `volcano use` can't go back with it.
+func undoCommand(deps cliruntime.Deps, credentials cliauth.Credentials, projectID string) string {
+	if config.IsProjectToken(credentials.Token) {
+		return cliruntime.CommandPath(deps, "login --token <token for that project> --project "+projectID)
+	}
+	return cliruntime.CommandPath(deps, "use "+projectID)
 }
 
 // NewSignup returns the signup command.

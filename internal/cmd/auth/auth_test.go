@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -187,6 +188,145 @@ func TestLoginAccountTokenSelectsTheProjectByName(t *testing.T) {
 	assert.Equal(t, authProjectID, cfg.CurrentProject.ID)
 }
 
+const (
+	authOtherProjectID = "22222222-2222-4222-8222-222222222222"
+	authAlphaAnonKey   = "VOLCANO_ANON_KEY=ak-alpha\n"
+)
+
+// linkedToAlpha links a new directory to Alpha, gives it a cloud env file with
+// Alpha's anon key, and runs the test from it. It returns the directory.
+func linkedToAlpha(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: authProjectID, Name: "Alpha"})
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano", "cloud.env"), []byte(authAlphaAnonKey), 0o600))
+	t.Chdir(dir)
+	return dir
+}
+
+// betaServer answers Beta's project read, its anon keys, and the bootstrap
+// token exchange.
+func betaServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/auth/cli-bootstrap-tokens/exchange":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{"token": "pk-exchanged", "user_id": "user-1", "token_id": "tok-1"})
+		case "/projects/" + authOtherProjectID:
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"id": authOtherProjectID, "name": "Beta", "status": "active",
+				"created_at": "2026-05-20T00:00:00Z", "updated_at": "2026-05-20T00:00:00Z",
+			})
+		case "/projects/" + authOtherProjectID + "/anon-keys":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{map[string]any{"id": "44444444-4444-4444-8444-444444444444", "name": "default", "key_value": "ak-beta", "is_default": true}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestLoginProjectInsideALinkedDirectoryUpdatesTheLink(t *testing.T) {
+	for name, tc := range map[string]struct{ token, savedToken, undo string }{
+		"account token":  {token: "pk-account", savedToken: "pk-account", undo: "volcano use " + authProjectID},
+		"one-time token": {token: "vbt_one-time", savedToken: "pk-exchanged", undo: "volcano use " + authProjectID},
+		"project token": {
+			token: authTestProjectToken, savedToken: authTestProjectToken,
+			undo: "volcano login --token <token for that project> --project " + authProjectID,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setAuthTestHome(t)
+			dir := linkedToAlpha(t)
+			server := betaServer(t)
+
+			stdout, stderr, err := executeLogin(t, server, "--token", tc.token, "--project", authOtherProjectID)
+			require.NoError(t, err)
+
+			link, err := cliconfig.FindLink(dir)
+			require.NoError(t, err)
+			assert.Equal(t, cliconfig.ProjectConfig{ID: authOtherProjectID, Name: "Beta"}, link.Project)
+			assert.Contains(t, stdout, "Now using project: Beta ("+authOtherProjectID+")")
+			assert.Contains(t, stdout, "Project saved to "+link.Path())
+			assert.Contains(t, stdout, "Updated the anon key in "+filepath.Join(dir, "volcano", "cloud.env"))
+			assert.Equal(t, "Warning: This directory was linked to Alpha ("+authProjectID+"). It is now linked to Beta ("+
+				authOtherProjectID+"). To undo, run: "+tc.undo+"\n", stderr)
+			assert.Contains(t, readAuthFile(t, filepath.Join(dir, "volcano", "cloud.env")), "VOLCANO_ANON_KEY=ak-beta\n")
+
+			cfg := loadAuthTestConfig(t)
+			assert.Equal(t, tc.savedToken, cfg.UserToken)
+			assert.Nil(t, cfg.CurrentProject, "the global selection is left alone, as with volcano use")
+		})
+	}
+}
+
+func TestLoginProjectInsideADirectoryAlreadyLinkedToItDoesNotWarn(t *testing.T) {
+	setAuthTestHome(t)
+	dir := t.TempDir()
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: authOtherProjectID, Name: "Beta"})
+	require.NoError(t, err)
+	t.Chdir(dir)
+	server := betaServer(t)
+
+	stdout, stderr, err := executeLogin(t, server, "--token", "pk-account", "--project", authOtherProjectID)
+	require.NoError(t, err)
+	assert.Empty(t, stderr)
+	assert.Contains(t, stdout, "Project saved to "+filepath.Join(dir, ".volcano", "project.json"))
+}
+
+func TestLoginProjectOutsideALinkedDirectorySavesTheGlobalSelection(t *testing.T) {
+	setAuthTestHome(t)
+	t.Chdir(t.TempDir())
+	server := betaServer(t)
+
+	stdout, stderr, err := executeLogin(t, server, "--token", "pk-account", "--project", authOtherProjectID)
+	require.NoError(t, err)
+	assert.Empty(t, stderr)
+	assert.Contains(t, stdout, "Project saved to ~/.volcano/config.json")
+
+	cfg := loadAuthTestConfig(t)
+	require.NotNil(t, cfg.CurrentProject)
+	assert.Equal(t, authOtherProjectID, cfg.CurrentProject.ID)
+}
+
+// Inside a linked directory, VOLCANO_PROJECT_ID would keep overriding the new
+// link, so login refuses as `volcano use` does.
+func TestLoginProjectInsideALinkedDirectoryRefusesWhileVolcanoProjectIDNamesAnotherProject(t *testing.T) {
+	for name, tc := range map[string]struct {
+		token      string
+		savedToken string
+	}{
+		"account token":  {token: "pk-account"},
+		"one-time token": {token: "vbt_one-time", savedToken: "pk-exchanged"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setAuthTestHome(t)
+			dir := linkedToAlpha(t)
+			t.Setenv("VOLCANO_PROJECT_ID", authProjectID)
+			server := betaServer(t)
+
+			stdout, _, err := executeLogin(t, server, "--token", tc.token, "--project", authOtherProjectID)
+			require.ErrorContains(t, err, "VOLCANO_PROJECT_ID is set to "+authProjectID)
+
+			link, err := cliconfig.FindLink(dir)
+			require.NoError(t, err)
+			assert.Equal(t, authProjectID, link.Project.ID, "the link is unchanged")
+			assert.Equal(t, authAlphaAnonKey, readAuthFile(t, filepath.Join(dir, "volcano", "cloud.env")))
+			cfg := loadAuthTestConfig(t)
+			assert.Equal(t, tc.savedToken, cfg.UserToken, "only a spent one-time token's login is saved")
+			assert.Nil(t, cfg.CurrentProject)
+			if tc.savedToken != "" {
+				assert.Contains(t, stdout, "The one-time token is spent, but its login is saved")
+			}
+		})
+	}
+}
+
 func TestLoginProjectFlagHelpNamesWhatItTakes(t *testing.T) {
 	out, err := executeAuthCommand(t, NewLogin(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
@@ -285,6 +425,25 @@ func TestPromptSignupEmailRequiresEmail(t *testing.T) {
 func executeAuthCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	return executeAuthCommandWithInput(t, cmd, "", args...)
+}
+
+// executeLogin runs login against server and returns stdout and stderr apart.
+func executeLogin(t *testing.T, server *httptest.Server, args ...string) (string, string, error) {
+	t.Helper()
+	cmd := NewLogin(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdout.String(), stderr.String(), err
+}
+
+func readAuthFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(data)
 }
 
 func executeAuthCommandWithInput(t *testing.T, cmd *cobra.Command, input string, args ...string) (string, error) {

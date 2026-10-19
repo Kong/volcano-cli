@@ -177,6 +177,9 @@ type UseResult struct {
 	Project *apiclient.Project
 	// SavedTo is where the selection was saved.
 	SavedTo string
+	// Previous is the project the link named before Use changed it. It is nil
+	// outside a linked directory, and when the link already named the project.
+	Previous *config.ProjectConfig
 	// EnvFile is the linked directory's cloud env file when Use rewrote it for
 	// the project, or tried to and failed with EnvErr. It is "" otherwise.
 	EnvFile string
@@ -201,38 +204,50 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 		return UseResult{}, err
 	}
 	if link := authenticated.Config.Link; link != nil {
-		if err := checkProjectOverride(authenticated.Config, selected, link); err != nil {
+		if err := CheckProjectOverride(authenticated.Config, selected.Id.String(), link); err != nil {
 			return UseResult{}, err
 		}
-		updated, err := config.WriteLink(link.Dir, config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name})
-		if err != nil {
-			return UseResult{}, err
-		}
-		result := UseResult{Project: selected, SavedTo: updated.Path()}
-		apiURL := s.sessions.APIURL(authenticated.Config)
-		result.EnvFile, result.EnvErr = refreshCloudEnv(ctx, authenticated.API, link.Dir, apiURL, selected.Id)
-		if result.EnvErr != nil {
-			result.EnvFile = CloudEnvPath(link.Dir)
-		}
-		return result, nil
+		return SelectInLink(ctx, authenticated.API, s.sessions.APIURL(authenticated.Config), link, selected)
 	}
 	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
 }
 
-// checkProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID
-// names another project. Commands would keep running against that project,
-// and the cloud env file would deploy the selected project's anon key to it.
-func checkProjectOverride(cfg *config.Config, selected *apiclient.Project, link *config.Link) error {
+// CheckProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID
+// names a project other than selectedID. Commands would keep running against
+// that project, and the cloud env file would deploy the selected project's
+// anon key to it.
+func CheckProjectOverride(cfg *config.Config, selectedID string, link *config.Link) error {
 	fromEnv := cfg.ProjectIDFromEnv()
 	if fromEnv == "" {
 		return nil
 	}
-	if id, err := uuid.Parse(fromEnv); err == nil && id == selected.Id {
+	if id, err := uuid.Parse(fromEnv); err == nil && id.String() == selectedID {
 		return nil
 	}
 	return fmt.Errorf("VOLCANO_PROJECT_ID is set to %s and overrides this directory's link, so commands would keep "+
 		"using that project. Unset it, or set it to %s, and try again. The link at %s is unchanged",
-		fromEnv, selected.Id, link.Path())
+		fromEnv, selectedID, link.Path())
+}
+
+// SelectInLink links link's directory to selected and rewrites the anon key
+// `volcano connect` wrote to the directory's cloud env file, as Use does inside
+// a linked directory. client and apiURL reach selected's API. Callers run
+// CheckProjectOverride first.
+func SelectInLink(ctx context.Context, client *api.Client, apiURL string, link *config.Link, selected *apiclient.Project) (UseResult, error) {
+	updated, err := Link(link.Dir, selected)
+	if err != nil {
+		return UseResult{}, err
+	}
+	result := UseResult{Project: selected, SavedTo: updated.Path()}
+	if link.Project.ID != selected.Id.String() {
+		previous := link.Project
+		result.Previous = &previous
+	}
+	result.EnvFile, result.EnvErr = refreshCloudEnv(ctx, client, link.Dir, apiURL, selected.Id)
+	if result.EnvErr != nil {
+		result.EnvFile = CloudEnvPath(link.Dir)
+	}
+	return result, nil
 }
 
 // Link links dir to project, so commands run inside dir use it.

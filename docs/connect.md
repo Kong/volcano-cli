@@ -131,9 +131,15 @@ fails and changes nothing, because commands would keep using the project the
 variable names. Unset it, or set it to the new project's ID, and run
 `volcano use` again.
 
+`volcano login --token <token> --project <project>` run inside a linked
+directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
+check. If the link named another project, it warns and prints the command that
+links it back.
+
 If the linked directory already has a `volcano/cloud.env` with an anon key,
-`volcano use` also rewrites the values `connect` wrote there for the new
-project. If that fails, it warns, and `volcano connect .` refreshes the file.
+`volcano use` and `volcano login --project` also rewrite the values `connect`
+wrote there for the new project. If that fails, they warn, and
+`volcano connect .` refreshes the file.
 
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
