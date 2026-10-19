@@ -51,6 +51,9 @@ func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
 		{name: "missing resource", err: fmt.Errorf("get: %w", &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
 		{name: "refused", err: fmt.Errorf("delete: %w", &api.Error{StatusCode: http.StatusForbidden}), want: exitPermissionDenied},
 		{name: "account token required", err: cliconfig.ErrAccountTokenRequired, want: exitPermissionDenied},
+		{name: "unknown resource", err: fmt.Errorf("frontend %q %w", "web", api.ErrNotFound), want: exitNotFound},
+		{name: "rewritten 404", err: api.WithCause(errors.New("no such thing"), &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
+		{name: "rewritten refusal", err: api.WithCause(errors.New("ask a person"), cliconfig.ErrAccountTokenRequired), want: exitPermissionDenied},
 		{name: "anything else", err: errors.New("boom"), want: exitFailure},
 	}
 	for _, tc := range cases {

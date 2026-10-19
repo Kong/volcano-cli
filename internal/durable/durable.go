@@ -441,9 +441,13 @@ func (s Service) DecideApproval(
 // errApprovalNeedsAPerson is the answer to a project access token deciding.
 // Approvals exist so that a person signs off, which is why the API refuses
 // any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
-// is how a project access token usually arrives.
-var errApprovalNeedsAPerson = errors.New(
-	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard")
+// is how a project access token usually arrives. It matches
+// config.ErrAccountTokenRequired, so the exit code reports a refused
+// credential. The API's 403 is left out: its generic body would add a hint
+// about the token's project, which is not the problem here.
+var errApprovalNeedsAPerson = api.WithCause(errors.New(
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"),
+	config.ErrAccountTokenRequired)
 
 // RequirePerson refuses a credential the CLI knows is a project access token,
 // so a decision is not confirmed only to be refused. DecideApproval still maps
@@ -517,7 +521,7 @@ func DecisionSummary(decision *apiclient.DurableApprovalDecision) string {
 // answer for an id that never existed and one that belongs to another project.
 func approvalError(action string, approvalID uuid.UUID, err error) error {
 	if api.Status(err) == http.StatusNotFound {
-		return fmt.Errorf("no approval %s in this project", approvalID)
+		return api.WithCause(fmt.Errorf("no approval %s in this project", approvalID), err)
 	}
 	return fmt.Errorf("failed to %s approval %s: %w", action, approvalID, err)
 }
@@ -527,7 +531,7 @@ func approvalError(action string, approvalID uuid.UUID, err error) error {
 // two collections are separate, so the message says which one was searched.
 func durableFunctionError(action, identifier string, err error) error {
 	if api.Status(err) == http.StatusNotFound {
-		return fmt.Errorf("durable function %q not found", identifier)
+		return api.WithCause(fmt.Errorf("durable function %q not found", identifier), err)
 	}
 	return fmt.Errorf("failed to %s durable function %q: %w", action, identifier, err)
 }

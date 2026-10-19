@@ -192,7 +192,7 @@ func (s Service) explainNotFound(ctx context.Context) error {
 
 	if _, err := authenticated.API.GetProject(ctx, authenticated.ProjectID); err != nil {
 		if api.Status(err) == http.StatusNotFound {
-			return fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID)
+			return api.WithCause(fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID), err)
 		}
 		// The project could not be confirmed either way, which is not the same
 		// as knowing it has no binding, so the failure is reported as itself.

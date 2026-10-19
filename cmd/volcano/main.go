@@ -97,7 +97,7 @@ func exitCode(err error) int {
 		return exitNotAuthenticated
 	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
 		return exitNoProject
-	case errors.Is(err, cliproject.ErrNotFound), status == http.StatusNotFound:
+	case errors.Is(err, cliproject.ErrNotFound), errors.Is(err, api.ErrNotFound), status == http.StatusNotFound:
 		return exitNotFound
 	case errors.Is(err, config.ErrAccountTokenRequired), status == http.StatusForbidden:
 		return exitPermissionDenied
