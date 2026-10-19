@@ -15,7 +15,8 @@ type envVar struct {
 
 // upsertEnv sets vars in the env file at path, keeping every other line and
 // comment as it is. A key already in the file is updated in place, so a rerun
-// never adds a second copy.
+// never adds a second copy. Later copies of a key are dropped: the last one
+// would win when the file is read.
 func upsertEnv(path string, vars []envVar) error {
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -29,13 +30,18 @@ func upsertEnv(path string, vars []envVar) error {
 	}
 	for _, v := range vars {
 		found := false
-		for i, line := range lines {
-			if envKey(line) == v.key {
-				lines[i] = v.key + "=" + v.value
+		kept := lines[:0]
+		for _, line := range lines {
+			if envKey(line) != v.key {
+				kept = append(kept, line)
+				continue
+			}
+			if !found {
+				kept = append(kept, v.key+"="+v.value)
 				found = true
-				break
 			}
 		}
+		lines = kept
 		if !found {
 			lines = append(lines, v.key+"="+v.value)
 		}
