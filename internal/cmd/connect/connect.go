@@ -368,9 +368,10 @@ const maxNameSuffix = 20
 // A directory argument is used as given: --project links that project, a
 // rerun keeps the project the directory is linked to, and otherwise a new
 // project is named after the directory. Without a directory argument, a
-// linked directory around the working directory keeps its project. Otherwise
-// connect picks the project first, --project or a new one, and sets it up in
-// a new directory named after it.
+// linked directory around the working directory keeps its project, and is the
+// one --project sets up when the link names it. Otherwise connect picks the
+// project first, --project or a new one, and sets it up in a new directory
+// named after it.
 //
 // A link that can't be used is replaced only when the user says which project
 // goes there: --project for an existing one, --name for a new one. Otherwise
@@ -407,6 +408,11 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		project, err := existingProject(ctx, session.API, opts.project)
 		if err != nil {
 			return "", nil, false, err
+		}
+		// A rerun inside the project's linked directory sets that directory up
+		// again, as a rerun without --project does.
+		if link, _ := config.FindLink(wd); link != nil && link.Project.ID == project.Id.String() {
+			return link.Dir, project, false, nil
 		}
 		dir := filepath.Join(wd, dirName(project.Name))
 		// Two project names can make the same directory name. Never relink a

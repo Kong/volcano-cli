@@ -517,6 +517,25 @@ func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
 }
 
+// The first run says to cd into the new directory. Rerunning the same command
+// there sets up that directory instead of a ./blog inside it.
+func TestConnectWithProjectRerunInsideItsDirectoryReusesIt(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(chdirTemp(t), "blog")
+
+	_, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	t.Chdir(dir)
+
+	out, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Directory: .\n")
+	assert.NoDirExists(t, filepath.Join(dir, "blog"))
+}
+
 func TestConnectWithProjectAndNoDirectoryKeepsAnotherProjectsDirectory(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{
