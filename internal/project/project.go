@@ -201,6 +201,9 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 		return UseResult{}, err
 	}
 	if link := authenticated.Config.Link; link != nil {
+		if err := checkProjectOverride(authenticated.Config, selected, link); err != nil {
+			return UseResult{}, err
+		}
 		updated, err := config.WriteLink(link.Dir, config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name})
 		if err != nil {
 			return UseResult{}, err
@@ -214,6 +217,22 @@ func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) 
 		return result, nil
 	}
 	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
+}
+
+// checkProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID
+// names another project. Commands would keep running against that project,
+// and the cloud env file would deploy the selected project's anon key to it.
+func checkProjectOverride(cfg *config.Config, selected *apiclient.Project, link *config.Link) error {
+	fromEnv := cfg.ProjectIDFromEnv()
+	if fromEnv == "" {
+		return nil
+	}
+	if id, err := uuid.Parse(fromEnv); err == nil && id == selected.Id {
+		return nil
+	}
+	return fmt.Errorf("VOLCANO_PROJECT_ID is set to %s and overrides this directory's link, so commands would keep "+
+		"using that project. Unset it, or set it to %s, and try again. The link at %s is unchanged",
+		fromEnv, selected.Id, link.Path())
 }
 
 // Link links dir to project, so commands run inside dir use it.

@@ -122,7 +122,11 @@ The project a command uses comes from, in order:
 3. The project `volcano use` saved
 
 `volcano use` run inside a linked directory updates the link. Elsewhere it
-saves the project for every directory without a link.
+saves the project for every directory without a link. Inside a linked
+directory, if `VOLCANO_PROJECT_ID` names a different project, `volcano use`
+fails and changes nothing, because commands would keep using the project the
+variable names. Unset it, or set it to the new project's ID, and run
+`volcano use` again.
 
 If the linked directory already has a `volcano/cloud.env` with an anon key,
 `volcano use` also rewrites the values `connect` wrote there for the new

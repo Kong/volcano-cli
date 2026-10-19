@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -128,6 +129,48 @@ func TestUseReportsACloudEnvItCouldNotRefresh(t *testing.T) {
 	data, err := os.ReadFile(CloudEnvPath(dir))
 	require.NoError(t, err)
 	assert.Equal(t, cloudEnv, string(data))
+	link, err := config.FindLink(dir)
+	require.NoError(t, err)
+	assert.Equal(t, projectBetaID, link.Project.ID)
+}
+
+func TestUseRefusesToRelinkWhileVolcanoProjectIDNamesAnotherProject(t *testing.T) {
+	for name, fromEnv := range map[string]string{"another project": projectAlphaID, "not an ID": "alpha"} {
+		t.Run(name, func(t *testing.T) {
+			const cloudEnv = "VOLCANO_ANON_KEY=ak-alpha\n"
+			dir := linkedToAlpha(t, cloudEnv)
+			t.Setenv("VOLCANO_PROJECT_ID", fromEnv)
+			var anonKeyRequests int
+			server := betaServer(t, betaAnonKeys(t), &anonKeyRequests)
+
+			_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+			require.ErrorContains(t, err, "VOLCANO_PROJECT_ID is set to "+fromEnv)
+			assert.Zero(t, api.Status(err), "a refusal, not an API failure")
+			assert.NotErrorIs(t, err, ErrNotFound)
+
+			assert.Zero(t, anonKeyRequests)
+			data, err := os.ReadFile(CloudEnvPath(dir))
+			require.NoError(t, err)
+			assert.Equal(t, cloudEnv, string(data))
+			link, err := config.FindLink(dir)
+			require.NoError(t, err)
+			assert.Equal(t, config.ProjectConfig{ID: projectAlphaID, Name: "Alpha"}, link.Project)
+		})
+	}
+}
+
+func TestUseRelinksWhenVolcanoProjectIDNamesTheSelectedProject(t *testing.T) {
+	dir := linkedToAlpha(t, "VOLCANO_ANON_KEY=ak-alpha\n")
+	t.Setenv("VOLCANO_PROJECT_ID", projectBetaID)
+	var anonKeyRequests int
+	server := betaServer(t, betaAnonKeys(t), &anonKeyRequests)
+
+	used, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+	require.NoError(t, err)
+	require.NoError(t, used.EnvErr)
+	data, err := os.ReadFile(CloudEnvPath(dir))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "VOLCANO_ANON_KEY=ak-beta\n")
 	link, err := config.FindLink(dir)
 	require.NoError(t, err)
 	assert.Equal(t, projectBetaID, link.Project.ID)
