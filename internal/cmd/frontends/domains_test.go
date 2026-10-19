@@ -315,6 +315,12 @@ func TestFrontendsDomainsRefuseBadFlags(t *testing.T) {
 	}))
 	defer server.Close()
 
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	keyPath := filepath.Join(dir, "key.pem")
+	require.NoError(t, os.WriteFile(certPath, []byte("-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----\n"), 0o600))
+	require.NoError(t, os.WriteFile(keyPath, []byte("-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n"), 0o600))
+
 	for _, tc := range []struct {
 		args []string
 		want string
@@ -326,6 +332,10 @@ func TestFrontendsDomainsRefuseBadFlags(t *testing.T) {
 		{[]string{"add", "web", "example.com", "--redirect-status", "301"}, "--redirect-status needs --redirect-to"},
 		{[]string{"add", "web", "example.com", "--cert", "cert.pem"}, "they must all be set; missing [key]"},
 		{[]string{"add", "web", "example.com", "--chain", "chain.pem"}, "--chain needs --cert and --key"},
+		{[]string{"add", "web", "example.com", "--chain", ""}, "--chain needs --cert and --key"},
+		{[]string{"add", "web", "example.com", "--cert", "", "--key", ""}, "certificate file path is required"},
+		{[]string{"add", "web", "example.com", "--cert", certPath, "--key", ""}, "private key file path is required"},
+		{[]string{"add", "web", "example.com", "--cert", certPath, "--key", keyPath, "--chain", ""}, "certificate chain file path is required"},
 		{[]string{"list"}, "accepts 1 arg(s), received 0"},
 		{[]string{"add", "web"}, "accepts 2 arg(s), received 1"},
 		{[]string{"get", "web"}, "accepts 2 arg(s), received 1"},

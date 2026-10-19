@@ -33,9 +33,13 @@ type domainsGetOptions struct {
 }
 
 type domainsAddOptions struct {
-	deps      cliruntime.Deps
-	frontend  string
-	input     api.FrontendDomainInput
+	deps     cliruntime.Deps
+	frontend string
+	input    api.FrontendDomainInput
+	// byoc and chain record that the flags were given, so an empty path is
+	// refused instead of falling back to a managed certificate.
+	byoc      bool
+	chain     bool
 	certPath  string
 	keyPath   string
 	chainPath string
@@ -170,7 +174,9 @@ redirect.`,
 			if err := redirect.validate(cmd); err != nil {
 				return err
 			}
-			if chainPath != "" && certPath == "" {
+			byoc := cmd.Flags().Changed("cert")
+			chain := cmd.Flags().Changed("chain")
+			if chain && !byoc {
 				return errors.New("--chain needs --cert and --key")
 			}
 			return runDomainsAdd(cmd.Context(), domainsAddOptions{
@@ -180,6 +186,8 @@ redirect.`,
 					Domain:   strings.TrimSpace(args[1]),
 					Redirect: redirect.redirect(cmd),
 				},
+				byoc:      byoc,
+				chain:     chain,
 				certPath:  certPath,
 				keyPath:   keyPath,
 				chainPath: chainPath,
@@ -281,7 +289,7 @@ func runDomainsGet(ctx context.Context, opts domainsGetOptions) error {
 }
 
 func runDomainsAdd(ctx context.Context, opts domainsAddOptions) error {
-	if opts.certPath != "" {
+	if opts.byoc {
 		if err := readCertificate(&opts); err != nil {
 			return err
 		}
@@ -303,7 +311,7 @@ func readCertificate(opts *domainsAddOptions) error {
 	if opts.input.PrivateKeyPEM, err = readPEMFile(opts.keyPath, "private key"); err != nil {
 		return err
 	}
-	if opts.chainPath != "" {
+	if opts.chain {
 		opts.input.CertificateChainPEM, err = readPEMFile(opts.chainPath, "certificate chain")
 	}
 	return err
