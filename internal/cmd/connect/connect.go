@@ -36,18 +36,13 @@ import (
 )
 
 const (
-	// cloudEnvRelPath is the env file cloud deploys read, as `volcano init`
-	// names it.
-	cloudEnvRelPath = "volcano/cloud.env"
-	agentsFileName  = "AGENTS.md"
+	agentsFileName = "AGENTS.md"
 	// projectReadyTimeout bounds the wait for a new project to become active.
 	projectReadyTimeout = 2 * time.Minute
 	projectPollInterval = 2 * time.Second
 
 	dirMode  fs.FileMode = 0o755
 	fileMode fs.FileMode = 0o644
-	// envFileMode is owner-only: the env file holds keys.
-	envFileMode fs.FileMode = 0o600
 )
 
 type options struct {
@@ -199,20 +194,15 @@ func run(ctx context.Context, opts options) error {
 
 	scaffold(opts.log, dir, starter)
 
-	anonKey, err := projectAnonKey(ctx, authenticated.API, project.Id)
+	anonKey, err := cliproject.DefaultAnonKey(ctx, authenticated.API, project.Id)
 	if err != nil {
 		return err
 	}
-	envPath := filepath.Join(dir, filepath.FromSlash(cloudEnvRelPath))
-	if err := upsertEnv(envPath, []envVar{
-		{"VOLCANO_API_URL", apiURL},
-		{"VOLCANO_ANON_KEY", anonKey},
-		{"NEXT_PUBLIC_VOLCANO_API_URL", apiURL},
-		{"NEXT_PUBLIC_VOLCANO_ANON_KEY", anonKey},
-	}); err != nil {
+	envPath := cliproject.CloudEnvPath(dir)
+	if err := cliproject.WriteCloudEnv(dir, apiURL, anonKey); err != nil {
 		return err
 	}
-	output.Success(opts.log, "Wrote the project's API URL and anon key to %s", cloudEnvRelPath)
+	output.Success(opts.log, "Wrote the project's API URL and anon key to %s", cliproject.CloudEnvRelPath)
 
 	if err := ensureGitignored(dir); err != nil {
 		return err
@@ -603,42 +593,6 @@ func scaffold(log io.Writer, dir, starter string) {
 	if created := result.Created(); len(created) > 0 {
 		output.Success(log, "Created the scaffold (%d files)", len(created))
 	}
-}
-
-// projectAnonKey returns the project's default anon key, the publishable key
-// the SDK and frontends use. It creates one only when the project has none.
-// The API lists the newest keys first, so the default, usually the oldest, can
-// be on the last page.
-func projectAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID) (string, error) {
-	var fallback string
-	for page := api.DefaultPage; ; page++ {
-		keys, more, err := client.ListAnonKeysPage(ctx, projectID, page, api.DefaultLimit)
-		if err != nil {
-			return "", fmt.Errorf("failed to get the project's anon key: %w", err)
-		}
-		for _, key := range keys {
-			if key.KeyValue == "" {
-				continue
-			}
-			if key.IsDefault != nil && *key.IsDefault {
-				return key.KeyValue, nil
-			}
-			if fallback == "" {
-				fallback = key.KeyValue
-			}
-		}
-		if !more || len(keys) == 0 {
-			break
-		}
-	}
-	if fallback != "" {
-		return fallback, nil
-	}
-	key, err := client.CreateAnonKey(ctx, projectID, "default")
-	if err != nil {
-		return "", fmt.Errorf("failed to create an anon key: %w", err)
-	}
-	return key.KeyValue, nil
 }
 
 // installSkills installs the Volcano skills for every coding agent detected on

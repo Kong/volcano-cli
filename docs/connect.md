@@ -124,6 +124,10 @@ The project a command uses comes from, in order:
 `volcano use` run inside a linked directory updates the link. Elsewhere it
 saves the project for every directory without a link.
 
+If the linked directory already has a `volcano/cloud.env` with an anon key,
+`volcano use` also rewrites the values `connect` wrote there for the new
+project. If that fails, it warns, and `volcano connect .` refreshes the file.
+
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
 

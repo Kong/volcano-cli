@@ -608,11 +608,3 @@ func assertGitIgnored(t *testing.T, dir string, paths ...string) {
 		assert.NoError(t, err, "%s is not gitignored: %s", path, out)
 	}
 }
-
-func TestUpsertEnvReplacesEveryCopyOfAKey(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "cloud.env")
-	require.NoError(t, os.WriteFile(path, []byte("VOLCANO_ANON_KEY=ak-a\nSTRIPE_KEY=sk\nexport VOLCANO_ANON_KEY=ak-b\n"), 0o600))
-
-	require.NoError(t, upsertEnv(path, []envVar{{"VOLCANO_ANON_KEY", "ak-new"}}))
-	assert.Equal(t, "VOLCANO_ANON_KEY=ak-new\nSTRIPE_KEY=sk\n", readFile(t, path))
-}

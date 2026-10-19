@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -314,6 +315,51 @@ func TestProjectsDeleteAndRenameRejectAProjectToken(t *testing.T) {
 			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
 			assert.NotContains(t, out, "You are about to delete a resource permanently",
 				"the refusal must come before the confirmation prompt")
+		})
+	}
+}
+
+func TestUseInALinkedDirectoryReportsTheCloudEnv(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status int
+		want   []string
+	}{
+		"updated": {status: http.StatusOK, want: []string{"Updated the anon key in "}},
+		"failed": {status: http.StatusInternalServerError, want: []string{
+			"Warning: Could not update the anon key in ", "Run `volcano connect .` in the linked directory",
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setProjectCommandTestHome(t)
+			saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+			dir := t.TempDir()
+			_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: projectAlphaID, Name: "Alpha"})
+			require.NoError(t, err)
+			envPath := filepath.Join(dir, "volcano", "cloud.env")
+			require.NoError(t, os.MkdirAll(filepath.Dir(envPath), 0o755))
+			require.NoError(t, os.WriteFile(envPath, []byte("VOLCANO_ANON_KEY=ak-alpha\n"), 0o600))
+			t.Chdir(dir)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/projects/" + projectBetaID:
+					writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectBetaID, "Beta", "active", nil))
+				case "/projects/" + projectBetaID + "/anon-keys":
+					writeProjectCommandJSON(t, w, tc.status, map[string]any{
+						"data": []any{map[string]any{"id": "44444444-4444-4444-8444-444444444444", "name": "default", "key_value": "ak-beta", "is_default": true}},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			out, err := executeProjectCommand(t, NewUse(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), projectBetaID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Now using project: Beta")
+			assert.Contains(t, out, envPath)
+			for _, want := range tc.want {
+				assert.Contains(t, out, want)
+			}
 		})
 	}
 }

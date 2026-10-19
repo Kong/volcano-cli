@@ -65,6 +65,7 @@ type useOptions struct {
 	deps       cliruntime.Deps
 	identifier string
 	out        io.Writer
+	errOut     io.Writer
 }
 
 // NewProjects returns the projects management command.
@@ -378,18 +379,27 @@ Example:
 				deps:       deps,
 				identifier: args[0],
 				out:        cmd.OutOrStdout(),
+				errOut:     cmd.ErrOrStderr(),
 			})
 		},
 	}
 }
 
 func runUse(ctx context.Context, opts useOptions) error {
-	selected, savedTo, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
+	result, err := cliproject.NewService(opts.deps).Use(ctx, opts.identifier)
 	if err != nil {
 		return err
 	}
 
-	output.Success(opts.out, "Now using project: %s (%s)", selected.Name, selected.Id.String())
-	output.Success(opts.out, "Saved to %s", savedTo)
+	output.Success(opts.out, "Now using project: %s (%s)", result.Project.Name, result.Project.Id.String())
+	output.Success(opts.out, "Saved to %s", result.SavedTo)
+	switch {
+	case result.EnvErr != nil:
+		output.Warning(opts.errOut, "Could not update the anon key in %s for this project: %v. Run `%s` in the linked "+
+			"directory to refresh it, or that file still deploys the previous project's key.",
+			result.EnvFile, result.EnvErr, cliruntime.CommandPath(opts.deps, "connect ."))
+	case result.EnvFile != "":
+		output.Success(opts.out, "Updated the anon key in %s", result.EnvFile)
+	}
 	return nil
 }

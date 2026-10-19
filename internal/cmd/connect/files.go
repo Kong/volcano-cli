@@ -9,67 +9,6 @@ import (
 	"strings"
 )
 
-type envVar struct {
-	key, value string
-}
-
-// upsertEnv sets vars in the env file at path, keeping every other line and
-// comment as it is. A key already in the file is updated in place, so a rerun
-// never adds a second copy. Later copies of a key are dropped: the last one
-// would win when the file is read.
-func upsertEnv(path string, vars []envVar) error {
-	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to read %s: %w", path, err)
-	}
-	var lines []string
-	if len(data) > 0 {
-		lines = strings.Split(strings.TrimRight(string(data), "\n"), "\n")
-	} else {
-		lines = []string{"# Cloud project values, written by `volcano connect`. Deploy with:", "#   volcano cloud deploy --env-file volcano/cloud.env"}
-	}
-	for _, v := range vars {
-		found := false
-		kept := lines[:0]
-		for _, line := range lines {
-			if envKey(line) != v.key {
-				kept = append(kept, line)
-				continue
-			}
-			if !found {
-				kept = append(kept, v.key+"="+v.value)
-				found = true
-			}
-		}
-		lines = kept
-		if !found {
-			lines = append(lines, v.key+"="+v.value)
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(path), dirMode); err != nil {
-		return fmt.Errorf("failed to create %s: %w", filepath.Dir(path), err)
-	}
-	//nolint:gosec // path is the env file under the directory the user asked connect to set up
-	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), envFileMode); err != nil {
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-	return nil
-}
-
-// envKey returns the key a KEY=value line sets, or "" for anything else.
-func envKey(line string) string {
-	line = strings.TrimSpace(line)
-	if line == "" || strings.HasPrefix(line, "#") {
-		return ""
-	}
-	line = strings.TrimPrefix(line, "export ")
-	key, _, ok := strings.Cut(line, "=")
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(key)
-}
-
 // gitignoreEntries keep the per-developer link and the env files, which hold
 // keys, out of the repository.
 var gitignoreEntries = []string{".volcano/project.json", "volcano/*.env"}

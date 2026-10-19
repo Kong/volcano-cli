@@ -172,29 +172,48 @@ func (s Service) RequireAccountToken() error {
 	return err
 }
 
+// UseResult is what Use changed.
+type UseResult struct {
+	Project *apiclient.Project
+	// SavedTo is where the selection was saved.
+	SavedTo string
+	// EnvFile is the linked directory's cloud env file when Use rewrote it for
+	// the project, or tried to and failed with EnvErr. It is "" otherwise.
+	EnvFile string
+	// EnvErr is why EnvFile could not be rewritten. The selection is saved
+	// either way.
+	EnvErr error
+}
+
 // Use sets the active project by exact ID or exact name. Inside a linked
 // directory it updates the link, which would otherwise keep overriding the
-// selection; elsewhere it saves the global selection. It returns where the
-// selection was saved.
-func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project, string, error) {
+// selection, and rewrites the anon key `volcano connect` wrote to the
+// directory's cloud env file; elsewhere it saves the global selection.
+func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) {
 	identifier = strings.TrimSpace(identifier)
 	authenticated, err := s.sessions.Authenticated()
 	if err != nil {
-		return nil, "", err
+		return UseResult{}, err
 	}
 
 	selected, err := resolveProject(ctx, authenticated, identifier)
 	if err != nil {
-		return nil, "", err
+		return UseResult{}, err
 	}
 	if link := authenticated.Config.Link; link != nil {
 		updated, err := config.WriteLink(link.Dir, config.ProjectConfig{ID: selected.Id.String(), Name: selected.Name})
 		if err != nil {
-			return nil, "", err
+			return UseResult{}, err
 		}
-		return selected, updated.Path(), nil
+		result := UseResult{Project: selected, SavedTo: updated.Path()}
+		apiURL := s.sessions.APIURL(authenticated.Config)
+		result.EnvFile, result.EnvErr = refreshCloudEnv(ctx, authenticated.API, link.Dir, apiURL, selected.Id)
+		if result.EnvErr != nil {
+			result.EnvFile = CloudEnvPath(link.Dir)
+		}
+		return result, nil
 	}
-	return selected, "~/.volcano/config.json", saveCurrentProject(selected)
+	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
 }
 
 // Link links dir to project, so commands run inside dir use it.
