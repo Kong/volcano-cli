@@ -5080,7 +5080,8 @@ paths:
         runs in a row, followed by one when the scheduler recovers.
 
         The webhook signing secret is never returned here; `secret_configured`
-        shows whether one is set.
+        shows whether one is set. A read-only project access token is refused
+        with `403`, because the webhook URL can carry the receiver's token.
       operationId: getNotificationSettings
       security:
         - UserToken: []
@@ -5094,6 +5095,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
           content:
@@ -5141,6 +5148,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
           content:
@@ -5169,6 +5182,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
           content:
@@ -5203,6 +5222,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotificationTestResult'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Project not found
           content:

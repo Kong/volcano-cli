@@ -46387,6 +46387,7 @@ type GetNotificationSettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *NotificationSettings
+	JSON403      *Error
 	JSON404      *Error
 }
 
@@ -46419,6 +46420,7 @@ type UpdateNotificationSettingsClientResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *NotificationSettings
 	JSON400      *Error
+	JSON403      *Error
 	JSON404      *Error
 }
 
@@ -46450,6 +46452,7 @@ type SendTestNotificationClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *NotificationTestResult
+	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
 	JSON429      *Error
@@ -46483,6 +46486,7 @@ type RotateNotificationWebhookSecretClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *NotificationSettings
+	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
 }
@@ -63517,6 +63521,13 @@ func ParseGetNotificationSettingsClientResponse(rsp *http.Response) (*GetNotific
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -63557,6 +63568,13 @@ func ParseUpdateNotificationSettingsClientResponse(rsp *http.Response) (*UpdateN
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -63589,6 +63607,13 @@ func ParseSendTestNotificationClientResponse(rsp *http.Response) (*SendTestNotif
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -63636,6 +63661,13 @@ func ParseRotateNotificationWebhookSecretClientResponse(rsp *http.Response) (*Ro
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
