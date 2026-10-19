@@ -106,8 +106,9 @@ A project access token cannot list projects, so nothing can work out which
 project it belongs to, and nothing can turn a project name into an ID — name it
 by ID, with `--project` or `VOLCANO_PROJECT_ID`.
 
-Without either, `login` falls back to the project `volcano use` last selected,
-which belongs to whatever credential was logged in before. If that is not the
+Without either, `login` falls back to the project this directory is linked to
+in `.volcano/project.json`, else the project `volcano use` last selected, which
+belongs to whatever credential was logged in before. If that is not the
 token's project, the failure says where the project came from.
 
 Run an account-wide command with one and the CLI says what is missing rather
