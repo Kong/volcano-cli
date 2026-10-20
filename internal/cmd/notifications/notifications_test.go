@@ -232,6 +232,11 @@ func TestNotificationsSetSendsEveryFlagPassed(t *testing.T) {
 		},
 	}, fake.lastUpdate(t))
 
+	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients", "ops@example.com,, OPS@example.com ,")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"ops@example.com"}}}, fake.lastUpdate(t),
+		"blank and repeated addresses are dropped")
+
 	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients=")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{}}}, fake.lastUpdate(t),
@@ -255,7 +260,17 @@ func TestNotificationsSetRefusesBeforeTheRequest(t *testing.T) {
 		{"threshold too high", []string{"--threshold", "101"}, "--threshold must be between 1 and 100"},
 		{"empty webhook", []string{"--webhook-url", ""}, "use --remove-webhook"},
 		{"set and remove", []string{"--webhook-url", notificationsWebhook, "--remove-webhook"}, "none of the others can be"},
-		{"too many recipients", []string{"--recipients", strings.Repeat("a@example.com,", 10) + "b@example.com"}, "at most 10 recipients"},
+		{
+			"too many recipients",
+			[]string{"--recipients", "a@example.com,b@example.com,c@example.com,d@example.com,e@example.com," +
+				"f@example.com,g@example.com,h@example.com,i@example.com,j@example.com,k@example.com"},
+			"at most 10 recipients",
+		},
+		{
+			"invalid recipients",
+			[]string{"--recipients", "ops@example.com,oncall,Ops <ops@example.com>"},
+			`not an email address: "oncall", "Ops <ops@example.com>"`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake, deps := newNotificationsServer(t)

@@ -140,8 +140,8 @@ func apiResultWithoutBody[T any](statusCode int, result *T, generatedErrors ...*
 }
 
 // errorFieldsOnly keeps the error fields of a JSON body and drops the rest,
-// for an endpoint whose success body can carry a secret but whose refusals,
-// such as a read-only token's undeclared 403, still need their message. A
+// for an endpoint whose success body can carry a secret but whose refusals
+// still need their message, including a status the API does not declare. A
 // body that is not a JSON object, or has no error field, becomes nil.
 func errorFieldsOnly(body []byte) []byte {
 	var payload errorFields

@@ -5,7 +5,9 @@ package notification
 import (
 	"context"
 	"fmt"
+	"net/mail"
 	"slices"
+	"strconv"
 	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -58,8 +60,42 @@ func (u Update) Validate() error {
 	if u.Threshold != nil && (*u.Threshold < MinThreshold || *u.Threshold > MaxThreshold) {
 		return fmt.Errorf("--threshold must be between %d and %d", MinThreshold, MaxThreshold)
 	}
-	if u.Recipients != nil && len(*u.Recipients) > MaxRecipients {
+	if u.Recipients != nil {
+		return validateRecipients(recipientList(*u.Recipients))
+	}
+	return nil
+}
+
+// recipientList trims the addresses and drops blank and repeated ones, the way
+// the API counts them, so a trailing comma in --recipients is not an address.
+func recipientList(raw []string) []string {
+	recipients := make([]string, 0, len(raw))
+	seen := make(map[string]bool, len(raw))
+	for _, entry := range raw {
+		address := strings.TrimSpace(entry)
+		key := strings.ToLower(address)
+		if address == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		recipients = append(recipients, address)
+	}
+	return recipients
+}
+
+func validateRecipients(recipients []string) error {
+	if len(recipients) > MaxRecipients {
 		return fmt.Errorf("at most %d recipients can be set", MaxRecipients)
+	}
+	var invalid []string
+	for _, address := range recipients {
+		parsed, err := mail.ParseAddress(address)
+		if err != nil || parsed.Name != "" || parsed.Address != address {
+			invalid = append(invalid, strconv.Quote(address))
+		}
+	}
+	if len(invalid) > 0 {
+		return fmt.Errorf("not an email address: %s", strings.Join(invalid, ", "))
 	}
 	return nil
 }
@@ -69,9 +105,10 @@ func (u Update) request() apiclient.UpdateNotificationSettingsRequest {
 	if u.EmailEnabled != nil || u.Recipients != nil {
 		body.Email = &apiclient.UpdateNotificationEmail{Enabled: u.EmailEnabled}
 		if u.Recipients != nil {
-			recipients := make([]openapi_types.Email, 0, len(*u.Recipients))
-			for _, recipient := range *u.Recipients {
-				recipients = append(recipients, openapi_types.Email(strings.TrimSpace(recipient)))
+			list := recipientList(*u.Recipients)
+			recipients := make([]openapi_types.Email, 0, len(list))
+			for _, recipient := range list {
+				recipients = append(recipients, openapi_types.Email(recipient))
 			}
 			body.Email.Recipients = &recipients
 		}

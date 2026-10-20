@@ -9,13 +9,15 @@ import (
 )
 
 // GetNotificationSettings returns where a project's alerts go and when a
-// failing scheduler is announced. The webhook secret is never part of it.
+// failing scheduler is announced. The webhook secret is never part of it, but
+// the webhook URL can carry the receiver's own token, so an unexpected body is
+// not echoed into the error.
 func (c *Client) GetNotificationSettings(ctx context.Context, projectID uuid.UUID) (*apiclient.NotificationSettings, error) {
 	resp, err := c.client.GetNotificationSettingsWithResponse(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON403, resp.JSON404)
 }
 
 // UpdateNotificationSettings changes the fields body sets. The response
@@ -27,7 +29,7 @@ func (c *Client) UpdateNotificationSettings(
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON400, resp.JSON404)
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON400, resp.JSON403, resp.JSON404)
 }
 
 // RotateNotificationWebhookSecret replaces the webhook signing secret and
@@ -37,7 +39,7 @@ func (c *Client) RotateNotificationWebhookSecret(ctx context.Context, projectID 
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON404, resp.JSON409)
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409)
 }
 
 // SendTestNotification sends a test notification on every configured channel
@@ -47,5 +49,5 @@ func (c *Client) SendTestNotification(ctx context.Context, projectID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON409, resp.JSON429)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429)
 }

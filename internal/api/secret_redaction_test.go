@@ -102,7 +102,7 @@ func TestNotificationSettingsNeverPutTheWebhookSecretInAnError(t *testing.T) {
 	const secret = "whsec_DO-NOT-LEAK-THIS-VALUE"
 	body := `{"project_id":"eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550",` +
 		`"email":{"enabled":true,"recipients":[]},` +
-		`"webhook":{"url":"https://example.com/hook","secret_configured":true,"secret":"` + secret + `"},` +
+		`"webhook":{"url":"https://example.com/hook?token=receiver-token","secret_configured":true,"secret":"` + secret + `"},` +
 		`"scheduler_failures":{"notify_on":"first_failure","threshold":3,"notify_on_recovery":true}}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -123,24 +123,43 @@ func TestNotificationSettingsNeverPutTheWebhookSecretInAnError(t *testing.T) {
 	_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "whsec_")
+
+	_, err = client.GetNotificationSettings(context.Background(), redactionTestProjectID(t))
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "receiver-token", "the webhook URL can carry the receiver's token")
 }
 
-// Dropping the body must not cost a refusal its message: a read-only token's
-// 403 is not declared on these endpoints, so its message comes from the body.
+// Dropping the body must not cost a refusal its message, whether the API
+// declares its status or, like a stale token's 401, does not.
 func TestNotificationSettingsKeepTheRefusalMessage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":"project access token is read-only"}`))
-	}))
-	t.Cleanup(server.Close)
-	client, err := NewClient(server.URL, "pt-readonly", WithHTTPClient(server.Client()))
-	require.NoError(t, err)
+	for _, tt := range []struct {
+		status  int
+		message string
+	}{
+		{http.StatusForbidden, "project access token is read-only"},
+		{http.StatusUnauthorized, "token expired"},
+	} {
+		t.Run(http.StatusText(tt.status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(`{"error":"` + tt.message + `"}`))
+			}))
+			t.Cleanup(server.Close)
+			client, err := NewClient(server.URL, "pt-readonly", WithHTTPClient(server.Client()))
+			require.NoError(t, err)
 
-	_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
-	require.Error(t, err)
-	assert.Equal(t, http.StatusForbidden, Status(err))
-	assert.Contains(t, err.Error(), "project access token is read-only")
+			_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
+			require.Error(t, err)
+			assert.Equal(t, tt.status, Status(err))
+			assert.Contains(t, err.Error(), tt.message)
+
+			_, err = client.GetNotificationSettings(context.Background(), redactionTestProjectID(t))
+			require.Error(t, err)
+			assert.Equal(t, tt.status, Status(err))
+			assert.Contains(t, err.Error(), tt.message)
+		})
+	}
 }
 
 // The redaction must not cost the caller the status, which is the part they need
