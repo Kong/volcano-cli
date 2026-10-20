@@ -56,13 +56,14 @@ func requireLocalModeSendsNotifications(t *testing.T, binary string, env []strin
 		t.Fatal("expected rotation to replace the webhook signing secret")
 	}
 
-	// The manifest describes the settings and never carries the secret.
+	// The manifest describes the settings but leaves out the webhook, whose URL
+	// can carry the receiver's token, and the secret.
 	pulled := runVolcanoLocalModeE2E(t, binary, env, dir, "config", "pull", "--force")
 	requireContains(t, pulled, "Configuration written to")
 	manifestPath := filepath.Join("volcano", "volcano-config.yaml")
 	manifest := readLocalModeE2EFile(t, dir, manifestPath)
 	requireContains(t, manifest, "notifications:")
-	requireContains(t, manifest, localModeE2ESelfWebhookURL)
+	requireNotContains(t, manifest, localModeE2ESelfWebhookURL)
 	requireNotContains(t, manifest, rotatedSecret)
 	removeLocalModeE2EFile(t, dir, manifestPath)
 

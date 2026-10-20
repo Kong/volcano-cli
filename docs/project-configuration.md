@@ -127,9 +127,9 @@ Key semantics:
   first `notifications.webhook.url` a deploy sets generates one that is never
   shown. To get a secret you can use, run `notifications rotate-webhook-secret`.
   See [notifications.md](notifications.md).
-- `config pull` writes `notifications.webhook.url` as saved, query string
-  included. If the receiver's URL carries a token, replace it with a
-  `${ENV_VAR}` reference before committing the file.
+- `config pull` leaves `notifications.webhook` out, because its URL can carry
+  the receiver's token. A manifest without it keeps the saved webhook; set
+  `url: ""` to remove it, or declare the URL through a `${ENV_VAR}` reference.
 - Variable values and write-only secrets, such as SMTP passwords, OAuth client
   secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation. If a server does

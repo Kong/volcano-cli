@@ -237,6 +237,13 @@ func TestNotificationsSetSendsEveryFlagPassed(t *testing.T) {
 	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"ops@example.com"}}}, fake.lastUpdate(t),
 		"blank and repeated addresses are dropped")
 
+	// The request type validates addresses the way the local check does, so an
+	// address the check accepts is sent; the server decides whether it takes it.
+	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients", "dev@localhost,ops@[10.0.0.1]")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"dev@localhost", "ops@[10.0.0.1]"}}},
+		fake.lastUpdate(t))
+
 	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients=")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{}}}, fake.lastUpdate(t),
