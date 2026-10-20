@@ -166,7 +166,7 @@ If the linked directory already has a `volcano/cloud.env` with an anon key,
 wrote there for the new project. If that fails, they warn, and
 `volcano connect .` refreshes the file.
 
-If the link can't be read, `volcano login` and `volcano signup` warn and
+If the link can't be read, or its `project_id` isn't a project ID, `volcano login` and `volcano signup` warn and
 ignore it. `volcano docs` and local commands, such as
 `volcano functions deploy`, ignore it because they never use a project. Other commands fail and name the file. `volcano connect` ignores
 one in a parent of the directory it sets up. For one in that directory, it

