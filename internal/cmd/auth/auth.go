@@ -134,9 +134,10 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 	}
 
 	saved := credentials
-	if inLink {
+	if inLink && !config.IsProjectToken(credentials.Token) {
 		// The link holds the selection. The global one stays as it is, as with
-		// `volcano use`.
+		// `volcano use`. A project access token reaches only its own project,
+		// so it is saved with that project globally too.
 		saved.Project = nil
 	}
 	if err := cliauth.SaveCredentials(saved); err != nil {

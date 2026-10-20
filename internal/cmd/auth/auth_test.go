@@ -315,12 +315,17 @@ func TestLoginProjectInsideALinkedDirectoryUpdatesTheLink(t *testing.T) {
 	for name, tc := range map[string]struct {
 		login            []string
 		savedToken, undo string
+		// global is the project saved in ~/.volcano/config.json.
+		global *cliconfig.ProjectConfig
 	}{
 		"account token": {login: []string{"--token", "pk-account"}, savedToken: "pk-account", undo: "volcano use " + authProjectID},
 		"device code":   {login: []string{"--device-code", authDeviceCode}, savedToken: "pk-exchanged", undo: "volcano use " + authProjectID},
+		// A project token reaches only its project, so the global selection
+		// follows it, or commands outside the link would send it elsewhere.
 		"project token": {
 			login: []string{"--token", authTestProjectToken}, savedToken: authTestProjectToken,
-			undo: "volcano login --token <token for that project> --project " + authProjectID,
+			undo:   "volcano login --token <token for that project> --project " + authProjectID,
+			global: &cliconfig.ProjectConfig{ID: authOtherProjectID, Name: "Beta"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -343,7 +348,7 @@ func TestLoginProjectInsideALinkedDirectoryUpdatesTheLink(t *testing.T) {
 
 			cfg := loadAuthTestConfig(t)
 			assert.Equal(t, tc.savedToken, cfg.UserToken)
-			assert.Nil(t, cfg.CurrentProject, "the global selection is left alone, as with volcano use")
+			assert.Equal(t, tc.global, cfg.CurrentProject, "an account login leaves the global selection alone, as with volcano use")
 		})
 	}
 }
