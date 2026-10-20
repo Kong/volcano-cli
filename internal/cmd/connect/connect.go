@@ -476,6 +476,9 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 			return link.Dir, project, false, nil
 		}
 		dir := filepath.Join(wd, dirName(project.Name))
+		if err := refuseSymlinkedDir(dir); err != nil {
+			return "", nil, false, err
+		}
 		// Two project names can make the same directory name. Never relink a
 		// directory that belongs to another project.
 		link, err := findLink(opts, wd, dir)
@@ -504,16 +507,38 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 		return link.Dir, project, created, err
 	}
 
-	taken := func(name string) bool { return exists(filepath.Join(wd, dirName(name))) }
+	// Lstat, so a symlink is taken even when its target is missing.
+	taken := func(name string) bool {
+		_, err := os.Lstat(filepath.Join(wd, dirName(name)))
+		return err == nil
+	}
 	project, err := newProject(ctx, opts, session, generateName(), taken)
 	if err != nil {
 		return "", nil, false, err
 	}
 	dir := filepath.Join(wd, dirName(project.Name))
+	if err := refuseSymlinkedDir(dir); err != nil {
+		return "", nil, false, createdProjectError(opts, wd, dir, project, err)
+	}
 	if err := makeDir(dir); err != nil {
 		return "", nil, false, createdProjectError(opts, wd, dir, project, err)
 	}
 	return dir, project, true, nil
+}
+
+// refuseSymlinkedDir fails when dir, a directory connect named after a
+// project, is a symlink. A cloned repository can commit one that points out
+// of the checkout, and connect would write the link, cloud.env, .gitignore,
+// and AGENTS.md there. A directory argument may be a symlink: the user chose
+// it.
+func refuseSymlinkedDir(dir string) error {
+	// A missing directory is created, and any other error is reported when
+	// connect creates it.
+	if info, err := os.Lstat(dir); err != nil || info.Mode()&fs.ModeSymlink == 0 {
+		return nil //nolint:nilerr // makeDir reports the error
+	}
+	return fmt.Errorf("%s is a symlink, and connect doesn't follow one to the directory it names after the project. "+
+		"Remove the symlink, or pass the directory to set up: volcano connect <directory> --project <project-id>", dir)
 }
 
 func makeDir(dir string) error {

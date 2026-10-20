@@ -189,6 +189,11 @@ too. For a `volcano/cloud.env` with an anon key, they switch the project and
 warn that the file was not refreshed. Replace the symlink with a regular file or directory and
 run the command again.
 
+With no directory argument, `connect` doesn't follow a symlink to the
+directory it names after the project. With `--project`, it fails if that
+directory is a symlink. A generated name skips one, as it skips an existing
+directory. A directory you pass as an argument may be a symlink.
+
 The link is gitignored because each developer usually has their own project.
 Remove the `.gitignore` entry to share it with your team.
 

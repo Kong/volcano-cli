@@ -837,6 +837,49 @@ func TestConnectWithProjectAndNoDirectoryKeepsAnotherProjectsDirectory(t *testin
 	assert.Equal(t, connectProjectID, link.Project.ID, "the link is unchanged")
 }
 
+// A cloned repository can commit ./blog as a symlink out of the checkout.
+// connect picked that directory itself, so it refuses instead of following it.
+func TestConnectWithProjectRefusesASymlinkedProjectDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	outside := t.TempDir()
+	dir := filepath.Join(parent, "blog")
+	require.NoError(t, os.Symlink(outside, dir))
+
+	_, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.ErrorContains(t, err, dir+" is a symlink")
+	entries, err := os.ReadDir(outside)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "nothing is written through the symlink")
+}
+
+// A symlink at a generated name counts as taken, even one whose target is
+// missing.
+func TestConnectWithNoDirectorySkipsANameWithASymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	require.NoError(t, os.Symlink(filepath.Join(t.TempDir(), "missing"), filepath.Join(parent, "fuji-amber-42")))
+
+	out, err := runConnectHere(t, server, "--json")
+	require.NoError(t, err)
+	var res result
+	require.NoError(t, json.Unmarshal([]byte(out), &res), out)
+	assert.Equal(t, filepath.Join(parent, "fuji-amber-42-2"), res.Directory)
+}
+
 func TestConnectLeavesNoDirectoryWhenTheProjectIsNotCreated(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, createStatus: http.StatusForbidden, createError: "project limit exceeded (max 1 projects per user)"}
