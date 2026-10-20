@@ -3126,7 +3126,6 @@ paths:
       operationId: createDeployLink
       security:
         - UserToken: []
-        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -3149,19 +3148,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized - invalid or missing token
+          description: Unauthorized - invalid or missing token, or the connected GitHub account's authorization expired and must be reconnected
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Project not owned by the caller
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or connected GitHub account not found
+          description: |
+            Project or connected GitHub account not found, or deploy links are not
+            available in this environment (code `feature_unavailable`; see
+            `GET /capabilities`)
           content:
             application/json:
               schema:
@@ -3185,12 +3189,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Git provider integration is not configured, or GitHub is not available right now
+          description: Git provider integration is not configured, or GitHub is rate limiting or unavailable right now (try again shortly)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/deploy-links/{link_id}:
+  /projects/{id}/deploy-links/{linkId}:
     get:
       tags:
         - Deploy Links
@@ -3247,7 +3251,6 @@ paths:
       operationId: updateDeployLink
       security:
         - UserToken: []
-        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DeployLinkId'
@@ -3271,25 +3274,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized - invalid or missing token
+          description: Unauthorized - invalid or missing token, or the connected GitHub account's authorization expired and must be reconnected
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Project not owned by the caller
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or deploy link not found
+          description: Project or deploy link not found, or deploy links are not available in this environment (code `feature_unavailable`; see `GET /capabilities`)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: The project has no repository connected, or is connected to a different repository than the link
+          description: |
+            The project has no repository connected, is connected to a different
+            repository than the link (delete the link and create one for the new
+            repository), or the link changed while it was being saved (reload it and
+            try again)
           content:
             application/json:
               schema:
@@ -3307,7 +3316,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Git provider integration is not configured
+          description: Git provider integration is not configured, or GitHub is rate limiting or unavailable right now (try again shortly)
           content:
             application/json:
               schema:
@@ -3320,7 +3329,6 @@ paths:
       operationId: deleteDeployLink
       security:
         - UserToken: []
-        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DeployLinkId'
@@ -3334,7 +3342,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Project not owned by the caller
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
           content:
             application/json:
               schema:
@@ -3351,7 +3361,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/deploy-links/{link_id}/stats:
+  /projects/{id}/deploy-links/{linkId}/stats:
     get:
       tags:
         - Deploy Links
@@ -16490,7 +16500,7 @@ components:
         format: uuid
       description: Project ID
     DeployLinkId:
-      name: link_id
+      name: linkId
       in: path
       required: true
       schema:
