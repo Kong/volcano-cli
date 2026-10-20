@@ -11,12 +11,16 @@ import (
 	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
-// gitignoreEntries keep the per-developer link and the env files, which hold
-// keys, out of the repository.
-var gitignoreEntries = []string{".volcano/project.json", "volcano/*.env"}
+const (
+	// gitignoreLink keeps the per-developer link out of the repository.
+	gitignoreLink = ".volcano/project.json"
+	// gitignoreEnv keeps the env files, which hold keys, out of it.
+	gitignoreEnv = "volcano/*.env"
+)
 
-// ensureGitignored adds any missing gitignoreEntries to dir/.gitignore.
-func ensureGitignored(dir string) error {
+// ensureGitignored adds the entries dir/.gitignore is missing. The link's
+// entry is added only for a new link, and never over a negation of it.
+func ensureGitignored(dir string, newLink bool) error {
 	if err := symlink.Refuse(dir, ".gitignore"); err != nil {
 		return err
 	}
@@ -29,9 +33,13 @@ func ensureGitignored(dir string) error {
 	for line := range strings.SplitSeq(string(data), "\n") {
 		present[strings.TrimSpace(line)] = true
 	}
+	entries := []string{gitignoreEnv}
+	if newLink {
+		entries = []string{gitignoreLink, gitignoreEnv}
+	}
 	var missing []string
-	for _, entry := range gitignoreEntries {
-		if !present[entry] {
+	for _, entry := range entries {
+		if !present[entry] && !present["!"+entry] {
 			missing = append(missing, entry)
 		}
 	}

@@ -176,6 +176,14 @@ func run(ctx context.Context, opts options) error {
 			"Unset it, and pass --project <project-id> to set up an existing project")
 	}
 
+	// A --project that isn't an ID would fail only after the device code
+	// was spent.
+	if strings.TrimSpace(opts.project) != "" {
+		if _, err := projectID(opts.project); err != nil {
+			return err
+		}
+	}
+
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
@@ -279,13 +287,19 @@ func run(ctx context.Context, opts options) error {
 	}
 	output.Success(opts.log, "Wrote the project's API URL and anon key to %s", cliproject.CloudEnvRelPath)
 
-	if err := ensureGitignored(dir); err != nil {
+	// A team that commits the link removes its .gitignore entry, so a rerun
+	// on an existing link doesn't add it back.
+	newLink := previous == nil || previous.Dir != dir
+	if err := ensureGitignored(dir, newLink); err != nil {
 		return setupError(err)
 	}
 
 	// AGENTS.md is usually committed, so the web URL, which VOLCANO_WEB_URL
 	// can set, is used without userinfo, query or fragment, as in cloud.env.
-	webURL := api.PublicURL(authenticated.Config.WebURLForAPIURL(apiURL))
+	webURL, err := api.PublicURL(authenticated.Config.WebURLForAPIURL(apiURL))
+	if err != nil {
+		return setupError(fmt.Errorf("the dashboard URL is not valid: %w", err))
+	}
 	dashboardURL := projectDashboardURL(webURL, project.Id)
 	agentsPath := filepath.Join(dir, agentsFileName)
 	// The shared AGENTS.md gets the dashboard's root, not this developer's project.
@@ -601,12 +615,22 @@ func linkedProjectError(opts options, wd, dir string, project *apiclient.Project
 		project.Name, project.Id, displayDir(wd, dir), cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))))
 }
 
-// existingProject is the project --project names. It takes an ID only.
-func existingProject(ctx context.Context, client *api.Client, raw string) (*apiclient.Project, error) {
+// projectID parses --project, which takes an ID only.
+func projectID(raw string) (uuid.UUID, error) {
 	raw = strings.TrimSpace(raw)
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		return nil, fmt.Errorf("--project takes a project ID, got %q. Run `volcano projects list` to find it", raw)
+		return uuid.Nil, fmt.Errorf("--project takes a project ID, got %q. Run `volcano projects list` to find it", raw)
+	}
+	return id, nil
+}
+
+// existingProject is the project --project names.
+func existingProject(ctx context.Context, client *api.Client, raw string) (*apiclient.Project, error) {
+	raw = strings.TrimSpace(raw)
+	id, err := projectID(raw)
+	if err != nil {
+		return nil, err
 	}
 	project, err := client.GetProject(ctx, id)
 	if err != nil {

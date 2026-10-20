@@ -245,12 +245,33 @@ func TestConnectRerunReusesTheLinkAndUpdatesFilesInPlace(t *testing.T) {
 	assert.True(t, strings.HasPrefix(agents, "# My rules\n\nUse tabs.\n\n"), agents)
 	assert.Equal(t, 1, strings.Count(agents, agentsStartMarker), agents)
 
+	// The link was there before connect ran: a team that commits it removes
+	// its .gitignore entry, so connect doesn't add it back.
 	gitignore := readFile(t, filepath.Join(dir, ".gitignore"))
 	assert.True(t, strings.HasPrefix(gitignore, "node_modules\n"), gitignore)
-	assert.Equal(t, 1, strings.Count(gitignore, ".volcano/project.json"), gitignore)
+	assert.NotContains(t, gitignore, ".volcano/project.json")
+	assert.Equal(t, 1, strings.Count(gitignore, "volcano/*.env"), gitignore)
 	assert.NoDirExists(t, filepath.Join(dir, "volcano", "migrations"), "an existing volcano/ directory is left alone")
-	// No scaffold ran, so only the root .gitignore entries connect adds keep these out.
-	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
+	// No scaffold ran, so only the root .gitignore entry connect adds keeps this out.
+	assertGitIgnored(t, dir, "volcano/cloud.env")
+}
+
+// A negation is how a team says it commits the link, so connect leaves it.
+func TestConnectKeepsANegatedLinkEntryInGitignore(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "shop")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("!.volcano/project.json\n"), 0o644))
+
+	_, err := runConnect(t, server, dir)
+	require.NoError(t, err)
+
+	gitignore := readFile(t, filepath.Join(dir, ".gitignore"))
+	assert.Equal(t, 1, strings.Count(gitignore, ".volcano/project.json"), gitignore)
+	assert.Contains(t, gitignore, "volcano/*.env\n")
 }
 
 // connect always creates a project. At the plan's limit it fails and names
@@ -1047,6 +1068,19 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 
 // The dashboard approved the code before the user pasted the prompt, so
 // connect signs in without device authorization or the browser.
+// A --project that isn't an ID fails before the device code is spent.
+func TestConnectChecksTheProjectIDBeforeSigningIn(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	_, err := runConnectHere(t, server, "--device-code", connectDeviceCode, "--project", "my-app")
+	require.ErrorContains(t, err, `--project takes a project ID, got "my-app"`)
+	assert.Zero(t, fake.polls, "the device code is not spent")
+}
+
 func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")

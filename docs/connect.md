@@ -195,7 +195,9 @@ directory is a symlink. A generated name skips one, as it skips an existing
 directory. A directory you pass as an argument may be a symlink.
 
 The link is gitignored because each developer usually has their own project.
-Remove the `.gitignore` entry to share it with your team.
+Remove the `.gitignore` entry to share it with your team. `volcano connect`
+adds the entry only when it creates a new link, so a rerun in a directory
+that already has one doesn't add it back.
 
 ## Running from an agent
 
