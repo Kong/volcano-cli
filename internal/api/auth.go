@@ -18,6 +18,8 @@ type DeviceTokenPollResult struct {
 	AccessToken      string
 	Error            string
 	ErrorDescription string
+	// StatusCode is the HTTP status that carried Error.
+	StatusCode int
 }
 
 // ValidateToken validates the configured token by listing projects.
@@ -66,7 +68,7 @@ func (c *Client) PollDeviceToken(ctx context.Context, clientID, deviceCode strin
 		if oauthErr == nil || (oauthErr == resp.JSON403 && oauthErr.Error == "") {
 			continue
 		}
-		status := &DeviceTokenPollResult{Error: oauthErr.Error}
+		status := &DeviceTokenPollResult{Error: oauthErr.Error, StatusCode: resp.StatusCode()}
 		if oauthErr.ErrorDescription != nil {
 			status.ErrorDescription = *oauthErr.ErrorDescription
 		}

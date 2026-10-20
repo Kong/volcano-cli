@@ -88,7 +88,10 @@ func Key(line string) string {
 	if line == "" || strings.HasPrefix(line, "#") {
 		return ""
 	}
-	line = strings.TrimPrefix(line, "export ")
+	// dotenv takes any blank after export, a tab too.
+	if rest, ok := strings.CutPrefix(line, "export"); ok && rest != "" && (rest[0] == ' ' || rest[0] == '\t') {
+		line = rest
+	}
 	key, _, ok := strings.Cut(line, "=")
 	if !ok {
 		return ""

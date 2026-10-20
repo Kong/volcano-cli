@@ -452,6 +452,57 @@ func TestLoginWithDeviceCodeTreatsA403AsARefusal(t *testing.T) {
 	require.True(t, ok, "got %v", err)
 	assert.Equal(t, "was denied: email domain not allowed", refused.Reason)
 	assert.Equal(t, int32(1), fake.pollCount.Load())
+	assert.ErrorIs(t, err, config.ErrNotAuthenticated, "a refused code from the dashboard exits as not logged in")
+}
+
+// A browser login the API denies with a 403 keeps that status, so it exits
+// with the permission-denied code.
+func TestLoginWithBrowserKeepsTheStatusOfA403Denial(t *testing.T) {
+	cfg := testAuthConfig(t)
+	timeoutTimer := newAuthFakeTicker()
+	pollTicker := newAuthFakeTicker()
+	dotTicker := newAuthFakeTicker()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch strings.TrimSuffix(r.URL.Path, "/") {
+		case "/auth/device/authorize":
+			writeAuthJSON(t, w, http.StatusOK, map[string]any{
+				"device_code":               "device-code",
+				"user_code":                 "ABCD-EFGH",
+				"verification_uri":          "https://volcano.dev/device",
+				"verification_uri_complete": "https://volcano.dev/device?user_code=ABCD-EFGH",
+				"expires_in":                120,
+				"interval":                  1,
+			})
+		case "/auth/device/token":
+			writeAuthJSON(t, w, http.StatusForbidden, map[string]string{"error": "access_denied", "error_description": "email domain not allowed"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{
+		HTTPClient:  server.Client(),
+		APIBaseURL:  server.URL,
+		OpenBrowser: func(string) error { return nil },
+		NewTimer:    func(time.Duration) cliruntime.Timer { return timeoutTimer },
+		NewTicker: func(time.Duration) cliruntime.Ticker {
+			if pollTicker.created.CompareAndSwap(false, true) {
+				return pollTicker
+			}
+			return dotTicker
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(deps).LoginWithBrowser(context.Background(), cfg, &bytes.Buffer{})
+		done <- err
+	}()
+	pollTicker.tick()
+
+	err := <-done
+	require.ErrorContains(t, err, "authorization denied: email domain not allowed")
+	assert.Equal(t, http.StatusForbidden, api.Status(err))
 }
 
 // The code is spent once the poll returns a token, so a failed exchange after

@@ -11,12 +11,12 @@ import (
 
 func TestUpsertReplacesEveryCopyOfAKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cloud.env")
-	require.NoError(t, os.WriteFile(path, []byte("VOLCANO_ANON_KEY=ak-a\nSTRIPE_KEY=sk\nexport VOLCANO_ANON_KEY=ak-b\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("VOLCANO_ANON_KEY=ak-a\nSTRIPE_KEY=sk\nexport VOLCANO_ANON_KEY=ak-b\nexport\tVOLCANO_ANON_KEY=ak-c\nexportVOLCANO_ANON_KEY=other\n"), 0o600))
 
 	require.NoError(t, Upsert(path, []Var{{Key: "VOLCANO_ANON_KEY", Value: "ak-new"}}, "# header"))
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "VOLCANO_ANON_KEY=ak-new\nSTRIPE_KEY=sk\n", string(data))
+	assert.Equal(t, "VOLCANO_ANON_KEY=ak-new\nSTRIPE_KEY=sk\nexportVOLCANO_ANON_KEY=other\n", string(data))
 }
 
 func TestUpsertStartsANewFileWithTheHeader(t *testing.T) {

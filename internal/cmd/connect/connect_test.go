@@ -279,6 +279,27 @@ func TestConnectKeepsANegatedLinkEntryInGitignore(t *testing.T) {
 	}
 }
 
+// A linked directory whose project was deleted gets a replacement. At the
+// limit, the hint names that directory, so following it relinks it instead
+// of setting up a new directory inside it.
+func TestConnectAtTheProjectLimitInALinkedDirectoryNamesIt(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{
+		t:            t,
+		projects:     []map[string]any{connectProjectPayload(connectOtherProjectID, "first-project")},
+		createStatus: http.StatusForbidden,
+		createError:  "project limit exceeded (max 1 projects per user)",
+	}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	wd := chdirTemp(t)
+	_, err := cliconfig.WriteLink(wd, cliconfig.ProjectConfig{ID: connectProjectID, Name: "deleted"})
+	require.NoError(t, err)
+
+	_, err = runConnectHere(t, server)
+	require.ErrorContains(t, err, "first-project: volcano connect . --project "+connectOtherProjectID)
+}
+
 // Without --project, connect creates a project. At the plan's limit it fails and names
 // the projects that --project could link instead.
 func TestConnectAtTheProjectLimitNamesTheProjectsToLink(t *testing.T) {
@@ -1403,16 +1424,18 @@ func assertDeviceCodeNotSaved(t *testing.T) {
 }
 
 func TestProjectNameAsksOnlyWhenNothingMarksTheRunNonInteractive(t *testing.T) {
-	ask := func() string {
+	askWith := func(deviceCode string) string {
 		var log bytes.Buffer
-		name, err := projectName(options{in: strings.NewReader("typed\n"), log: &log}, "fallback")
+		name, err := projectName(options{in: strings.NewReader("typed\n"), log: &log, deviceCode: deviceCode}, "fallback")
 		require.NoError(t, err)
 		return name
 	}
+	ask := func() string { return askWith("") }
 	t.Setenv("CI", "")
 	t.Setenv("VOLCANO_NONINTERACTIVE", "")
 	t.Setenv("TERM", "xterm-256color")
 	assert.Equal(t, "typed", ask())
+	assert.Equal(t, "fallback", askWith(connectDeviceCode), "the dashboard's agent prompt is never asked")
 
 	for key, value := range map[string]string{"CI": "true", "VOLCANO_NONINTERACTIVE": "1", "TERM": "dumb"} {
 		t.Run(key, func(t *testing.T) {

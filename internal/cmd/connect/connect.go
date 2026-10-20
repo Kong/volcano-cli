@@ -671,6 +671,10 @@ func linkedOrNewProject(ctx context.Context, opts options, session *clisession.S
 		}
 		output.Warning(opts.log, "The linked project %s no longer exists. Creating a new one.", link.Project.ID)
 	}
+	// A limit hint without the directory would set up a new one inside it.
+	if opts.dir == "" {
+		opts.dir = displayDir(wd, dir)
+	}
 	project, err := newProject(ctx, opts, session, defaultProjectName(dir), nil)
 	if err != nil {
 		return nil, false, err
@@ -808,11 +812,13 @@ func createProject(ctx context.Context, opts options, client *api.Client, name s
 // projectName is --name, else what the user types at a prompt, else fallback.
 // It asks only when stdin is a terminal and none of the environment markers
 // `volcano setup` also checks (CI, VOLCANO_NONINTERACTIVE, TERM=dumb) is set.
+// --device-code comes from the dashboard's prompt for a coding agent, which
+// may run commands in a terminal but can't answer, so it never asks.
 func projectName(opts options, fallback string) (string, error) {
 	if name := strings.TrimSpace(opts.name); name != "" {
 		return name, nil
 	}
-	if opts.jsonOutput || confirm.MarkedNonInteractive() || !confirm.CanPrompt(opts.in) {
+	if opts.jsonOutput || strings.TrimSpace(opts.deviceCode) != "" || confirm.MarkedNonInteractive() || !confirm.CanPrompt(opts.in) {
 		return fallback, nil
 	}
 	fmt.Fprintf(opts.log, "Project name [%s]: ", fallback)

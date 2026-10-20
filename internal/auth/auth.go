@@ -495,6 +495,16 @@ var errDeviceLoginTimeout = errors.New("authentication timeout")
 type deviceTokenRefusal struct {
 	code        string
 	description string
+	status      int
+}
+
+// Unwrap keeps a 403, such as access_denied for an email domain, as the API
+// refusal it is, so a browser login exits with the permission-denied code.
+func (e *deviceTokenRefusal) Unwrap() error {
+	if e.status != http.StatusForbidden {
+		return nil
+	}
+	return &api.Error{StatusCode: e.status, Message: e.Error()}
 }
 
 func (e *deviceTokenRefusal) Error() string {
@@ -618,6 +628,6 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 		p.ticker.Reset(p.interval)
 		return Credentials{}, false, nil
 	default:
-		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription}
+		return Credentials{}, true, &deviceTokenRefusal{code: status.Error, description: status.ErrorDescription, status: status.StatusCode}
 	}
 }
