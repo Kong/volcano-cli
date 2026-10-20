@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 const (
@@ -478,18 +480,20 @@ func Load(filePath string) (*Manifest, string, error) {
 }
 
 // Parse interpolates ${ENV} references through lookupEnv, decodes the manifest
-// strictly (unknown fields are errors), and validates it.
+// strictly (unknown fields are errors), and validates it. YAML, interpolation,
+// decode, and validation errors can quote manifest values, including
+// interpolated secrets, so they are marked sensitive.
 func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		return nil, fmt.Errorf("failed to parse YAML: %w", sensitive.Wrap(err))
 	}
 	if root.Kind == 0 {
 		return nil, errors.New("manifest is empty")
 	}
 
 	if err := interpolateNode(&root, lookupEnv); err != nil {
-		return nil, err
+		return nil, sensitive.Wrap(err)
 	}
 
 	interpolated, err := yaml.Marshal(&root)
@@ -501,17 +505,18 @@ func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error
 	decoder.KnownFields(true)
 	var manifest Manifest
 	if err := decoder.Decode(&manifest); err != nil {
-		return nil, fmt.Errorf("invalid manifest: %w", err)
+		return nil, fmt.Errorf("invalid manifest: %w", sensitive.Wrap(err))
 	}
 
+	// Validation runs on interpolated values and quotes rejected ones.
 	if err := manifest.Validate(); err != nil {
-		return nil, err
+		return nil, sensitive.Wrap(err)
 	}
 
 	// Capture the interpolated manifest as a generic shape for upload so omitted
 	// fields stay absent (see uploadBody and the Manifest doc comment).
 	if err := yaml.Unmarshal(interpolated, &manifest.upload); err != nil {
-		return nil, fmt.Errorf("failed to prepare manifest for upload: %w", err)
+		return nil, fmt.Errorf("failed to prepare manifest for upload: %w", sensitive.Wrap(err))
 	}
 	return &manifest, nil
 }

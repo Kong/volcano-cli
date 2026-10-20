@@ -194,6 +194,8 @@ func localModeE2EEnv(t *testing.T) []string {
 		"VOLCANO_PROJECT_ID=",
 		"VOLCANO_API_URL=",
 		"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID=",
+		// Telemetry off: no first-run notice in command output, no events.
+		"VOLCANO_TELEMETRY_DISABLED=1",
 	)
 	if os.Getenv("VOLCANO_IMAGE") == "" {
 		env = append(env, "VOLCANO_IMAGE=kong/volcano:local-nightly")

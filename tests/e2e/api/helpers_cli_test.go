@@ -145,7 +145,8 @@ func (e *apiE2E) commandEnv() []string {
 		}
 		env = append(env, entry)
 	}
-	env = append(env, "HOME="+e.homeDir, "VOLCANO_API_URL="+e.apiURL)
+	// Telemetry off: no first-run notice in command output, no events.
+	env = append(env, "HOME="+e.homeDir, "VOLCANO_API_URL="+e.apiURL, "VOLCANO_TELEMETRY_DISABLED=1")
 	return env
 }
 

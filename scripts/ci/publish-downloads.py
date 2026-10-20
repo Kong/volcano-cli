@@ -129,13 +129,15 @@ def verify_downloads(base_url, version, assets, names=None):
 
 def verify_install(assets, base_url, version=None):
     with tempfile.TemporaryDirectory(prefix="cli-install-") as directory:
-        env = dict(os.environ, VOLCANO_CLI_RELEASES_URL=base_url, VOLCANO_INSTALL_DIR=directory)
+        # A release check is not usage, so the installed CLI sends no telemetry.
+        env = dict(os.environ, VOLCANO_CLI_RELEASES_URL=base_url, VOLCANO_INSTALL_DIR=directory,
+                   VOLCANO_TELEMETRY_DISABLED="1")
         for name in ("VOLCANO_VERSION", "VOLCANO_GITHUB_RELEASES_URL", "VOLCANO_SKIP_SIGNATURE_VERIFICATION"):
             env.pop(name, None)
         if version:
             env["VOLCANO_VERSION"] = version
         subprocess.run(["sh", str(assets / "install.sh")], env=env, check=True, timeout=600)
-        result = subprocess.run([str(Path(directory) / "volcano"), "--version"],
+        result = subprocess.run([str(Path(directory) / "volcano"), "--version"], env=env,
                                 capture_output=True, text=True, check=True, timeout=30)
         # Unpinned, the edge may still cache an older pointer; any verified stable install proves resolution.
         expected = re.escape(version) if version else r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"

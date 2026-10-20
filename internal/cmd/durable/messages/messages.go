@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // New returns the durable messages command.
@@ -37,7 +38,8 @@ waiting for. A read-only project access token can list but not send.`,
 func parseExecutionID(value string) (uuid.UUID, error) {
 	executionID, err := uuid.Parse(strings.TrimSpace(value))
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid execution ID %q: %w", value, err)
+		// The value may be an execution name, which can hold application data.
+		return uuid.Nil, fmt.Errorf("invalid execution ID %w", sensitive.Wrap(fmt.Errorf("%q: %w", value, err)))
 	}
 	return executionID, nil
 }

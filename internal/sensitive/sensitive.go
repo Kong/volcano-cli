@@ -1,0 +1,44 @@
+// Package sensitive marks errors whose text can carry file contents or secret
+// values, such as a parser quoting the line it failed on. The text still
+// reaches the terminal; usage telemetry replaces it with "[redacted]".
+package sensitive
+
+import "errors"
+
+// FlagAnnotation marks a flag whose value usage telemetry never sends, even
+// when its name is one telemetry would otherwise report as a resource name.
+// Set it with cmd.Flags().SetAnnotation(name, FlagAnnotation, []string{"true"}).
+const FlagAnnotation = "volcano_sensitive"
+
+// Error wraps an error whose text must not leave the machine.
+type Error struct {
+	err error
+}
+
+// Wrap marks err as sensitive. It returns nil for a nil err.
+func Wrap(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &Error{err: err}
+}
+
+func (e *Error) Error() string { return e.err.Error() }
+
+func (e *Error) Unwrap() error { return e.err }
+
+// Text returns the text of the first sensitive error in err's chain, or ""
+// when there is none.
+func Text(err error) string {
+	if sensitiveErr, ok := errors.AsType[*Error](err); ok {
+		return sensitiveErr.Error()
+	}
+	return ""
+}
+
+// Contains reports whether the first sensitive error in err's chain yields a
+// non-empty value from get, for example an API error code inside it.
+func Contains(err error, get func(error) string) bool {
+	sensitiveErr, ok := errors.AsType[*Error](err)
+	return ok && get(sensitiveErr.err) != ""
+}
