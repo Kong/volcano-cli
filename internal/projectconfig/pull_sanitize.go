@@ -16,6 +16,12 @@ import (
 // transport failure.
 var ErrUnsafePulledManifest = errors.New("downloaded configuration could not be checked for variable values")
 
+// Sections sanitizePulledManifest removes, as reported in PullResult.Removed.
+const (
+	RemovedVariables            = "variables"
+	RemovedNotificationsWebhook = "notifications.webhook"
+)
+
 // pulledManifestIndent matches the two-space indentation the server uses in the
 // canonical YAML rendering, so a re-marshaled manifest still reads like a pulled
 // one.
@@ -35,48 +41,58 @@ const pulledManifestIndent = 2
 // omitting the section keeps the pulled manifest deployable and leaves the
 // project's variable values untouched (omitted sections are not reconciled).
 //
+// `notifications.webhook` goes the same way: its URL can carry the receiver's
+// token, and the manifest is a file users commit.
+//
 // A manifest that cannot be parsed is rejected rather than written: bytes we
 // could not inspect cannot be promised to be value-free.
-func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
+func sanitizePulledManifest(manifest []byte) ([]byte, []string, error) {
 	if len(bytes.TrimSpace(manifest)) == 0 {
-		return manifest, false, nil
+		return manifest, nil, nil
 	}
 
 	decoder := yaml.NewDecoder(bytes.NewReader(manifest))
 	var doc yaml.Node
 	if err := decoder.Decode(&doc); err != nil {
-		return nil, false, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
+		return nil, nil, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
 	}
 	var extra yaml.Node
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		if err != nil {
-			return nil, false, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
+			return nil, nil, fmt.Errorf("%w: the server returned a manifest that is not valid YAML: %w", ErrUnsafePulledManifest, err)
 		}
-		return nil, false, fmt.Errorf("%w: the server returned multiple YAML documents", ErrUnsafePulledManifest)
+		return nil, nil, fmt.Errorf("%w: the server returned multiple YAML documents", ErrUnsafePulledManifest)
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.MappingNode {
-		return nil, false, fmt.Errorf("%w: the server returned a manifest with an unsupported YAML root", ErrUnsafePulledManifest)
+		return nil, nil, fmt.Errorf("%w: the server returned a manifest with an unsupported YAML root", ErrUnsafePulledManifest)
 	}
 
 	root := doc.Content[0]
 	if containsYAMLAlias(root) {
-		return nil, false, fmt.Errorf("%w: the server returned unsupported YAML aliases", ErrUnsafePulledManifest)
+		return nil, nil, fmt.Errorf("%w: the server returned unsupported YAML aliases", ErrUnsafePulledManifest)
 	}
 	kept := make([]*yaml.Node, 0, len(root.Content))
-	stripped := false
+	var removed []string
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		key := root.Content[i]
 		if key.Kind != yaml.ScalarNode || key.Tag != "!!str" {
-			return nil, false, fmt.Errorf("%w: the server returned unsupported YAML mapping keys", ErrUnsafePulledManifest)
+			return nil, nil, fmt.Errorf("%w: the server returned unsupported YAML mapping keys", ErrUnsafePulledManifest)
 		}
+		value := root.Content[i+1]
 		if key.Value == "variables" {
-			stripped = true
+			removed = append(removed, RemovedVariables)
 			continue
 		}
-		kept = append(kept, key, root.Content[i+1])
+		if key.Value == "notifications" && dropYAMLKey(value, "webhook") {
+			removed = append(removed, RemovedNotificationsWebhook)
+			if len(value.Content) == 0 {
+				continue
+			}
+		}
+		kept = append(kept, key, value)
 	}
-	if !stripped {
-		return manifest, false, nil
+	if len(removed) == 0 {
+		return manifest, nil, nil
 	}
 	root.Content = kept
 
@@ -84,12 +100,26 @@ func sanitizePulledManifest(manifest []byte) ([]byte, bool, error) {
 	encoder := yaml.NewEncoder(&buf)
 	encoder.SetIndent(pulledManifestIndent)
 	if err := encoder.Encode(&doc); err != nil {
-		return nil, false, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
+		return nil, nil, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
 	}
 	if err := encoder.Close(); err != nil {
-		return nil, false, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
+		return nil, nil, fmt.Errorf("%w: %w", ErrUnsafePulledManifest, err)
 	}
-	return buf.Bytes(), true, nil
+	return buf.Bytes(), removed, nil
+}
+
+// dropYAMLKey removes key from a mapping node and reports whether it was there.
+func dropYAMLKey(mapping *yaml.Node, key string) bool {
+	if mapping.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			mapping.Content = slices.Delete(mapping.Content, i, i+2)
+			return true
+		}
+	}
+	return false
 }
 
 func containsYAMLAlias(node *yaml.Node) bool {

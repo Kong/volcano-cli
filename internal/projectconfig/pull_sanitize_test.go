@@ -17,16 +17,16 @@ func TestSanitizePulledManifestKeepsCleanExportsVerbatim(t *testing.T) {
 		{"nested variables key is not the top-level section", "version: 1\nauth:\n  variables: [A]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, stripped, err := sanitizePulledManifest([]byte(tc.manifest))
+			got, removed, err := sanitizePulledManifest([]byte(tc.manifest))
 			require.NoError(t, err)
-			assert.False(t, stripped)
+			assert.Empty(t, removed)
 			assert.Equal(t, tc.manifest, string(got), "clean exports must be saved byte for byte")
 		})
 	}
 }
 
 func TestSanitizePulledManifestDropsVariablesSection(t *testing.T) {
-	got, stripped, err := sanitizePulledManifest([]byte(`# volcano-config.yaml (manifest version 1)
+	got, removed, err := sanitizePulledManifest([]byte(`# volcano-config.yaml (manifest version 1)
 version: 1
 variables:
   - name: API_KEY
@@ -35,7 +35,7 @@ shared_variables:
   - LOG_LEVEL
 `))
 	require.NoError(t, err)
-	assert.True(t, stripped)
+	assert.Equal(t, []string{RemovedVariables}, removed)
 	assert.NotContains(t, string(got), "secret-value")
 
 	// The re-marshaled manifest must still read like a canonical export: head
@@ -95,8 +95,36 @@ func TestSanitizePulledManifestRejectsAliasesAndUnsupportedKeys(t *testing.T) {
 }
 
 func TestSanitizePulledManifestReportsEmptyVariablesSection(t *testing.T) {
-	got, stripped, err := sanitizePulledManifest([]byte("version: 1\nvariables: []\n"))
+	got, removed, err := sanitizePulledManifest([]byte("version: 1\nvariables: []\n"))
 	require.NoError(t, err)
-	assert.True(t, stripped)
+	assert.Equal(t, []string{RemovedVariables}, removed)
 	assert.NotContains(t, string(got), "variables")
+}
+
+func TestSanitizePulledManifestDropsNotificationsWebhook(t *testing.T) {
+	got, removed, err := sanitizePulledManifest([]byte(`version: 1
+notifications:
+  email:
+    enabled: true
+  webhook:
+    url: https://hooks.example.com/volcano?token=receiver-token
+`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{RemovedNotificationsWebhook}, removed)
+	assert.Equal(t, `version: 1
+notifications:
+  email:
+    enabled: true
+`, string(got))
+}
+
+func TestSanitizePulledManifestDropsNotificationsLeftEmpty(t *testing.T) {
+	got, removed, err := sanitizePulledManifest([]byte(`version: 1
+notifications:
+  webhook:
+    url: https://hooks.example.com/volcano?token=receiver-token
+`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{RemovedNotificationsWebhook}, removed)
+	assert.Equal(t, "version: 1\n", string(got))
 }

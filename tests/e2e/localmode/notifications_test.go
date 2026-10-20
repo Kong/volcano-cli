@@ -27,8 +27,23 @@ const localModeE2ESelfWebhookURL = "http://localhost:8000/health"
 // a webhook may point at a private address, which only local mode allows.
 func requireLocalModeSendsNotifications(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
+	t.Run("notifications", func(t *testing.T) {
+		localModeSendsNotifications(t, binary, env, dir)
+	})
+}
 
-	defaults := runVolcanoLocalModeE2E(t, binary, env, dir, "notifications", "get")
+func localModeSendsNotifications(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	defaults, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "notifications", "get")
+	// This CLI merges before Kong/volcano-hosting#1965, and the lane runs the
+	// local-nightly image, which serves notifications only once a nightly
+	// includes that PR. Remove this once it does.
+	if err != nil && strings.Contains(defaults, "HTTP 404") {
+		t.Skipf("the local server image does not serve /projects/{id}/notifications yet (Kong/volcano-hosting#1965):\n%s", defaults)
+	}
+	if err != nil {
+		t.Fatalf("volcano notifications get failed: %v\n%s", err, defaults)
+	}
 	requireContains(t, defaults, "on, to the project owner")
 	requireContains(t, defaults, "not configured")
 	requireContains(t, defaults, "3 failed scheduled runs in a row")
