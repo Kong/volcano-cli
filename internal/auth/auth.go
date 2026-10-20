@@ -32,8 +32,8 @@ type Credentials struct {
 	// Project is the project login validated the token against, to be saved as
 	// the active project. Nil when login resolved no project.
 	Project *config.ProjectConfig
-	// APIURL is the API that issued or validated Token, saved with it so later
-	// commands keep talking to the same API.
+	// APIURL is the API that issued or validated Token. It is not saved: the
+	// same run uses it to update the directory's link.
 	APIURL string
 }
 
