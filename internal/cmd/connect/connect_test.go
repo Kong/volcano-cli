@@ -274,7 +274,7 @@ func TestConnectKeepsANegatedLinkEntryInGitignore(t *testing.T) {
 	assert.Contains(t, gitignore, "volcano/*.env\n")
 }
 
-// connect always creates a project. At the plan's limit it fails and names
+// Without --project, connect creates a project. At the plan's limit it fails and names
 // the projects that --project could link instead.
 func TestConnectAtTheProjectLimitNamesTheProjectsToLink(t *testing.T) {
 	setConnectTestHome(t)
@@ -1091,8 +1091,6 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 	require.ErrorContains(t, err, "To set it up, run: volcano connect '"+dir+"' --project "+connectProjectID)
 }
 
-// The dashboard approved the code before the user pasted the prompt, so
-// connect signs in without device authorization or the browser.
 // The home directory's .volcano holds the CLI's config, so it can't be linked.
 func TestConnectRefusesTheHomeDirectory(t *testing.T) {
 	setConnectTestHome(t)
@@ -1118,6 +1116,8 @@ func TestConnectChecksTheProjectIDBeforeSigningIn(t *testing.T) {
 	assert.Zero(t, fake.polls, "the device code is not spent")
 }
 
+// The dashboard approved the code before the user pasted the prompt, so
+// connect signs in without device authorization or the browser.
 func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")

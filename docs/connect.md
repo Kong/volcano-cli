@@ -27,7 +27,8 @@ characters in single quotes, so you can paste them as they are.
    Browser login prints a code and a link. Open the link and approve, and the
    command continues. See
    [Device codes from the dashboard](#device-codes-from-the-dashboard).
-2. **Creates a project and its directory.** It always creates a new project.
+2. **Creates a project and its directory.** Unless `--project` names one, or
+   the directory is already linked, it creates a new project.
    With no directory argument, it uses `--name` or a generated name such as
    `fuji-amber-42`, and creates a directory with the same name in the current
    directory. With a directory argument, the project is named after that
@@ -35,12 +36,15 @@ characters in single quotes, so you can paste them as they are.
    directory, it adds `-2`, `-3`, and so on. With `--project <project-id>` it
    uses that project instead, in a directory named after it. If that
    directory already exists with files in it and isn't linked to the
-   project, connect stops and prints the command to use it on purpose. Run
-   inside a directory that is already linked, it keeps the linked project.
+   project, connect stops and prints the command to use it on purpose.
+   Without `--project`, run inside a directory that is already linked, it
+   keeps the linked project.
    It doesn't link your home directory, whose `.volcano` directory holds the
    CLI's own config.
 3. **Links the directory.** It writes `.volcano/project.json`. CLI commands
-   run inside the directory use this project. See
+   run inside the directory use this project. Right after the link, it
+   gitignores `volcano/*.env` and, for a new link, `.volcano/project.json`,
+   unless `.gitignore` already has the entry or its negation. See
    [Linked directories](#linked-directories).
 4. **Creates the scaffold.** If `volcano/` is missing, it creates the same
    scaffold as `volcano init`. With `--template` it adds that starter, also
@@ -55,9 +59,8 @@ characters in single quotes, so you can paste them as they are.
    `NEXT_PUBLIC_` copies a Next.js frontend reads. The API URL is written
    without a user name, password, query, or fragment, because a frontend build
    makes it public. Other lines in the file are kept.
-6. **Updates `.gitignore` and `AGENTS.md`.** It gitignores
-   `.volcano/project.json` and `volcano/*.env`, and adds a Volcano section to
-   `AGENTS.md` that tells the agent where the project link is, which skills to
+6. **Updates `AGENTS.md`.** It adds a Volcano section to `AGENTS.md` that
+   tells the agent where the project link is, which skills to
    use, and how to deploy. The section names no project, so teammates can
    share it. A rerun replaces the section instead of adding another. The
    section sits between `<!-- volcano:connect:start -->` and

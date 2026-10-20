@@ -103,8 +103,9 @@ volcano use eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 volcano cloud functions deploy --all
 ```
 
-Both save the project to `~/.volcano/config.json`, or, inside a
-[linked directory](connect.md#linked-directories), update the link. A
+`volcano use` saves the project to `~/.volcano/config.json`, or, inside a
+[linked directory](connect.md#linked-directories), updates the link.
+`volcano login --token pt-… --project` inside a linked directory does both. A
 repository that commits its `.volcano/project.json` needs only `VOLCANO_TOKEN`:
 commands run there use the linked project. `volcano connect` gitignores the
 link, so remove that entry to commit it.

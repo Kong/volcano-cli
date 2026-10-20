@@ -178,8 +178,6 @@ func TestUseRelinksWhenVolcanoProjectIDNamesTheSelectedProject(t *testing.T) {
 	assert.Equal(t, projectBetaID, link.Project.ID)
 }
 
-// cloud.env feeds NEXT_PUBLIC_VOLCANO_API_URL into browser bundles, so
-// credentials or a query in the API URL must not reach it.
 // The refresh refuses a symlinked cloud env file, so `volcano use` warns
 // instead of writing keys into the file it points at.
 func TestUseReportsASymlinkedCloudEnv(t *testing.T) {
@@ -228,6 +226,8 @@ func TestUseDoesNotCreateAnAnonKeyForAProjectWithNone(t *testing.T) {
 	assert.Equal(t, cloudEnv, string(data))
 }
 
+// cloud.env feeds NEXT_PUBLIC_VOLCANO_API_URL into browser bundles, so
+// credentials or a query in the API URL must not reach it.
 func TestWriteCloudEnvLeavesCredentialsOutOfTheAPIURL(t *testing.T) {
 	dir := t.TempDir()
 

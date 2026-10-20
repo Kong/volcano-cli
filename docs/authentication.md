@@ -83,7 +83,8 @@ volcano login --token pk-xxxxxxxxxx --project my-app
 ```
 
 Inside a [linked directory](connect.md#linked-directories), `--project` updates
-the link, the same as `volcano use`. If the link named another project, login
+the link, the same as `volcano use`. For a project access token, login also
+saves the project to `~/.volcano/config.json`. If the link named another project, login
 warns and prints the command that links it back. If the deprecated
 `VOLCANO_PROJECT_ID` names a different project there, login fails and leaves
 the link as it was.

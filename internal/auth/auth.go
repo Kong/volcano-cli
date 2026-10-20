@@ -35,8 +35,9 @@ var platformExchangeRetryDelay = 500 * time.Millisecond
 type Credentials struct {
 	Token  string
 	UserID string
-	// Project is the project login validated the token against, to be saved as
-	// the active project. Nil when login resolved no project.
+	// Project is the project login validated the token against, to be
+	// selected: saved as the active project, or, inside a linked directory, in
+	// the link. Nil when login resolved no project.
 	Project *config.ProjectConfig
 	// APIURL is the API that issued or validated Token. It is not saved: the
 	// same run uses it to update the directory's link.

@@ -364,8 +364,8 @@ func TestUseInALinkedDirectoryReportsTheCloudEnv(t *testing.T) {
 	}
 }
 
-// Only login, signup and connect get past a link that can't be used. A
-// project command fails and names the file.
+// Project commands don't get past a link that can't be used: they fail and
+// name the file.
 func TestUseFailsOnABadProjectLink(t *testing.T) {
 	setProjectCommandTestHome(t)
 	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})

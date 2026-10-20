@@ -97,17 +97,18 @@ connect:
      (--name, or a generated name like fuji-amber-42) and a new directory
      named after it. With a directory argument, the new project is named after
      the directory. If the name is taken it adds -2, -3, and so on. With
-     --project <project-id> it uses that project instead. Run inside a linked
-     directory, it keeps the linked project.
+     --project <project-id> it uses that project instead. Without --project,
+     run inside a linked directory, it keeps the linked project.
   3. Links the directory in .volcano/project.json. Commands run inside the
-     directory use this project.
+     directory use this project. Right after the link, it gitignores the env
+     files and, for a new link, the link, unless .gitignore already has the
+     entry or its negation.
   4. Creates the volcano/ scaffold if it is missing, and adds --template's
      starter. If some of the starter's files are missing and another differs
      from the file already there, connect stops before it changes anything.
      When every starter file is there, a rerun keeps the ones you changed.
   5. Writes the project's API URL and anon key to volcano/cloud.env.
-  6. Gitignores the link and the env files, and adds a Volcano section to
-     AGENTS.md.
+  6. Adds a Volcano section to AGENTS.md.
   7. Installs the Volcano skills for every coding agent on this machine.
 
 It ends with the project's name, its directory, and its dashboard link.
