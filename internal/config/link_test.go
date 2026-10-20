@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -201,4 +202,46 @@ func TestWriteLinkRefusesASymlink(t *testing.T) {
 	data, err := os.ReadFile(target)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"token":"pk-keep"}`, string(data))
+}
+
+// ~/.volcano is the CLI's config directory, so a link file there is never a
+// link, and the walk stops below home.
+func TestFindLinkIgnoresTheHomeDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home+string(filepath.Separator))
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(home, LinkRelPath), []byte(`{"project_id":"`+linkTestProjectID+`"}`), 0o644))
+	nested := filepath.Join(home, "code", "app")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+
+	link, err := FindLink(nested)
+	require.NoError(t, err)
+	assert.Nil(t, link)
+
+	_, err = WriteLink(home, ProjectConfig{ID: linkTestProjectID})
+	require.ErrorIs(t, err, ErrHomeLink)
+}
+
+// A cloned repository could commit a huge file, or a symlink to /dev/zero, as
+// the link. Neither is read as one.
+func TestFindLinkRejectsALinkThatIsNotASmallRegularFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	path := filepath.Join(dir, LinkRelPath)
+	require.NoError(t, os.WriteFile(path, []byte(strings.Repeat(" ", maxLinkSize+1)), 0o644))
+
+	_, err := FindLink(dir)
+	var bad *LinkError
+	require.ErrorAs(t, err, &bad)
+	assert.Contains(t, err.Error(), "larger than")
+
+	if runtime.GOOS == "windows" {
+		return
+	}
+	require.NoError(t, os.Remove(path))
+	require.NoError(t, os.Symlink("/dev/zero", path))
+	_, err = FindLink(dir)
+	require.ErrorAs(t, err, &bad)
+	assert.Contains(t, err.Error(), "is not a regular file")
 }

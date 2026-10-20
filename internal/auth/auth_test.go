@@ -259,6 +259,10 @@ type deviceCodeServer struct {
 	// listStatus makes the token check fail; 0 answers it.
 	listStatus int
 	pollCount  atomic.Int32
+	// exchangeStatuses answer the platform exchange in turn before it
+	// succeeds.
+	exchangeStatuses []int
+	exchanges        atomic.Int32
 }
 
 func (d *deviceCodeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -272,6 +276,10 @@ func (d *deviceCodeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.polls[min(n, len(d.polls))-1](w)
 	case "/auth/platform/exchange":
 		assert.Equal(d.t, "Bearer auth-access-token", r.Header.Get("Authorization"))
+		if n := int(d.exchanges.Add(1)); n <= len(d.exchangeStatuses) {
+			writeAuthJSON(d.t, w, d.exchangeStatuses[n-1], map[string]string{"error": "failed"})
+			return
+		}
 		writeAuthJSON(d.t, w, http.StatusOK, map[string]any{
 			"token": "pk-device", "user_id": "user-1", "token_id": "33333333-3333-4333-8333-333333333333",
 			"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
@@ -424,6 +432,70 @@ func TestLoginWithDeviceCodeNamesWhyItWasRefused(t *testing.T) {
 			assert.Empty(t, loaded.UserToken, "nothing is saved")
 		})
 	}
+}
+
+// The API answers 403 access_denied when the account's email domain isn't
+// allowed. That ends the login like any refusal, without retrying.
+func TestLoginWithDeviceCodeTreatsA403AsARefusal(t *testing.T) {
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){func(w http.ResponseWriter) {
+		writeAuthJSON(t, w, http.StatusForbidden, map[string]string{"error": "access_denied", "error_description": "email domain not allowed"})
+	}}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	_, deps := newDeviceCodeClock(t)
+
+	_, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	refused, ok := errors.AsType[*DeviceCodeRefusedError](err)
+	require.True(t, ok, "got %v", err)
+	assert.Equal(t, "was denied", refused.Reason)
+	assert.Equal(t, int32(1), fake.pollCount.Load())
+}
+
+// The code is spent once the poll returns a token, so a failed exchange after
+// it is retried rather than losing the login.
+func TestLoginWithDeviceCodeRetriesAFailedExchange(t *testing.T) {
+	setRetryDelay(t)
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{
+		t: t, polls: []func(http.ResponseWriter){approvedPoll(t)},
+		exchangeStatuses: []int{http.StatusBadGateway, http.StatusServiceUnavailable},
+	}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	_, deps := newDeviceCodeClock(t)
+
+	credentials, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	require.NoError(t, err)
+	assert.Equal(t, "pk-device", credentials.Token)
+	assert.Equal(t, int32(3), fake.exchanges.Load())
+}
+
+// A 4xx from the exchange is an answer, not a blip, so it isn't retried.
+func TestLoginWithDeviceCodeDoesNotRetryARefusedExchange(t *testing.T) {
+	setRetryDelay(t)
+	cfg := testAuthConfig(t)
+	fake := &deviceCodeServer{
+		t: t, polls: []func(http.ResponseWriter){approvedPoll(t)},
+		exchangeStatuses: []int{http.StatusForbidden},
+	}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	_, deps := newDeviceCodeClock(t)
+
+	_, err := NewService(deviceCodeDeps(deps, server)).
+		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
+	require.ErrorContains(t, err, "failed to exchange platform token")
+	assert.Equal(t, int32(1), fake.exchanges.Load())
+}
+
+func setRetryDelay(t *testing.T) {
+	t.Helper()
+	original := platformExchangeRetryDelay
+	platformExchangeRetryDelay = time.Millisecond
+	t.Cleanup(func() { platformExchangeRetryDelay = original })
 }
 
 func TestLoginWithDeviceCodeStillPendingWhenTheCodeExpiresIsRefused(t *testing.T) {

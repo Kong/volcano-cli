@@ -25,6 +25,12 @@ import (
 
 const maxConsecutiveDevicePollFailures = 3
 
+// maxPlatformExchangeAttempts and platformExchangeRetryDelay bound the retries
+// of the exchange that follows an approved device login.
+const maxPlatformExchangeAttempts = 3
+
+var platformExchangeRetryDelay = 500 * time.Millisecond
+
 // Credentials are the platform credentials produced by a successful login.
 type Credentials struct {
 	Token  string
@@ -571,6 +577,24 @@ type devicePoller struct {
 	failures   int
 }
 
+// exchange trades the device login's access token for a platform token. The
+// device code is spent by now, so a network error or a 5xx is retried rather
+// than losing the login.
+func (p *devicePoller) exchange(ctx context.Context, accessToken string) (*apiclient.PlatformExchangeResponse, error) {
+	for attempt := 1; ; attempt++ {
+		exchange, err := p.client.ExchangePlatformToken(ctx, accessToken, p.clientID)
+		status := api.Status(err)
+		if err == nil || attempt == maxPlatformExchangeAttempts || (status != 0 && status < http.StatusInternalServerError) {
+			return exchange, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Duration(attempt) * platformExchangeRetryDelay):
+		}
+	}
+}
+
 // poll polls the device token endpoint once. done is false while the login is
 // still pending.
 func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done bool, err error) {
@@ -585,7 +609,7 @@ func (p *devicePoller) poll(ctx context.Context) (credentials Credentials, done 
 	p.failures = 0
 
 	if status.AccessToken != "" {
-		exchange, err := p.client.ExchangePlatformToken(ctx, status.AccessToken, p.clientID)
+		exchange, err := p.exchange(ctx, status.AccessToken)
 		if err != nil {
 			return Credentials{}, true, fmt.Errorf("failed to exchange platform token: %w", err)
 		}

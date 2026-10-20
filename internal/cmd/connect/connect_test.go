@@ -405,19 +405,43 @@ func TestConnectWithNameRefusesATemplateThatConflictsBeforeCreatingAProject(t *t
 }
 
 // With --project and no directory argument, the directory is known only once
-// the project is: the check runs then, before anything is linked.
+// the project is: the check runs then, before any file changes.
 func TestConnectWithProjectRefusesATemplateThatConflicts(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 	dir := filepath.Join(chdirTemp(t), "blog")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectOtherProjectID, Name: "blog"})
+	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
 
-	_, err := runConnectHere(t, server, "--project", connectOtherProjectID, "--template", "nextjs")
+	_, err = runConnectHere(t, server, "--project", connectOtherProjectID, "--template", "nextjs")
 	require.ErrorContains(t, err, "can't add the nextjs starter")
+	assert.NoDirExists(t, filepath.Join(dir, "volcano"))
+}
+
+// An unrelated directory with the project's name, such as another
+// repository, gets nothing unless it is named on purpose.
+func TestConnectWithProjectRefusesAnExistingUnlinkedDirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(chdirTemp(t), "blog")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("other repo\n"), 0o644))
+
+	_, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.ErrorContains(t, err, "./blog already exists and is not linked to blog. To set the project up in it, run: volcano connect ./blog --project "+connectOtherProjectID)
 	assert.NoDirExists(t, filepath.Join(dir, ".volcano"))
+	assert.NoFileExists(t, filepath.Join(dir, "AGENTS.md"))
+
+	// An empty directory, such as one a stopped run left, is used.
+	require.NoError(t, os.Remove(filepath.Join(dir, "README.md")))
+	_, err = runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dir, ".volcano", "project.json"))
 }
 
 func TestConnectFindsTheDefaultAnonKeyOnALaterPage(t *testing.T) {
@@ -953,9 +977,9 @@ func TestConnectNamesTheCreatedProjectWhenItsDirectoryCantBeCreated(t *testing.T
 	assert.Equal(t, 1, fake.creates)
 }
 
-// A link connect can't write leaves the created project unlinked. A dangling
-// symlink reads as no link, so connect creates a project before it finds out.
-func TestConnectNamesTheCreatedProjectWhenItsLinkCantBeWritten(t *testing.T) {
+// A symlink where the link should be, even a dangling one, is a link connect
+// can't read, so it stops before signing in or creating a project.
+func TestConnectRefusesASymlinkedLinkBeforeCreatingAProject(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("needs a symlink")
 	}
@@ -969,10 +993,8 @@ func TestConnectNamesTheCreatedProjectWhenItsLinkCantBeWritten(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(t.TempDir(), "missing.json"), path))
 
 	_, err := runConnect(t, server, ".")
-	require.ErrorContains(t, err, path+" is a symlink")
-	require.ErrorContains(t, err, "("+connectProjectID+"), but did not link it. "+
-		"To set it up, run: volcano connect . --project "+connectProjectID)
-	assert.Equal(t, 1, fake.creates)
+	require.ErrorContains(t, err, path+" is not a regular file")
+	assert.Zero(t, fake.creates)
 }
 
 // A cloned repository can commit any of the files connect writes as a symlink
@@ -1019,6 +1041,9 @@ func TestConnectNamesTheNewDirectoryWhenSetupFailsAfterTheLink(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, out, "Linked "+filepath.Join("fuji-amber-42", ".volcano", "project.json"))
 	require.ErrorContains(t, err, "Created project fuji-amber-42 ("+connectProjectID+") and linked it in ./fuji-amber-42. To finish setting it up, run: volcano connect ./fuji-amber-42")
+	// The new link is gitignored even though the run stopped, and the rerun,
+	// which finds the link, can't add the entry any more.
+	assert.Contains(t, readFile(t, filepath.Join("fuji-amber-42", ".gitignore")), ".volcano/project.json\n")
 
 	fake.anonKeyStatus = 0
 	_, err = runConnectHere(t, server, "./fuji-amber-42")
@@ -1068,6 +1093,18 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 
 // The dashboard approved the code before the user pasted the prompt, so
 // connect signs in without device authorization or the browser.
+// The home directory's .volcano holds the CLI's config, so it can't be linked.
+func TestConnectRefusesTheHomeDirectory(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	_, err := runConnect(t, server, os.Getenv("HOME"))
+	require.ErrorIs(t, err, cliconfig.ErrHomeLink)
+	assert.Zero(t, fake.creates)
+}
+
 // A --project that isn't an ID fails before the device code is spent.
 func TestConnectChecksTheProjectIDBeforeSigningIn(t *testing.T) {
 	setConnectTestHome(t)

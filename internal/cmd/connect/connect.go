@@ -273,6 +273,14 @@ func run(ctx context.Context, opts options) error {
 			cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(shown)+" --project "+previous.Project.ID))
 	}
 
+	// Right after the link, so a run that fails later still keeps a new link
+	// out of the repository. A team that commits the link removes its
+	// .gitignore entry, so a rerun on an existing link doesn't add it back.
+	newLink := previous == nil || previous.Dir != dir
+	if err := ensureGitignored(dir, newLink); err != nil {
+		return setupError(err)
+	}
+
 	if err := scaffold(opts, dir, starter); err != nil {
 		return setupError(err)
 	}
@@ -286,13 +294,6 @@ func run(ctx context.Context, opts options) error {
 		return setupError(err)
 	}
 	output.Success(opts.log, "Wrote the project's API URL and anon key to %s", cliproject.CloudEnvRelPath)
-
-	// A team that commits the link removes its .gitignore entry, so a rerun
-	// on an existing link doesn't add it back.
-	newLink := previous == nil || previous.Dir != dir
-	if err := ensureGitignored(dir, newLink); err != nil {
-		return setupError(err)
-	}
 
 	// AGENTS.md is usually committed, so the web URL, which VOLCANO_WEB_URL
 	// can set, is used without userinfo, query or fragment, as in cloud.env.
@@ -355,7 +356,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 		// The project is looked up after sign-in, so a wrong --project fails
 		// there with the login saved. LoginWithDeviceCode saves the login of
 		// a spent code even when its own checks fail.
-		credentials, err := auth.LoginWithDeviceCode(ctx, cfg, deviceCode, "", opts.log)
+		_, err := auth.LoginWithDeviceCode(ctx, cfg, deviceCode, "", opts.log)
 		if refusal, ok := errors.AsType[*cliauth.DeviceCodeRefusedError](err); ok {
 			output.Warning(opts.log, "The code from the dashboard %s. Signing in in the browser instead.", refusal.Reason)
 			refused = true
@@ -366,9 +367,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			if err != nil {
 				return fmt.Errorf("device code authentication failed: %w", err)
 			}
-			if err := cliauth.SaveCredentials(credentials); err != nil {
-				return fmt.Errorf("failed to save credentials: %w", err)
-			}
+			// LoginWithDeviceCode has saved the login.
 			output.Success(opts.log, "Signed in with the code from the dashboard")
 			return nil
 		}
@@ -511,6 +510,13 @@ func resolveTarget(ctx context.Context, opts options, session *clisession.Sessio
 			return "", nil, false, fmt.Errorf("%s is linked to another project (%s). Pass a directory for %s: volcano connect <directory> --project %s",
 				displayDir(wd, dir), link.Project.ID, project.Name, project.Id)
 		}
+		// Only a directory named here on purpose gets files in an existing,
+		// unlinked directory, such as an unrelated repository.
+		if (link == nil || link.Dir != dir) && !emptyOrMissing(dir) {
+			shown := displayDir(wd, dir)
+			return "", nil, false, fmt.Errorf("%s already exists and is not linked to %s. To set the project up in it, run: %s",
+				shown, project.Name, cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(shown)+" --project "+project.Id.String()))
+		}
 		return dir, project, false, makeDir(dir)
 	}
 
@@ -579,6 +585,9 @@ func checkTargetPath(opts options) error {
 	dir, err := filepath.Abs(opts.dir)
 	if err != nil {
 		return err
+	}
+	if config.IsHomeDir(dir) {
+		return config.ErrHomeLink
 	}
 	for path := dir; ; {
 		info, err := os.Stat(path)
@@ -1015,6 +1024,15 @@ func relPath(base, path string) string {
 // projectDashboardURL is the project's overview page in the dashboard.
 func projectDashboardURL(webURL string, projectID uuid.UUID) string {
 	return strings.TrimRight(webURL, "/") + "/dashboard/overview?" + url.Values{"project": []string{projectID.String()}}.Encode()
+}
+
+// emptyOrMissing reports whether dir is missing or an empty directory.
+func emptyOrMissing(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	return err == nil && len(entries) == 0
 }
 
 func exists(path string) bool {

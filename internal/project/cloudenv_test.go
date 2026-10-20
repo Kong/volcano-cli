@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -240,4 +241,24 @@ func TestWriteCloudEnvLeavesCredentialsOutOfTheAPIURL(t *testing.T) {
 	for _, leaked := range []string{"user", "secret", "token=abc", "frag"} {
 		assert.NotContains(t, env, leaked)
 	}
+}
+
+// A server that keeps reporting more pages can't keep connect waiting.
+func TestExistingAnonKeyStopsAtThePageCap(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		writeProjectJSON(t, w, http.StatusOK, map[string]any{
+			"data":     []any{map[string]any{"id": "33333333-3333-4333-8333-333333333333", "name": "old", "key_value": "ak-old", "is_default": false}},
+			"has_more": true,
+		})
+	}))
+	t.Cleanup(server.Close)
+	client, err := api.NewClient(server.URL, "", api.WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	key, err := existingAnonKey(context.Background(), client, uuid.MustParse(projectBetaID))
+	require.NoError(t, err)
+	assert.Equal(t, "ak-old", key)
+	assert.Equal(t, maxAnonKeyPages, requests)
 }

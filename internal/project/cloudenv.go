@@ -88,11 +88,15 @@ func DefaultAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID
 	return created.KeyValue, nil
 }
 
+// maxAnonKeyPages caps the walk, so a server that keeps reporting more pages
+// can't keep connect waiting.
+const maxAnonKeyPages = 100
+
 // existingAnonKey returns the project's default anon key, else its first
 // one, else "".
 func existingAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID) (string, error) {
 	var fallback string
-	for page := api.DefaultPage; ; page++ {
+	for page := api.DefaultPage; page < api.DefaultPage+maxAnonKeyPages; page++ {
 		keys, more, err := client.ListAnonKeysPage(ctx, projectID, page, api.DefaultLimit)
 		if err != nil {
 			return "", fmt.Errorf("failed to get the project's anon key: %w", err)

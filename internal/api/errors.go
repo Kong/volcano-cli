@@ -160,7 +160,9 @@ func apiError(statusCode int, body []byte) error {
 		Error            string `json:"error"`
 		ErrorDescription string `json:"error_description"`
 		Message          string `json:"message"`
-		Code             string `json:"code"`
+		// Code is kept only when it is a string: some proxies send a number,
+		// which must not discard the message.
+		Code json.RawMessage `json:"code"`
 	}
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
 		var message string
@@ -173,7 +175,9 @@ func apiError(statusCode int, body []byte) error {
 			message = payload.Message
 		}
 		if message != "" {
-			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(payload.Code)}
+			var code string
+			_ = json.Unmarshal(payload.Code, &code)
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code)}
 		}
 	}
 	message := cleanBody(body)

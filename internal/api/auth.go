@@ -58,12 +58,15 @@ func (c *Client) PollDeviceToken(ctx context.Context, clientID, deviceCode strin
 			AccessToken: resp.JSON200.AccessToken,
 		}, nil
 	}
-	if resp.JSON400 != nil {
-		status := &DeviceTokenPollResult{
-			Error: resp.JSON400.Error,
+	// A 403 is an OAuth error too, such as access_denied for an email domain
+	// the project doesn't allow, so it ends the login like a 400.
+	for _, oauthErr := range []*apiclient.OAuthErrorResponse{resp.JSON400, resp.JSON403} {
+		if oauthErr == nil {
+			continue
 		}
-		if resp.JSON400.ErrorDescription != nil {
-			status.ErrorDescription = *resp.JSON400.ErrorDescription
+		status := &DeviceTokenPollResult{Error: oauthErr.Error}
+		if oauthErr.ErrorDescription != nil {
+			status.ErrorDescription = *oauthErr.ErrorDescription
 		}
 		return status, nil
 	}

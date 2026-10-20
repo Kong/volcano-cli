@@ -33,8 +33,12 @@ characters in single quotes, so you can paste them as they are.
    directory. With a directory argument, the project is named after that
    directory. If the name is taken by one of your projects or an existing
    directory, it adds `-2`, `-3`, and so on. With `--project <project-id>` it
-   uses that project instead. Run inside a directory that is already linked,
-   it keeps the linked project.
+   uses that project instead, in a directory named after it. If that
+   directory already exists with files in it and isn't linked to the
+   project, connect stops and prints the command to use it on purpose. Run
+   inside a directory that is already linked, it keeps the linked project.
+   It doesn't link your home directory, whose `.volcano` directory holds the
+   CLI's own config.
 3. **Links the directory.** It writes `.volcano/project.json`. CLI commands
    run inside the directory use this project. See
    [Linked directories](#linked-directories).
