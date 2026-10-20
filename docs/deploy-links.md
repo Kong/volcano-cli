@@ -111,6 +111,48 @@ hash and Volcano stores no address.
 working. Projects people already deployed from it are not affected. By default
 it asks for confirmation; pass `--yes` to skip the prompt.
 
+## Deploy from a link
+
+Anyone with an account can create a project from a link:
+
+```bash
+volcano projects create my-app --from https://volcano.dev/deploy/<id>
+```
+
+`--from` takes the link's address or its 12-character id. Only the id is used:
+the CLI sends it to the API it is configured for, whatever host the address
+names.
+
+The command first shows what the link deploys, which needs no sign-in on the
+server's side: the repository and its address, the branch, the exact commit, and
+the frontends and functions that would be created. Volcano has not reviewed this
+code, so deploy only repositories you trust. Then it asks you to confirm that
+commit. The project is pinned to the commit you confirmed, and the command waits
+for the installation, printing each phase, until the project is ready.
+
+| Flag | Does |
+|---|---|
+| `--yes` | Skips the confirmation, for CI. |
+| `--commit <hash>` | Stops unless the link is at that commit (at least 7 characters), so a script deploys only code it expects. |
+| `--no-wait` | Returns as soon as the project is created. Check it with `volcano projects get <project-id>`. |
+
+`--from` cannot be combined with `--template`. `--commit`, `--yes` and
+`--no-wait` only apply with `--from`.
+
+If the link's branch moves after the preview, nothing is created. At a terminal
+the command shows the new commit and asks again. With `--yes` or `--commit` it
+shows the new commit, exits with an error and creates nothing, so a commit you
+have not seen is never deployed: review it and run the command again.
+
+If the installation fails, the command exits with an error and the project is
+kept. Inspect it with `volcano projects get <project-id>`, or delete it with
+`volcano projects delete <project-id>`. Once it is ready, `volcano use
+<project-id>` selects it.
+
+The Free plan allows one project, so creating another is refused until you delete
+one or upgrade. A link that does not exist, was switched off, or can no longer be
+deployed all answer "This deploy link is not available."
+
 ## When a command is refused
 
 The CLI prints the API's message with what to do next.
@@ -119,7 +161,7 @@ The CLI prints the API's message with what to do next.
 |---|---|
 | `401` | The GitHub connection's authorization expired, or you are signed out. Reconnect GitHub, or run `volcano login`, and try again. |
 | `403` | The project is not yours, or a project access token was used. A person manages deploy links, so sign in with `volcano login`. |
-| `404` | The project or link does not exist. With "Deploy links are not available in this environment." it is not a missing link: deploy links are not offered here. |
-| `409` | The project has no repository connected, is connected to a different repository than the link, has 20 links already, or the link changed while it was being saved. For a link that changed, run the command again. |
+| `404` | The project or link does not exist. For `--from`, "This deploy link is not available." With "Deploy links are not available in this environment." it is not a missing link: deploy links are not offered here. |
+| `409` | The project has no repository connected, is connected to a different repository than the link, has 20 links already, or the link changed while it was being saved. For a link that changed, run the command again. For `--from`, `commit_changed` means the branch moved after the preview; see above. |
 | `422` | The repository is private or empty, its configuration is invalid, the connected account cannot push to it, the branch does not exist, or the repository cannot be deployed as it is. |
 | `503` | GitHub is rate limiting or not available right now, or the GitHub integration is not configured. Try again shortly. |
