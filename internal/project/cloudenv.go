@@ -29,7 +29,10 @@ func WriteCloudEnv(dir, apiURL, anonKey string) error {
 	if err := symlink.Refuse(dir, filepath.FromSlash(CloudEnvRelPath)); err != nil {
 		return err
 	}
-	apiURL = api.PublicURL(apiURL)
+	apiURL, err := api.PublicURL(apiURL)
+	if err != nil {
+		return fmt.Errorf("the API URL is not valid: %w", err)
+	}
 	return envfile.Upsert(CloudEnvPath(dir), []envfile.Var{
 		{Key: "VOLCANO_API_URL", Value: apiURL},
 		{Key: "VOLCANO_ANON_KEY", Value: anonKey},
