@@ -124,7 +124,7 @@ func confirmAndCreate(
 			}
 		}
 
-		project, err := projects.CreateFromDeployLink(ctx, opts.name, linkID, preview.CommitSha)
+		project, err := projects.CreateFromDeployLink(ctx, opts.name, linkID, preview.CommitSha, preview.Path)
 		if err == nil {
 			return project, nil
 		}

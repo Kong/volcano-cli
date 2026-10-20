@@ -84,6 +84,10 @@ func newFromServer(t *testing.T) (*fromServer, *httptest.Server) {
 }
 
 func previewPayload(commit string) map[string]any {
+	return previewPayloadAt(commit, "apps/web")
+}
+
+func previewPayloadAt(commit, path string) map[string]any {
 	return map[string]any{
 		"id": fromLinkID,
 		"repository": map[string]any{
@@ -91,7 +95,7 @@ func previewPayload(commit string) map[string]any {
 		},
 		"branch":         "main",
 		"commit_sha":     commit,
-		"path":           "apps/web",
+		"path":           path,
 		"suggested_name": "notes-app",
 		"frontends":      []string{"web"},
 		"functions":      []string{"api", "worker"},
@@ -169,7 +173,7 @@ func TestCreateFromShowsThePreviewAndDeploysTheConfirmedCommit(t *testing.T) {
 	assert.Equal(t, []map[string]any{{
 		"name": "my-app",
 		"template_source": map[string]any{
-			"deploy_link": map[string]any{"id": fromLinkID, "commit_sha": commitOne},
+			"deploy_link": map[string]any{"id": fromLinkID, "commit_sha": commitOne, "path": "apps/web"},
 		},
 	}}, fake.createBodies, "the project is pinned to the previewed commit")
 }
@@ -267,6 +271,58 @@ func TestCreateFromChangedCommitAsksAgainWhenInteractive(t *testing.T) {
 	assert.Contains(t, out, "Commit: "+commitTwo)
 	second := fake.createBodies[1]["template_source"].(map[string]any)["deploy_link"].(map[string]any)
 	assert.Equal(t, commitTwo, second["commit_sha"])
+}
+
+// The build root is confirmed with the commit, so it is sent exactly as the
+// preview showed it: a path as is, and the repository root as an empty string.
+func TestCreateFromSendsThePreviewsPath(t *testing.T) {
+	for _, path := range []string{"apps/web", ""} {
+		t.Run("path="+path, func(t *testing.T) {
+			loggedIn(t)
+			fake, server := newFromServer(t)
+			fake.preview = func(int) (int, any) { return http.StatusOK, previewPayloadAt(commitOne, path) }
+
+			out, err := runFrom(t, server, "", "--from", fromLink, "--yes")
+			require.NoError(t, err)
+
+			source := fake.createBodies[0]["template_source"].(map[string]any)["deploy_link"].(map[string]any)
+			assert.Equal(t, map[string]any{"id": fromLinkID, "commit_sha": commitOne, "path": path}, source,
+				"nothing else is sent")
+			if path == "" {
+				assert.NotContains(t, out, "Path:")
+			} else {
+				assert.Contains(t, out, "Path: "+path)
+			}
+		})
+	}
+}
+
+// The owner pointing the link at another path is the same refusal as the
+// branch moving. The new preview shows the new path, and the second attempt
+// sends it.
+func TestCreateFromChangedPathAsksAgainWithTheNewPath(t *testing.T) {
+	loggedIn(t)
+	fake, server := newFromServer(t)
+	fake.create = func(call int, _ map[string]any) (int, any) {
+		if call == 1 {
+			return http.StatusConflict, map[string]any{"error": "the link changed", "code": "commit_changed"}
+		}
+		return http.StatusCreated, installingProject("ready", "ready", sourcePayload(commitOne))
+	}
+	fake.preview = func(call int) (int, any) {
+		if call == 1 {
+			return http.StatusOK, previewPayloadAt(commitOne, "apps/web")
+		}
+		return http.StatusOK, previewPayloadAt(commitOne, "apps/admin")
+	}
+
+	out, err := runFrom(t, server, "y\ny\n", "--from", fromLink)
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Path: apps/admin", "the new preview shows the new path")
+	second := fake.createBodies[1]["template_source"].(map[string]any)["deploy_link"].(map[string]any)
+	assert.Equal(t, "apps/admin", second["path"])
+	assert.Equal(t, 2, strings.Count(out, "Deploy this commit?"))
 }
 
 func TestCreateFromChangedCommitStopsWhenTheRunAlreadyDecided(t *testing.T) {

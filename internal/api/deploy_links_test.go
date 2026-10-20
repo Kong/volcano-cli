@@ -189,9 +189,9 @@ func TestCreateProjectFromDeployLinkSendsTheSourceAndKeepsTheConflictCode(t *tes
 	require.NoError(t, err)
 
 	_, err = client.CreateProjectFromDeployLink(context.Background(), " my-app ", "k3Vn8TqPz0aX",
-		"0123456789abcdef0123456789abcdef01234567")
+		"0123456789abcdef0123456789abcdef01234567", "apps/web")
 	require.Error(t, err)
-	assert.JSONEq(t, `{"name":"my-app","template_source":{"deploy_link":{"id":"k3Vn8TqPz0aX","commit_sha":"0123456789abcdef0123456789abcdef01234567"}}}`, string(body))
+	assert.JSONEq(t, `{"name":"my-app","template_source":{"deploy_link":{"id":"k3Vn8TqPz0aX","commit_sha":"0123456789abcdef0123456789abcdef01234567","path":"apps/web"}}}`, string(body))
 	assert.Equal(t, http.StatusConflict, Status(err))
 	assert.Equal(t, "commit_changed", Code(err))
 }

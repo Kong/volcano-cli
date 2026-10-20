@@ -2147,7 +2147,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many projects created from deploy links from this account or address; try again later
+          description: Too many projects created from deploy links from this account; try again later
           content:
             application/json:
               schema:
@@ -3355,7 +3355,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeployLink'
         '400':
-          description: Malformed request body, or an invalid branch, path or suggested name
+          description: Malformed request body, or an invalid branch, path or suggested name. Code `feature_unavailable` means deploy links are not available in this environment, so an edit or enabling the link is refused while switching it off still works
           content:
             application/json:
               schema:
@@ -3375,7 +3375,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or deploy link not found, or deploy links are not available in this environment (code `feature_unavailable`; see `GET /capabilities`)
+          description: Project or deploy link not found
           content:
             application/json:
               schema:
@@ -19969,11 +19969,12 @@ components:
         path:
           type: string
           maxLength: 1024
-          description: Build root inside the repository, as a clean relative path. Defaults to the repository root.
+          description: Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
         suggested_name:
           type: string
           maxLength: 64
-          description: Project name offered to visitors.
+          pattern: ^[A-Za-z0-9_-]*$
+          description: Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
     UpdateDeployLinkRequest:
       type: object
       additionalProperties: false
@@ -19989,6 +19990,7 @@ components:
         suggested_name:
           type: string
           maxLength: 64
+          pattern: ^[A-Za-z0-9_-]*$
         status:
           type: string
           enum:
@@ -25552,6 +25554,10 @@ components:
           type: string
           pattern: ^[0-9a-f]{40}$
           description: The commit the visitor confirmed, as returned by the link's preview.
+        path:
+          type: string
+          maxLength: 1024
+          description: The build root the visitor confirmed, as returned by the link's preview. Omit it, or send an empty string, for the repository root. If the owner has since pointed the link at another path, the request is refused with 409 and code `commit_changed`, so only what the visitor saw is installed.
     CreateProjectTemplateSource:
       type: object
       additionalProperties: false

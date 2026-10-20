@@ -45,14 +45,14 @@ func (s Service) PreviewDeployLink(ctx context.Context, linkID string) (*apiclie
 }
 
 // CreateFromDeployLink creates a project from a deploy link, pinned to the
-// commit the preview returned. Installation is asynchronous: poll Get until the
+// commit and build root the preview returned. Installation is asynchronous: poll Get until the
 // project's template installation is ready or failed.
-func (s Service) CreateFromDeployLink(ctx context.Context, name, linkID, commitSHA string) (*apiclient.Project, error) {
+func (s Service) CreateFromDeployLink(ctx context.Context, name, linkID, commitSHA, path string) (*apiclient.Project, error) {
 	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
 	}
-	project, err := authenticated.API.CreateProjectFromDeployLink(ctx, name, linkID, commitSHA)
+	project, err := authenticated.API.CreateProjectFromDeployLink(ctx, name, linkID, commitSHA, path)
 	if err != nil {
 		return nil, deployLinkError(fmt.Sprintf("create project %q from the deploy link", name), err)
 	}

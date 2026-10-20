@@ -5392,10 +5392,10 @@ type CreateDeployLinkRequest struct {
 	// Branch The branch to follow. Defaults to the project's production branch.
 	Branch *string `json:"branch,omitempty"`
 
-	// Path Build root inside the repository, as a clean relative path. Defaults to the repository root.
+	// Path Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
 	Path *string `json:"path,omitempty"`
 
-	// SuggestedName Project name offered to visitors.
+	// SuggestedName Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
 	SuggestedName *string `json:"suggested_name,omitempty"`
 }
 
@@ -6358,6 +6358,9 @@ type DeployLinkSource struct {
 
 	// Id The deploy link's id.
 	Id string `json:"id"`
+
+	// Path The build root the visitor confirmed, as returned by the link's preview. Omit it, or send an empty string, for the repository root. If the owner has since pointed the link at another path, the request is refused with 409 and code `commit_changed`, so only what the visitor saw is installed.
+	Path *string `json:"path,omitempty"`
 }
 
 // DeployLinkStats defines model for DeployLinkStats.

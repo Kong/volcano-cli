@@ -32,16 +32,17 @@ func (c *Client) CreateProject(ctx context.Context, name, templateID string) (*a
 }
 
 // CreateProjectFromDeployLink creates a project from the repository a deploy
-// link shares, pinned to commitSHA: the commit its preview returned. The API
-// answers 409 with code commit_changed, and creates nothing, when the link's
-// branch has moved since.
+// link shares, pinned to commitSHA and path: the commit and build root its
+// preview returned, where an empty path is the repository root. The API answers
+// 409 with code commit_changed, and creates nothing, when the link's branch has
+// moved or its path has changed since.
 func (c *Client) CreateProjectFromDeployLink(
-	ctx context.Context, name, linkID, commitSHA string,
+	ctx context.Context, name, linkID, commitSHA, path string,
 ) (*apiclient.Project, error) {
 	return c.createProject(ctx, apiclient.CreateProjectJSONRequestBody{
 		Name: strings.TrimSpace(name),
 		TemplateSource: &apiclient.CreateProjectTemplateSource{
-			DeployLink: apiclient.DeployLinkSource{Id: linkID, CommitSha: commitSHA},
+			DeployLink: apiclient.DeployLinkSource{Id: linkID, CommitSha: commitSHA, Path: &path},
 		},
 	})
 }
