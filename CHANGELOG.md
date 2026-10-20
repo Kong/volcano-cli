@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/Kong/volcano-cli/compare/v0.48.0...v0.49.0) (2026-10-20)
+
+
+### Features
+
+* CLI usage telemetry with coding agent detection ([#318](https://github.com/Kong/volcano-cli/issues/318)) ([ec8e731](https://github.com/Kong/volcano-cli/commit/ec8e73186bbd9a9e5ad0234dfa231ad480525033))
+
 ## [0.48.0](https://github.com/Kong/volcano-cli/compare/v0.47.0...v0.48.0) (2026-10-20)
 
 
