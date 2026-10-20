@@ -2089,6 +2089,11 @@ paths:
       description: |
         Creates a project for the authenticated user.
         Each user can create up to 1,000 projects. Requests over this cap return 403.
+
+        With `template_id` the project is created from a built-in starter; with
+        `template_source` it is created from a repository shared through a deploy
+        link. Either way installation is asynchronous: poll the project until
+        `template_installation.status` is `ready`.
       operationId: createProject
       security:
         - UserToken: []
@@ -2117,8 +2122,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            The deploy link in `template_source` is not available. It does not exist,
+            was switched off, or can no longer be deployed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The deploy link's branch moved since the preview (code `commit_changed`).
+            Fetch the preview again and confirm the new commit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: |
+            The repository cannot be deployed as it is, or would exceed the plan's
+            limits for frontends and functions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many projects created from deploy links from this account or address; try again later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
-          description: The selected project template is not configured in this environment
+          description: The selected project template is not configured in this environment, or GitHub is rate limiting or unavailable right now
           content:
             application/json:
               schema:
@@ -3058,6 +3093,58 @@ paths:
                 $ref: '#/components/schemas/Error'
         '501':
           description: Source export is not available in this deployment mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /deploy-links/{linkId}:
+    get:
+      tags:
+        - Deploy Links
+      summary: Preview what a deploy link deploys
+      description: |
+        Public: needs no credential, because the link id is the credential. Resolves
+        the link's branch to its latest commit and reports the repository, that
+        exact commit, and the frontends and functions deploying it would create.
+        Show it to a visitor before they confirm; the commit it returns is the one
+        a project created from the link is pinned to.
+
+        Counts the visit for the link's owner, unless the request comes from a
+        crawler or link preview. A link that does not exist, was switched off, or
+        can no longer be deployed all answer the same `404`. A link whose repository
+        went private or lost its GitHub connection is switched off the first time
+        anyone notices.
+      operationId: getDeployLinkPreview
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeployLinkId'
+      responses:
+        '200':
+          description: What deploying the link would create
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLinkPreview'
+        '404':
+          description: The link is not available, or deploy links are not available in this environment (code `feature_unavailable`; see `GET /capabilities`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many previews from this address; try again later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to preview the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: GitHub is rate limiting or unavailable right now, or the link owner must reconnect GitHub; try again shortly
           content:
             application/json:
               schema:
@@ -18303,9 +18390,11 @@ components:
             - collab-pad
             - official-starter
           example: pixel-board
+        template_source:
+          $ref: '#/components/schemas/CreateProjectTemplateSource'
         initialPrompt:
           type: string
-          description: Optional initial builder prompt. Cannot be combined with template_id.
+          description: Optional initial builder prompt. Cannot be combined with template_id or template_source.
         all_regions:
           type: boolean
           description: |
@@ -19905,6 +19994,65 @@ components:
           enum:
             - active
             - disabled
+    DeployLinkPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9]{12}$
+        repository:
+          $ref: '#/components/schemas/DeployLinkRepository'
+        branch:
+          type: string
+          description: The branch the link follows.
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          description: The commit a project created from the link is pinned to. It is the branch's latest commit as of this response.
+        path:
+          type: string
+          description: Build root inside the repository. Empty is the repository root.
+        suggested_name:
+          type: string
+          description: Project name the link's owner suggests. Empty lets Volcano choose one.
+        frontends:
+          type: array
+          items:
+            type: string
+          description: Names of the frontends deploying this commit would create.
+        functions:
+          type: array
+          items:
+            type: string
+          description: Names of the functions deploying this commit would create.
+      required:
+        - id
+        - repository
+        - branch
+        - commit_sha
+        - path
+        - suggested_name
+        - frontends
+        - functions
+    DeployLinkRepository:
+      type: object
+      properties:
+        full_name:
+          type: string
+          description: The repository's owner and name, such as `acme/notes-app`.
+        owner:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+          description: The repository's address on GitHub.
+      required:
+        - full_name
+        - owner
+        - name
+        - url
     DeployLinkKindCount:
       type: object
       properties:
@@ -25310,6 +25458,24 @@ components:
       description: |
         This OpenAPI document, with every reference resolved. Shared by the JSON
         and YAML operations, which differ only in serialization.
+    ProjectTemplateInstallationSource:
+      type: object
+      description: Where an installation that came from a deploy link was read from.
+      required:
+        - kind
+        - repository
+        - commit_sha
+      properties:
+        kind:
+          type: string
+          enum:
+            - github
+        repository:
+          type: string
+          description: The repository's owner and name, such as `acme/notes-app`.
+        commit_sha:
+          type: string
+          description: The commit the project was installed from.
     ProjectTemplateInstallation:
       type: object
       description: |
@@ -25337,6 +25503,8 @@ components:
             - deploy
             - verify
             - ready
+        source:
+          $ref: '#/components/schemas/ProjectTemplateInstallationSource'
     ProjectGitConnectionSummary:
       type: object
       properties:
@@ -25369,6 +25537,41 @@ components:
           $ref: '#/components/schemas/ProjectHealthStatus'
       required:
         - status
+    DeployLinkSource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - commit_sha
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9]{12}$
+          description: The deploy link's id.
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          description: The commit the visitor confirmed, as returned by the link's preview.
+    CreateProjectTemplateSource:
+      type: object
+      additionalProperties: false
+      description: |
+        Creates the project from a public GitHub repository shared through a deploy
+        link, instead of a built-in starter. Show the visitor what
+        `GET /deploy-links/{linkId}` returns, then send the link id and the
+        `commit_sha` it returned: the project is pinned to exactly that commit.
+
+        If the link's branch has moved since, nothing is created and the response is
+        a `409` with code `commit_changed`; fetch the preview again and have the
+        visitor confirm the new commit. Cannot be combined with `template_id` or
+        `initialPrompt`. Needs cloud mode, and answers `400` with code
+        `feature_unavailable` while deploy links are not available (see
+        `GET /capabilities`). Installation is asynchronous, as for `template_id`.
+      required:
+        - deploy_link
+      properties:
+        deploy_link:
+          $ref: '#/components/schemas/DeployLinkSource'
     FunctionKind:
       type: string
       enum:

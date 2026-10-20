@@ -3096,6 +3096,21 @@ func (e ProjectTemplateInstallationStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProjectTemplateInstallationSourceKind.
+const (
+	ProjectTemplateInstallationSourceKindGithub ProjectTemplateInstallationSourceKind = "github"
+)
+
+// Valid indicates whether the value is a known member of the ProjectTemplateInstallationSourceKind enum.
+func (e ProjectTemplateInstallationSourceKind) Valid() bool {
+	switch e {
+	case ProjectTemplateInstallationSourceKindGithub:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublishSandboxPresetRequestMemoryMb.
 const (
 	PublishSandboxPresetRequestMemoryMbN1024 PublishSandboxPresetRequestMemoryMb = 1024
@@ -4667,13 +4682,13 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 
 // Defines values for StartGitConnectParamsProvider.
 const (
-	Github StartGitConnectParamsProvider = "github"
+	StartGitConnectParamsProviderGithub StartGitConnectParamsProvider = "github"
 )
 
 // Valid indicates whether the value is a known member of the StartGitConnectParamsProvider enum.
 func (e StartGitConnectParamsProvider) Valid() bool {
 	switch e {
-	case Github:
+	case StartGitConnectParamsProviderGithub:
 		return true
 	default:
 		return false
@@ -5491,7 +5506,7 @@ type CreateProjectRequest struct {
 	// - `false`: project deploys only to `selected_regions`
 	AllRegions *bool `json:"all_regions,omitempty"`
 
-	// InitialPrompt Optional initial builder prompt. Cannot be combined with template_id.
+	// InitialPrompt Optional initial builder prompt. Cannot be combined with template_id or template_source.
 	InitialPrompt *string `json:"initialPrompt,omitempty"`
 
 	// Name Project name (must be unique).
@@ -5504,10 +5519,38 @@ type CreateProjectRequest struct {
 
 	// TemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
 	TemplateId *CreateProjectRequestTemplateId `json:"template_id,omitempty"`
+
+	// TemplateSource Creates the project from a public GitHub repository shared through a deploy
+	// link, instead of a built-in starter. Show the visitor what
+	// `GET /deploy-links/{linkId}` returns, then send the link id and the
+	// `commit_sha` it returned: the project is pinned to exactly that commit.
+	//
+	// If the link's branch has moved since, nothing is created and the response is
+	// a `409` with code `commit_changed`; fetch the preview again and have the
+	// visitor confirm the new commit. Cannot be combined with `template_id` or
+	// `initialPrompt`. Needs cloud mode, and answers `400` with code
+	// `feature_unavailable` while deploy links are not available (see
+	// `GET /capabilities`). Installation is asynchronous, as for `template_id`.
+	TemplateSource *CreateProjectTemplateSource `json:"template_source,omitempty"`
 }
 
 // CreateProjectRequestTemplateId Optional trusted starter template identifier. The server resolves immutable source and database initialization artifacts. Callers cannot supply artifact locations or database credentials. Creation accepts an asynchronous installation; poll the individual project until template_installation.status is ready before using the app. Use pixel-board, trellini, or collab-pad for the configured starter bundles. The official-starter legacy identifier has environment-specific availability. Cannot be combined with initialPrompt.
 type CreateProjectRequestTemplateId string
+
+// CreateProjectTemplateSource Creates the project from a public GitHub repository shared through a deploy
+// link, instead of a built-in starter. Show the visitor what
+// `GET /deploy-links/{linkId}` returns, then send the link id and the
+// `commit_sha` it returned: the project is pinned to exactly that commit.
+//
+// If the link's branch has moved since, nothing is created and the response is
+// a `409` with code `commit_changed`; fetch the preview again and have the
+// visitor confirm the new commit. Cannot be combined with `template_id` or
+// `initialPrompt`. Needs cloud mode, and answers `400` with code
+// `feature_unavailable` while deploy links are not available (see
+// `GET /capabilities`). Installation is asynchronous, as for `template_id`.
+type CreateProjectTemplateSource struct {
+	DeployLink DeployLinkSource `json:"deploy_link"`
+}
 
 // CreateSandboxSessionRequest defines model for CreateSandboxSessionRequest.
 type CreateSandboxSessionRequest struct {
@@ -6273,6 +6316,49 @@ type DeployLinkKindCount struct {
 
 // DeployLinkKindCountKind defines model for DeployLinkKindCount.Kind.
 type DeployLinkKindCountKind string
+
+// DeployLinkPreview defines model for DeployLinkPreview.
+type DeployLinkPreview struct {
+	// Branch The branch the link follows.
+	Branch string `json:"branch"`
+
+	// CommitSha The commit a project created from the link is pinned to. It is the branch's latest commit as of this response.
+	CommitSha string `json:"commit_sha"`
+
+	// Frontends Names of the frontends deploying this commit would create.
+	Frontends []string `json:"frontends"`
+
+	// Functions Names of the functions deploying this commit would create.
+	Functions []string `json:"functions"`
+	Id        string   `json:"id"`
+
+	// Path Build root inside the repository. Empty is the repository root.
+	Path       string               `json:"path"`
+	Repository DeployLinkRepository `json:"repository"`
+
+	// SuggestedName Project name the link's owner suggests. Empty lets Volcano choose one.
+	SuggestedName string `json:"suggested_name"`
+}
+
+// DeployLinkRepository defines model for DeployLinkRepository.
+type DeployLinkRepository struct {
+	// FullName The repository's owner and name, such as `acme/notes-app`.
+	FullName string `json:"full_name"`
+	Name     string `json:"name"`
+	Owner    string `json:"owner"`
+
+	// Url The repository's address on GitHub.
+	Url string `json:"url"`
+}
+
+// DeployLinkSource defines model for DeployLinkSource.
+type DeployLinkSource struct {
+	// CommitSha The commit the visitor confirmed, as returned by the link's preview.
+	CommitSha string `json:"commit_sha"`
+
+	// Id The deploy link's id.
+	Id string `json:"id"`
+}
 
 // DeployLinkStats defines model for DeployLinkStats.
 type DeployLinkStats struct {
@@ -9602,8 +9688,11 @@ type ProjectSourceExportStateMode string
 // Project creation accepts the installation; wait for `ready` before use.
 // A failed installation retains the project for inspection or deletion.
 type ProjectTemplateInstallation struct {
-	Phase  ProjectTemplateInstallationPhase  `json:"phase"`
-	Status ProjectTemplateInstallationStatus `json:"status"`
+	Phase ProjectTemplateInstallationPhase `json:"phase"`
+
+	// Source Where an installation that came from a deploy link was read from.
+	Source *ProjectTemplateInstallationSource `json:"source,omitempty"`
+	Status ProjectTemplateInstallationStatus  `json:"status"`
 }
 
 // ProjectTemplateInstallationPhase defines model for ProjectTemplateInstallation.Phase.
@@ -9611,6 +9700,19 @@ type ProjectTemplateInstallationPhase string
 
 // ProjectTemplateInstallationStatus defines model for ProjectTemplateInstallation.Status.
 type ProjectTemplateInstallationStatus string
+
+// ProjectTemplateInstallationSource Where an installation that came from a deploy link was read from.
+type ProjectTemplateInstallationSource struct {
+	// CommitSha The commit the project was installed from.
+	CommitSha string                                `json:"commit_sha"`
+	Kind      ProjectTemplateInstallationSourceKind `json:"kind"`
+
+	// Repository The repository's owner and name, such as `acme/notes-app`.
+	Repository string `json:"repository"`
+}
+
+// ProjectTemplateInstallationSourceKind defines model for ProjectTemplateInstallationSource.Kind.
+type ProjectTemplateInstallationSourceKind string
 
 // ProjectUsageResponse Aggregated usage metrics for a project.
 type ProjectUsageResponse struct {
@@ -14523,6 +14625,9 @@ type ClientInterface interface {
 
 	QueryDatabaseUpdate(ctx context.Context, databaseName DatabaseName, body QueryDatabaseUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDeployLinkPreview request
+	GetDeployLinkPreview(ctx context.Context, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDeployments request
 	ListDeployments(ctx context.Context, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16383,6 +16488,18 @@ func (c *Client) QueryDatabaseUpdateWithBody(ctx context.Context, databaseName D
 
 func (c *Client) QueryDatabaseUpdate(ctx context.Context, databaseName DatabaseName, body QueryDatabaseUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryDatabaseUpdateRequest(c.Server, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeployLinkPreview(ctx context.Context, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeployLinkPreviewRequest(c.Server, linkId)
 	if err != nil {
 		return nil, err
 	}
@@ -22654,6 +22771,40 @@ func NewQueryDatabaseUpdateRequestWithBody(server string, databaseName DatabaseN
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeployLinkPreviewRequest generates requests for GetDeployLinkPreview
+func NewGetDeployLinkPreviewRequest(server string, linkId DeployLinkId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "linkId", linkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deploy-links/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -37427,6 +37578,9 @@ type ClientWithResponsesInterface interface {
 
 	QueryDatabaseUpdateWithResponse(ctx context.Context, databaseName DatabaseName, body QueryDatabaseUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDatabaseUpdateClientResponse, error)
 
+	// GetDeployLinkPreviewWithResponse request
+	GetDeployLinkPreviewWithResponse(ctx context.Context, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*GetDeployLinkPreviewClientResponse, error)
+
 	// ListDeploymentsWithResponse request
 	ListDeploymentsWithResponse(ctx context.Context, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDeploymentsClientResponse, error)
 
@@ -40058,6 +40212,40 @@ func (r QueryDatabaseUpdateClientResponse) ContentType() string {
 	return ""
 }
 
+type GetDeployLinkPreviewClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeployLinkPreview
+	JSON404      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeployLinkPreviewClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeployLinkPreviewClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeployLinkPreviewClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDeploymentsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -41162,6 +41350,10 @@ type CreateProjectClientResponse struct {
 	JSON201      *Project
 	JSON400      *Error
 	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON429      *Error
 	JSON503      *Error
 }
 
@@ -49387,6 +49579,15 @@ func (c *ClientWithResponses) QueryDatabaseUpdateWithResponse(ctx context.Contex
 	return ParseQueryDatabaseUpdateClientResponse(rsp)
 }
 
+// GetDeployLinkPreviewWithResponse request returning *GetDeployLinkPreviewClientResponse
+func (c *ClientWithResponses) GetDeployLinkPreviewWithResponse(ctx context.Context, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*GetDeployLinkPreviewClientResponse, error) {
+	rsp, err := c.GetDeployLinkPreview(ctx, linkId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeployLinkPreviewClientResponse(rsp)
+}
+
 // ListDeploymentsWithResponse request returning *ListDeploymentsClientResponse
 func (c *ClientWithResponses) ListDeploymentsWithResponse(ctx context.Context, params *ListDeploymentsParams, reqEditors ...RequestEditorFn) (*ListDeploymentsClientResponse, error) {
 	rsp, err := c.ListDeployments(ctx, params, reqEditors...)
@@ -54557,6 +54758,60 @@ func ParseQueryDatabaseUpdateClientResponse(rsp *http.Response) (*QueryDatabaseU
 	return response, nil
 }
 
+// ParseGetDeployLinkPreviewClientResponse parses an HTTP response from a GetDeployLinkPreviewWithResponse call
+func ParseGetDeployLinkPreviewClientResponse(rsp *http.Response) (*GetDeployLinkPreviewClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeployLinkPreviewClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeployLinkPreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDeploymentsClientResponse parses an HTTP response from a ListDeploymentsWithResponse call
 func ParseListDeploymentsClientResponse(rsp *http.Response) (*ListDeploymentsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -56314,6 +56569,34 @@ func ParseCreateProjectClientResponse(rsp *http.Response) (*CreateProjectClientR
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
