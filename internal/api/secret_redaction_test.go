@@ -129,7 +129,7 @@ func TestNotificationSettingsNeverPutTheWebhookSecretInAnError(t *testing.T) {
 	assert.NotContains(t, err.Error(), "receiver-token", "the webhook URL can carry the receiver's token")
 }
 
-// Dropping the body must not cost a refusal its message, whether the API
+// Dropping the body must not cost a refusal its message or code, whether the API
 // declares its status or, like a stale token's 401, does not.
 func TestNotificationSettingsKeepTheRefusalMessage(t *testing.T) {
 	for _, tt := range []struct {
@@ -143,7 +143,7 @@ func TestNotificationSettingsKeepTheRefusalMessage(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(`{"error":"` + tt.message + `"}`))
+				_, _ = w.Write([]byte(`{"error":"` + tt.message + `","code":"refused"}`))
 			}))
 			t.Cleanup(server.Close)
 			client, err := NewClient(server.URL, "pt-readonly", WithHTTPClient(server.Client()))
@@ -152,11 +152,13 @@ func TestNotificationSettingsKeepTheRefusalMessage(t *testing.T) {
 			_, err = client.RotateNotificationWebhookSecret(context.Background(), redactionTestProjectID(t))
 			require.Error(t, err)
 			assert.Equal(t, tt.status, Status(err))
+			assert.Equal(t, "refused", Code(err))
 			assert.Contains(t, err.Error(), tt.message)
 
 			_, err = client.GetNotificationSettings(context.Background(), redactionTestProjectID(t))
 			require.Error(t, err)
 			assert.Equal(t, tt.status, Status(err))
+			assert.Equal(t, "refused", Code(err))
 			assert.Contains(t, err.Error(), tt.message)
 		})
 	}
