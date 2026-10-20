@@ -114,12 +114,15 @@ func readLink(dir string) (*Link, error) {
 	}
 	// The ID ends up in printed commands, so a link committed to a cloned
 	// repository must not be able to put shell code there.
-	if _, err := uuid.Parse(strings.TrimSpace(file.ProjectID)); err != nil {
+	id, err := uuid.Parse(strings.TrimSpace(file.ProjectID))
+	if err != nil {
 		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("project link %s has a project_id that isn't a project ID: %q", path, file.ProjectID)}
 	}
+	// The canonical form is the one the API returns, so every spelling the
+	// parser accepts matches the same project.
 	return &Link{
 		Dir:     dir,
-		Project: ProjectConfig{ID: strings.TrimSpace(file.ProjectID), Name: file.ProjectName},
+		Project: ProjectConfig{ID: id.String(), Name: file.ProjectName},
 	}, nil
 }
 
@@ -129,6 +132,9 @@ func WriteLink(dir string, project ProjectConfig) (*Link, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
+	}
+	if id, err := uuid.Parse(strings.TrimSpace(project.ID)); err == nil {
+		project.ID = id.String()
 	}
 	link := &Link{Dir: abs, Project: project}
 	if err := symlink.Refuse(abs, LinkRelPath); err != nil {

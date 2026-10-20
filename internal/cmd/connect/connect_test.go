@@ -28,7 +28,9 @@ import (
 const (
 	connectProjectID      = "11111111-1111-4111-8111-111111111111"
 	connectOtherProjectID = "22222222-2222-4222-8222-222222222222"
-	connectAnonKey        = "ak-connect-default"
+	// connectHexProjectID has letters, so its uppercase spelling differs.
+	connectHexProjectID = "abcdef12-3456-4abc-8def-abcdef123456"
+	connectAnonKey      = "ak-connect-default"
 	// connectDeviceCode is the device code the dashboard put in the prompt. It
 	// is distinctive so a test can check it never shows up anywhere.
 	connectDeviceCode = "dc-dashboard-secret-7f3a"
@@ -787,6 +789,24 @@ func TestConnectWithProjectRerunInsideItsDirectoryReusesIt(t *testing.T) {
 	t.Chdir(dir)
 
 	out, err := runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Directory: .\n")
+	assert.NoDirExists(t, filepath.Join(dir, "blog"))
+}
+
+// A link can spell the project ID in uppercase. --project with the same ID
+// still sets up the linked directory instead of a ./blog inside it.
+func TestConnectWithProjectReusesALinkWithAnUppercaseID(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectHexProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := chdirTemp(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, cliconfig.LinkRelPath),
+		[]byte(`{"project_id":"`+strings.ToUpper(connectHexProjectID)+`","project_name":"blog"}`), 0o644))
+
+	out, err := runConnectHere(t, server, "--project", connectHexProjectID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Directory: .\n")
 	assert.NoDirExists(t, filepath.Join(dir, "blog"))

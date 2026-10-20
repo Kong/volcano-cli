@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,8 @@ import (
 const (
 	linkTestProjectID      = "11111111-1111-4111-8111-111111111111"
 	linkTestOtherProjectID = "22222222-2222-4222-8222-222222222222"
+	// linkTestHexProjectID has letters, so its uppercase spelling differs.
+	linkTestHexProjectID = "abcdef12-3456-4abc-8def-abcdef123456"
 )
 
 func TestFindLinkWalksUpToTheLinkedDirectory(t *testing.T) {
@@ -67,6 +70,33 @@ func TestFindLinkRejectsAProjectIDThatIsNotAUUID(t *testing.T) {
 	var linkErr *LinkError
 	require.ErrorAs(t, err, &linkErr)
 	require.ErrorContains(t, err, "has a project_id that isn't a project ID")
+}
+
+// Any accepted spelling of a project ID names the same project, so the link
+// keeps the lowercase form the API returns.
+func TestFindLinkLowercasesTheProjectID(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"),
+		[]byte(`{"project_id":" `+strings.ToUpper(linkTestHexProjectID)+` "}`), 0o644))
+
+	link, err := FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, linkTestHexProjectID, link.Project.ID)
+}
+
+func TestWriteLinkLowercasesTheProjectID(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+
+	link, err := WriteLink(dir, ProjectConfig{ID: strings.ToUpper(linkTestHexProjectID)})
+	require.NoError(t, err)
+	assert.Equal(t, linkTestHexProjectID, link.Project.ID)
+	data, err := os.ReadFile(link.Path())
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"project_id": "`+linkTestHexProjectID+`"`)
 }
 
 func TestLinkedProjectPrecedesSavedSelection(t *testing.T) {
