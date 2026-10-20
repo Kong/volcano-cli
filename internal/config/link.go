@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/symlink"
+	"github.com/Kong/volcano-cli/internal/theme"
 )
 
 const (
@@ -119,10 +120,11 @@ func readLink(dir string) (*Link, error) {
 		return nil, &LinkError{Dir: dir, Err: fmt.Errorf("project link %s has a project_id that isn't a project ID: %q", path, file.ProjectID)}
 	}
 	// The canonical form is the one the API returns, so every spelling the
-	// parser accepts matches the same project.
+	// parser accepts matches the same project. The name is printed, so it
+	// can't carry terminal escape sequences either.
 	return &Link{
 		Dir:     dir,
-		Project: ProjectConfig{ID: id.String(), Name: file.ProjectName},
+		Project: ProjectConfig{ID: id.String(), Name: theme.StripControl(file.ProjectName)},
 	}, nil
 }
 

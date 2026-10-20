@@ -87,6 +87,21 @@ func TestFindLinkLowercasesTheProjectID(t *testing.T) {
 	assert.Equal(t, linkTestHexProjectID, link.Project.ID)
 }
 
+// A cloned repository's link can put terminal escape sequences in the
+// project name, which the CLI prints.
+func TestFindLinkStripsControlCharactersFromTheProjectName(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"),
+		[]byte(`{"project_id":"`+linkTestProjectID+`","project_name":"my-app\u001b]52;c;ZXZpbA==\u0007\u001b[2J"}`), 0o644))
+
+	link, err := FindLink(dir)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, "my-app]52;c;ZXZpbA==[2J", link.Project.Name)
+}
+
 func TestWriteLinkLowercasesTheProjectID(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir()
