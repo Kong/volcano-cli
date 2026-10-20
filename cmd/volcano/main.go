@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
 	feedbackcmd "github.com/Kong/volcano-cli/internal/cmd/feedback"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
@@ -32,6 +33,7 @@ func main() {
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
 	feedbackcmd.SetRecorder(recorder)
+	feedbackHint = recorder.Reporting() && agent.Detect(os.LookupEnv).Name != ""
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
@@ -47,6 +49,9 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	start := time.Now()
 	cmd, err := root.ExecuteC()
 	code := finish(root, deps, err)
+	if code != 0 && feedbackHint && wantsFeedbackHint(cmd, err) {
+		printFeedbackHint(root.ErrOrStderr(), deps)
+	}
 	recordTelemetry(telemetry.Invocation{
 		Command:  cmd,
 		Err:      err,
@@ -63,6 +68,30 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 // it; tests replace it so they never write the config or start a flush
 // process.
 var recordTelemetry = func(telemetry.Invocation) {}
+
+// feedbackHint is whether a failed command ends with a pointer to `volcano
+// feedback`: only when a coding agent ran the CLI and feedback can be sent.
+// main sets it; tests leave it off unless they cover the hint.
+var feedbackHint bool
+
+// wantsFeedbackHint reports whether a failure could be a Volcano problem worth
+// a hint. A sandbox command's own exit status is the user's command failing,
+// and a failed `volcano feedback` would point at itself.
+func wantsFeedbackHint(cmd *cobra.Command, err error) bool {
+	if _, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
+		return false
+	}
+	isFeedback := cmd != nil && cmd.Name() == "feedback" && cmd.HasParent() && !cmd.Parent().HasParent()
+	return !isFeedback
+}
+
+// printFeedbackHint tells the coding agent how to report the failure if it is
+// a problem with Volcano. The volcano-feedback skill says what is worth
+// reporting.
+func printFeedbackHint(w io.Writer, deps cliruntime.Deps) {
+	fmt.Fprintf(w, "Coding agents: if this is a problem with Volcano itself, report it after your task with `%s`. See `%s`.\n",
+		cliruntime.CommandPath(deps, "feedback"), cliruntime.CommandPath(deps, "feedback --help"))
+}
 
 // finish prints the command's error and any pending API notices, and returns
 // the exit code.

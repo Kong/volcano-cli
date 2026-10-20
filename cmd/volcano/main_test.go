@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -610,3 +611,50 @@ func (t *mainTestTicker) C() <-chan time.Time { return t.ch }
 func (t *mainTestTicker) Stop()               {}
 func (t *mainTestTicker) Reset(time.Duration) {}
 func (t *mainTestTicker) tick()               { t.ch <- time.Now() }
+
+func TestRun_FeedbackHint(t *testing.T) {
+	failing := func() *cobra.Command {
+		root := &cobra.Command{Use: "volcano", SilenceErrors: true, SilenceUsage: true}
+		root.AddCommand(
+			&cobra.Command{Use: "deploy", RunE: func(*cobra.Command, []string) error { return errors.New("deploy failed") }},
+			&cobra.Command{Use: "ok", RunE: func(*cobra.Command, []string) error { return nil }},
+			&cobra.Command{Use: "feedback", RunE: func(*cobra.Command, []string) error { return errors.New("send feedback: HTTP 500") }},
+			&cobra.Command{Use: "exec", RunE: func(*cobra.Command, []string) error {
+				return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 3})
+			}},
+		)
+		return root
+	}
+	const hint = "Coding agents: if this is a problem with Volcano itself, report it after your task with `volcano feedback`. See `volcano feedback --help`."
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+		args    []string
+		want    bool
+	}{
+		{"failed command", true, []string{"deploy"}, true},
+		{"unknown command", true, []string{"nope"}, true},
+		{"no agent or feedback off", false, []string{"deploy"}, false},
+		{"success", true, []string{"ok"}, false},
+		{"failed feedback command", true, []string{"feedback"}, false},
+		{"sandbox command exit status", true, []string{"exec"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetInstructions(t)
+			old := feedbackHint
+			feedbackHint = tc.enabled
+			t.Cleanup(func() { feedbackHint = old })
+			root := failing()
+			root.SetArgs(tc.args)
+			var stderr bytes.Buffer
+			root.SetErr(&stderr)
+			run(root, cliruntime.Deps{})
+			if tc.want {
+				assert.Contains(t, stderr.String(), hint)
+				assert.Less(t, strings.Index(stderr.String(), "Error:"), strings.Index(stderr.String(), hint))
+			} else {
+				assert.NotContains(t, stderr.String(), "Coding agents:")
+			}
+		})
+	}
+}

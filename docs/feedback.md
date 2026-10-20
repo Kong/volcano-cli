@@ -12,6 +12,10 @@ distinct Volcano problem they ran into. You can run it yourself too.
 
 Feedback is off whenever telemetry is off. See [telemetry.md](telemetry.md).
 
+When a coding agent runs a `volcano` command that fails, and feedback is on,
+the CLI ends the error output with one line that points the agent to
+`volcano feedback`.
+
 ## Send a report
 
 ```bash
