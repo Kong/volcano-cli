@@ -60,8 +60,8 @@ characters in single quotes, so you can paste them as they are.
    `<!-- volcano:connect:end -->` lines. If the start line is there without an
    end line after it, `connect` fails and names `AGENTS.md` instead of
    guessing where the section ends. The section's dashboard link, like the one
-   `connect` prints, leaves out any user name, password, query, or fragment in
-   `VOLCANO_WEB_URL`.
+   `connect` prints, drops any user name, password, query, or fragment from
+   the dashboard's base address.
 7. **Installs skills.** It installs the Volcano skills for every coding agent
    it finds on the machine, as `volcano setup --yes` does. See
    [setup.md](setup.md).

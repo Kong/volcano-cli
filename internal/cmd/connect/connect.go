@@ -275,8 +275,8 @@ func run(ctx context.Context, opts options) error {
 		return err
 	}
 
-	// AGENTS.md is usually committed, so the web URL is used without
-	// userinfo, query or fragment, as in cloud.env.
+	// AGENTS.md is usually committed, so the web URL, which VOLCANO_WEB_URL
+	// can set, is used without userinfo, query or fragment, as in cloud.env.
 	webURL := api.PublicURL(authenticated.Config.WebURLForAPIURL(apiURL))
 	dashboardURL := projectDashboardURL(webURL, project.Id)
 	agentsPath := filepath.Join(dir, agentsFileName)
