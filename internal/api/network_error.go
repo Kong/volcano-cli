@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"syscall"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -35,7 +34,7 @@ func (d networkErrorDoer) Do(req *http.Request) (*http.Response, error) {
 	}
 	return resp, fmt.Errorf(
 		"cannot reach the Volcano API at %s (%s). Is the server running and is the API URL correct?: %w",
-		redactedURL(d.apiURL), hint, err,
+		RedactURL(d.apiURL), hint, err,
 	)
 }
 
@@ -68,18 +67,4 @@ func unreachableHint(err error) string {
 		return "could not connect"
 	}
 	return ""
-}
-
-// redactedURL returns the URL verbatim, except it masks an embedded basic-auth
-// password (mirroring net/http's own transport-error redaction) so a credential
-// baked into the configured API URL never lands in stderr/CI logs.
-func redactedURL(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil || u.User == nil {
-		return raw
-	}
-	if _, hasPassword := u.User.Password(); !hasPassword {
-		return raw
-	}
-	return u.Redacted()
 }

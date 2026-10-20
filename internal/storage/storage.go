@@ -150,7 +150,7 @@ func (s Service) GetPolicy(ctx context.Context, bucketName, identifier string) (
 			return &policies[i], nil
 		}
 	}
-	return nil, fmt.Errorf("policy %q not found on bucket %q", identifier, bucketName)
+	return nil, fmt.Errorf("policy %q %w on bucket %q", identifier, api.ErrNotFound, bucketName)
 }
 
 // CreatePolicy attaches a new policy to a bucket.

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestApiErrorFallsBackToStatusTextForHTMLBody(t *testing.T) {
@@ -40,4 +41,18 @@ func TestMessageReadsAWrappedError(t *testing.T) {
 	assert.Equal(t, "project access token is read-only", Message(fmt.Errorf("failed to do a thing: %w", err)))
 	assert.Empty(t, Message(errors.New("boom")))
 	assert.Empty(t, Message(nil))
+}
+
+// Some proxies send a numeric code. The message is still read, and the code,
+// which isn't one of the API's, is dropped.
+func TestAPIErrorKeepsTheMessageWithANumericCode(t *testing.T) {
+	err := apiError(http.StatusForbidden, []byte(`{"error":"forbidden","code":403}`))
+	var apiErr *Error
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, "forbidden", apiErr.Message)
+	assert.Empty(t, apiErr.Code)
+
+	err = apiError(http.StatusConflict, []byte(`{"error":"taken","code":"name_taken"}`))
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, "name_taken", apiErr.Code)
 }

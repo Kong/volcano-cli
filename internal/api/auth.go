@@ -18,6 +18,8 @@ type DeviceTokenPollResult struct {
 	AccessToken      string
 	Error            string
 	ErrorDescription string
+	// StatusCode is the HTTP status that carried Error.
+	StatusCode int
 }
 
 // ValidateToken validates the configured token by listing projects.
@@ -58,12 +60,17 @@ func (c *Client) PollDeviceToken(ctx context.Context, clientID, deviceCode strin
 			AccessToken: resp.JSON200.AccessToken,
 		}, nil
 	}
-	if resp.JSON400 != nil {
-		status := &DeviceTokenPollResult{
-			Error: resp.JSON400.Error,
+	// A 403 is an OAuth error too, such as access_denied for an email domain
+	// the project doesn't allow, so it ends the login like a 400.
+	for _, oauthErr := range []*apiclient.OAuthErrorResponse{resp.JSON400, resp.JSON403} {
+		// A 403 without an OAuth error, such as a gateway's, is a failure,
+		// not a pending login.
+		if oauthErr == nil || (oauthErr == resp.JSON403 && oauthErr.Error == "") {
+			continue
 		}
-		if resp.JSON400.ErrorDescription != nil {
-			status.ErrorDescription = *resp.JSON400.ErrorDescription
+		status := &DeviceTokenPollResult{Error: oauthErr.Error, StatusCode: resp.StatusCode()}
+		if oauthErr.ErrorDescription != nil {
+			status.ErrorDescription = *oauthErr.ErrorDescription
 		}
 		return status, nil
 	}

@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,9 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -33,6 +37,41 @@ func TestRunSandboxExitPreservesStatus(t *testing.T) {
 	root.SetErr(&stderr)
 	assert.Equal(t, 7, run(root, cliruntime.Deps{}))
 	assert.Empty(t, stderr.String())
+}
+
+func TestRunMapsErrorsToStableExitCodes(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "not logged in", err: cliconfig.ErrNotAuthenticated, want: exitNotAuthenticated},
+		{name: "rejected credential", err: fmt.Errorf("list: %w", &api.Error{StatusCode: http.StatusUnauthorized}), want: exitNotAuthenticated},
+		{name: "refused device code", err: fmt.Errorf("login: %w", &cliauth.DeviceCodeRefusedError{Reason: "has expired"}), want: exitNotAuthenticated},
+		{name: "no project", err: cliconfig.ErrNoProjectSelected, want: exitNoProject},
+		{name: "no project for a project token", err: cliconfig.ErrNoProjectSelectedForProjectToken, want: exitNoProject},
+		{name: "unknown project", err: fmt.Errorf("%w: my-app", cliproject.ErrNotFound), want: exitNotFound},
+		{name: "missing resource", err: fmt.Errorf("get: %w", &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
+		{name: "refused", err: fmt.Errorf("delete: %w", &api.Error{StatusCode: http.StatusForbidden}), want: exitPermissionDenied},
+		{name: "account token required", err: cliconfig.ErrAccountTokenRequired, want: exitPermissionDenied},
+		{name: "unknown resource", err: fmt.Errorf("frontend %q %w", "web", api.ErrNotFound), want: exitNotFound},
+		{name: "rewritten 404", err: api.WithCause(errors.New("no such thing"), &api.Error{StatusCode: http.StatusNotFound}), want: exitNotFound},
+		{name: "rewritten refusal", err: api.WithCause(errors.New("ask a person"), cliconfig.ErrAccountTokenRequired), want: exitPermissionDenied},
+		{name: "anything else", err: errors.New("boom"), want: exitFailure},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetInstructions(t)
+			root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+				return tc.err
+			}}
+			root.SetArgs(nil)
+			root.SetErr(&bytes.Buffer{})
+			assert.Equal(t, tc.want, run(root, cliruntime.Deps{
+				ConfigLoader: func() (*cliconfig.Config, error) { return &cliconfig.Config{}, nil },
+			}))
+		})
+	}
 }
 
 func TestRunSubprocessFailurePrintsDiagnostic(t *testing.T) {
@@ -53,6 +92,10 @@ func resetInstructions(t *testing.T) {
 	t.Helper()
 	api.ResetLastInstructionsForTest()
 	t.Cleanup(api.ResetLastInstructionsForTest)
+	// A use of VOLCANO_PROJECT_ID is process-global state too: an earlier test
+	// that read the variable would add the deprecation warning to this one.
+	cliconfig.ConsumeProjectEnvUse()
+	t.Cleanup(func() { cliconfig.ConsumeProjectEnvUse() })
 }
 
 // withInstructions drives api.LastInstructions() through a real api.Client
@@ -511,7 +554,7 @@ func TestRun_NonBlockingErrorPrintsErrorBeforeNotice(t *testing.T) {
 
 	code := run(root, deps)
 
-	assert.Equal(t, 1, code)
+	assert.Equal(t, exitNotFound, code)
 	text := stderr.String()
 	require.Contains(t, text, "Error:")
 	require.Contains(t, text, "newer Volcano CLI version is available")
@@ -538,7 +581,7 @@ func TestRun_NonBlockingErrorWithReauthHint(t *testing.T) {
 
 	code := run(root, deps)
 
-	assert.Equal(t, 1, code)
+	assert.Equal(t, exitNotAuthenticated, code)
 	text := stderr.String()
 	require.Contains(t, text, "Error:")
 	require.Contains(t, text, "Run `volcano login` to re-authenticate.")
@@ -590,7 +633,7 @@ func TestRun_ProjectTokenHintNamesTheArgumentProject(t *testing.T) {
 
 			code := run(root, deps)
 
-			assert.Equal(t, 1, code)
+			assert.Equal(t, exitPermissionDenied, code)
 			assert.Contains(t, stderr.String(), "This ran against project "+mainTestProjectBeta)
 			assert.NotContains(t, stderr.String(), mainTestProjectAlpha,
 				"the hint must not name the selected project over the one the command was given: %q", stderr.String())
@@ -610,3 +653,160 @@ func (t *mainTestTicker) C() <-chan time.Time { return t.ch }
 func (t *mainTestTicker) Stop()               {}
 func (t *mainTestTicker) Reset(time.Duration) {}
 func (t *mainTestTicker) tick()               { t.ch <- time.Now() }
+
+// envProjectDeps is runDeps with the environment honored, so
+// VOLCANO_PROJECT_ID reaches the command.
+func envProjectDeps(server *httptest.Server) cliruntime.Deps {
+	return cliruntime.Deps{
+		HTTPClient: server.Client(),
+		ConfigLoader: func() (*cliconfig.Config, error) {
+			return &cliconfig.Config{APIBaseURL: server.URL, UserToken: "test-token"}, nil
+		},
+	}
+}
+
+// VOLCANO_PROJECT_ID is deprecated but still chooses the project. The command
+// reads it more than once, and warns once.
+func TestRun_WarnsOnceWhenVolcanoProjectIDChoosesTheProject(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	var path string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer server.Close()
+
+	deps := envProjectDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "keys", "anon", "list"})
+
+	code := run(root, deps)
+
+	assert.Equal(t, 0, code, stderr.String())
+	assert.Equal(t, "/projects/"+mainTestProjectAlpha+"/anon-keys", path, "the variable still chooses the project")
+	assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation+"\n", stderr.String())
+	assert.NotContains(t, stdout.String(), "VOLCANO_PROJECT_ID")
+}
+
+// The warning goes to stderr, so --json output on stdout stays parseable, and
+// a failed command still prints its error first.
+func TestRun_VolcanoProjectIDWarningKeepsStdoutAndTheErrorFirst(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err      error
+		wantCode int
+	}{
+		"success": {wantCode: 0},
+		"failure": {err: errors.New("boom"), wantCode: exitFailure},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resetInstructions(t)
+			t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+			root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(cmd *cobra.Command, _ []string) error {
+				cfg := &cliconfig.Config{}
+				fmt.Fprintf(cmd.OutOrStdout(), "{\"project\":%q}\n", cfg.ProjectID())
+				return tc.err
+			}}
+			root.SetArgs(nil)
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+
+			assert.Equal(t, tc.wantCode, run(root, cliruntime.Deps{}))
+
+			var decoded map[string]string
+			require.NoError(t, json.Unmarshal(stdout.Bytes(), &decoded))
+			assert.Equal(t, mainTestProjectAlpha, decoded["project"])
+			lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+			if tc.err != nil {
+				require.Len(t, lines, 2, stderr.String())
+				assert.Equal(t, "Error: boom", lines[0])
+			}
+			assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation, lines[len(lines)-1])
+		})
+	}
+}
+
+// A command that never needs a project doesn't read the variable, so it
+// doesn't warn about it.
+func TestRun_NoVolcanoProjectIDWarningWhenNoProjectIsNeeded(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[],"has_more":false,"page":1,"limit":100,"total":0}`))
+	}))
+	defer server.Close()
+
+	deps := envProjectDeps(server)
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"projects", "list"})
+
+	assert.Equal(t, 0, run(root, deps))
+	assert.Empty(t, stderr.String())
+}
+
+// The 403 hint looks up the selected project after the command failed. A
+// command that named its project as an argument never used the variable, and
+// that lookup must not make it warn.
+func TestRun_NoVolcanoProjectIDWarningFromTheRefusalHint(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"scoped")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	withRefusedRequest(t, cliconfig.ProjectTokenPrefix+"scoped", mainTestProjectBeta)
+	root := &cobra.Command{SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+		return &api.Error{StatusCode: http.StatusForbidden, Message: "forbidden"}
+	}}
+	root.SetArgs(nil)
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+
+	assert.Equal(t, exitPermissionDenied, run(root, cliruntime.Deps{}))
+	assert.Contains(t, stderr.String(), mainTestProjectBeta, "the hint ran")
+	assert.NotContains(t, stderr.String(), cliconfig.ProjectEnvDeprecation)
+}
+
+// `volcano use` inside a linked directory reads VOLCANO_PROJECT_ID to check
+// it doesn't override the link. When it names the same project, use succeeds
+// and warns once.
+func TestRun_UseInALinkedDirectoryWarnsAboutVolcanoProjectID(t *testing.T) {
+	resetInstructions(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("VOLCANO_TOKEN", "")
+	t.Setenv("VOLCANO_API_URL", "")
+	t.Setenv("VOLCANO_PROJECT_ID", mainTestProjectAlpha)
+	require.NoError(t, (&cliconfig.Config{UserToken: "pk-test"}).Save())
+	dir := t.TempDir()
+	t.Chdir(dir)
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: mainTestProjectAlpha, Name: "alpha"})
+	require.NoError(t, err)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects/"+mainTestProjectAlpha, r.URL.Path)
+		now := time.Now().UTC().Format(time.RFC3339)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"id":%q,"name":"alpha","status":"active","all_regions":true,"selected_regions":[],"created_at":%q,"updated_at":%q}`,
+			mainTestProjectAlpha, now, now)
+	}))
+	defer server.Close()
+
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	root := rootcmd.New(deps)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"use", mainTestProjectAlpha})
+
+	assert.Equal(t, 0, run(root, deps), stderr.String())
+	assert.Contains(t, stdout.String(), "Now using project: alpha")
+	assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation+"\n", stderr.String())
+}

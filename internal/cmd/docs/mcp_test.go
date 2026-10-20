@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -120,4 +122,18 @@ func TestServicePropagatesConfigLoadError(t *testing.T) {
 	err := cmd.Execute()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load config")
+}
+
+// Docs never use a project, so a project link that can't be parsed, such as
+// one left with merge conflict markers, must not stop them.
+func TestServiceIgnoresABadProjectLink(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("<<<<<<< HEAD\n"), 0o644))
+	t.Chdir(dir)
+
+	cfg, err := loadConfig(cliruntime.Deps{})
+	require.NoError(t, err)
+	assert.Nil(t, cfg.Link)
 }

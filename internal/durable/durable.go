@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,16 +30,35 @@ import (
 // Service performs durable function workflows against the current project.
 type Service struct {
 	sessions clisession.Factory
+	pinned   *pinnedProject
+}
+
+// pinnedProject resolves the project once per service. Every call would
+// otherwise re-read the configuration from disk, so a `volcano use` in a second
+// shell could move a follow, or an approval confirmed in one project and
+// decided in the next request, to another project part way through.
+type pinnedProject struct {
+	once    sync.Once
+	session *clisession.ProjectSession
+	err     error
 }
 
 // NewService returns a durable function service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	return Service{sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
+}
+
+// current returns the project session this service is pinned to.
+func (s Service) current() (*clisession.ProjectSession, error) {
+	s.pinned.once.Do(func() {
+		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+	})
+	return s.pinned.session, s.pinned.err
 }
 
 // ListPage returns one durable function page in the current project.
 func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.PaginatedDurableFunctions, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +80,7 @@ func (s Service) ListPage(ctx context.Context, page, limit int) (*apiclient.Pagi
 func (s Service) Deploy(
 	ctx context.Context, pkg clifunction.Package, visibility *apiclient.FunctionVisibility,
 ) (deployed *apiclient.DurableFunction, created bool, err error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, false, err
 	}
@@ -82,7 +102,7 @@ func (s Service) Deploy(
 
 // Get returns one durable function by name or id.
 func (s Service) Get(ctx context.Context, identifier string) (*apiclient.DurableFunction, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +116,7 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Durable
 
 // Delete starts deleting one durable function by name or id.
 func (s Service) Delete(ctx context.Context, identifier string) error {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return err
 	}
@@ -115,7 +135,7 @@ func (s Service) Delete(ctx context.Context, identifier string) error {
 func (s Service) RuntimeLogs(
 	ctx context.Context, functionID uuid.UUID, limit int, cursor string,
 ) (*apiclient.LogSearchResponse, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +152,7 @@ func (s Service) RuntimeLogs(
 func (s Service) StreamRuntimeLogs(
 	ctx context.Context, functionID uuid.UUID, limit int, lastEventID string,
 ) (*api.ProjectLogStream, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +169,7 @@ func (s Service) StreamRuntimeLogs(
 func (s Service) DeploymentLogs(
 	ctx context.Context, functionID, deploymentID uuid.UUID, limit int, cursor string,
 ) (*apiclient.LogSearchResponse, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +187,7 @@ func (s Service) DeploymentLogs(
 func (s Service) StreamDeploymentLogs(
 	ctx context.Context, functionID, deploymentID uuid.UUID, limit int,
 ) (*api.ProjectLogStream, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +207,7 @@ func (s Service) StartExecution(
 	identifier string,
 	input api.DurableExecutionStartInput,
 ) (*apiclient.DurableExecution, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +226,7 @@ func (s Service) ListExecutions(
 	identifier, status string,
 	page, limit int,
 ) (*apiclient.PaginatedDurableExecutions, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +246,7 @@ func (s Service) GetExecution(
 	identifier string,
 	executionID uuid.UUID,
 ) (*apiclient.DurableExecution, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +264,7 @@ func (s Service) StopExecution(
 	identifier string,
 	executionID uuid.UUID,
 ) (*apiclient.DurableExecution, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +281,7 @@ func (s Service) ListSchedulers(
 	ctx context.Context,
 	identifier string,
 ) (*apiclient.FunctionSchedulerListResponse, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +300,7 @@ func (s Service) CreateScheduler(
 	identifier string,
 	input api.FunctionSchedulerInput,
 ) (*apiclient.FunctionScheduler, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +331,7 @@ func (s Service) DisableScheduler(
 func (s Service) setSchedulerEnabled(
 	ctx context.Context, identifier string, schedulerID uuid.UUID, enabled bool,
 ) (*apiclient.FunctionScheduler, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +352,7 @@ func (s Service) setSchedulerEnabled(
 // DeleteScheduler removes a scheduler and its run history. Executions it
 // already started keep running.
 func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedulerID uuid.UUID) error {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return err
 	}
@@ -348,7 +368,7 @@ func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedul
 func (s Service) ListApprovals(
 	ctx context.Context, input api.DurableApprovalListInput,
 ) (*apiclient.PaginatedDurableApprovals, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +382,7 @@ func (s Service) ListApprovals(
 
 // GetApproval returns one approval of the current project.
 func (s Service) GetApproval(ctx context.Context, approvalID uuid.UUID) (*apiclient.DurableApproval, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +399,7 @@ func (s Service) GetApproval(ctx context.Context, approvalID uuid.UUID) (*apicli
 func (s Service) ApprovalStats(
 	ctx context.Context, function string, from, to *time.Time,
 ) (*apiclient.DurableApprovalStats, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +421,7 @@ func (s Service) ApprovalStats(
 func (s Service) DecideApproval(
 	ctx context.Context, approvalID uuid.UUID, decision apiclient.DurableApprovalStatus, comment string,
 ) (*apiclient.DurableApproval, error) {
-	authenticated, err := s.sessions.CurrentProject()
+	authenticated, err := s.current()
 	if err != nil {
 		return nil, err
 	}
@@ -441,9 +461,13 @@ func (s Service) DecideApproval(
 // errApprovalNeedsAPerson is the answer to a project access token deciding.
 // Approvals exist so that a person signs off, which is why the API refuses
 // any credential that is not a person's. VOLCANO_TOKEN overrides a login, and
-// is how a project access token usually arrives.
-var errApprovalNeedsAPerson = errors.New(
-	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard")
+// is how a project access token usually arrives. It matches
+// config.ErrAccountTokenRequired, so the exit code reports a refused
+// credential. The API's 403 is left out: its generic body would add a hint
+// about the token's project, which is not the problem here.
+var errApprovalNeedsAPerson = api.WithCause(errors.New(
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"),
+	config.ErrAccountTokenRequired)
 
 // RequirePerson refuses a credential the CLI knows is a project access token,
 // so a decision is not confirmed only to be refused. DecideApproval still maps
@@ -517,7 +541,7 @@ func DecisionSummary(decision *apiclient.DurableApprovalDecision) string {
 // answer for an id that never existed and one that belongs to another project.
 func approvalError(action string, approvalID uuid.UUID, err error) error {
 	if api.Status(err) == http.StatusNotFound {
-		return fmt.Errorf("no approval %s in this project", approvalID)
+		return api.WithCause(fmt.Errorf("no approval %s in this project", approvalID), err)
 	}
 	return fmt.Errorf("failed to %s approval %s: %w", action, approvalID, err)
 }
@@ -527,7 +551,7 @@ func approvalError(action string, approvalID uuid.UUID, err error) error {
 // two collections are separate, so the message says which one was searched.
 func durableFunctionError(action, identifier string, err error) error {
 	if api.Status(err) == http.StatusNotFound {
-		return fmt.Errorf("durable function %q not found", identifier)
+		return api.WithCause(fmt.Errorf("durable function %q not found", identifier), err)
 	}
 	return fmt.Errorf("failed to %s durable function %q: %w", action, identifier, err)
 }

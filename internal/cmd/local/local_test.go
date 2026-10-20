@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -126,6 +127,26 @@ func TestLocalCommandIgnoresMalformedPersistedConfig(t *testing.T) {
 	out, err := executeLocalCommand(t, New(deps), "databases", "list")
 	require.NoError(t, err)
 	assert.Contains(t, out, "app")
+}
+
+// Local mode never uses a project link, so a bad one in the working directory
+// must not drop the aliases the user saved.
+func TestLocalConfigKeepsFunctionAliasesBesideABadProjectLink(t *testing.T) {
+	setLocalCommandTestEnv(t)
+	require.NoError(t, (&cliconfig.Config{FunctionAliases: map[string]map[string]string{"scope": {"hello": "fn-1"}}}).Save())
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("{not-json"), 0o644))
+	t.Chdir(dir)
+
+	runner := localmode.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return []byte(localInfoJSON("http://127.0.0.1:1")), nil
+	})
+	cfg, err := withLocalConfig(cliruntime.Deps{}, &infoCache{runner: runner}).ConfigLoader()
+	require.NoError(t, err)
+	functionID, ok := cfg.FunctionAlias("scope", "hello")
+	assert.True(t, ok)
+	assert.Equal(t, "fn-1", functionID)
 }
 
 func TestLocalFunctionRuntimesUseLocalMetadata(t *testing.T) {

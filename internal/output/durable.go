@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -263,7 +264,7 @@ func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
 		kv(w, on, "Description", "%s", theme.StripControl(approval.Description))
 	}
 	if approval.Details != nil {
-		kv(w, on, "Details", "%s", durableApprovalDetails(approval.Details))
+		kv(w, on, "Details", "%s", workflowJSON(approval.Details))
 	}
 	if decision := approval.Decision; decision != nil {
 		decider := "a deleted user"
@@ -278,16 +279,19 @@ func DurableApproval(w io.Writer, approval *apiclient.DurableApproval) {
 	}
 }
 
-// durableApprovalDetails renders what the workflow attached as indented JSON.
+// workflowJSON renders a JSON value a workflow or a sender wrote, indented.
 // The encoder escapes C0 controls inside strings but passes DEL and C1
 // through, so each line is stripped too. The only raw line breaks are the
-// indentation's.
-func durableApprovalDetails(details any) string {
-	encoded, err := json.MarshalIndent(details, "", "  ")
-	if err != nil {
-		return theme.StripControl(fmt.Sprint(details))
+// indentation's. HTML escaping is off so a URL's & reads as written.
+func workflowJSON(value any) string {
+	var encoded bytes.Buffer
+	encoder := json.NewEncoder(&encoded)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
+		return theme.StripControl(fmt.Sprint(value))
 	}
-	lines := strings.Split(string(encoded), "\n")
+	lines := strings.Split(strings.TrimSuffix(encoded.String(), "\n"), "\n")
 	for i := range lines {
 		lines[i] = theme.StripControl(lines[i])
 	}

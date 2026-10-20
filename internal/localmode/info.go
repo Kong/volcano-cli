@@ -135,11 +135,7 @@ func InfoCommandArgs() []string {
 
 // PSQLCommandHint returns a POSIX-shell-safe psql invocation for the default local database.
 func (i Info) PSQLCommandHint() string {
-	return "psql " + shellQuote(i.DatabaseURL)
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	return "psql " + cliruntime.ShellQuote(i.DatabaseURL)
 }
 
 func (execCommandRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {

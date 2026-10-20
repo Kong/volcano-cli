@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.48.0](https://github.com/Kong/volcano-cli/compare/v0.47.0...v0.48.0) (2026-10-20)
+
+
+### Features
+
+* **connect:** add volcano connect for one-step onboarding ([#317](https://github.com/Kong/volcano-cli/issues/317)) ([9af9590](https://github.com/Kong/volcano-cli/commit/9af9590be6f604225b583242b22c70b0cb4eff8d))
+
+## [0.47.0](https://github.com/Kong/volcano-cli/compare/v0.46.3...v0.47.0) (2026-10-19)
+
+
+### Features
+
+* **durable:** add durable messages commands ([#302](https://github.com/Kong/volcano-cli/issues/302)) ([4317633](https://github.com/Kong/volcano-cli/commit/43176332196a20681263657feb4637928c97ee3f))
+
 ## [0.46.3](https://github.com/Kong/volcano-cli/compare/v0.46.2...v0.46.3) (2026-10-15)
 
 

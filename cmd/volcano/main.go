@@ -19,9 +19,22 @@ import (
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/confirm"
+	"github.com/Kong/volcano-cli/internal/output"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 	"github.com/Kong/volcano-cli/internal/theme"
+)
+
+// Exit codes. Scripts and agents can branch on these without parsing the error
+// text. Anything else that fails exits 1, and `volcano sandboxes exec` passes
+// the remote command's own exit code through instead.
+const (
+	exitFailure          = 1
+	exitNotAuthenticated = 2
+	exitNoProject        = 3
+	exitNotFound         = 4
+	exitPermissionDenied = 5
 )
 
 func main() {
@@ -66,8 +79,12 @@ var recordTelemetry = func(telemetry.Invocation) {}
 // the exit code.
 func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 	stderr := root.ErrOrStderr()
+	// Read before printError: its 403 hint looks up the selected project, which
+	// would record a use of VOLCANO_PROJECT_ID the command never made.
+	projectEnvUsed := config.ConsumeProjectEnvUse()
 	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return commandExit.ExitCode()
 	}
 
@@ -77,6 +94,7 @@ func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 		// target when the API provided one, and stop — printing the
 		// suggestion/deprecation notice below too would repeat ourselves.
 		printDeprecationError(stderr, err, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return 1
 	}
 
@@ -89,7 +107,8 @@ func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
-		return 1
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
+		return exitCode(err)
 	}
 
 	// Success: covers the non-blocking suggestion, and a deprecated CLI
@@ -98,7 +117,34 @@ func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 	// through. Reads only in-process state (api.LastInstructions); adds no
 	// network call.
 	upgradecmd.PrintAPIInstructionNotices(root, deps)
+	printProjectEnvDeprecation(stderr, projectEnvUsed)
 	return 0
+}
+
+// printProjectEnvDeprecation warns, once per run, that the deprecated
+// VOLCANO_PROJECT_ID chose the project, when used says it did. It goes to
+// stderr so --json output on stdout stays valid.
+func printProjectEnvDeprecation(w io.Writer, used bool) {
+	if used {
+		output.Warning(w, "%s", config.ProjectEnvDeprecation)
+	}
+}
+
+// exitCode maps a command error to one of the documented exit codes.
+func exitCode(err error) int {
+	status := api.Status(err)
+	switch {
+	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
+		return exitNotAuthenticated
+	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
+		return exitNoProject
+	case errors.Is(err, cliproject.ErrNotFound), errors.Is(err, api.ErrNotFound), status == http.StatusNotFound:
+		return exitNotFound
+	case errors.Is(err, config.ErrAccountTokenRequired), status == http.StatusForbidden:
+		return exitPermissionDenied
+	default:
+		return exitFailure
+	}
 }
 
 // printDeprecationError renders a require_version_upgrade 426 error together with
@@ -118,6 +164,16 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+}
+
+// loadConfig loads the configuration through the runtime's loader, so a
+// command tree with its own configuration is answered from that rather than
+// from the user's cloud config.
+func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
+	if deps.ConfigLoader != nil {
+		return deps.ConfigLoader()
+	}
+	return config.Load()
 }
 
 // wrongProjectRefusal is how the platform names a project access token used
@@ -168,11 +224,7 @@ func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps)
 // the runtime's loader so a command tree with its own configuration is answered
 // from that rather than from the user's cloud config.
 func selectedProjectID(deps cliruntime.Deps) string {
-	loadConfig := config.Load
-	if deps.ConfigLoader != nil {
-		loadConfig = deps.ConfigLoader
-	}
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(deps)
 	if err != nil {
 		return ""
 	}
