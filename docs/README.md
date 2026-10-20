@@ -125,6 +125,9 @@ volcano projects create my-pixels --template pixel-board
 volcano projects create my-pad --template collab-pad
 ```
 
+To create a project from a public repository shared through a deploy link, use
+`--from`; see [deploy-links.md](deploy-links.md).
+
 The supported templates are `trellini`, `pixel-board`, and `collab-pad`.
 An account token is required. Hosting creates a fresh database and deploys the
 app's functions and frontends. These cloud installations do not write local

@@ -192,3 +192,52 @@ func deployLinkDaily(w io.Writer, on bool, daily []apiclient.DeployLinkDailyCoun
 		summary(w, on, "Showing the latest %d of %d days; --json has every day", len(shown), len(days))
 	}
 }
+
+// shortCommitLength is how many characters of a commit are shown where the full
+// hash would crowd the line.
+const shortCommitLength = 7
+
+// ShortCommit shortens a commit hash for display.
+func ShortCommit(sha string) string {
+	sha = theme.StripControl(sha)
+	if len(sha) > shortCommitLength {
+		return sha[:shortCommitLength]
+	}
+	return sha
+}
+
+// TemplateSource names where a project installed from a deploy link was read
+// from, as owner/name@shortsha.
+func TemplateSource(source *apiclient.ProjectTemplateInstallationSource) string {
+	return theme.StripControl(source.Repository) + "@" + ShortCommit(source.CommitSha)
+}
+
+// DeployLinkPreview renders what deploying a link would create, with the exact
+// commit it is pinned to.
+func DeployLinkPreview(w io.Writer, preview *apiclient.DeployLinkPreview) {
+	if preview == nil {
+		return
+	}
+	on := theme.On(w)
+	kv(w, on, "Deploy link", "%s", theme.StripControl(preview.Id))
+	kv(w, on, "Repository", "%s (%s)", theme.StripControl(preview.Repository.FullName), theme.StripControl(preview.Repository.Url))
+	kv(w, on, "Branch", "%s", theme.StripControl(preview.Branch))
+	kv(w, on, "Commit", "%s", theme.StripControl(preview.CommitSha))
+	if preview.Path != "" {
+		kv(w, on, "Path", "%s", theme.StripControl(preview.Path))
+	}
+	kv(w, on, "Frontends", "%s", nameList(preview.Frontends))
+	kv(w, on, "Functions", "%s", nameList(preview.Functions))
+	fmt.Fprintf(w, "\n%s\n", theme.Warn("Volcano has not reviewed this code. Deploy only repositories you trust.", on))
+}
+
+func nameList(names []string) string {
+	if len(names) == 0 {
+		return "none"
+	}
+	cleaned := make([]string, len(names))
+	for i, name := range names {
+		cleaned[i] = theme.StripControl(name)
+	}
+	return strings.Join(cleaned, ", ")
+}

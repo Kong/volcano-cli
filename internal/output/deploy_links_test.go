@@ -119,3 +119,34 @@ func TestDeployLinkStatsSaysWhenThereIsNoActivity(t *testing.T) {
 func indexOf(text, substring string) int {
 	return bytes.Index([]byte(text), []byte(substring))
 }
+
+func TestDeployLinkPreviewShowsTheExactCommitAndWhatItCreates(t *testing.T) {
+	preview := &apiclient.DeployLinkPreview{
+		Id:         "k3Vn8TqPz0aX",
+		Repository: apiclient.DeployLinkRepository{FullName: "acme/notes-app", Url: "https://github.com/acme/notes-app"},
+		Branch:     "main",
+		CommitSha:  "0123456789abcdef0123456789abcdef01234567",
+		Frontends:  []string{"web"},
+		Functions:  []string{},
+	}
+
+	var out bytes.Buffer
+	DeployLinkPreview(&out, preview)
+
+	for _, want := range []string{
+		"Repository: acme/notes-app (https://github.com/acme/notes-app)", "Branch: main",
+		"Commit: 0123456789abcdef0123456789abcdef01234567", "Frontends: web", "Functions: none",
+		"Volcano has not reviewed this code",
+	} {
+		assert.Contains(t, out.String(), want)
+	}
+	assert.NotContains(t, out.String(), "Path:", "a link at the repository root has no path line")
+}
+
+func TestTemplateSourceShortensTheCommit(t *testing.T) {
+	source := &apiclient.ProjectTemplateInstallationSource{
+		Repository: "acme/notes-app", CommitSha: "0123456789abcdef0123456789abcdef01234567",
+	}
+	assert.Equal(t, "acme/notes-app@0123456", TemplateSource(source))
+	assert.Equal(t, "abc", ShortCommit("abc"))
+}

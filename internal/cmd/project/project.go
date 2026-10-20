@@ -129,13 +129,47 @@ func runList(ctx context.Context, opts listOptions) error {
 }
 
 func newCreate(deps cliruntime.Deps) *cobra.Command {
-	var templateID string
+	var templateID, from, commit string
+	var yes, noWait bool
 	cmd := &cobra.Command{
 		Use:   "create <name>",
 		Short: "Create a project",
-		Long:  "Create a Volcano cloud project for the authenticated user. Use --template to install Trellini, Pixel Board, or Collab Pad. Installation runs asynchronously; check projects get <project-id> until the template status is ready.",
-		Args:  cobra.ExactArgs(1),
+		Long: `Create a Volcano cloud project for the authenticated user.
+
+Use --template to install Trellini, Pixel Board, or Collab Pad. Installation runs
+asynchronously; check projects get <project-id> until the template status is ready.
+
+Use --from to create the project from a deploy link: a URL such as
+https://volcano.dev/deploy/<id>, or the link's 12-character id. The command shows
+the repository, branch, exact commit, and the frontends and functions that would
+be created, then asks you to confirm that commit. Volcano has not reviewed the
+code. The project is pinned to the commit you confirmed, and the command waits
+for the installation to finish.
+
+--yes skips the confirmation, for CI. --commit <hash> aborts unless the link is at
+that commit, so a script deploys only code it expects. If the repository changes
+after the preview, nothing is created: at a terminal the command shows the new
+commit and asks again, and with --yes or --commit it shows the new commit and
+stops, so a commit you have not seen is never deployed. --no-wait returns as soon
+as the project is created.`,
+		Example: "  " + cliruntime.CommandPath(deps, "projects create my-app --from https://volcano.dev/deploy/k3Vn8TqPz0aX"),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkFromFlags(from, commit, yes, noWait); err != nil {
+				return err
+			}
+			if from != "" {
+				return runCreateFrom(cmd.Context(), createFromOptions{
+					deps:   deps,
+					name:   strings.TrimSpace(args[0]),
+					link:   from,
+					commit: commit,
+					yes:    yes,
+					noWait: noWait,
+					in:     cmd.InOrStdin(),
+					out:    cmd.OutOrStdout(),
+				})
+			}
 			return runCreate(cmd.Context(), createOptions{
 				deps:       deps,
 				name:       strings.TrimSpace(args[0]),
@@ -145,6 +179,11 @@ func newCreate(deps cliruntime.Deps) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&templateID, "template", "", "Install a cloud template (trellini, pixel-board, collab-pad)")
+	cmd.Flags().StringVar(&from, "from", "", "Create the project from a deploy link (URL or 12-character id)")
+	cmd.Flags().StringVar(&commit, "commit", "", "With --from: abort unless the link is at this commit")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "With --from: skip the confirmation prompt")
+	cmd.Flags().BoolVar(&noWait, "no-wait", false, "With --from: return once the project is created, without waiting for installation")
+	cmd.MarkFlagsMutuallyExclusive("from", "template")
 	return cmd
 }
 

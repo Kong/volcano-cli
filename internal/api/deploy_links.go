@@ -75,3 +75,14 @@ func (c *Client) GetDeployLinkStats(
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }
+
+// GetDeployLinkPreview returns what deploying a link would create, with the
+// exact commit it is pinned to. The route is public, so the client may carry no
+// credential.
+func (c *Client) GetDeployLinkPreview(ctx context.Context, linkID string) (*apiclient.DeployLinkPreview, error) {
+	resp, err := c.client.GetDeployLinkPreviewWithResponse(ctx, linkID)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON429, resp.JSON500, resp.JSON503)
+}

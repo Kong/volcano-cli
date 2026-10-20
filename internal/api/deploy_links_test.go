@@ -152,3 +152,46 @@ func TestDeleteDeployLinkAcceptsNoContent(t *testing.T) {
 
 	require.NoError(t, client.DeleteDeployLink(context.Background(), durableTestProjectID, "k3Vn8TqPz0aX"))
 }
+
+func TestGetDeployLinkPreviewSendsNoCredentialWithoutAToken(t *testing.T) {
+	var auth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/deploy-links/k3Vn8TqPz0aX", r.URL.Path)
+		auth = r.Header.Get("Authorization")
+		writeAPIJSON(t, w, http.StatusOK, map[string]any{
+			"id": "k3Vn8TqPz0aX", "branch": "main", "path": "", "suggested_name": "",
+			"commit_sha": "0123456789abcdef0123456789abcdef01234567",
+			"repository": map[string]any{"full_name": "acme/notes-app", "owner": "acme", "name": "notes-app", "url": "https://github.com/acme/notes-app"},
+			"frontends":  []string{"web"}, "functions": []string{},
+		})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	preview, err := client.GetDeployLinkPreview(context.Background(), "k3Vn8TqPz0aX")
+	require.NoError(t, err)
+	assert.Empty(t, auth)
+	assert.Equal(t, "acme/notes-app", preview.Repository.FullName)
+}
+
+func TestCreateProjectFromDeployLinkSendsTheSourceAndKeepsTheConflictCode(t *testing.T) {
+	var body []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/projects", r.URL.Path)
+		body, _ = io.ReadAll(r.Body)
+		writeAPIJSON(t, w, http.StatusConflict, map[string]any{"error": "the branch moved", "code": "commit_changed"})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.CreateProjectFromDeployLink(context.Background(), " my-app ", "k3Vn8TqPz0aX",
+		"0123456789abcdef0123456789abcdef01234567")
+	require.Error(t, err)
+	assert.JSONEq(t, `{"name":"my-app","template_source":{"deploy_link":{"id":"k3Vn8TqPz0aX","commit_sha":"0123456789abcdef0123456789abcdef01234567"}}}`, string(body))
+	assert.Equal(t, http.StatusConflict, Status(err))
+	assert.Equal(t, "commit_changed", Code(err))
+}

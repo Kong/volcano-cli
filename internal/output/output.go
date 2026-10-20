@@ -95,6 +95,9 @@ func Project(w io.Writer, project *apiclient.Project) {
 	if installation := project.TemplateInstallation; installation != nil {
 		fmt.Fprintf(w, "%s %s\n", theme.Dim("Template status:", on), theme.Status(string(installation.Status), on))
 		fmt.Fprintf(w, "%s %s\n", theme.Dim("Template phase:", on), installation.Phase)
+		if source := installation.Source; source != nil {
+			fmt.Fprintf(w, "%s %s\n", theme.Dim("Template source:", on), TemplateSource(source))
+		}
 	}
 	fmt.Fprintf(w, "%s %s\n", theme.Dim("Created:", on), FormatTimestamp(project.CreatedAt))
 	fmt.Fprintf(w, "%s %s\n", theme.Dim("Updated:", on), FormatTimestamp(project.UpdatedAt))
