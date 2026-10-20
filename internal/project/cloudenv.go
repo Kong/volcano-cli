@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -48,9 +49,14 @@ func refreshCloudEnv(ctx context.Context, client *api.Client, dir, apiURL string
 	if err != nil || !managed {
 		return "", err
 	}
-	anonKey, err := DefaultAnonKey(ctx, client, projectID)
+	// Selecting a project must not create a key on the server: only
+	// connect does that.
+	anonKey, err := existingAnonKey(ctx, client, projectID)
 	if err != nil {
 		return "", err
+	}
+	if anonKey == "" {
+		return "", errors.New("the project has no anon key")
 	}
 	if err := WriteCloudEnv(dir, apiURL, anonKey); err != nil {
 		return "", err
@@ -68,6 +74,20 @@ func CloudEnvPath(dir string) string {
 // The API lists the newest keys first, so the default, usually the oldest, can
 // be on the last page.
 func DefaultAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID) (string, error) {
+	key, err := existingAnonKey(ctx, client, projectID)
+	if err != nil || key != "" {
+		return key, err
+	}
+	created, err := client.CreateAnonKey(ctx, projectID, "default")
+	if err != nil {
+		return "", fmt.Errorf("failed to create an anon key: %w", err)
+	}
+	return created.KeyValue, nil
+}
+
+// existingAnonKey returns the project's default anon key, else its first
+// one, else "".
+func existingAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID) (string, error) {
 	var fallback string
 	for page := api.DefaultPage; ; page++ {
 		keys, more, err := client.ListAnonKeysPage(ctx, projectID, page, api.DefaultLimit)
@@ -89,12 +109,5 @@ func DefaultAnonKey(ctx context.Context, client *api.Client, projectID uuid.UUID
 			break
 		}
 	}
-	if fallback != "" {
-		return fallback, nil
-	}
-	key, err := client.CreateAnonKey(ctx, projectID, "default")
-	if err != nil {
-		return "", fmt.Errorf("failed to create an anon key: %w", err)
-	}
-	return key.KeyValue, nil
+	return fallback, nil
 }

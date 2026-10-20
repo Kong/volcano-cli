@@ -203,6 +203,30 @@ func TestUseReportsASymlinkedCloudEnv(t *testing.T) {
 	assert.Equal(t, target, string(data))
 }
 
+// Selecting a project doesn't create a key on the server.
+func TestUseDoesNotCreateAnAnonKeyForAProjectWithNone(t *testing.T) {
+	const cloudEnv = "VOLCANO_ANON_KEY=ak-alpha\n"
+	dir := linkedToAlpha(t, cloudEnv)
+	var anonKeyRequests, creates int
+	server := betaServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			creates++
+			writeProjectJSON(t, w, http.StatusCreated, map[string]any{"id": "55555555-5555-4555-8555-555555555555", "name": "default", "key_value": "ak-new"})
+			return
+		}
+		writeProjectJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
+	}, &anonKeyRequests)
+
+	used, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+	require.NoError(t, err)
+
+	require.ErrorContains(t, used.EnvErr, "the project has no anon key")
+	assert.Zero(t, creates)
+	data, err := os.ReadFile(CloudEnvPath(dir))
+	require.NoError(t, err)
+	assert.Equal(t, cloudEnv, string(data))
+}
+
 func TestWriteCloudEnvLeavesCredentialsOutOfTheAPIURL(t *testing.T) {
 	dir := t.TempDir()
 

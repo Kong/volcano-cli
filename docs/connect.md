@@ -169,8 +169,9 @@ pass `--project <project-id>` to set up an existing project.
 
 If the linked directory already has a `volcano/cloud.env` with an anon key,
 `volcano use` and `volcano login --project` also rewrite the values `connect`
-wrote there for the new project. If that fails, they warn, and
-`volcano connect .` refreshes the file.
+wrote there for the new project. They never create an anon key: if the new
+project has none, or the update fails, they warn, and `volcano connect .`
+refreshes the file.
 
 If the link can't be read, or its `project_id` isn't a project ID, `volcano login` and `volcano signup` warn and
 ignore it. `volcano docs` and local commands, such as
