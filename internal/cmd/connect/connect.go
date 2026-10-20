@@ -243,6 +243,12 @@ func run(ctx context.Context, opts options) error {
 	if err := checkStarter(dir, starter); err != nil {
 		return err
 	}
+	if err := refuseSymlinks(dir); err != nil {
+		if created {
+			return createdProjectError(opts, wd, dir, project, err)
+		}
+		return err
+	}
 	if err := waitUntilActive(ctx, authenticated.API, project); err != nil {
 		if created && project.Status != apiclient.ProjectStatusFailed && project.Status != apiclient.ProjectStatusDeleting {
 			return createdProjectError(opts, wd, dir, project, err)

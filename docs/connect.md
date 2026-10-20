@@ -147,7 +147,9 @@ volcano connect --project <project-id>
 
 `.volcano/project.json` links a directory to a project. CLI commands run in
 that directory or below it use the linked project. The CLI looks for the file
-in the current directory and its parents, up to the repository root.
+in the current directory and its parents. It stops at the repository root, or
+before your home directory, whichever comes first. Outside both, it looks up
+to `/`.
 
 The project a command uses comes from, in order:
 

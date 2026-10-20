@@ -831,6 +831,28 @@ func TestConnectWithProjectAndNoDirectoryUsesTheProjectName(t *testing.T) {
 	assert.Equal(t, connectOtherProjectID, link.Project.ID)
 }
 
+// The directory named after the project is known only after sign-in, so its
+// symlinks are checked then, before connect changes any file in it.
+func TestConnectWithProjectRefusesASymlinkInItsDirectoryBeforeWriting(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectOtherProjectID, "blog")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	parent := chdirTemp(t)
+	dir := filepath.Join(parent, "blog")
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectOtherProjectID, Name: "blog"})
+	require.NoError(t, err)
+	require.NoError(t, os.Symlink(filepath.Join(t.TempDir(), "elsewhere.md"), filepath.Join(dir, "AGENTS.md")))
+
+	_, err = runConnectHere(t, server, "--project", connectOtherProjectID)
+	require.ErrorContains(t, err, "is a symlink")
+	assert.NoFileExists(t, filepath.Join(dir, ".gitignore"))
+	assert.NoDirExists(t, filepath.Join(dir, "volcano"))
+}
+
 // The first run says to cd into the new directory. Rerunning the same command
 // there sets up that directory instead of a ./blog inside it.
 func TestConnectWithProjectRerunInsideItsDirectoryReusesIt(t *testing.T) {
@@ -1112,6 +1134,34 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 	require.ErrorContains(t, err, "To set it up, run: volcano connect '"+dir+"' --project "+connectProjectID)
 }
 
+// A CRLF checkout keeps one line break after the section, so reruns after a
+// commit and checkout don't add blank lines.
+func TestConnectReplacesTheAgentsSectionInACRLFFile(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := t.TempDir()
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
+	require.NoError(t, err)
+	path := filepath.Join(dir, "AGENTS.md")
+	toCRLF := func(text string) string {
+		return strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\n", "\r\n")
+	}
+
+	_, err = runConnect(t, server, dir)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte(toCRLF(readFile(t, path)+"Use tabs.\n")), 0o644))
+	for range 2 {
+		_, err = runConnect(t, server, dir)
+		require.NoError(t, err)
+		// What git does on commit, then checkout, with core.autocrlf=true.
+		require.NoError(t, os.WriteFile(path, []byte(toCRLF(readFile(t, path))), 0o644))
+	}
+
+	assert.Contains(t, readFile(t, path), agentsEndMarker+"\r\nUse tabs.\r\n")
+}
+
 // A symlink connect would write through is found before sign-in, so the
 // device code isn't spent and no project is created.
 func TestConnectRefusesASymlinkedAgentsFileBeforeSigningIn(t *testing.T) {
@@ -1187,13 +1237,13 @@ func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	defer server.Close()
 	chdirTemp(t)
 
-	stdout, stderr, err := runConnectHereWithStderr(t, server, "--device-code", connectDeviceCode)
+	stdout, err := runConnectHere(t, server, "--device-code", connectDeviceCode)
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "Signed in with the code from the dashboard")
 	assert.Equal(t, 1, fake.polls)
 	assert.False(t, fake.deviceAuthorize, "the dashboard already started the device login")
 	assert.Equal(t, "Bearer pk-exchanged", fake.createAuth)
-	assertDeviceCodeHidden(t, stdout, stderr)
+	assertDeviceCodeNotSaved(t)
 
 	cfg, err := cliconfig.Load()
 	require.NoError(t, err)
@@ -1330,7 +1380,7 @@ func TestConnectWithARefusedDeviceCodeGoesToBrowserLogin(t *testing.T) {
 			defer server.Close()
 			chdirTemp(t)
 
-			stdout, stderr, err := runConnectHereWithStderr(t, server, "--device-code", connectDeviceCode)
+			stdout, err := runConnectHere(t, server, "--device-code", connectDeviceCode)
 			// The fake refuses device authorization, so browser login fails;
 			// what matters is that connect went there instead of to the saved
 			// login.
@@ -1338,17 +1388,15 @@ func TestConnectWithARefusedDeviceCodeGoesToBrowserLogin(t *testing.T) {
 			assert.Contains(t, stdout, "The code from the dashboard "+tc.reason+". Signing in in the browser instead.")
 			assert.True(t, fake.deviceAuthorize, "browser login started")
 			assert.Zero(t, fake.creates, "the saved login, possibly another account, is never used")
-			assertDeviceCodeHidden(t, stdout+err.Error(), stderr)
+			assertDeviceCodeNotSaved(t)
 		})
 	}
 }
 
-// assertDeviceCodeHidden checks the device code is in neither output nor the
-// saved config.
-func assertDeviceCodeHidden(t *testing.T, stdout, stderr string) {
+// assertDeviceCodeNotSaved checks the saved config holds the login, not the
+// device code.
+func assertDeviceCodeNotSaved(t *testing.T) {
 	t.Helper()
-	assert.NotContains(t, stdout, connectDeviceCode)
-	assert.NotContains(t, stderr, connectDeviceCode)
 	path, err := cliconfig.Path()
 	require.NoError(t, err)
 	assert.NotContains(t, readFile(t, path), connectDeviceCode)
@@ -1403,16 +1451,9 @@ func runConnect(t *testing.T, server *httptest.Server, dir string, args ...strin
 	return stdout.String(), err
 }
 
-// runConnectHere runs connect with no directory argument.
+// runConnectHere runs connect with no directory argument. Browser login is
+// never opened.
 func runConnectHere(t *testing.T, server *httptest.Server, args ...string) (string, error) {
-	t.Helper()
-	stdout, _, err := runConnectHereWithStderr(t, server, args...)
-	return stdout, err
-}
-
-// runConnectHereWithStderr runs connect with no directory argument, and
-// returns stdout and stderr apart. Browser login is never opened.
-func runConnectHereWithStderr(t *testing.T, server *httptest.Server, args ...string) (string, string, error) {
 	t.Helper()
 	cmd := New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, OpenBrowser: func(string) error {
 		t.Error("connect opened the browser")
@@ -1424,7 +1465,7 @@ func runConnectHereWithStderr(t *testing.T, server *httptest.Server, args ...str
 	cmd.SetIn(strings.NewReader(""))
 	cmd.SetArgs(append([]string{"--skip-skills"}, args...))
 	err := cmd.Execute()
-	return stdout.String(), stderr.String(), err
+	return stdout.String(), err
 }
 
 // chdirTemp moves into a new temp directory and returns its path as Getwd

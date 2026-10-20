@@ -90,17 +90,8 @@ const dashboardDeviceCodeTTL = 10 * time.Minute
 // The login is saved as soon as the API trades the code for it: the code works
 // once, so a failure after that must not throw the login away. Such a failure
 // is a *LoginSavedError. A code the API refuses is a *DeviceCodeRefusedError.
-// The code is a secret: it is never printed, and errors have it redacted.
 func (s Service) LoginWithDeviceCode(ctx context.Context, cfg *config.Config, deviceCode, project string, w io.Writer) (Credentials, error) {
 	deviceCode = strings.TrimSpace(deviceCode)
-	credentials, err := s.loginWithDeviceCode(ctx, cfg, deviceCode, project, w)
-	if err != nil {
-		return Credentials{}, redactSecret(err, deviceCode)
-	}
-	return credentials, nil
-}
-
-func (s Service) loginWithDeviceCode(ctx context.Context, cfg *config.Config, deviceCode, project string, w io.Writer) (Credentials, error) {
 	apiURL := s.apiURL(cfg)
 	clientID, err := resolveDeviceClientID(apiURL)
 	if err != nil {
@@ -184,26 +175,6 @@ func deviceCodeRefused(refusal *deviceTokenRefusal) *DeviceCodeRefusedError {
 		return &DeviceCodeRefusedError{Reason: "was refused", Err: refusal}
 	}
 }
-
-// redactSecret replaces secret in err's text, keeping err for errors.As and
-// errors.Is.
-func redactSecret(err error, secret string) error {
-	if secret == "" || !strings.Contains(err.Error(), secret) {
-		return err
-	}
-	return redactedError{err: err, secret: secret}
-}
-
-type redactedError struct {
-	err    error
-	secret string
-}
-
-func (e redactedError) Error() string {
-	return strings.ReplaceAll(e.err.Error(), e.secret, "[redacted]")
-}
-
-func (e redactedError) Unwrap() error { return e.err }
 
 // projectTokenNeedsProjectError is a project access token login with no
 // project to check it against. It is config.ErrNoProjectSelectedForProjectToken

@@ -124,7 +124,10 @@ func writeAgentsSection(dir, section string) error {
 			"Add the end marker where the section ends, or delete the section, and try again", path, agentsStartMarker, agentsEndMarker)
 	case start >= 0:
 		end += len(agentsEndMarker)
-		if end < len(content) && content[end] == '\n' {
+		// The section ends in a newline, so the marker's own goes, CRLF too.
+		if strings.HasPrefix(content[end:], "\r\n") {
+			end += 2
+		} else if end < len(content) && content[end] == '\n' {
 			end++
 		}
 		content = content[:start] + section + content[end:]

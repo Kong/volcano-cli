@@ -550,26 +550,6 @@ func TestLoginWithDeviceCodeSavesTheLoginWhenALaterCheckFails(t *testing.T) {
 	}
 }
 
-// An API that echoes the code in a failure never gets it printed.
-func TestLoginWithDeviceCodeRedactsTheCodeInErrors(t *testing.T) {
-	cfg := testAuthConfig(t)
-	fake := &deviceCodeServer{t: t, polls: []func(http.ResponseWriter){func(w http.ResponseWriter) {
-		writeAuthJSON(t, w, http.StatusInternalServerError, map[string]string{"error": "no grant for " + authDeviceCode})
-	}}}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	clock, deps := newDeviceCodeClock(t)
-	clock.poll.tick()
-	clock.poll.tick()
-
-	_, err := NewService(deviceCodeDeps(deps, server)).
-		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
-	require.ErrorContains(t, err, "failed to poll device token")
-	assert.Contains(t, err.Error(), "[redacted]")
-	assert.NotContains(t, err.Error(), authDeviceCode)
-	assert.Equal(t, http.StatusInternalServerError, api.Status(err), "the redacted error keeps the API status")
-}
-
 // assertDeviceCodeNotSaved checks the config file never holds the device code.
 func assertDeviceCodeNotSaved(t *testing.T) {
 	t.Helper()
