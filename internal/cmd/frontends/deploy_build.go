@@ -21,10 +21,13 @@ var sourceFlags = []string{"path", "name", "framework", "app-root", "variable-sc
 // current directory.
 func deployArgs(cmd *cobra.Command, deps cliruntime.Deps, from string, args []string) error {
 	if !cmd.Flags().Changed("from") {
-		if len(args) > 0 {
-			return fmt.Errorf("unexpected argument %q: name the frontend with --name to deploy source, or pass --from to deploy another frontend's build", args[0])
+		if len(args) == 0 {
+			return nil
 		}
-		return nil
+		if deps.LocalMode {
+			return fmt.Errorf("unexpected argument %q: name the frontend with --name", args[0])
+		}
+		return fmt.Errorf("unexpected argument %q: name the frontend with --name to deploy source, or pass --from to deploy another frontend's build", args[0])
 	}
 	if deps.LocalMode {
 		target := "<frontend>"

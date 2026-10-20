@@ -201,6 +201,11 @@ func TestFrontendsDeployFromIsCloudOnlyInLocalMode(t *testing.T) {
 	require.Error(t, err, out)
 	assert.Contains(t, err.Error(), "--from is a cloud option")
 	assert.NotContains(t, err.Error(), "'volcano frontends deploy web-eu --from web'", "local mode cannot run that")
+
+	out, err = runBuildReuse(t, server, true, "deploy", "web-eu")
+	require.Error(t, err, out)
+	assert.Equal(t, `unexpected argument "web-eu": name the frontend with --name`, err.Error())
+	assert.NotContains(t, err.Error(), "--from", "local mode refuses the flag the hint would suggest")
 }
 
 func TestFrontendsDeployHelpOffersFromOnlyInTheCloud(t *testing.T) {
