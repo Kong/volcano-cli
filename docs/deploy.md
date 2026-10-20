@@ -182,7 +182,10 @@ the deploy again to rebuild it with the selection.
 
 In the cloud, a declared frontend entry without `custom_domain` or
 `custom_domains` leaves the frontend's domains alone. `custom_domain: null`
-removes its domain, and `custom_domains` replaces the whole set.
+removes its domain, and `custom_domains` replaces the whole set. A server that
+predates these rules refuses `custom_domain: null` in the dry run, and removes
+the domain of an entry without `custom_domain`; there, keep `custom_domain` in
+the entry.
 
 ## Cloud projects that deploy from Git
 

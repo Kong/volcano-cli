@@ -206,7 +206,8 @@ the dry run and nothing is applied. See [frontends](frontends.md#function-routes
 ## Frontend custom domains
 
 `frontends[].custom_domains` lists every custom domain of a frontend. Each
-serves the frontend, or redirects to another listed domain that serves it:
+serves the frontend, or redirects to another listed domain that is `active`
+and serves it:
 
 ```yaml
 version: 1
@@ -229,11 +230,14 @@ frontends:
   the dry run names it.
 - `custom_domains: []` deletes every domain on the frontend.
 
-One deploy can add, remove, and retarget redirects together, including swapping
-which domain serves. A frontend with one domain and no redirect can use
+A domain the deploy adds is not active yet, so add redirects to it in a later
+deploy. One deploy can add, remove, and retarget redirects among active domains,
+including swapping which domain serves. A frontend with one domain and no
+redirect can use
 `custom_domain` instead; an entry sets one or the other. `config pull` writes
 `custom_domains` when the frontend has more than one domain or any redirect.
-See [Custom domains](frontends.md#custom-domains) and the
+A server that predates `custom_domains` refuses the key in the dry run. See
+[Custom domains](frontends.md#custom-domains) and the
 [configuration reference](/platform/projects/configuration).
 
 ## Shared variable names
@@ -292,7 +296,8 @@ Hosting rejects a frontend environment over 4,096 bytes before changing state.
 values must be embedded in browser assets.
 
 Run `volcano config pull` before editing the manifest. A frontend entry that
-leaves out `custom_domain` and `custom_domains` keeps its domains.
+leaves out `custom_domain` and `custom_domains` keeps its domains; see
+[deploy](deploy.md) for servers that predate this.
 
 ## Function variable scope
 

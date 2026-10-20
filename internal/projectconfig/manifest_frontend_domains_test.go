@@ -78,3 +78,31 @@ frontends:
 `), noEnv)
 	require.ErrorContains(t, err, "field target not found")
 }
+
+// The server keeps a domain the manifest omits and deletes one set to null,
+// so null, written out or as a bare key, must reach it rather than be dropped.
+func TestParseFrontendCustomDomainNullUploadsNull(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+frontends:
+  - name: bare
+    custom_domain:
+  - name: explicit
+    custom_domain: null
+  - name: omitted
+`), noEnv)
+	require.NoError(t, err)
+
+	body, err := manifest.uploadBody()
+	require.NoError(t, err)
+	var decoded struct {
+		Frontends []map[string]any `json:"frontends"`
+	}
+	require.NoError(t, json.Unmarshal(body, &decoded))
+	require.Len(t, decoded.Frontends, 3)
+	for _, frontend := range decoded.Frontends[:2] {
+		value, present := frontend["custom_domain"]
+		assert.True(t, present, "%s sends custom_domain", frontend["name"])
+		assert.Nil(t, value)
+	}
+	assert.NotContains(t, decoded.Frontends[2], "custom_domain")
+}

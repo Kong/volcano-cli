@@ -95,7 +95,7 @@ volcano cloud frontends logs my-site
 # Serve the frontend on www, with a certificate Volcano issues
 volcano cloud frontends domains add my-site www.example.com
 
-# Send the apex to www, keeping the path and query string
+# Once www is active, send the apex to it, keeping the path and query string
 volcano cloud frontends domains add my-site example.com --redirect-to www.example.com
 
 # Or serve your own certificate
@@ -127,8 +127,10 @@ ANAME, or CNAME-flattening record with that target.
 
 `--redirect-status` takes 301, 302, 307, or 308, and defaults to 308. 301 and
 308 are permanent and browsers cache them; use 302 while you test. A redirect
-must point at a domain of the same frontend that serves it, not at another
-redirect.
+must point at an `active` domain of the same frontend that serves it, not at
+another redirect or a domain still waiting for DNS or its certificate. If the
+target stops serving, the redirect domain serves the frontend until the target
+is active again.
 
 ```bash
 # Change the status, or make the domain serve the frontend again
@@ -144,11 +146,16 @@ swap which domain serves in one step, declare both in `custom_domains` in the
 [declarative config](project-configuration.md) and run
 `volcano cloud config deploy`.
 
-Adding a domain past the plan's limit per frontend fails with `403`. See
+Adding a domain past the plan's limit per frontend fails with `403`. On HOBBY,
+managed certificates are also limited to one per account, so a second managed
+domain fails with `403` on any frontend. See
 [Plans and limits](/platform/guides/plans-and-limits#frontends).
 
-The older `volcano cloud frontends domain create|list|get|delete` commands still
-work and act on the frontend's oldest domain that serves it.
+Several domains per frontend are rolling out. Until they reach your project, a
+second domain on a frontend is refused with `409`, and an older server answers
+the `domains` commands with `404`. The `volcano cloud frontends domain
+create|list|get|delete` commands work on every server and act on the
+frontend's oldest domain that serves it.
 
 ## Function routes
 
