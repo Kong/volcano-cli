@@ -135,6 +135,7 @@ func (c *Client) CreateFrontendDeployment(ctx context.Context, projectID, fronte
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = rsp.Body.Close() }()
 	resp, parseErr := apiclient.ParseCreateFrontendDeploymentClientResponse(rsp)
 	if rsp.StatusCode >= 200 && rsp.StatusCode < 300 {
 		if parseErr == nil && resp.JSON200 != nil {
