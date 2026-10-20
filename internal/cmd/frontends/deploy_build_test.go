@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -128,6 +129,22 @@ func TestFrontendsDeployFromNamedDeployment(t *testing.T) {
 	assert.Contains(t, out, "Pending Deployment: "+queuedTargetDeployment)
 }
 
+func TestFrontendsDeployFromAcceptsNonCanonicalDeploymentIDs(t *testing.T) {
+	for _, id := range []string{
+		strings.ToUpper(failedDeploymentID),
+		"{" + failedDeploymentID + "}",
+		"urn:uuid:" + failedDeploymentID,
+	} {
+		t.Run(id, func(t *testing.T) {
+			server := &buildReuseServer{}
+			out, err := runBuildReuse(t, server, false, "deploy", "web-eu", "--from", "web@"+id)
+
+			require.NoError(t, err, out)
+			assert.Equal(t, failedDeploymentID, server.deployedID)
+		})
+	}
+}
+
 func TestFrontendsDeployFromRefusesBeforeDeploying(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -135,6 +152,9 @@ func TestFrontendsDeployFromRefusesBeforeDeploying(t *testing.T) {
 		want string
 	}{
 		{"no target", []string{"deploy", "--from", "web"}, "--from needs exactly one frontend to deploy to, as in 'volcano cloud frontends deploy web-eu --from web'"},
+		{"empty --from", []string{"deploy", "--from", ""}, "--from needs the frontend whose build to deploy"},
+		{"empty --from with a target", []string{"deploy", "web-eu", "--from="}, "--from needs the frontend whose build to deploy"},
+		{"empty --from with --name", []string{"deploy", "--from", " ", "--name", "web-eu"}, "--from needs the frontend whose build to deploy"},
 		{"target without --from", []string{"deploy", "web-eu"}, `unexpected argument "web-eu"`},
 		{"source flags", []string{"deploy", "web-eu", "--from", "web", "--path", ".", "--variable-scope", "all"}, "--from deploys an existing build and cannot be combined with --path, --variable-scope"},
 		{"empty deployment", []string{"deploy", "web-eu", "--from", "web@"}, `--from "web@" must be <frontend> or <frontend>@<deployment-id>`},
@@ -176,4 +196,21 @@ func TestFrontendsDeployFromIsCloudOnlyInLocalMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "'volcano cloud frontends deploy web-eu --from web' to deploy the build in the cloud project")
 	assert.NotContains(t, out, "Deploying to local development", "the source-deploy note does not apply")
 	assert.Empty(t, server.deployedID)
+
+	out, err = runBuildReuse(t, server, true, "deploy", "--from", "web")
+	require.Error(t, err, out)
+	assert.Contains(t, err.Error(), "--from is a cloud option")
+	assert.NotContains(t, err.Error(), "'volcano frontends deploy web-eu --from web'", "local mode cannot run that")
+}
+
+func TestFrontendsDeployHelpOffersFromOnlyInTheCloud(t *testing.T) {
+	cloud, err := runBuildReuse(t, &buildReuseServer{}, false, "deploy", "--help")
+	require.NoError(t, err)
+	assert.Contains(t, cloud, "--from")
+	assert.Contains(t, cloud, "volcano cloud frontends deploy web-eu --from web")
+
+	local, err := runBuildReuse(t, &buildReuseServer{}, true, "deploy", "--help")
+	require.NoError(t, err)
+	assert.NotContains(t, local, "--from")
+	assert.NotContains(t, local, "another frontend")
 }

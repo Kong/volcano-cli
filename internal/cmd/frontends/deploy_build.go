@@ -1,6 +1,7 @@
 package frontends
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,11 +16,29 @@ import (
 // sourceFlags describe the source a deploy uploads, which --from replaces.
 var sourceFlags = []string{"path", "name", "framework", "app-root", "variable-scope", "variable"}
 
-func deployArgs(deps cliruntime.Deps, from string, args []string) error {
-	switch {
-	case from == "" && len(args) > 0:
-		return fmt.Errorf("unexpected argument %q: name the frontend with --name to deploy source, or pass --from to deploy another frontend's build", args[0])
-	case from != "" && len(args) != 1:
+// deployArgs checks whether --from was given rather than its value, so an
+// empty --from (an unset shell variable) is refused instead of deploying the
+// current directory.
+func deployArgs(cmd *cobra.Command, deps cliruntime.Deps, from string, args []string) error {
+	if !cmd.Flags().Changed("from") {
+		if len(args) > 0 {
+			return fmt.Errorf("unexpected argument %q: name the frontend with --name to deploy source, or pass --from to deploy another frontend's build", args[0])
+		}
+		return nil
+	}
+	if deps.LocalMode {
+		target := "<frontend>"
+		if len(args) == 1 {
+			target = args[0]
+		}
+		return fmt.Errorf("--from is a cloud option: local development builds each frontend from its own source, "+
+			"so run '%s' in the frontend's directory, or 'volcano cloud frontends deploy %s --from %s' to deploy the build in the cloud project",
+			cliruntime.CommandPath(deps, "frontends deploy --name "+target), target, from)
+	}
+	if strings.TrimSpace(from) == "" {
+		return errors.New("--from needs the frontend whose build to deploy, as <frontend>[@<deployment-id>]")
+	}
+	if len(args) != 1 {
 		return fmt.Errorf("--from needs exactly one frontend to deploy to, as in '%s'",
 			cliruntime.CommandPath(deps, "frontends deploy web-eu --from "+from))
 	}
@@ -27,11 +46,6 @@ func deployArgs(deps cliruntime.Deps, from string, args []string) error {
 }
 
 func runDeployBuild(cmd *cobra.Command, deps cliruntime.Deps, target, from string) error {
-	if deps.LocalMode {
-		return fmt.Errorf("--from is a cloud option: local development builds each frontend from its own source, "+
-			"so run '%s' in the frontend's directory, or 'volcano cloud frontends deploy %s --from %s' to deploy the build in the cloud project",
-			cliruntime.CommandPath(deps, "frontends deploy --name "+target), target, from)
-	}
 	var combined []string
 	for _, name := range sourceFlags {
 		if cmd.Flags().Changed(name) {

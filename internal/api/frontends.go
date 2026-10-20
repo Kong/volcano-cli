@@ -135,7 +135,16 @@ func (c *Client) CreateFrontendDeployment(ctx context.Context, projectID, fronte
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+	if resp.JSON200 != nil {
+		return resp.JSON200, nil
+	}
+	status := resp.StatusCode()
+	if status >= 200 && status < 300 {
+		// Contract violation: the deployment was accepted, so retrying would
+		// replace it. Report success as RedeployFrontend does.
+		return &apiclient.Frontend{Id: frontendID}, nil
+	}
+	return nil, apiErrorFromGeneratedErrors(status, resp.Body,
 		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON500, resp.JSON501, resp.JSON503)
 }
 

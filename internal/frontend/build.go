@@ -28,10 +28,16 @@ func ParseBuildSource(value string) (BuildSource, error) {
 	if name == "" || (hasDeployment && deploymentID == "") {
 		return BuildSource{}, fmt.Errorf("--from %q must be <frontend> or <frontend>@<deployment-id>", value)
 	}
-	if hasDeployment && uuid.Validate(deploymentID) != nil {
+	if !hasDeployment {
+		return BuildSource{Frontend: name}, nil
+	}
+	// uuid.Parse also takes uppercase, braced and urn:uuid: forms; history
+	// lists IDs in the canonical form.
+	parsed, err := uuid.Parse(deploymentID)
+	if err != nil {
 		return BuildSource{}, fmt.Errorf("--from %q: %q is not a deployment ID", value, deploymentID)
 	}
-	return BuildSource{Frontend: name, DeploymentID: deploymentID}, nil
+	return BuildSource{Frontend: name, DeploymentID: parsed.String()}, nil
 }
 
 // DeployedBuild is a deployment started from another frontend's build.

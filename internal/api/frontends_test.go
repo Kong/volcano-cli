@@ -95,6 +95,31 @@ func TestRedeployFrontendAcceptsEmptyBody(t *testing.T) {
 	assert.Equal(t, frontendID, redeployed.Id)
 }
 
+// TestCreateFrontendDeploymentAcceptsEmptyBody: the deployment was accepted,
+// and reporting it as failed invites a retry that replaces it.
+func TestCreateFrontendDeploymentAcceptsEmptyBody(t *testing.T) {
+	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	frontendID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expectedPath := "/projects/" + projectID.String() + "/frontends/" + frontendID.String() + "/deployments"
+		if r.Method != http.MethodPost || r.URL.Path != expectedPath {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	deployed, err := client.CreateFrontendDeployment(context.Background(), projectID, frontendID, uuid.New())
+	require.NoError(t, err)
+	require.NotNil(t, deployed)
+	assert.Equal(t, frontendID, deployed.Id)
+}
+
 func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	projectIDText := "11111111-1111-4111-8111-111111111111"
 	frontendIDText := "22222222-2222-4222-8222-222222222222"
