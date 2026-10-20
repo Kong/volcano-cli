@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -80,6 +81,10 @@ func printProjectPageSummary(w io.Writer, on bool, page *apiclient.PaginatedProj
 }
 
 func printCurrentProject(w io.Writer, on bool, cfg *config.Config) {
+	if cfg.Link != nil {
+		summary(w, on, "Current project: %s (%s), linked in %s", cfg.Link.Project.Name, cfg.Link.Project.ID, cfg.Link.Path())
+		return
+	}
 	if cfg.CurrentProject != nil {
 		summary(w, on, "Current project: %s (%s)", cfg.CurrentProject.Name, cfg.CurrentProject.ID)
 	}
@@ -146,15 +151,20 @@ func FormatTimeAgo(t time.Time) string {
 	return fmt.Sprintf("%dd ago", int(duration.Hours()/24))
 }
 
-// Truncate shortens value to maxLen using an ellipsis when practical.
+// Truncate shortens value to maxLen characters using an ellipsis when
+// practical. It counts runes so a cut never splits a multi-byte character.
 func Truncate(value string, maxLen int) string {
 	if len(value) <= maxLen {
 		return value
 	}
-	if maxLen < 3 {
-		return value[:maxLen]
+	runes := []rune(value)
+	if len(runes) <= maxLen {
+		return value
 	}
-	return value[:maxLen-3] + "..."
+	if maxLen < 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 func projectStatus(project apiclient.Project) string {
@@ -174,4 +184,11 @@ func projectPlan(project apiclient.Project) string {
 		return "-"
 	}
 	return plan
+}
+
+// JSON writes value as indented JSON, for a command's --json output.
+func JSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }

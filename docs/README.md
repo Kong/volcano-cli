@@ -94,12 +94,13 @@ task. It is off when telemetry is off. See [feedback.md](feedback.md).
 
 | Element | CLI can… | Commands | Details |
 |---|---|---|---|
+| Get started | sign in, create a project, and link a directory in one step | `connect` | [connect.md](connect.md) |
 | Account / auth | sign up, log in/out | `signup`, `login`, `logout` | [authentication.md](authentication.md) |
 | Access tokens | create, list, get, revoke project credentials | `cloud access-tokens …` | [access-tokens.md](access-tokens.md) |
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
-| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
+| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
@@ -108,6 +109,7 @@ task. It is off when telemetry is off. See [feedback.md](feedback.md).
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
 | Documentation | search/read the docs | `docs …` | [docs-search.md](docs-search.md) |
+| Scripts and agents | exit codes, JSON output | `--json` | [scripting.md](scripting.md) |
 
 ## Projects
 
@@ -118,13 +120,17 @@ prerequisites for cloud operations.
 volcano projects create my-app     # create a project
 volcano projects list              # list your projects
 volcano use my-app                 # set the active project
-volcano projects get               # details for the active project
+volcano connect .                  # link this directory to a new project
+volcano projects get <project-id>  # project details
 volcano projects rename eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550 new-name  # rename a project
 volcano projects keys anon list    # anon (publishable) API keys for the browser/SDK
 volcano projects keys service list # backend service-key metadata for the active project
 volcano projects usage             # current-month and all-time usage totals
 volcano projects delete my-app     # delete
 ```
+
+Inside a directory linked with `volcano connect`, commands use the linked
+project. See [connect.md](connect.md#linked-directories).
 
 ### Create a project from a cloud template
 
@@ -162,8 +168,11 @@ volcano projects delete <project-id>
 `volcano projects list` and `volcano projects get` show the project plan as
 `HOBBY` or `SUPERAGENT` when the API provides it.
 
-`VOLCANO_PROJECT_ID` overrides the active project for a single invocation
-(useful in CI).
+`VOLCANO_PROJECT_ID` overrides the active project for a single invocation.
+It is deprecated and will be removed in a future release, and a command that
+uses it prints a warning on stderr. Select the project with `volcano use
+<project-id>`, or `volcano login --token <token> --project <project-id>` in CI.
+See [access-tokens.md](access-tokens.md#use-a-token).
 
 ### Project keys
 
@@ -191,9 +200,9 @@ the two can be combined. Omitting both gives the key full access. Empty or blank
 permission values are rejected so an intended restricted key cannot silently
 fall back to full access.
 
-An explicit `[project-id]` takes precedence over `VOLCANO_PROJECT_ID` and the
-active project. Without it, `VOLCANO_PROJECT_ID` takes precedence over the
-active project. Paginated list output includes a next-page command that retains
+An explicit `[project-id]` takes precedence over the active project. Without
+it, the deprecated `VOLCANO_PROJECT_ID` takes precedence over the active
+project. Paginated list output includes a next-page command that retains
 an explicit project ID.
 
 ### Project usage

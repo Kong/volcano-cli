@@ -2,6 +2,8 @@ package telemetry
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,6 +58,18 @@ func TestTelemetryCommand(t *testing.T) {
 	cfg, err := config.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "keep-me", cfg.UserToken, "the rest of config.json is kept")
+}
+
+func TestTelemetryStatus_IgnoresABrokenProjectLink(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(telemetry.EnvDisabled, "")
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("{"), 0o600))
+	t.Chdir(dir)
+
+	out, _ := runCmd(t, "status")
+	assert.Contains(t, out, "Telemetry is enabled.")
 }
 
 func TestTelemetryCommand_EnvOptOut(t *testing.T) {

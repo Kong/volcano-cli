@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/confirm"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/setup"
 )
@@ -115,7 +116,7 @@ func interactive(cmd *cobra.Command, harnesses []string, manual, dryRun, yes boo
 	if len(harnesses) > 0 || manual || dryRun || yes {
 		return false
 	}
-	if os.Getenv("CI") != "" || os.Getenv("VOLCANO_NONINTERACTIVE") != "" || os.Getenv("TERM") == "dumb" {
+	if confirm.MarkedNonInteractive() {
 		return false
 	}
 	return isTerminal(cmd.InOrStdin()) && isTerminal(cmd.OutOrStdout())

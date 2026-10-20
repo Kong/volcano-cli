@@ -229,6 +229,8 @@ func TestTruncate(t *testing.T) {
 	assert.Equal(t, "short", Truncate("short", 20))
 	assert.Equal(t, "seventeen-char...", Truncate("seventeen-character-name", 17))
 	assert.Equal(t, "ab", Truncate("abcd", 2))
+	assert.Equal(t, "日本語", Truncate("日本語", 3))
+	assert.Equal(t, "日本...", Truncate("日本語テキスト", 5))
 }
 
 // A queued deployment runs after the one in flight, so the detail views name it

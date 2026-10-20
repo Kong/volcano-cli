@@ -107,7 +107,7 @@ func runLogs(ctx context.Context, opts logsOptions) error {
 	} else {
 		deployment, err := service.ResolveDeployment(ctx, function.Id, opts.deploymentID)
 		if errors.Is(err, api.ErrNotFound) {
-			return fmt.Errorf("deployment %q not found for function %s", opts.deploymentID, function.Name)
+			return fmt.Errorf("deployment %q %w for function %s", opts.deploymentID, api.ErrNotFound, function.Name)
 		}
 		if err != nil {
 			return err

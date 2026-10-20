@@ -154,7 +154,7 @@ func (s Service) Project() (ProjectRef, error) {
 	ref := ProjectRef{ID: authenticated.ProjectID}
 	// Only trust the stored name when it belongs to the selected project: an
 	// environment override changes the id without changing the name beside it.
-	if current := authenticated.Config.CurrentProject; current != nil && current.ID == ref.ID.String() {
+	if current := authenticated.Config.Project(); current != nil && current.ID == ref.ID.String() {
 		ref.Name = current.Name
 	}
 	return ref, nil
@@ -192,7 +192,7 @@ func (s Service) explainNotFound(ctx context.Context) error {
 
 	if _, err := authenticated.API.GetProject(ctx, authenticated.ProjectID); err != nil {
 		if api.Status(err) == http.StatusNotFound {
-			return fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID)
+			return api.WithCause(fmt.Errorf("%w: %s", ErrProjectNotFound, authenticated.ProjectID), err)
 		}
 		// The project could not be confirmed either way, which is not the same
 		// as knowing it has no binding, so the failure is reported as itself.

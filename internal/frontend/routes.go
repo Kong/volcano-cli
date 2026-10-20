@@ -197,7 +197,7 @@ func (s Service) currentFrontend(ctx context.Context, identifier string) (*clise
 	}
 	frontend, err := resolveFrontend(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, nil, fmt.Errorf("frontend %q not found", identifier)
+		return nil, nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
@@ -242,7 +242,7 @@ func routeTarget(
 	if durable, err := authenticated.API.GetDurableFunction(ctx, authenticated.ProjectID, target); err == nil {
 		return nil, fmt.Errorf("%q is a durable function: frontend routes forward only to standard functions", durable.Name)
 	}
-	return nil, fmt.Errorf("function %q not found", identifier)
+	return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 }
 
 func findRoute(routes []apiclient.FrontendFunctionRoute, frontend, identifier string) (apiclient.FrontendFunctionRoute, error) {
@@ -252,7 +252,7 @@ func findRoute(routes []apiclient.FrontendFunctionRoute, frontend, identifier st
 			return route, nil
 		}
 	}
-	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("frontend %q has no route %q", frontend, identifier)
+	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("route %q %w for frontend %q", identifier, api.ErrNotFound, frontend)
 }
 
 func functionByID(functions []apiclient.Function, id uuid.UUID) *apiclient.Function {

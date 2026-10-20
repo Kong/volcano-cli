@@ -328,7 +328,8 @@ snapshot of a prior apply. Practical implications:
   it later or hand it to a later `config deploy`; running `config deploy`
   always recomputes the plan from scratch.
 - No workspaces, no `-target`: the whole manifest reconciles against the
-  currently selected project (`volcano use` / `VOLCANO_PROJECT_ID`) as one
+  currently selected project (`volcano use`, the directory's link, or the
+  deprecated `VOLCANO_PROJECT_ID`) as one
   unit. Omitting an entire section or field leaves it untouched. That does
   **not** apply within a section you've already declared as fully synced
   (`variables`, `buckets[].policies`, `auth.providers.oauth`,

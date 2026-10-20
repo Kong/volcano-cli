@@ -39,10 +39,18 @@ func TestAPIE2ESmokeAccessTokens(t *testing.T) {
 	// Duplicate names are rejected by the API, not silently accepted.
 	env.runCloudCLI(t, "access-tokens", "create", name).requireFailure(t, "failed to create access token")
 
-	projectTokenEnv := []string{"VOLCANO_TOKEN=" + secret, "VOLCANO_PROJECT_ID=" + env.projectID}
+	// A CI job keeps the token in VOLCANO_TOKEN and selects its project once,
+	// by ID, in a home of its own.
+	projectTokenEnv := []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret}
+	env.runCLIWithEnv(t, projectTokenEnv, "use", env.projectID).requireSuccess(t, "Now using project")
 
 	// The minted token authenticates project-scoped commands...
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "variables", "list").requireSuccess(t)
+	// ...and the deprecated VOLCANO_PROJECT_ID still selects its project, with
+	// a warning.
+	deprecatedEnv := []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret, "VOLCANO_PROJECT_ID=" + env.projectID}
+	env.runCloudCLIWithEnv(t, deprecatedEnv, "variables", "list").
+		requireSuccess(t, "VOLCANO_PROJECT_ID is deprecated")
 	// ...but not account-wide ones, and it says so instead of failing with a 403.
 	env.runCLIWithEnv(t, projectTokenEnv, "projects", "list").requireFailure(t, "needs an account token")
 	env.runCLIWithEnv(t, projectTokenEnv, "projects", "create", "cli-e2e-denied").requireFailure(t, "needs an account token")

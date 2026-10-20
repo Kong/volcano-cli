@@ -180,7 +180,7 @@ func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Fun
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("function %q not found", identifier)
+		return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -197,7 +197,7 @@ func (s Service) Get(ctx context.Context, identifier string) (*apiclient.Functio
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("function %q not found", identifier)
+		return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -238,7 +238,7 @@ func (s Service) UpdateVisibility(ctx context.Context, identifier string, visibi
 		if durable, err := authenticated.API.GetDurableFunction(ctx, authenticated.ProjectID, target); err == nil {
 			return nil, &DurableFunctionError{Name: durable.Name}
 		}
-		return nil, fmt.Errorf("function %q not found", identifier)
+		return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -289,7 +289,7 @@ func (s Service) Invoke(ctx context.Context, identifier string, payload map[stri
 
 	functionID, err := resolveInvokeFunctionID(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("function %q not found", identifier)
+		return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -429,7 +429,7 @@ func (s Service) ListSchedulers(ctx context.Context, identifier string) (*apicli
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, nil, fmt.Errorf("function %q not found", identifier)
+		return nil, nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -488,7 +488,7 @@ func (s Service) setSchedulerEnabled(ctx context.Context, identifier string, sch
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("function %q not found", identifier)
+		return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve function %q: %w", identifier, err)
@@ -517,7 +517,7 @@ func (s Service) DeleteScheduler(ctx context.Context, identifier string, schedul
 
 	function, err := resolveFunction(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return fmt.Errorf("function %q not found", identifier)
+		return fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to resolve function %q: %w", identifier, err)
