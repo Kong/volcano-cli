@@ -70,19 +70,20 @@ type redirectFlags struct {
 	status int
 }
 
-func (f *redirectFlags) register(cmd *cobra.Command) {
+func (f *redirectFlags) register(cmd *cobra.Command, statusUsage string) {
 	cmd.Flags().StringVar(&f.to, "redirect-to", "", "Redirect every request to this domain of the frontend, which must serve it")
-	cmd.Flags().IntVar(&f.status, "redirect-status", 308, "Redirect status: 301, 302, 307, or 308")
+	cmd.Flags().IntVar(&f.status, "redirect-status", 0, statusUsage)
 }
 
 // validate refuses what the API would answer with a bare "invalid request".
 func (f *redirectFlags) validate(cmd *cobra.Command) error {
+	statusSet := cmd.Flags().Changed("redirect-status")
 	switch {
-	case cmd.Flags().Changed("redirect-status") && !cmd.Flags().Changed("redirect-to"):
+	case statusSet && !cmd.Flags().Changed("redirect-to"):
 		return errors.New("--redirect-status needs --redirect-to")
 	case cmd.Flags().Changed("redirect-to") && strings.TrimSpace(f.to) == "":
 		return errors.New("--redirect-to needs a domain")
-	case !slices.Contains(redirectStatuses, f.status):
+	case statusSet && !slices.Contains(redirectStatuses, f.status):
 		return fmt.Errorf("invalid --redirect-status %d: use 301, 302, 307, or 308", f.status)
 	default:
 		return nil
@@ -197,7 +198,7 @@ redirect.`,
 			})
 		},
 	}
-	redirect.register(cmd)
+	redirect.register(cmd, "Redirect status: 301, 302, 307, or 308 (default 308)")
 	cmd.Flags().StringVar(&certPath, "cert", "", "Path to a PEM-encoded certificate, to serve your own instead of a Volcano-issued one")
 	cmd.Flags().StringVar(&keyPath, "key", "", "Path to the certificate's PEM-encoded private key")
 	cmd.Flags().StringVar(&chainPath, "chain", "", "Path to a PEM-encoded certificate chain")
@@ -214,7 +215,8 @@ func newDomainsUpdate(deps cliruntime.Deps) *cobra.Command {
 		Long: `Set or clear a custom domain's redirect.
 
 --redirect-to makes the domain redirect every request to another domain of the
-frontend that serves it. --no-redirect makes it serve the frontend again. A
+frontend that serves it. Without --redirect-status, a domain that already
+redirects keeps its status. --no-redirect makes it serve the frontend again. A
 domain that other domains redirect to cannot become a redirect itself.`,
 		Example: fmt.Sprintf(`  %s
   %s`,
@@ -237,7 +239,7 @@ domain that other domains redirect to cannot become a redirect itself.`,
 			})
 		},
 	}
-	redirect.register(cmd)
+	redirect.register(cmd, "Redirect status: 301, 302, 307, or 308 (default: the domain's current status, or 308)")
 	cmd.Flags().BoolVar(&noRedirect, "no-redirect", false, "Serve the frontend instead of redirecting")
 	cmd.MarkFlagsMutuallyExclusive("redirect-to", "no-redirect")
 	return cmd

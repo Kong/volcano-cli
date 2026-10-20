@@ -130,7 +130,7 @@ func TestFrontendsDomainsAdd(t *testing.T) {
 		assert.Equal(t, map[string]any{
 			"domain":   "example.com",
 			"tls":      map[string]any{"mode": "managed"},
-			"redirect": map[string]any{"to": "www.example.com", "status": float64(308)},
+			"redirect": map[string]any{"to": "www.example.com"},
 		}, payload)
 	})
 
@@ -205,8 +205,11 @@ func TestFrontendsDomainsAdd(t *testing.T) {
 
 func TestFrontendsDomainsUpdate(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		args     []string
+		name string
+		args []string
+		// current answers the read of the domain, which only a redirect
+		// without --redirect-status makes.
+		current  map[string]any
 		response map[string]any
 		redirect any
 		message  string
@@ -217,6 +220,22 @@ func TestFrontendsDomainsUpdate(t *testing.T) {
 			response: frontendRedirectDomainResponse("example.com", "www.example.com", 302),
 			redirect: map[string]any{"to": "www.example.com", "status": float64(302)},
 			message:  "Custom domain 'example.com' now redirects to 'www.example.com' with 302",
+		},
+		{
+			name:     "retarget keeps the status",
+			args:     []string{"--redirect-to", "app.example.com"},
+			current:  frontendRedirectDomainResponse("example.com", "www.example.com", 302),
+			response: frontendRedirectDomainResponse("example.com", "app.example.com", 302),
+			redirect: map[string]any{"to": "app.example.com", "status": float64(302)},
+			message:  "Custom domain 'example.com' now redirects to 'app.example.com' with 302",
+		},
+		{
+			name:     "serving domain takes the default status",
+			args:     []string{"--redirect-to", "www.example.com"},
+			current:  frontendDomainCommandResponse("example.com", "active"),
+			response: frontendRedirectDomainResponse("example.com", "www.example.com", 308),
+			redirect: map[string]any{"to": "www.example.com"},
+			message:  "Custom domain 'example.com' now redirects to 'www.example.com' with 308",
 		},
 		{
 			name:     "serve again",
@@ -230,12 +249,18 @@ func TestFrontendsDomainsUpdate(t *testing.T) {
 			setFrontendCommandTestHome(t)
 			saveFrontendCommandTestConfig(t)
 			var payload map[string]any
-			server := frontendDomainsServer(t, map[string]http.HandlerFunc{
+			routes := map[string]http.HandlerFunc{
 				"PATCH " + frontendDomainsPath + "/example.com": func(w http.ResponseWriter, r *http.Request) {
 					assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
 					writeFrontendCommandJSON(t, w, http.StatusOK, tc.response)
 				},
-			})
+			}
+			if tc.current != nil {
+				routes["GET "+frontendDomainsPath+"/example.com"] = func(w http.ResponseWriter, _ *http.Request) {
+					writeFrontendCommandJSON(t, w, http.StatusOK, tc.current)
+				}
+			}
+			server := frontendDomainsServer(t, routes)
 
 			out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
 				append([]string{"domains", "update", "web", "example.com"}, tc.args...)...)
@@ -251,6 +276,9 @@ func TestFrontendsDomainsUpdateNamesTheRedirectsInTheWay(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)
 	server := frontendDomainsServer(t, map[string]http.HandlerFunc{
+		"GET " + frontendDomainsPath + "/www.example.com": func(w http.ResponseWriter, _ *http.Request) {
+			writeFrontendCommandJSON(t, w, http.StatusOK, frontendDomainCommandResponse("www.example.com", "active"))
+		},
 		"PATCH " + frontendDomainsPath + "/www.example.com": func(w http.ResponseWriter, _ *http.Request) {
 			writeFrontendCommandJSON(t, w, http.StatusConflict, map[string]any{
 				"error": "www.example.com is the redirect target of example.com; remove or retarget those redirects first",

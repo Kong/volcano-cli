@@ -125,8 +125,10 @@ ANAME, or CNAME-flattening record with that target.
 
 ### Redirects
 
-`--redirect-status` takes 301, 302, 307, or 308, and defaults to 308. 301 and
-308 are permanent and browsers cache them; use 302 while you test. A redirect
+`--redirect-status` takes 301, 302, 307, or 308. `add` defaults to 308;
+`update` keeps the domain's current status, or uses 308 for a domain that
+served the frontend. 301 and 308 are permanent and browsers cache them; use 302
+while you test. A redirect
 must point at an `active` domain of the same frontend that serves it, not at
 another redirect or a domain still waiting for DNS or its certificate. If the
 target stops serving, the redirect domain serves the frontend until the target

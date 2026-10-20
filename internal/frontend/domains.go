@@ -51,13 +51,23 @@ func (s Service) AddDomain(ctx context.Context, identifier string, input api.Fro
 }
 
 // SetDomainRedirect makes a custom domain redirect, or serve the frontend
-// again when redirect is nil.
+// again when redirect is nil. A redirect without a Status keeps the one the
+// domain redirects with; the API would reset it to 308.
 func (s Service) SetDomainRedirect(
 	ctx context.Context, identifier, domain string, redirect *api.FrontendDomainRedirect,
 ) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, error) {
 	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
 	if err != nil {
 		return nil, nil, err
+	}
+	if redirect != nil && redirect.Status == 0 {
+		current, err := authenticated.API.GetFrontendDomain(ctx, authenticated.ProjectID, frontend.Id, domain)
+		if err != nil {
+			return nil, nil, domainError(frontend, domain, "update", err)
+		}
+		if current.Redirect != nil {
+			redirect = &api.FrontendDomainRedirect{To: redirect.To, Status: int(current.Redirect.Status)}
+		}
 	}
 	updated, err := authenticated.API.SetFrontendDomainRedirect(ctx, authenticated.ProjectID, frontend.Id, domain, redirect)
 	if err != nil {
