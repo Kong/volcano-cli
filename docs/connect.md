@@ -22,7 +22,7 @@ directory, the error names the project and the
 Commands `connect` prints put a directory with spaces or other shell
 characters in single quotes, so you can paste them as they are.
 
-1. **Signs in.** It signs in with `--device-code` or `--token` when given.
+1. **Signs in.** It signs in with `--device-code` when given.
    Otherwise it reuses a login that still works, or runs browser login.
    Browser login prints a code and a link. Open the link and approve, and the
    command continues. See
@@ -94,7 +94,6 @@ volcano connect --project <project-id> # set up an existing project
 volcano connect --template nextjs      # also add the Next.js starter
 volcano connect --signup               # new to Volcano: create an account first
 volcano connect --device-code <code>   # sign in with the code in the dashboard's prompt
-volcano connect --token pk-xxxxxxxxxx  # sign in with an account token, no browser
 volcano connect --json                 # print the result as JSON
 ```
 
@@ -105,7 +104,6 @@ volcano connect --json                 # print the result as JSON
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
 | `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
 | `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
-| `--token` | Sign in with a token instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
 | `--json` | Print the result as JSON on stdout. Progress goes to stderr |
 

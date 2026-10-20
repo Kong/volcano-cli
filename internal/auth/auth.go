@@ -205,6 +205,21 @@ func (e redactedError) Error() string {
 
 func (e redactedError) Unwrap() error { return e.err }
 
+// projectTokenNeedsProjectError is a project access token login with no
+// project to check it against. It is config.ErrNoProjectSelectedForProjectToken
+// for the exit code, with --project in place of volcano use: nothing is saved
+// to select a project in yet.
+type projectTokenNeedsProjectError struct{}
+
+func (projectTokenNeedsProjectError) Error() string {
+	return "a project access token (" + config.ProjectTokenPrefix + ") is scoped to one project: " +
+		"pass --project <project-id> with the project it was minted in"
+}
+
+func (projectTokenNeedsProjectError) Is(target error) bool {
+	return target == config.ErrNoProjectSelectedForProjectToken
+}
+
 // loginWithToken validates token, an account or project access token, for
 // LoginWithToken and LoginWithDeviceCode. userID is the user a device login
 // named, if any.
@@ -220,8 +235,7 @@ func (s Service) loginWithToken(ctx context.Context, cfg *config.Config, token, 
 	if project == "" && config.IsProjectToken(token) {
 		project, origin = unnamedProject(cfg)
 		if project == "" {
-			return Credentials{}, fmt.Errorf("a project access token (%s) is scoped to one project: pass --project <project-id> "+
-				"with the project it was minted in", config.ProjectTokenPrefix)
+			return Credentials{}, projectTokenNeedsProjectError{}
 		}
 	}
 	if project == "" {

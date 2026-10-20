@@ -31,7 +31,15 @@ func ensureGitignored(dir string, newLink bool) error {
 	}
 	present := map[string]bool{}
 	for line := range strings.SplitSeq(string(data), "\n") {
-		present[strings.TrimSpace(line)] = true
+		// connect's entries name paths at the root, where a leading / means
+		// the same: /.volcano/project.json, or !/.volcano/project.json.
+		line = strings.TrimSpace(line)
+		negation := strings.HasPrefix(line, "!")
+		line = strings.TrimPrefix(strings.TrimPrefix(line, "!"), "/")
+		if negation {
+			line = "!" + line
+		}
+		present[line] = true
 	}
 	entries := []string{gitignoreEnv}
 	if newLink {

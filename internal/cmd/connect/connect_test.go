@@ -257,21 +257,26 @@ func TestConnectRerunReusesTheLinkAndUpdatesFilesInPlace(t *testing.T) {
 }
 
 // A negation is how a team says it commits the link, so connect leaves it.
+// A leading / names the same path at the root.
 func TestConnectKeepsANegatedLinkEntryInGitignore(t *testing.T) {
-	setConnectTestHome(t)
-	fake := &fakeAPI{t: t}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	dir := filepath.Join(t.TempDir(), "shop")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("!.volcano/project.json\n"), 0o644))
+	for _, negation := range []string{"!.volcano/project.json", "!/.volcano/project.json"} {
+		t.Run(negation, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+			dir := filepath.Join(t.TempDir(), "shop")
+			require.NoError(t, os.MkdirAll(dir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(negation+"\n"), 0o644))
 
-	_, err := runConnect(t, server, dir)
-	require.NoError(t, err)
+			_, err := runConnect(t, server, dir)
+			require.NoError(t, err)
 
-	gitignore := readFile(t, filepath.Join(dir, ".gitignore"))
-	assert.Equal(t, 1, strings.Count(gitignore, ".volcano/project.json"), gitignore)
-	assert.Contains(t, gitignore, "volcano/*.env\n")
+			gitignore := readFile(t, filepath.Join(dir, ".gitignore"))
+			assert.Equal(t, 1, strings.Count(gitignore, ".volcano/project.json"), gitignore)
+			assert.Contains(t, gitignore, "volcano/*.env\n")
+		})
+	}
 }
 
 // Without --project, connect creates a project. At the plan's limit it fails and names
@@ -1029,6 +1034,20 @@ func TestConnectRefusesToWriteThroughASymlink(t *testing.T) {
 	}
 }
 
+// The commands connect prints after a failure keep the starter, so a rerun
+// still adds it.
+func TestConnectKeepsTheTemplateInTheRerunCommand(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t, anonKeyStatus: http.StatusInternalServerError}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	_, err := runConnectHere(t, server, "--template", "nextjs")
+	require.ErrorContains(t, err, "To finish setting it up, run: volcano connect ./fuji-amber-42 --template nextjs")
+}
+
 // A rerun from the working directory would not find the link in the new
 // directory below it, so a failure after the link names that directory.
 func TestConnectNamesTheNewDirectoryWhenSetupFailsAfterTheLink(t *testing.T) {
@@ -1091,23 +1110,6 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 	cmd.SetArgs([]string{dir, "--skip-skills"})
 	err := cmd.ExecuteContext(ctx)
 	require.ErrorContains(t, err, "To set it up, run: volcano connect '"+dir+"' --project "+connectProjectID)
-}
-
-// A project access token is checked against the project the directory
-// argument is linked to, not the working directory's selection.
-func TestConnectChecksAProjectTokenAgainstTheTargetsLink(t *testing.T) {
-	setConnectTestHome(t)
-	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	chdirTemp(t)
-	dir := filepath.Join(t.TempDir(), "shop")
-	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
-	require.NoError(t, err)
-
-	_, err = runConnect(t, server, dir, "--token", "pt-shop")
-	require.NoError(t, err)
-	assert.Zero(t, fake.creates)
 }
 
 // A symlink connect would write through is found before sign-in, so the
@@ -1199,26 +1201,6 @@ func TestConnectWithADeviceCodeSignsInWithoutTheBrowser(t *testing.T) {
 	assert.Equal(t, "user-1", cfg.UserID)
 }
 
-func TestConnectWithATokenSignsInWithIt(t *testing.T) {
-	setConnectTestHome(t)
-	useGeneratedName(t, "fuji-amber-42")
-	fake := &fakeAPI{t: t}
-	server := httptest.NewServer(fake)
-	defer server.Close()
-	chdirTemp(t)
-
-	out, err := runConnectHere(t, server, "--token", "pk-given")
-	require.NoError(t, err)
-	assert.Contains(t, out, "Signed in with the token")
-	assert.Equal(t, "Bearer pk-given", fake.createAuth)
-	assert.Zero(t, fake.polls)
-	assert.False(t, fake.deviceAuthorize)
-
-	cfg, err := cliconfig.Load()
-	require.NoError(t, err)
-	assert.Equal(t, "pk-given", cfg.UserToken)
-}
-
 func TestConnectSavesTheDeviceLoginWhenProjectIsWrong(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t}
@@ -1252,14 +1234,14 @@ func TestConnectSavesTheDeviceLoginWhenItsCheckFails(t *testing.T) {
 	assert.Equal(t, "pk-exchanged", cfg.UserToken, "the device code's login is kept for the next run")
 }
 
-func TestConnectRefusesATokenThatVolcanoTokenWouldOverride(t *testing.T) {
+func TestConnectRefusesALoginThatVolcanoTokenWouldOverride(t *testing.T) {
 	setConnectTestHome(t)
 	t.Setenv("VOLCANO_TOKEN", "pk-from-env")
 	fake := &fakeAPI{t: t}
 	server := httptest.NewServer(fake)
 	defer server.Close()
 
-	for _, flags := range [][]string{{"--device-code", connectDeviceCode}, {"--token", "pk-other"}, {"--signup", "--email", "a@example.com"}} {
+	for _, flags := range [][]string{{"--device-code", connectDeviceCode}, {"--signup", "--email", "a@example.com"}} {
 		_, err := runConnect(t, server, t.TempDir(), flags...)
 		require.ErrorContains(t, err, "VOLCANO_TOKEN is set", flags)
 	}

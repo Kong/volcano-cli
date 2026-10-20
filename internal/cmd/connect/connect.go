@@ -49,7 +49,6 @@ const (
 type options struct {
 	deps       cliruntime.Deps
 	dir        string
-	token      string
 	deviceCode string
 	project    string
 	name       string
@@ -92,8 +91,8 @@ func New(deps cliruntime.Deps) *cobra.Command {
 coding agent to build on.
 
 connect:
-  1. Signs in: takes --device-code from the dashboard's prompt or --token,
-     reuses a valid login, or runs browser login.
+  1. Signs in: takes --device-code from the dashboard's prompt, reuses a
+     valid login, or runs browser login.
   2. Picks the project. With no directory argument, it creates a new project
      (--name, or a generated name like fuji-amber-42) and a new directory
      named after it. With a directory argument, the new project is named after
@@ -135,7 +134,6 @@ It ends with the project's name, its directory, and its dashboard link.
 			return run(cmd.Context(), opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.token, "token", "", "Sign in with a token instead of the browser")
 	cmd.Flags().StringVar(&opts.deviceCode, "device-code", "",
 		"Sign in with the code in the dashboard's prompt instead of the browser")
 	cmd.Flags().StringVar(&opts.project, "project", "", "Use the existing project with this ID instead of creating one")
@@ -145,8 +143,6 @@ It ends with the project's name, its directory, and its dashboard link.
 	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
 	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
-	cmd.MarkFlagsMutuallyExclusive("token", "signup")
-	cmd.MarkFlagsMutuallyExclusive("device-code", "token")
 	cmd.MarkFlagsMutuallyExclusive("device-code", "signup")
 	cmd.MarkFlagsMutuallyExclusive("project", "name")
 	return cmd
@@ -167,9 +163,9 @@ func run(ctx context.Context, opts options) error {
 	// a new login would be saved and then not used. Checked before the
 	// dashboard's device code is spent.
 	if strings.TrimSpace(os.Getenv("VOLCANO_TOKEN")) != "" &&
-		(strings.TrimSpace(opts.token) != "" || strings.TrimSpace(opts.deviceCode) != "" || opts.signup) {
+		(strings.TrimSpace(opts.deviceCode) != "" || opts.signup) {
 		return errors.New("VOLCANO_TOKEN is set and would be used instead of the new login. " +
-			"Unset it, or run connect without --token, --device-code, and --signup to use it")
+			"Unset it, or run connect without --device-code and --signup to use it")
 	}
 	// VOLCANO_PROJECT_ID is deprecated, and would override the link connect
 	// writes. Checked before sign-in, so the dashboard's device code isn't spent.
@@ -348,8 +344,8 @@ func run(ctx context.Context, opts options) error {
 	return nil
 }
 
-// ensureSession leaves a valid login saved: the --device-code or --token
-// given, the saved login if the API still accepts it, or a new browser login.
+// ensureSession leaves a valid login saved: the --device-code given, the
+// saved login if the API still accepts it, or a new browser login.
 func ensureSession(ctx context.Context, opts options, sessions clisession.Factory) error {
 	cfg, err := sessions.Config()
 	if err != nil {
@@ -380,28 +376,6 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			output.Success(opts.log, "Signed in with the code from the dashboard")
 			return nil
 		}
-	}
-
-	if token := strings.TrimSpace(opts.token); token != "" {
-		// Only a project access token needs its project to sign in. Any other
-		// token signs in first, so a wrong --project fails at the project
-		// lookup.
-		project := ""
-		if config.IsProjectToken(token) {
-			project = opts.project
-			if strings.TrimSpace(project) == "" {
-				project = targetLinkProject(opts)
-			}
-		}
-		credentials, err := auth.LoginWithToken(ctx, cfg, token, project)
-		if err != nil {
-			return fmt.Errorf("token authentication failed: %w", err)
-		}
-		if err := cliauth.SaveCredentials(credentials); err != nil {
-			return fmt.Errorf("failed to save credentials: %w", err)
-		}
-		output.Success(opts.log, "Signed in with the token")
-		return nil
 	}
 
 	if token := cfg.Token(); token != "" && !opts.signup && !refused {
@@ -625,7 +599,8 @@ func checkTargetPath(opts options) error {
 // doesn't create another.
 func createdProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
 	return fmt.Errorf("%w\nCreated project %s (%s), but did not link it. To set it up, run: %s", err,
-		project.Name, project.Id, cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))+" --project "+project.Id.String()))
+		project.Name, project.Id, cliruntime.CommandPath(opts.deps,
+			"connect "+cliruntime.ShellQuote(displayDir(wd, dir))+" --project "+project.Id.String()+starterFlag(opts)))
 }
 
 // linkedProjectError is err, a failure after connect created project and
@@ -633,7 +608,16 @@ func createdProjectError(opts options, wd, dir string, project *apiclient.Projec
 // setting it up.
 func linkedProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
 	return fmt.Errorf("%w\nCreated project %s (%s) and linked it in %s. To finish setting it up, run: %s", err,
-		project.Name, project.Id, displayDir(wd, dir), cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))))
+		project.Name, project.Id, displayDir(wd, dir), cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))+starterFlag(opts)))
+}
+
+// starterFlag is the --template the user passed, for the commands connect
+// prints, or "".
+func starterFlag(opts options) string {
+	if t := strings.TrimSpace(opts.template); t != "" {
+		return " --template " + cliruntime.ShellQuote(t)
+	}
+	return ""
 }
 
 // projectID parses --project, which takes an ID only.
@@ -860,7 +844,7 @@ func isProjectLimit(err error) bool {
 
 // projectLimitError explains a create refused by the plan's project limit and
 // lists the projects the user could link instead. The free plan allows one
-// project, and signup creates it.
+// project.
 func projectLimitError(ctx context.Context, client *api.Client, opts options, limitErr error) error {
 	page, err := client.ListProjects(ctx, api.DefaultPage, api.DefaultLimit)
 	if err != nil || len(page.Data) == 0 {
@@ -872,13 +856,9 @@ func projectLimitError(ctx context.Context, client *api.Client, opts options, li
 	if opts.dir != "" {
 		command += " " + cliruntime.ShellQuote(opts.dir)
 	}
-	var starter string
-	if t := strings.TrimSpace(opts.template); t != "" {
-		starter = " --template " + cliruntime.ShellQuote(t)
-	}
 	var list strings.Builder
 	for _, p := range page.Data {
-		fmt.Fprintf(&list, "\n  - %s: %s --project %s%s", p.Name, cliruntime.CommandPath(opts.deps, command), p.Id, starter)
+		fmt.Fprintf(&list, "\n  - %s: %s --project %s%s", p.Name, cliruntime.CommandPath(opts.deps, command), p.Id, starterFlag(opts))
 	}
 	return fmt.Errorf("%w\nDelete a project or upgrade your plan to create another, or link an existing project:%s", limitErr, list.String())
 }
@@ -960,23 +940,6 @@ func starterError(dir, starter string, err error) error {
 	return fmt.Errorf("can't add the %s starter to %s, because these files differ from it: %s. "+
 		"Run connect without --template to keep them, or move them and try again",
 		starter, dir, strings.Join(conflicts, "; "))
-}
-
-// targetLinkProject is the project the directory argument is linked to, or
-// "". A project access token is checked against it: the working directory's
-// link, or the global selection, may name another project.
-func targetLinkProject(opts options) string {
-	if opts.dir == "" {
-		return ""
-	}
-	dir, err := filepath.Abs(opts.dir)
-	if err != nil {
-		return ""
-	}
-	if link, _ := config.FindLink(dir); link != nil && link.Dir == dir {
-		return link.Project.ID
-	}
-	return ""
 }
 
 // refuseSymlinks fails when a file connect writes in dir, or a directory

@@ -109,6 +109,7 @@ func TestLoginWithProjectTokenRequiresAProject(t *testing.T) {
 	_, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).
 		LoginWithToken(context.Background(), cfg, "pt-project-token", "")
 	require.ErrorContains(t, err, "--project <project-id>")
+	require.ErrorIs(t, err, config.ErrNoProjectSelectedForProjectToken, "so login exits with the no-project code")
 }
 
 func TestLoginWithProjectTokenForTheWrongProject(t *testing.T) {
