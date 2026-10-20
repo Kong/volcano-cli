@@ -61,7 +61,9 @@ func (c *Client) PollDeviceToken(ctx context.Context, clientID, deviceCode strin
 	// A 403 is an OAuth error too, such as access_denied for an email domain
 	// the project doesn't allow, so it ends the login like a 400.
 	for _, oauthErr := range []*apiclient.OAuthErrorResponse{resp.JSON400, resp.JSON403} {
-		if oauthErr == nil {
+		// A 403 without an OAuth error, such as a gateway's, is a failure,
+		// not a pending login.
+		if oauthErr == nil || (oauthErr == resp.JSON403 && oauthErr.Error == "") {
 			continue
 		}
 		status := &DeviceTokenPollResult{Error: oauthErr.Error}

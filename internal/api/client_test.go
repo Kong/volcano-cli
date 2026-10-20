@@ -37,6 +37,25 @@ func TestPollDeviceTokenUnexpectedStatusReturnsError(t *testing.T) {
 	assert.Equal(t, http.StatusText(http.StatusInternalServerError), apiErr.Message)
 }
 
+// A 403 without an OAuth error, such as a gateway's, is a failure: read as a
+// poll result it would look like a pending login until the code expired.
+func TestPollDeviceTokenTreatsANonOAuth403AsAnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"blocked by gateway"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	status, err := client.PollDeviceToken(context.Background(), "device-client", "device-code")
+	require.Nil(t, status)
+	assert.Equal(t, http.StatusForbidden, Status(err))
+	assert.Equal(t, "blocked by gateway", Message(err))
+}
+
 func TestStartDeviceAuthorizationNormalizesOAuthError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)

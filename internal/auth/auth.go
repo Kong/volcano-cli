@@ -172,7 +172,12 @@ func deviceCodeRefused(refusal *deviceTokenRefusal) *DeviceCodeRefusedError {
 	case "expired_token":
 		return &DeviceCodeRefusedError{Reason: "has expired", Err: refusal}
 	case "access_denied":
-		return &DeviceCodeRefusedError{Reason: "was denied", Err: refusal}
+		// The API says why, such as an email domain the project doesn't allow.
+		reason := "was denied"
+		if d := strings.TrimRight(strings.TrimSpace(refusal.description), "."); d != "" {
+			reason += ": " + d
+		}
+		return &DeviceCodeRefusedError{Reason: reason, Err: refusal}
 	case "invalid_grant":
 		return &DeviceCodeRefusedError{Reason: "is not valid or was already used", Err: refusal}
 	default:
@@ -510,6 +515,9 @@ type deviceTokenRefusal struct {
 func (e *deviceTokenRefusal) Error() string {
 	switch e.code {
 	case "access_denied":
+		if d := strings.TrimSpace(e.description); d != "" {
+			return "authorization denied: " + d
+		}
 		return "authorization denied"
 	case "expired_token":
 		return "device code expired"

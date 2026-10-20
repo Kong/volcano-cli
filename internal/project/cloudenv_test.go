@@ -262,3 +262,50 @@ func TestExistingAnonKeyStopsAtThePageCap(t *testing.T) {
 	assert.Equal(t, "ak-old", key)
 	assert.Equal(t, maxAnonKeyPages, requests)
 }
+
+// Selecting the linked project again keeps its cloud env file, which may hold
+// a key the user chose over the default one.
+func TestUseOfTheLinkedProjectLeavesItsCloudEnvAlone(t *testing.T) {
+	const cloudEnv = "VOLCANO_ANON_KEY=ak-alpha-chosen\n"
+	dir := linkedToAlpha(t, cloudEnv)
+	anonKeyRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/" + projectAlphaID:
+			writeProjectJSON(t, w, http.StatusOK, projectTestPayload(projectAlphaID, "Alpha", "active"))
+		case "/projects/" + projectAlphaID + "/anon-keys":
+			anonKeyRequests++
+			http.Error(w, "unexpected", http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	used, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectAlphaID)
+	require.NoError(t, err)
+	require.NoError(t, used.EnvErr)
+	assert.Empty(t, used.EnvFile)
+	assert.Zero(t, anonKeyRequests)
+	data, err := os.ReadFile(CloudEnvPath(dir))
+	require.NoError(t, err)
+	assert.Equal(t, cloudEnv, string(data))
+}
+
+// A cloud env file that is a symlink is refused before it is read: a cloned
+// repository could point it at /dev/zero.
+func TestUseRefusesASymlinkedCloudEnvBeforeReadingIt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	dir := linkedToAlpha(t, "")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "volcano"), 0o755))
+	require.NoError(t, os.Symlink("/dev/zero", CloudEnvPath(dir)))
+	var anonKeyRequests int
+	server := betaServer(t, betaAnonKeys(t), &anonKeyRequests)
+
+	used, err := NewService(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}).Use(context.Background(), projectBetaID)
+	require.NoError(t, err)
+	require.ErrorContains(t, used.EnvErr, "is a symlink")
+	assert.Zero(t, anonKeyRequests)
+}

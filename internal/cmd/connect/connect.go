@@ -33,6 +33,7 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/setup"
+	"github.com/Kong/volcano-cli/internal/symlink"
 )
 
 const (
@@ -217,6 +218,11 @@ func run(ctx context.Context, opts options) error {
 		if err := checkStarter(dir, starter); err != nil {
 			return err
 		}
+		// Found only at the write otherwise, after the device code is spent
+		// and a project created.
+		if err := refuseSymlinks(dir); err != nil {
+			return err
+		}
 	}
 	if err := ensureSession(ctx, opts, sessions); err != nil {
 		return err
@@ -251,6 +257,16 @@ func run(ctx context.Context, opts options) error {
 	// Only `connect <directory> --project` relinks a directory linked to
 	// another project that still exists.
 	previous, _ := config.FindLink(dir)
+	// Before a new link is written, so a failure here never leaves one
+	// without its entry. A team that commits the link removes its .gitignore
+	// entry, so a rerun on an existing link doesn't add it back.
+	newLink := previous == nil || previous.Dir != dir
+	if err := ensureGitignored(dir, newLink); err != nil {
+		if created {
+			return createdProjectError(opts, wd, dir, project, err)
+		}
+		return err
+	}
 	link, err := cliproject.Link(dir, project)
 	if err != nil {
 		if created {
@@ -272,14 +288,6 @@ func run(ctx context.Context, opts options) error {
 		output.Warning(opts.log, "%s was linked to %s. It is now linked to %s. To undo, run: %s",
 			shown, projectLabel(previous.Project), projectLabel(config.ProjectConfig{ID: project.Id.String(), Name: project.Name}),
 			cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(shown)+" --project "+previous.Project.ID))
-	}
-
-	// Right after the link, so a run that fails later still keeps a new link
-	// out of the repository. A team that commits the link removes its
-	// .gitignore entry, so a rerun on an existing link doesn't add it back.
-	newLink := previous == nil || previous.Dir != dir
-	if err := ensureGitignored(dir, newLink); err != nil {
-		return setupError(err)
 	}
 
 	if err := scaffold(opts, dir, starter); err != nil {
@@ -381,6 +389,9 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 		project := ""
 		if config.IsProjectToken(token) {
 			project = opts.project
+			if strings.TrimSpace(project) == "" {
+				project = targetLinkProject(opts)
+			}
 		}
 		credentials, err := auth.LoginWithToken(ctx, cfg, token, project)
 		if err != nil {
@@ -797,7 +808,7 @@ func createProject(ctx context.Context, opts options, client *api.Client, name s
 		case api.Status(err) == http.StatusConflict && suffix <= maxNameSuffix:
 			candidate = fmt.Sprintf("%s-%d", name, suffix)
 		case isProjectLimit(err):
-			return nil, projectLimitError(ctx, client, err)
+			return nil, projectLimitError(ctx, client, opts, err)
 		default:
 			return nil, fmt.Errorf("failed to create project %q: %w", candidate, err)
 		}
@@ -850,14 +861,24 @@ func isProjectLimit(err error) bool {
 // projectLimitError explains a create refused by the plan's project limit and
 // lists the projects the user could link instead. The free plan allows one
 // project, and signup creates it.
-func projectLimitError(ctx context.Context, client *api.Client, limitErr error) error {
+func projectLimitError(ctx context.Context, client *api.Client, opts options, limitErr error) error {
 	page, err := client.ListProjects(ctx, api.DefaultPage, api.DefaultLimit)
 	if err != nil || len(page.Data) == 0 {
 		return fmt.Errorf("%w\nDelete a project or upgrade your plan to create another", limitErr)
 	}
+	// The hint keeps the directory and starter the user asked for: without
+	// the directory, --project sets up a new one named after the project.
+	command := "connect"
+	if opts.dir != "" {
+		command += " " + cliruntime.ShellQuote(opts.dir)
+	}
+	var starter string
+	if t := strings.TrimSpace(opts.template); t != "" {
+		starter = " --template " + cliruntime.ShellQuote(t)
+	}
 	var list strings.Builder
 	for _, p := range page.Data {
-		fmt.Fprintf(&list, "\n  - %s: volcano connect --project %s", p.Name, p.Id)
+		fmt.Fprintf(&list, "\n  - %s: %s --project %s%s", p.Name, cliruntime.CommandPath(opts.deps, command), p.Id, starter)
 	}
 	return fmt.Errorf("%w\nDelete a project or upgrade your plan to create another, or link an existing project:%s", limitErr, list.String())
 }
@@ -939,6 +960,34 @@ func starterError(dir, starter string, err error) error {
 	return fmt.Errorf("can't add the %s starter to %s, because these files differ from it: %s. "+
 		"Run connect without --template to keep them, or move them and try again",
 		starter, dir, strings.Join(conflicts, "; "))
+}
+
+// targetLinkProject is the project the directory argument is linked to, or
+// "". A project access token is checked against it: the working directory's
+// link, or the global selection, may name another project.
+func targetLinkProject(opts options) string {
+	if opts.dir == "" {
+		return ""
+	}
+	dir, err := filepath.Abs(opts.dir)
+	if err != nil {
+		return ""
+	}
+	if link, _ := config.FindLink(dir); link != nil && link.Dir == dir {
+		return link.Project.ID
+	}
+	return ""
+}
+
+// refuseSymlinks fails when a file connect writes in dir, or a directory
+// holding one, is a symlink.
+func refuseSymlinks(dir string) error {
+	for _, rel := range []string{config.LinkRelPath, filepath.FromSlash(cliproject.CloudEnvRelPath), ".gitignore", agentsFileName} {
+		if err := symlink.Refuse(dir, rel); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // knownTarget is the directory connect will set up when it is known before

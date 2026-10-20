@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
@@ -48,6 +49,14 @@ func WriteCloudEnv(dir, apiURL, anonKey string) error {
 // It returns the file's path when it changed it.
 func refreshCloudEnv(ctx context.Context, client *api.Client, dir, apiURL string, projectID uuid.UUID) (string, error) {
 	path := CloudEnvPath(dir)
+	// Checked before the read: a cloned repository could commit the file as
+	// a symlink to /dev/zero, or as a FIFO.
+	if err := symlink.Refuse(dir, filepath.FromSlash(CloudEnvRelPath)); err != nil {
+		return "", err
+	}
+	if info, err := os.Lstat(path); err == nil && !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", path)
+	}
 	managed, err := envfile.HasKey(path, anonKeyKeys...)
 	if err != nil || !managed {
 		return "", err

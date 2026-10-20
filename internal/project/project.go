@@ -229,9 +229,9 @@ func CheckProjectOverride(cfg *config.Config, selectedID string, link *config.Li
 		fromEnv, link.Path())
 }
 
-// SelectInLink links link's directory to selected and rewrites the anon key
-// `volcano connect` wrote to the directory's cloud env file, as Use does inside
-// a linked directory. client and apiURL reach selected's API. Callers run
+// SelectInLink links link's directory to selected and, when the project
+// changes, rewrites the anon key `volcano connect` wrote to the directory's
+// cloud env file, as Use does inside a linked directory. client and apiURL reach selected's API. Callers run
 // CheckProjectOverride first.
 func SelectInLink(ctx context.Context, client *api.Client, apiURL string, link *config.Link, selected *apiclient.Project) (UseResult, error) {
 	updated, err := Link(link.Dir, selected)
@@ -239,10 +239,13 @@ func SelectInLink(ctx context.Context, client *api.Client, apiURL string, link *
 		return UseResult{}, err
 	}
 	result := UseResult{Project: selected, SavedTo: updated.Path()}
-	if link.Project.ID != selected.Id.String() {
-		previous := link.Project
-		result.Previous = &previous
+	// The same project keeps its cloud env file, which may hold a key the
+	// user chose over the default one.
+	if link.Project.ID == selected.Id.String() {
+		return result, nil
 	}
+	previous := link.Project
+	result.Previous = &previous
 	result.EnvFile, result.EnvErr = refreshCloudEnv(ctx, client, link.Dir, apiURL, selected.Id)
 	if result.EnvErr != nil {
 		result.EnvFile = CloudEnvPath(link.Dir)

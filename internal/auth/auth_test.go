@@ -403,7 +403,7 @@ func TestLoginWithDeviceCodeNamesWhyItWasRefused(t *testing.T) {
 		code, description, reason string
 	}{
 		{"expired_token", "device code expired", "has expired"},
-		{"access_denied", "The resource owner or authorization server denied the request.", "was denied"},
+		{"access_denied", "The resource owner or authorization server denied the request.", "was denied: The resource owner or authorization server denied the request"},
 		{"invalid_grant", "The provided authorization grant (e.g., authorization code, resource owner credentials) or " +
 			"refresh token is invalid, expired, revoked, does not match the redirection URI used in the authorization " +
 			"request, or was issued to another client.", "is not valid or was already used"},
@@ -449,7 +449,7 @@ func TestLoginWithDeviceCodeTreatsA403AsARefusal(t *testing.T) {
 		LoginWithDeviceCode(context.Background(), cfg, authDeviceCode, "", &bytes.Buffer{})
 	refused, ok := errors.AsType[*DeviceCodeRefusedError](err)
 	require.True(t, ok, "got %v", err)
-	assert.Equal(t, "was denied", refused.Reason)
+	assert.Equal(t, "was denied: email domain not allowed", refused.Reason)
 	assert.Equal(t, int32(1), fake.pollCount.Load())
 }
 

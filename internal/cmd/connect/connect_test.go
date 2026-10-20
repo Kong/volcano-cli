@@ -288,11 +288,13 @@ func TestConnectAtTheProjectLimitNamesTheProjectsToLink(t *testing.T) {
 	defer server.Close()
 	dir := t.TempDir()
 
-	_, err := runConnect(t, server, dir, "--json")
+	_, err := runConnect(t, server, dir, "--json", "--template", "nextjs")
 	require.Error(t, err)
 	assert.Equal(t, http.StatusForbidden, api.Status(err))
 	require.ErrorContains(t, err, "project limit exceeded")
-	require.ErrorContains(t, err, "first-project: volcano connect --project "+connectOtherProjectID)
+	// The hint keeps the directory and starter: without the directory,
+	// --project would set up a new directory named after the project.
+	require.ErrorContains(t, err, "first-project: volcano connect "+dir+" --project "+connectOtherProjectID+" --template nextjs")
 	link, err := cliconfig.FindLink(dir)
 	require.NoError(t, err)
 	assert.Nil(t, link, "nothing is linked when no project was created")
@@ -1091,6 +1093,63 @@ func TestConnectQuotesTheCreatedProjectsDirectoryWhenTheWaitStops(t *testing.T) 
 	require.ErrorContains(t, err, "To set it up, run: volcano connect '"+dir+"' --project "+connectProjectID)
 }
 
+// A project access token is checked against the project the directory
+// argument is linked to, not the working directory's selection.
+func TestConnectChecksAProjectTokenAgainstTheTargetsLink(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+	dir := filepath.Join(t.TempDir(), "shop")
+	_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: connectProjectID, Name: "shop"})
+	require.NoError(t, err)
+
+	_, err = runConnect(t, server, dir, "--token", "pt-shop")
+	require.NoError(t, err)
+	assert.Zero(t, fake.creates)
+}
+
+// A symlink connect would write through is found before sign-in, so the
+// device code isn't spent and no project is created.
+func TestConnectRefusesASymlinkedAgentsFileBeforeSigningIn(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink")
+	}
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "shop")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.Symlink(filepath.Join(t.TempDir(), "elsewhere.md"), filepath.Join(dir, "AGENTS.md")))
+
+	_, err := runConnect(t, server, dir, "--device-code", connectDeviceCode)
+	require.ErrorContains(t, err, "is a symlink")
+	assert.Zero(t, fake.polls)
+	assert.Zero(t, fake.creates)
+}
+
+// The .gitignore entry is written before a new link, so a failure there
+// leaves no link without its entry, and the rerun can still add it.
+func TestConnectWritesNoLinkWhenGitignoreFails(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "shop")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".gitignore"), 0o755))
+
+	_, err := runConnect(t, server, dir)
+	require.ErrorContains(t, err, "but did not link it")
+	assert.NoFileExists(t, filepath.Join(dir, cliconfig.LinkRelPath))
+
+	require.NoError(t, os.Remove(filepath.Join(dir, ".gitignore")))
+	_, err = runConnect(t, server, dir, "--project", connectProjectID)
+	require.NoError(t, err)
+	assert.Contains(t, readFile(t, filepath.Join(dir, ".gitignore")), ".volcano/project.json\n")
+}
+
 // The home directory's .volcano holds the CLI's config, so it can't be linked.
 func TestConnectRefusesTheHomeDirectory(t *testing.T) {
 	setConnectTestHome(t)
@@ -1278,7 +1337,7 @@ func TestConnectIgnoresABlankVolcanoProjectID(t *testing.T) {
 func TestConnectWithARefusedDeviceCodeGoesToBrowserLogin(t *testing.T) {
 	for _, tc := range []struct{ pollError, reason string }{
 		{"expired_token", "has expired"},
-		{"access_denied", "was denied"},
+		{"access_denied", "was denied: refused"},
 		{"invalid_grant", "is not valid or was already used"},
 	} {
 		t.Run(tc.pollError, func(t *testing.T) {

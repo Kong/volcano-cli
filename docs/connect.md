@@ -191,8 +191,8 @@ The CLI doesn't write through a symlink, which could change a file outside
 the directory, such as your CLI login. If `.volcano/project.json`,
 `volcano/cloud.env`, `.gitignore`, or `AGENTS.md`, or the `.volcano` or
 `volcano` directory, is a symlink, `connect` fails and names it. For
-`.volcano/project.json`, `volcano use` and `volcano login --project` fail
-too. For a `volcano/cloud.env` with an anon key, they switch the project and
+`.volcano/project.json`, `volcano use` fails too, and `volcano login` warns,
+ignores the link, and saves the project to `~/.volcano/config.json`. For a `volcano/cloud.env` with an anon key, they switch the project and
 warn that the file was not refreshed. Replace the symlink with a regular file or directory and
 run the command again.
 
