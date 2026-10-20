@@ -3268,7 +3268,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeployLink'
         '400':
-          description: Malformed request body, or an invalid branch, path or suggested name
+          description: Malformed request body, or an invalid branch, path or suggested name. Code `feature_unavailable` means deploy links are not available in this environment, so an edit or enabling the link is refused while switching it off still works
           content:
             application/json:
               schema:
@@ -3288,7 +3288,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Project or deploy link not found, or deploy links are not available in this environment (code `feature_unavailable`; see `GET /capabilities`)
+          description: Project or deploy link not found
           content:
             application/json:
               schema:
@@ -19880,11 +19880,12 @@ components:
         path:
           type: string
           maxLength: 1024
-          description: Build root inside the repository, as a clean relative path. Defaults to the repository root.
+          description: Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
         suggested_name:
           type: string
           maxLength: 64
-          description: Project name offered to visitors.
+          pattern: ^[A-Za-z0-9_-]*$
+          description: Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
     UpdateDeployLinkRequest:
       type: object
       additionalProperties: false
@@ -19900,6 +19901,7 @@ components:
         suggested_name:
           type: string
           maxLength: 64
+          pattern: ^[A-Za-z0-9_-]*$
         status:
           type: string
           enum:

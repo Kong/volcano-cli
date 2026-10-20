@@ -5377,10 +5377,10 @@ type CreateDeployLinkRequest struct {
 	// Branch The branch to follow. Defaults to the project's production branch.
 	Branch *string `json:"branch,omitempty"`
 
-	// Path Build root inside the repository, as a clean relative path. Defaults to the repository root.
+	// Path Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
 	Path *string `json:"path,omitempty"`
 
-	// SuggestedName Project name offered to visitors.
+	// SuggestedName Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
 	SuggestedName *string `json:"suggested_name,omitempty"`
 }
 
