@@ -144,8 +144,9 @@ const (
 	opDelete
 )
 
-// featureUnavailableCode is the code of the 404 a closed release gate answers
-// creating or enabling a link with. It is not a missing link.
+// featureUnavailableCode is the code a closed release gate answers creating or
+// enabling a link with: a 404 when creating, a 400 when editing or enabling.
+// Neither is a missing link or a bad request.
 const featureUnavailableCode = "feature_unavailable"
 
 // unavailableError reports that deploy links are not offered here. It keeps the
@@ -163,7 +164,7 @@ func (e *unavailableError) Unwrap() error { return e.err }
 // text shown; the advice is the CLI's.
 func (s Service) explain(op operation, action string, err error) error {
 	status := api.Status(err)
-	if status == http.StatusNotFound && api.Code(err) == featureUnavailableCode {
+	if (status == http.StatusNotFound || status == http.StatusBadRequest) && api.Code(err) == featureUnavailableCode {
 		return fmt.Errorf("failed to %s: %w", action, &unavailableError{err: err})
 	}
 	hint := hintFor(op, status)

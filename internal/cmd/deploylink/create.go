@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -30,8 +32,10 @@ deploy button.
 
 --branch is the branch the link follows and defaults to the project's production
 branch. --path is a build root inside the repository, such as apps/web, for a
-repository that holds several apps. --name is the project name offered to
-visitors; without it Volcano chooses one.
+repository that holds several apps; without it the link uses the root directory
+of the project's Git connection, else the repository root. --name is the project
+name offered to visitors, so it may hold only letters, numbers, underscores and
+hyphens, up to 64 characters; without it Volcano chooses one.
 
 Volcano checks that the repository is public, that the connected GitHub account
 can push to it, and that the branch holds something to deploy. Nothing is
@@ -47,13 +51,16 @@ created when a check fails.`,
 		},
 	}
 	cmd.Flags().StringVar(&opts.input.Branch, "branch", "", "Branch the link follows (default: the project's production branch)")
-	cmd.Flags().StringVar(&opts.input.Path, "path", "", "Build root inside the repository, such as apps/web (default: the repository root)")
-	cmd.Flags().StringVar(&opts.input.SuggestedName, "name", "", "Project name offered to visitors")
+	cmd.Flags().StringVar(&opts.input.Path, "path", "", "Build root inside the repository, such as apps/web (default: the Git connection's root directory, else the repository root)")
+	cmd.Flags().StringVar(&opts.input.SuggestedName, "name", "", "Project name offered to visitors (letters, numbers, _ and -; up to 64)")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
 }
 
 func runCreate(ctx context.Context, opts createOptions) error {
+	if err := checkSuggestedName(opts.input.SuggestedName); err != nil {
+		return err
+	}
 	link, err := deploylink.NewService(opts.deps).Create(ctx, opts.input)
 	if err != nil {
 		return err
@@ -62,5 +69,24 @@ func runCreate(ctx context.Context, opts createOptions) error {
 		return writeJSON(opts.out, link)
 	}
 	output.DeployLinkCreated(opts.out, link)
+	return nil
+}
+
+// suggestedNamePattern is what the API accepts as a project name: the name
+// becomes the project a visitor creates.
+var suggestedNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]*$`)
+
+const maxSuggestedNameLength = 64
+
+// checkSuggestedName refuses a --name the API would, so the user reads what is
+// wrong before a request is made. An empty name leaves the choice to Volcano.
+func checkSuggestedName(name string) error {
+	name = strings.TrimSpace(name)
+	if len(name) > maxSuggestedNameLength {
+		return fmt.Errorf("--name is %d characters; use at most %d", len(name), maxSuggestedNameLength)
+	}
+	if !suggestedNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid --name %q: use only letters, numbers, underscores and hyphens", name)
+	}
 	return nil
 }

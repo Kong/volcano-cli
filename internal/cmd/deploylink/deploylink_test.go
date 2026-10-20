@@ -106,27 +106,81 @@ func TestCreateExplainsTheDocumentedRefusals(t *testing.T) {
 	}
 }
 
-// A closed release gate answers 404 with a code. It says deploy links are not
-// offered, never that the link is missing, and it keeps no server text.
-func TestClosedReleaseGateIsNotAMissingLink(t *testing.T) {
-	for _, args := range [][]string{{"create"}, {"enable", linkID}} {
-		t.Run(args[0], func(t *testing.T) {
+// A closed release gate says deploy links are not offered, never that the link
+// is missing or the request malformed, and it keeps no server text. Creating
+// answers it with a 404 and enabling with a 400.
+func TestClosedReleaseGateIsNotAMissingLinkOrABadRequest(t *testing.T) {
+	for _, tc := range []struct {
+		args   []string
+		status int
+	}{
+		{[]string{"create"}, http.StatusNotFound},
+		{[]string{"enable", linkID}, http.StatusBadRequest},
+	} {
+		t.Run(tc.args[0], func(t *testing.T) {
 			setTestHome(t)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				respondJSON(t, w, http.StatusNotFound, map[string]any{
+				respondJSON(t, w, tc.status, map[string]any{
 					"error": "SERVER-GATE-TEXT", "code": "feature_unavailable",
 				})
 			}))
 			defer server.Close()
 
-			_, err := executeCommand(t, newCommand(server), args...)
+			_, err := executeCommand(t, newCommand(server), tc.args...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "Deploy links are not available in this environment.")
 			assert.NotContains(t, err.Error(), "SERVER-GATE-TEXT")
 			assert.NotContains(t, strings.ToLower(err.Error()), "not found")
-			assert.Equal(t, http.StatusNotFound, api.Status(err))
+			assert.Equal(t, tc.status, api.Status(err))
 		})
 	}
+}
+
+// A 400 without the code is a bad request, and keeps the server's own text.
+func TestAPlain400KeepsTheServerText(t *testing.T) {
+	setTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respondJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid branch"})
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newCommand(server), "enable", linkID)
+	require.ErrorContains(t, err, "invalid branch")
+	assert.NotContains(t, err.Error(), "not available in this environment")
+}
+
+func TestCreateChecksTheNameBeforeSendingAnything(t *testing.T) {
+	setTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("no request is sent for an invalid --name")
+	}))
+	defer server.Close()
+
+	for _, tc := range []struct{ name, want string }{
+		{"my app", `invalid --name "my app": use only letters, numbers, underscores and hyphens`},
+		{"notes.app", "use only letters, numbers, underscores and hyphens"},
+		{"naïve", "use only letters, numbers, underscores and hyphens"},
+		{strings.Repeat("a", 65), "--name is 65 characters; use at most 64"},
+	} {
+		_, err := executeCommand(t, newCommand(server), "create", "--name", tc.name)
+		require.Error(t, err, tc.name)
+		assert.Contains(t, err.Error(), tc.want)
+	}
+}
+
+func TestCreateAcceptsANameAtTheLimit(t *testing.T) {
+	setTestHome(t)
+	var body []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ = io.ReadAll(r.Body)
+		respondJSON(t, w, http.StatusCreated, linkPayload("active"))
+	}))
+	defer server.Close()
+
+	name := strings.Repeat("a-Z_9", 12) + "abcd"
+	_, err := executeCommand(t, newCommand(server), "create", "--name", name)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"suggested_name":"`+name+`"}`, string(body))
 }
 
 // A plain 404 without the code is still the server's own text.
