@@ -772,7 +772,7 @@ func createProject(ctx context.Context, opts options, client *api.Client, name s
 
 // projectName is --name, else what the user types at a prompt, else fallback.
 // It asks only when stdin is a terminal and none of the environment markers
-// the sign-in offer also checks (CI, VOLCANO_NONINTERACTIVE, TERM=dumb) is set.
+// `volcano setup` also checks (CI, VOLCANO_NONINTERACTIVE, TERM=dumb) is set.
 func projectName(opts options, fallback string) (string, error) {
 	if name := strings.TrimSpace(opts.name); name != "" {
 		return name, nil

@@ -22,37 +22,6 @@ func TestFactoryAuthenticatedRequiresAuth(t *testing.T) {
 	require.ErrorIs(t, err, config.ErrNotAuthenticated)
 }
 
-func TestFactoryAuthenticatedOffersSignInWhenNotLoggedIn(t *testing.T) {
-	setSessionTestHome(t)
-	signIn := func() error {
-		return (&config.Config{UserToken: "pk-new"}).Save()
-	}
-
-	session, err := NewFactory(cliruntime.Deps{SignIn: signIn}).Authenticated()
-	require.NoError(t, err)
-	assert.Equal(t, "pk-new", session.Config.Token())
-}
-
-func TestFactoryAuthenticatedReturnsTheSignInError(t *testing.T) {
-	setSessionTestHome(t)
-	signIn := func() error { return config.ErrNotAuthenticated }
-
-	_, err := NewFactory(cliruntime.Deps{SignIn: signIn}).Authenticated()
-	require.ErrorIs(t, err, config.ErrNotAuthenticated)
-}
-
-func TestFactoryAuthenticatedSkipsSignInWhenLoggedIn(t *testing.T) {
-	setSessionTestHome(t)
-	saveSessionTestConfig(t, &config.Config{UserToken: "token"})
-	signIn := func() error {
-		t.Error("sign-in offered to a logged-in user")
-		return nil
-	}
-
-	_, err := NewFactory(cliruntime.Deps{SignIn: signIn}).Authenticated()
-	require.NoError(t, err)
-}
-
 func TestFactoryCurrentProjectRequiresProject(t *testing.T) {
 	setSessionTestHome(t)
 	saveSessionTestConfig(t, &config.Config{UserToken: "token"})

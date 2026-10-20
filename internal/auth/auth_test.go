@@ -507,31 +507,6 @@ func assertDeviceCodeNotSaved(t *testing.T) {
 	assert.NotContains(t, string(data), authDeviceCode)
 }
 
-func TestOfferSignInNeverPromptsWithoutATerminal(t *testing.T) {
-	testAuthConfig(t)
-	var out bytes.Buffer
-	err := NewService(cliruntime.Deps{}).OfferSignIn(context.Background(), strings.NewReader("y\n"), &out)
-	require.ErrorIs(t, err, config.ErrNotAuthenticated)
-	assert.Empty(t, out.String())
-}
-
-func TestOfferSignInWithClosedInputDoesNotSignUp(t *testing.T) {
-	testAuthConfig(t)
-	var signups atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		signups.Add(1)
-		http.Error(w, "unexpected", http.StatusInternalServerError)
-	}))
-	defer server.Close()
-	var out bytes.Buffer
-	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, GitCommandRunner: cliruntime.CommandRunnerFunc(
-		func(context.Context, string, ...string) ([]byte, error) { return []byte("dev@example.com\n"), nil })}
-
-	err := NewService(deps).offerSignIn(context.Background(), strings.NewReader(""), &out)
-	require.ErrorIs(t, err, config.ErrNotAuthenticated)
-	assert.Zero(t, signups.Load(), "no answer never starts signup")
-}
-
 func TestLoginWithBrowserDeviceFlow(t *testing.T) {
 	cfg := testAuthConfig(t)
 	// httptest binds to 127.0.0.1, so resolveDeviceClientID issues the

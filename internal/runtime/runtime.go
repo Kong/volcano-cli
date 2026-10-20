@@ -56,11 +56,6 @@ type Deps struct {
 	DocsRawBaseURL string
 	// Now overrides the wall clock for deterministic freshness/staleness tests.
 	Now func() time.Time
-	// SignIn, when set, runs when a command needs a login and none is saved.
-	// It returns nil once a login is saved, and config.ErrNotAuthenticated
-	// when nobody is there to sign in. The CLI entry point sets it; tests
-	// leave it nil.
-	SignIn func() error
 }
 
 // ShellQuote returns s as one argument for a POSIX shell, so a printed
