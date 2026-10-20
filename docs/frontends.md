@@ -228,9 +228,9 @@ Deployment: 8d0e4b7a-1c2f-4e6d-9a3b-5f1e0c2b7a64
 ```
 
 Without `@`, the CLI picks the newest `active` or `degraded` deployment of the
-source frontend. `--from` takes no `--path`, `--name`, `--app-root`, or
-variable flags: the target keeps its own settings, and the build must match
-them. The deploy is refused when a build-time variable would have a different
+source frontend. `--from` takes no `--path`, `--name`, `--framework`,
+`--app-root`, or variable flags: the target keeps its own settings, and the
+build must match them. The deploy is refused when a build-time variable would have a different
 value on the target, naming the variables:
 
 ```text
