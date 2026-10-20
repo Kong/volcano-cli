@@ -93,9 +93,20 @@ func writeAgentsSection(dir, section string) error {
 	}
 	content := string(data)
 	start := strings.Index(content, agentsStartMarker)
-	end := strings.Index(content, agentsEndMarker)
+	end := -1
+	if start >= 0 {
+		if i := strings.Index(content[start:], agentsEndMarker); i >= 0 {
+			end = start + i
+		}
+	}
 	switch {
-	case start >= 0 && end > start:
+	case start >= 0 && end < 0:
+		// Replacing up to a later end marker, or appending another section
+		// that a later run would pair with this start, would delete what the
+		// user wrote after it.
+		return fmt.Errorf("%s has the Volcano section's start marker %s but no end marker %s after it. "+
+			"Add the end marker where the section ends, or delete the section, and try again", path, agentsStartMarker, agentsEndMarker)
+	case start >= 0:
 		end += len(agentsEndMarker)
 		if end < len(content) && content[end] == '\n' {
 			end++

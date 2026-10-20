@@ -55,7 +55,10 @@ characters in single quotes, so you can paste them as they are.
    `.volcano/project.json` and `volcano/*.env`, and adds a Volcano section to
    `AGENTS.md` that tells the agent where the project link is, which skills to
    use, and how to deploy. The section names no project, so teammates can
-   share it. A rerun replaces it instead of adding another.
+   share it. A rerun replaces it instead of adding another. The section sits
+   between `<!-- volcano:connect:start -->` and `<!-- volcano:connect:end -->`
+   lines. If the start line is there without an end line after it, `connect`
+   fails and names `AGENTS.md` instead of guessing where the section ends.
 7. **Installs skills.** It installs the Volcano skills for every coding agent
    it finds on the machine, as `volcano setup --yes` does. See
    [setup.md](setup.md).

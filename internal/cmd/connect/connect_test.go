@@ -476,6 +476,29 @@ func TestConnectQuotesADirectoryWithASpaceInTheBadLinkError(t *testing.T) {
 	require.ErrorContains(t, err, "run: volcano connect '."+string(filepath.Separator)+"My App' --project <project-id>")
 }
 
+func TestWriteAgentsSectionRefusesAStartMarkerWithoutAnEndMarker(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, agentsFileName)
+	content := "# Mine\n\n" + agentsStartMarker + "\n## Volcano\n\nmy notes\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	err := writeAgentsSection(dir, agentsSection("https://volcano.dev/dashboard"))
+	require.ErrorContains(t, err, path+" has the Volcano section's start marker")
+	assert.Equal(t, content, readFile(t, path))
+}
+
+// An end marker before the start marker isn't the section's end, so the text
+// between them is kept.
+func TestWriteAgentsSectionPairsTheStartWithTheEndAfterIt(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, agentsFileName)
+	require.NoError(t, os.WriteFile(path, []byte(agentsEndMarker+"\nkeep me\n"+agentsStartMarker+"\nold\n"+agentsEndMarker+"\ntail\n"), 0o600))
+
+	section := agentsSection("https://volcano.dev/dashboard")
+	require.NoError(t, writeAgentsSection(dir, section))
+	assert.Equal(t, agentsEndMarker+"\nkeep me\n"+section+"tail\n", readFile(t, path))
+}
+
 func TestConnectWithNoDirectoryCreatesOneNamedAfterTheProject(t *testing.T) {
 	setConnectTestHome(t)
 	useGeneratedName(t, "fuji-amber-42")
