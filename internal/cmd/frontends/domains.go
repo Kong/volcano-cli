@@ -80,6 +80,8 @@ func (f *redirectFlags) validate(cmd *cobra.Command) error {
 	switch {
 	case cmd.Flags().Changed("redirect-status") && !cmd.Flags().Changed("redirect-to"):
 		return errors.New("--redirect-status needs --redirect-to")
+	case cmd.Flags().Changed("redirect-to") && strings.TrimSpace(f.to) == "":
+		return errors.New("--redirect-to needs a domain")
 	case !slices.Contains(redirectStatuses, f.status):
 		return fmt.Errorf("invalid --redirect-status %d: use 301, 302, 307, or 308", f.status)
 	default:
@@ -294,11 +296,16 @@ func runDomainsAdd(ctx context.Context, opts domainsAddOptions) error {
 			return err
 		}
 	}
-	frontend, domain, err := clifrontend.NewService(opts.deps).AddDomain(ctx, opts.frontend, opts.input)
+	frontend, domain, created, err := clifrontend.NewService(opts.deps).AddDomain(ctx, opts.frontend, opts.input)
 	if err != nil {
 		return err
 	}
-	output.Success(opts.out, "Custom domain '%s' added to frontend '%s'", domain.Domain, frontend.Name)
+	if created {
+		output.Success(opts.out, "Custom domain '%s' added to frontend '%s'", domain.Domain, frontend.Name)
+	} else {
+		output.Success(opts.out, "Custom domain '%s' was already on frontend '%s' and now uses %s TLS",
+			domain.Domain, frontend.Name, strings.TrimSpace(string(domain.TlsMode)))
+	}
 	output.FrontendCustomDomain(opts.out, domain)
 	return nil
 }

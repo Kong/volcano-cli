@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -87,6 +88,9 @@ func TestFrontendsDomainsGet(t *testing.T) {
 		"GET " + frontendDomainsPath + "/example.com": func(w http.ResponseWriter, _ *http.Request) {
 			writeFrontendCommandJSON(t, w, http.StatusOK, frontendRedirectDomainResponse("example.com", "www.example.com", 302))
 		},
+		"GET " + frontendDomainsPath + "/shop.example.com": func(w http.ResponseWriter, _ *http.Request) {
+			writeFrontendCommandJSON(t, w, http.StatusNotFound, map[string]any{"error": "custom domain not found"})
+		},
 	})
 	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
 
@@ -97,7 +101,13 @@ func TestFrontendsDomainsGet(t *testing.T) {
 	assert.Contains(t, out, "Redirects to: www.example.com (302)")
 
 	_, err = executeFrontendsCommand(t, New(deps), "domains", "get", "web", "shop.example.com")
-	require.EqualError(t, err, `frontend "web" has no custom domain "shop.example.com"`)
+	require.EqualError(t, err, `failed to get custom domain "shop.example.com" on frontend "web": HTTP 404: custom domain not found`)
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
+
+	// A server without the domains routes answers a bare 404 of its own.
+	_, err = executeFrontendsCommand(t, New(deps), "domains", "get", "web", "app.example.com")
+	require.EqualError(t, err, `failed to get custom domain "app.example.com" on frontend "web": HTTP 404: 404 page not found`)
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
 }
 
 func TestFrontendsDomainsAdd(t *testing.T) {
@@ -155,6 +165,24 @@ func TestFrontendsDomainsAdd(t *testing.T) {
 		assert.Contains(t, tlsConfig["certificate_pem"], "cert")
 		assert.Contains(t, tlsConfig["private_key_pem"], "key")
 		assert.Contains(t, tlsConfig["certificate_chain_pem"], "chain")
+	})
+
+	t.Run("already on the frontend", func(t *testing.T) {
+		setFrontendCommandTestHome(t)
+		saveFrontendCommandTestConfig(t)
+		server := frontendDomainsServer(t, map[string]http.HandlerFunc{
+			"POST " + frontendDomainsPath: func(w http.ResponseWriter, _ *http.Request) {
+				response := frontendDomainCommandResponse("app.example.com", "provisioning")
+				response["tls_mode"] = "managed"
+				writeFrontendCommandJSON(t, w, http.StatusOK, response)
+			},
+		})
+
+		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+			"domains", "add", "web", "app.example.com")
+		require.NoError(t, err)
+		assert.Contains(t, out, "Custom domain 'app.example.com' was already on frontend 'web' and now uses managed TLS")
+		assert.NotContains(t, out, "added to frontend")
 	})
 
 	t.Run("over the plan limit", func(t *testing.T) {
@@ -330,6 +358,8 @@ func TestFrontendsDomainsRefuseBadFlags(t *testing.T) {
 		{[]string{"update", "web", "example.com", "--no-redirect", "--redirect-status", "302"}, "--redirect-status needs --redirect-to"},
 		{[]string{"add", "web", "example.com", "--redirect-to", "www.example.com", "--redirect-status", "303"}, "invalid --redirect-status 303: use 301, 302, 307, or 308"},
 		{[]string{"add", "web", "example.com", "--redirect-status", "301"}, "--redirect-status needs --redirect-to"},
+		{[]string{"add", "web", "example.com", "--redirect-to", ""}, "--redirect-to needs a domain"},
+		{[]string{"update", "web", "example.com", "--redirect-to", " "}, "--redirect-to needs a domain"},
 		{[]string{"add", "web", "example.com", "--cert", "cert.pem"}, "they must all be set; missing [key]"},
 		{[]string{"add", "web", "example.com", "--chain", "chain.pem"}, "--chain needs --cert and --key"},
 		{[]string{"add", "web", "example.com", "--chain", ""}, "--chain needs --cert and --key"},

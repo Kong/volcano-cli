@@ -3,7 +3,6 @@ package frontend
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 
@@ -37,17 +36,18 @@ func (s Service) GetDomain(ctx context.Context, identifier, domain string) (*api
 	return frontend, found, nil
 }
 
-// AddDomain adds a custom domain beside a frontend's others.
-func (s Service) AddDomain(ctx context.Context, identifier string, input api.FrontendDomainInput) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, error) {
+// AddDomain adds a custom domain beside a frontend's others. It reports false
+// when the frontend already had the hostname.
+func (s Service) AddDomain(ctx context.Context, identifier string, input api.FrontendDomainInput) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, bool, error) {
 	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-	created, err := authenticated.API.CreateFrontendDomain(ctx, authenticated.ProjectID, frontend.Id, input)
+	domain, created, err := authenticated.API.CreateFrontendDomain(ctx, authenticated.ProjectID, frontend.Id, input)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to add custom domain %q: %w", input.Domain, err)
+		return nil, nil, false, fmt.Errorf("failed to add custom domain %q: %w", input.Domain, err)
 	}
-	return frontend, created, nil
+	return frontend, domain, created, nil
 }
 
 // SetDomainRedirect makes a custom domain redirect, or serve the frontend
@@ -78,10 +78,8 @@ func (s Service) DeleteDomain(ctx context.Context, frontendID uuid.UUID, domain 
 	return nil
 }
 
-// domainError names the domain a 404 is about; the frontend was found first.
+// domainError keeps the API's message: a server without the domains routes
+// also answers 404, and only its message tells that apart from a missing domain.
 func domainError(frontend *apiclient.Frontend, domain, action string, err error) error {
-	if api.Status(err) == http.StatusNotFound {
-		return fmt.Errorf("frontend %q has no custom domain %q", frontend.Name, domain)
-	}
-	return fmt.Errorf("failed to %s custom domain %q: %w", action, domain, err)
+	return fmt.Errorf("failed to %s custom domain %q on frontend %q: %w", action, domain, frontend.Name, err)
 }

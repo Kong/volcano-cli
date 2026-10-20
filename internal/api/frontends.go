@@ -248,8 +248,10 @@ func (c *Client) ListFrontendDomains(ctx context.Context, projectID, frontendID 
 	return list.Data, nil
 }
 
-// CreateFrontendDomain adds a custom domain to a frontend.
-func (c *Client) CreateFrontendDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendDomainInput) (*apiclient.FrontendCustomDomainResponse, error) {
+// CreateFrontendDomain adds a custom domain to a frontend. It reports false
+// when the frontend already had the hostname, whose TLS mode the request may
+// have switched in place.
+func (c *Client) CreateFrontendDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendDomainInput) (*apiclient.FrontendCustomDomainResponse, bool, error) {
 	body := apiclient.CreateFrontendDomainJSONRequestBody{
 		Domain:   strings.TrimSpace(input.Domain),
 		Tls:      frontendDomainTLS(input),
@@ -257,18 +259,18 @@ func (c *Client) CreateFrontendDomain(ctx context.Context, projectID, frontendID
 	}
 	resp, err := c.client.CreateFrontendDomainWithResponse(ctx, projectID, frontendID, body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if resp.JSON201 != nil {
-		return resp.JSON201, nil
+		return resp.JSON201, true, nil
 	}
 	if resp.JSON200 != nil {
-		return resp.JSON200, nil
+		return resp.JSON200, false, nil
 	}
 	if resp.JSON409 != nil {
-		return nil, conflictError(resp.StatusCode(), resp.JSON409)
+		return nil, false, conflictError(resp.StatusCode(), resp.JSON409)
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+	return nil, false, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
 // GetFrontendDomain returns one custom domain of a frontend.
