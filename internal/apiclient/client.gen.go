@@ -8776,18 +8776,13 @@ type ProjectConfigEmailTemplates struct {
 }
 
 // ProjectConfigFrontend Configuration for an existing (deployed) frontend. Frontends are never
-// created or deleted through the manifest. A declared frontend entry
-// without `custom_domain` deletes an existing custom domain.
+// created or deleted through the manifest.
 type ProjectConfigFrontend struct {
-	// CustomDomain Custom domain with managed or BYOC TLS. `tls` is required
-	// when the domain is first created and optional afterwards. For an existing
-	// domain, omitting `tls` or sending only `tls.mode` keeps the stored
-	// certificate; new BYOC material for the same domain rotates the
-	// certificate in place (zero downtime). Changing `tls.mode` for the same
-	// hostname, or the hostname of a managed domain, requires deleting the
-	// domain first. BYOC TLS material is write-only; exports render only
-	// `tls.mode`.
-	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
+	// CustomDomain The frontend's custom domain. Omission leaves an existing domain
+	// untouched; null deletes it. For a frontend with more than one
+	// domain, or a redirect, use `custom_domains`; an entry may not set
+	// both.
+	CustomDomain nullable.Nullable[ProjectConfigCustomDomain] `json:"custom_domain,omitempty"`
 
 	// CustomDomains Complete set of the frontend's custom domains when declared.
 	// Domains not listed are deleted; an empty list deletes all of them.

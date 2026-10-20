@@ -184,8 +184,9 @@ In the cloud, a declared frontend entry without `custom_domain` or
 `custom_domains` leaves the frontend's domains alone. `custom_domain: null`
 removes its domain, and `custom_domains` replaces the whole set. A server that
 predates these rules refuses `custom_domain: null` in the dry run, and removes
-the domain of an entry without `custom_domain`; there, keep `custom_domain` in
-the entry.
+the domain of an entry without `custom_domain`. Deploying a manifest written by
+`volcano config pull` keeps every domain on either server, and the dry run
+lists any domain it would delete.
 
 ## Cloud projects that deploy from Git
 

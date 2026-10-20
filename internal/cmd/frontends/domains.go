@@ -303,7 +303,7 @@ func runDomainsAdd(ctx context.Context, opts domainsAddOptions) error {
 	if created {
 		output.Success(opts.out, "Custom domain '%s' added to frontend '%s'", domain.Domain, frontend.Name)
 	} else {
-		output.Success(opts.out, "Custom domain '%s' was already on frontend '%s' and now uses %s TLS",
+		output.Success(opts.out, "Custom domain '%s' was already on frontend '%s' (TLS: %s)",
 			domain.Domain, frontend.Name, strings.TrimSpace(string(domain.TlsMode)))
 	}
 	output.FrontendCustomDomain(opts.out, domain)

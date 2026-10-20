@@ -7324,8 +7324,9 @@ paths:
       description: |
         Adds a custom domain beside the frontend's others, up to the plan's
         custom domains per frontend. The domain serves the frontend, or, with
-        `redirect`, redirects every request to `redirect.to`, another domain of
-        the same frontend that serves it, keeping the path and query string.
+        `redirect`, redirects every request to `redirect.to`, another active
+        domain of the same frontend that serves it, keeping the path and query
+        string.
         A redirecting domain still needs TLS, so it takes `tls` like any other.
 
         Ownership, verification records, TLS mode switches, and the `409` codes
@@ -7357,7 +7358,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FrontendCustomDomainResponse'
         '400':
-          description: Invalid domain, TLS, or redirect, such as a redirect to a hostname the frontend does not serve
+          description: Invalid domain, TLS, or redirect, such as a redirect to a hostname the frontend does not serve or that is not active yet
           content:
             application/json:
               schema:
@@ -7453,7 +7454,7 @@ paths:
       summary: Set or clear a custom domain's redirect
       description: |
         `{"redirect": {"to": "www.example.com", "status": 308}}` makes the
-        domain redirect to another domain of the frontend that serves it.
+        domain redirect to another active domain of the frontend that serves it.
         `{"redirect": null}` makes it serve the frontend again. A domain other
         domains redirect to cannot become a redirect itself. `status` defaults
         to `308`. Proxies apply the change within seconds.
@@ -7475,7 +7476,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FrontendCustomDomainResponse'
         '400':
-          description: 'Invalid redirect: the target is this domain, is not a domain of the frontend, or redirects itself'
+          description: 'Invalid redirect: the target is this domain, is not an active domain of the frontend, or redirects itself'
           content:
             application/json:
               schema:
@@ -23443,8 +23444,7 @@ components:
       additionalProperties: false
       description: |
         Configuration for an existing (deployed) frontend. Frontends are never
-        created or deleted through the manifest. A declared frontend entry
-        without `custom_domain` deletes an existing custom domain.
+        created or deleted through the manifest.
       properties:
         variable_scope:
           type: string
@@ -23464,7 +23464,16 @@ components:
           type: string
           minLength: 1
         custom_domain:
-          $ref: '#/components/schemas/ProjectConfigCustomDomain'
+          allOf:
+            - $ref: '#/components/schemas/ProjectConfigCustomDomain'
+          nullable: true
+          x-go-type: nullable.Nullable[ProjectConfigCustomDomain]
+          x-go-type-skip-optional-pointer: true
+          description: |
+            The frontend's custom domain. Omission leaves an existing domain
+            untouched; null deletes it. For a frontend with more than one
+            domain, or a redirect, use `custom_domains`; an entry may not set
+            both.
         custom_domains:
           type: array
           maxItems: 100

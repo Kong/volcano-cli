@@ -295,9 +295,11 @@ Hosting rejects a frontend environment over 4,096 bytes before changing state.
 `NEXT_PUBLIC_*` variables are build-only. Rebuild each frontend when changed
 values must be embedded in browser assets.
 
-Run `volcano config pull` before editing the manifest. A frontend entry that
-leaves out `custom_domain` and `custom_domains` keeps its domains; see
-[deploy](deploy.md) for servers that predate this.
+Run `volcano config pull` before editing the manifest. It writes each
+frontend's domains into its entry, so deploying the file back keeps them on any
+server. An entry that leaves out `custom_domain` and `custom_domains` also
+keeps its domains, except on a server that predates this; see
+[deploy](deploy.md).
 
 ## Function variable scope
 

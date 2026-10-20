@@ -181,7 +181,7 @@ func TestFrontendsDomainsAdd(t *testing.T) {
 		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
 			"domains", "add", "web", "app.example.com")
 		require.NoError(t, err)
-		assert.Contains(t, out, "Custom domain 'app.example.com' was already on frontend 'web' and now uses managed TLS")
+		assert.Contains(t, out, "Custom domain 'app.example.com' was already on frontend 'web' (TLS: managed)")
 		assert.NotContains(t, out, "added to frontend")
 	})
 
