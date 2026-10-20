@@ -124,6 +124,16 @@ func TestFeedback_DryRun(t *testing.T) {
 	assert.Equal(t, "deploy exits 0 on failure", r.Summary)
 }
 
+func TestFeedback_DryRunKeepsPlaceholders(t *testing.T) {
+	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	stdout, _, err := run(t, "--dry-run", "--input",
+		`{"category":"cli_bug","summary":"deploy of <function> fails","details":"see https://x.dev/a?b=1&c=2"}`)
+	require.NoError(t, err)
+	assert.Contains(t, stdout, `"summary": "deploy of <function> fails"`)
+	assert.NotContains(t, stdout, `\u003c`)
+}
+
 func TestFeedback_DryRunWithTelemetryOff(t *testing.T) {
 	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true, Disabled: true})
 

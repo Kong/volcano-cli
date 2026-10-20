@@ -46,6 +46,8 @@ func TestParseInput(t *testing.T) {
 	for name, body := range map[string]string{
 		"unknown key":   `{"category":"cli_bug","title":"s"}`,
 		"two objects":   `{"category":"cli_bug"} {}`,
+		"extra brace":   `{"category":"cli_bug"}}`,
+		"extra bracket": `{"category":"cli_bug"}]`,
 		"not an object": `["cli_bug"]`,
 		"wrong type":    `{"commands":"volcano deploy"}`,
 		"empty":         ``,

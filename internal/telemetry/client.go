@@ -77,9 +77,7 @@ func (r *Recorder) Home() string {
 // normalized before redacting so a Unicode space cannot hide a secret from the
 // patterns.
 func ScrubText(s, home string) string {
-	if len(home) > 1 {
-		s = strings.ReplaceAll(s, home, "~")
-	}
+	s = replaceHome(s, home)
 	s = ansiEscape.ReplaceAllString(s, "")
 	s = strings.Map(func(r rune) rune {
 		if r == '\n' {

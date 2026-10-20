@@ -46,7 +46,7 @@ func main() {
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
 	feedbackcmd.SetRecorder(recorder)
-	feedbackHint = recorder.Reporting() && agent.Detect(os.LookupEnv).Name != ""
+	feedbackHint = feedbackHintFor(recorder.Reporting(), agent.Detect(os.LookupEnv))
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
@@ -83,9 +83,17 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 var recordTelemetry = func(telemetry.Invocation) {}
 
 // feedbackHint is whether a failed command ends with a pointer to `volcano
-// feedback`: only when a coding agent ran the CLI and feedback can be sent.
+// feedback`: only when a coding agent ran the CLI and feedback can be sent. A
+// host-only signal, such as Cursor's integrated terminal, is also set when a
+// person types there, so it does not count.
 // main sets it; tests leave it off unless they cover the hint.
 var feedbackHint bool
+
+// feedbackHintFor decides feedbackHint from whether feedback can be sent and
+// the detected agent.
+func feedbackHintFor(reporting bool, detected agent.Result) bool {
+	return reporting && detected.Name != "" && detected.Source != agent.SourceHost
+}
 
 // wantsFeedbackHint reports whether a failure could be a Volcano problem worth
 // a hint. A sandbox command's own exit status is the user's command failing,

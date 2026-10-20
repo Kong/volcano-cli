@@ -3,6 +3,7 @@
 package feedback
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -103,7 +104,7 @@ command then sends nothing and exits 0.`,
 			if dryRun {
 				return printReport(cmd, report, reporting)
 			}
-			payload, err := json.Marshal(report)
+			payload, err := encodeReport(report, "")
 			if err != nil {
 				return err
 			}
@@ -154,8 +155,22 @@ func readInput(cmd *cobra.Command, value string) (feedback.Input, error) {
 	return feedback.ParseInput(f)
 }
 
+// encodeReport encodes report as JSON, indented by indent. It leaves "<", ">",
+// and "&" as written, so placeholders such as <function> read the same in the
+// --dry-run preview and on the server.
+func encodeReport(report feedback.Report, indent string) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", indent)
+	if err := enc.Encode(report); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
 func printReport(cmd *cobra.Command, report feedback.Report, reporting bool) error {
-	out, err := json.MarshalIndent(report, "", "  ")
+	out, err := encodeReport(report, "  ")
 	if err != nil {
 		return err
 	}

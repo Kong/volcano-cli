@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
 	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
@@ -856,4 +857,12 @@ func TestRun_FeedbackHint(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFeedbackHintFor(t *testing.T) {
+	assert.True(t, feedbackHintFor(true, agent.Result{Name: "claude-code", Source: agent.SourceMarker}))
+	assert.True(t, feedbackHintFor(true, agent.Result{Name: agent.Unknown, Source: agent.SourceAIAgent}))
+	assert.False(t, feedbackHintFor(true, agent.Result{Name: "cursor", Source: agent.SourceHost}), "a person in Cursor's terminal")
+	assert.False(t, feedbackHintFor(true, agent.Result{}), "no agent")
+	assert.False(t, feedbackHintFor(false, agent.Result{Name: "codex", Source: agent.SourceMarker}), "feedback off")
 }

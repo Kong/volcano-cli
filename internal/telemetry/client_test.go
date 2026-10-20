@@ -69,3 +69,9 @@ func TestScrubText(t *testing.T) {
 		"  kept   spacing"
 	assert.Equal(t, want, ScrubText(in, "/home/dev"))
 }
+
+func TestScrubText_QuotedWindowsHome(t *testing.T) {
+	in := `Error: open "C:\\Users\\alice\\app\\cert.pem": not found` + "\n" + `C:\Users\alice\app`
+	want := `Error: open "~\\app\\cert.pem": not found` + "\n" + `~\app`
+	assert.Equal(t, want, ScrubText(in, `C:\Users\alice`))
+}

@@ -84,7 +84,10 @@ func ParseInput(r io.Reader) (Input, error) {
 	if err := dec.Decode(&in); err != nil {
 		return Input{}, fmt.Errorf("parse input: %w", err)
 	}
-	if dec.More() {
+	// More is false before a stray "}" or "]", so decode again and require
+	// the end of the input.
+	var trailing json.RawMessage
+	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return Input{}, errors.New("parse input: expected one JSON object")
 	}
 	return in, nil
