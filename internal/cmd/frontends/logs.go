@@ -116,7 +116,7 @@ func runLogs(ctx context.Context, opts frontendLogsOptions) error {
 	} else {
 		deployment, err := service.ResolveDeployment(ctx, frontend.Id, opts.deploymentID)
 		if errors.Is(err, api.ErrNotFound) {
-			return fmt.Errorf("deployment %q not found for frontend %s", opts.deploymentID, frontend.Name)
+			return fmt.Errorf("deployment %q %w for frontend %s", opts.deploymentID, api.ErrNotFound, frontend.Name)
 		}
 		if err != nil {
 			return err

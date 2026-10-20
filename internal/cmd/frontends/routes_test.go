@@ -272,7 +272,7 @@ func TestFrontendsRoutesUpdateRefusals(t *testing.T) {
 	assert.Empty(t, server.requests)
 
 	_, err = server.run("routes", "update", "web", "/missing", "--path", "/x")
-	require.ErrorContains(t, err, `frontend "web" has no route "/missing"`)
+	require.ErrorContains(t, err, `route "/missing" not found for frontend "web"`)
 	assert.Empty(t, server.bodies)
 
 	_, err = server.run("routes", "update", "web", "/api/session", "--function", "order-pipeline")

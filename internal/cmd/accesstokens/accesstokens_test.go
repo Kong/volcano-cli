@@ -743,7 +743,7 @@ func TestAccessTokenCommandsRequireProject(t *testing.T) {
 
 	_, err := executeAccessTokenCommand(t,
 		New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "list")
-	require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>'")
 }
 
 // Local development issues no credentials, so the local tree answers the

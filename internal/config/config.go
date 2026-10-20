@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/gofrs/flock"
 )
@@ -38,13 +39,14 @@ const (
 
 var (
 	// ErrNotAuthenticated indicates no token is configured for cloud API calls.
-	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first")
+	ErrNotAuthenticated = errors.New("not authenticated. Run 'volcano login' first, or 'volcano signup' if you're new to Volcano")
 	// ErrNoProjectSelected indicates no active project is configured for project-scoped cloud API calls.
-	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID")
+	ErrNoProjectSelected = errors.New("no project selected. Run 'volcano use <project-name>'. " +
+		"To create a project and link this directory to it, run 'volcano connect .'")
 	// ErrNoProjectSelectedForProjectToken is ErrNoProjectSelected for a project
 	// access token, which cannot look a project up by name.
 	ErrNoProjectSelectedForProjectToken = errors.New("no project selected. A project access token (" + ProjectTokenPrefix +
-		") is scoped to one project: set VOLCANO_PROJECT_ID to that project's ID, or run 'volcano use <project-id>'")
+		") is scoped to one project: run 'volcano use <project-id>' with that project's ID")
 	// ErrAccountTokenRequired indicates a command needs account-wide access but
 	// the configured credential only reaches a single project.
 	ErrAccountTokenRequired = errors.New("this command needs an account token (" + AccountTokenPrefix +
@@ -69,6 +71,9 @@ type Config struct {
 	AnonKey        string         `json:"-"`
 	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
+	// Link is the working directory's project link, found by Load. It is never
+	// saved here: the link lives in the linked directory.
+	Link *Link `json:"-"`
 	// FunctionAliases stores per-user function invoke aliases by API URL and
 	// project ID scope. Scope keys are produced by FunctionAliasScope.
 	FunctionAliases map[string]map[string]string `json:"function_aliases,omitempty"`
@@ -109,8 +114,45 @@ func Path() (string, error) {
 	return filepath.Join(homeDir, defaultConfigDirName, defaultConfigFileName), nil
 }
 
-// Load reads ~/.volcano/config.json. Missing config is not an error.
+// Load reads ~/.volcano/config.json and the working directory's project link.
+// Missing config is not an error. A link that can't be used is a *LinkError.
 func Load() (*Config, error) {
+	cfg, linkErr, err := LoadIgnoringBadLink()
+	if err != nil {
+		return nil, err
+	}
+	if linkErr != nil {
+		return nil, linkErr
+	}
+	return cfg, nil
+}
+
+// LoadIgnoringBadLink is Load for the commands that work without the link, or
+// replace it: login, signup and connect. A link that can't be used is left out
+// of the config and returned as linkErr instead of failing the load.
+func LoadIgnoringBadLink() (cfg *Config, linkErr *LinkError, err error) {
+	cfg, err = load()
+	if err != nil {
+		return nil, nil, err
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		// A working directory that no longer exists can't be linked.
+		return cfg, nil, nil //nolint:nilerr // the link is optional; the config itself loaded
+	}
+	cfg.Link, err = FindLink(wd)
+	if bad, ok := errors.AsType[*LinkError](err); ok {
+		return cfg, bad, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg, nil, nil
+}
+
+// LoadWithoutLink reads ~/.volcano/config.json alone, for configs that never
+// use a project link.
+func LoadWithoutLink() (*Config, error) {
 	return load()
 }
 
@@ -254,28 +296,61 @@ func (c *Config) FunctionInvokeToken() string {
 }
 
 // ProjectID returns the current project ID, with VOLCANO_PROJECT_ID taking precedence unless env overrides are disabled.
+// Precedence: env > the working directory's link > the project `volcano use` saved.
 func (c *Config) ProjectID() string {
 	if projectID := c.ProjectIDFromEnv(); projectID != "" {
 		return projectID
 	}
-	if c.CurrentProject != nil {
-		return c.CurrentProject.ID
+	if project := c.Project(); project != nil {
+		return project.ID
 	}
 	return ""
+}
+
+// Project returns the selected project without the VOLCANO_PROJECT_ID
+// override: the working directory's link, else the project `volcano use`
+// saved. Nil when neither is set.
+func (c *Config) Project() *ProjectConfig {
+	if c.Link != nil {
+		return &c.Link.Project
+	}
+	return c.CurrentProject
 }
 
 // ProjectIDFromEnv returns VOLCANO_PROJECT_ID alone, without the project a
 // previous 'volcano use' saved. Callers that have to tell the two apart — a
 // failure that names the project it ran against — need the distinction.
 //
-// Trimmed for the same reason as Token: this is the documented CI path, where
-// the value is as likely to arrive with a trailing newline, and untrimmed it
+// Trimmed for the same reason as Token: CI sets it the same way, where the
+// value is as likely to arrive with a trailing newline, and untrimmed it
 // failed UUID parsing as "invalid UUID length: 37".
+//
+// The variable is deprecated. A non-empty value is recorded so the CLI can
+// warn once, after the command, that it was used; see ConsumeProjectEnvUse.
 func (c *Config) ProjectIDFromEnv() string {
 	if c.IgnoreEnv {
 		return ""
 	}
-	return strings.TrimSpace(os.Getenv(envProjectID))
+	projectID := strings.TrimSpace(os.Getenv(envProjectID))
+	if projectID != "" {
+		projectEnvUsed.Store(true)
+	}
+	return projectID
+}
+
+// ProjectEnvDeprecation is the warning printed when VOLCANO_PROJECT_ID chose
+// the project a command ran against.
+const ProjectEnvDeprecation = "VOLCANO_PROJECT_ID is deprecated and will be removed in a future release. " +
+	"Unset it and run 'volcano use <project-id>', or 'volcano login --token <token> --project <project-id>' in CI."
+
+// projectEnvUsed records that VOLCANO_PROJECT_ID was read for a project in
+// this process.
+var projectEnvUsed atomic.Bool
+
+// ConsumeProjectEnvUse reports whether VOLCANO_PROJECT_ID was read for a
+// project since the last call, and clears the record.
+func ConsumeProjectEnvUse() bool {
+	return projectEnvUsed.Swap(false)
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.

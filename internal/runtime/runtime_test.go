@@ -32,3 +32,20 @@ func TestValidateOpenURL(t *testing.T) {
 		}
 	}
 }
+
+func TestShellQuote(t *testing.T) {
+	for in, want := range map[string]string{
+		".":                   ".",
+		"./fuji-amber-42":     "./fuji-amber-42",
+		"/tmp/x/my_app@2":     "/tmp/x/my_app@2",
+		"":                    "''",
+		"./My App":            "'./My App'",
+		"/tmp/it's":           `'/tmp/it'\''s'`,
+		"$(touch /tmp/pwned)": "'$(touch /tmp/pwned)'",
+		"~/app":               "'~/app'",
+	} {
+		if got := ShellQuote(in); got != want {
+			t.Errorf("ShellQuote(%q) = %s, want %s", in, got, want)
+		}
+	}
+}

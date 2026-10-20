@@ -150,7 +150,8 @@ func requireAPIE2EDurableApprovalNeedsAPerson(t *testing.T, env *apiE2E, approva
 		}
 	})
 
-	projectTokenEnv := []string{"VOLCANO_TOKEN=" + secret, "VOLCANO_PROJECT_ID=" + env.projectID}
+	projectTokenEnv := []string{"HOME=" + t.TempDir(), "VOLCANO_TOKEN=" + secret}
+	env.runCLIWithEnv(t, projectTokenEnv, "use", env.projectID).requireSuccess(t, "Now using project")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "durable", "approvals", "get", approvalID).
 		requireSuccess(t, "Status: pending")
 	env.runCloudCLIWithEnv(t, projectTokenEnv, "durable", "approvals", "approve", approvalID, "--yes").

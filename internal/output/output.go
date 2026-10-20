@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -80,6 +81,10 @@ func printProjectPageSummary(w io.Writer, on bool, page *apiclient.PaginatedProj
 }
 
 func printCurrentProject(w io.Writer, on bool, cfg *config.Config) {
+	if cfg.Link != nil {
+		summary(w, on, "Current project: %s (%s), linked in %s", cfg.Link.Project.Name, cfg.Link.Project.ID, cfg.Link.Path())
+		return
+	}
 	if cfg.CurrentProject != nil {
 		summary(w, on, "Current project: %s (%s)", cfg.CurrentProject.Name, cfg.CurrentProject.ID)
 	}
@@ -179,4 +184,11 @@ func projectPlan(project apiclient.Project) string {
 		return "-"
 	}
 	return plan
+}
+
+// JSON writes value as indented JSON, for a command's --json output.
+func JSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }

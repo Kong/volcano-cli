@@ -69,7 +69,7 @@ func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Fro
 
 	frontend, err := resolveFrontend(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("frontend %q not found", identifier)
+		return nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
@@ -105,7 +105,7 @@ func (s Service) Redeploy(ctx context.Context, identifier string) (*apiclient.Fr
 
 	frontend, err := resolveFrontend(ctx, authenticated, identifier)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("frontend %q not found", identifier)
+		return nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
@@ -252,7 +252,7 @@ func (s Service) CreateCustomDomain(ctx context.Context, identifier string, inpu
 		return nil, nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
 	}
 	if frontend == nil {
-		return nil, nil, fmt.Errorf("frontend %q not found", identifier)
+		return nil, nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 
 	domain, err := authenticated.API.CreateFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id, input)
@@ -274,7 +274,7 @@ func (s Service) GetCustomDomain(ctx context.Context, identifier string) (*apicl
 		return nil, nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
 	}
 	if frontend == nil {
-		return nil, nil, fmt.Errorf("frontend %q not found", identifier)
+		return nil, nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 
 	domain, err := authenticated.API.GetFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id)

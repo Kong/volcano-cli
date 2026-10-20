@@ -88,26 +88,40 @@ can tell that apart from a genuine permission problem.
 
 ## Use a token
 
-Set it as `VOLCANO_TOKEN` along with the project it belongs to:
-
-```bash
-export VOLCANO_TOKEN=pt-xxxxxxxxxxxxxxxxxxxxxxxx
-export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
-volcano cloud functions deploy --all
-```
-
-Or log in with it, naming the project once:
+Log in with it, naming the project once:
 
 ```bash
 volcano login --token pt-xxxxxxxxxxxxxxxxxxxxxxxx --project eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano cloud functions deploy --all
 ```
+
+Or set it as `VOLCANO_TOKEN` and select the project it belongs to:
+
+```bash
+export VOLCANO_TOKEN=pt-xxxxxxxxxxxxxxxxxxxxxxxx
+volcano use eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano cloud functions deploy --all
+```
+
+`volcano use` saves the project to `~/.volcano/config.json`, or, inside a
+[linked directory](connect.md#linked-directories), updates the link.
+`volcano login --token pt-… --project` inside a linked directory does both. A
+repository that commits its `.volcano/project.json` needs only `VOLCANO_TOKEN`:
+commands run there use the linked project. `volcano connect` gitignores the
+link, so remove that entry to commit it.
 
 A project access token cannot list projects, so nothing can work out which
 project it belongs to, and nothing can turn a project name into an ID — name it
-by ID, with `--project` or `VOLCANO_PROJECT_ID`.
+by ID.
 
-Without either, `login` falls back to the project `volcano use` last selected,
-which belongs to whatever credential was logged in before. If that is not the
+`VOLCANO_PROJECT_ID` still selects the project, but it is deprecated and will
+be removed in a future release. A command that uses it prints a warning on
+stderr.
+
+Without `--project`, `login` uses the deprecated `VOLCANO_PROJECT_ID` when it
+is set, else the project this directory is linked to in
+`.volcano/project.json`, else the project `volcano use` last selected, which
+belongs to whatever credential was logged in before. If that is not the
 token's project, the failure says where the project came from.
 
 Run an account-wide command with one and the CLI says what is missing rather
@@ -183,7 +197,7 @@ holds — the whole project, or one token's day-by-day series:
 
 ```bash
 export VOLCANO_TOKEN=pt-xxxxxxxxxxxxxxxxxxxxxxxx
-export VOLCANO_PROJECT_ID=eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
+volcano use eac37d5a-5f6f-42d8-acf6-0f2ae9c7a550
 volcano cloud access-tokens usage --days 7
 volcano cloud access-tokens usage 7f1c2e94-2a6b-4c17-9a42-1b0c8f5d3e77 --days 7
 ```

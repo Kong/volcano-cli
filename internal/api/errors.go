@@ -14,6 +14,19 @@ import (
 // Callers branch on it with errors.Is(err, api.ErrNotFound).
 var ErrNotFound = errors.New("not found")
 
+// WithCause returns an error that reads as err and also matches cause with
+// errors.Is and errors.As. A service that rewrites an API refusal into its own
+// words keeps the refusal this way, so the exit code still reports it.
+func WithCause(err, cause error) error {
+	return &causeError{err: err, cause: cause}
+}
+
+type causeError struct{ err, cause error }
+
+func (e *causeError) Error() string { return e.err.Error() }
+
+func (e *causeError) Unwrap() []error { return []error{e.err, e.cause} }
+
 // Error is a normalized error returned for non-successful API responses.
 type Error struct {
 	StatusCode int
@@ -147,15 +160,24 @@ func apiError(statusCode int, body []byte) error {
 		Error            string `json:"error"`
 		ErrorDescription string `json:"error_description"`
 		Message          string `json:"message"`
+		// Code is kept only when it is a string: some proxies send a number,
+		// which must not discard the message.
+		Code json.RawMessage `json:"code"`
 	}
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
+		var message string
 		switch {
 		case payload.ErrorDescription != "":
-			return apiErrorWithMessage(statusCode, payload.ErrorDescription)
+			message = payload.ErrorDescription
 		case payload.Error != "":
-			return apiErrorWithMessage(statusCode, payload.Error)
+			message = payload.Error
 		case payload.Message != "":
-			return apiErrorWithMessage(statusCode, payload.Message)
+			message = payload.Message
+		}
+		if message != "" {
+			var code string
+			_ = json.Unmarshal(payload.Code, &code)
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code)}
 		}
 	}
 	message := cleanBody(body)

@@ -37,6 +37,14 @@ func CanPrompt(r io.Reader) bool {
 	return term.IsTerminal(f.Fd())
 }
 
+// MarkedNonInteractive reports whether the environment says no person is at
+// the terminal: CI or VOLCANO_NONINTERACTIVE is set, or TERM=dumb, which some
+// agents set when they run commands in a pseudo-terminal. A prompt that would
+// otherwise run on a terminal is skipped when this is true.
+func MarkedNonInteractive() bool {
+	return os.Getenv("CI") != "" || os.Getenv("VOLCANO_NONINTERACTIVE") != "" || os.Getenv("TERM") == "dumb"
+}
+
 // Delete prompts for delete confirmation for one or more named resources. It
 // returns ErrCannotPrompt when nothing can answer, rather than reporting the
 // unanswered prompt as a decline.

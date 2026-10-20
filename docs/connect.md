@@ -1,0 +1,222 @@
+---
+title: "Connect a directory"
+description: "Sign in, create a cloud project, and set up a directory for it with one command, ready for a coding agent to build on."
+---
+
+## What it does
+
+`volcano connect` goes from no login to a new cloud project and a directory
+linked to it, in one command. Paste it into a coding agent, or run it
+yourself:
+
+```bash
+npx -y @volcano.dev/cli connect
+```
+
+It runs these steps. A rerun inside the linked directory, or with the same
+directory argument, keeps the project and updates the files in place. A rerun
+with no directory argument outside a linked directory creates another project.
+If `connect` stops after it creates a project but before it links the
+directory, the error names the project and the
+`volcano connect <directory> --project <project-id>` command that sets it up.
+Commands `connect` prints put a directory with spaces or other shell
+characters in single quotes, so you can paste them as they are.
+
+1. **Signs in.** It signs in with `--device-code` when given.
+   Otherwise it reuses a login that still works, or runs browser login.
+   Browser login prints a code and a link. Open the link and approve, and the
+   command continues. See
+   [Device codes from the dashboard](#device-codes-from-the-dashboard).
+2. **Creates a project and its directory.** Unless `--project` names one, or
+   the directory is already linked, it creates a new project.
+   With no directory argument, it uses `--name` or a generated name such as
+   `fuji-amber-42`, and creates a directory with the same name in the current
+   directory. With a directory argument, the project is named after that
+   directory. If the name is taken by one of your projects or an existing
+   directory, it adds `-2`, `-3`, and so on. With `--project <project-id>` it
+   uses that project instead, in a directory named after it. If that
+   directory already exists with files in it and isn't linked to the
+   project, connect stops and prints the command to use it on purpose.
+   Without `--project`, run inside a directory that is already linked, it
+   keeps the linked project.
+   It doesn't link your home directory, whose `.volcano` directory holds the
+   CLI's own config.
+3. **Links the directory.** It writes `.volcano/project.json`. CLI commands
+   run inside the directory use this project. Right after the link, it
+   gitignores `volcano/*.env` and, for a new link, `.volcano/project.json`,
+   unless `.gitignore` already has the entry or its negation. See
+   [Linked directories](#linked-directories).
+4. **Creates the scaffold.** If `volcano/` is missing, it creates the same
+   scaffold as `volcano init`. With `--template` it adds that starter, also
+   to a directory set up before. It keeps the scaffold files already there
+   and adds the starter's missing lines to an existing `.gitignore`. When
+   every starter file is already there, as on a rerun, it keeps the ones you
+   changed and names them. Otherwise, if a starter file is already there with
+   different content, `connect` fails before it creates a project or changes
+   a file, and names the file.
+5. **Writes the env file.** It writes the project's API URL and anon key to
+   `volcano/cloud.env`, as `VOLCANO_API_URL`, `VOLCANO_ANON_KEY`, and the
+   `NEXT_PUBLIC_` copies a Next.js frontend reads. The API URL is written
+   without a user name, password, query, or fragment, because a frontend build
+   makes it public. Other lines in the file are kept.
+6. **Updates `AGENTS.md`.** It adds a Volcano section to `AGENTS.md` that
+   tells the agent where the project link is, which skills to
+   use, and how to deploy. The section names no project, so teammates can
+   share it. A rerun replaces the section instead of adding another. The
+   section sits between `<!-- volcano:connect:start -->` and
+   `<!-- volcano:connect:end -->` lines. If the start line is there without an
+   end line after it, `connect` fails and names `AGENTS.md` instead of
+   guessing where the section ends. The section's dashboard link, like the one
+   `connect` prints, drops any user name, password, query, or fragment from
+   the dashboard's base address.
+7. **Installs skills.** It installs the Volcano skills for every coding agent
+   it finds on the machine, as `volcano setup --yes` does. See
+   [setup.md](setup.md).
+
+It ends with the project's name, its directory, and its dashboard link:
+
+```text
+Project:   fuji-amber-42
+Directory: ./fuji-amber-42
+Dashboard: https://volcano.dev/dashboard/overview?project=<project-id>
+
+Next: cd ./fuji-amber-42, read AGENTS.md there, and use the Volcano skills to build.
+```
+
+## Usage
+
+```bash
+volcano connect                        # new project in a new directory
+volcano connect --name shop            # new project and directory named shop
+volcano connect .                      # link this directory to a new project
+volcano connect my-app                 # create ./my-app and link it
+volcano connect --project <project-id> # set up an existing project
+volcano connect --template nextjs      # also add the Next.js starter
+volcano connect --signup               # new to Volcano: create an account first
+volcano connect --device-code <code>   # sign in with the code in the dashboard's prompt
+volcano connect --json                 # print the result as JSON
+```
+
+| Flag | Meaning |
+|---|---|
+| `--project` | Use the existing project with this ID instead of creating one |
+| `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name. Fails in a linked directory, which keeps its project |
+| `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
+| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
+| `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
+| `--skip-skills` | Don't install skills |
+| `--json` | Print the result as JSON on stdout. Progress goes to stderr |
+
+## Device codes from the dashboard
+
+When you have no projects, the dashboard's Projects page shows a prompt to
+paste into your coding agent. Each time you copy it, the dashboard starts a
+new CLI login, approves it for the account you are signed in with, and puts
+its device code in the prompt:
+
+```bash
+volcano connect --device-code <code>
+```
+
+`connect` signs in with the code without opening the browser, and saves the
+login, so later commands stay signed in. The code works once and expires 10
+minutes after you copy the prompt. Until then it signs in as you, so don't
+share the prompt. If the code has expired, was already used, or is refused,
+`connect` warns and runs browser login instead. Copy the prompt again for a
+new code.
+
+The login is saved as soon as the code is used. If a later step fails, the
+CLI is still signed in: run the command again without `--device-code`.
+
+`volcano login --device-code <code>` signs in the same way. When the code is
+refused it fails with exit code `2` instead of running browser login.
+
+## New accounts and the project limit
+
+Run `volcano connect --signup` if you don't have an account yet. It opens
+the signup page, and the CLI is signed in when you finish.
+
+When your plan's project limit is reached, `connect` fails and lists your
+projects with the command to set up each one:
+
+```bash
+volcano connect --project <project-id>
+```
+
+## Linked directories
+
+`.volcano/project.json` links a directory to a project. CLI commands run in
+that directory or below it use the linked project. The CLI looks for the file
+in the current directory and its parents. It stops at the repository root, or
+before your home directory, whichever comes first. Outside both, it looks up
+to `/`.
+
+The project a command uses comes from, in order:
+
+1. `VOLCANO_PROJECT_ID`, which is deprecated and will be removed in a future
+   release. A command that uses it prints a warning on stderr.
+2. The directory's link
+3. The project `volcano use` saved
+
+`volcano use` run inside a linked directory updates the link. Elsewhere it
+saves the project for every directory without a link. Inside a linked
+directory, if `VOLCANO_PROJECT_ID` names a different project, `volcano use`
+fails and changes nothing, because commands would keep using the project the
+variable names. Unset it and run `volcano use` again.
+
+`volcano login --token <token> --project <project>` run inside a linked
+directory updates the link the same way, with the same `VOLCANO_PROJECT_ID`
+check. If the link named another project, it warns and prints the command that
+links it back. `volcano connect <directory> --project <project-id>` does the
+same when it relinks a directory linked to another project.
+
+`volcano connect` fails when `VOLCANO_PROJECT_ID` is set, whatever project it
+names, before it signs in or changes anything, and exits `1`. Unset it, and
+pass `--project <project-id>` to set up an existing project.
+
+If the linked directory already has a `volcano/cloud.env` with an anon key,
+`volcano use` and `volcano login --project` also rewrite the values `connect`
+wrote there for the new project. They never create an anon key: if the new
+project has none, or the update fails, they warn, and `volcano connect .`
+refreshes the file.
+
+If the link can't be read, or its `project_id` isn't a project ID, `volcano login` and `volcano signup` warn and
+ignore it. `volcano docs` and local commands, such as
+`volcano functions deploy`, ignore it because they never use a project. Other commands fail and name the file. `volcano connect` ignores
+one in a parent of the directory it sets up. For one in that directory, it
+stops unless `--project <project-id>` or `--name <name>` (for a new project)
+says what replaces it.
+
+The CLI doesn't write through a symlink, which could change a file outside
+the directory, such as your CLI login. If `.volcano/project.json`,
+`volcano/cloud.env`, `.gitignore`, or `AGENTS.md`, or the `.volcano` or
+`volcano` directory, is a symlink, `connect` fails and names it. For
+`.volcano/project.json`, `volcano use` fails too, and `volcano login` warns,
+ignores the link, and saves the project to `~/.volcano/config.json`. For a `volcano/cloud.env` with an anon key, they switch the project and
+warn that the file was not refreshed. Replace the symlink with a regular file or directory and
+run the command again.
+
+With no directory argument, `connect` doesn't follow a symlink to the
+directory it names after the project. With `--project`, it fails if that
+directory is a symlink. A generated name skips one, as it skips an existing
+directory. A directory you pass as an argument may be a symlink.
+
+The link is gitignored because each developer usually has their own project.
+Remove the `.gitignore` entry to share it with your team. `volcano connect`
+adds the entry only when it creates a new link, so a rerun in a directory
+that already has one doesn't add it back.
+
+## Running from an agent
+
+`connect` never waits on a prompt when stdin is not a terminal, or when `CI`,
+`VOLCANO_NONINTERACTIVE`, or `TERM=dumb` is set. When it would ask for a
+project name, it uses the default name.
+
+Without a directory argument, `connect` sets up a new directory below the
+current one. The agent should `cd` into the `Directory:` it prints (`directory`
+in `--json`) before running other `volcano` commands, and read the
+`AGENTS.md` there.
+
+Browser login waits until you approve in the browser. An agent should show you
+the code and link it prints, then wait for the command to finish. See
+[scripting.md](scripting.md) for exit codes.

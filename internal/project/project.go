@@ -17,6 +17,9 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
+// ErrNotFound reports that no project matched an ID or name.
+var ErrNotFound = errors.New("project not found")
+
 // Service performs authenticated Volcano project workflows.
 type Service struct {
 	sessions clisession.Factory
@@ -93,6 +96,9 @@ func (s Service) Rename(ctx context.Context, projectID, name string) (*apiclient
 	if err := updateCurrentProjectName(project); err != nil {
 		return nil, fmt.Errorf("project renamed but failed to update the saved active project: %w", err)
 	}
+	if err := updateLinkedProjectName(project); err != nil {
+		return nil, fmt.Errorf("project renamed but failed to update this directory's project link: %w", err)
+	}
 	return project, nil
 }
 
@@ -108,10 +114,10 @@ func (s Service) ListAnonKeys(ctx context.Context, projectID string) ([]apiclien
 	if projectID == "" {
 		// Resolve through ProjectID() so VOLCANO_PROJECT_ID takes precedence over
 		// the saved current project, matching every other current-project workflow.
-		projectID = authenticated.Config.ProjectID()
-		if projectID == "" {
-			return nil, errors.New("failed to get project keys: no project ID given and no current project selected — pass a project ID or run `volcano use <id-or-name>`")
+		if err := authenticated.Config.RequireProject(); err != nil {
+			return nil, fmt.Errorf("failed to get project keys: no project ID given: %w", err)
 		}
+		projectID = authenticated.Config.ProjectID()
 	}
 
 	id, err := uuid.Parse(projectID)
@@ -166,19 +172,90 @@ func (s Service) RequireAccountToken() error {
 	return err
 }
 
-// Use sets the active project by exact ID or exact name.
-func (s Service) Use(ctx context.Context, identifier string) (*apiclient.Project, error) {
+// UseResult is what Use changed.
+type UseResult struct {
+	Project *apiclient.Project
+	// SavedTo is where the selection was saved.
+	SavedTo string
+	// Previous is the project the link named before Use changed it. It is nil
+	// outside a linked directory, and when the link already named the project.
+	Previous *config.ProjectConfig
+	// EnvFile is the linked directory's cloud env file when Use rewrote it for
+	// the project, or tried to and failed with EnvErr. It is "" otherwise.
+	EnvFile string
+	// EnvErr is why EnvFile could not be rewritten. The selection is saved
+	// either way.
+	EnvErr error
+}
+
+// Use sets the active project by exact ID or exact name. Inside a linked
+// directory it updates the link, which would otherwise keep overriding the
+// selection, and rewrites the anon key `volcano connect` wrote to the
+// directory's cloud env file; elsewhere it saves the global selection.
+func (s Service) Use(ctx context.Context, identifier string) (UseResult, error) {
 	identifier = strings.TrimSpace(identifier)
 	authenticated, err := s.sessions.Authenticated()
 	if err != nil {
-		return nil, err
+		return UseResult{}, err
 	}
 
 	selected, err := resolveProject(ctx, authenticated, identifier)
 	if err != nil {
-		return nil, err
+		return UseResult{}, err
 	}
-	return selected, saveCurrentProject(selected)
+	if link := authenticated.Config.Link; link != nil {
+		if err := CheckProjectOverride(authenticated.Config, selected.Id.String(), link); err != nil {
+			return UseResult{}, err
+		}
+		return SelectInLink(ctx, authenticated.API, s.sessions.APIURL(authenticated.Config), link, selected)
+	}
+	return UseResult{Project: selected, SavedTo: "~/.volcano/config.json"}, saveCurrentProject(selected)
+}
+
+// CheckProjectOverride refuses to relink a directory while VOLCANO_PROJECT_ID
+// names a project other than selectedID. Commands would keep running against
+// that project, and the cloud env file would deploy the selected project's
+// anon key to it.
+func CheckProjectOverride(cfg *config.Config, selectedID string, link *config.Link) error {
+	fromEnv := cfg.ProjectIDFromEnv()
+	if fromEnv == "" {
+		return nil
+	}
+	if id, err := uuid.Parse(fromEnv); err == nil && id.String() == selectedID {
+		return nil
+	}
+	return fmt.Errorf("VOLCANO_PROJECT_ID is set to %s and overrides this directory's link, so commands would keep "+
+		"using that project. Unset it and try again. The link at %s is unchanged",
+		fromEnv, link.Path())
+}
+
+// SelectInLink links link's directory to selected and, when the project
+// changes, rewrites the anon key `volcano connect` wrote to the directory's
+// cloud env file, as Use does inside a linked directory. client and apiURL reach selected's API. Callers run
+// CheckProjectOverride first.
+func SelectInLink(ctx context.Context, client *api.Client, apiURL string, link *config.Link, selected *apiclient.Project) (UseResult, error) {
+	updated, err := Link(link.Dir, selected)
+	if err != nil {
+		return UseResult{}, err
+	}
+	result := UseResult{Project: selected, SavedTo: updated.Path()}
+	// The same project keeps its cloud env file, which may hold a key the
+	// user chose over the default one.
+	if link.Project.ID == selected.Id.String() {
+		return result, nil
+	}
+	previous := link.Project
+	result.Previous = &previous
+	result.EnvFile, result.EnvErr = refreshCloudEnv(ctx, client, link.Dir, apiURL, selected.Id)
+	if result.EnvErr != nil {
+		result.EnvFile = CloudEnvPath(link.Dir)
+	}
+	return result, nil
+}
+
+// Link links dir to project, so commands run inside dir use it.
+func Link(dir string, project *apiclient.Project) (*config.Link, error) {
+	return config.WriteLink(dir, config.ProjectConfig{ID: project.Id.String(), Name: project.Name})
 }
 
 func resolveProject(ctx context.Context, authenticated *clisession.Session, identifier string) (*apiclient.Project, error) {
@@ -203,7 +280,7 @@ func resolveProject(ctx context.Context, authenticated *clisession.Session, iden
 		// project with that ID is not there. Reporting the missing account token
 		// instead sends the user to log in again over a mistyped ID.
 		if idNotFound {
-			return nil, fmt.Errorf("project not found: %s", identifier)
+			return nil, fmt.Errorf("%w: %s", ErrNotFound, identifier)
 		}
 		return nil, fmt.Errorf("failed to select project %q: %w", identifier, err)
 	}
@@ -243,7 +320,7 @@ func Find(ctx context.Context, client *api.Client, identifier string) (*apiclien
 		page++
 	}
 
-	return nil, fmt.Errorf("project not found: %s", identifier)
+	return nil, fmt.Errorf("%w: %s", ErrNotFound, identifier)
 }
 
 func saveCurrentProject(project *apiclient.Project) error {
@@ -254,6 +331,17 @@ func saveCurrentProject(project *apiclient.Project) error {
 		}
 		return true, nil
 	})
+}
+
+// updateLinkedProjectName keeps the working directory's link in step with a
+// rename of the project it names.
+func updateLinkedProjectName(project *apiclient.Project) error {
+	link, err := config.FindLinkFromWorkingDir()
+	if err != nil || link == nil || link.Project.ID != project.Id.String() {
+		return err
+	}
+	_, err = Link(link.Dir, project)
+	return err
 }
 
 func updateCurrentProjectName(project *apiclient.Project) error {
