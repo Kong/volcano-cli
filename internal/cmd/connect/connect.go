@@ -249,7 +249,15 @@ func run(ctx context.Context, opts options) error {
 		}
 		return err
 	}
-	output.Success(opts.log, "Linked %s", relPath(dir, link.Path()))
+	output.Success(opts.log, "Linked %s", relPath(wd, link.Path()))
+	// A rerun from wd would not find a link in a new directory below it and
+	// would create another project, so later failures name the directory.
+	setupError := func(err error) error {
+		if created && displayDir(wd, dir) != "." {
+			return linkedProjectError(opts, wd, dir, project, err)
+		}
+		return err
+	}
 	if previous != nil && previous.Dir == dir && previous.Project.ID != project.Id.String() && !created {
 		shown := displayDir(wd, dir)
 		output.Warning(opts.log, "%s was linked to %s. It is now linked to %s. To undo, run: %s",
@@ -258,21 +266,21 @@ func run(ctx context.Context, opts options) error {
 	}
 
 	if err := scaffold(opts, dir, starter); err != nil {
-		return err
+		return setupError(err)
 	}
 
 	anonKey, err := cliproject.DefaultAnonKey(ctx, authenticated.API, project.Id)
 	if err != nil {
-		return err
+		return setupError(err)
 	}
 	envPath := cliproject.CloudEnvPath(dir)
 	if err := cliproject.WriteCloudEnv(dir, apiURL, anonKey); err != nil {
-		return err
+		return setupError(err)
 	}
 	output.Success(opts.log, "Wrote the project's API URL and anon key to %s", cliproject.CloudEnvRelPath)
 
 	if err := ensureGitignored(dir); err != nil {
-		return err
+		return setupError(err)
 	}
 
 	// AGENTS.md is usually committed, so the web URL, which VOLCANO_WEB_URL
@@ -283,7 +291,7 @@ func run(ctx context.Context, opts options) error {
 	// The shared AGENTS.md gets the dashboard's root, not this developer's project.
 	dashboardRoot := strings.TrimRight(webURL, "/") + "/dashboard"
 	if err := writeAgentsSection(dir, agentsSection(dashboardRoot)); err != nil {
-		return err
+		return setupError(err)
 	}
 	output.Success(opts.log, "Updated the Volcano section in %s", agentsFileName)
 
@@ -583,6 +591,14 @@ func checkTargetPath(opts options) error {
 func createdProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
 	return fmt.Errorf("%w\nCreated project %s (%s), but did not link it. To set it up, run: %s", err,
 		project.Name, project.Id, cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))+" --project "+project.Id.String()))
+}
+
+// linkedProjectError is err, a failure after connect created project and
+// linked it in dir, a new directory below wd, with the command that finishes
+// setting it up.
+func linkedProjectError(opts options, wd, dir string, project *apiclient.Project, err error) error {
+	return fmt.Errorf("%w\nCreated project %s (%s) and linked it in %s. To finish setting it up, run: %s", err,
+		project.Name, project.Id, displayDir(wd, dir), cliruntime.CommandPath(opts.deps, "connect "+cliruntime.ShellQuote(displayDir(wd, dir))))
 }
 
 // existingProject is the project --project names. It takes an ID only.

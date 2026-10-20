@@ -63,6 +63,8 @@ type fakeAPI struct {
 	// createdStatus, when set, is the status of the projects POST /projects
 	// creates, instead of active.
 	createdStatus string
+	// anonKeyStatus makes GET .../anon-keys fail; 0 lists the keys.
+	anonKeyStatus int
 }
 
 func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +116,8 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.projects = append(f.projects, project)
 		writeConnectJSON(f.t, w, http.StatusCreated, project)
+	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/anon-keys") && f.anonKeyStatus != 0:
+		writeConnectJSON(f.t, w, f.anonKeyStatus, map[string]any{"error": "failed"})
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/anon-keys") && f.anonKeyPages != nil:
 		page := 1
 		if raw := r.URL.Query().Get("page"); raw != "" {
@@ -978,6 +982,27 @@ func TestConnectRefusesToWriteThroughASymlink(t *testing.T) {
 			assert.Equal(t, before, readFile(t, configPath))
 		})
 	}
+}
+
+// A rerun from the working directory would not find the link in the new
+// directory below it, so a failure after the link names that directory.
+func TestConnectNamesTheNewDirectoryWhenSetupFailsAfterTheLink(t *testing.T) {
+	setConnectTestHome(t)
+	useGeneratedName(t, "fuji-amber-42")
+	fake := &fakeAPI{t: t, anonKeyStatus: http.StatusInternalServerError}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	chdirTemp(t)
+
+	out, err := runConnectHere(t, server)
+	require.Error(t, err)
+	assert.Contains(t, out, "Linked "+filepath.Join("fuji-amber-42", ".volcano", "project.json"))
+	require.ErrorContains(t, err, "Created project fuji-amber-42 ("+connectProjectID+") and linked it in ./fuji-amber-42. To finish setting it up, run: volcano connect ./fuji-amber-42")
+
+	fake.anonKeyStatus = 0
+	_, err = runConnectHere(t, server, "./fuji-amber-42")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fake.creates, "the rerun uses the linked project")
 }
 
 // A stopped wait leaves a created project with no link, so a rerun of the same
