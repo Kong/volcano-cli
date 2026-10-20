@@ -6,12 +6,16 @@ description: "Sign in, create a cloud project, and set up a directory for it wit
 ## What it does
 
 `volcano connect` goes from no login to a new cloud project and a directory
-linked to it, in one command. Paste it into a coding agent, or run it
-yourself:
+linked to it, in one command. Install the CLI first, because you keep using it
+to build and deploy after `connect`. See [installation.md](installation.md)
+for other ways to install.
 
 ```bash
-npx -y @volcano.dev/cli connect
+npm install -g @volcano.dev/cli
+volcano connect
 ```
+
+Run it yourself, or paste both lines into a coding agent.
 
 It runs these steps. A rerun inside the linked directory, or with the same
 directory argument, keeps the project and updates the files in place. A rerun

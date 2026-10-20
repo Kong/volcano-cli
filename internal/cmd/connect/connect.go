@@ -118,8 +118,7 @@ It ends with the project's name, its directory, and its dashboard link.
   volcano connect .                        Link this directory to a new project
   volcano connect my-app                   Create ./my-app and link it
   volcano connect --project <project-id>   Set up an existing project
-  volcano connect --signup                 New to Volcano: create an account first
-  npx -y @volcano.dev/cli connect          No install needed`,
+  volcano connect --signup                 New to Volcano: create an account first`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
