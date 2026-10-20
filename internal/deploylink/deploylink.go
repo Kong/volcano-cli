@@ -44,7 +44,7 @@ func (s Service) List(ctx context.Context) ([]apiclient.DeployLink, error) {
 	}
 	links, err := authenticated.API.ListDeployLinks(ctx, authenticated.ProjectID)
 	if err != nil {
-		return nil, s.explain("list deploy links", err)
+		return nil, s.explain(opRead, "list deploy links", err)
 	}
 	return links.DeployLinks, nil
 }
@@ -62,7 +62,7 @@ func (s Service) Create(ctx context.Context, input CreateInput) (*apiclient.Depl
 		SuggestedName: optional(input.SuggestedName),
 	})
 	if err != nil {
-		return nil, s.explain("create the deploy link", err)
+		return nil, s.explain(opCreate, "create the deploy link", err)
 	}
 	return link, nil
 }
@@ -75,7 +75,7 @@ func (s Service) Get(ctx context.Context, linkID string) (*apiclient.DeployLink,
 	}
 	link, err := authenticated.API.GetDeployLink(ctx, authenticated.ProjectID, linkID)
 	if err != nil {
-		return nil, s.explain(fmt.Sprintf("get deploy link %q", linkID), err)
+		return nil, s.explain(opRead, fmt.Sprintf("get deploy link %q", linkID), err)
 	}
 	return link, nil
 }
@@ -89,7 +89,7 @@ func (s Service) Stats(ctx context.Context, linkID string, days int) (*apiclient
 	}
 	stats, err := authenticated.API.GetDeployLinkStats(ctx, authenticated.ProjectID, linkID, days)
 	if err != nil {
-		return nil, s.explain(fmt.Sprintf("get the stats of deploy link %q", linkID), err)
+		return nil, s.explain(opRead, fmt.Sprintf("get the stats of deploy link %q", linkID), err)
 	}
 	return stats, nil
 }
@@ -106,11 +106,11 @@ func (s Service) SetStatus(
 	link, err := authenticated.API.UpdateDeployLink(ctx, authenticated.ProjectID, linkID,
 		apiclient.UpdateDeployLinkRequest{Status: &status})
 	if err != nil {
-		action := "enable"
+		op, action := opEnable, "enable"
 		if status == apiclient.UpdateDeployLinkRequestStatusDisabled {
-			action = "disable"
+			op, action = opDisable, "disable"
 		}
-		return nil, s.explain(fmt.Sprintf("%s deploy link %q", action, linkID), err)
+		return nil, s.explain(op, fmt.Sprintf("%s deploy link %q", action, linkID), err)
 	}
 	return link, nil
 }
@@ -122,36 +122,85 @@ func (s Service) Delete(ctx context.Context, linkID string) error {
 		return err
 	}
 	if err := authenticated.API.DeleteDeployLink(ctx, authenticated.ProjectID, linkID); err != nil {
-		return s.explain(fmt.Sprintf("delete deploy link %q", linkID), err)
+		return s.explain(opDelete, fmt.Sprintf("delete deploy link %q", linkID), err)
 	}
 	return nil
 }
 
+// operation says what a failed call was, because the same status means
+// different things to different calls.
+type operation int
+
+const (
+	// opRead is a list, get or stats, which a project access token may make.
+	opRead operation = iota
+	// opCreate adds a link and verifies the repository.
+	opCreate
+	// opEnable switches a link on, which verifies the repository again.
+	opEnable
+	// opDisable switches a link off and needs no verification.
+	opDisable
+	// opDelete removes a link.
+	opDelete
+)
+
+// featureUnavailableCode is the code of the 404 a closed release gate answers
+// creating or enabling a link with. It is not a missing link.
+const featureUnavailableCode = "feature_unavailable"
+
+// unavailableError reports that deploy links are not offered here. It keeps the
+// API's error for callers that read the status.
+type unavailableError struct{ err error }
+
+func (e *unavailableError) Error() string {
+	return "Deploy links are not available in this environment."
+}
+
+func (e *unavailableError) Unwrap() error { return e.err }
+
 // explain says what was being done and, for the refusals the API documents for
 // deploy links, what to do about it. The API's own message is the only server
 // text shown; the advice is the CLI's.
-func (s Service) explain(action string, err error) error {
-	hint := s.hint(api.Status(err))
+func (s Service) explain(op operation, action string, err error) error {
+	status := api.Status(err)
+	if status == http.StatusNotFound && api.Code(err) == featureUnavailableCode {
+		return fmt.Errorf("failed to %s: %w", action, &unavailableError{err: err})
+	}
+	hint := hintFor(op, status)
 	if hint == "" {
 		return fmt.Errorf("failed to %s: %w", action, err)
 	}
 	return fmt.Errorf("failed to %s: %w\n\n%s", action, err, hint)
 }
 
-func (s Service) hint(status int) string {
+func hintFor(op operation, status int) string {
 	switch status {
 	case http.StatusUnauthorized:
 		return "If GitHub is the cause, reconnect GitHub for this project and try again. " +
 			"Otherwise sign in again with " + rootCommand("login") + "."
+	case http.StatusForbidden:
+		// The refusal records which credential the request carried, so this
+		// only says so when it was a project access token and the call is one
+		// a person alone may make.
+		if op != opRead && api.LastRefusal().ProjectAccessToken {
+			return "Project access tokens cannot create, change or delete deploy links. " +
+				"Run this command signed in with " + rootCommand("login") + "."
+		}
+		return ""
 	case http.StatusConflict:
-		return "A deploy link needs the project connected to the link's repository, and a project holds at most " +
-			"20 links. See " + rootCommand("git status") + " and " +
-			rootCommand("git connect") + "."
+		hint := "A deploy link needs the project connected to the link's repository, and a project holds at most " +
+			"20 links. See " + rootCommand("git status") + " and " + rootCommand("git connect") + "."
+		if op == opEnable || op == opDisable {
+			hint += " If the link changed while it was being saved, run the command again."
+		}
+		return hint
 	case http.StatusUnprocessableEntity:
 		return "A deploy link needs a public repository that the connected GitHub account can push to, " +
-			"an existing branch, and a frontend or function to deploy at the branch's latest commit."
+			"an existing branch, a valid repository configuration, and a frontend or function to deploy at " +
+			"the branch's latest commit. An empty repository cannot be deployed."
 	case http.StatusServiceUnavailable:
-		return "GitHub is not available right now. Try again shortly."
+		return "GitHub is rate limiting or not available right now, or the GitHub integration is not " +
+			"configured. Try again shortly."
 	default:
 		return ""
 	}

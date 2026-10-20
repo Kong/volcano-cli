@@ -19,6 +19,13 @@ and you can change what it follows without changing the link.
 - Deploy links are cloud-only. Local development has no Git connection, so
   `volcano deploy-link` there points you to `volcano cloud deploy-link`.
 - A project can have up to 20 links.
+- A person manages deploy links. Creating, enabling and deleting one needs an
+  account token from `volcano login`, and a project access token is refused with
+  `403`. A project access token can still list and show links and read their
+  stats.
+- Deploy links may not be available in every environment yet. Where they are
+  not, `create` and `enable` fail with "Deploy links are not available in this
+  environment." Listing, showing, `disable` and `delete` keep working.
 
 ## CLI operations
 
@@ -110,8 +117,9 @@ The CLI prints the API's message with what to do next.
 
 | Status | Meaning |
 |---|---|
-| `401` | The GitHub connection expired. Reconnect GitHub and try again. |
-| `404` | The project or link does not exist. |
-| `409` | The project has no repository connected, is connected to a different repository than the link, or has 20 links already. |
-| `422` | The repository is private, the connected account cannot push to it, the branch does not exist, or the repository cannot be deployed as it is. |
-| `503` | GitHub is not available right now. Try again shortly. |
+| `401` | The GitHub connection's authorization expired, or you are signed out. Reconnect GitHub, or run `volcano login`, and try again. |
+| `403` | The project is not yours, or a project access token was used. A person manages deploy links, so sign in with `volcano login`. |
+| `404` | The project or link does not exist. With "Deploy links are not available in this environment." it is not a missing link: deploy links are not offered here. |
+| `409` | The project has no repository connected, is connected to a different repository than the link, has 20 links already, or the link changed while it was being saved. For a link that changed, run the command again. |
+| `422` | The repository is private or empty, its configuration is invalid, the connected account cannot push to it, the branch does not exist, or the repository cannot be deployed as it is. |
+| `503` | GitHub is rate limiting or not available right now, or the GitHub integration is not configured. Try again shortly. |

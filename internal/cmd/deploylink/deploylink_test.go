@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -79,9 +80,9 @@ func TestCreateExplainsTheDocumentedRefusals(t *testing.T) {
 		want    []string
 	}{
 		{http.StatusConflict, "no repository is connected", []string{"volcano git connect", "volcano git status", "20"}},
-		{http.StatusUnprocessableEntity, "the repository is private", []string{"public repository", "push to"}},
+		{http.StatusUnprocessableEntity, "the repository is empty", []string{"public repository", "push to", "valid repository configuration", "empty repository"}},
 		{http.StatusUnauthorized, "the GitHub connection expired", []string{"reconnect GitHub", "volcano login"}},
-		{http.StatusServiceUnavailable, "GitHub is unavailable", []string{"GitHub is not available right now"}},
+		{http.StatusServiceUnavailable, "GitHub is unavailable", []string{"rate limiting or not available", "integration is not configured", "Try again shortly"}},
 	} {
 		t.Run(http.StatusText(tc.status), func(t *testing.T) {
 			setTestHome(t)
@@ -101,6 +102,100 @@ func TestCreateExplainsTheDocumentedRefusals(t *testing.T) {
 			}
 			assert.NotContains(t, err.Error(), "SECRET-INTERNAL-DETAIL")
 			assert.NotContains(t, err.Error(), "volcano cloud git", "git and login are not in the cloud tree")
+		})
+	}
+}
+
+// A closed release gate answers 404 with a code. It says deploy links are not
+// offered, never that the link is missing, and it keeps no server text.
+func TestClosedReleaseGateIsNotAMissingLink(t *testing.T) {
+	for _, args := range [][]string{{"create"}, {"enable", linkID}} {
+		t.Run(args[0], func(t *testing.T) {
+			setTestHome(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				respondJSON(t, w, http.StatusNotFound, map[string]any{
+					"error": "SERVER-GATE-TEXT", "code": "feature_unavailable",
+				})
+			}))
+			defer server.Close()
+
+			_, err := executeCommand(t, newCommand(server), args...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "Deploy links are not available in this environment.")
+			assert.NotContains(t, err.Error(), "SERVER-GATE-TEXT")
+			assert.NotContains(t, strings.ToLower(err.Error()), "not found")
+			assert.Equal(t, http.StatusNotFound, api.Status(err))
+		})
+	}
+}
+
+// A plain 404 without the code is still the server's own text.
+func TestAPlain404KeepsTheServerText(t *testing.T) {
+	setTestHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respondJSON(t, w, http.StatusNotFound, map[string]any{"error": "deploy link not found"})
+	}))
+	defer server.Close()
+
+	_, err := executeCommand(t, newCommand(server), "enable", linkID)
+	require.ErrorContains(t, err, "deploy link not found")
+	assert.NotContains(t, err.Error(), "not available in this environment")
+}
+
+// Deploy links are managed by a person. A project access token's 403 says so,
+// and an account token's 403 keeps the server's text alone.
+func TestForbiddenNamesProjectAccessTokensOnlyWhenOneWasUsed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		token     string
+		wantHint  bool
+		arguments []string
+	}{
+		{"project token creating", "pt-abc123", true, []string{"create"}},
+		{"project token deleting", "pt-abc123", true, []string{"delete", linkID, "--yes"}},
+		{"project token reading", "pt-abc123", false, []string{"list"}},
+		{"account token creating", "", false, []string{"create"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setTestHome(t)
+			api.ResetLastRefusalForTest()
+			t.Cleanup(api.ResetLastRefusalForTest)
+			if tc.token != "" {
+				t.Setenv("VOLCANO_TOKEN", tc.token)
+				t.Setenv("VOLCANO_PROJECT_ID", projectID)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				respondJSON(t, w, http.StatusForbidden, map[string]any{"error": "forbidden by the server"})
+			}))
+			defer server.Close()
+
+			_, err := executeCommand(t, newCommand(server), tc.arguments...)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 403: forbidden by the server")
+			if tc.wantHint {
+				assert.Contains(t, err.Error(), "Project access tokens cannot create, change or delete deploy links")
+			} else {
+				assert.NotContains(t, err.Error(), "Project access tokens")
+			}
+		})
+	}
+}
+
+// A link that changed under a save is the only 409 that a rerun fixes, so the
+// commands that save one say to run again.
+func TestEnableAndDisableTellAChangedLinkToRunAgain(t *testing.T) {
+	for _, command := range []string{"enable", "disable"} {
+		t.Run(command, func(t *testing.T) {
+			setTestHome(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				respondJSON(t, w, http.StatusConflict, map[string]any{"error": "the link changed while it was being saved"})
+			}))
+			defer server.Close()
+
+			_, err := executeCommand(t, newCommand(server), command, linkID)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "the link changed while it was being saved")
+			assert.Contains(t, err.Error(), "run the command again")
 		})
 	}
 }
