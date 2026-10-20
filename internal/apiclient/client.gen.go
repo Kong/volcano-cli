@@ -5350,7 +5350,16 @@ type CreateFrontendCustomDomainRequest struct {
 	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
 	Domain string `json:"domain"`
 
-	// Redirect Redirects every request for the domain to `to`, another domain of the same frontend that serves it, keeping the path and query string.
+	// Tls TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.
+	Tls FrontendCustomDomainTLSConfig `json:"tls"`
+}
+
+// CreateFrontendDomainRequest defines model for CreateFrontendDomainRequest.
+type CreateFrontendDomainRequest struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
+	Domain string `json:"domain"`
+
+	// Redirect Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
 	Redirect *FrontendCustomDomainRedirectRequest `json:"redirect,omitempty"`
 
 	// Tls TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.
@@ -6890,12 +6899,12 @@ type FrontendCustomDomainRedirect struct {
 // FrontendCustomDomainRedirectStatus defines model for FrontendCustomDomainRedirect.Status.
 type FrontendCustomDomainRedirectStatus int
 
-// FrontendCustomDomainRedirectRequest Redirects every request for the domain to `to`, another domain of the same frontend that serves it, keeping the path and query string.
+// FrontendCustomDomainRedirectRequest Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
 type FrontendCustomDomainRedirectRequest struct {
 	// Status Redirect status. 301 and 308 are permanent, 302 and 307 temporary; 307 and 308 keep the request method and body.
 	Status *FrontendCustomDomainRedirectRequestStatus `json:"status,omitempty"`
 
-	// To Hostname of a domain of the same frontend that serves it.
+	// To Hostname of an active domain of the same frontend that serves it.
 	To string `json:"to"`
 }
 
@@ -12777,7 +12786,7 @@ type CreateFrontendMultipartRequestBody CreateFrontendMultipartBody
 type CreateFrontendCustomDomainJSONRequestBody = CreateFrontendCustomDomainRequest
 
 // CreateFrontendDomainJSONRequestBody defines body for CreateFrontendDomain for application/json ContentType.
-type CreateFrontendDomainJSONRequestBody = CreateFrontendCustomDomainRequest
+type CreateFrontendDomainJSONRequestBody = CreateFrontendDomainRequest
 
 // UpdateFrontendDomainJSONRequestBody defines body for UpdateFrontendDomain for application/json ContentType.
 type UpdateFrontendDomainJSONRequestBody = UpdateFrontendCustomDomainRequest

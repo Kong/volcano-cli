@@ -7342,7 +7342,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateFrontendCustomDomainRequest'
+              $ref: '#/components/schemas/CreateFrontendDomainRequest'
       responses:
         '200':
           description: The frontend already has this hostname, or its TLS mode was switched in place
@@ -18156,6 +18156,20 @@ components:
           example: app.example.com
         tls:
           $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
+      required:
+        - domain
+        - tls
+    CreateFrontendDomainRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        domain:
+          type: string
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
+          example: www.example.com
+        tls:
+          $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
         redirect:
           $ref: '#/components/schemas/FrontendCustomDomainRedirectRequest'
       required:
@@ -20320,13 +20334,13 @@ components:
     FrontendCustomDomainRedirectRequest:
       type: object
       additionalProperties: false
-      description: Redirects every request for the domain to `to`, another domain of the same frontend that serves it, keeping the path and query string.
+      description: Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
       properties:
         to:
           type: string
           minLength: 1
           maxLength: 253
-          description: Hostname of a domain of the same frontend that serves it.
+          description: Hostname of an active domain of the same frontend that serves it.
           example: www.example.com
         status:
           type: integer
