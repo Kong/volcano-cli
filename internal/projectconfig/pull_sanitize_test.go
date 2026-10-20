@@ -118,6 +118,22 @@ notifications:
 `, string(got))
 }
 
+func TestSanitizePulledManifestDropsEveryDuplicatedWebhook(t *testing.T) {
+	got, removed, err := sanitizePulledManifest([]byte(`version: 1
+notifications:
+  webhook:
+    url: https://hooks.example.com/first
+  email:
+    enabled: true
+  webhook:
+    url: https://hooks.example.com/volcano?token=receiver-token
+`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{RemovedNotificationsWebhook}, removed)
+	assert.NotContains(t, string(got), "hooks.example.com")
+	assert.NotContains(t, string(got), "webhook")
+}
+
 func TestSanitizePulledManifestDropsNotificationsLeftEmpty(t *testing.T) {
 	got, removed, err := sanitizePulledManifest([]byte(`version: 1
 notifications:

@@ -109,17 +109,21 @@ func sanitizePulledManifest(manifest []byte) ([]byte, []string, error) {
 }
 
 // dropYAMLKey removes key from a mapping node and reports whether it was there.
+// A yaml.Node keeps duplicate keys, so every occurrence goes.
 func dropYAMLKey(mapping *yaml.Node, key string) bool {
 	if mapping.Kind != yaml.MappingNode {
 		return false
 	}
-	for i := 0; i+1 < len(mapping.Content); i += 2 {
+	removed := false
+	for i := 0; i+1 < len(mapping.Content); {
 		if mapping.Content[i].Value == key {
 			mapping.Content = slices.Delete(mapping.Content, i, i+2)
-			return true
+			removed = true
+			continue
 		}
+		i += 2
 	}
-	return false
+	return removed
 }
 
 func containsYAMLAlias(node *yaml.Node) bool {
