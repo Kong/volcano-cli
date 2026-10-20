@@ -61,11 +61,11 @@ func TestClient_MissingDeviceIDGetsOne(t *testing.T) {
 func TestScrubText(t *testing.T) {
 	in := "ran \x1b[31mvolcano deploy\x1b[0m in /home/dev/app\r\n" +
 		"error: Authorization: Bearer abc.def\n" +
-		"DB_PASSWORD=hunter2 token=x\n\n" +
+		"mail dev@example.com, see https://api.example.com/x?key=abc Bearer\u00a0xyz\n\n" +
 		"  kept   spacing  \n"
 	want := "ran volcano deploy in ~/app\n" +
 		"error: Authorization: Bearer [redacted]\n" +
-		"DB_PASSWORD=[redacted] token=[redacted]\n\n" +
+		"mail [redacted], see https://api.example.com/x?[redacted] Bearer [redacted]\n\n" +
 		"  kept   spacing"
 	assert.Equal(t, want, ScrubText(in, "/home/dev"))
 }

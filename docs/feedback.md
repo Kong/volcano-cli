@@ -110,14 +110,13 @@ Each report carries the text you wrote and these fields:
 If you are logged in, the report is linked to your Volcano account.
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
-color codes, and removes the same secret shapes it removes from telemetry error
-messages: bearer tokens, JWTs, Volcano keys, AWS access key IDs, passwords in
-URLs, URL query strings, values of `password=`, `token=`, and similar pairs,
-and other long opaque strings. Redaction cannot recognize every secret or
-name, so write placeholders such as `<function>`, `<path>`, or `<payload>` for
-project, function, database, and bucket names, file paths, and payload values.
-Do not put file contents, environment variable values, application data, or
-customer names in a report.
+color codes, and removes what it removes from telemetry error messages: bearer
+tokens, JWTs, Volcano keys and tokens, passwords in URLs, email addresses, and
+URL query strings. Other secrets, such as a `password=` value or a cloud
+provider key, are not removed, and neither are names. So write placeholders
+such as `<function>`, `<path>`, or `<payload>` for project, function, database,
+and bucket names, file paths, and payload values. Do not put file contents,
+environment variable values, application data, or customer names in a report.
 
 Use `--dry-run` to see the exact report before sending it.
 

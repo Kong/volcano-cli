@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/sensitive"
@@ -15,7 +16,9 @@ import (
 // resourcePlaceholders are the usage-line placeholders (`get <database>
 // <branch>`) whose positional arguments name or identify a resource. Anything
 // else, such as paths, queries, URLs, or commands run in a sandbox, is never
-// sent.
+// sent. volcano-hosting accepts only these keys and resourceFlags'
+// (isCLIResourceKey in internal/productanalytics/allowlist.go); keep them in
+// step.
 var resourcePlaceholders = map[string]bool{
 	"alias": true, "approval-id": true, "backup": true, "branch": true,
 	"bucket": true, "database": true, "deployment-id": true, "domain": true,
@@ -31,8 +34,10 @@ var resourceFlags = []string{"bucket", "database", "function", "name", "project"
 // maxResources bounds the resources one event carries.
 const maxResources = 10
 
-// resourceValue is the shape of a resource name or ID the server accepts.
-var resourceValue = regexp.MustCompile(`^[A-Za-z0-9 ._\-/:@]{1,100}$`)
+// resourceValue is the shape of a resource name or ID the CLI sends. It admits
+// no "/" so a path given where a name is expected, such as
+// `functions invoke ./src/hello.js`, is never sent.
+var resourceValue = regexp.MustCompile(`^[A-Za-z0-9 ._\-:@]{1,100}$`)
 
 // resources returns the resource names and IDs cmd was given: each positional
 // argument under a placeholder in resourcePlaceholders, keyed by the
@@ -47,6 +52,11 @@ func resources(cmd *cobra.Command) map[string]string {
 	add := func(key, value string) {
 		value = strings.TrimSpace(value)
 		if _, ok := found[key]; ok || !resourceValue.MatchString(value) || redact(value) != value {
+			return
+		}
+		// An execution name, which can hold application data, is sometimes
+		// passed where the ID belongs; send only a real ID.
+		if _, err := uuid.Parse(value); key == "execution-id" && err != nil {
 			return
 		}
 		found[key] = value
@@ -70,7 +80,7 @@ func resources(cmd *cobra.Command) map[string]string {
 		}
 	}
 	for _, name := range resourceFlags {
-		if f := cmd.Flags().Lookup(name); f != nil && f.Changed {
+		if f := cmd.Flags().Lookup(name); f != nil && f.Changed && f.Annotations[sensitive.FlagAnnotation] == nil {
 			add(name, f.Value.String())
 		}
 	}
@@ -128,6 +138,10 @@ func errorMessage(err error, home string) string {
 		msg = strings.ReplaceAll(msg, text, redacted)
 	}
 	if len(home) > 1 {
+		// %q doubles each backslash in a Windows path.
+		if strings.Contains(home, `\`) {
+			msg = strings.ReplaceAll(msg, strings.ReplaceAll(home, `\`, `\\`), "~")
+		}
 		msg = strings.ReplaceAll(msg, home, "~")
 	}
 	msg = ansiEscape.ReplaceAllString(msg, "")
@@ -146,29 +160,29 @@ func errorMessage(err error, home string) string {
 
 const redacted = "[redacted]"
 
-// Redaction rules, applied in order. volcano-hosting applies the same rules
-// again before the event reaches analytics; its
-// docs/internal/guides/cli-telemetry.md is the wire contract both sides follow.
+// Redaction rules, applied in order. They cover the Volcano token formats the
+// CLI handles and the places a documented command puts a credential or email
+// address: auth headers, URLs, and API error text. A secret typed where no
+// command expects one is not looked for. Errors that quote file contents or
+// application data are marked at the source with the sensitive package
+// instead. volcano-hosting applies the same rules again before the event
+// reaches analytics; its docs/internal/guides/cli-telemetry.md is the wire
+// contract both sides follow.
 var (
 	bearerPattern = regexp.MustCompile(`(?i)\bbearer\s+\S+`)
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
-	keyPattern    = regexp.MustCompile(`\b(?:pk|pt|sk|ak)-[A-Za-z0-9_-]{16,}`)
-	awsKeyPattern = regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`)
-	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/]*@`)
+	keyPattern    = regexp.MustCompile(`\b(?:(?:(?:pk|pt|sk|ak)-|vbt_|vpg_)[A-Za-z0-9_-]{16,}|sbp1\.[A-Za-z0-9+/=:]{16,})`)
+	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
+	emailPattern  = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
-	pairPattern   = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key))=\S+`)
-	// Long opaque runs. "/" is left out so file paths survive.
-	opaquePattern = regexp.MustCompile(`[A-Za-z0-9+=_-]{40,}`)
 )
 
-// redact replaces credentials and other secret-shaped text in s.
+// redact replaces credentials and email addresses in s.
 func redact(s string) string {
 	s = bearerPattern.ReplaceAllString(s, "Bearer "+redacted)
 	s = jwtPattern.ReplaceAllString(s, redacted)
 	s = keyPattern.ReplaceAllString(s, redacted)
-	s = awsKeyPattern.ReplaceAllString(s, redacted)
 	s = userPattern.ReplaceAllString(s, "${1}"+redacted+"@")
-	s = queryPattern.ReplaceAllString(s, "${1}?"+redacted)
-	s = pairPattern.ReplaceAllString(s, "${1}="+redacted)
-	return opaquePattern.ReplaceAllString(s, redacted)
+	s = emailPattern.ReplaceAllString(s, redacted)
+	return queryPattern.ReplaceAllString(s, "${1}?"+redacted)
 }

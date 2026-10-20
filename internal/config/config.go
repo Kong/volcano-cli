@@ -108,9 +108,6 @@ type ProjectConfig struct {
 	Name string `json:"name"`
 }
 
-// errParse marks a config file that exists but is not valid JSON.
-var errParse = errors.New("failed to parse config file")
-
 // Default returns an empty config.
 func Default() *Config {
 	return &Config{}
@@ -146,7 +143,7 @@ func load() (*Config, error) {
 
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("%w: %w", errParse, err)
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 	return &cfg, nil
 }
@@ -205,16 +202,13 @@ func Update(mutate func(*Config) (bool, error)) error {
 // ClearLogin removes the login and everything tied to the account (the current
 // project and function aliases) from ~/.volcano/config.json, and keeps the
 // settings that belong to the machine (docs source, telemetry). The file is
-// removed when nothing is left in it, or when it cannot be parsed, so logout
-// still removes the token from a damaged file.
+// removed when nothing is left in it, or when it cannot be read or parsed, so
+// logout still removes the token from a damaged or unreadable file.
 func ClearLogin() error {
 	return withLock(func() error {
 		cfg, err := load()
-		if errors.Is(err, errParse) {
-			return remove()
-		}
 		if err != nil {
-			return err
+			return remove()
 		}
 		cfg.UserToken = ""
 		cfg.UserID = ""

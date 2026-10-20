@@ -12,6 +12,7 @@ import (
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 type getOptions struct {
@@ -62,7 +63,8 @@ func runGet(ctx context.Context, opts getOptions) error {
 func parseExecutionID(value string) (uuid.UUID, error) {
 	executionID, err := uuid.Parse(strings.TrimSpace(value))
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid execution ID %q: %w", value, err)
+		// The value may be an execution name, which can hold application data.
+		return uuid.Nil, fmt.Errorf("invalid execution ID %w", sensitive.Wrap(fmt.Errorf("%q: %w", value, err)))
 	}
 	return executionID, nil
 }

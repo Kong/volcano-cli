@@ -43,6 +43,9 @@ func TestResources(t *testing.T) {
 		{"stops at --", "exec [session-id] -- <command> [args...]", []string{"s1", "--", "env"}, map[string]string{"session-id": "s1"}},
 		{"missing -- sends no positional", "exec [session-id] -- <command> [args...]", []string{"echo hunter2"}, nil},
 		{"resource flag", "invoke [name]", []string{"--function", "hello", "--payload", "{}"}, map[string]string{"function": "hello"}},
+		{"a path is not a name", "invoke [name]", []string{"./src/hello.js"}, nil},
+		{"an execution ID must be a UUID", "get <function> <execution-id>", []string{"hello", "order-4417"}, map[string]string{"function": "hello"}},
+		{"an execution UUID is sent", "get <function> <execution-id>", []string{"hello", "11111111-2222-3333-4444-555555555555"}, map[string]string{"function": "hello", "execution-id": "11111111-2222-3333-4444-555555555555"}},
 		{"positional wins over flag", "get <function>", []string{"a", "--function", "b"}, map[string]string{"function": "a"}},
 		{"slice flag value is dropped", "list", []string{"--database", "a,b"}, nil},
 		{"secret-shaped value is dropped", "get <name>", []string{"pk-abcdefghijklmnopqrstuvwx"}, nil},
@@ -53,6 +56,19 @@ func TestResources(t *testing.T) {
 			assert.Equal(t, tc.want, resources(executed(t, tc.use, tc.args...)))
 		})
 	}
+}
+
+func TestResources_SkipsSensitiveFlag(t *testing.T) {
+	root := &cobra.Command{Use: "volcano"}
+	start := &cobra.Command{Use: "start <function>", RunE: func(*cobra.Command, []string) error { return nil }}
+	start.Flags().String("name", "", "")
+	require.NoError(t, start.Flags().SetAnnotation("name", sensitive.FlagAnnotation, []string{"true"}))
+	root.AddCommand(start)
+	root.SetArgs([]string{"start", "hello", "--name", "order-4417"})
+	cmd, err := root.ExecuteC()
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{"function": "hello"}, resources(cmd))
 }
 
 func TestResources_Capped(t *testing.T) {
@@ -82,24 +98,31 @@ func TestResources_Capped(t *testing.T) {
 func TestRedact(t *testing.T) {
 	jwt := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl"
 	cases := map[string]string{
-		"Authorization: Bearer abc.def-ghi":                                            "Authorization: Bearer [redacted]",
-		"token " + jwt + " expired":                                                    "token [redacted] expired",
-		"key pk-0123456789abcdefABCD rejected":                                         "key [redacted] rejected",
-		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD":                        "used [redacted], [redacted]",
-		"GET https://x.dev/o/a.png?X-Amz-Signature=abc&b=1 failed":                     "GET https://x.dev/o/a.png?[redacted] failed",
-		"id " + strings.Repeat("a1B2", 10) + " leaked":                                 "id [redacted] leaked",
-		"open /Users/someone/workspace/my-really-long-project-name/functions/index.ts": "open /Users/someone/workspace/my-really-long-project-name/functions/index.ts",
-		"function hello not found (11111111-2222-3333-4444-555555555555)":              "function hello not found (11111111-2222-3333-4444-555555555555)",
+		"Authorization: Bearer abc.def-ghi":                     "Authorization: Bearer [redacted]",
+		"token " + jwt + " expired":                             "token [redacted] expired",
+		"key pk-0123456789abcdefABCD rejected":                  "key [redacted] rejected",
+		"used pt-0123456789abcdefABCD, sk-0123456789abcdefABCD": "used [redacted], [redacted]",
 		"pk-short": "pk-short",
-		"aws " + "AKIA" + strings.Repeat("A1", 8) + " denied":     "aws [redacted] denied",
-		"dial postgres://admin:p@ss@db:5432/app failed":           "dial postgres://[redacted]@db:5432/app failed",
-		"GET https://cdn.example.com/pkg/@scope/name":             "GET https://cdn.example.com/pkg/@scope/name",
-		"dial postgres://app:hunter2@db.internal:5432/app failed": "dial postgres://[redacted]@db.internal:5432/app failed",
-		"run with password=hunter2 and API_KEY=abc":               "run with password=[redacted] and API_KEY=[redacted]",
-		`unknown command "DB_PASSWORD=hunter2" for "volcano"`:     `unknown command "DB_PASSWORD=[redacted] for "volcano"`,
-		"PGPASSWORD=a GITHUB_TOKEN=b MY_API_KEY=c":                "PGPASSWORD=[redacted] GITHUB_TOKEN=[redacted] MY_API_KEY=[redacted]",
-		"tokens=5 MAX_TOKENS=100 TOKEN_TTL=60":                    "tokens=5 MAX_TOKENS=100 TOKEN_TTL=60",
-		"invalid token: signature mismatch":                       "invalid token: signature mismatch",
+		"proxy sbp1.v2:0123456789abcdef:AbC+dEf/GhI=jKl= denied":                           "proxy [redacted] denied",
+		"proxy sbp1.AbC+dEf/GhI0123456789= denied":                                         "proxy [redacted] denied",
+		"exchange vbt_0123456789abcdefABCD failed":                                         "exchange [redacted] failed",
+		"login vpg_0123456789abcdef_ABCD-xyz refused":                                      "login [redacted] refused",
+		"GET https://x.dev/o/a.png?X-Amz-Signature=abc&b=1 failed":                         "GET https://x.dev/o/a.png?[redacted] failed",
+		"GET https://example.com?email=a@b.com&key=x failed":                               "GET https://example.com?[redacted] failed",
+		"dial postgres://admin:p@ss@db:5432/app failed":                                    "dial postgres://[redacted]@db:5432/app failed",
+		"dial postgres://app:hunter2@db.internal:5432/app failed":                          "dial postgres://[redacted]@db.internal:5432/app failed",
+		"git clone https://deploy@git.example.com/repo":                                    "git clone https://[redacted]@git.example.com/repo",
+		"denied for alice@163.com and ops@1password.com":                                   "denied for [redacted] and [redacted]",
+		"denied for ops@10x.dev and a@2x.example.com":                                      "denied for [redacted] and [redacted]",
+		"open ~/app/public/images/logo@2x.png: no such file":                               "open ~/app/public/images/[redacted]: no such file",
+		"GET https://cdn.example.com/pkg/@scope/name":                                      "GET https://cdn.example.com/pkg/@scope/name",
+		"approval a1 was already approved by bob.smith+ops@corp.example.com at 2026-10-16": "approval a1 was already approved by [redacted] at 2026-10-16",
+		"open /Users/someone/workspace/my-really-long-project-name/functions/index.ts":     "open /Users/someone/workspace/my-really-long-project-name/functions/index.ts",
+		"function hello not found (11111111-2222-3333-4444-555555555555)":                  "function hello not found (11111111-2222-3333-4444-555555555555)",
+		"deployment of 0123456789abcdef0123456789abcdef01234567 failed":                    "deployment of 0123456789abcdef0123456789abcdef01234567 failed",
+		"invalid token: signature mismatch":                                                "invalid token: signature mismatch",
+		// A secret typed where no command takes one is not looked for.
+		`unknown command "DB_PASSWORD=hunter2" for "volcano"`: `unknown command "DB_PASSWORD=hunter2" for "volcano"`,
 	}
 	for in, want := range cases {
 		assert.Equal(t, want, redact(in), in)
@@ -111,6 +134,8 @@ func TestErrorMessage(t *testing.T) {
 	assert.Empty(t, errorMessage(nil, "/home/dev"))
 	assert.Equal(t, "read ~/app/x.yaml: bad indent", errorMessage(errors.New("read /home/dev/app/x.yaml:\n  bad   indent"), "/home/dev"))
 	assert.Equal(t, "a/b", errorMessage(errors.New("a/b"), "/"), "a home of / is not replaced")
+	assert.Equal(t, `open ~\a.txt: failed to open file "~\\a.txt"`,
+		errorMessage(fmt.Errorf("open %s: failed to open file %q", `C:\Users\dev\a.txt`, `C:\Users\dev\a.txt`), `C:\Users\dev`), "a Windows home quoted with %q is replaced")
 	assert.Equal(t, "Bearer [redacted] rejected", errorMessage(errors.New("Bearer\u00a0abc123 rejected"), ""), "a Unicode space does not hide a token")
 	assert.Equal(t, "failed: bad input", errorMessage(errors.New("\x1b[31mfailed:\x1b[0m bad\x00input"), ""))
 	assert.Equal(t, "failed to read ~/app/volcano.env: [redacted]",

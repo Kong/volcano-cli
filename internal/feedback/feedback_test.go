@@ -64,7 +64,7 @@ func TestBuild(t *testing.T) {
 	in := Input{
 		Category:   "docs_mismatch",
 		Summary:    "skill passes --json",
-		Details:    "ran it in /home/dev/app\nwith token=abc",
+		Details:    "ran it in /home/dev/app\nwith Bearer abc",
 		Actual:     "Error: unknown flag: --json",
 		Workaround: "parsed the table",
 		Commands:   []string{"volcano functions list --json", "  "},
@@ -80,7 +80,7 @@ func TestBuild(t *testing.T) {
 		Timestamp:   "2026-10-15T02:00:00Z",
 		Category:    "docs_mismatch",
 		Summary:     "skill passes --json",
-		Details:     "ran it in ~/app\nwith token=[redacted]",
+		Details:     "ran it in ~/app\nwith Bearer [redacted]",
 		Actual:      "Error: unknown flag: --json",
 		Workaround:  "parsed the table",
 		Commands:    []string{"volcano functions list --json"},

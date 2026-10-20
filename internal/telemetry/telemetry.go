@@ -18,11 +18,13 @@
 package telemetry
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime"
@@ -39,6 +41,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/setup"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -342,7 +345,9 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 		DurationMS:   r.Now().Sub(start).Milliseconds(),
 		Resources:    resources(inv.Command),
 	}
-	if r.cfg != nil {
+	// The saved project is the cloud project; local commands run against the
+	// local sandbox's project instead, so only cloud commands report it.
+	if r.cfg != nil && strings.HasPrefix(event.Command+" ", "cloud ") {
 		event.ProjectID = r.cfg.ProjectID()
 	}
 	if event.Flags == nil {
@@ -362,7 +367,11 @@ func (r *Recorder) build(inv Invocation, deviceID string) Event {
 	if inv.Err != nil {
 		event.ErrorKind = errorKind(inv.Err)
 		event.ErrorStatus = api.Status(inv.Err)
-		event.ErrorCode = api.Code(inv.Err)
+		// An error code inside a sensitive error came from the same untrusted
+		// text, such as a function's own response body.
+		if !sensitive.Contains(inv.Err, api.Code) {
+			event.ErrorCode = api.Code(inv.Err)
+		}
 		home, _ := r.HomeDir()
 		event.ErrorMessage = errorMessage(inv.Err, home)
 	}
@@ -428,9 +437,20 @@ func errorKind(err error) string {
 	return "other"
 }
 
+// isNetworkError reports a failure to reach a server. context.DeadlineExceeded
+// satisfies net.Error, but a command's own wait running out, as in a deploy
+// wait or the login poll, is not one; an HTTP request that times out still
+// counts, since the client wraps it in *url.Error. A cancelled command and a
+// URL that does not parse are not network failures either.
 func isNetworkError(err error) bool {
-	var netErr net.Error
-	return errors.As(err, &netErr)
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if urlErr, ok := errors.AsType[*url.Error](err); ok {
+		return urlErr.Op != "parse"
+	}
+	_, ok := errors.AsType[net.Error](err)
+	return ok && !errors.Is(err, context.DeadlineExceeded)
 }
 
 // isUsageError matches cobra's own argument and flag parsing errors, which are
@@ -441,6 +461,9 @@ func isUsageError(err error) bool {
 		"unknown command", "unknown flag", "unknown shorthand flag",
 		"required flag", "invalid argument", "flag needs an argument",
 		"accepts ", "requires at least", "requires at most", "requires exactly",
+		// Flag groups (MarkFlagsRequiredTogether, MarkFlagsOneRequired,
+		// MarkFlagsMutuallyExclusive).
+		"if any flags in the group", "at least one of the flags in the group",
 	} {
 		if strings.HasPrefix(msg, prefix) {
 			return true
@@ -450,7 +473,7 @@ func isUsageError(err error) bool {
 }
 
 func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. Coding agents can also send feedback reports about problems they hit with `volcano feedback`. This helps us improve the CLI.")
+	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. Coding agents can also send feedback reports about problems they hit with `volcano feedback`. This helps us improve the CLI.")
 	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 }
 

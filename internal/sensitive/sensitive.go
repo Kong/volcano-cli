@@ -5,6 +5,11 @@ package sensitive
 
 import "errors"
 
+// FlagAnnotation marks a flag whose value usage telemetry never sends, even
+// when its name is one telemetry would otherwise report as a resource name.
+// Set it with cmd.Flags().SetAnnotation(name, FlagAnnotation, []string{"true"}).
+const FlagAnnotation = "volcano_sensitive"
+
 // Error wraps an error whose text must not leave the machine.
 type Error struct {
 	err error
@@ -29,4 +34,11 @@ func Text(err error) string {
 		return sensitiveErr.Error()
 	}
 	return ""
+}
+
+// Contains reports whether the first sensitive error in err's chain yields a
+// non-empty value from get, for example an API error code inside it.
+func Contains(err error, get func(error) string) bool {
+	sensitiveErr, ok := errors.AsType[*Error](err)
+	return ok && get(sensitiveErr.err) != ""
 }

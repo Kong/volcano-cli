@@ -13,6 +13,7 @@ import (
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 type startOptions struct {
@@ -57,6 +58,9 @@ input verbatim.`,
 	}
 	cmd.Flags().StringVar(&opts.input, "input", "", "Inline JSON object or path to a JSON file passed as the execution's input")
 	cmd.Flags().StringVar(&opts.name, "name", "", "Execution name, used as the idempotency key")
+	// The idempotency key is application data, such as an order ID, not a
+	// resource name.
+	_ = cmd.Flags().SetAnnotation("name", sensitive.FlagAnnotation, []string{"true"})
 	return cmd
 }
 

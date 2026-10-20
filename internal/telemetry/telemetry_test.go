@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"runtime"
 	"strings"
 	"testing"
@@ -21,6 +23,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -377,6 +380,34 @@ func TestRecord_DropsPluginVersionThatIsNotAVersion(t *testing.T) {
 	assert.Empty(t, e.PluginVersion)
 }
 
+func TestRecord_LocalCommandSendsNoCloudProject(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "11111111-2222-3333-4444-555555555555", Name: "app"}
+	root := &cobra.Command{Use: "volcano"}
+	functions := &cobra.Command{Use: "functions"}
+	get := &cobra.Command{Use: "get <name-or-id>"}
+	functions.AddCommand(get)
+	root.AddCommand(functions)
+
+	h.recorder().Record(Invocation{Command: get})
+
+	assert.Empty(t, h.lastEvent(t).ProjectID)
+}
+
+func TestRecord_DropsErrorCodeFromSensitiveError(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	err := fmt.Errorf("invoke: %w", sensitive.Wrap(&api.Error{StatusCode: 400, Code: "private_customer_4411", Message: "failed"}))
+
+	h.recorder().Record(Invocation{Err: err, ExitCode: 1})
+
+	e := h.lastEvent(t)
+	assert.Equal(t, 400, e.ErrorStatus)
+	assert.Empty(t, e.ErrorCode)
+	assert.Equal(t, "invoke: [redacted]", e.ErrorMessage)
+}
+
 func TestRecord_AgentRunReportsPluginAndError(t *testing.T) {
 	h := newHarness()
 	h.store.setState(State{DeviceID: "dev-1", NoticeShown: true})
@@ -424,15 +455,53 @@ func TestRecord_SuccessSendsNoErrorFields(t *testing.T) {
 }
 
 func TestErrorKind(t *testing.T) {
-	cases := map[string]error{
-		"api":               &api.Error{StatusCode: 404},
-		"local_not_running": fmt.Errorf("x: %w", cliruntime.ErrLocalNotRunning),
-		"network":           fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")}),
-		"usage":             errors.New(`unknown flag: --nope`),
-		"other":             errors.New("docker failed"),
+	cases := []struct {
+		want string
+		err  error
+	}{
+		{"api", &api.Error{StatusCode: 404}},
+		{"api", fmt.Errorf("deploy: %w", &api.ProjectConfigValidationError{})},
+		{"local_not_running", fmt.Errorf("x: %w", cliruntime.ErrLocalNotRunning)},
+		{"network", fmt.Errorf("cannot reach: %w", &net.OpError{Op: "dial", Err: errors.New("refused")})},
+		{"network", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.DeadlineExceeded})},
+		{"other", fmt.Errorf("wait: %w", context.DeadlineExceeded)},
+		{"other", fmt.Errorf("request: %w", &url.Error{Op: "Get", URL: "https://api.volcano.dev", Err: context.Canceled})},
+		{"other", fmt.Errorf("api url: %w", &url.Error{Op: "parse", URL: "http://[::1", Err: errors.New("missing ']' in host")})},
+		{"usage", errors.New(`unknown flag: --nope`)},
+		{"usage", errors.New("at least one of the flags in the group [backup to] is required")},
+		{"usage", errors.New("if any flags in the group [public private] are set none of the others can be; [private public] were all set")},
+		{"usage", errors.New("if any flags in the group [cert key] are set they must all be set; missing [key]")},
+		{"other", errors.New("docker failed")},
 	}
-	for want, err := range cases {
-		assert.Equal(t, want, errorKind(err), err.Error())
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, errorKind(tc.err), tc.err.Error())
+	}
+}
+
+func TestErrorKind_CobraFlagGroups(t *testing.T) {
+	cases := map[string]func(*cobra.Command){
+		"one required":       func(c *cobra.Command) { c.MarkFlagsOneRequired("a", "b") },
+		"required together":  func(c *cobra.Command) { c.MarkFlagsRequiredTogether("a", "b") },
+		"mutually exclusive": func(c *cobra.Command) { c.MarkFlagsMutuallyExclusive("a", "b") },
+	}
+	args := map[string][]string{
+		"one required":       {"run"},
+		"required together":  {"run", "--a", "x"},
+		"mutually exclusive": {"run", "--a", "x", "--b", "y"},
+	}
+	for name, mark := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := &cobra.Command{Use: "volcano", SilenceErrors: true, SilenceUsage: true}
+			run := &cobra.Command{Use: "run", RunE: func(*cobra.Command, []string) error { return nil }}
+			run.Flags().String("a", "", "")
+			run.Flags().String("b", "", "")
+			mark(run)
+			root.AddCommand(run)
+			root.SetArgs(args[name])
+			err := root.Execute()
+			require.Error(t, err)
+			assert.Equal(t, "usage", errorKind(err), err.Error())
+		})
 	}
 }
 
