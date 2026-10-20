@@ -81,7 +81,9 @@ func printStatus(cmd *cobra.Command) error {
 		fmt.Fprintf(w, "Telemetry is disabled by %s.\n", telemetry.EnvDisabled)
 		return nil
 	}
-	cfg, err := config.Load()
+	// The setting lives only in ~/.volcano/config.json, so a broken project
+	// link in the working directory does not stop status from reading it.
+	cfg, err := config.LoadWithoutLink()
 	if err != nil {
 		return err
 	}
