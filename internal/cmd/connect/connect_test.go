@@ -188,6 +188,28 @@ func TestConnectCreatesAProjectNamedAfterTheDirectoryAndLinksIt(t *testing.T) {
 	assertGitIgnored(t, dir, "volcano/cloud.env", ".volcano/project.json")
 }
 
+func TestConnectLeavesCredentialsOutOfTheDashboardURL(t *testing.T) {
+	setConnectTestHome(t)
+	t.Setenv("VOLCANO_WEB_URL", "https://user:secret@staging.example/?token=abc#frag")
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	dir := filepath.Join(t.TempDir(), "my-app")
+
+	out, err := runConnect(t, server, dir, "--json")
+	require.NoError(t, err)
+
+	var res result
+	require.NoError(t, json.Unmarshal([]byte(out), &res), out)
+	assert.Equal(t, "https://staging.example/dashboard/overview?project="+connectProjectID, res.DashboardURL)
+	agents := readFile(t, filepath.Join(dir, "AGENTS.md"))
+	assert.Contains(t, agents, "- Dashboard: https://staging.example/dashboard\n")
+	for _, secret := range []string{"secret", "token=abc", "frag"} {
+		assert.NotContains(t, agents, secret)
+		assert.NotContains(t, out, secret)
+	}
+}
+
 func TestConnectRerunReusesTheLinkAndUpdatesFilesInPlace(t *testing.T) {
 	setConnectTestHome(t)
 	fake := &fakeAPI{t: t, projects: []map[string]any{connectProjectPayload(connectProjectID, "shop")}}

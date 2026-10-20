@@ -275,10 +275,13 @@ func run(ctx context.Context, opts options) error {
 		return err
 	}
 
-	dashboardURL := projectDashboardURL(authenticated.Config.WebURLForAPIURL(apiURL), project.Id)
+	// AGENTS.md is usually committed, so the web URL is used without
+	// userinfo, query or fragment, as in cloud.env.
+	webURL := api.PublicURL(authenticated.Config.WebURLForAPIURL(apiURL))
+	dashboardURL := projectDashboardURL(webURL, project.Id)
 	agentsPath := filepath.Join(dir, agentsFileName)
 	// The shared AGENTS.md gets the dashboard's root, not this developer's project.
-	dashboardRoot := strings.TrimRight(authenticated.Config.WebURLForAPIURL(apiURL), "/") + "/dashboard"
+	dashboardRoot := strings.TrimRight(webURL, "/") + "/dashboard"
 	if err := writeAgentsSection(dir, agentsSection(dashboardRoot)); err != nil {
 		return err
 	}
