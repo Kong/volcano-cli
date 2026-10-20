@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/google/uuid"
 
@@ -100,7 +101,8 @@ func (e *LinkError) Path() string {
 func readLink(dir string) (*Link, error) {
 	path := filepath.Join(dir, LinkRelPath)
 	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
+	// ENOTDIR: dir holds a file named .volcano, so no link.
+	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
 		return nil, nil //nolint:nilnil // no link here is an outcome, not a failure
 	}
 	if err != nil {

@@ -47,6 +47,22 @@ func TestFindLinkStopsAtTheRepositoryRoot(t *testing.T) {
 	assert.Nil(t, link, "a link above the repository must not apply inside it")
 }
 
+// A file named .volcano can't hold a link, so the walk goes on past it.
+func TestFindLinkSkipsAFileNamedVolcano(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	_, err := WriteLink(root, ProjectConfig{ID: linkTestProjectID})
+	require.NoError(t, err)
+	nested := filepath.Join(root, "app")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(nested, ".volcano"), []byte("not a directory\n"), 0o644))
+
+	link, err := FindLink(nested)
+	require.NoError(t, err)
+	require.NotNil(t, link)
+	assert.Equal(t, root, link.Dir)
+}
+
 func TestFindLinkRejectsALinkWithoutAProject(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir()
