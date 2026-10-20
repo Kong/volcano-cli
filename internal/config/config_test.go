@@ -319,44 +319,6 @@ func TestEnvAPIURLOverridesCompiledDefault(t *testing.T) {
 	assert.Equal(t, "https://env.example", cfg.APIURL())
 }
 
-func TestSessionAPIURLPersistsAndPrecedesCompiledDefault(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv(envAPIURL, "")
-	t.Setenv(envToken, "")
-
-	originalAPIURL := compiledDefaultAPIURL
-	compiledDefaultAPIURL = "https://compiled.example"
-	t.Cleanup(func() {
-		compiledDefaultAPIURL = originalAPIURL
-	})
-
-	require.NoError(t, (&Config{UserToken: "file-token", SessionAPIURL: "https://api.staging.example"}).Save())
-	loaded, err := Load()
-	require.NoError(t, err)
-	assert.Equal(t, "https://api.staging.example", loaded.APIURL())
-
-	t.Setenv(envAPIURL, "https://env.example")
-	assert.Equal(t, "https://env.example", loaded.APIURL(), "VOLCANO_API_URL still wins")
-
-	t.Setenv(envAPIURL, "")
-	loaded.APIBaseURL = "http://localhost:8000"
-	assert.Equal(t, "http://localhost:8000", loaded.APIURL(), "the runtime override still wins")
-}
-
-func TestSessionAPIURLIgnoredForEnvironmentToken(t *testing.T) {
-	t.Setenv(envAPIURL, "")
-	t.Setenv(envToken, "pk-from-env")
-
-	originalAPIURL := compiledDefaultAPIURL
-	compiledDefaultAPIURL = "https://compiled.example"
-	t.Cleanup(func() {
-		compiledDefaultAPIURL = originalAPIURL
-	})
-
-	cfg := &Config{UserToken: "file-token", SessionAPIURL: "https://api.staging.example"}
-	assert.Equal(t, "https://compiled.example", cfg.APIURL())
-}
-
 func TestIgnoreEnvUsesConfigValues(t *testing.T) {
 	t.Setenv(envToken, "env-token")
 	t.Setenv(envProjectID, "env-project")

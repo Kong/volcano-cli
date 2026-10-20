@@ -22,7 +22,6 @@ import (
 	"github.com/Kong/volcano-cli/internal/output"
 	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
-	clisession "github.com/Kong/volcano-cli/internal/session"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -138,29 +137,8 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 	fmt.Fprintln(w, theme.Error("Error:", theme.On(w)), err)
 	if api.LastInstructions().DeviceInstruction == api.DeviceInstructionReauth {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
-	} else if api.Status(err) == http.StatusUnauthorized {
-		printUnauthorizedHint(w, deps)
 	}
 	printProjectTokenMismatchHint(w, err, deps)
-}
-
-// printUnauthorizedHint names the API that refused the credential when it is
-// not the default one. A token is only valid on the API that issued it, so a
-// 401 from another API most often means the token and the API URL came from
-// different environments.
-func printUnauthorizedHint(w io.Writer, deps cliruntime.Deps) {
-	cfg, err := loadConfig(deps)
-	if err != nil {
-		return
-	}
-	apiURL := clisession.NewFactory(deps).APIURL(cfg)
-	if strings.TrimRight(apiURL, "/") == strings.TrimRight(config.DefaultAPIURL(), "/") {
-		// A 401 from the default API is an expired or revoked login; the error
-		// already says so.
-		return
-	}
-	fmt.Fprintf(w, "The API at %s did not accept the credential. Run `%s` to sign in to it, or set VOLCANO_API_URL "+
-		"to the API the credential belongs to.\n", api.RedactURL(apiURL), cliruntime.CommandPath(deps, "login"))
 }
 
 // loadConfig loads the configuration through the runtime's loader, so a

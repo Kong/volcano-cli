@@ -65,14 +65,9 @@ var (
 type Config struct {
 	// APIBaseURL overrides the compiled API URL for synthetic command configs.
 	// It is intentionally not persisted to the user's cloud config file.
-	APIBaseURL string `json:"-"`
-	UserToken  string `json:"user_token,omitempty"`
-	UserID     string `json:"user_id,omitempty"`
-	// SessionAPIURL is the API the saved UserToken was issued by. Login records
-	// it so a session started against a non-default API keeps talking to that
-	// API, instead of sending its token to the compiled default and failing
-	// with a 401. Empty for configs saved before it existed.
-	SessionAPIURL  string         `json:"api_url,omitempty"`
+	APIBaseURL     string         `json:"-"`
+	UserToken      string         `json:"user_token,omitempty"`
+	UserID         string         `json:"user_id,omitempty"`
 	AnonKey        string         `json:"-"`
 	ServiceKey     string         `json:"-"`
 	CurrentProject *ProjectConfig `json:"current_project,omitempty"`
@@ -359,11 +354,7 @@ func ConsumeProjectEnvUse() bool {
 }
 
 // APIURL returns the API URL with VOLCANO_API_URL taking precedence unless env overrides are disabled.
-// Precedence: env > runtime override (APIBaseURL) > the saved session's API > compiled default.
-//
-// The saved session's API only applies while the saved token is the one in
-// use: a VOLCANO_TOKEN from the environment was not issued by that API, so it
-// keeps the compiled default unless VOLCANO_API_URL says otherwise.
+// Precedence: env > runtime override (APIBaseURL) > compiled default.
 func (c *Config) APIURL() string {
 	if apiURL := strings.TrimSpace(os.Getenv(envAPIURL)); !c.IgnoreEnv && apiURL != "" {
 		return apiURL
@@ -371,21 +362,7 @@ func (c *Config) APIURL() string {
 	if c.APIBaseURL != "" {
 		return c.APIBaseURL
 	}
-	if sessionURL := strings.TrimSpace(c.SessionAPIURL); sessionURL != "" && !c.tokenFromEnv() {
-		return sessionURL
-	}
 	return compiledDefaultAPIURL
-}
-
-// DefaultAPIURL returns the API the CLI talks to when nothing overrides it.
-func DefaultAPIURL() string {
-	return compiledDefaultAPIURL
-}
-
-// tokenFromEnv reports whether Token comes from VOLCANO_TOKEN rather than the
-// saved session.
-func (c *Config) tokenFromEnv() bool {
-	return !c.IgnoreEnv && strings.TrimSpace(os.Getenv(envToken)) != ""
 }
 
 // WebURL returns the Volcano web URL for c.APIURL(). See WebURLForAPIURL for

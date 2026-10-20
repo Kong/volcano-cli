@@ -365,7 +365,6 @@ func TestLoginWithDeviceCodeSignsInOnTheFirstPoll(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "pk-device", loaded.UserToken)
 	assert.Equal(t, "user-1", loaded.UserID)
-	assert.Equal(t, server.URL, loaded.SessionAPIURL)
 	assertDeviceCodeNotSaved(t)
 }
 
@@ -473,7 +472,6 @@ func TestLoginWithDeviceCodeSavesTheLoginWhenALaterCheckFails(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "pk-device", loaded.UserToken)
 			assert.Equal(t, "user-1", loaded.UserID)
-			assert.Equal(t, server.URL, loaded.SessionAPIURL)
 			assert.Nil(t, loaded.CurrentProject, "a project that failed the check is not selected")
 		})
 	}

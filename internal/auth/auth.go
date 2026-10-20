@@ -413,7 +413,6 @@ func SaveCredentials(credentials Credentials) error {
 	return config.Update(func(cfg *config.Config) (bool, error) {
 		cfg.UserToken = credentials.Token
 		cfg.UserID = credentials.UserID
-		cfg.SessionAPIURL = credentials.APIURL
 		if credentials.Project != nil {
 			cfg.CurrentProject = credentials.Project
 		}
