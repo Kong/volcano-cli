@@ -252,7 +252,7 @@ func findRoute(routes []apiclient.FrontendFunctionRoute, frontend, identifier st
 			return route, nil
 		}
 	}
-	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("frontend %q has no route %q", frontend, identifier)
+	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("route %q %w for frontend %q", identifier, api.ErrNotFound, frontend)
 }
 
 func functionByID(functions []apiclient.Function, id uuid.UUID) *apiclient.Function {

@@ -95,7 +95,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2").
 		requireFailure(t, "specify at least one of --path, --function, or --strip-prefix")
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/echo", "--yes").
-		requireFailure(t, fmt.Sprintf("frontend %q has no route %q", frontend, "/api/echo"))
+		requireFailure(t, fmt.Sprintf("route %q not found for frontend %q", "/api/echo", frontend))
 
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/v2", "--yes").
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
