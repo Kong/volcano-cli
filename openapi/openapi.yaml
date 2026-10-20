@@ -21983,7 +21983,7 @@ components:
       x-enum-varnames:
         - SchedulerFailureNotifyOnFirstFailure
         - SchedulerFailureNotifyOnConsecutiveFailures
-      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, in each region it fails in.'
+      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.'
     UpdateNotificationSettingsRequest:
       type: object
       additionalProperties: false

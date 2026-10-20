@@ -10126,7 +10126,7 @@ type ScheduleRequestKind string
 
 // SchedulerFailureAlertPolicy defines model for SchedulerFailureAlertPolicy.
 type SchedulerFailureAlertPolicy struct {
-	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, in each region it fails in.
+	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
 	NotifyOn SchedulerFailureNotifyOn `json:"notify_on"`
 
 	// NotifyOnRecovery Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
@@ -10136,7 +10136,7 @@ type SchedulerFailureAlertPolicy struct {
 	Threshold int `json:"threshold"`
 }
 
-// SchedulerFailureNotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, in each region it fails in.
+// SchedulerFailureNotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
 type SchedulerFailureNotifyOn string
 
 // SendDurableMessageRequest defines model for SendDurableMessageRequest.
@@ -10647,7 +10647,7 @@ type UpdateSandboxTemplateRequest struct {
 
 // UpdateSchedulerFailureAlertPolicy defines model for UpdateSchedulerFailureAlertPolicy.
 type UpdateSchedulerFailureAlertPolicy struct {
-	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, in each region it fails in.
+	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
 	NotifyOn         *SchedulerFailureNotifyOn `json:"notify_on,omitempty"`
 	NotifyOnRecovery *bool                     `json:"notify_on_recovery,omitempty"`
 	Threshold        *int                      `json:"threshold,omitempty"`

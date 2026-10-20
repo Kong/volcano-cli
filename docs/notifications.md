@@ -95,7 +95,8 @@ volcano cloud notifications set --notify-on-recovery=false
 | `--notify-on-recovery` | Alert when an announced failing scheduler succeeds again. |
 
 Flags you leave out keep their current values. A failing streak is announced
-once, however long it lasts.
+once, however long it lasts, and a scheduler is announced failing at most once
+an hour.
 
 ## Rotate the signing secret
 
