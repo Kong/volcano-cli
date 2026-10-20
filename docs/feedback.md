@@ -113,9 +113,10 @@ Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer
 tokens, JWTs, Volcano keys and tokens, passwords in URLs, email addresses, and
 URL query strings. Other secrets, such as a `password=` value or a cloud
-provider key, are not removed, and neither are names. So write placeholders
-such as `<function>`, `<path>`, or `<payload>` for project, function, database,
-and bucket names, file paths, and payload values. Do not put file contents,
+provider key, are not removed, and neither are names. So redact them yourself:
+write `<secret>` for every password, token, or key, and placeholders such as
+`<function>`, `<path>`, or `<payload>` for project, function, database, and
+bucket names, file paths, and payload values. Do not put file contents,
 environment variable values, application data, or customer names in a report.
 
 Use `--dry-run` to see the exact report before sending it.

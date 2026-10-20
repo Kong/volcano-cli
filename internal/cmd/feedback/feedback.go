@@ -59,11 +59,11 @@ preferences.
 
 Write only what Volcano printed and what you did. Replace project, function,
 database, and bucket names, file paths, and payload values with placeholders
-such as <function> or <path>. Do not include file contents, environment
-variable values, application data, or customer or business names. Before
-sending, the CLI replaces your home directory with ~ and removes Volcano
-tokens and keys, passwords in URLs, and email addresses, as it does for usage
-data.
+such as <function> or <path>, and every password, token, or key with
+<secret>. Do not include file contents, environment variable values,
+application data, or customer or business names. The CLI replaces your home
+directory with ~ and removes only Volcano tokens and keys, passwords in URLs,
+and email addresses, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
 whether the Volcano plugin is installed, the selected project ID, and this
