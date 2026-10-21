@@ -8631,8 +8631,9 @@ type ProjectConfigBucketPolicyOperation string
 // domain, omitting `tls` or sending only `tls.mode` keeps the stored
 // certificate; new BYOC material for the same domain rotates the
 // certificate in place (zero downtime). Changing `tls.mode` for the same
-// hostname, or the hostname of a managed domain, requires deleting the
-// domain first. BYOC TLS material is write-only; exports render only
+// hostname switches an active domain in place (zero downtime); a domain
+// that is not yet active, or a managed domain changing hostname, must be
+// deleted first. BYOC TLS material is write-only; exports render only
 // `tls.mode`.
 type ProjectConfigCustomDomain struct {
 	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
@@ -8700,8 +8701,9 @@ type ProjectConfigFrontend struct {
 	// domain, omitting `tls` or sending only `tls.mode` keeps the stored
 	// certificate; new BYOC material for the same domain rotates the
 	// certificate in place (zero downtime). Changing `tls.mode` for the same
-	// hostname, or the hostname of a managed domain, requires deleting the
-	// domain first. BYOC TLS material is write-only; exports render only
+	// hostname switches an active domain in place (zero downtime); a domain
+	// that is not yet active, or a managed domain changing hostname, must be
+	// deleted first. BYOC TLS material is write-only; exports render only
 	// `tls.mode`.
 	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
 

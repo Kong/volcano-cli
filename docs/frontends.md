@@ -157,6 +157,11 @@ certificate keeps serving. The switch needs a free managed certificate in your
 active has no certificate to keep serving. Wait until it is active, or delete
 it and attach it again in the other mode.
 
+If the frontend's entry in `volcano-config.yaml` declares `custom_domain.tls`,
+set it to the new mode too. Otherwise the next `volcano cloud config deploy` or
+`volcano deploy` switches the domain back. `mode: byoc` without PEM fields
+keeps the certificate you uploaded.
+
 ## Function routes
 
 A function route sends every request under a path of the frontend, such as

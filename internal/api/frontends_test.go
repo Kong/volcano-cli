@@ -306,7 +306,6 @@ func TestFrontendFunctionRouteMethodsUseGeneratedRoutes(t *testing.T) {
 	}, requests)
 }
 
-// The server's refusal says what to fix, so it has to reach the user as sent.
 func TestCreateFrontendCustomDomainManagedSendsNoCertificate(t *testing.T) {
 	var createBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -347,6 +346,7 @@ func TestGetFrontendCustomDomainReportsNoDomainAsNotFound(t *testing.T) {
 	assert.Nil(t, domain)
 }
 
+// The server's refusal says what to fix, so it has to reach the user as sent.
 func TestCreateFrontendFunctionRouteSurfacesTheRefusal(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeAPIJSON(t, w, http.StatusConflict, map[string]any{"error": "Frontend Function routes require a public Function"})
