@@ -29,6 +29,7 @@ account (auth)
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
     ├── git connection ........ push-to-deploy from GitHub     → git.md
+    ├── deploy links .......... one-click deploy of your repo  → deploy-links.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
@@ -99,6 +100,7 @@ and which coding agent ran it. Turn it off with `volcano telemetry disable` or
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Frontends | deploy, inspect, custom domains, function routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
+| Deploy links | create, list, inspect, switch off and on, count clicks and deploys, delete | `cloud deploy-link …` | [deploy-links.md](deploy-links.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |

@@ -774,6 +774,108 @@ func (e DatabaseStatsGranularity) Valid() bool {
 	}
 }
 
+// Defines values for DeployLinkDisabledReason.
+const (
+	ConnectionLost    DeployLinkDisabledReason = "connection_lost"
+	Owner             DeployLinkDisabledReason = "owner"
+	RepositoryChanged DeployLinkDisabledReason = "repository_changed"
+	RepositoryPrivate DeployLinkDisabledReason = "repository_private"
+)
+
+// Valid indicates whether the value is a known member of the DeployLinkDisabledReason enum.
+func (e DeployLinkDisabledReason) Valid() bool {
+	switch e {
+	case ConnectionLost:
+		return true
+	case Owner:
+		return true
+	case RepositoryChanged:
+		return true
+	case RepositoryPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeployLinkStatus.
+const (
+	DeployLinkStatusActive   DeployLinkStatus = "active"
+	DeployLinkStatusDisabled DeployLinkStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the DeployLinkStatus enum.
+func (e DeployLinkStatus) Valid() bool {
+	switch e {
+	case DeployLinkStatusActive:
+		return true
+	case DeployLinkStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeployLinkDailyCountKind.
+const (
+	DeployLinkDailyCountKindAccepted DeployLinkDailyCountKind = "accepted"
+	DeployLinkDailyCountKindClick    DeployLinkDailyCountKind = "click"
+	DeployLinkDailyCountKindConfirm  DeployLinkDailyCountKind = "confirm"
+	DeployLinkDailyCountKindFailed   DeployLinkDailyCountKind = "failed"
+	DeployLinkDailyCountKindPreview  DeployLinkDailyCountKind = "preview"
+	DeployLinkDailyCountKindReady    DeployLinkDailyCountKind = "ready"
+)
+
+// Valid indicates whether the value is a known member of the DeployLinkDailyCountKind enum.
+func (e DeployLinkDailyCountKind) Valid() bool {
+	switch e {
+	case DeployLinkDailyCountKindAccepted:
+		return true
+	case DeployLinkDailyCountKindClick:
+		return true
+	case DeployLinkDailyCountKindConfirm:
+		return true
+	case DeployLinkDailyCountKindFailed:
+		return true
+	case DeployLinkDailyCountKindPreview:
+		return true
+	case DeployLinkDailyCountKindReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeployLinkKindCountKind.
+const (
+	DeployLinkKindCountKindAccepted DeployLinkKindCountKind = "accepted"
+	DeployLinkKindCountKindClick    DeployLinkKindCountKind = "click"
+	DeployLinkKindCountKindConfirm  DeployLinkKindCountKind = "confirm"
+	DeployLinkKindCountKindFailed   DeployLinkKindCountKind = "failed"
+	DeployLinkKindCountKindPreview  DeployLinkKindCountKind = "preview"
+	DeployLinkKindCountKindReady    DeployLinkKindCountKind = "ready"
+)
+
+// Valid indicates whether the value is a known member of the DeployLinkKindCountKind enum.
+func (e DeployLinkKindCountKind) Valid() bool {
+	switch e {
+	case DeployLinkKindCountKindAccepted:
+		return true
+	case DeployLinkKindCountKindClick:
+		return true
+	case DeployLinkKindCountKindConfirm:
+		return true
+	case DeployLinkKindCountKindFailed:
+		return true
+	case DeployLinkKindCountKindPreview:
+		return true
+	case DeployLinkKindCountKindReady:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeploymentPhaseName.
 const (
 	DeploymentPhaseNameBuild        DeploymentPhaseName = "build"
@@ -3273,6 +3375,24 @@ func (e UpdateDatabaseTypeRequestDatabaseType) Valid() bool {
 	}
 }
 
+// Defines values for UpdateDeployLinkRequestStatus.
+const (
+	UpdateDeployLinkRequestStatusActive   UpdateDeployLinkRequestStatus = "active"
+	UpdateDeployLinkRequestStatusDisabled UpdateDeployLinkRequestStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeployLinkRequestStatus enum.
+func (e UpdateDeployLinkRequestStatus) Valid() bool {
+	switch e {
+	case UpdateDeployLinkRequestStatusActive:
+		return true
+	case UpdateDeployLinkRequestStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UploadSessionStatusResponseStatus.
 const (
 	Aborted    UploadSessionStatusResponseStatus = "aborted"
@@ -4142,25 +4262,25 @@ func (e GetProjectConfigParamsFormat) Valid() bool {
 
 // Defines values for ListDatabasesParamsStatus.
 const (
-	ListDatabasesParamsStatusActive       ListDatabasesParamsStatus = "active"
-	ListDatabasesParamsStatusDeleting     ListDatabasesParamsStatus = "deleting"
-	ListDatabasesParamsStatusFailed       ListDatabasesParamsStatus = "failed"
-	ListDatabasesParamsStatusProvisioning ListDatabasesParamsStatus = "provisioning"
-	ListDatabasesParamsStatusRestoring    ListDatabasesParamsStatus = "restoring"
+	Active       ListDatabasesParamsStatus = "active"
+	Deleting     ListDatabasesParamsStatus = "deleting"
+	Failed       ListDatabasesParamsStatus = "failed"
+	Provisioning ListDatabasesParamsStatus = "provisioning"
+	Restoring    ListDatabasesParamsStatus = "restoring"
 )
 
 // Valid indicates whether the value is a known member of the ListDatabasesParamsStatus enum.
 func (e ListDatabasesParamsStatus) Valid() bool {
 	switch e {
-	case ListDatabasesParamsStatusActive:
+	case Active:
 		return true
-	case ListDatabasesParamsStatusDeleting:
+	case Deleting:
 		return true
-	case ListDatabasesParamsStatusFailed:
+	case Failed:
 		return true
-	case ListDatabasesParamsStatusProvisioning:
+	case Provisioning:
 		return true
-	case ListDatabasesParamsStatusRestoring:
+	case Restoring:
 		return true
 	default:
 		return false
@@ -4547,13 +4667,13 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 
 // Defines values for StartGitConnectParamsProvider.
 const (
-	StartGitConnectParamsProviderGithub StartGitConnectParamsProvider = "github"
+	Github StartGitConnectParamsProvider = "github"
 )
 
 // Valid indicates whether the value is a known member of the StartGitConnectParamsProvider enum.
 func (e StartGitConnectParamsProvider) Valid() bool {
 	switch e {
-	case StartGitConnectParamsProviderGithub:
+	case Github:
 		return true
 	default:
 		return false
@@ -5250,6 +5370,18 @@ type CreateDatabaseRestoreRequest struct {
 	// RestoreTo A point in time to restore to, which must fall inside the
 	// `restore_window` reported when listing backups.
 	RestoreTo *time.Time `json:"restore_to,omitempty"`
+}
+
+// CreateDeployLinkRequest defines model for CreateDeployLinkRequest.
+type CreateDeployLinkRequest struct {
+	// Branch The branch to follow. Defaults to the project's production branch.
+	Branch *string `json:"branch,omitempty"`
+
+	// Path Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
+	Path *string `json:"path,omitempty"`
+
+	// SuggestedName Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
+	SuggestedName *string `json:"suggested_name,omitempty"`
 }
 
 // CreateEmailTemplateRequest defines model for CreateEmailTemplateRequest.
@@ -6075,6 +6207,85 @@ type DatabaseUpdateRequest struct {
 	// so send them to `json` or `jsonb` columns. For a Postgres array
 	// column, send an array literal string such as `"{a,b}"`.
 	Values map[string]interface{} `json:"values"`
+}
+
+// DeployLink defines model for DeployLink.
+type DeployLink struct {
+	// Branch The branch the link follows. A visitor deploys its latest commit, pinned when they confirm.
+	Branch    string    `json:"branch"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DisabledReason Why the link is off. Set only while it is disabled. Only `owner` is
+	// chosen by a person; the others mean the link stopped being deployable and
+	// it stays off until it passes verification again.
+	DisabledReason *DeployLinkDisabledReason `json:"disabled_reason,omitempty"`
+
+	// Id The link's public identifier. Its address is `https://volcano.dev/deploy/<id>`.
+	Id              string     `json:"id"`
+	LastValidatedAt *time.Time `json:"last_validated_at,omitempty"`
+
+	// LastValidatedCommit The commit the link last verified as deployable.
+	LastValidatedCommit *string `json:"last_validated_commit,omitempty"`
+
+	// Path Build root inside the repository. Empty is the repository root.
+	Path      string             `json:"path"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// RepoFullName The repository's owner and name, as of when the link was last verified.
+	RepoFullName string `json:"repo_full_name"`
+
+	// RepoId Stable GitHub repository id the link deploys.
+	RepoId int64            `json:"repo_id"`
+	Status DeployLinkStatus `json:"status"`
+
+	// SuggestedName Project name offered to visitors. Empty lets Volcano choose one.
+	SuggestedName string    `json:"suggested_name"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// DeployLinkDisabledReason Why the link is off. Set only while it is disabled. Only `owner` is
+// chosen by a person; the others mean the link stopped being deployable and
+// it stays off until it passes verification again.
+type DeployLinkDisabledReason string
+
+// DeployLinkStatus defines model for DeployLink.Status.
+type DeployLinkStatus string
+
+// DeployLinkDailyCount defines model for DeployLinkDailyCount.
+type DeployLinkDailyCount struct {
+	// Day UTC day.
+	Day    openapi_types.Date       `json:"day"`
+	Events int64                    `json:"events"`
+	Kind   DeployLinkDailyCountKind `json:"kind"`
+}
+
+// DeployLinkDailyCountKind defines model for DeployLinkDailyCount.Kind.
+type DeployLinkDailyCountKind string
+
+// DeployLinkKindCount defines model for DeployLinkKindCount.
+type DeployLinkKindCount struct {
+	Events int64                   `json:"events"`
+	Kind   DeployLinkKindCountKind `json:"kind"`
+
+	// Visitors Distinct visitors among the events that carried one.
+	Visitors int64 `json:"visitors"`
+}
+
+// DeployLinkKindCountKind defines model for DeployLinkKindCount.Kind.
+type DeployLinkKindCountKind string
+
+// DeployLinkStats defines model for DeployLinkStats.
+type DeployLinkStats struct {
+	Daily []DeployLinkDailyCount `json:"daily"`
+
+	// Since Start of the counted window.
+	Since  time.Time             `json:"since"`
+	Totals []DeployLinkKindCount `json:"totals"`
+}
+
+// DeployLinksResponse defines model for DeployLinksResponse.
+type DeployLinksResponse struct {
+	DeployLinks []DeployLink `json:"deploy_links"`
 }
 
 // DeploymentPhase Timing and outcome for one normalized deployment pipeline phase.
@@ -10153,6 +10364,17 @@ type UpdateDatabaseTypeRequest struct {
 // UpdateDatabaseTypeRequestDatabaseType New compute size tier
 type UpdateDatabaseTypeRequestDatabaseType string
 
+// UpdateDeployLinkRequest defines model for UpdateDeployLinkRequest.
+type UpdateDeployLinkRequest struct {
+	Branch        *string                        `json:"branch,omitempty"`
+	Path          *string                        `json:"path,omitempty"`
+	Status        *UpdateDeployLinkRequestStatus `json:"status,omitempty"`
+	SuggestedName *string                        `json:"suggested_name,omitempty"`
+}
+
+// UpdateDeployLinkRequestStatus defines model for UpdateDeployLinkRequest.Status.
+type UpdateDeployLinkRequestStatus string
+
 // UpdateEmailTemplateRequest defines model for UpdateEmailTemplateRequest.
 type UpdateEmailTemplateRequest struct {
 	HtmlBody *string `json:"html_body,omitempty"`
@@ -10418,6 +10640,9 @@ type Cursor = string
 
 // DatabaseName defines model for DatabaseName.
 type DatabaseName = string
+
+// DeployLinkId defines model for DeployLinkId.
+type DeployLinkId = string
 
 // DeploymentId defines model for DeploymentId.
 type DeploymentId = openapi_types.UUID
@@ -11481,6 +11706,12 @@ type GetDatabaseStatsParams struct {
 
 // GetDatabaseStatsParamsGranularity defines parameters for GetDatabaseStats.
 type GetDatabaseStatsParamsGranularity string
+
+// GetDeployLinkStatsParams defines parameters for GetDeployLinkStats.
+type GetDeployLinkStatsParams struct {
+	// Days How many days back to count. Defaults to 30.
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
 
 // ListProjectDeploymentsParams defines parameters for ListProjectDeployments.
 type ListProjectDeploymentsParams struct {
@@ -12592,6 +12823,12 @@ type CreateDatabaseRestoreJSONRequestBody = CreateDatabaseRestoreRequest
 
 // UpdateDatabaseTypeJSONRequestBody defines body for UpdateDatabaseType for application/json ContentType.
 type UpdateDatabaseTypeJSONRequestBody = UpdateDatabaseTypeRequest
+
+// CreateDeployLinkJSONRequestBody defines body for CreateDeployLink for application/json ContentType.
+type CreateDeployLinkJSONRequestBody = CreateDeployLinkRequest
+
+// UpdateDeployLinkJSONRequestBody defines body for UpdateDeployLink for application/json ContentType.
+type UpdateDeployLinkJSONRequestBody = UpdateDeployLinkRequest
 
 // ApproveDurableApprovalJSONRequestBody defines body for ApproveDurableApproval for application/json ContentType.
 type ApproveDurableApprovalJSONRequestBody = DurableApprovalDecisionRequest
@@ -14654,6 +14891,28 @@ type ClientInterface interface {
 	UpdateDatabaseTypeWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateDatabaseType(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeployLinks request
+	ListDeployLinks(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDeployLinkWithBody request with any body
+	CreateDeployLinkWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDeployLink(ctx context.Context, id ProjectId, body CreateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDeployLink request
+	DeleteDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeployLink request
+	GetDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDeployLinkWithBody request with any body
+	UpdateDeployLinkWithBody(ctx context.Context, id ProjectId, linkId DeployLinkId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, body UpdateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeployLinkStats request
+	GetDeployLinkStats(ctx context.Context, id ProjectId, linkId DeployLinkId, params *GetDeployLinkStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectDeployments request
 	ListProjectDeployments(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -17732,6 +17991,102 @@ func (c *Client) UpdateDatabaseTypeWithBody(ctx context.Context, id ProjectId, d
 
 func (c *Client) UpdateDatabaseType(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDatabaseTypeRequest(c.Server, id, databaseName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeployLinks(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeployLinksRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeployLinkWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeployLinkRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeployLink(ctx context.Context, id ProjectId, body CreateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeployLinkRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDeployLinkRequest(c.Server, id, linkId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeployLinkRequest(c.Server, id, linkId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDeployLinkWithBody(ctx context.Context, id ProjectId, linkId DeployLinkId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDeployLinkRequestWithBody(c.Server, id, linkId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDeployLink(ctx context.Context, id ProjectId, linkId DeployLinkId, body UpdateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDeployLinkRequest(c.Server, id, linkId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeployLinkStats(ctx context.Context, id ProjectId, linkId DeployLinkId, params *GetDeployLinkStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeployLinkStatsRequest(c.Server, id, linkId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -27985,6 +28340,291 @@ func NewUpdateDatabaseTypeRequestWithBody(server string, id ProjectId, databaseN
 	return req, nil
 }
 
+// NewListDeployLinksRequest generates requests for ListDeployLinks
+func NewListDeployLinksRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDeployLinkRequest calls the generic CreateDeployLink builder with application/json body
+func NewCreateDeployLinkRequest(server string, id ProjectId, body CreateDeployLinkJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDeployLinkRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateDeployLinkRequestWithBody generates requests for CreateDeployLink with any type of body
+func NewCreateDeployLinkRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDeployLinkRequest generates requests for DeleteDeployLink
+func NewDeleteDeployLinkRequest(server string, id ProjectId, linkId DeployLinkId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "linkId", linkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeployLinkRequest generates requests for GetDeployLink
+func NewGetDeployLinkRequest(server string, id ProjectId, linkId DeployLinkId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "linkId", linkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDeployLinkRequest calls the generic UpdateDeployLink builder with application/json body
+func NewUpdateDeployLinkRequest(server string, id ProjectId, linkId DeployLinkId, body UpdateDeployLinkJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDeployLinkRequestWithBody(server, id, linkId, "application/json", bodyReader)
+}
+
+// NewUpdateDeployLinkRequestWithBody generates requests for UpdateDeployLink with any type of body
+func NewUpdateDeployLinkRequestWithBody(server string, id ProjectId, linkId DeployLinkId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "linkId", linkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeployLinkStatsRequest generates requests for GetDeployLinkStats
+func NewGetDeployLinkStatsRequest(server string, id ProjectId, linkId DeployLinkId, params *GetDeployLinkStatsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "linkId", linkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/deploy-links/%s/stats", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListProjectDeploymentsRequest generates requests for ListProjectDeployments
 func NewListProjectDeploymentsRequest(server string, id ProjectId, params *ListProjectDeploymentsParams) (*http.Request, error) {
 	var err error
@@ -37156,6 +37796,28 @@ type ClientWithResponsesInterface interface {
 
 	UpdateDatabaseTypeWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body UpdateDatabaseTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDatabaseTypeClientResponse, error)
 
+	// ListDeployLinksWithResponse request
+	ListDeployLinksWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListDeployLinksClientResponse, error)
+
+	// CreateDeployLinkWithBodyWithResponse request with any body
+	CreateDeployLinkWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeployLinkClientResponse, error)
+
+	CreateDeployLinkWithResponse(ctx context.Context, id ProjectId, body CreateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeployLinkClientResponse, error)
+
+	// DeleteDeployLinkWithResponse request
+	DeleteDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*DeleteDeployLinkClientResponse, error)
+
+	// GetDeployLinkWithResponse request
+	GetDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*GetDeployLinkClientResponse, error)
+
+	// UpdateDeployLinkWithBodyWithResponse request with any body
+	UpdateDeployLinkWithBodyWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeployLinkClientResponse, error)
+
+	UpdateDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, body UpdateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeployLinkClientResponse, error)
+
+	// GetDeployLinkStatsWithResponse request
+	GetDeployLinkStatsWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, params *GetDeployLinkStatsParams, reqEditors ...RequestEditorFn) (*GetDeployLinkStatsClientResponse, error)
+
 	// ListProjectDeploymentsWithResponse request
 	ListProjectDeploymentsWithResponse(ctx context.Context, id ProjectId, params *ListProjectDeploymentsParams, reqEditors ...RequestEditorFn) (*ListProjectDeploymentsClientResponse, error)
 
@@ -42785,6 +43447,217 @@ func (r UpdateDatabaseTypeClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateDatabaseTypeClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDeployLinksClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeployLinksResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeployLinksClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeployLinksClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeployLinksClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDeployLinkClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *DeployLink
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDeployLinkClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDeployLinkClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDeployLinkClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteDeployLinkClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDeployLinkClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDeployLinkClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteDeployLinkClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeployLinkClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeployLink
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeployLinkClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeployLinkClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeployLinkClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateDeployLinkClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeployLink
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON422      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDeployLinkClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDeployLinkClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateDeployLinkClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeployLinkStatsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeployLinkStats
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeployLinkStatsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeployLinkStatsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeployLinkStatsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49685,6 +50558,76 @@ func (c *ClientWithResponses) UpdateDatabaseTypeWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseUpdateDatabaseTypeClientResponse(rsp)
+}
+
+// ListDeployLinksWithResponse request returning *ListDeployLinksClientResponse
+func (c *ClientWithResponses) ListDeployLinksWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListDeployLinksClientResponse, error) {
+	rsp, err := c.ListDeployLinks(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeployLinksClientResponse(rsp)
+}
+
+// CreateDeployLinkWithBodyWithResponse request with arbitrary body returning *CreateDeployLinkClientResponse
+func (c *ClientWithResponses) CreateDeployLinkWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeployLinkClientResponse, error) {
+	rsp, err := c.CreateDeployLinkWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeployLinkClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDeployLinkWithResponse(ctx context.Context, id ProjectId, body CreateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeployLinkClientResponse, error) {
+	rsp, err := c.CreateDeployLink(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeployLinkClientResponse(rsp)
+}
+
+// DeleteDeployLinkWithResponse request returning *DeleteDeployLinkClientResponse
+func (c *ClientWithResponses) DeleteDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*DeleteDeployLinkClientResponse, error) {
+	rsp, err := c.DeleteDeployLink(ctx, id, linkId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDeployLinkClientResponse(rsp)
+}
+
+// GetDeployLinkWithResponse request returning *GetDeployLinkClientResponse
+func (c *ClientWithResponses) GetDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, reqEditors ...RequestEditorFn) (*GetDeployLinkClientResponse, error) {
+	rsp, err := c.GetDeployLink(ctx, id, linkId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeployLinkClientResponse(rsp)
+}
+
+// UpdateDeployLinkWithBodyWithResponse request with arbitrary body returning *UpdateDeployLinkClientResponse
+func (c *ClientWithResponses) UpdateDeployLinkWithBodyWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeployLinkClientResponse, error) {
+	rsp, err := c.UpdateDeployLinkWithBody(ctx, id, linkId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDeployLinkClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDeployLinkWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, body UpdateDeployLinkJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeployLinkClientResponse, error) {
+	rsp, err := c.UpdateDeployLink(ctx, id, linkId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDeployLinkClientResponse(rsp)
+}
+
+// GetDeployLinkStatsWithResponse request returning *GetDeployLinkStatsClientResponse
+func (c *ClientWithResponses) GetDeployLinkStatsWithResponse(ctx context.Context, id ProjectId, linkId DeployLinkId, params *GetDeployLinkStatsParams, reqEditors ...RequestEditorFn) (*GetDeployLinkStatsClientResponse, error) {
+	rsp, err := c.GetDeployLinkStats(ctx, id, linkId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeployLinkStatsClientResponse(rsp)
 }
 
 // ListProjectDeploymentsWithResponse request returning *ListProjectDeploymentsClientResponse
@@ -58225,6 +59168,379 @@ func ParseUpdateDatabaseTypeClientResponse(rsp *http.Response) (*UpdateDatabaseT
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeployLinksClientResponse parses an HTTP response from a ListDeployLinksWithResponse call
+func ParseListDeployLinksClientResponse(rsp *http.Response) (*ListDeployLinksClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeployLinksClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeployLinksResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDeployLinkClientResponse parses an HTTP response from a CreateDeployLinkWithResponse call
+func ParseCreateDeployLinkClientResponse(rsp *http.Response) (*CreateDeployLinkClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDeployLinkClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DeployLink
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDeployLinkClientResponse parses an HTTP response from a DeleteDeployLinkWithResponse call
+func ParseDeleteDeployLinkClientResponse(rsp *http.Response) (*DeleteDeployLinkClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDeployLinkClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeployLinkClientResponse parses an HTTP response from a GetDeployLinkWithResponse call
+func ParseGetDeployLinkClientResponse(rsp *http.Response) (*GetDeployLinkClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeployLinkClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeployLink
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDeployLinkClientResponse parses an HTTP response from a UpdateDeployLinkWithResponse call
+func ParseUpdateDeployLinkClientResponse(rsp *http.Response) (*UpdateDeployLinkClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDeployLinkClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeployLink
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeployLinkStatsClientResponse parses an HTTP response from a GetDeployLinkStatsWithResponse call
+func ParseGetDeployLinkStatsClientResponse(rsp *http.Response) (*GetDeployLinkStatsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeployLinkStatsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeployLinkStats
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
