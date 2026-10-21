@@ -33,8 +33,7 @@ are also linked to your account, so events sent after logout can be linked to
 the account last used on this machine.
 
 ` + "`volcano feedback`" + ` reports, which carry text a coding agent wrote about a
-problem it hit, have their own setting: ` + "`volcano feedback --help`" + `. While
-telemetry is off, a report carries no machine ID or account.
+problem it hit, have their own setting: ` + "`volcano feedback --help`" + `.
 
 Nothing is sent on the first run, which shows a notice instead. Shell
 completion (volcano completion and pressing Tab), --offline runs, and volcano

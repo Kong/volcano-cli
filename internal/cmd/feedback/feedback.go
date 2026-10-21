@@ -70,10 +70,9 @@ passwords in URLs, email addresses, and URL query strings. It removes nothing
 else, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
-whether the Volcano plugin is installed, and the selected project ID, which
-belongs to an account. While telemetry is on, it also carries this machine's
-telemetry ID, and is linked to your account when you are logged in. While
-telemetry is off, it has neither.
+whether the Volcano plugin is installed, and the selected project ID. While
+telemetry is on, it also carries this machine's telemetry ID, and is linked to
+your account when you are logged in.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
 volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1; the command then sends

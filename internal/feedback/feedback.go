@@ -8,8 +8,7 @@
 // device_id around its timestamp to find the failing command, so the CLI keeps
 // no record of past runs. Feedback has its own setting, separate from
 // telemetry; while telemetry is off, a report carries no device ID or login
-// token, so it cannot be joined to usage events. It still carries the selected
-// project ID, which belongs to an account.
+// token.
 package feedback
 
 import (
