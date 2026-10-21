@@ -75,11 +75,14 @@ volcano feedback --input report.json
 cat report.json | volcano feedback --input -
 ```
 
-An inline object is the shortest form. Inside the single quotes, write a single
-quote as `'\''`, such as `can'\''t`, and escape the rest as JSON requires: `\"`
-for a double quote, `\\` for a backslash, and `\n` for a line break. For text
-copied from command output or a file, use a file instead: it needs no shell
-quoting, so a single quote you missed cannot end the shell string.
+An inline object is the shortest form. Escape it in two steps:
+
+1. For JSON, write `\` as `\\`, `"` as `\"`, and a line break as `\n`.
+2. For the shell, replace every `'` with `'\''`, such as `can'\''t`. Inside
+   single quotes a `'` ends the string, so this ends it, adds one literal `'`,
+   and starts a new one.
+
+A file or stdin needs only the JSON escapes.
 
 ## Categories
 
