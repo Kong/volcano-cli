@@ -64,6 +64,7 @@ type Manifest struct {
 	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
 	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
 	Sandboxes *[]SandboxManifest  `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
+	Autofix   *AutofixManifest    `yaml:"autofix,omitempty" json:"autofix,omitempty"`
 
 	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
 	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
@@ -84,6 +85,18 @@ type SandboxManifest struct {
 	MemoryMB   *int   `yaml:"memory_mb,omitempty" json:"memory_mb,omitempty"`
 	Ports      *[]int `yaml:"ports,omitempty" json:"ports,omitempty"`
 	TTLSeconds *int   `yaml:"ttl_seconds,omitempty" json:"ttl_seconds,omitempty"`
+}
+
+// AutofixManifest declares AI diagnosis and fix settings. Nil fields preserve
+// existing values. The provider API key is never part of the manifest; set it
+// with `PUT /projects/{id}/autofix` before selecting a provider that uses it.
+// Enum values (max_stage, model, provider) are validated by the server.
+type AutofixManifest struct {
+	Enabled     *bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	AutoTrigger *bool   `yaml:"auto_trigger,omitempty" json:"auto_trigger,omitempty"`
+	MaxStage    *string `yaml:"max_stage,omitempty" json:"max_stage,omitempty"`
+	Model       *string `yaml:"model,omitempty" json:"model,omitempty"`
+	Provider    *string `yaml:"provider,omitempty" json:"provider,omitempty"`
 }
 
 // ProjectManifest declares project-level settings.

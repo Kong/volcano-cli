@@ -396,7 +396,28 @@ sandboxes:
 Preview with `volcano config deploy --dry-run`, apply with `volcano config deploy`,
 and export with `volcano config pull --force`. Add `cloud` after `volcano` for a
 cloud project. Omitted fields preserve current settings. Cloud TTL must be
-30–28800 seconds. Local mode accepts `0` for unlimited lifetime or a positive TTL.
+30–28800 seconds (30–3600 on HOBBY). Local mode accepts `0` for unlimited lifetime or a positive TTL.
 `idle_timeout_seconds` is no longer supported; remove it from existing manifests.
 Config apply does not build images or delete templates
 omitted from the manifest. See [Sandbox source deployment](sandboxes.md).
+
+## Autofix settings
+
+Declare AI diagnosis and fix settings for the project. Omitted fields preserve
+current settings.
+
+```yaml
+version: 1
+autofix:
+  enabled: true
+  auto_trigger: false
+  max_stage: diagnose
+  provider: volcano
+```
+
+`max_stage` is `diagnose` (root-cause diagnosis only) or `pull_request` (may also
+open a draft pull request with a fix). `provider` is `volcano` or `anthropic`,
+which runs on your own Anthropic API key. The API key is never part of the
+manifest and an apply never sets or deletes it; configure it
+with the autofix API before selecting `anthropic`. `volcano config pull`
+exports the section.
