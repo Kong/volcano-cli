@@ -10571,7 +10571,7 @@ type UpdateFunctionSchedulerRequest struct {
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Recipients Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused with `400`.
+	// Recipients Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused as invalid.
 	Recipients *[]openapi_types.Email `json:"recipients,omitempty"`
 }
 

@@ -22012,7 +22012,7 @@ components:
             type: string
             format: email
             maxLength: 254
-          description: Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused with `400`.
+          description: Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused as invalid.
     UpdateNotificationWebhook:
       type: object
       additionalProperties: false

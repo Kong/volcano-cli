@@ -10,8 +10,8 @@ scheduler's runs keep failing, Volcano alerts the project by email, by a signed
 webhook, or both, and again when the scheduler recovers.
 
 A new project emails its owner after 3 failed scheduled runs in a row, with no
-further setup. Alert emails go only to the owner's account email address; to
-alert anyone else, add a webhook.
+further setup. Alert emails go only to the owner's account email address, once
+the owner has confirmed it; to alert anyone else, add a webhook.
 
 ## How it relates
 
