@@ -539,8 +539,7 @@ func printNotice(w io.Writer, n notice) {
 		fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI.")
 		fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
 	case n.feedback:
-		fmt.Fprintln(w, "Note: coding agents can send the Volcano team feedback reports about problems they hit with Volcano, with `volcano feedback`. A report holds text the agent wrote, such as the commands it ran and the errors it got.")
-		fmt.Fprintf(w, "No report is sent until your next command. Turn it off with `volcano feedback disable` or %s=1. Details: `volcano feedback --help`.\n", EnvFeedbackDisabled)
+		fmt.Fprintln(w, "Note: coding agents can send the Volcano team feedback reports about problems they hit with Volcano, with `volcano feedback`. Details: `volcano feedback --help`.")
 	}
 }
 
