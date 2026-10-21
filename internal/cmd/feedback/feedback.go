@@ -135,8 +135,8 @@ volcano feedback disable.`,
 			if recorder.Reporting() {
 				token = cfg.Token()
 			}
-			// Always the cloud API: a local-mode config points at the local
-			// server, which does not take feedback.
+			// Always the cloud API, also in local mode: reports go to the
+			// Volcano team, not the local server.
 			if telemetry.FeedbackDebugByEnv(os.Getenv) {
 				if err := saveReport(payload); err != nil {
 					return fmt.Errorf("save feedback: %w", err)
