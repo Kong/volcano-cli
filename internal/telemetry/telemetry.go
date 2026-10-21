@@ -50,6 +50,9 @@ import (
 const (
 	// EnvDisabled turns telemetry off.
 	EnvDisabled = "VOLCANO_TELEMETRY_DISABLED"
+	// EnvFeedbackDisabled turns `volcano feedback` reports off. It is
+	// separate from EnvDisabled.
+	EnvFeedbackDisabled = "VOLCANO_FEEDBACK_DISABLED"
 	// EnvDebug prints each event to stderr instead of sending it. Off unless
 	// set.
 	EnvDebug = "VOLCANO_TELEMETRY_DEBUG"
@@ -174,6 +177,28 @@ func (r *Recorder) state() State {
 // DisabledByEnv reports whether VOLCANO_TELEMETRY_DISABLED turns telemetry off.
 func DisabledByEnv(getenv func(string) string) bool {
 	return isTruthy(getenv(EnvDisabled))
+}
+
+// FeedbackDisabledByEnv reports whether VOLCANO_FEEDBACK_DISABLED turns
+// feedback off.
+func FeedbackDisabledByEnv(getenv func(string) string) bool {
+	return isTruthy(getenv(EnvFeedbackDisabled))
+}
+
+// FeedbackOn reports whether `volcano feedback` may send a report: the config
+// is readable, the first-run notice has been shown, and feedback is not turned
+// off with `volcano feedback disable` or VOLCANO_FEEDBACK_DISABLED. It does not
+// depend on the telemetry setting. The notice names feedback, so a report is
+// never sent before the user could have read about it.
+func (r *Recorder) FeedbackOn() bool {
+	r.setup()
+	if FeedbackDisabledByEnv(r.Getenv) || r.cfgErr != nil {
+		return false
+	}
+	if r.cfg != nil && r.cfg.Feedback != nil && r.cfg.Feedback.Disabled {
+		return false
+	}
+	return r.state().NoticeShown
 }
 
 // Reporting reports whether this process may send usage data, including the
@@ -473,8 +498,8 @@ func isUsageError(err error) bool {
 }
 
 func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. Coding agents can also send feedback reports about problems they hit with `volcano feedback`. This helps us improve the CLI.")
-	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
+	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI. Coding agents can also send feedback reports about problems they hit with `volcano feedback`.")
+	fmt.Fprintf(w, "Nothing is sent until your next command. Turn off usage data with `volcano telemetry disable` or %s=1, and feedback with `volcano feedback disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled, EnvFeedbackDisabled)
 }
 
 func isTruthy(v string) bool {

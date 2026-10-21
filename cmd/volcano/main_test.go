@@ -815,10 +815,12 @@ func TestRun_UseInALinkedDirectoryWarnsAboutVolcanoProjectID(t *testing.T) {
 func TestRun_FeedbackHint(t *testing.T) {
 	failing := func() *cobra.Command {
 		root := &cobra.Command{Use: "volcano", SilenceErrors: true, SilenceUsage: true}
+		feedback := &cobra.Command{Use: "feedback", RunE: func(*cobra.Command, []string) error { return errors.New("send feedback: HTTP 500") }}
+		feedback.AddCommand(&cobra.Command{Use: "disable", RunE: func(*cobra.Command, []string) error { return errors.New("read-only home") }})
 		root.AddCommand(
 			&cobra.Command{Use: "deploy", RunE: func(*cobra.Command, []string) error { return errors.New("deploy failed") }},
 			&cobra.Command{Use: "ok", RunE: func(*cobra.Command, []string) error { return nil }},
-			&cobra.Command{Use: "feedback", RunE: func(*cobra.Command, []string) error { return errors.New("send feedback: HTTP 500") }},
+			feedback,
 			&cobra.Command{Use: "exec", RunE: func(*cobra.Command, []string) error {
 				return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 3})
 			}},
@@ -837,6 +839,7 @@ func TestRun_FeedbackHint(t *testing.T) {
 		{"no agent or feedback off", false, []string{"deploy"}, false},
 		{"success", true, []string{"ok"}, false},
 		{"failed feedback command", true, []string{"feedback"}, false},
+		{"failed feedback subcommand", true, []string{"feedback", "disable"}, false},
 		{"sandbox command exit status", true, []string{"exec"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

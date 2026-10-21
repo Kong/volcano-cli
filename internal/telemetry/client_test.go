@@ -5,19 +5,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
 func TestClient(t *testing.T) {
 	h := newHarness()
 	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "p"}
 	h.env["CLAUDECODE"] = "1"
 	h.plugins["claude-code"] = "0.2.16"
 
-	c, ok := h.recorder().Client()
-	require.True(t, ok)
 	assert.Equal(t, Client{
 		DeviceID:        "d",
 		CLIVersion:      version.Version,
@@ -27,10 +26,11 @@ func TestClient(t *testing.T) {
 		AgentSource:     "marker",
 		PluginInstalled: true,
 		PluginVersion:   "0.2.16",
-	}, c)
+		ProjectID:       "p",
+	}, h.recorder().Client())
 }
 
-func TestClient_NotReporting(t *testing.T) {
+func TestClient_NotReportingHasNoIDs(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"before the notice": func(*harness) {},
 		"disabled":          func(h *harness) { h.store.setState(State{DeviceID: "d", NoticeShown: true, Disabled: true}) },
@@ -42,8 +42,14 @@ func TestClient_NotReporting(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness()
 			setup(h)
-			_, ok := h.recorder().Client()
-			assert.False(t, ok)
+			h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "p"}
+			h.env["CLAUDECODE"] = "1"
+
+			c := h.recorder().Client()
+			assert.Empty(t, c.DeviceID)
+			assert.Empty(t, c.ProjectID)
+			assert.Equal(t, "claude-code", c.Agent)
+			assert.Equal(t, version.Version, c.CLIVersion)
 		})
 	}
 }
@@ -52,10 +58,38 @@ func TestClient_MissingDeviceIDGetsOne(t *testing.T) {
 	h := newHarness()
 	h.store.setState(State{NoticeShown: true})
 
-	c, ok := h.recorder().Client()
-	require.True(t, ok)
+	c := h.recorder().Client()
 	assert.NotEmpty(t, c.DeviceID)
 	assert.Equal(t, h.store.state().DeviceID, c.DeviceID)
+}
+
+func TestFeedbackOn(t *testing.T) {
+	for name, tc := range map[string]struct {
+		setup func(h *harness)
+		want  bool
+	}{
+		"on":                {func(h *harness) { h.store.setState(State{NoticeShown: true}) }, true},
+		"telemetry off":     {func(h *harness) { h.store.setState(State{NoticeShown: true, Disabled: true}) }, true},
+		"before the notice": {func(*harness) {}, false},
+		"disabled": {func(h *harness) {
+			h.store.setState(State{NoticeShown: true})
+			h.store.cfg.Feedback = &config.FeedbackConfig{Disabled: true}
+		}, false},
+		"env opt-out": {func(h *harness) {
+			h.store.setState(State{NoticeShown: true})
+			h.env[EnvFeedbackDisabled] = "1"
+		}, false},
+		"unreadable config": {func(h *harness) {
+			h.store.setState(State{NoticeShown: true})
+			h.store.failLoad = true
+		}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness()
+			tc.setup(h)
+			assert.Equal(t, tc.want, h.recorder().FeedbackOn())
+		})
+	}
 }
 
 func TestScrubText(t *testing.T) {

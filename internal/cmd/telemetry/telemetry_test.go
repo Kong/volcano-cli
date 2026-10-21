@@ -45,7 +45,7 @@ func TestTelemetryCommand(t *testing.T) {
 	assert.Contains(t, out, "Telemetry is enabled.")
 
 	out, _ = runCmd(t, "disable")
-	assert.Equal(t, "Telemetry is disabled.\n", out)
+	assert.Equal(t, "Telemetry is disabled.\nFeedback reports have their own setting: `volcano feedback disable` turns them off.\n", out)
 	assert.Equal(t, config.TelemetryConfig{DeviceID: "d", Disabled: true, NoticeShown: true}, savedState(t))
 
 	out, _ = runCmd(t, "status")

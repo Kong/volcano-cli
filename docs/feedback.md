@@ -10,7 +10,8 @@ with Volcano: the CLI, the platform, the docs, or the agent skills. The Volcano
 agent skills tell coding agents to run it after they finish a task, for each
 distinct Volcano problem they ran into. You can run it yourself too.
 
-Feedback is off whenever telemetry is off. See [telemetry.md](telemetry.md).
+Feedback has its own setting, separate from telemetry. See "Turn it off"
+below.
 
 When a coding agent runs a `volcano` command that fails, and feedback is on,
 the CLI ends the error output with one line that points the agent to
@@ -29,9 +30,9 @@ volcano feedback \
   --workaround "Parsed the table output instead."
 ```
 
-On success the CLI prints the report ID. When telemetry is off it prints
+On success the CLI prints the report ID. When feedback is off it prints
 `Feedback not sent`, sends nothing, and exits 0. So does the first command
-after install, which shows the telemetry notice.
+after install, which shows the first-run notice.
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|
@@ -107,12 +108,17 @@ Each report carries the text you wrote and these fields:
 - CLI version, operating system, and CPU architecture
 - The coding agent that ran the command, whether the Volcano plugin is
   installed for it, and the plugin version
+- A random report ID and the time
+
+While telemetry is on, it also carries:
+
 - The selected project ID
 - The random machine ID that telemetry uses, so the Volcano team can match the
   report to the usage events of the commands that failed
-- A random report ID and the time
+- Your Volcano account, if you are logged in
 
-If you are logged in, the report is linked to your Volcano account.
+While telemetry is off, the report has none of these, so it is not linked to
+you, this machine, or a project.
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer
@@ -128,9 +134,15 @@ Use `--dry-run` to see the exact report before sending it.
 
 ## Turn it off
 
-Feedback follows the telemetry setting:
+Feedback has its own setting. Turning telemetry off does not turn it off. Use
+either of these:
 
 ```bash
-volcano telemetry disable
-export VOLCANO_TELEMETRY_DISABLED=1
+volcano feedback disable    # saved in ~/.volcano/config.json
+export VOLCANO_FEEDBACK_DISABLED=1
 ```
+
+`volcano feedback status` shows the current setting, and `volcano feedback
+enable` turns it back on. A change applies from the next command, and logging
+out does not change it. While feedback is off, coding agents also no longer
+see the line that points them to `volcano feedback` after a failed command.

@@ -86,29 +86,115 @@ func TestFeedback_Sends(t *testing.T) {
 	assert.Equal(t, "Error: build failed", r.Actual)
 }
 
-func TestFeedback_TelemetryOffSendsNothing(t *testing.T) {
-	for name, state := range map[string]*config.TelemetryConfig{
-		"disabled":          {DeviceID: "d", NoticeShown: true, Disabled: true},
-		"before the notice": nil,
+func TestFeedback_OffSendsNothing(t *testing.T) {
+	for name, tc := range map[string]struct {
+		state *config.TelemetryConfig
+		setup func(t *testing.T)
+	}{
+		"disabled": {&config.TelemetryConfig{DeviceID: "d", NoticeShown: true}, func(t *testing.T) {
+			t.Helper()
+			_, _, err := run(t, "disable")
+			require.NoError(t, err)
+		}},
+		"env opt-out": {&config.TelemetryConfig{DeviceID: "d", NoticeShown: true}, func(t *testing.T) {
+			t.Helper()
+			t.Setenv(telemetry.EnvFeedbackDisabled, "1")
+		}},
+		"before the notice": {nil, func(*testing.T) {}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			reports := setup(t, state)
+			reports := setup(t, tc.state)
+			tc.setup(t)
 			stdout, stderr, err := run(t, reportArgs...)
 			require.NoError(t, err, "exit 0, so an agent does not retry")
 			assert.Empty(t, stdout)
-			assert.Contains(t, stderr, "Feedback not sent: telemetry is off, or this is the first command")
+			assert.Contains(t, stderr, "Feedback not sent: feedback is off, or this is the first command")
 			assert.Empty(t, *reports)
 		})
 	}
+}
 
-	t.Run("env opt-out", func(t *testing.T) {
-		reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
-		t.Setenv(telemetry.EnvDisabled, "1")
-		_, stderr, err := run(t, reportArgs...)
-		require.NoError(t, err)
-		assert.Contains(t, stderr, "Feedback not sent")
-		assert.Empty(t, *reports)
-	})
+func TestFeedback_TelemetryOffSendsAnonymously(t *testing.T) {
+	for name, setTelemetryOff := range map[string]func(t *testing.T){
+		"disabled": func(t *testing.T) {
+			t.Helper()
+			require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
+				cfg.Telemetry.Disabled = true
+				return true, nil
+			}))
+		},
+		"env opt-out": func(t *testing.T) {
+			t.Helper()
+			t.Setenv(telemetry.EnvDisabled, "1")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+			setTelemetryOff(t)
+			t.Setenv("VOLCANO_TOKEN", "tok")
+			t.Setenv("VOLCANO_PROJECT_ID", "p-env")
+			var auth []string
+			var body []byte
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				auth = r.Header.Values("Authorization")
+				body, _ = io.ReadAll(r.Body)
+				w.WriteHeader(http.StatusAccepted)
+			}))
+			defer srv.Close()
+			t.Setenv("VOLCANO_API_URL", srv.URL)
+
+			_, _, err := run(t, reportArgs...)
+			require.NoError(t, err)
+			require.NotEmpty(t, body, "sent while telemetry is off")
+			assert.Empty(t, auth, "no account link")
+			var fields map[string]any
+			require.NoError(t, json.Unmarshal(body, &fields))
+			assert.NotContains(t, fields, "device_id")
+			assert.NotContains(t, fields, "project_id")
+			assert.Equal(t, "cli_bug", fields["category"])
+		})
+	}
+}
+
+func TestFeedback_StatusEnableDisable(t *testing.T) {
+	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	stdout, _, err := run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled. Run `volcano feedback disable` to turn it off.\n", stdout)
+
+	stdout, _, err = run(t, "disable")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is disabled.\n", stdout)
+	cfg, err := config.LoadWithoutLink()
+	require.NoError(t, err)
+	assert.True(t, cfg.Feedback.Disabled)
+	assert.False(t, cfg.Telemetry.Disabled, "telemetry is unchanged")
+
+	stdout, _, err = run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is disabled. Run `volcano feedback enable` to turn it on.\n", stdout)
+
+	t.Setenv(telemetry.EnvFeedbackDisabled, "1")
+	stdout, stderr, err := run(t, "enable")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled.\n", stdout)
+	assert.Contains(t, stderr, "VOLCANO_FEEDBACK_DISABLED is set")
+	stdout, _, err = run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is disabled by VOLCANO_FEEDBACK_DISABLED.\n", stdout)
+}
+
+func TestFeedback_SettingSurvivesLogout(t *testing.T) {
+	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	_, _, err := run(t, "disable")
+	require.NoError(t, err)
+
+	require.NoError(t, config.ClearLogin())
+	cfg, err := config.LoadWithoutLink()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Feedback)
+	assert.True(t, cfg.Feedback.Disabled)
 }
 
 func TestFeedback_DryRun(t *testing.T) {
@@ -134,8 +220,9 @@ func TestFeedback_DryRunKeepsPlaceholders(t *testing.T) {
 	assert.NotContains(t, stdout, `\u003c`)
 }
 
-func TestFeedback_DryRunWithTelemetryOff(t *testing.T) {
-	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true, Disabled: true})
+func TestFeedback_DryRunWithFeedbackOff(t *testing.T) {
+	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv(telemetry.EnvFeedbackDisabled, "1")
 
 	stdout, stderr, err := run(t, append(reportArgs, "--dry-run")...)
 	require.NoError(t, err)

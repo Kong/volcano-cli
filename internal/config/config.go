@@ -85,6 +85,9 @@ type Config struct {
 	// Telemetry holds the usage-data settings (see internal/telemetry). Logout
 	// keeps it, so an opt-out survives logging out.
 	Telemetry *TelemetryConfig `json:"telemetry,omitempty"`
+	// Feedback holds the `volcano feedback` setting (see internal/feedback).
+	// Logout keeps it, like Telemetry.
+	Feedback *FeedbackConfig `json:"feedback,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
 }
@@ -105,6 +108,13 @@ type TelemetryConfig struct {
 	Disabled bool `json:"disabled,omitempty"`
 	// NoticeShown records that the first-run notice was printed.
 	NoticeShown bool `json:"notice_shown,omitempty"`
+}
+
+// FeedbackConfig persists the `volcano feedback` setting, which is separate
+// from telemetry.
+type FeedbackConfig struct {
+	// Disabled is set by `volcano feedback disable`.
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // ProjectConfig represents the currently selected Volcano project.
@@ -256,7 +266,7 @@ func ClearLogin() error {
 		cfg.UserID = ""
 		cfg.CurrentProject = nil
 		cfg.FunctionAliases = nil
-		if cfg.DocsSource == nil && cfg.Telemetry == nil {
+		if cfg.DocsSource == nil && cfg.Telemetry == nil && cfg.Feedback == nil {
 			return remove()
 		}
 		return cfg.save()

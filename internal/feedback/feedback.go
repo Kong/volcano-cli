@@ -6,7 +6,9 @@
 // carries (telemetry.Client). It is sent to POST /cli/feedback on the cloud API
 // (volcano-hosting). The server joins a report to the usage events of the same
 // device_id around its timestamp to find the failing command, so the CLI keeps
-// no record of past runs. Feedback is off whenever telemetry is off.
+// no record of past runs. Feedback has its own setting, separate from
+// telemetry; while telemetry is off, a report carries no device ID, project
+// ID, or login token, so it cannot be joined or tied to an account.
 package feedback
 
 import (
@@ -103,8 +105,9 @@ func ParseInput(r io.Reader) (Input, error) {
 type Report struct {
 	// FeedbackID is generated here, so the CLI can print it without waiting
 	// on the response and a retried send is recognizable as the same report.
-	FeedbackID string   `json:"feedback_id"`
-	DeviceID   string   `json:"device_id"`
+	FeedbackID string `json:"feedback_id"`
+	// DeviceID and ProjectID are empty while telemetry is off.
+	DeviceID   string   `json:"device_id,omitempty"`
 	Timestamp  string   `json:"timestamp"`
 	Category   string   `json:"category"`
 	Summary    string   `json:"summary"`

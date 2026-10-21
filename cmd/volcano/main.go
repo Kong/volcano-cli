@@ -46,7 +46,7 @@ func main() {
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
 	feedbackcmd.SetRecorder(recorder)
-	feedbackHint = feedbackHintFor(recorder.Reporting(), agent.Detect(os.LookupEnv))
+	feedbackHint = feedbackHintFor(recorder.FeedbackOn(), agent.Detect(os.LookupEnv))
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
@@ -91,8 +91,8 @@ var feedbackHint bool
 
 // feedbackHintFor decides feedbackHint from whether feedback can be sent and
 // the detected agent.
-func feedbackHintFor(reporting bool, detected agent.Result) bool {
-	return reporting && detected.Name != "" && detected.Source != agent.SourceHost
+func feedbackHintFor(on bool, detected agent.Result) bool {
+	return on && detected.Name != "" && detected.Source != agent.SourceHost
 }
 
 // wantsFeedbackHint reports whether a failure could be a Volcano problem worth
@@ -102,8 +102,12 @@ func wantsFeedbackHint(cmd *cobra.Command, err error) bool {
 	if _, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		return false
 	}
-	isFeedback := cmd != nil && cmd.Name() == "feedback" && cmd.HasParent() && !cmd.Parent().HasParent()
-	return !isFeedback
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "feedback" && c.HasParent() && !c.Parent().HasParent() {
+			return false
+		}
+	}
+	return true
 }
 
 // printFeedbackHint tells the coding agent how to report the failure if it is

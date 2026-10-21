@@ -1,5 +1,6 @@
 // Package feedback implements `volcano feedback`, which coding agents run to
-// report a problem they hit with Volcano. See package internal/feedback.
+// report a problem they hit with Volcano, and its status, enable, and disable
+// subcommands. See package internal/feedback.
 package feedback
 
 import (
@@ -18,7 +19,7 @@ import (
 )
 
 // recorder is the process's telemetry recorder, which decides whether
-// feedback may be sent. main sets it with SetRecorder so the process reads the
+// feedback may be sent and what the report says about the machine. main sets it with SetRecorder so the process reads the
 // telemetry setting once; the zero value reads the real config.
 var recorder = &telemetry.Recorder{}
 
@@ -67,10 +68,15 @@ directory with ~ and removes only Volcano tokens and keys, passwords in URLs,
 and email addresses, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
-whether the Volcano plugin is installed, the selected project ID, and this
-machine's telemetry ID. Reports are linked to your account when you are logged
-in. Feedback is off when telemetry is off (volcano telemetry --help); the
-command then sends nothing and exits 0.`,
+and whether the Volcano plugin is installed. While telemetry is on, it also
+carries this machine's telemetry ID and the selected project ID, and is linked
+to your account when you are logged in. While telemetry is off, the report has
+none of these.
+
+Feedback has its own setting, separate from telemetry. Turn it off with
+volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1; the command then sends
+nothing and exits 0. Nothing is sent before the CLI has shown its first-run
+notice.`,
 		Example: `  volcano feedback \
     --category docs_mismatch \
     --summary "volcano-platform skill passes --json to functions list; the CLI rejects it" \
@@ -95,32 +101,38 @@ command then sends nothing and exits 0.`,
 			if err := in.Validate(); err != nil {
 				return err
 			}
-			client, reporting := recorder.Client()
-			// The recorder also reports nothing when the config or the
+			// The recorder also turns feedback off when the config or the
 			// working directory's project link cannot be read. Say that
-			// instead of blaming the telemetry setting.
+			// instead of blaming the feedback setting.
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
-			if !reporting && !dryRun {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: telemetry is off, or this is the first command since install. See `volcano telemetry --help`.")
+			on := recorder.FeedbackOn()
+			if !on && !dryRun {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: feedback is off, or this is the first command since install. See `volcano feedback status`.")
 				return nil
 			}
-			report := feedback.Build(in, client, recorder.Home(), time.Now())
+			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
 			if err := report.Validate(); err != nil {
 				return fmt.Errorf("after redaction, %w", err)
 			}
 			if dryRun {
-				return printReport(cmd, report, reporting)
+				return printReport(cmd, report, on)
 			}
 			payload, err := encodeReport(report, "")
 			if err != nil {
 				return err
 			}
+			// The login token links the report to the account, so it is sent
+			// only while telemetry is on, like the device ID.
+			var token string
+			if recorder.Reporting() {
+				token = cfg.Token()
+			}
 			// Always the cloud API: a local-mode config points at the local
 			// server, which does not take feedback.
-			if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), cfg.Token(), payload); err != nil {
+			if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
 				return fmt.Errorf("send feedback: %w", err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Feedback sent. ID: %s\n", report.FeedbackID)
@@ -140,7 +152,78 @@ command then sends nothing and exits 0.`,
 	for _, name := range []string{"category", "summary", "details", "command", "expected", "actual", "workaround"} {
 		cmd.MarkFlagsMutuallyExclusive("input", name)
 	}
+	cmd.AddCommand(
+		&cobra.Command{
+			Use:   "status",
+			Short: "Show whether the CLI sends feedback reports",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				return printStatus(cmd)
+			},
+		},
+		&cobra.Command{
+			Use:   "enable",
+			Short: "Send feedback reports",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				return setDisabled(cmd, false)
+			},
+		},
+		&cobra.Command{
+			Use:   "disable",
+			Short: "Stop sending feedback reports",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				return setDisabled(cmd, true)
+			},
+		},
+	)
 	return cmd
+}
+
+func printStatus(cmd *cobra.Command) error {
+	w := cmd.OutOrStdout()
+	if telemetry.FeedbackDisabledByEnv(os.Getenv) {
+		fmt.Fprintf(w, "Feedback is disabled by %s.\n", telemetry.EnvFeedbackDisabled)
+		return nil
+	}
+	// The setting lives only in ~/.volcano/config.json, so a broken project
+	// link in the working directory does not stop status from reading it.
+	cfg, err := config.LoadWithoutLink()
+	if err != nil {
+		return err
+	}
+	if cfg.Feedback != nil && cfg.Feedback.Disabled {
+		fmt.Fprintln(w, "Feedback is disabled. Run `volcano feedback enable` to turn it on.")
+		return nil
+	}
+	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")
+	return nil
+}
+
+// setDisabled saves the feedback setting. Unlike `volcano telemetry disable`,
+// it does not mark the first-run notice as shown, since the notice also
+// describes usage data.
+func setDisabled(cmd *cobra.Command, disabled bool) error {
+	err := config.Update(func(cfg *config.Config) (bool, error) {
+		if cfg.Feedback == nil {
+			cfg.Feedback = &config.FeedbackConfig{}
+		}
+		cfg.Feedback.Disabled = disabled
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+	if disabled {
+		fmt.Fprintln(cmd.OutOrStdout(), "Feedback is disabled.")
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "Feedback is enabled.")
+	}
+	if !disabled && telemetry.FeedbackDisabledByEnv(os.Getenv) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Note: %s is set, so no feedback is sent until it is unset.\n", telemetry.EnvFeedbackDisabled)
+	}
+	return nil
 }
 
 // readInput parses the JSON report given to --input: the object itself when
@@ -175,14 +258,14 @@ func encodeReport(report feedback.Report, indent string) ([]byte, error) {
 	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
-func printReport(cmd *cobra.Command, report feedback.Report, reporting bool) error {
+func printReport(cmd *cobra.Command, report feedback.Report, on bool) error {
 	out, err := encodeReport(report, "  ")
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), string(out))
-	if !reporting {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Telemetry is off, so this report would not be sent.")
+	if !on {
+		fmt.Fprintln(cmd.ErrOrStderr(), "Feedback is off, so this report would not be sent.")
 	}
 	return nil
 }
