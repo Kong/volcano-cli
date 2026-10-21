@@ -77,7 +77,8 @@ cat report.json | volcano feedback --input -
 
 An inline object is the shortest form. Escape it in two steps:
 
-1. For JSON, write `\` as `\\`, `"` as `\"`, and a line break as `\n`.
+1. For JSON, write `\` as `\\`, `"` as `\"`, a line break as `\n`, and a tab
+   as `\t`. Leave out terminal color codes and other control characters.
 2. For the shell, replace every `'` with `'\''`, such as `can'\''t`. Inside
    single quotes a `'` ends the string, so this ends it, adds one literal `'`,
    and starts a new one.

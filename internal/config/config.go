@@ -344,6 +344,20 @@ func (c *Config) ProjectID() string {
 	return ""
 }
 
+// SelectedProjectID returns what ProjectID returns without recording a
+// VOLCANO_PROJECT_ID use, for reporting the selected project in metadata
+// rather than running against it. A recorded use prints the deprecation
+// warning after the command.
+func (c *Config) SelectedProjectID() string {
+	if projectID := c.envProjectID(); projectID != "" {
+		return projectID
+	}
+	if project := c.Project(); project != nil {
+		return project.ID
+	}
+	return ""
+}
+
 // Project returns the selected project without the VOLCANO_PROJECT_ID
 // override: the working directory's link, else the project `volcano use`
 // saved. Nil when neither is set.
@@ -365,14 +379,20 @@ func (c *Config) Project() *ProjectConfig {
 // The variable is deprecated. A non-empty value is recorded so the CLI can
 // warn once, after the command, that it was used; see ConsumeProjectEnvUse.
 func (c *Config) ProjectIDFromEnv() string {
-	if c.IgnoreEnv {
-		return ""
-	}
-	projectID := strings.TrimSpace(os.Getenv(envProjectID))
+	projectID := c.envProjectID()
 	if projectID != "" {
 		projectEnvUsed.Store(true)
 	}
 	return projectID
+}
+
+// envProjectID is VOLCANO_PROJECT_ID, trimmed, or "" when env overrides are
+// disabled.
+func (c *Config) envProjectID() string {
+	if c.IgnoreEnv {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(envProjectID))
 }
 
 // ProjectEnvDeprecation is the warning printed when VOLCANO_PROJECT_ID chose

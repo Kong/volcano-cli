@@ -50,7 +50,9 @@ func (r *Recorder) Client() (Client, bool) {
 		AgentSource: string(detected.Source),
 	}
 	if r.cfg != nil {
-		c.ProjectID = r.cfg.ProjectID()
+		// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI
+		// would then warn that the command ran against that project.
+		c.ProjectID = r.cfg.SelectedProjectID()
 	}
 	if detected.Name != "" {
 		c.PluginInstalled, c.PluginVersion = r.PluginStatus(harnessFor(detected.Name))
@@ -72,10 +74,9 @@ func (r *Recorder) Home() string {
 // ScrubText prepares free text, such as a feedback report, for sending: the
 // home directory replaced with "~", terminal escapes removed, control
 // characters and Unicode spaces other than newlines turned into a space,
-// secrets redacted on each line as in error messages, and surrounding
-// whitespace trimmed. Unlike error messages, line breaks are kept. Spaces are
-// normalized before redacting so a Unicode space cannot hide a secret from the
-// patterns.
+// secrets redacted as in error messages, and surrounding whitespace trimmed.
+// Unlike error messages, line breaks are kept. Spaces are normalized before
+// redacting so a Unicode space cannot hide a secret from the patterns.
 func ScrubText(s, home string) string {
 	s = replaceHome(s, home)
 	s = ansiEscape.ReplaceAllString(s, "")
@@ -88,9 +89,11 @@ func ScrubText(s, home string) string {
 		}
 		return r
 	}, s)
-	lines := strings.Split(s, "\n")
+	// Redact the whole text, not each line, so "Bearer" at the end of a line
+	// still hides the token on the next one.
+	lines := strings.Split(redact(s), "\n")
 	for i, line := range lines {
-		lines[i] = strings.TrimRight(redact(line), " ")
+		lines[i] = strings.TrimRight(line, " ")
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }

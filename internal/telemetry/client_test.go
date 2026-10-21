@@ -70,6 +70,10 @@ func TestScrubText(t *testing.T) {
 	assert.Equal(t, want, ScrubText(in, "/home/dev"))
 }
 
+func TestScrubText_BearerAcrossLines(t *testing.T) {
+	assert.Equal(t, "Authorization: Bearer [redacted]\nnext", ScrubText("Authorization: Bearer\nabc.def\nnext", ""))
+}
+
 func TestScrubText_QuotedWindowsHome(t *testing.T) {
 	in := `Error: open "C:\\Users\\alice\\app\\cert.pem": not found` + "\n" + `C:\Users\alice\app`
 	want := `Error: open "~\\app\\cert.pem": not found` + "\n" + `~\app`

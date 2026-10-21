@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
@@ -57,6 +59,9 @@ func TestParseInput(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+
+	_, err = ParseInput(strings.NewReader(`{"acme-customer":1}`))
+	assert.NotEmpty(t, sensitive.Text(err), "the decoder quotes the key, so usage telemetry must not send it")
 
 	_, err = ParseInput(strings.NewReader(strings.Repeat(" ", maxPayloadBytes+1)))
 	require.ErrorContains(t, err, "input is over")
@@ -127,6 +132,8 @@ func TestSend_Errors(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	require.EqualError(t, Send(context.Background(), srv.Client(), srv.URL, "", []byte(`{}`)), "feedback endpoint returned HTTP 404")
+	err := Send(context.Background(), srv.Client(), srv.URL, "", []byte(`{}`))
+	require.EqualError(t, err, "feedback endpoint returned HTTP 404")
+	assert.Equal(t, http.StatusNotFound, api.Status(err))
 	assert.ErrorContains(t, Send(context.Background(), srv.Client(), srv.URL, "", make([]byte, maxPayloadBytes+1)), "over")
 }

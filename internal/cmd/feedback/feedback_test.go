@@ -143,6 +143,39 @@ func TestFeedback_DryRunWithTelemetryOff(t *testing.T) {
 	assert.Contains(t, stderr, "would not be sent")
 }
 
+func TestFeedback_UnreadableConfigFails(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	path, err := config.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte("{"), 0o600))
+
+	_, stderr, err := run(t, reportArgs...)
+	require.Error(t, err)
+	assert.NotContains(t, stderr, "Feedback not sent")
+	assert.Empty(t, *reports)
+}
+
+func TestFeedback_ProjectEnvIsNotAUse(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv("VOLCANO_PROJECT_ID", "p-env")
+	config.ConsumeProjectEnvUse()
+
+	_, _, err := run(t, reportArgs...)
+	require.NoError(t, err)
+	require.Len(t, *reports, 1)
+	assert.Equal(t, "p-env", (*reports)[0].ProjectID)
+	assert.False(t, config.ConsumeProjectEnvUse(), "no deprecation warning for a project feedback did not run against")
+}
+
+func TestFeedback_LimitsApplyAfterRedaction(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	summary := strings.Repeat("x", feedback.MaxSummary-7) + " a@b.io"
+
+	_, _, err := run(t, "--category", "cli_bug", "--summary", summary, "--details", "d")
+	require.ErrorContains(t, err, "after redaction, summary is 124 characters")
+	assert.Empty(t, *reports)
+}
+
 func TestFeedback_InvalidInput(t *testing.T) {
 	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
 

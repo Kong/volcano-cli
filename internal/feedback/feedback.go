@@ -24,6 +24,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 	"github.com/Kong/volcano-cli/internal/version"
 )
@@ -81,8 +83,10 @@ func ParseInput(r io.Reader) (Input, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	var in Input
+	// The decoder can quote the input, such as an unknown key, so usage
+	// telemetry does not send its text.
 	if err := dec.Decode(&in); err != nil {
-		return Input{}, fmt.Errorf("parse input: %w", err)
+		return Input{}, fmt.Errorf("parse input: %w", sensitive.Wrap(err))
 	}
 	// More is false before a stray "}" or "]", so decode again and require
 	// the end of the input.
@@ -121,7 +125,8 @@ type Report struct {
 }
 
 // Validate checks the category, the required fields, and the length limits.
-// Limits are checked on the text as written, so the reporter can shorten it.
+// Limits are checked on the text as written, so the reporter can shorten it;
+// Report.Validate checks them again after redaction.
 func (in Input) Validate() error {
 	var errs []error
 	if !slices.Contains(Categories, in.Category) {
@@ -156,6 +161,21 @@ func (in Input) Validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// Validate checks the report against the same limits as Input.Validate.
+// Redaction can make text longer, such as an email address becoming
+// "[redacted]", so text within a limit as written can be over it here.
+func (r Report) Validate() error {
+	return Input{
+		Category:   r.Category,
+		Summary:    r.Summary,
+		Details:    r.Details,
+		Expected:   r.Expected,
+		Actual:     r.Actual,
+		Workaround: r.Workaround,
+		Commands:   r.Commands,
+	}.Validate()
 }
 
 // Build returns the report for in, with every text field passed through
@@ -217,7 +237,8 @@ func Send(ctx context.Context, client *http.Client, apiURL, token string, payloa
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("feedback endpoint returned HTTP %d", resp.StatusCode)
+		// An api.Error, so the exit code and usage telemetry carry the status.
+		return fmt.Errorf("feedback endpoint returned %w", &api.Error{StatusCode: resp.StatusCode})
 	}
 	return nil
 }

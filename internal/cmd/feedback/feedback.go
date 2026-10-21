@@ -96,11 +96,21 @@ command then sends nothing and exits 0.`,
 				return err
 			}
 			client, reporting := recorder.Client()
+			// The recorder also reports nothing when the config or the
+			// working directory's project link cannot be read. Say that
+			// instead of blaming the telemetry setting.
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
 			if !reporting && !dryRun {
 				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: telemetry is off, or this is the first command since install. See `volcano telemetry --help`.")
 				return nil
 			}
 			report := feedback.Build(in, client, recorder.Home(), time.Now())
+			if err := report.Validate(); err != nil {
+				return fmt.Errorf("after redaction, %w", err)
+			}
 			if dryRun {
 				return printReport(cmd, report, reporting)
 			}
@@ -110,10 +120,6 @@ command then sends nothing and exits 0.`,
 			}
 			// Always the cloud API: a local-mode config points at the local
 			// server, which does not take feedback.
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
 			if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), cfg.Token(), payload); err != nil {
 				return fmt.Errorf("send feedback: %w", err)
 			}
