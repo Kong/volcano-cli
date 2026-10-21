@@ -16,6 +16,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/feedback"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
@@ -286,7 +287,7 @@ func TestFeedback_SendFailureFails(t *testing.T) {
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 
 	_, _, err := run(t, reportArgs...)
-	assert.EqualError(t, err, "send feedback: feedback endpoint returned HTTP 404")
+	assert.EqualError(t, err, "send feedback: feedback endpoint returned HTTP 404: Not Found")
 }
 
 const inputJSON = `{
@@ -345,6 +346,10 @@ func TestFeedback_InputErrors(t *testing.T) {
 
 	_, _, err = runWithStdin(t, inputJSON, "--input", "-", "--summary", "x")
 	require.ErrorContains(t, err, "none of the others can be")
+
+	_, _, err = run(t, "--input", "deploy failed: can't find build output")
+	require.ErrorContains(t, err, "read input: open deploy failed")
+	assert.NotEmpty(t, sensitive.Text(err), "report text given as a path stays out of usage telemetry")
 
 	assert.Empty(t, *reports)
 }

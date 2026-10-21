@@ -8,7 +8,8 @@
 // device_id around its timestamp to find the failing command, so the CLI keeps
 // no record of past runs. Feedback has its own setting, separate from
 // telemetry; while telemetry is off, a report carries no device ID or login
-// token, so it cannot be joined to usage events or tied to an account.
+// token, so it cannot be joined to usage events. It still carries the selected
+// project ID, which belongs to an account.
 package feedback
 
 import (
@@ -103,8 +104,9 @@ func ParseInput(r io.Reader) (Input, error) {
 // contract with volcano-hosting; the server validates and redacts every value
 // again.
 type Report struct {
-	// FeedbackID is generated here, so the CLI can print it without waiting
-	// on the response and a retried send is recognizable as the same report.
+	// FeedbackID is generated here, so the CLI can print it without reading
+	// the response. Each run generates a new one, so an agent that reruns
+	// the command after a failed send sends a new ID.
 	FeedbackID string `json:"feedback_id"`
 	// DeviceID is empty while telemetry is off.
 	DeviceID   string   `json:"device_id,omitempty"`
@@ -238,10 +240,12 @@ func Send(ctx context.Context, client *http.Client, apiURL, token string, payloa
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 	if resp.StatusCode >= 300 {
-		// An api.Error, so the exit code and usage telemetry carry the status.
-		return fmt.Errorf("feedback endpoint returned %w", &api.Error{StatusCode: resp.StatusCode})
+		// An api.Error, so the exit code and usage telemetry carry the
+		// status. The server's message can quote the report, so usage
+		// telemetry does not send it.
+		return fmt.Errorf("feedback endpoint returned %w", sensitive.Wrap(api.ResponseError(resp.StatusCode, body)))
 	}
 	return nil
 }

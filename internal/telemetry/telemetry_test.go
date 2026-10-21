@@ -159,7 +159,7 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	assert.Contains(t, stderr.String(), "collects usage data")
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
 	assert.Contains(t, stderr.String(), "volcano telemetry --help")
-	assert.Contains(t, stderr.String(), "volcano feedback disable")
+	assert.NotContains(t, stderr.String(), "volcano feedback", "feedback was already announced")
 	assert.Empty(t, h.sent, "the run that shows the notice sends nothing")
 	assert.True(t, h.store.state().NoticeShown)
 	deviceID := h.store.state().DeviceID
@@ -171,6 +171,35 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	require.Len(t, h.sent, 1)
 	assert.Equal(t, deviceID, h.lastEvent(t).DeviceID)
 	assert.Equal(t, 1, h.store.saves)
+}
+
+func TestRecord_FreshMachineAnnouncesBoth(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "collects usage data")
+	assert.Contains(t, stderr.String(), "volcano telemetry disable")
+	assert.Contains(t, stderr.String(), "volcano feedback disable")
+	assert.True(t, h.store.state().NoticeShown)
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.Empty(t, h.sent)
+}
+
+func TestRecord_UnwritableHomeKeepsSendingAnnouncedTelemetry(t *testing.T) {
+	// Saved by a CLI from before feedback, then mounted read-only.
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.failSave = true
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "a notice that can never be marked shown would print on every run")
+	require.Len(t, h.sent, 1)
+	assert.Equal(t, "d", h.lastEvent(t).DeviceID)
+	assert.False(t, h.recorder().FeedbackOn())
 }
 
 func TestRecord_UnwritableStatePrintsNoNoticeAndSendsNothing(t *testing.T) {
@@ -295,6 +324,7 @@ func TestRecord_FeedbackNoticeWithTelemetryOff(t *testing.T) {
 
 			h.recorder().Record(Invocation{Stderr: &stderr})
 			assert.Contains(t, stderr.String(), "volcano feedback disable", "first launch announces feedback")
+			assert.NotContains(t, stderr.String(), "collects usage data", "telemetry is off")
 			assert.True(t, h.store.cfg.Feedback.NoticeShown)
 			assert.Equal(t, telemetryBefore, h.store.state(), "telemetry's record is unchanged")
 			assert.Empty(t, h.sent)
@@ -316,6 +346,7 @@ func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
 
 	h.recorder().Record(Invocation{Stderr: &stderr})
 	assert.Contains(t, stderr.String(), "volcano feedback disable")
+	assert.NotContains(t, stderr.String(), "Nothing is sent", "this run sends its usage event")
 	assert.True(t, h.store.cfg.Feedback.NoticeShown)
 	assert.Len(t, h.sent, 1, "telemetry was already announced, so this run still sends")
 

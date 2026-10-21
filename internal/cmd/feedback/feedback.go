@@ -15,6 +15,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/feedback"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
 )
 
@@ -64,13 +65,15 @@ database, and bucket names, file paths, and payload values with placeholders
 such as <function> or <path>, and every password, token, or key with
 <secret>. Do not include file contents, environment variable values,
 application data, or customer or business names. The CLI replaces your home
-directory with ~ and removes only Volcano tokens and keys, passwords in URLs,
-and email addresses, so redact other secrets yourself.
+directory with ~ and removes bearer tokens, JWTs, Volcano tokens and keys,
+passwords in URLs, email addresses, and URL query strings. It removes nothing
+else, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
-whether the Volcano plugin is installed, and the selected project ID. While
-telemetry is on, it also carries this machine's telemetry ID, and is linked to
-your account when you are logged in. While telemetry is off, it has neither.
+whether the Volcano plugin is installed, and the selected project ID, which
+belongs to an account. While telemetry is on, it also carries this machine's
+telemetry ID, and is linked to your account when you are logged in. While
+telemetry is off, it has neither.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
 volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1; the command then sends
@@ -237,7 +240,9 @@ func readInput(cmd *cobra.Command, value string) (feedback.Input, error) {
 	}
 	f, err := os.Open(value)
 	if err != nil {
-		return feedback.Input{}, err
+		// The error quotes value, which can be report text that was not
+		// given as an object, so usage telemetry does not send it.
+		return feedback.Input{}, fmt.Errorf("read input: %w", sensitive.Wrap(err))
 	}
 	defer func() { _ = f.Close() }()
 	return feedback.ParseInput(f)

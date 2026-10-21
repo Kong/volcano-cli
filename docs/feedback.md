@@ -117,8 +117,9 @@ While telemetry is on, it also carries:
   report to the usage events of the commands that failed
 - Your Volcano account, if you are logged in
 
-While telemetry is off, the report has neither, so it is not linked to you or
-this machine.
+While telemetry is off, the report has neither, so it is not linked to this
+machine or your login. It still carries the selected project ID, and a project
+belongs to an account.
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer
