@@ -24,6 +24,10 @@ const (
 	// notificationsSecret stands in for the secret the API returns once.
 	notificationsSecret        = "whsec_fake-signing-secret"
 	notificationsRotatedSecret = "whsec_fake-rotated-secret"
+	// notificationsOwner is the project owner's account address, the only
+	// recipient the API accepts.
+	notificationsOwner  = "owner@example.com"
+	ownerOnlyRecipients = "email.recipients: only the project owner's account email address is supported for now"
 )
 
 // notificationsServer is a fake API that keeps the project's settings, so a
@@ -82,6 +86,10 @@ func (s *notificationsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			s.t.Errorf("decode update: %v", err)
 		}
 		s.updates = append(s.updates, update)
+		if !ownerOnly(update) {
+			s.write(w, http.StatusBadRequest, map[string]any{"error": ownerOnlyRecipients})
+			return
+		}
 		s.write(w, http.StatusOK, s.apply(update))
 	case r.Method == http.MethodPost && r.URL.Path == base+"/webhook-secret":
 		webhook, _ := s.settings["webhook"].(map[string]any)
@@ -98,12 +106,29 @@ func (s *notificationsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// ownerOnly reports whether update names no recipient but the owner, as the
+// API requires.
+func ownerOnly(update map[string]any) bool {
+	email, _ := update["email"].(map[string]any)
+	recipients, _ := email["recipients"].([]any)
+	for _, recipient := range recipients {
+		if address, _ := recipient.(string); !strings.EqualFold(address, notificationsOwner) {
+			return false
+		}
+	}
+	return true
+}
+
 // apply saves update the way the API does, returning the response, which
-// carries the secret only when the update generated one.
+// carries the secret only when the update generated one. Recipients are saved
+// empty, since the only one accepted is the owner.
 func (s *notificationsServer) apply(update map[string]any) map[string]any {
 	email, _ := s.settings["email"].(map[string]any)
 	if changes, ok := update["email"].(map[string]any); ok {
 		maps.Copy(email, changes)
+		if _, ok := changes["recipients"]; ok {
+			email["recipients"] = []any{}
+		}
 	}
 	policy, _ := s.settings["scheduler_failures"].(map[string]any)
 	if changes, ok := update["scheduler_failures"].(map[string]any); ok {
@@ -219,30 +244,23 @@ func TestNotificationsSetSendsEveryFlagPassed(t *testing.T) {
 	fake, deps := newNotificationsServer(t)
 
 	_, err := executeNotificationsCommand(t, New(deps), "", "set",
-		"--email=false", "--recipients", "ops@example.com, oncall@example.com",
+		"--email=false", "--recipients", " "+notificationsOwner,
 		"--notify-on", "first_failure", "--threshold", "5", "--notify-on-recovery=false")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{
 		"email": map[string]any{
 			"enabled":    false,
-			"recipients": []any{"ops@example.com", "oncall@example.com"},
+			"recipients": []any{notificationsOwner},
 		},
 		"scheduler_failures": map[string]any{
 			"notify_on": "first_failure", "threshold": float64(5), "notify_on_recovery": false,
 		},
 	}, fake.lastUpdate(t))
 
-	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients", "ops@example.com,, OPS@example.com ,")
+	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients", notificationsOwner+",, OWNER@example.com ,")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"ops@example.com"}}}, fake.lastUpdate(t),
+	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{notificationsOwner}}}, fake.lastUpdate(t),
 		"blank and repeated addresses are dropped")
-
-	// The request type validates addresses the way the local check does, so an
-	// address the check accepts is sent; the server decides whether it takes it.
-	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients", "dev@localhost,ops@[10.0.0.1]")
-	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"dev@localhost", "ops@[10.0.0.1]"}}},
-		fake.lastUpdate(t))
 
 	_, err = executeNotificationsCommand(t, New(deps), "", "set", "--recipients=")
 	require.NoError(t, err)
@@ -253,6 +271,27 @@ func TestNotificationsSetSendsEveryFlagPassed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"webhook": map[string]any{"url": ""}}, fake.lastUpdate(t))
 	assert.Contains(t, out, "Webhook: not configured")
+}
+
+// Only the owner's account address can receive alerts. The CLI cannot tell
+// which address that is, so the API refuses any other one, and its reason has
+// to reach the user as is.
+func TestNotificationsSetReportsTheOwnerOnlyRefusal(t *testing.T) {
+	fake, deps := newNotificationsServer(t)
+
+	// The request type validates addresses the way the local check does, so an
+	// address the check accepts is sent; the server decides whether it takes it.
+	out, err := executeNotificationsCommand(t, New(deps), "", "set", "--recipients", "dev@localhost,ops@[10.0.0.1]")
+	require.Error(t, err)
+	assert.Equal(t, map[string]any{"email": map[string]any{"recipients": []any{"dev@localhost", "ops@[10.0.0.1]"}}},
+		fake.lastUpdate(t))
+	assert.Contains(t, err.Error(), ownerOnlyRecipients)
+	assert.NotContains(t, err.Error(), "{", "the reason is shown without the response body around it")
+	assert.NotContains(t, out, "Notification settings saved")
+
+	out, err = executeNotificationsCommand(t, New(deps), "", "get")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Email: on, to the project owner", "a refused change saves nothing")
 }
 
 func TestNotificationsSetRefusesBeforeTheRequest(t *testing.T) {

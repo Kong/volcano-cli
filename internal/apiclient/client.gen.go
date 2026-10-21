@@ -7940,7 +7940,7 @@ type NotificationEmailSettings struct {
 	// Enabled Whether alerts are emailed.
 	Enabled bool `json:"enabled"`
 
-	// Recipients Who alerts are emailed to. Empty means the project owner's account email.
+	// Recipients Empty. Alerts are emailed to the project owner's account email address, the only recipient supported for now.
 	Recipients []openapi_types.Email `json:"recipients"`
 }
 
@@ -10571,7 +10571,7 @@ type UpdateFunctionSchedulerRequest struct {
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Recipients Replaces the recipient list. An empty list emails the project owner.
+	// Recipients Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused with `400`.
 	Recipients *[]openapi_types.Email `json:"recipients,omitempty"`
 }
 

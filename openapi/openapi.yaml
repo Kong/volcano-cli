@@ -5115,6 +5115,10 @@ paths:
         Changes the project's notification settings. Omitted fields keep their
         current values, so `{"email": {"enabled": false}}` only turns email off.
 
+        Alert emails go only to the project owner's account email address.
+        `email.recipients` may be empty or name that address; any other
+        address is refused with `400`.
+
         Setting `webhook.url` on a project without a webhook generates its
         signing secret, returned in `webhook.secret` in this response only.
         Changing the URL keeps the secret. An empty `webhook.url` removes the
@@ -5143,7 +5147,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationSettings'
         '400':
-          description: The request body is invalid.
+          description: The request body is invalid, for example a recipient other than the project owner's account email address.
           content:
             application/json:
               schema:
@@ -21938,7 +21942,7 @@ components:
           items:
             type: string
             format: email
-          description: Who alerts are emailed to. Empty means the project owner's account email.
+          description: Empty. Alerts are emailed to the project owner's account email address, the only recipient supported for now.
       required:
         - enabled
         - recipients
@@ -22008,7 +22012,7 @@ components:
             type: string
             format: email
             maxLength: 254
-          description: Replaces the recipient list. An empty list emails the project owner.
+          description: Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused with `400`.
     UpdateNotificationWebhook:
       type: object
       additionalProperties: false

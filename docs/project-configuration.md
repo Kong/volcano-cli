@@ -42,7 +42,7 @@ realtime:
 notifications:
   email:
     enabled: true
-    recipients: []             # empty emails the project owner
+    recipients: []             # the project owner; no other address yet
   webhook:
     url: https://example.com/hooks/volcano
   scheduler_failures:

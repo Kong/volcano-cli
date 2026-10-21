@@ -42,14 +42,15 @@ Setting a webhook on a project without one generates its signing secret, which
 is printed once, in this command's output. Use it to verify that a delivery
 came from Volcano.
 
+Alert emails go to the project owner's account email address, the only
+recipient supported for now. Send alerts anywhere else through a webhook.
+
 Examples:
-  %s
   %s
   %s
   %s`,
 			cliruntime.CommandPath(deps, "notifications set --webhook-url https://example.com/hooks/volcano"),
 			cliruntime.CommandPath(deps, "notifications set --notify-on first_failure"),
-			cliruntime.CommandPath(deps, "notifications set --recipients ops@example.com,oncall@example.com"),
 			cliruntime.CommandPath(deps, "notifications set --email=false --remove-webhook")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -80,7 +81,7 @@ Examples:
 	flags := cmd.Flags()
 	flags.BoolVar(&email, "email", true, "Email alerts; --email=false turns email off")
 	flags.StringSliceVar(&recipients, "recipients", nil,
-		fmt.Sprintf("Email alerts to these addresses, up to %d, instead of the project owner; --recipients= emails the owner again", clinotification.MaxRecipients))
+		"Only the project owner's account email address is supported for now, which is also the default; any other address is refused")
 	flags.StringVar(&webhookURL, "webhook-url", "", "Post alerts to this http or https URL")
 	flags.BoolVar(&opts.removeWebhook, "remove-webhook", false, "Stop posting alerts to the webhook and delete its signing secret")
 	flags.StringVar(&notifyOn, "notify-on", "",
