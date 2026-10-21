@@ -90,17 +90,12 @@ volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1.`,
   volcano feedback --input '{"category": "docs_mismatch", "summary": "...", "details": "..."}'
   volcano feedback --input report.json
   cat report.json | volcano feedback --input -`,
-		Args: cobra.NoArgs,
+		// A stray argument is likely report text given without a flag, so
+		// usage telemetry does not send the error that quotes it.
+		Args: func(cmd *cobra.Command, args []string) error {
+			return sensitive.Wrap(cobra.NoArgs(cmd, args))
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if input != "" {
-				var err error
-				if in, err = readInput(cmd, input); err != nil {
-					return err
-				}
-			}
-			if err := in.Validate(); err != nil {
-				return err
-			}
 			// The recorder also turns feedback off when the config or the
 			// working directory's project link cannot be read. Return that
 			// error instead of sending nothing without a word.
@@ -108,9 +103,19 @@ volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			if err != nil {
 				return err
 			}
+			// Checked before the report is read, so feedback that is off
+			// never fails on the report.
 			on := recorder.FeedbackOn()
 			if !on && !dryRun {
 				return nil
+			}
+			if input != "" {
+				if in, err = readInput(cmd, input); err != nil {
+					return err
+				}
+			}
+			if err := in.Validate(); err != nil {
+				return err
 			}
 			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
 			if err := report.Validate(); err != nil {

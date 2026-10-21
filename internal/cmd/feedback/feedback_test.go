@@ -35,6 +35,8 @@ func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(telemetry.EnvDisabled, "")
+	t.Setenv(telemetry.EnvFeedbackDisabled, "")
+	t.Setenv(telemetry.EnvFeedbackDebug, "")
 	t.Setenv("VOLCANO_TOKEN", "")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
@@ -254,6 +256,25 @@ func TestFeedback_DryRunWithFeedbackOff(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, `"category": "cli_bug"`)
 	assert.Contains(t, stderr, "would not be sent")
+}
+
+func TestFeedback_OffSkipsTheReport(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv(telemetry.EnvFeedbackDisabled, "1")
+
+	stdout, stderr, err := runWithStdin(t, "not json", "--input", "-")
+	require.NoError(t, err, "an invalid report does not fail while feedback is off")
+	assert.Empty(t, stdout)
+	assert.Empty(t, stderr)
+	assert.Empty(t, *reports)
+}
+
+func TestFeedback_StrayArgumentIsSensitive(t *testing.T) {
+	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+
+	_, _, err := run(t, "deploy of acme-billing fails")
+	require.ErrorContains(t, err, "acme-billing")
+	assert.NotEmpty(t, sensitive.Text(err), "usage telemetry must not send report text")
 }
 
 func TestFeedback_UnreadableConfigFails(t *testing.T) {
