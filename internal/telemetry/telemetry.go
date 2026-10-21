@@ -56,6 +56,10 @@ const (
 	// EnvDebug prints each event to stderr instead of sending it. Off unless
 	// set.
 	EnvDebug = "VOLCANO_TELEMETRY_DEBUG"
+	// EnvFeedbackDebug appends each `volcano feedback` report to
+	// ~/.volcano/feedback.jsonl instead of sending it. Nothing else changes,
+	// including the output. For maintainers only, so it is not documented.
+	EnvFeedbackDebug = "VOLCANO_FEEDBACK_DEBUG"
 )
 
 // SkipAnnotation marks a command whose invocations, and its subcommands', are
@@ -183,6 +187,12 @@ func DisabledByEnv(getenv func(string) string) bool {
 // feedback off.
 func FeedbackDisabledByEnv(getenv func(string) string) bool {
 	return isTruthy(getenv(EnvFeedbackDisabled))
+}
+
+// FeedbackDebugByEnv reports whether VOLCANO_FEEDBACK_DEBUG saves reports
+// locally instead of sending them.
+func FeedbackDebugByEnv(getenv func(string) string) bool {
+	return isTruthy(getenv(EnvFeedbackDebug))
 }
 
 // FeedbackOn reports whether `volcano feedback` may send a report: the config

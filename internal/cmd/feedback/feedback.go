@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -131,9 +132,13 @@ notice.`,
 			if recorder.Reporting() {
 				token = cfg.Token()
 			}
-			// Always the cloud API: a local-mode config points at the local
-			// server, which does not take feedback.
-			if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
+			if telemetry.FeedbackDebugByEnv(os.Getenv) {
+				if err := saveReport(payload); err != nil {
+					return fmt.Errorf("save feedback: %w", err)
+				}
+			} else if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
+				// Always the cloud API: a local-mode config points at the
+				// local server, which does not take feedback.
 				return fmt.Errorf("send feedback: %w", err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Feedback sent. ID: %s\n", report.FeedbackID)
@@ -259,6 +264,28 @@ func encodeReport(report feedback.Report, indent string) ([]byte, error) {
 		return nil, err
 	}
 	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
+// saveReport appends payload as one line to feedback.jsonl next to the config,
+// for VOLCANO_FEEDBACK_DEBUG.
+func saveReport(payload []byte) error {
+	path, err := config.Path()
+	if err != nil {
+		return err
+	}
+	path = filepath.Join(filepath.Dir(path), "feedback.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(append(payload, '\n')); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func printReport(cmd *cobra.Command, report feedback.Report, on bool) error {

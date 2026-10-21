@@ -91,6 +91,27 @@ func TestFeedback_Sends(t *testing.T) {
 	assert.Equal(t, "Error: build failed", r.Actual)
 }
 
+func TestFeedback_DebugSavesLocally(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv(telemetry.EnvFeedbackDebug, "1")
+
+	for range 2 {
+		stdout, _, err := run(t, reportArgs...)
+		require.NoError(t, err)
+		assert.Contains(t, stdout, "Feedback sent. ID: ")
+	}
+	assert.Empty(t, *reports, "nothing is sent")
+
+	data, err := os.ReadFile(filepath.Join(os.Getenv("HOME"), ".volcano", "feedback.jsonl"))
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	require.Len(t, lines, 2, "each report is appended as one line")
+	var r feedback.Report
+	require.NoError(t, json.Unmarshal([]byte(lines[1]), &r))
+	assert.Equal(t, "d", r.DeviceID)
+	assert.Equal(t, "cli_bug", r.Category)
+}
+
 func TestFeedback_OffSendsNothing(t *testing.T) {
 	for name, tc := range map[string]struct {
 		state *config.TelemetryConfig
