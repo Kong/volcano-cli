@@ -63,6 +63,8 @@ tags:
     description: OAuth login flows and provider management for end users
   - name: Git Connections
     description: Platform-user git provider connections for deployment source integrations
+  - name: Deploy Links
+    description: Owned, tracked links that let anyone deploy a project's connected public GitHub repository as their own project
   - name: Project Imports
     description: Read-only project source discovery and import readiness checks
   - name: Verified Domains
@@ -2087,6 +2089,11 @@ paths:
       description: |
         Creates a project for the authenticated user.
         Each user can create up to 1,000 projects. Requests over this cap return 403.
+
+        With `template_id` the project is created from a built-in starter; with
+        `template_source` it is created from a repository shared through a deploy
+        link. Either way installation is asynchronous: poll the project until
+        `template_installation.status` is `ready`.
       operationId: createProject
       security:
         - UserToken: []
@@ -2115,8 +2122,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            The deploy link in `template_source` is not available. It does not exist,
+            was switched off, or can no longer be deployed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The deploy link's branch moved since the preview (code `commit_changed`).
+            Fetch the preview again and confirm the new commit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: |
+            The repository cannot be deployed as it is, or would exceed the plan's
+            limits for frontends and functions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many projects created from deploy links from this account; try again later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '503':
-          description: The selected project template is not configured in this environment
+          description: The selected project template is not configured in this environment, or GitHub is rate limiting or unavailable right now
           content:
             application/json:
               schema:
@@ -3056,6 +3093,414 @@ paths:
                 $ref: '#/components/schemas/Error'
         '501':
           description: Source export is not available in this deployment mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /deploy-links/{linkId}:
+    get:
+      tags:
+        - Deploy Links
+      summary: Preview what a deploy link deploys
+      description: |
+        Public: needs no credential, because the link id is the credential. Resolves
+        the link's branch to its latest commit and reports the repository, that
+        exact commit, and the frontends and functions deploying it would create.
+        Show it to a visitor before they confirm; the commit it returns is the one
+        a project created from the link is pinned to.
+
+        Counts the visit for the link's owner, unless the request comes from a
+        crawler or link preview. A link that does not exist, was switched off, or
+        can no longer be deployed all answer the same `404`. A link whose repository
+        went private or lost its GitHub connection is switched off the first time
+        anyone notices.
+      operationId: getDeployLinkPreview
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/DeployLinkId'
+      responses:
+        '200':
+          description: What deploying the link would create
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLinkPreview'
+        '404':
+          description: The link is not available, or deploy links are not available in this environment (code `feature_unavailable`; see `GET /capabilities`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many previews from this address; try again later
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to preview the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: GitHub is rate limiting or unavailable right now, or the link owner must reconnect GitHub; try again shortly
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/deploy-links:
+    get:
+      tags:
+        - Deploy Links
+      summary: List a project's deploy links
+      description: |
+        Deploy links let anyone deploy the project's connected public GitHub
+        repository as their own new project. A link's public address is
+        `https://volcano.dev/deploy/<id>`; the address carries no repository or
+        branch, so it cannot be edited to point at other code.
+      operationId: listDeployLinks
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: The project's deploy links, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLinksResponse'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list deploy links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Deploy Links
+      summary: Create a deploy link
+      description: |
+        Issues a link for the repository the project is connected to. The
+        repository must be public and the connected GitHub account must be able to
+        push to it, which proves the caller controls what the link deploys. The
+        branch must exist and its latest commit must be deployable: it needs a
+        frontend or a function, and repositories that ship database SQL are not
+        supported yet. Nothing is created when a check fails.
+
+        The link follows the branch. A visitor sees the exact commit before
+        confirming, and the project they create is pinned to it.
+      operationId: createDeployLink
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeployLinkRequest'
+      responses:
+        '201':
+          description: The new deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLink'
+        '400':
+          description: Malformed request body, or an invalid branch, path or suggested name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token, or the connected GitHub account's authorization expired and must be reconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project or connected GitHub account not found, or deploy links are not
+            available in this environment (code `feature_unavailable`; see
+            `GET /capabilities`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The project has no repository connected, or has reached its deploy link limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: The repository is private, the connected account cannot push to it, the branch does not exist, or the repository cannot be deployed as it is
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Git provider integration is not configured, or GitHub is rate limiting or unavailable right now (try again shortly)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/deploy-links/{linkId}:
+    get:
+      tags:
+        - Deploy Links
+      summary: Get a deploy link
+      operationId: getDeployLink
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DeployLinkId'
+      responses:
+        '200':
+          description: The deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLink'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or deploy link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Deploy Links
+      summary: Edit or switch a deploy link on or off
+      description: |
+        Changes the branch, build root path or suggested name, the status, or
+        several together. Any change other than switching a link off is verified
+        the way creation is, so a link cannot be saved or switched on while its
+        repository is private, its branch is gone or its latest commit cannot be
+        deployed. Switching a link off needs no verification. A link the system
+        turned off stays off until it passes verification again.
+      operationId: updateDeployLink
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DeployLinkId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeployLinkRequest'
+      responses:
+        '200':
+          description: The updated deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLink'
+        '400':
+          description: Malformed request body, or an invalid branch, path or suggested name. Code `feature_unavailable` means deploy links are not available in this environment, so an edit or enabling the link is refused while switching it off still works
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token, or the connected GitHub account's authorization expired and must be reconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or deploy link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The project has no repository connected, is connected to a different
+            repository than the link (delete the link and create one for the new
+            repository), or the link changed while it was being saved (reload it and
+            try again)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: The repository is private, the connected account cannot push to it, the branch does not exist, or the repository cannot be deployed as it is
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to update the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Git provider integration is not configured, or GitHub is rate limiting or unavailable right now (try again shortly)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Deploy Links
+      summary: Delete a deploy link
+      description: Deletes the link and its recorded events. The address stops working.
+      operationId: deleteDeployLink
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DeployLinkId'
+      responses:
+        '204':
+          description: The deploy link was deleted
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: |
+            Project not owned by the caller, or a project access token was used.
+            A person creates, changes and deletes deploy links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or deploy link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete the deploy link
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/deploy-links/{linkId}/stats:
+    get:
+      tags:
+        - Deploy Links
+      summary: Get a deploy link's click and deploy counts
+      description: |
+        Counts what happened at the link: clicks, previews, confirmations, projects
+        created, and how many became ready or failed. Informational only. Visitors
+        are counted from a salted hash and no address is stored. Events are kept
+        for 90 days, so a longer window counts no more.
+      operationId: getDeployLinkStats
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DeployLinkId'
+        - name: days
+          in: query
+          required: false
+          description: How many days back to count. Defaults to 30.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        '200':
+          description: The link's event counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLinkStats'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or deploy link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the deploy link stats
           content:
             application/json:
               schema:
@@ -16141,6 +16586,14 @@ components:
         type: string
         format: uuid
       description: Project ID
+    DeployLinkId:
+      name: linkId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9]{12}$
+      description: Deploy link ID
     TokenId:
       name: tokenId
       in: path
@@ -17937,9 +18390,11 @@ components:
             - collab-pad
             - official-starter
           example: pixel-board
+        template_source:
+          $ref: '#/components/schemas/CreateProjectTemplateSource'
         initialPrompt:
           type: string
-          description: Optional initial builder prompt. Cannot be combined with template_id.
+          description: Optional initial builder prompt. Cannot be combined with template_id or template_source.
         all_regions:
           type: boolean
           description: |
@@ -19425,6 +19880,246 @@ components:
             $ref: '#/components/schemas/GitRepository'
       required:
         - repositories
+    DeployLink:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9]{12}$
+          description: The link's public identifier. Its address is `https://volcano.dev/deploy/<id>`.
+        project_id:
+          type: string
+          format: uuid
+        repo_id:
+          type: integer
+          format: int64
+          description: Stable GitHub repository id the link deploys.
+        repo_full_name:
+          type: string
+          description: The repository's owner and name, as of when the link was last verified.
+        branch:
+          type: string
+          description: The branch the link follows. A visitor deploys its latest commit, pinned when they confirm.
+        path:
+          type: string
+          description: Build root inside the repository. Empty is the repository root.
+        suggested_name:
+          type: string
+          description: Project name offered to visitors. Empty lets Volcano choose one.
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        disabled_reason:
+          type: string
+          nullable: true
+          enum:
+            - owner
+            - connection_lost
+            - repository_private
+            - repository_changed
+          description: |
+            Why the link is off. Set only while it is disabled. Only `owner` is
+            chosen by a person; the others mean the link stopped being deployable and
+            it stays off until it passes verification again.
+        last_validated_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_validated_commit:
+          type: string
+          nullable: true
+          description: The commit the link last verified as deployable.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - repo_id
+        - repo_full_name
+        - branch
+        - path
+        - suggested_name
+        - status
+        - created_at
+        - updated_at
+    DeployLinksResponse:
+      type: object
+      properties:
+        deploy_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeployLink'
+      required:
+        - deploy_links
+    CreateDeployLinkRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        branch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: The branch to follow. Defaults to the project's production branch.
+        path:
+          type: string
+          maxLength: 1024
+          description: Build root inside the repository, as a clean relative path. Defaults to the root directory of the project's Git connection, else the repository root.
+        suggested_name:
+          type: string
+          maxLength: 64
+          pattern: ^[A-Za-z0-9_-]*$
+          description: Project name offered to visitors. It becomes the name of the project they create, so it may contain only letters, numbers, underscores and hyphens.
+    UpdateDeployLinkRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        branch:
+          type: string
+          minLength: 1
+          maxLength: 255
+        path:
+          type: string
+          maxLength: 1024
+        suggested_name:
+          type: string
+          maxLength: 64
+          pattern: ^[A-Za-z0-9_-]*$
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+    DeployLinkPreview:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9]{12}$
+        repository:
+          $ref: '#/components/schemas/DeployLinkRepository'
+        branch:
+          type: string
+          description: The branch the link follows.
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          description: The commit a project created from the link is pinned to. It is the branch's latest commit as of this response.
+        path:
+          type: string
+          description: Build root inside the repository. Empty is the repository root.
+        suggested_name:
+          type: string
+          description: Project name the link's owner suggests. Empty lets Volcano choose one.
+        frontends:
+          type: array
+          items:
+            type: string
+          description: Names of the frontends deploying this commit would create.
+        functions:
+          type: array
+          items:
+            type: string
+          description: Names of the functions deploying this commit would create.
+      required:
+        - id
+        - repository
+        - branch
+        - commit_sha
+        - path
+        - suggested_name
+        - frontends
+        - functions
+    DeployLinkRepository:
+      type: object
+      properties:
+        full_name:
+          type: string
+          description: The repository's owner and name, such as `acme/notes-app`.
+        owner:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+          description: The repository's address on GitHub.
+      required:
+        - full_name
+        - owner
+        - name
+        - url
+    DeployLinkKindCount:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+            - click
+            - preview
+            - confirm
+            - accepted
+            - ready
+            - failed
+        events:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+          description: Distinct visitors among the events that carried one.
+      required:
+        - kind
+        - events
+        - visitors
+    DeployLinkDailyCount:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+          description: UTC day.
+        kind:
+          type: string
+          enum:
+            - click
+            - preview
+            - confirm
+            - accepted
+            - ready
+            - failed
+        events:
+          type: integer
+          format: int64
+      required:
+        - day
+        - kind
+        - events
+    DeployLinkStats:
+      type: object
+      properties:
+        since:
+          type: string
+          format: date-time
+          description: Start of the counted window.
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeployLinkKindCount'
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeployLinkDailyCount'
+      required:
+        - since
+        - totals
+        - daily
     ProjectGitConnection:
       type: object
       properties:
@@ -24765,6 +25460,24 @@ components:
       description: |
         This OpenAPI document, with every reference resolved. Shared by the JSON
         and YAML operations, which differ only in serialization.
+    ProjectTemplateInstallationSource:
+      type: object
+      description: Where an installation that came from a deploy link was read from.
+      required:
+        - kind
+        - repository
+        - commit_sha
+      properties:
+        kind:
+          type: string
+          enum:
+            - github
+        repository:
+          type: string
+          description: The repository's owner and name, such as `acme/notes-app`.
+        commit_sha:
+          type: string
+          description: The commit the project was installed from.
     ProjectTemplateInstallation:
       type: object
       description: |
@@ -24792,6 +25505,8 @@ components:
             - deploy
             - verify
             - ready
+        source:
+          $ref: '#/components/schemas/ProjectTemplateInstallationSource'
     ProjectGitConnectionSummary:
       type: object
       properties:
@@ -24824,6 +25539,45 @@ components:
           $ref: '#/components/schemas/ProjectHealthStatus'
       required:
         - status
+    DeployLinkSource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - commit_sha
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9]{12}$
+          description: The deploy link's id.
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          description: The commit the visitor confirmed, as returned by the link's preview.
+        path:
+          type: string
+          maxLength: 1024
+          description: The build root the visitor confirmed, as returned by the link's preview. Omit it, or send an empty string, for the repository root. If the owner has since pointed the link at another path, the request is refused with 409 and code `commit_changed`, so only what the visitor saw is installed.
+    CreateProjectTemplateSource:
+      type: object
+      additionalProperties: false
+      description: |
+        Creates the project from a public GitHub repository shared through a deploy
+        link, instead of a built-in starter. Show the visitor what
+        `GET /deploy-links/{linkId}` returns, then send the link id and the
+        `commit_sha` it returned: the project is pinned to exactly that commit.
+
+        If the link's branch has moved since, nothing is created and the response is
+        a `409` with code `commit_changed`; fetch the preview again and have the
+        visitor confirm the new commit. Cannot be combined with `template_id` or
+        `initialPrompt`. Needs cloud mode, and answers `400` with code
+        `feature_unavailable` while deploy links are not available (see
+        `GET /capabilities`). Installation is asynchronous, as for `template_id`.
+      required:
+        - deploy_link
+      properties:
+        deploy_link:
+          $ref: '#/components/schemas/DeployLinkSource'
     FunctionKind:
       type: string
       enum:

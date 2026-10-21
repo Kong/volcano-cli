@@ -59,6 +59,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeOmitsDeployLinkCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeRefusesProjectsFromDeployLinks(t, volcanoBin, env, projectDir)
 	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
@@ -557,6 +559,42 @@ func requireLocalModeOmitsDomainCommands(t *testing.T, binary string, env []stri
 		requireContains(t, output, "is a cloud command")
 		requireContains(t, output, "volcano cloud domains")
 	}
+}
+
+// requireLocalModeOmitsDeployLinkCommands checks that deploy links, which
+// need a project's GitHub connection, name the cloud path instead of running.
+func requireLocalModeOmitsDeployLinkCommands(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	help := runVolcanoLocalModeE2E(t, binary, env, dir, "--help")
+	requireNotContains(t, help, "deploy-link")
+
+	for _, args := range [][]string{
+		{"deploy-link", "list"},
+		{"deploy-link", "create", "--branch", "main"},
+		{"deploy-link", "delete", "link-id", "--yes"},
+	} {
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		if err == nil {
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+		}
+		requireContains(t, output, "is a cloud command")
+		requireContains(t, output, "volcano cloud deploy-link")
+	}
+}
+
+// requireLocalModeRefusesProjectsFromDeployLinks checks that creating a project
+// from a deploy link, which is a cloud operation, does not run in local mode.
+// The local environment holds no cloud credential, so the command stops at the
+// sign-in check, before it asks any server about the link.
+func requireLocalModeRefusesProjectsFromDeployLinks(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir,
+		"projects", "create", "from-link", "--from", "aaaaaaaaaaaa", "--yes")
+	if err == nil {
+		t.Fatalf("expected volcano projects create --from to fail in local mode\n%s", output)
+	}
+	requireContains(t, output, "not authenticated")
+	requireNotContains(t, output, "Project created")
 }
 
 func runVolcanoLocalModeE2E(t *testing.T, binary string, env []string, dir string, args ...string) string {
