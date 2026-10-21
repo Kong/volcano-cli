@@ -119,3 +119,16 @@ func TestScrubText_QuotedWindowsHome(t *testing.T) {
 	want := `Error: open "~\\app\\cert.pem": not found` + "\n" + `~\app`
 	assert.Equal(t, want, ScrubText(in, `C:\Users\alice`))
 }
+
+func TestLoggedIn(t *testing.T) {
+	t.Setenv("VOLCANO_TOKEN", "")
+	h := newHarness()
+	assert.False(t, h.recorder().LoggedIn())
+
+	h.store.cfg.UserToken = "tok"
+	assert.True(t, h.recorder().LoggedIn())
+
+	h = newHarness()
+	h.store.failLoad = true
+	assert.False(t, h.recorder().LoggedIn(), "an unreadable config is not a login")
+}

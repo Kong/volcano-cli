@@ -74,7 +74,8 @@ else, so redact other secrets yourself.
 Each report also carries the CLI version, OS, architecture, the coding agent,
 whether the Volcano plugin is installed, and the selected project ID. While
 telemetry is on, it also carries this machine's telemetry ID, and is linked to
-your account. Sending a report requires volcano login.
+your account. Every report is sent with your login, which the server checks, so
+sending one requires volcano login.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
 volcano feedback disable.`,

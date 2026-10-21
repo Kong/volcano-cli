@@ -101,11 +101,10 @@ Each report carries the text you wrote and these fields:
   installed for it, and the plugin version
 - The selected project ID
 - A random report ID and the time
+- Your Volcano login, which the server checks
 
-While telemetry is on, it also carries:
-
-- The random machine ID that telemetry uses
-- Your Volcano account
+While telemetry is on, it also carries the random machine ID that telemetry
+uses, and the report is linked to your account.
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer

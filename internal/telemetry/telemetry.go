@@ -195,6 +195,13 @@ func FeedbackDebugByEnv(getenv func(string) string) bool {
 	return isTruthy(getenv(EnvFeedbackDebug))
 }
 
+// LoggedIn reports whether the config holds a login token. `volcano feedback`
+// sends nothing without one.
+func (r *Recorder) LoggedIn() bool {
+	r.setup()
+	return r.cfg != nil && r.cfg.Token() != ""
+}
+
 // FeedbackOn reports whether `volcano feedback` may send a report: the config
 // is readable, feedback is not turned off with `volcano feedback disable` or
 // VOLCANO_FEEDBACK_DISABLED, and an earlier process showed the first-run

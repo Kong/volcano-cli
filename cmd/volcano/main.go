@@ -46,7 +46,7 @@ func main() {
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
 	feedbackcmd.SetRecorder(recorder)
-	feedbackHint = feedbackHintFor(recorder.FeedbackOn(), agent.Detect(os.LookupEnv))
+	feedbackHint = feedbackHintFor(recorder.FeedbackOn() && recorder.LoggedIn(), agent.Detect(os.LookupEnv))
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
