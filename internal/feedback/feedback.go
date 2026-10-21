@@ -7,8 +7,9 @@
 // (volcano-hosting). The server joins a report to the usage events of the same
 // device_id around its timestamp to find the failing command, so the CLI keeps
 // no record of past runs. Feedback has its own setting, separate from
-// telemetry; while telemetry is off, a report carries no device ID or login
-// token.
+// telemetry. Sending requires a login token, so only Volcano accounts can send
+// reports; while telemetry is off, a report carries no device ID and is marked
+// anonymous, so the server does not attribute it to the user.
 package feedback
 
 import (
@@ -107,6 +108,9 @@ type Report struct {
 	// the response. Each run generates a new one, so an agent that reruns
 	// the command after a failed send sends a new ID.
 	FeedbackID string `json:"feedback_id"`
+	// Anonymous asks the server not to attribute the report to the logged-in
+	// user. It is set while telemetry is off.
+	Anonymous bool `json:"anonymous"`
 	// DeviceID is empty while telemetry is off.
 	DeviceID   string   `json:"device_id,omitempty"`
 	Timestamp  string   `json:"timestamp"`
@@ -215,8 +219,8 @@ func Build(in Input, client telemetry.Client, home string, now time.Time) Report
 }
 
 // Send posts payload to apiURL's /cli/feedback, with token as a bearer when it
-// is set. The server accepts a report without a token. A nil client uses one
-// with a timeout.
+// is set. The server rejects a report without a valid token. A nil client uses
+// one with a timeout.
 func Send(ctx context.Context, client *http.Client, apiURL, token string, payload []byte) error {
 	if len(payload) > maxPayloadBytes {
 		return fmt.Errorf("feedback report is over %d bytes", maxPayloadBytes)

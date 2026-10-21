@@ -37,7 +37,7 @@ func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 	t.Setenv(telemetry.EnvDisabled, "")
 	t.Setenv(telemetry.EnvFeedbackDisabled, "")
 	t.Setenv(telemetry.EnvFeedbackDebug, "")
-	t.Setenv("VOLCANO_TOKEN", "")
+	t.Setenv("VOLCANO_TOKEN", "tok")
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
 		cfg.Telemetry = state
@@ -88,6 +88,7 @@ func TestFeedback_Sends(t *testing.T) {
 	r := (*reports)[0]
 	assert.Equal(t, "Feedback sent. ID: "+r.FeedbackID+"\n", stdout)
 	assert.Equal(t, "d", r.DeviceID)
+	assert.False(t, r.Anonymous, "telemetry is on")
 	assert.Equal(t, "cli_bug", r.Category)
 	assert.Equal(t, []string{"volcano functions deploy --all"}, r.Commands)
 	assert.Equal(t, "Error: build failed", r.Actual)
@@ -174,9 +175,10 @@ func TestFeedback_TelemetryOffSendsNoDeviceID(t *testing.T) {
 			_, _, err := run(t, reportArgs...)
 			require.NoError(t, err)
 			require.NotEmpty(t, body, "sent while telemetry is off")
-			assert.Empty(t, auth, "no account link")
+			assert.Equal(t, []string{"Bearer tok"}, auth, "the server still checks the login")
 			var fields map[string]any
 			require.NoError(t, json.Unmarshal(body, &fields))
+			assert.Equal(t, true, fields["anonymous"])
 			assert.NotContains(t, fields, "device_id")
 			assert.Equal(t, "p-env", fields["project_id"])
 			assert.Equal(t, "cli_bug", fields["category"])
@@ -211,6 +213,21 @@ func TestFeedback_StatusEnableDisable(t *testing.T) {
 	stdout, _, err = run(t, "status")
 	require.NoError(t, err)
 	assert.Equal(t, "Feedback is disabled by VOLCANO_FEEDBACK_DISABLED.\n", stdout)
+}
+
+func TestFeedback_LoggedOutSendsNothing(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv("VOLCANO_TOKEN", "")
+
+	stdout, stderr, err := runWithStdin(t, "not json", "--input", "-")
+	require.NoError(t, err, "exit 0, so an agent does not retry")
+	assert.Empty(t, stdout)
+	assert.Empty(t, stderr)
+	assert.Empty(t, *reports)
+
+	stdout, _, err = run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled, but no report is sent until you log in with `volcano login`.\n", stdout)
 }
 
 func TestFeedback_SettingSurvivesLogout(t *testing.T) {

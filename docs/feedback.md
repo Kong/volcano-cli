@@ -23,6 +23,8 @@ volcano feedback \
   --workaround "Parsed the table output instead."
 ```
 
+Sending a report requires `volcano login`.
+
 | Flag | Required | Limit | Content |
 |---|---|---|---|
 | `--category` | yes | | One of the categories below |
@@ -103,7 +105,7 @@ Each report carries the text you wrote and these fields:
 While telemetry is on, it also carries:
 
 - The random machine ID that telemetry uses
-- Your Volcano account, if you are logged in
+- Your Volcano account
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer

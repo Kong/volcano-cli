@@ -74,7 +74,7 @@ else, so redact other secrets yourself.
 Each report also carries the CLI version, OS, architecture, the coding agent,
 whether the Volcano plugin is installed, and the selected project ID. While
 telemetry is on, it also carries this machine's telemetry ID, and is linked to
-your account when you are logged in.
+your account. Sending a report requires volcano login.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
 volcano feedback disable.`,
@@ -110,6 +110,12 @@ volcano feedback disable.`,
 			if !on && !dryRun {
 				return nil
 			}
+			// The server takes reports only from a logged-in user, so a
+			// logged-out run sends nothing, like feedback that is off.
+			token := cfg.Token()
+			if token == "" && !dryRun {
+				return nil
+			}
 			if input != "" {
 				if in, err = readInput(cmd, input); err != nil {
 					return err
@@ -119,6 +125,9 @@ volcano feedback disable.`,
 				return err
 			}
 			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
+			// While telemetry is off, the server checks the login but does
+			// not attribute the report to the user.
+			report.Anonymous = !recorder.Reporting()
 			if err := report.Validate(); err != nil {
 				return fmt.Errorf("after redaction, %w", err)
 			}
@@ -128,12 +137,6 @@ volcano feedback disable.`,
 			payload, err := encodeReport(report, "")
 			if err != nil {
 				return err
-			}
-			// The login token links the report to the account, so it is sent
-			// only while telemetry is on, like the device ID.
-			var token string
-			if recorder.Reporting() {
-				token = cfg.Token()
 			}
 			// Always the cloud API, also in local mode: reports go to the
 			// Volcano team, not the local server.
@@ -204,6 +207,10 @@ func printStatus(cmd *cobra.Command) error {
 	}
 	if cfg.Feedback != nil && cfg.Feedback.Disabled {
 		fmt.Fprintln(w, "Feedback is disabled. Run `volcano feedback enable` to turn it on.")
+		return nil
+	}
+	if cfg.Token() == "" {
+		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until you log in with `volcano login`.")
 		return nil
 	}
 	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")
