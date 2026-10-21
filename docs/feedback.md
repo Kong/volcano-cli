@@ -30,9 +30,8 @@ volcano feedback \
   --workaround "Parsed the table output instead."
 ```
 
-On success the CLI prints the report ID. When feedback is off it prints
-`Feedback not sent`, sends nothing, and exits 0. So does the first command
-after install, which shows the first-run notice.
+On success the CLI prints the report ID. When feedback is off, it sends
+nothing and exits 0. So does the first command after install.
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|

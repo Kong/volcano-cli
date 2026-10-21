@@ -104,15 +104,14 @@ notice.`,
 				return err
 			}
 			// The recorder also turns feedback off when the config or the
-			// working directory's project link cannot be read. Say that
-			// instead of blaming the feedback setting.
+			// working directory's project link cannot be read. Return that
+			// error instead of sending nothing without a word.
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
 			on := recorder.FeedbackOn()
 			if !on && !dryRun {
-				fmt.Fprintln(cmd.ErrOrStderr(), "Feedback not sent: feedback is off, or this is the first command since install. See `volcano feedback status`.")
 				return nil
 			}
 			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())

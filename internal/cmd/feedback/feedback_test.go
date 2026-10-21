@@ -134,13 +134,13 @@ func TestFeedback_OffSendsNothing(t *testing.T) {
 			stdout, stderr, err := run(t, reportArgs...)
 			require.NoError(t, err, "exit 0, so an agent does not retry")
 			assert.Empty(t, stdout)
-			assert.Contains(t, stderr, "Feedback not sent: feedback is off, or this is the first command")
+			assert.Empty(t, stderr, "nothing is printed")
 			assert.Empty(t, *reports)
 		})
 	}
 }
 
-func TestFeedback_TelemetryOffSendsAnonymously(t *testing.T) {
+func TestFeedback_TelemetryOffSendsNoDeviceID(t *testing.T) {
 	for name, setTelemetryOff := range map[string]func(t *testing.T){
 		"disabled": func(t *testing.T) {
 			t.Helper()
@@ -262,9 +262,8 @@ func TestFeedback_UnreadableConfigFails(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, []byte("{"), 0o600))
 
-	_, stderr, err := run(t, reportArgs...)
+	_, _, err = run(t, reportArgs...)
 	require.Error(t, err)
-	assert.NotContains(t, stderr, "Feedback not sent")
 	assert.Empty(t, *reports)
 }
 
