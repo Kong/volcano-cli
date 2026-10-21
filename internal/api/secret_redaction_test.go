@@ -127,6 +127,10 @@ func TestNotificationSettingsNeverPutTheWebhookSecretInAnError(t *testing.T) {
 	_, err = client.GetNotificationSettings(context.Background(), redactionTestProjectID(t))
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "receiver-token", "the webhook URL can carry the receiver's token")
+
+	_, err = client.SendTestNotification(context.Background(), redactionTestProjectID(t))
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "receiver-token")
 }
 
 // Dropping the body must not cost a refusal its message or code, whether the API

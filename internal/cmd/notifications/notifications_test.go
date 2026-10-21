@@ -16,6 +16,7 @@ import (
 
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 const (
@@ -389,6 +390,8 @@ func TestNotificationsTestFailsWhenADeliveryDidNotArrive(t *testing.T) {
 	require.Error(t, err, "a delivery that did not arrive fails the command")
 	assert.Contains(t, out, "Test email delivered")
 	assert.Equal(t, "test webhook not delivered (HTTP 500): webhook responded 500", err.Error())
+	var marked *sensitive.Error
+	require.ErrorAs(t, err, &marked, "a delivery's reason stays out of telemetry")
 
 	fake.test = map[string]any{"deliveries": []any{
 		map[string]any{"channel": "webhook", "delivered": true, "status_code": 204},

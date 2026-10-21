@@ -36,7 +36,10 @@ the owner has confirmed it; to alert anyone else, add a webhook.
 | Send a test | `volcano cloud notifications test [--json]` |
 
 Drop `cloud` to run the same commands against local development. Locally, a
-webhook may point at `localhost` or another private address.
+webhook may name a private address. The local server runs in a Docker
+container, where `localhost` is the server itself, so point the webhook at a
+receiver on your machine through `host.docker.internal` (Docker Desktop) or
+your machine's network address.
 
 ## Show the settings
 

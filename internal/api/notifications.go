@@ -49,5 +49,5 @@ func (c *Client) SendTestNotification(ctx context.Context, projectID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429)
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429)
 }

@@ -13,6 +13,7 @@ import (
 	clinotification "github.com/Kong/volcano-cli/internal/notification"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -75,5 +76,7 @@ func undeliveredError(result *apiclient.NotificationTestResult) error {
 	if len(failures) == 0 {
 		return nil
 	}
-	return errors.New(strings.Join(failures, "\n"))
+	// The reasons come from the server and name the receiver, so they are shown
+	// but kept out of telemetry.
+	return sensitive.Wrap(errors.New(strings.Join(failures, "\n")))
 }
