@@ -12,7 +12,7 @@ import (
 // Client describes this machine and the coding agent that ran the CLI, with the
 // same values a usage event carries. `volcano feedback` attaches it to each
 // report, so the server can join a report to the usage events of the same
-// device. DeviceID and ProjectID are set only while telemetry is on.
+// device. DeviceID is set only while telemetry is on.
 type Client struct {
 	DeviceID        string
 	CLIVersion      string
@@ -26,9 +26,8 @@ type Client struct {
 }
 
 // Client returns what this process may report about the machine and the coding
-// agent with a feedback report. The device ID and the project ID are set only
-// while usage data may be sent (see Reporting), since either one ties a report
-// to a person or a machine. A machine that has seen the notice but has no
+// agent with a feedback report. The device ID is set only while usage data may
+// be sent (see Reporting), since it ties a report to this machine. A machine that has seen the notice but has no
 // device ID yet, such as after `volcano telemetry enable` on a fresh home, gets
 // one now.
 func (r *Recorder) Client() Client {
@@ -40,6 +39,11 @@ func (r *Recorder) Client() Client {
 		Arch:        runtime.GOARCH,
 		Agent:       detected.Name,
 		AgentSource: string(detected.Source),
+	}
+	if r.cfg != nil {
+		// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI
+		// would then warn that the command ran against that project.
+		c.ProjectID = r.cfg.SelectedProjectID()
 	}
 	if detected.Name != "" {
 		c.PluginInstalled, c.PluginVersion = r.PluginStatus(harnessFor(detected.Name))
@@ -53,16 +57,11 @@ func (r *Recorder) Client() Client {
 	state := r.state()
 	if state.DeviceID == "" {
 		var err error
-		if state, _, err = r.initialize(); err != nil || state.Disabled {
+		if state, _, err = r.initialize(true, false); err != nil || state.Disabled {
 			return c
 		}
 	}
 	c.DeviceID = state.DeviceID
-	if r.cfg != nil {
-		// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI
-		// would then warn that the command ran against that project.
-		c.ProjectID = r.cfg.SelectedProjectID()
-	}
 	return c
 }
 

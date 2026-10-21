@@ -30,7 +30,7 @@ func TestClient(t *testing.T) {
 	}, h.recorder().Client())
 }
 
-func TestClient_NotReportingHasNoIDs(t *testing.T) {
+func TestClient_NotReportingHasNoDeviceID(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"before the notice": func(*harness) {},
 		"disabled":          func(h *harness) { h.store.setState(State{DeviceID: "d", NoticeShown: true, Disabled: true}) },
@@ -47,7 +47,7 @@ func TestClient_NotReportingHasNoIDs(t *testing.T) {
 
 			c := h.recorder().Client()
 			assert.Empty(t, c.DeviceID)
-			assert.Empty(t, c.ProjectID)
+			assert.Equal(t, "p", c.ProjectID)
 			assert.Equal(t, "claude-code", c.Agent)
 			assert.Equal(t, version.Version, c.CLIVersion)
 		})
@@ -64,28 +64,34 @@ func TestClient_MissingDeviceIDGetsOne(t *testing.T) {
 }
 
 func TestFeedbackOn(t *testing.T) {
+	shown := func(h *harness) { h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true} }
 	for name, tc := range map[string]struct {
 		setup func(h *harness)
 		want  bool
 	}{
-		"on":                {func(h *harness) { h.store.setState(State{NoticeShown: true}) }, true},
-		"telemetry off":     {func(h *harness) { h.store.setState(State{NoticeShown: true, Disabled: true}) }, true},
-		"before the notice": {func(*harness) {}, false},
+		"on": {shown, true},
+		"telemetry off": {func(h *harness) {
+			shown(h)
+			h.store.setState(State{Disabled: true})
+			h.env[EnvDisabled] = "1"
+		}, true},
+		"before the notice":         {func(*harness) {}, false},
+		"only the telemetry notice": {func(h *harness) { h.store.setState(State{NoticeShown: true}) }, false},
 		"disabled": {func(h *harness) {
-			h.store.setState(State{NoticeShown: true})
-			h.store.cfg.Feedback = &config.FeedbackConfig{Disabled: true}
+			h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true, Disabled: true}
 		}, false},
 		"env opt-out": {func(h *harness) {
-			h.store.setState(State{NoticeShown: true})
+			shown(h)
 			h.env[EnvFeedbackDisabled] = "1"
 		}, false},
 		"unreadable config": {func(h *harness) {
-			h.store.setState(State{NoticeShown: true})
+			shown(h)
 			h.store.failLoad = true
 		}, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness()
+			h.store.cfg.Feedback = nil
 			tc.setup(h)
 			assert.Equal(t, tc.want, h.recorder().FeedbackOn())
 		})

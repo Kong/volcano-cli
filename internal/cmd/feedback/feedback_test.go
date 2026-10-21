@@ -29,6 +29,7 @@ var reportArgs = []string{
 
 // setup gives the test a fresh home whose telemetry state is state, a fresh
 // recorder, and a sink at VOLCANO_API_URL that collects the posted reports.
+// The first-run notice counts as shown for feedback unless state is nil.
 func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
@@ -37,6 +38,9 @@ func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 	t.Setenv("VOLCANO_PROJECT_ID", "")
 	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
 		cfg.Telemetry = state
+		if state != nil {
+			cfg.Feedback = &config.FeedbackConfig{NoticeShown: true}
+		}
 		return true, nil
 	}))
 	SetRecorder(&telemetry.Recorder{})
@@ -150,7 +154,7 @@ func TestFeedback_TelemetryOffSendsAnonymously(t *testing.T) {
 			var fields map[string]any
 			require.NoError(t, json.Unmarshal(body, &fields))
 			assert.NotContains(t, fields, "device_id")
-			assert.NotContains(t, fields, "project_id")
+			assert.Equal(t, "p-env", fields["project_id"])
 			assert.Equal(t, "cli_bug", fields["category"])
 		})
 	}

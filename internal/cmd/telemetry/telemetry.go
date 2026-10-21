@@ -34,7 +34,7 @@ the account last used on this machine.
 
 ` + "`volcano feedback`" + ` reports, which carry text a coding agent wrote about a
 problem it hit, have their own setting: ` + "`volcano feedback --help`" + `. While
-telemetry is off, a report carries no machine ID, project ID, or account.
+telemetry is off, a report carries no machine ID or account.
 
 Nothing is sent on the first run, which shows a notice instead. Shell
 completion (volcano completion and pressing Tab), --offline runs, and volcano
@@ -114,9 +114,6 @@ func setDisabled(cmd *cobra.Command, disabled bool) error {
 	}
 	if disabled {
 		fmt.Fprintln(cmd.OutOrStdout(), "Telemetry is disabled.")
-		// This marks the first-run notice as shown without printing it, and
-		// the notice is where feedback is named.
-		fmt.Fprintln(cmd.OutOrStdout(), "Feedback reports have their own setting: `volcano feedback disable` turns them off.")
 	} else {
 		fmt.Fprintln(cmd.OutOrStdout(), "Telemetry is enabled.")
 	}

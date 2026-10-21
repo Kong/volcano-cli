@@ -68,10 +68,9 @@ directory with ~ and removes only Volcano tokens and keys, passwords in URLs,
 and email addresses, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
-and whether the Volcano plugin is installed. While telemetry is on, it also
-carries this machine's telemetry ID and the selected project ID, and is linked
-to your account when you are logged in. While telemetry is off, the report has
-none of these.
+whether the Volcano plugin is installed, and the selected project ID. While
+telemetry is on, it also carries this machine's telemetry ID, and is linked to
+your account when you are logged in. While telemetry is off, it has neither.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
 volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1; the command then sends
@@ -201,15 +200,15 @@ func printStatus(cmd *cobra.Command) error {
 	return nil
 }
 
-// setDisabled saves the feedback setting. Unlike `volcano telemetry disable`,
-// it does not mark the first-run notice as shown, since the notice also
-// describes usage data.
+// setDisabled saves the feedback setting.
 func setDisabled(cmd *cobra.Command, disabled bool) error {
 	err := config.Update(func(cfg *config.Config) (bool, error) {
 		if cfg.Feedback == nil {
 			cfg.Feedback = &config.FeedbackConfig{}
 		}
 		cfg.Feedback.Disabled = disabled
+		// Choosing a setting means the user has seen what feedback is.
+		cfg.Feedback.NoticeShown = true
 		return true, nil
 	})
 	if err != nil {

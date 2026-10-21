@@ -115,6 +115,9 @@ type TelemetryConfig struct {
 type FeedbackConfig struct {
 	// Disabled is set by `volcano feedback disable`.
 	Disabled bool `json:"disabled,omitempty"`
+	// NoticeShown records that the first-run notice was printed for
+	// feedback, which is tracked apart from telemetry's.
+	NoticeShown bool `json:"notice_shown,omitempty"`
 }
 
 // ProjectConfig represents the currently selected Volcano project.
