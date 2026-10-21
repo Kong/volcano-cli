@@ -12,9 +12,9 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one **custom domain** (BYOC) attached, at or below a domain your
-  account has [verified](domains.md). A second, different domain is rejected
-  with `409`; serve another hostname from a separate frontend.
+- Can have one **custom domain** attached, with a certificate Volcano manages
+  or your own (BYOC). A second, different domain is rejected with `409`;
+  serve another hostname from a separate frontend.
 - Can forward paths to public [functions](functions.md) through
   **function routes**.
 - Frontend custom domains and function routes can also be declared in the
@@ -89,17 +89,78 @@ volcano cloud frontends list
 volcano cloud frontends logs my-site
 
 # Attach and check a custom domain
-volcano cloud frontends domain create my-site --domain app.example.com \
-  --cert ./fullchain-leaf.pem --key ./privkey.pem
+volcano cloud frontends domain create my-site --domain app.example.com --tls managed
 volcano cloud frontends domain get my-site
 ```
 
-Attaching a custom domain needs a [verified domain](domains.md) above it. When
-none exists, the command fails and prints the TXT record to publish.
+## Custom domains
 
-The domain command shows a DNS routing target hostname. Configure a CNAME only if
-your DNS provider confirms that your domain is not a zone apex. At an apex, use
-a provider-supported ALIAS, ANAME, or CNAME-flattening record with that target.
+With `--tls managed`, Volcano issues and renews the certificate. The command
+prints the DNS records to publish:
+
+```text
+✓ Custom domain 'app.example.com' created for frontend 'my-site'
+Note: Publish the verification records below and keep them. Volcano issues and renews the certificate. Check progress with: volcano cloud frontends domain get my-site
+Domain: app.example.com
+TLS mode: managed
+Domain status: pending_verification
+Verification status: pending
+DNS routing target: <frontend-id>.frontends.volcano.run
+  Use CNAME only if your DNS provider confirms this is not a zone apex. At an apex, use provider-supported ALIAS, ANAME, or CNAME flattening.
+Verification records:
+  TXT _volcano.example.com -> volcano-domain-verification=6f0d3c1b9e2a47d58c4b1a0e9f3d2c7b
+```
+
+A `_volcano` TXT record appears when your account has not
+[verified](domains.md) a domain above the hostname. Once Volcano sees it,
+`domain get` shows the `_acme-challenge` CNAME that authorizes the
+certificate. Keep both records published for renewal.
+
+To bring your own certificate, pass it with an unencrypted private key.
+BYOC needs a [verified domain](domains.md) above the hostname; without one,
+the command fails and prints the TXT record to publish.
+
+```bash
+volcano cloud frontends domain create my-site --domain app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem --chain ./chain.pem
+```
+
+`--chain` is optional. Running `domain create` again for a BYOC domain does not
+replace its certificate; rotate it through
+[`custom_domain`](/platform/projects/configuration) in `volcano-config.yaml`
+and `volcano cloud config deploy` instead.
+
+Point DNS at the routing target that `domain get` shows. Configure a CNAME only
+if your DNS provider confirms that your domain is not a zone apex. At an apex,
+use a provider-supported ALIAS, ANAME, or CNAME-flattening record with that
+target.
+
+### Switch TLS modes
+
+Run `domain create` for the frontend's active domain with the other mode to
+switch it in place, without downtime:
+
+```bash
+# BYOC to managed: your certificate serves until Volcano issues its own
+volcano cloud frontends domain create my-site --domain app.example.com --tls managed
+
+# Managed to BYOC: your certificate replaces the managed one at once
+volcano cloud frontends domain create my-site --domain app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem
+```
+
+Moving to managed TLS prints the `_acme-challenge` CNAME to publish.
+`Serving certificate` reads `uploaded` until the managed certificate serves,
+then `managed`. If issuance fails, `Failure reason` names the cause while your
+certificate keeps serving. The switch needs a free managed certificate in your
+[plan](/platform/guides/plans-and-limits#frontends). A domain that is not yet
+active has no certificate to keep serving. Wait until it is active, or delete
+it and attach it again in the other mode.
+
+If the frontend's entry in `volcano-config.yaml` declares `custom_domain.tls`,
+set it to the new mode too. Otherwise the next `volcano cloud config deploy` or
+`volcano deploy` switches the domain back. `mode: byoc` without PEM fields
+keeps the certificate you uploaded.
 
 ## Function routes
 

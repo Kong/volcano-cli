@@ -174,13 +174,14 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	assert.InEpsilon(t, 75, logSearchBodies[1]["limit"], 0)
 	assert.Equal(t, "dep-next", logSearchBodies[1]["cursor"])
 
-	createdDomain, err := client.CreateFrontendCustomDomain(context.Background(), projectID, frontendID, FrontendCustomDomainInput{
+	createdDomain, created, err := client.CreateFrontendCustomDomain(context.Background(), projectID, frontendID, FrontendCustomDomainInput{
 		Domain:              " app.example.com ",
 		CertificatePEM:      " cert ",
 		PrivateKeyPEM:       " key ",
 		CertificateChainPEM: " chain ",
 	})
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.Equal(t, "app.example.com", createdDomain.Domain)
 	tlsConfig, ok := createBody["tls"].(map[string]any)
 	require.True(t, ok)
@@ -303,6 +304,46 @@ func TestFrontendFunctionRouteMethodsUseGeneratedRoutes(t *testing.T) {
 		"PUT " + routesPath + "/" + routeIDText,
 		"DELETE " + routesPath + "/" + routeIDText,
 	}, requests)
+}
+
+func TestCreateFrontendCustomDomainManagedSendsNoCertificate(t *testing.T) {
+	var createBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+		response := frontendCustomDomainResponse("app.example.com", "active")
+		response["tls_mode"] = "managed"
+		response["serving_certificate"] = "uploaded"
+		writeAPIJSON(t, w, http.StatusOK, response)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	domain, created, err := client.CreateFrontendCustomDomain(context.Background(), uuid.New(), uuid.New(), FrontendCustomDomainInput{
+		Domain:  "app.example.com",
+		TLSMode: apiclient.FrontendCustomDomainTLSConfigModeManaged,
+	})
+	require.NoError(t, err)
+	assert.False(t, created, "a 200 answers for a domain the frontend already had")
+	require.NotNil(t, domain.ServingCertificate)
+	assert.Equal(t, apiclient.FrontendCustomDomainResponseServingCertificateUploaded, *domain.ServingCertificate)
+	assert.Equal(t, map[string]any{"domain": "app.example.com", "tls": map[string]any{"mode": "managed"}}, createBody)
+}
+
+func TestGetFrontendCustomDomainReportsNoDomainAsNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("null\n"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	domain, err := client.GetFrontendCustomDomain(context.Background(), uuid.New(), uuid.New())
+	require.ErrorIs(t, err, ErrNotFound)
+	assert.Nil(t, domain)
 }
 
 // The server's refusal says what to fix, so it has to reach the user as sent.

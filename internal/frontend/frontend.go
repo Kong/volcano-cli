@@ -27,6 +27,20 @@ type CustomDomainEntry struct {
 	Domain   apiclient.FrontendCustomDomainResponse
 }
 
+// CustomDomainChange is what a custom domain create request did.
+type CustomDomainChange int
+
+const (
+	// CustomDomainCreated means the frontend had no domain and now has one.
+	CustomDomainCreated CustomDomainChange = iota
+	// CustomDomainSwitched means the frontend's active domain changed TLS mode
+	// in place.
+	CustomDomainSwitched
+	// CustomDomainUnchanged means the frontend already had the domain in the
+	// requested TLS mode. The server ignores certificate material then.
+	CustomDomainUnchanged
+)
+
 // NewService returns a frontend service.
 func NewService(deps cliruntime.Deps) Service {
 	return Service{sessions: clisession.NewFactory(deps)}
@@ -240,26 +254,41 @@ func (s Service) StreamDeploymentLogs(ctx context.Context, frontendID, deploymen
 	return stream, nil
 }
 
-// CreateCustomDomain attaches a custom domain to a frontend.
-func (s Service) CreateCustomDomain(ctx context.Context, identifier string, input api.FrontendCustomDomainInput) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, error) {
+// CreateCustomDomain attaches a custom domain to a frontend, or switches the
+// TLS mode of its active domain in place when input names the same hostname.
+func (s Service) CreateCustomDomain(ctx context.Context, identifier string, input api.FrontendCustomDomainInput) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, CustomDomainChange, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 
 	frontend, err := resolveFrontend(ctx, authenticated, identifier)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
+		return nil, nil, 0, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
 	}
 	if frontend == nil {
-		return nil, nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
+		return nil, nil, 0, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
 	}
 
-	domain, err := authenticated.API.CreateFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id, input)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create custom domain: %w", err)
+	// The server answers a switch and a repeated request alike, so the domain
+	// it had before tells them apart.
+	previous, err := authenticated.API.GetFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id)
+	if err != nil && !noCustomDomain(err) {
+		return nil, nil, 0, fmt.Errorf("failed to get frontend custom domain: %w", err)
 	}
-	return frontend, domain, nil
+
+	domain, created, err := authenticated.API.CreateFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id, input)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("failed to create custom domain: %w", err)
+	}
+	switch {
+	case created:
+		return frontend, domain, CustomDomainCreated, nil
+	case previous != nil && previous.TlsMode != domain.TlsMode:
+		return frontend, domain, CustomDomainSwitched, nil
+	default:
+		return frontend, domain, CustomDomainUnchanged, nil
+	}
 }
 
 // GetCustomDomain returns the configured custom domain for a frontend.
@@ -278,6 +307,9 @@ func (s Service) GetCustomDomain(ctx context.Context, identifier string) (*apicl
 	}
 
 	domain, err := authenticated.API.GetFrontendCustomDomain(ctx, authenticated.ProjectID, frontend.Id)
+	if errors.Is(err, api.ErrNotFound) {
+		return nil, nil, api.WithCause(fmt.Errorf("frontend %q has no custom domain", frontend.Name), err)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get frontend custom domain: %w", err)
 	}
@@ -319,7 +351,7 @@ func (s Service) ListCustomDomains(ctx context.Context) ([]CustomDomainEntry, er
 		for i := range frontends.Data {
 			domain, err := authenticated.API.GetFrontendCustomDomain(ctx, authenticated.ProjectID, frontends.Data[i].Id)
 			if err != nil {
-				if api.Status(err) == http.StatusNotFound {
+				if noCustomDomain(err) {
 					continue
 				}
 				return nil, fmt.Errorf("failed to get custom domain for frontend %q: %w", frontends.Data[i].Name, err)
@@ -338,6 +370,12 @@ func (s Service) ListCustomDomains(ctx context.Context) ([]CustomDomainEntry, er
 		return strings.ToLower(entries[i].Frontend.Name) < strings.ToLower(entries[j].Frontend.Name)
 	})
 	return entries, nil
+}
+
+// noCustomDomain reports whether err says a frontend has no custom domain.
+// Older servers answered 404 instead of null.
+func noCustomDomain(err error) bool {
+	return errors.Is(err, api.ErrNotFound) || api.Status(err) == http.StatusNotFound
 }
 
 // maxResolvePages caps the pagination walk in resolveFrontend so a server

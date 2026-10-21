@@ -35,6 +35,7 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	waitForAPIE2EFrontendContent(t, siteURL, "Volcano CLI E2E v3")
 
 	requireAPIE2EFrontendRoutes(t, env, frontend, siteURL)
+	requireAPIE2EFrontendManagedDomain(t, env, frontend)
 
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")
@@ -104,6 +105,34 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
+}
+
+// requireAPIE2EFrontendManagedDomain attaches a managed TLS domain and removes
+// it. This suite cannot publish DNS, so the domain stays pending verification:
+// the check is that the CLI sends a managed request and prints the record that
+// starts issuance. Kong/volcano-hosting's cloud E2E issues a certificate and
+// switches TLS modes through real DNS.
+func requireAPIE2EFrontendManagedDomain(t *testing.T, env *apiE2E, frontend string) {
+	t.Helper()
+	domain := "cli-e2e-" + apiE2ESuffix(t) + ".example.com"
+	env.runCloudCLI(t, "frontends", "domain", "get", frontend).
+		requireFailure(t, fmt.Sprintf("frontend %q has no custom domain", frontend))
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed", "--cert", "cert.pem").
+		requireFailure(t, "--cert, --key, and --chain apply only to --tls byoc")
+
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed").
+		requireSuccess(t,
+			fmt.Sprintf("Custom domain '%s' created for frontend '%s'", domain, frontend),
+			"TLS mode: managed",
+			"Domain status: pending_verification",
+			"TXT _volcano.example.com -> volcano-domain-verification=")
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' already uses managed TLS on frontend '%s'", domain, frontend))
+	env.runCloudCLI(t, "frontends", "domain", "list").requireSuccess(t, frontend, domain)
+
+	env.runCloudCLI(t, "frontends", "domain", "delete", frontend, "--yes").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' deletion started", domain))
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No custom domains configured", "frontends", "domain", "list")
 }
 
 // writeAPIE2ERoutedFunction writes an HTTP-mode function that answers with the

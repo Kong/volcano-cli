@@ -1332,6 +1332,24 @@ func (e FrontendCustomDomainResponseDomainStatus) Valid() bool {
 	}
 }
 
+// Defines values for FrontendCustomDomainResponseServingCertificate.
+const (
+	FrontendCustomDomainResponseServingCertificateManaged  FrontendCustomDomainResponseServingCertificate = "managed"
+	FrontendCustomDomainResponseServingCertificateUploaded FrontendCustomDomainResponseServingCertificate = "uploaded"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainResponseServingCertificate enum.
+func (e FrontendCustomDomainResponseServingCertificate) Valid() bool {
+	switch e {
+	case FrontendCustomDomainResponseServingCertificateManaged:
+		return true
+	case FrontendCustomDomainResponseServingCertificateUploaded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FrontendCustomDomainResponseTlsMode.
 const (
 	FrontendCustomDomainResponseTlsModeByoc    FrontendCustomDomainResponseTlsMode = "byoc"
@@ -2466,6 +2484,24 @@ func (e ProjectFrontendCustomDomainDomainStatus) Valid() bool {
 	case ProjectFrontendCustomDomainDomainStatusPendingVerification:
 		return true
 	case ProjectFrontendCustomDomainDomainStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectFrontendCustomDomainServingCertificate.
+const (
+	ProjectFrontendCustomDomainServingCertificateManaged  ProjectFrontendCustomDomainServingCertificate = "managed"
+	ProjectFrontendCustomDomainServingCertificateUploaded ProjectFrontendCustomDomainServingCertificate = "uploaded"
+)
+
+// Valid indicates whether the value is a known member of the ProjectFrontendCustomDomainServingCertificate enum.
+func (e ProjectFrontendCustomDomainServingCertificate) Valid() bool {
+	switch e {
+	case ProjectFrontendCustomDomainServingCertificateManaged:
+		return true
+	case ProjectFrontendCustomDomainServingCertificateUploaded:
 		return true
 	default:
 		return false
@@ -6806,7 +6842,7 @@ type FrontendCustomDomainResponse struct {
 	DomainStatus  FrontendCustomDomainResponseDomainStatus `json:"domain_status"`
 	EffectiveUrls []string                                 `json:"effective_urls"`
 
-	// FailureReason Failure category, present only when managed TLS setup has failed. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
+	// FailureReason Failure category, present when managed TLS setup has failed, or when issuance is failing for a domain that switched to managed TLS and still serves its uploaded certificate. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
 	FailureReason *string `json:"failure_reason,omitempty"`
 
 	// RequiredRoutingRecord Deprecated and no longer returned. Use routing_target_hostname as the DNS routing target.
@@ -6814,9 +6850,12 @@ type FrontendCustomDomainResponse struct {
 	RequiredRoutingRecord *FrontendDomainRoutingRecord `json:"required_routing_record,omitempty"`
 
 	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
-	RoutingTargetHostname *string                             `json:"routing_target_hostname,omitempty"`
-	TlsMode               FrontendCustomDomainResponseTlsMode `json:"tls_mode"`
-	UpdatedAt             time.Time                           `json:"updated_at"`
+	RoutingTargetHostname *string `json:"routing_target_hostname,omitempty"`
+
+	// ServingCertificate Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.
+	ServingCertificate *FrontendCustomDomainResponseServingCertificate `json:"serving_certificate,omitempty"`
+	TlsMode            FrontendCustomDomainResponseTlsMode             `json:"tls_mode"`
+	UpdatedAt          time.Time                                       `json:"updated_at"`
 
 	// VerificationRecords DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
 	VerificationRecords *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
@@ -6827,6 +6866,9 @@ type FrontendCustomDomainResponse struct {
 
 // FrontendCustomDomainResponseDomainStatus defines model for FrontendCustomDomainResponse.DomainStatus.
 type FrontendCustomDomainResponseDomainStatus string
+
+// FrontendCustomDomainResponseServingCertificate Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.
+type FrontendCustomDomainResponseServingCertificate string
 
 // FrontendCustomDomainResponseTlsMode defines model for FrontendCustomDomainResponse.TlsMode.
 type FrontendCustomDomainResponseTlsMode string
@@ -8589,8 +8631,9 @@ type ProjectConfigBucketPolicyOperation string
 // domain, omitting `tls` or sending only `tls.mode` keeps the stored
 // certificate; new BYOC material for the same domain rotates the
 // certificate in place (zero downtime). Changing `tls.mode` for the same
-// hostname, or the hostname of a managed domain, requires deleting the
-// domain first. BYOC TLS material is write-only; exports render only
+// hostname switches an active domain in place (zero downtime); a domain
+// that is not yet active, or a managed domain changing hostname, must be
+// deleted first. BYOC TLS material is write-only; exports render only
 // `tls.mode`.
 type ProjectConfigCustomDomain struct {
 	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
@@ -8658,8 +8701,9 @@ type ProjectConfigFrontend struct {
 	// domain, omitting `tls` or sending only `tls.mode` keeps the stored
 	// certificate; new BYOC material for the same domain rotates the
 	// certificate in place (zero downtime). Changing `tls.mode` for the same
-	// hostname, or the hostname of a managed domain, requires deleting the
-	// domain first. BYOC TLS material is write-only; exports render only
+	// hostname switches an active domain in place (zero downtime); a domain
+	// that is not yet active, or a managed domain changing hostname, must be
+	// deleted first. BYOC TLS material is write-only; exports render only
 	// `tls.mode`.
 	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
 
@@ -8963,7 +9007,7 @@ type ProjectFrontendCustomDomain struct {
 	DomainStatus  ProjectFrontendCustomDomainDomainStatus `json:"domain_status"`
 	EffectiveUrls []string                                `json:"effective_urls"`
 
-	// FailureReason Failure category, present only when managed TLS setup has failed. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
+	// FailureReason Failure category, present when managed TLS setup has failed, or when issuance is failing for a domain that switched to managed TLS and still serves its uploaded certificate. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
 	FailureReason *string `json:"failure_reason,omitempty"`
 
 	// Frontend The frontend this custom domain is attached to. Inlined to
@@ -8978,9 +9022,12 @@ type ProjectFrontendCustomDomain struct {
 	RequiredRoutingRecord *FrontendDomainRoutingRecord `json:"required_routing_record,omitempty"`
 
 	// RoutingTargetHostname DNS routing target hostname for this frontend. The DNS record type depends on whether the custom domain is a zone apex.
-	RoutingTargetHostname *string                            `json:"routing_target_hostname,omitempty"`
-	TlsMode               ProjectFrontendCustomDomainTlsMode `json:"tls_mode"`
-	UpdatedAt             time.Time                          `json:"updated_at"`
+	RoutingTargetHostname *string `json:"routing_target_hostname,omitempty"`
+
+	// ServingCertificate Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.
+	ServingCertificate *ProjectFrontendCustomDomainServingCertificate `json:"serving_certificate,omitempty"`
+	TlsMode            ProjectFrontendCustomDomainTlsMode             `json:"tls_mode"`
+	UpdatedAt          time.Time                                      `json:"updated_at"`
 
 	// VerificationRecords DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
 	VerificationRecords *[]FrontendDomainVerificationRecord `json:"verification_records,omitempty"`
@@ -8991,6 +9038,9 @@ type ProjectFrontendCustomDomain struct {
 
 // ProjectFrontendCustomDomainDomainStatus defines model for ProjectFrontendCustomDomain.DomainStatus.
 type ProjectFrontendCustomDomainDomainStatus string
+
+// ProjectFrontendCustomDomainServingCertificate Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.
+type ProjectFrontendCustomDomainServingCertificate string
 
 // ProjectFrontendCustomDomainTlsMode defines model for ProjectFrontendCustomDomain.TlsMode.
 type ProjectFrontendCustomDomainTlsMode string

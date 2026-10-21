@@ -23,9 +23,11 @@ type FrontendDeployInput struct {
 	Archive       []byte
 }
 
-// FrontendCustomDomainInput contains one custom domain attach request.
+// FrontendCustomDomainInput contains one custom domain attach request. An
+// empty TLSMode means BYOC. A managed request carries no PEM material.
 type FrontendCustomDomainInput struct {
 	Domain              string
+	TLSMode             apiclient.FrontendCustomDomainTLSConfigMode
 	CertificatePEM      string
 	PrivateKeyPEM       string
 	CertificateChainPEM string
@@ -168,43 +170,59 @@ func (c *Client) StreamFrontendDeploymentLogs(ctx context.Context, projectID, fr
 	return c.streamProjectLogs(ctx, projectID, body, lastEventID)
 }
 
-// CreateFrontendCustomDomain attaches a BYOC custom domain to a frontend.
-func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendCustomDomainInput) (*apiclient.FrontendCustomDomainResponse, error) {
-	certificate := strings.TrimSpace(input.CertificatePEM)
-	privateKey := strings.TrimSpace(input.PrivateKeyPEM)
+// CreateFrontendCustomDomain attaches a custom domain to a frontend. A request
+// for the hostname of the frontend's active domain in the other TLS mode
+// switches that domain in place. created is false when the server answered for
+// a domain the frontend already had.
+func (c *Client) CreateFrontendCustomDomain(ctx context.Context, projectID, frontendID uuid.UUID, input FrontendCustomDomainInput) (domain *apiclient.FrontendCustomDomainResponse, created bool, err error) {
 	body := apiclient.CreateFrontendCustomDomainJSONRequestBody{
 		Domain: strings.TrimSpace(input.Domain),
-		Tls: apiclient.FrontendCustomDomainTLSConfig{
-			CertificatePem: &certificate,
-			Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
-			PrivateKeyPem:  &privateKey,
-		},
+		Tls:    frontendCustomDomainTLSConfig(input),
 	}
-	if chain := strings.TrimSpace(input.CertificateChainPEM); chain != "" {
-		body.Tls.CertificateChainPem = &chain
-	}
-
 	resp, err := c.client.CreateFrontendCustomDomainWithResponse(ctx, projectID, frontendID, body)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if resp.JSON201 != nil {
-		return resp.JSON201, nil
+		return resp.JSON201, true, nil
 	}
 	if resp.JSON200 != nil {
-		return resp.JSON200, nil
+		return resp.JSON200, false, nil
 	}
 	if resp.JSON409 != nil {
-		return nil, conflictError(resp.StatusCode(), resp.JSON409)
+		return nil, false, conflictError(resp.StatusCode(), resp.JSON409)
 	}
-	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+	return nil, false, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+}
+
+func frontendCustomDomainTLSConfig(input FrontendCustomDomainInput) apiclient.FrontendCustomDomainTLSConfig {
+	if input.TLSMode == apiclient.FrontendCustomDomainTLSConfigModeManaged {
+		return apiclient.FrontendCustomDomainTLSConfig{Mode: apiclient.FrontendCustomDomainTLSConfigModeManaged}
+	}
+	certificate := strings.TrimSpace(input.CertificatePEM)
+	privateKey := strings.TrimSpace(input.PrivateKeyPEM)
+	config := apiclient.FrontendCustomDomainTLSConfig{
+		CertificatePem: &certificate,
+		Mode:           apiclient.FrontendCustomDomainTLSConfigModeByoc,
+		PrivateKeyPem:  &privateKey,
+	}
+	if chain := strings.TrimSpace(input.CertificateChainPEM); chain != "" {
+		config.CertificateChainPem = &chain
+	}
+	return config
 }
 
 // GetFrontendCustomDomain returns the configured custom domain for a frontend.
+// It returns ErrNotFound when the frontend has none.
 func (c *Client) GetFrontendCustomDomain(ctx context.Context, projectID, frontendID uuid.UUID) (*apiclient.FrontendCustomDomainResponse, error) {
 	resp, err := c.client.GetFrontendCustomDomainWithResponse(ctx, projectID, frontendID)
 	if err != nil {
 		return nil, err
+	}
+	// The server answers 200 with a JSON null for a frontend without a domain,
+	// which the generated parser decodes into an empty response.
+	if resp.JSON200 != nil && bytes.Equal(bytes.TrimSpace(resp.Body), []byte("null")) {
+		return nil, fmt.Errorf("custom domain %w", ErrNotFound)
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }

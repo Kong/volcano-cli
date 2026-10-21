@@ -136,6 +136,7 @@ func requireLocalModeLeavesFrontendDomainsToTheCloud(t *testing.T, binary string
 	for _, args := range [][]string{
 		{"frontends", "domain", "get", "web"},
 		{"frontends", "domain", "create", "web", "--domain", "app.example.com"},
+		{"frontends", "domain", "create", "web", "--domain", "app.example.com", "--tls", "managed"},
 	} {
 		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
 		if err == nil {
