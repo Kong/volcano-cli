@@ -38,7 +38,7 @@ func New() *cobra.Command {
 		Short: "Report a problem you hit with Volcano",
 		Long: `Send the Volcano team a report about a problem with Volcano: the CLI,
 the platform, the docs, or the agent skills. Coding agents run this after a
-task, so the user's work is not held up.
+task.
 
 Give the report as flags, or as one JSON object with --input. --input takes
 the object itself, a file that holds it, or - for stdin. The object's keys are
@@ -76,9 +76,7 @@ telemetry is on, it also carries this machine's telemetry ID, and is linked to
 your account when you are logged in.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
-volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1; the command then sends
-nothing and exits 0. Nothing is sent before the CLI has shown its first-run
-notice.`,
+volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 		Example: `  volcano feedback \
     --category docs_mismatch \
     --summary "volcano-platform skill passes --json to functions list; the CLI rejects it" \

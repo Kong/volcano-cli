@@ -10,13 +10,6 @@ with Volcano: the CLI, the platform, the docs, or the agent skills. The Volcano
 agent skills tell coding agents to run it after they finish a task, for each
 distinct Volcano problem they ran into. You can run it yourself too.
 
-Feedback has its own setting, separate from telemetry. See "Turn it off"
-below.
-
-When a coding agent runs a `volcano` command that fails, and feedback is on,
-the CLI ends the error output with one line that points the agent to
-`volcano feedback`.
-
 ## Send a report
 
 ```bash
@@ -29,9 +22,6 @@ volcano feedback \
   --actual "Error: unknown flag: --json" \
   --workaround "Parsed the table output instead."
 ```
-
-On success the CLI prints the report ID. When feedback is off, it sends
-nothing and exits 0. So does the first command after install.
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|
@@ -112,8 +102,7 @@ Each report carries the text you wrote and these fields:
 
 While telemetry is on, it also carries:
 
-- The random machine ID that telemetry uses, so the Volcano team can match the
-  report to the usage events of the commands that failed
+- The random machine ID that telemetry uses
 - Your Volcano account, if you are logged in
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
@@ -126,12 +115,9 @@ write `<secret>` for every password, token, or key, and placeholders such as
 bucket names, file paths, and payload values. Do not put file contents,
 environment variable values, application data, or customer names in a report.
 
-Use `--dry-run` to see the exact report before sending it.
-
 ## Turn it off
 
-Feedback has its own setting. Turning telemetry off does not turn it off. Use
-either of these:
+Turning telemetry off does not turn off feedback. Use either of these:
 
 ```bash
 volcano feedback disable    # saved in ~/.volcano/config.json
@@ -139,6 +125,4 @@ export VOLCANO_FEEDBACK_DISABLED=1
 ```
 
 `volcano feedback status` shows the current setting, and `volcano feedback
-enable` turns it back on. A change applies from the next command, and logging
-out does not change it. While feedback is off, coding agents also no longer
-see the line that points them to `volcano feedback` after a failed command.
+enable` turns it back on.

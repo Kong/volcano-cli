@@ -84,14 +84,6 @@ to the account last used on that machine.
 Shell completion (`volcano completion` and pressing Tab), commands run with
 `--offline`, and `volcano telemetry` commands are never recorded.
 
-## Feedback reports
-
-Coding agents can also send a feedback report with `volcano feedback` when they
-hit a problem with Volcano. A report carries text the agent wrote, such as what
-it was doing, the commands it ran, and the error it got. While telemetry is on,
-the report also carries the machine ID above. Feedback has its own setting, so
-turning telemetry off does not turn it off. See [feedback.md](feedback.md).
-
 ## How it is sent
 
 The CLI starts a short background process that posts the event to the Volcano
