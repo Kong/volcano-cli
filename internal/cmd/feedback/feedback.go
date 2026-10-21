@@ -132,7 +132,7 @@ volcano feedback disable.`,
 				return fmt.Errorf("after redaction, %w", err)
 			}
 			if dryRun {
-				return printReport(cmd, report, on)
+				return printReport(cmd, report, on && token != "")
 			}
 			payload, err := encodeReport(report, "")
 			if err != nil {
@@ -298,14 +298,17 @@ func saveReport(payload []byte) error {
 	return f.Close()
 }
 
-func printReport(cmd *cobra.Command, report feedback.Report, on bool) error {
+// printReport prints report for --dry-run, and says so when a real run would
+// send nothing: feedback is off, the first-run notice has not been shown, or
+// the user is logged out.
+func printReport(cmd *cobra.Command, report feedback.Report, sends bool) error {
 	out, err := encodeReport(report, "  ")
 	if err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), string(out))
-	if !on {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Feedback is off, so this report would not be sent.")
+	if !sends {
+		fmt.Fprintln(cmd.ErrOrStderr(), "This report would not be sent.")
 	}
 	return nil
 }

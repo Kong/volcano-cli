@@ -228,6 +228,10 @@ func TestFeedback_LoggedOutSendsNothing(t *testing.T) {
 	stdout, _, err = run(t, "status")
 	require.NoError(t, err)
 	assert.Equal(t, "Feedback is enabled, but no report is sent until you log in with `volcano login`.\n", stdout)
+
+	_, stderr, err = run(t, append([]string{"--dry-run"}, reportArgs...)...)
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "This report would not be sent.")
 }
 
 func TestFeedback_SettingSurvivesLogout(t *testing.T) {
