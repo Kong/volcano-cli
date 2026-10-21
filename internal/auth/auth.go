@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -431,22 +430,6 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	}
 	selected := &apiclient.Project{Id: id, Name: credentials.Project.Name}
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
-}
-
-// GitEmail returns `git config --global user.email`, or "" when it is unset
-// or git fails. Signup offers it as the default email address.
-func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
-	runner := deps.GitCommandRunner
-	if runner == nil {
-		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
-		})
-	}
-	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
 }
 
 // Logout removes the login, the current project, and function aliases from the

@@ -139,7 +139,7 @@ It ends with the project's name, its directory, and its dashboard link.
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
-	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
+	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (required with --signup)")
 	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
 	cmd.MarkFlagsMutuallyExclusive("device-code", "signup")
@@ -408,10 +408,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	if opts.signup {
 		email := strings.TrimSpace(opts.email)
 		if email == "" {
-			email = cliauth.GitEmail(ctx, opts.deps)
-		}
-		if email == "" {
-			return errors.New("--signup needs an email address: pass --email, or set git config --global user.email")
+			return errors.New("--signup needs an email address: pass --email")
 		}
 		credentials, err = auth.Signup(ctx, cfg, email, opts.log)
 	} else {
