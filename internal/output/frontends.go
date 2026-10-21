@@ -152,8 +152,14 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 	on := theme.On(w)
 	kv(w, on, "Domain", "%s", domain.Domain)
 	kv(w, on, "TLS mode", "%s", strings.TrimSpace(string(domain.TlsMode)))
+	if domain.ServingCertificate != nil && *domain.ServingCertificate != "" {
+		kv(w, on, "Serving certificate", "%s", *domain.ServingCertificate)
+	}
 	kv(w, on, "Domain status", "%s", theme.Status(strings.TrimSpace(string(domain.DomainStatus)), on))
 	kv(w, on, "Verification status", "%s", theme.Status(strings.TrimSpace(string(domain.VerificationStatus)), on))
+	if domain.FailureReason != nil && *domain.FailureReason != "" {
+		kv(w, on, "Failure reason", "%s", *domain.FailureReason)
+	}
 
 	if domain.RoutingTargetHostname != nil && *domain.RoutingTargetHostname != "" {
 		kv(w, on, "DNS routing target", "%s", *domain.RoutingTargetHostname)

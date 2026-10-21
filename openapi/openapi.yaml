@@ -7142,6 +7142,8 @@ paths:
         The account must own the hostname: it must have verified the hostname or a domain above it (see `POST /user/domains`). A certificate does not prove ownership.
         When the account owns no domain covering the hostname, Volcano asks for a TXT record at `_volcano.<registrable domain>`, such as `_volcano.example.com`. Publishing it verifies the whole domain, so later subdomains need no record. A managed TLS request reserves the hostname and returns that record in `verification_records`; the reservation expires after 72 hours unless the record is published. A BYOC request gets `409` with `code: ownership_verification_required` and the record in `required_record`; publish it and send the same request again.
         Managed TLS then returns the CNAME that authorizes certificate issuance and renewal.
+        To move an active BYOC domain to managed TLS without downtime, send `tls.mode: managed` for the same hostname. The response is `200` with the CNAME to publish; the uploaded certificate keeps serving until Volcano issues the managed one, and `serving_certificate` changes from `uploaded` to `managed`.
+        To move an active managed domain to BYOC without downtime, send `tls.mode: byoc` with the certificate for the same hostname. The response is `200`; the uploaded certificate replaces the managed one at once, and Volcano stops renewing the managed certificate.
         An unverified reservation does not block an account that proves ownership. When another account holds one, a request gets `409` with `code: ownership_verification_required` and the caller's own `required_record`; after publishing it, the same request takes over the reservation. When another account verified the domain, the same `409` names the record that moves the domain to the caller once the other account's record is no longer published. A hostname below a domain another account owns otherwise returns `409` without `code`.
       operationId: createFrontendCustomDomain
       security:
@@ -7158,7 +7160,7 @@ paths:
               $ref: '#/components/schemas/CreateFrontendCustomDomainRequest'
       responses:
         '200':
-          description: Custom domain already configured with same hostname
+          description: "Custom domain already configured with the same hostname. A request with the other TLS mode for the frontend's active domain switches it in place. To managed TLS, the uploaded certificate keeps serving, with `serving_certificate: uploaded`, until Volcano issues the managed certificate. To BYOC, the uploaded certificate replaces the managed one at once."
           content:
             application/json:
               schema:
@@ -19947,9 +19949,15 @@ components:
             - verified
             - failed
           description: '`verified`: the domain is served by a validated certificate. `pending`: it is not served yet, is being re-validated after its certificate material was withdrawn, or Volcano is retrying after a failure. `failed`: a failure left the domain unserved, alongside `domain_status: failed`; managed domains report the cause in `failure_reason`.'
+        serving_certificate:
+          type: string
+          enum:
+            - uploaded
+            - managed
+          description: 'Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.'
         failure_reason:
           type: string
-          description: Failure category, present only when managed TLS setup has failed. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
+          description: Failure category, present when managed TLS setup has failed, or when issuance is failing for a domain that switched to managed TLS and still serves its uploaded certificate. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
         verification_records:
           type: array
           description: DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
