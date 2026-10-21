@@ -544,7 +544,7 @@ func printNotice(w io.Writer, n notice) {
 	switch {
 	case n.telemetry && n.feedback:
 		fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI. Coding agents can also send feedback reports about problems they hit with `volcano feedback`.")
-		fmt.Fprintf(w, "Nothing is sent until your next command. Turn off usage data with `volcano telemetry disable` or %s=1, and feedback with `volcano feedback disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled, EnvFeedbackDisabled)
+		fmt.Fprintf(w, "Nothing is sent until your next command. Turn off usage data with `volcano telemetry disable` or %s=1, and feedback with `volcano feedback disable`. Details: `volcano telemetry --help`.\n", EnvDisabled)
 	case n.telemetry:
 		fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI.")
 		fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)

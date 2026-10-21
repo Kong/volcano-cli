@@ -27,9 +27,9 @@ type Client struct {
 
 // Client returns what this process may report about the machine and the coding
 // agent with a feedback report. The device ID is set only while usage data may
-// be sent (see Reporting), since it ties a report to this machine. A machine that has seen the notice but has no
-// device ID yet, such as after `volcano telemetry enable` on a fresh home, gets
-// one now.
+// be sent (see Reporting), since it ties a report to this machine. A machine
+// that has seen the notice but has no device ID yet, such as after `volcano
+// telemetry enable` on a fresh home, gets one now.
 func (r *Recorder) Client() Client {
 	r.setup()
 	detected := agent.Detect(r.LookupEnv)

@@ -21,8 +21,9 @@ import (
 )
 
 // recorder is the process's telemetry recorder, which decides whether
-// feedback may be sent and what the report says about the machine. main sets it with SetRecorder so the process reads the
-// telemetry setting once; the zero value reads the real config.
+// feedback may be sent and what the report says about the machine. main sets
+// it with SetRecorder so the process reads the telemetry setting once; the
+// zero value reads the real config.
 var recorder = &telemetry.Recorder{}
 
 // SetRecorder makes the command use the process's telemetry recorder.
@@ -76,7 +77,7 @@ telemetry is on, it also carries this machine's telemetry ID, and is linked to
 your account when you are logged in.
 
 Feedback has its own setting, separate from telemetry. Turn it off with
-volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1.`,
+volcano feedback disable.`,
 		Example: `  volcano feedback \
     --category docs_mismatch \
     --summary "volcano-platform skill passes --json to functions list; the CLI rejects it" \
@@ -134,13 +135,13 @@ volcano feedback disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			if recorder.Reporting() {
 				token = cfg.Token()
 			}
+			// Always the cloud API: a local-mode config points at the local
+			// server, which does not take feedback.
 			if telemetry.FeedbackDebugByEnv(os.Getenv) {
 				if err := saveReport(payload); err != nil {
 					return fmt.Errorf("save feedback: %w", err)
 				}
 			} else if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
-				// Always the cloud API: a local-mode config points at the
-				// local server, which does not take feedback.
 				return fmt.Errorf("send feedback: %w", err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Feedback sent. ID: %s\n", report.FeedbackID)
