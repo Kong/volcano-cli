@@ -139,7 +139,7 @@ services:
       PORT: '8000'
       MANAGEMENT_PORT: '8001'
       PGPROXY_PORT: '8002'
-      PGPROXY_ADDRESS: '${PGPROXY_ADDRESS:-localhost:8002}'
+      PGPROXY_ADDRESS: 'localhost:8002'
       ENVIRONMENT: development
       APPCONFIG_AGENT_URL: http://appconfig-agent:2772
       APPCONFIG_APPLICATION: volcano-hosting

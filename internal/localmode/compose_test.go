@@ -1,6 +1,7 @@
 package localmode
 
 import (
+	"net"
 	"os"
 	"regexp"
 	"slices"
@@ -162,12 +163,19 @@ func TestDockerComposeTemplateLeavesServerOwnedLocalSecretsUnset(t *testing.T) {
 	}
 }
 
-func TestDockerComposeTemplateExposesLocalFrontendProxy(t *testing.T) {
+func TestDockerComposeTemplateExposesLocalProxies(t *testing.T) {
 	template := string(dockerComposeTemplate)
 
 	assert.Equal(t, "8080", composeTemplateEnvValue(t, template, "FRONTENDS_HTTP_PORT"))
 	assert.Equal(t, "*.frontends.localhost", composeTemplateEnvValue(t, template, "FRONTEND_INVOCATION_DNS"))
 	assert.Regexp(t, `(?m)^\s*-\s*['"]8080:8080['"]\s*$`, template)
+
+	address := composeTemplateEnvValue(t, template, "PGPROXY_ADDRESS")
+	assert.Equal(t, postgresAddress, address)
+	_, port, err := net.SplitHostPort(address)
+	require.NoError(t, err)
+	assert.Equal(t, port, composeTemplateEnvValue(t, template, "PGPROXY_PORT"))
+	assert.Regexp(t, `(?m)^\s*-\s*['"]`+regexp.QuoteMeta(port+":"+port)+`['"]\s*$`, template)
 }
 
 func TestDockerComposePersistencePreservesFunctionSource(t *testing.T) {
