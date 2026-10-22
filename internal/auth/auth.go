@@ -10,6 +10,7 @@ import (
 	"net/mail"
 	"net/url"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -477,6 +478,9 @@ var unusableEmailDomains = []string{
 	"example",
 }
 
+// noReplyLocalParts are sender names that cannot receive mail.
+var noReplyLocalParts = []string{"noreply", "no-reply", "no_reply", "donotreply", "do-not-reply"}
+
 // usableEmail reports whether a git email looks like an address the user would
 // sign up with. It rejects values that are not an address, private relay
 // addresses such as 12345+name@users.noreply.github.com, no-reply senders, and
@@ -488,10 +492,16 @@ func usableEmail(email string) bool {
 	}
 	at := strings.LastIndex(email, "@")
 	local, domain := strings.ToLower(email[:at]), strings.ToLower(email[at+1:])
-	if strings.HasPrefix(local, "noreply") || strings.HasPrefix(local, "no-reply") {
-		return false
+	for _, sender := range noReplyLocalParts {
+		if strings.HasPrefix(local, sender) {
+			return false
+		}
 	}
 	if !strings.Contains(domain, ".") {
+		return false
+	}
+	// Self-hosted forges use users.noreply.<host> for the same relay.
+	if slices.Contains(strings.Split(domain, "."), "noreply") {
 		return false
 	}
 	for _, blocked := range unusableEmailDomains {

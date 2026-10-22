@@ -1348,10 +1348,42 @@ func TestConnectSignupAsksForAnEmailWhenGitHasNoUsableOne(t *testing.T) {
 	cmd.SetIn(strings.NewReader(""))
 	cmd.SetArgs([]string{t.TempDir(), "--skip-skills", "--signup"})
 	err := cmd.Execute()
-	require.ErrorContains(t, err, "agents: ask the user which address to use")
+	require.ErrorContains(t, err, "Agents: ask the user for the email to sign up with")
 	require.ErrorContains(t, err, "--email")
 	assert.False(t, fake.deviceAuthorize)
 	assert.Zero(t, fake.creates)
+}
+
+// --email is used as given, even when git has a relay address. The fake
+// refuses device authorization, so reaching it shows signup went ahead.
+func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
+	for name, gitEmail := range map[string]string{
+		"relay git email":  "12345678+ted@users.noreply.github.com",
+		"usable git email": "support@volcano.dev",
+	} {
+		t.Run(name, func(t *testing.T) {
+			setConnectTestHome(t)
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+
+			cmd := New(cliruntime.Deps{
+				HTTPClient: server.Client(),
+				APIBaseURL: server.URL,
+				GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+					return []byte(gitEmail + "\n"), nil
+				}),
+			})
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+			cmd.SetIn(strings.NewReader(""))
+			cmd.SetArgs([]string{t.TempDir(), "--skip-skills", "--signup", "--email", "marco@volcano.dev"})
+			err := cmd.Execute()
+			require.ErrorContains(t, err, "browser authentication failed")
+			assert.True(t, fake.deviceAuthorize, "signup started")
+			assert.Zero(t, fake.creates)
+		})
+	}
 }
 
 // VOLCANO_PROJECT_ID is deprecated, and would override the link connect
