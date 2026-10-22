@@ -61,7 +61,7 @@ func (r *Recorder) Client() Client {
 	state := r.state()
 	if state.DeviceID == "" {
 		var err error
-		if state, _, err = r.initialize(true, false); err != nil || state.Disabled {
+		if state, _, _, err = r.initialize(true, false); err != nil || state.Disabled {
 			return c
 		}
 	}

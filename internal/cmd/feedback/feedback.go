@@ -226,6 +226,13 @@ func printStatus(cmd *cobra.Command) error {
 		fmt.Fprintln(w, "Feedback is enabled, but a project access token cannot send reports. Log in with `volcano login`.")
 		return nil
 	}
+	// A report is sent only once the first-run notice is saved. On a fresh
+	// machine this command shows and saves it, so the next report is sent;
+	// in a home that cannot be saved, no report ever is.
+	if !recorder.AnnounceFeedback(cmd.ErrOrStderr()) {
+		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until the first-run notice can be saved to ~/.volcano/config.json.")
+		return nil
+	}
 	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")
 	return nil
 }

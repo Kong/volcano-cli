@@ -135,6 +135,18 @@ type Recorder struct {
 	once   sync.Once
 	cfg    *config.Config
 	cfgErr error
+
+	// announceOnce guards announced, so the first-run notice is saved and
+	// printed at most once per process, by AnnounceFeedback or Record.
+	announceOnce sync.Once
+	announced    announcement
+}
+
+// announcement is the result of the one attempt to save the first-run notice.
+type announcement struct {
+	state         State // the telemetry block after the attempt
+	feedbackShown bool  // the saved config records the feedback notice
+	err           error
 }
 
 // setup fills in the defaults and reads the config, once.
@@ -293,17 +305,13 @@ func (r *Recorder) Record(inv Invocation) {
 		return
 	}
 	state := r.state()
-	telemetryOn := !DisabledByEnv(r.Getenv) && !state.Disabled
-	feedbackOn := r.feedbackSettingOn()
+	telemetryOn := r.telemetrySettingOn()
 	startedBeforeNotice := !state.NoticeShown
-	if (telemetryOn && (state.DeviceID == "" || !state.NoticeShown)) || (feedbackOn && !r.feedbackNoticeShown()) {
-		saved, announced, err := r.initialize(telemetryOn, feedbackOn)
+	if r.needsNotice() {
+		a := r.announce(inv.Stderr)
 		switch {
-		case err == nil:
-			state = saved
-			if inv.Stderr != nil {
-				printNotice(inv.Stderr, announced)
-			}
+		case a.err == nil:
+			state = a.state
 		// A home that cannot be saved, such as one mounted read-only, keeps
 		// sending usage data when an earlier process already announced it.
 		case startedBeforeNotice || state.DeviceID == "":
@@ -330,16 +338,64 @@ func (r *Recorder) Record(inv Invocation) {
 	_ = r.Send(payload)
 }
 
+// telemetrySettingOn reports whether usage data is on in the settings: no env
+// opt-out and not turned off with `volcano telemetry disable`.
+func (r *Recorder) telemetrySettingOn() bool {
+	return !DisabledByEnv(r.Getenv) && !r.state().Disabled
+}
+
+// needsNotice reports whether the config the process started with lacks a
+// first-run notice record for usage data or feedback while that one is on.
+func (r *Recorder) needsNotice() bool {
+	state := r.state()
+	return r.telemetrySettingOn() && (state.DeviceID == "" || !state.NoticeShown) ||
+		r.feedbackSettingOn() && !r.feedbackNoticeShown()
+}
+
+// announce saves the first-run notice for what needs it and prints it to w
+// when the save succeeds. Only the first call does anything; later calls
+// return its result, so Record after AnnounceFeedback prints nothing again.
+func (r *Recorder) announce(w io.Writer) announcement {
+	r.announceOnce.Do(func() {
+		state, feedbackShown, announced, err := r.initialize(r.telemetrySettingOn(), r.feedbackSettingOn())
+		r.announced = announcement{state: state, feedbackShown: feedbackShown, err: err}
+		if err == nil && w != nil {
+			printNotice(w, announced)
+		}
+	})
+	return r.announced
+}
+
+// AnnounceFeedback shows the first-run notice now, when the feedback setting
+// is on and feedback was not announced yet, and reports whether the config
+// records the feedback notice, so a report from the next process is sent. It
+// is false when the setting is off, the config cannot be read, or the notice
+// cannot be saved, such as in a read-only home. `volcano feedback status`
+// calls it so that its answer holds for the next command; Record in the same
+// process then shows nothing again.
+func (r *Recorder) AnnounceFeedback(w io.Writer) bool {
+	r.setup()
+	if r.cfgErr != nil || !r.feedbackSettingOn() {
+		return false
+	}
+	if r.feedbackNoticeShown() {
+		return true
+	}
+	a := r.announce(w)
+	return a.err == nil && a.feedbackShown
+}
+
 // initialize marks the notice as shown for usage data when telemetry is on,
 // giving the machine a device id, and for feedback when feedback is on. It
 // runs under the config's lock and checks the saved settings again, so a
 // concurrent `volcano telemetry disable` or `volcano feedback disable` is never
 // overwritten. announced says which of the two this call marked, so the caller
-// prints the notice for those. When the config cannot be saved (a read-only
+// prints the notice for those, and feedbackShown whether the saved config
+// records the feedback notice. When the config cannot be saved (a read-only
 // home, a sandbox) it returns an error, so the caller prints no notice and
 // sends nothing that was not announced before: printing it on every run would
 // only add noise.
-func (r *Recorder) initialize(telemetry, feedback bool) (state State, announced notice, err error) {
+func (r *Recorder) initialize(telemetry, feedback bool) (state State, feedbackShown bool, announced notice, err error) {
 	err = r.UpdateConfig(func(cfg *config.Config) (bool, error) {
 		changed := false
 		if telemetry && cfg.Telemetry == nil {
@@ -367,9 +423,10 @@ func (r *Recorder) initialize(telemetry, feedback bool) (state State, announced 
 		if cfg.Telemetry != nil {
 			state = *cfg.Telemetry
 		}
+		feedbackShown = cfg.Feedback != nil && cfg.Feedback.NoticeShown
 		return changed, nil
 	})
-	return state, announced, err
+	return state, feedbackShown, announced, err
 }
 
 // skipped reports whether an invocation of cmd is never recorded: commands

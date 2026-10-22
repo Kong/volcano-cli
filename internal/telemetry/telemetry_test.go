@@ -756,3 +756,41 @@ func TestRecord_SkipsOfflineWhenFlagParsingFailed(t *testing.T) {
 	h.recorder().Record(Invocation{Args: []string{"docs", "list", "--bogus", "--offline"}, Err: errors.New("unknown flag: --bogus"), ExitCode: 1})
 	assert.Empty(t, h.sent)
 }
+
+func TestAnnounceFeedback(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	r := h.recorder()
+	var stderr bytes.Buffer
+
+	assert.True(t, r.AnnounceFeedback(&stderr), "saved, so the next report is sent")
+	assert.Contains(t, stderr.String(), "collects usage data", "a fresh machine gets the whole notice")
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.True(t, h.store.state().NoticeShown)
+	saves := h.store.saves
+
+	stderr.Reset()
+	r.Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "Record in the same process does not repeat the notice")
+	assert.Empty(t, h.sent, "the run that showed the notice sends no usage event")
+	assert.Equal(t, saves, h.store.saves)
+}
+
+func TestAnnounceFeedback_Unsaved(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.failSave = true
+	var stderr bytes.Buffer
+
+	assert.False(t, h.recorder().AnnounceFeedback(&stderr))
+	assert.Empty(t, stderr.String())
+}
+
+func TestAnnounceFeedback_Off(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.env[EnvDisabled] = "1"
+
+	assert.False(t, h.recorder().AnnounceFeedback(io.Discard), "feedback follows telemetry")
+	assert.Zero(t, h.store.saves)
+}

@@ -245,6 +245,46 @@ func TestFeedback_StatusEnableDisable(t *testing.T) {
 	assert.Equal(t, "Feedback is disabled by VOLCANO_FEEDBACK_DISABLED.\n", stdout)
 }
 
+func TestFeedback_StatusOnAFreshMachineShowsTheNotice(t *testing.T) {
+	reports := setup(t, nil)
+
+	stdout, stderr, err := run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled. Run `volcano feedback disable` to turn it off.\n", stdout)
+	assert.Contains(t, stderr, "Coding agents can also send feedback reports", "status shows the first-run notice")
+	cfg, err := config.LoadWithoutLink()
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Feedback)
+	assert.True(t, cfg.Feedback.NoticeShown)
+
+	SetRecorder(&telemetry.Recorder{}) // the next process
+	stdout, _, err = run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Feedback sent. ID: ")
+	assert.Len(t, *reports, 1, "the report after status is sent")
+}
+
+func TestFeedback_StatusInAReadOnlyHome(t *testing.T) {
+	reports := setup(t, nil)
+	// A fresh home where ~/.volcano cannot be created, as in a read-only
+	// mount.
+	home := t.TempDir()
+	require.NoError(t, os.Chmod(home, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+	t.Setenv("HOME", home)
+
+	stdout, stderr, err := run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled, but no report is sent until the first-run notice can be saved to ~/.volcano/config.json.\n", stdout)
+	assert.Empty(t, stderr, "no notice that could not be saved")
+
+	SetRecorder(&telemetry.Recorder{})
+	stdout, _, err = run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Empty(t, *reports)
+}
+
 func TestFeedback_LoggedOutSendsNothing(t *testing.T) {
 	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
 	t.Setenv("VOLCANO_TOKEN", "")
