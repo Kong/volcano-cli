@@ -12,6 +12,7 @@ validates and applies the full project configuration:
 - Variables and function or frontend shared variable names
 - Buckets and policies
 - Realtime
+- Notifications: where scheduler failure alerts go and when they are sent
 - Auth configuration, including providers, email, templates, and managed pages
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
@@ -38,6 +39,16 @@ variables:
     value: ${STRIPE_SECRET_KEY}  # interpolated from the CLI environment
 realtime:
   enabled: true
+notifications:
+  email:
+    enabled: true
+    recipients: []             # the project owner; no other address yet
+  webhook:
+    url: https://example.com/hooks/volcano
+  scheduler_failures:
+    notify_on: consecutive_failures   # or first_failure
+    threshold: 3
+    notify_on_recovery: true
 functions:
   - name: hello
     visibility: public         # private, authenticated, or public; omit to keep the current level
@@ -112,6 +123,13 @@ Key semantics:
   changes are not rolled back. Re-running `config deploy` with the same file
   is always safe: entries that already landed report `unchanged`, and only
   the entries that failed or still differ are retried.
+- The notifications webhook signing secret is never part of the manifest. The
+  first `notifications.webhook.url` a deploy sets generates one that is never
+  shown. To get a secret you can use, run `notifications rotate-webhook-secret`.
+  See [notifications.md](notifications.md).
+- `config pull` leaves `notifications.webhook` out, because its URL can carry
+  the receiver's token. A manifest without it keeps the saved webhook; set
+  `url: ""` to remove it, or declare the URL through a `${ENV_VAR}` reference.
 - Variable values and write-only secrets, such as SMTP passwords, OAuth client
   secrets, and TLS material, are omitted from `config pull` exports. Keep them in your
   environment and set them via `${ENV_VAR}` interpolation. If a server does
@@ -203,6 +221,45 @@ One deploy can make a function public and add its route, or delete a route and
 make the function private. A route to a function that stays non-public fails
 the dry run and nothing is applied. See [frontends](frontends.md#function-routes).
 
+## Frontend custom domains
+
+`frontends[].custom_domains` lists every custom domain of a frontend. Each
+serves the frontend, or redirects to another listed domain that is `active`
+and serves it:
+
+```yaml
+version: 1
+frontends:
+  - name: web
+    custom_domains:
+      - domain: www.example.com
+        tls:
+          mode: managed
+      - domain: example.com
+        tls:
+          mode: managed
+        redirect:
+          to: www.example.com
+          status: 308   # 301, 302, 307, or 308; default 308
+```
+
+- Omitting `custom_domains` keeps the frontend's domains as they are.
+- Declaring it replaces them: a domain left out of the list is deleted, and
+  the dry run names it.
+- `custom_domains: []` deletes every domain on the frontend.
+
+A domain the deploy adds is not active yet, so add redirects to it in a later
+deploy. One deploy can add, remove, and retarget redirects among active domains,
+including swapping which domain serves. A frontend with one domain and no
+redirect can use
+`custom_domain` instead; an entry sets one or the other. `config pull` writes
+`custom_domains` when the frontend has more than one domain or any redirect.
+Until several domains per frontend reach your project, the list holds one
+domain. A server that predates `custom_domains` refuses the key in the dry run.
+See
+[Custom domains](frontends.md#custom-domains) and the
+[configuration reference](/platform/projects/configuration).
+
 ## Shared variable names
 
 Use `shared_variables` to select the complete list of existing project variables
@@ -258,8 +315,11 @@ Hosting rejects a frontend environment over 4,096 bytes before changing state.
 `NEXT_PUBLIC_*` variables are build-only. Rebuild each frontend when changed
 values must be embedded in browser assets.
 
-Run `volcano config pull` before editing the manifest. Preserve each frontend's
-`custom_domain` in the file when you deploy it back.
+Run `volcano config pull` before editing the manifest. It writes each
+frontend's domains into its entry, so deploying the file back keeps them on any
+server. An entry that leaves out `custom_domain` and `custom_domains` also
+keeps its domains, except on a server that predates this; see
+[deploy](deploy.md).
 
 ## Function variable scope
 
@@ -375,8 +435,7 @@ The server must support frontend variable scopes. Missing declared variables
 reject apply. Omitting a field preserves it; `variables: []` clears the selection.
 `all` keeps the legacy frontend behavior of reading all project variables, not
 just the function shared list. `NEXT_PUBLIC_*` variables are used during build
-and excluded from runtime. Keep any existing custom-domain declaration in the
-entry. Rebuild the frontend to change values embedded in browser assets.
+and excluded from runtime. Rebuild the frontend to change values embedded in browser assets.
 
 ## Sandbox template settings
 

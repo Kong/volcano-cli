@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/Kong/volcano-cli/compare/v0.49.0...v0.50.0) (2026-10-21)
+
+
+### Features
+
+* **frontends:** attach and switch custom domains with managed TLS ([#332](https://github.com/Kong/volcano-cli/issues/332)) ([0dd0603](https://github.com/Kong/volcano-cli/commit/0dd06032e535a851ee8b047754125445137b0e20))
+
 ## [0.49.0](https://github.com/Kong/volcano-cli/compare/v0.48.0...v0.49.0) (2026-10-20)
 
 

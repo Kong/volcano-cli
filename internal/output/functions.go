@@ -205,12 +205,15 @@ func Schedulers(w io.Writer, fn *apiclient.Function, resp *apiclient.FunctionSch
 }
 
 func schedulerTable(w io.Writer, on bool, schedulers []apiclient.FunctionScheduler) {
-	tableHead(w, on, true, 130, "%-36s  %-24s  %-9s  %-15s  %-20s  %-15s", "ID", "Name", "State", "Cron", "Next Run", "Last Run")
+	tableHead(w, on, true, 147, "%-36s  %-24s  %-9s  %-8s  %-5s  %-15s  %-20s  %-15s",
+		"ID", "Name", "State", "Health", "Fails", "Cron", "Next Run", "Last Run")
 	for _, scheduler := range schedulers {
-		fmt.Fprintf(w, "%-36s  %-24s  %s  %-15s  %-20s  %-15s\n",
+		fmt.Fprintf(w, "%-36s  %-24s  %s  %s  %-5d  %-15s  %-20s  %-15s\n",
 			schedulerID(scheduler),
 			Truncate(blankString(stringPtrValue(scheduler.Name)), 24),
 			statusCell(schedulerState(scheduler), 9, on),
+			statusCell(schedulerHealth(scheduler), 8, on),
+			schedulerConsecutiveFailures(scheduler),
 			Truncate(blankString(stringPtrValue(scheduler.CronExpression)), 15),
 			blankString(timePtrFormat(scheduler.NextRunAt)),
 			blankString(timePtrAgo(scheduler.LastStartedAt)),
@@ -218,7 +221,16 @@ func schedulerTable(w io.Writer, on bool, schedulers []apiclient.FunctionSchedul
 		if regions := schedulerRegions(scheduler); regions != "" {
 			fmt.Fprintf(w, "  %s %s\n", theme.Dim("regions:", on), regions)
 		}
+		if lastErr := stringPtrValue(scheduler.LastError); lastErr != "" && schedulerHealth(scheduler) == schedulerFailing {
+			fmt.Fprintf(w, "  %s %s\n", theme.Dim("last error:", on), Truncate(schedulerError(lastErr), 120))
+		}
 	}
+}
+
+// schedulerError puts a run's error on one line: its line breaks become
+// spaces rather than vanishing with the other control characters.
+func schedulerError(s string) string {
+	return theme.StripControl(strings.Join(strings.Fields(s), " "))
 }
 
 // Scheduler renders one scheduler.
@@ -232,6 +244,10 @@ func Scheduler(w io.Writer, scheduler *apiclient.FunctionScheduler) {
 		kv(w, on, "Name", "%s", name)
 	}
 	kv(w, on, "State", "%s", theme.Status(schedulerState(*scheduler), on))
+	kv(w, on, "Health", "%s", theme.Status(schedulerHealth(*scheduler), on))
+	if failures := schedulerConsecutiveFailures(*scheduler); failures > 0 {
+		kv(w, on, "Failed in a row", "%d", failures)
+	}
 	if cron := stringPtrValue(scheduler.CronExpression); cron != "" {
 		kv(w, on, "Cron", "%s", cron)
 	}
@@ -244,8 +260,14 @@ func Scheduler(w io.Writer, scheduler *apiclient.FunctionScheduler) {
 	if last := timePtrFormat(scheduler.LastStartedAt); last != "" {
 		kv(w, on, "Last Run", "%s", last)
 	}
+	if success := timePtrFormat(scheduler.LastSuccessAt); success != "" {
+		kv(w, on, "Last Success", "%s", success)
+	}
+	if failure := timePtrFormat(scheduler.LastFailureAt); failure != "" {
+		kv(w, on, "Last Failure", "%s", failure)
+	}
 	if lastErr := stringPtrValue(scheduler.LastError); lastErr != "" {
-		kv(w, on, "Last Error", "%s", lastErr)
+		kv(w, on, "Last Error", "%s", schedulerError(lastErr))
 	}
 	if scheduler.CreatedAt != nil {
 		kv(w, on, "Created", "%s", FormatTimestamp(*scheduler.CreatedAt))
@@ -267,6 +289,24 @@ func schedulerState(scheduler apiclient.FunctionScheduler) string {
 		return "disabled"
 	}
 	return "enabled"
+}
+
+const schedulerFailing = string(apiclient.FunctionSchedulerHealthFailing)
+
+// schedulerHealth reads an absent health, from a server older than the field,
+// as healthy: such a server records no outcomes to call failing.
+func schedulerHealth(scheduler apiclient.FunctionScheduler) string {
+	if scheduler.Health == nil || *scheduler.Health == "" {
+		return string(apiclient.FunctionSchedulerHealthHealthy)
+	}
+	return string(*scheduler.Health)
+}
+
+func schedulerConsecutiveFailures(scheduler apiclient.FunctionScheduler) int64 {
+	if scheduler.ConsecutiveFailures == nil {
+		return 0
+	}
+	return *scheduler.ConsecutiveFailures
 }
 
 func schedulerRegions(scheduler apiclient.FunctionScheduler) string {

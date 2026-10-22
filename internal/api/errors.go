@@ -139,6 +139,32 @@ func apiResultWithoutBody[T any](statusCode int, result *T, generatedErrors ...*
 	return apiResult(statusCode, nil, result, generatedErrors...)
 }
 
+// errorFieldsOnly keeps the error fields of a JSON body and drops the rest,
+// for an endpoint whose success body can carry a secret but whose refusals
+// still need their message, including a status the API does not declare. A
+// body that is not a JSON object, or has no error field, becomes nil.
+func errorFieldsOnly(body []byte) []byte {
+	var payload errorFields
+	if json.Unmarshal(body, &payload) != nil ||
+		payload.Error == "" && payload.ErrorDescription == "" && payload.Message == "" {
+		return nil
+	}
+	kept, err := json.Marshal(payload)
+	if err != nil {
+		return nil
+	}
+	return kept
+}
+
+type errorFields struct {
+	Error            string `json:"error,omitempty"`
+	ErrorDescription string `json:"error_description,omitempty"`
+	Message          string `json:"message,omitempty"`
+	// Code is kept only when it is a string: some proxies send a number,
+	// which must not discard the message.
+	Code json.RawMessage `json:"code,omitempty"`
+}
+
 func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	if statusCode >= 200 && statusCode < 300 {
 		return nil
@@ -167,14 +193,7 @@ func ResponseError(statusCode int, body []byte) error {
 }
 
 func apiError(statusCode int, body []byte) error {
-	var payload struct {
-		Error            string `json:"error"`
-		ErrorDescription string `json:"error_description"`
-		Message          string `json:"message"`
-		// Code is kept only when it is a string: some proxies send a number,
-		// which must not discard the message.
-		Code json.RawMessage `json:"code"`
-	}
+	var payload errorFields
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
 		var message string
 		switch {

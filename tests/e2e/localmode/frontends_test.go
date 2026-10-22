@@ -133,16 +133,24 @@ functions:
 // instead of running.
 func requireLocalModeLeavesFrontendDomainsToTheCloud(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
-	for _, args := range [][]string{
-		{"frontends", "domain", "get", "web"},
-		{"frontends", "domain", "create", "web", "--domain", "app.example.com"},
+	for _, tc := range []struct {
+		args    []string
+		command string
+	}{
+		{[]string{"frontends", "domain", "get", "web"}, "domain"},
+		{[]string{"frontends", "domain", "create", "web", "--domain", "app.example.com"}, "domain"},
+		{[]string{"frontends", "domain", "create", "web", "--domain", "app.example.com", "--tls", "managed"}, "domain"},
+		{[]string{"frontends", "domains", "list", "web"}, "domains"},
+		{[]string{"frontends", "domains", "add", "web", "example.com", "--redirect-to", "www.example.com"}, "domains"},
+		{[]string{"frontends", "domains", "update", "web", "example.com", "--no-redirect"}, "domains"},
+		{[]string{"frontends", "domains", "remove", "web", "example.com", "--yes"}, "domains"},
 	} {
-		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, args...)
+		output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, tc.args...)
 		if err == nil {
-			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(args, " "), output)
+			t.Fatalf("expected volcano %s to fail in local mode\n%s", strings.Join(tc.args, " "), output)
 		}
-		requireContains(t, output, `"frontends domain" is a cloud command`)
-		requireContains(t, output, "volcano cloud frontends domain")
+		requireContains(t, output, `"frontends `+tc.command+`" is a cloud command`)
+		requireContains(t, output, "volcano cloud frontends "+tc.command+" ...")
 	}
 }
 

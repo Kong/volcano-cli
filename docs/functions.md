@@ -152,3 +152,8 @@ volcano functions schedulers disable hello --name refresh-cache
 volcano functions alias set hello 44444444-4444-4444-8444-444444444444
 volcano functions invoke hello
 ```
+
+`schedulers list` shows each scheduler's health, how many runs in a row have
+failed, and the last error of a failing one. A run fails when Volcano cannot
+invoke the function; an error the function itself returns does not count. To be
+alerted when a scheduler keeps failing, see [notifications.md](notifications.md).

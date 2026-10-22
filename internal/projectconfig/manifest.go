@@ -60,10 +60,13 @@ type Manifest struct {
 	Variables *[]VariableManifest `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Buckets   *[]BucketManifest   `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Realtime  *RealtimeManifest   `yaml:"realtime,omitempty" json:"realtime,omitempty"`
-	Auth      *AuthManifest       `yaml:"auth,omitempty" json:"auth,omitempty"`
-	Functions *[]FunctionManifest `yaml:"functions,omitempty" json:"functions,omitempty"`
-	Frontends *[]FrontendManifest `yaml:"frontends,omitempty" json:"frontends,omitempty"`
-	Sandboxes *[]SandboxManifest  `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
+	// Notifications never carries the webhook signing secret; the server
+	// generates it and returns it only from the notifications API.
+	Notifications *NotificationsManifest `yaml:"notifications,omitempty" json:"notifications,omitempty"`
+	Auth          *AuthManifest          `yaml:"auth,omitempty" json:"auth,omitempty"`
+	Functions     *[]FunctionManifest    `yaml:"functions,omitempty" json:"functions,omitempty"`
+	Frontends     *[]FrontendManifest    `yaml:"frontends,omitempty" json:"frontends,omitempty"`
+	Sandboxes     *[]SandboxManifest     `yaml:"sandboxes,omitempty" json:"sandboxes,omitempty"`
 
 	// SharedVariables replaces membership by name; nil preserves it and [] clears it.
 	SharedVariables *[]string `yaml:"shared_variables,omitempty" json:"shared_variables,omitempty"`
@@ -128,6 +131,34 @@ type RealtimeManifest struct {
 	BroadcastEnabled       *bool `yaml:"broadcast_enabled,omitempty" json:"broadcast_enabled,omitempty"`
 	PresenceEnabled        *bool `yaml:"presence_enabled,omitempty" json:"presence_enabled,omitempty"`
 	PostgresChangesEnabled *bool `yaml:"postgres_changes_enabled,omitempty" json:"postgres_changes_enabled,omitempty"`
+}
+
+// NotificationsManifest declares where project alerts go and when a failing
+// scheduler is announced. Nil fields keep their current values.
+type NotificationsManifest struct {
+	Email             *NotificationEmailManifest   `yaml:"email,omitempty" json:"email,omitempty"`
+	Webhook           *NotificationWebhookManifest `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+	SchedulerFailures *SchedulerFailuresManifest   `yaml:"scheduler_failures,omitempty" json:"scheduler_failures,omitempty"`
+}
+
+// NotificationEmailManifest declares email alerts. Recipients replaces the
+// list; an empty list emails the project owner.
+type NotificationEmailManifest struct {
+	Enabled    *bool     `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Recipients *[]string `yaml:"recipients,omitempty" json:"recipients,omitempty"`
+}
+
+// NotificationWebhookManifest declares the alert webhook. An empty URL removes
+// it.
+type NotificationWebhookManifest struct {
+	URL *string `yaml:"url,omitempty" json:"url,omitempty"`
+}
+
+// SchedulerFailuresManifest declares when a failing scheduler is announced.
+type SchedulerFailuresManifest struct {
+	NotifyOn         *string `yaml:"notify_on,omitempty" json:"notify_on,omitempty"`
+	Threshold        *int    `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+	NotifyOnRecovery *bool   `yaml:"notify_on_recovery,omitempty" json:"notify_on_recovery,omitempty"`
 }
 
 // AuthManifest groups authentication settings like the dashboard tabs.
@@ -395,6 +426,12 @@ func (m *Manifest) VisibilityLevelFields() []string {
 	return fields
 }
 
+// DeclaresCustomDomains reports whether a frontend entry lists custom_domains,
+// which only a server with several domains per frontend accepts.
+func (m *Manifest) DeclaresCustomDomains() bool {
+	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.CustomDomains != nil })
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name
@@ -428,6 +465,9 @@ type FrontendManifest struct {
 	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Name          string                `yaml:"name" json:"name"`
 	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	// CustomDomains replaces the frontend's domains; nil leaves them unmanaged
+	// and [] removes them. The server refuses it beside CustomDomain.
+	CustomDomains *[]FrontendCustomDomainManifest `yaml:"custom_domains,omitempty" json:"custom_domains,omitempty"`
 	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
 	// removes them.
 	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
@@ -447,7 +487,21 @@ type CustomDomainManifest struct {
 	TLS    *TLSManifest `yaml:"tls,omitempty" json:"tls,omitempty"`
 }
 
-// TLSManifest declares BYOC TLS material for a custom domain.
+// FrontendCustomDomainManifest is one entry of a frontend's custom_domains.
+type FrontendCustomDomainManifest struct {
+	Domain   string                  `yaml:"domain" json:"domain"`
+	TLS      *TLSManifest            `yaml:"tls,omitempty" json:"tls,omitempty"`
+	Redirect *DomainRedirectManifest `yaml:"redirect,omitempty" json:"redirect,omitempty"`
+}
+
+// DomainRedirectManifest sends every request for a domain to To, another
+// domain of the same frontend that serves it. The server defaults Status to 308.
+type DomainRedirectManifest struct {
+	To     string `yaml:"to" json:"to"`
+	Status *int   `yaml:"status,omitempty" json:"status,omitempty"`
+}
+
+// TLSManifest declares a custom domain's TLS: managed, or BYOC material.
 type TLSManifest struct {
 	Mode                string  `yaml:"mode" json:"mode"`
 	CertificatePEM      string  `yaml:"certificate_pem" json:"certificate_pem"`
