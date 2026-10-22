@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -430,6 +432,74 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	}
 	selected := &apiclient.Project{Id: id, Name: credentials.Project.Name}
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
+}
+
+// GitEmail returns `git config --global user.email`, or "" when it is unset,
+// git fails, or the value is not a usable signup address (see usableEmail).
+// Signup offers it as the default email address.
+func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
+	runner := deps.GitCommandRunner
+	if runner == nil {
+		runner = cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, name, args...).Output() //nolint:gosec // command name and args are static below
+		})
+	}
+	out, err := runner.Run(ctx, "git", "config", "--global", "user.email")
+	if err != nil {
+		return ""
+	}
+	email := strings.TrimSpace(string(out))
+	if !usableEmail(email) {
+		return ""
+	}
+	return email
+}
+
+// unusableEmailDomains are domains whose addresses are privacy relays or
+// placeholders, not a mailbox the user signs up with. A domain also matches
+// when it is a subdomain of an entry, so "users.noreply.github.com" matches
+// "noreply.github.com".
+var unusableEmailDomains = []string{
+	"noreply.github.com",
+	"noreply.gitlab.com",
+	"noreply.bitbucket.org",
+	"noreply.codeberg.org",
+	"example.com",
+	"example.org",
+	"example.net",
+	"localhost",
+	"localdomain",
+	"local",
+	"lan",
+	"internal",
+	"invalid",
+	"test",
+	"example",
+}
+
+// usableEmail reports whether a git email looks like an address the user would
+// sign up with. It rejects values that are not an address, private relay
+// addresses such as 12345+name@users.noreply.github.com, no-reply senders, and
+// hosts that cannot receive mail (local, test and reserved names).
+func usableEmail(email string) bool {
+	parsed, err := mail.ParseAddress(email)
+	if err != nil || parsed.Address != email {
+		return false
+	}
+	at := strings.LastIndex(email, "@")
+	local, domain := strings.ToLower(email[:at]), strings.ToLower(email[at+1:])
+	if strings.HasPrefix(local, "noreply") || strings.HasPrefix(local, "no-reply") {
+		return false
+	}
+	if !strings.Contains(domain, ".") {
+		return false
+	}
+	for _, blocked := range unusableEmailDomains {
+		if domain == blocked || strings.HasSuffix(domain, "."+blocked) {
+			return false
+		}
+	}
+	return true
 }
 
 // Logout removes the login, the current project, and function aliases from the

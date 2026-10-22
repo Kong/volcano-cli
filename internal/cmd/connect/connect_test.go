@@ -1324,6 +1324,36 @@ func TestConnectRefusesALoginThatVolcanoTokenWouldOverride(t *testing.T) {
 	assert.Equal(t, "pk-connect", cfg.UserToken, "the saved login is unchanged")
 }
 
+// A private relay git email is not offered. Connect stops before it signs in
+// and tells the agent to ask the user for an address.
+func TestConnectSignupAsksForAnEmailWhenGitHasNoUsableOne(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	cmd := New(cliruntime.Deps{
+		HTTPClient: server.Client(),
+		APIBaseURL: server.URL,
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("12345678+ted@users.noreply.github.com\n"), nil
+		}),
+		OpenBrowser: func(string) error {
+			t.Error("connect opened the browser")
+			return nil
+		},
+	})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetArgs([]string{t.TempDir(), "--skip-skills", "--signup"})
+	err := cmd.Execute()
+	require.ErrorContains(t, err, "Ask the user which email to sign up with")
+	require.ErrorContains(t, err, "--email")
+	assert.False(t, fake.deviceAuthorize)
+	assert.Zero(t, fake.creates)
+}
+
 // VOLCANO_PROJECT_ID is deprecated, and would override the link connect
 // writes. Connect refuses it whatever it names, before it signs in, so the
 // device code isn't spent, and before it calls the API or changes a file.

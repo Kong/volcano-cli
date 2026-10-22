@@ -209,7 +209,8 @@ func NewSignup(deps cliruntime.Deps) *cobra.Command {
 		Short: "Create a Volcano account",
 		Long: `Create a Volcano account from the CLI.
 
-The command asks for your email address, then opens Volcano's web signup flow in your browser. After you finish signing up,
+The command uses your global git user.email as the default email address when it
+is a usable address, not a private relay, local, or test address. It then opens Volcano's web signup flow in your browser. After you finish signing up,
 the CLI completes authentication and saves your credentials, leaving you logged in.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSignup(cmd.Context(), signupOptions{
@@ -229,7 +230,7 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 	}
 
 	reader := bufio.NewReader(opts.in)
-	email, err := promptSignupEmail(reader, opts.out)
+	email, err := promptSignupEmail(ctx, opts.deps, reader, opts.out)
 	if err != nil {
 		return err
 	}
@@ -248,14 +249,22 @@ func runSignup(ctx context.Context, opts signupOptions) error {
 	return nil
 }
 
-func promptSignupEmail(reader *bufio.Reader, out io.Writer) (string, error) {
-	fmt.Fprint(out, "Enter your email address: ")
+func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.Reader, out io.Writer) (string, error) {
+	defaultEmail := cliauth.GitEmail(ctx, deps)
+	if defaultEmail != "" {
+		fmt.Fprintf(out, "Enter your email address (press enter to continue) [%s]: ", defaultEmail)
+	} else {
+		fmt.Fprint(out, "Enter your email address: ")
+	}
 
 	input, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", err
 	}
 	email := strings.TrimSpace(input)
+	if email == "" {
+		email = defaultEmail
+	}
 	if email == "" {
 		return "", errors.New("email address is required")
 	}

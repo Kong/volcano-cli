@@ -18,8 +18,11 @@ New to Volcano? Create an account from the CLI:
 volcano signup
 ```
 
-`volcano signup` asks for your email address, then opens Volcano's web
-signup flow in your browser. Once you finish in the
+`volcano signup` prefills your email from `git config --global user.email`
+when it is a usable address (press Enter to accept, or type a different
+address). Private relay addresses, such as GitHub or GitLab `noreply`
+addresses, and local or test addresses are not prefilled. The command then
+opens Volcano's web signup flow in your browser. Once you finish in the
 browser, the CLI completes the device-authorization handshake and saves your
 credentials to `~/.volcano/config.json`, so a single command signs you up
 and logs you in.
