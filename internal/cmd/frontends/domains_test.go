@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -167,23 +168,84 @@ func TestFrontendsDomainsAdd(t *testing.T) {
 		assert.Contains(t, tlsConfig["certificate_chain_pem"], "chain")
 	})
 
-	t.Run("already on the frontend", func(t *testing.T) {
-		setFrontendCommandTestHome(t)
-		saveFrontendCommandTestConfig(t)
-		server := frontendDomainsServer(t, map[string]http.HandlerFunc{
-			"POST " + frontendDomainsPath: func(w http.ResponseWriter, _ *http.Request) {
-				response := frontendDomainCommandResponse("app.example.com", "provisioning")
-				response["tls_mode"] = "managed"
-				writeFrontendCommandJSON(t, w, http.StatusOK, response)
-			},
-		})
+	// The server answers a switch and a repeat alike with 200, so the domain
+	// read first tells them apart and supplies the redirect the request must
+	// repeat.
+	withTLS := func(response map[string]any, mode string) map[string]any {
+		response["tls_mode"] = mode
+		return response
+	}
+	for _, tc := range []struct {
+		name     string
+		args     []string
+		previous map[string]any
+		response map[string]any
+		redirect any
+		message  string
+		warning  bool
+	}{
+		{
+			name:     "switch to managed",
+			previous: frontendDomainCommandResponse("example.com", "active"),
+			response: withTLS(frontendDomainCommandResponse("example.com", "active"), "managed"),
+			message:  "Custom domain 'example.com' on frontend 'web' is switching to managed TLS",
+		},
+		{
+			name:     "switch keeps the redirect",
+			args:     []string{"--cert", "cert.pem", "--key", "key.pem"},
+			previous: withTLS(frontendRedirectDomainResponse("example.com", "www.example.com", 302), "managed"),
+			response: frontendRedirectDomainResponse("example.com", "www.example.com", 302),
+			redirect: map[string]any{"to": "www.example.com", "status": float64(302)},
+			message:  "Custom domain 'example.com' on frontend 'web' switched to BYOC TLS",
+		},
+		{
+			name:     "retarget keeps the status",
+			args:     []string{"--redirect-to", "www.example.com"},
+			previous: withTLS(frontendRedirectDomainResponse("example.com", "www.example.com", 302), "managed"),
+			response: withTLS(frontendRedirectDomainResponse("example.com", "www.example.com", 302), "managed"),
+			redirect: map[string]any{"to": "www.example.com", "status": float64(302)},
+			message:  "Custom domain 'example.com' already uses managed TLS on frontend 'web'",
+		},
+		{
+			name:     "same BYOC mode keeps the certificate",
+			args:     []string{"--cert", "cert.pem", "--key", "key.pem"},
+			previous: frontendDomainCommandResponse("example.com", "active"),
+			response: frontendDomainCommandResponse("example.com", "active"),
+			message:  "Custom domain 'example.com' already uses byoc TLS on frontend 'web'",
+			warning:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setFrontendCommandTestHome(t)
+			saveFrontendCommandTestConfig(t)
+			var payload map[string]any
+			server := frontendDomainsServer(t, map[string]http.HandlerFunc{
+				"GET " + frontendDomainsPath + "/example.com": func(w http.ResponseWriter, _ *http.Request) {
+					writeFrontendCommandJSON(t, w, http.StatusOK, tc.previous)
+				},
+				"POST " + frontendDomainsPath: func(w http.ResponseWriter, r *http.Request) {
+					assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+					writeFrontendCommandJSON(t, w, http.StatusOK, tc.response)
+				},
+			})
+			dir := t.TempDir()
+			args := slices.Clone(tc.args)
+			for i, arg := range args {
+				if strings.HasSuffix(arg, ".pem") {
+					args[i] = filepath.Join(dir, arg)
+					require.NoError(t, os.WriteFile(args[i], []byte("-----BEGIN X-----\npem\n-----END X-----\n"), 0o600))
+				}
+			}
 
-		out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
-			"domains", "add", "web", "app.example.com")
-		require.NoError(t, err)
-		assert.Contains(t, out, "Custom domain 'app.example.com' was already on frontend 'web' and now uses managed TLS")
-		assert.NotContains(t, out, "added to frontend")
-	})
+			out, err := executeFrontendsCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}),
+				append([]string{"domains", "add", "web", "example.com"}, args...)...)
+			require.NoError(t, err)
+			assert.Contains(t, out, tc.message)
+			assert.NotContains(t, out, "added to frontend")
+			assert.Equal(t, tc.warning, strings.Contains(out, "The certificate was not replaced"))
+			assert.Equal(t, tc.redirect, payload["redirect"])
+		})
+	}
 
 	t.Run("over the plan limit", func(t *testing.T) {
 		setFrontendCommandTestHome(t)

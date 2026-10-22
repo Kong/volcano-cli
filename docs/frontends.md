@@ -172,7 +172,7 @@ domain fails with `403` on any frontend. See
 ### Switch TLS modes
 
 Run `add` for an active domain in the other mode to switch it in place, without
-downtime:
+downtime. A domain that redirects keeps its redirect:
 
 ```bash
 # BYOC to managed: your certificate serves until Volcano issues its own

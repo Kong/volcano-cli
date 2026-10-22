@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -165,7 +166,11 @@ certificate.
 With --redirect-to, the domain redirects every request to another domain of the
 frontend instead of serving it. It still needs a certificate and DNS pointing
 at the frontend, because browsers connect over HTTPS before they read the
-redirect.`,
+redirect.
+
+For a domain the frontend already has, add switches its TLS mode in place and
+keeps its redirect; change the redirect with update. It does not replace a BYOC
+certificate in the same mode.`,
 		Example: fmt.Sprintf(`  %s
   %s
   %s`,
@@ -298,15 +303,26 @@ func runDomainsAdd(ctx context.Context, opts domainsAddOptions) error {
 			return err
 		}
 	}
-	frontend, domain, created, err := clifrontend.NewService(opts.deps).AddDomain(ctx, opts.frontend, opts.input)
+	frontend, domain, change, err := clifrontend.NewService(opts.deps).AddDomain(ctx, opts.frontend, opts.input)
 	if err != nil {
 		return err
 	}
-	if created {
+	managed := domain.TlsMode == apiclient.FrontendCustomDomainResponseTlsModeManaged
+	switch {
+	case change == clifrontend.CustomDomainCreated:
 		output.Success(opts.out, "Custom domain '%s' added to frontend '%s'", domain.Domain, frontend.Name)
-	} else {
-		output.Success(opts.out, "Custom domain '%s' was already on frontend '%s' and now uses %s TLS",
-			domain.Domain, frontend.Name, strings.TrimSpace(string(domain.TlsMode)))
+	case change == clifrontend.CustomDomainSwitched && managed:
+		output.Success(opts.out, "Custom domain '%s' on frontend '%s' is switching to managed TLS", domain.Domain, frontend.Name)
+		output.Note(opts.out, "Your uploaded certificate keeps serving until Volcano issues the managed one. Publish the verification records below and keep them.")
+	case change == clifrontend.CustomDomainSwitched:
+		output.Success(opts.out, "Custom domain '%s' on frontend '%s' switched to BYOC TLS", domain.Domain, frontend.Name)
+		output.Note(opts.out, "Your certificate now serves, and Volcano no longer renews the managed one. You can delete the _acme-challenge CNAME.")
+	default:
+		output.Success(opts.out, "Custom domain '%s' already uses %s TLS on frontend '%s'", domain.Domain, domain.TlsMode, frontend.Name)
+		if !managed {
+			output.Warning(opts.out, "The certificate was not replaced. To rotate it, update the domain's tls in volcano-config.yaml and run: %s",
+				cliruntime.CommandPath(opts.deps, "config deploy"))
+		}
 	}
 	output.FrontendCustomDomain(opts.out, domain)
 	return nil

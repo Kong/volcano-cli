@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 
@@ -36,18 +37,44 @@ func (s Service) GetDomain(ctx context.Context, identifier, domain string) (*api
 	return frontend, found, nil
 }
 
-// AddDomain adds a custom domain beside a frontend's others. It reports false
-// when the frontend already had the hostname.
-func (s Service) AddDomain(ctx context.Context, identifier string, input api.FrontendDomainInput) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, bool, error) {
+// AddDomain adds a custom domain beside a frontend's others, or switches the
+// TLS mode of one it already has. For an existing domain, input without a
+// redirect keeps the domain's, and a redirect without a Status keeps its
+// status: the API refuses a request whose redirect differs from the domain's.
+func (s Service) AddDomain(
+	ctx context.Context, identifier string, input api.FrontendDomainInput,
+) (*apiclient.Frontend, *apiclient.FrontendCustomDomainResponse, CustomDomainChange, error) {
 	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, 0, err
 	}
+	// The server answers a switch and a repeated request alike, so the domain
+	// it had before tells them apart.
+	previous, err := authenticated.API.GetFrontendDomain(ctx, authenticated.ProjectID, frontend.Id, input.Domain)
+	if err != nil && api.Status(err) != http.StatusNotFound {
+		return nil, nil, 0, domainError(frontend, input.Domain, "add", err)
+	}
+	if previous != nil && previous.Redirect != nil {
+		switch {
+		case input.Redirect == nil:
+			input.Redirect = &api.FrontendDomainRedirect{To: previous.Redirect.To, Status: int(previous.Redirect.Status)}
+		case input.Redirect.Status == 0:
+			input.Redirect = &api.FrontendDomainRedirect{To: input.Redirect.To, Status: int(previous.Redirect.Status)}
+		}
+	}
+
 	domain, created, err := authenticated.API.CreateFrontendDomain(ctx, authenticated.ProjectID, frontend.Id, input)
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("failed to add custom domain %q: %w", input.Domain, err)
+		return nil, nil, 0, fmt.Errorf("failed to add custom domain %q: %w", input.Domain, err)
 	}
-	return frontend, domain, created, nil
+	switch {
+	case created:
+		return frontend, domain, CustomDomainCreated, nil
+	case previous != nil && previous.TlsMode != domain.TlsMode:
+		return frontend, domain, CustomDomainSwitched, nil
+	default:
+		return frontend, domain, CustomDomainUnchanged, nil
+	}
 }
 
 // SetDomainRedirect makes a custom domain redirect, or serve the frontend
