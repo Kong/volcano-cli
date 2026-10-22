@@ -39,6 +39,9 @@ Each file runs as a single query, and the database proxy refuses a query with
 more than one statement, so put one SQL statement in each file. Files run in
 name order.
 
+The local stack supports [database password resets](/platform/databases/connection-strings#resetting-passwords)
+through its API at `http://localhost:8000`.
+
 ## Branches
 
 A branch is a short-lived copy-on-write fork of a database you can develop and

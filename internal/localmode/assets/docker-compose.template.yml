@@ -5,19 +5,19 @@ services:
   postgres:
     image: ${VOLCANO_POSTGRES_IMAGE:-mirror.gcr.io/library/postgres:16-alpine}
     container_name: volcano-postgres
-    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    command: ['postgres', '-c', 'shared_preload_libraries=pg_stat_statements']
     environment:
       POSTGRES_DB: volcano
       POSTGRES_USER: volcano
       POSTGRES_PASSWORD: volcano
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - volcano-db:/var/lib/postgresql/data
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U volcano"]
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U volcano']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,11 +28,11 @@ services:
     volumes:
       - volcano-redis:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,10 +41,10 @@ services:
     image: ${VOLCANO_DYNAMODB_IMAGE:-mirror.gcr.io/amazon/dynamodb-local:latest}
     container_name: volcano-dynamodb
     user: root
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    command: ['-jar', 'DynamoDBLocal.jar', '-sharedDb', '-dbPath', '/home/dynamodblocal/data']
     working_dir: /home/dynamodblocal
     ports:
-      - "8003:8000"
+      - '8003:8000'
     volumes:
       - volcano-dynamodb:/home/dynamodblocal/data
     networks:
@@ -58,8 +58,8 @@ services:
     image: ${VOLCANO_MAILPIT_IMAGE:-mirror.gcr.io/axllent/mailpit:v1.30}
     container_name: volcano-mailpit
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI — view captured emails here
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI — view captured emails here
     networks:
       - volcano-internal
 
@@ -68,14 +68,14 @@ services:
     environment:
       LOCAL_DEVELOPMENT_DIRECTORY: /local-config
     expose:
-      - "2772"
+      - '2772'
     configs:
       - source: appconfig-feature-flags-development
         target: /local-config/volcano-hosting:development:feature-flags.json
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:2772/ping || exit 1"]
+      test: ['CMD-SHELL', 'curl -f http://localhost:2772/ping || exit 1']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -84,11 +84,11 @@ services:
   sandbox-broker:
     profiles: [sandboxes]
     image: ${VOLCANO_IMAGE:-kong/volcano:local-nightly}
-    user: "0:0"
-    entrypoint: ["/app/sandbox-local", "broker"]
+    user: '0:0'
+    entrypoint: ['/app/sandbox-local', 'broker']
     read_only: true
     restart: unless-stopped
-    security_opt: ["no-new-privileges:true"]
+    security_opt: ['no-new-privileges:true']
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - volcano-sandbox-control:/run/sandbox-control
@@ -96,7 +96,7 @@ services:
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD-SHELL", "test -S /run/sandbox-control/control.sock"]
+      test: ['CMD-SHELL', 'test -S /run/sandbox-control/control.sock']
       interval: 5s
       timeout: 2s
       retries: 12
@@ -115,7 +115,7 @@ services:
         condition: service_healthy
     environment:
       # Core settings
-      LOCAL_MODE: "true"
+      LOCAL_MODE: 'true'
       LOCAL_SANDBOX_SOCKET: /run/sandbox-control/control.sock
       LOCAL_MODE_GIT_DEPLOY_WORKER: ${LOCAL_MODE_GIT_DEPLOY_WORKER:-false}
       LOCAL_MANAGEMENT_PROFILE: ${LOCAL_MANAGEMENT_PROFILE:-}
@@ -131,36 +131,37 @@ services:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
-      REDIS_TIMEOUT: "60s"
-      USAGE_SYNC_INTERVAL: "30s"
-      USAGE_SYNC_LOCK_TTL: "30s"
-      SOURCE_ARCHIVE_SIZE_LIMIT_MB: "256"
-      LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB: "4096"
-      PORT: "8000"
-      MANAGEMENT_PORT: "8001"
-      PGPROXY_PORT: "8002"
+      REDIS_TIMEOUT: '60s'
+      USAGE_SYNC_INTERVAL: '30s'
+      USAGE_SYNC_LOCK_TTL: '30s'
+      SOURCE_ARCHIVE_SIZE_LIMIT_MB: '256'
+      LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB: '4096'
+      PORT: '8000'
+      MANAGEMENT_PORT: '8001'
+      PGPROXY_PORT: '8002'
+      PGPROXY_ADDRESS: '${PGPROXY_ADDRESS:-localhost:8002}'
       ENVIRONMENT: development
       APPCONFIG_AGENT_URL: http://appconfig-agent:2772
       APPCONFIG_APPLICATION: volcano-hosting
       APPCONFIG_ENVIRONMENT: development
       APPCONFIG_CONFIGURATION_PROFILE: feature-flags
       LOG_LEVEL: ${VOLCANO_LOG_LEVEL:-info}
-      API_BASE_URL: "http://localhost:8000"
-      WEB_BASE_URL: "http://localhost:3000"
-      LOCAL_STORAGE_DIR: "/app/local-storage"
-      LOCAL_FUNCTIONS_DIR: "/app/local-functions"
+      API_BASE_URL: 'http://localhost:8000'
+      WEB_BASE_URL: 'http://localhost:3000'
+      LOCAL_STORAGE_DIR: '/app/local-storage'
+      LOCAL_FUNCTIONS_DIR: '/app/local-functions'
       # Local frontend ingress: HTTP-only proxy with wildcard *.frontends.localhost.
       # macOS resolves *.localhost to 127.0.0.1 automatically, so a deployed
       # frontend at <frontend-id>.frontends.localhost:8080 is browser-reachable.
-      FRONTENDS_HTTP_PORT: "8080"
-      FRONTEND_INVOCATION_DNS: "*.frontends.localhost"
+      FRONTENDS_HTTP_PORT: '8080'
+      FRONTEND_INVOCATION_DNS: '*.frontends.localhost'
       # Local plan defaults are baked into the server binary (cmd/server/internal/config).
       # Do not put FREE_*/PRO_* values here: this template ships in the CLI image.
       # Deployable regions used by project region resolution (`all_regions=true`
       # projects default to this list). Cloud passes the real multi-region set;
       # locally we surface a representative subset so feature pickers and
       # scheduler validation have something to work with.
-      AWS_REGIONS: "us-east-1,eu-west-1,ap-southeast-1"
+      AWS_REGIONS: 'us-east-1,eu-west-1,ap-southeast-1'
       # First-party bootstrap (optional). ANON_KEY_SECRET is sourced from
       # .env.local and must match the secret VOLCANO_FIRST_PARTY_ANON_KEY was
       # signed with, since the server validates that key during bootstrap.
@@ -186,13 +187,13 @@ services:
       - volcano-storage:/app/local-storage
       - volcano-sandbox-control:/run/sandbox-control
     ports:
-      - "8000:8000"
-      - "8002:8002"
-      - "8080:8080"
+      - '8000:8000'
+      - '8002:8002'
+      - '8080:8080'
     networks:
       - volcano-internal
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8000/health']
       interval: 10s
       timeout: 5s
       start_period: 30s
