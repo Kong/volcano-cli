@@ -75,8 +75,9 @@ Each report also carries the CLI version, OS, architecture, the coding agent,
 and whether the Volcano plugin is installed. While telemetry is on, it also
 carries the selected project ID and this machine's telemetry ID, and is linked
 to your account. With telemetry off and feedback turned on with volcano
-feedback enable, it carries neither and is not linked to your account. Every report is sent with your login, which the server checks, so
-sending one requires volcano login.
+feedback enable, it carries neither and is not linked to your account. Every
+report is sent with your login, which the server checks, so sending one
+requires volcano login. A project access token cannot send reports.
 
 Feedback follows telemetry: turning telemetry off also turns feedback off,
 unless you run volcano feedback enable. Turn it off with volcano feedback
@@ -113,10 +114,12 @@ disable.`,
 			if !on && !dryRun {
 				return nil
 			}
-			// The server takes reports only from a logged-in user, so a
-			// logged-out run sends nothing, like feedback that is off.
+			// The server takes reports only from a logged-in account, so a
+			// logged-out run, or one with a project access token, sends
+			// nothing, like feedback that is off.
 			token := cfg.Token()
-			if token == "" && !dryRun {
+			loggedIn := telemetry.CanSendFeedback(token)
+			if !loggedIn && !dryRun {
 				return nil
 			}
 			if input != "" {
@@ -134,7 +137,7 @@ disable.`,
 				return fmt.Errorf("after redaction, %w", err)
 			}
 			if dryRun {
-				return printReport(cmd, report, on && token != "")
+				return printReport(cmd, report, on && loggedIn)
 			}
 			payload, err := encodeReport(report, "")
 			if err != nil {
@@ -217,6 +220,10 @@ func printStatus(cmd *cobra.Command) error {
 	}
 	if cfg.Token() == "" {
 		fmt.Fprintln(w, "Feedback is enabled, but no report is sent until you log in with `volcano login`.")
+		return nil
+	}
+	if config.IsProjectToken(cfg.Token()) {
+		fmt.Fprintln(w, "Feedback is enabled, but a project access token cannot send reports. Log in with `volcano login`.")
 		return nil
 	}
 	fmt.Fprintln(w, "Feedback is enabled. Run `volcano feedback disable` to turn it off.")
@@ -307,7 +314,7 @@ func saveReport(payload []byte) error {
 
 // printReport prints report for --dry-run, and says so when a real run would
 // send nothing: feedback is off, the first-run notice has not been shown, or
-// the user is logged out.
+// the user is logged out or uses a project access token.
 func printReport(cmd *cobra.Command, report feedback.Report, sends bool) error {
 	out, err := encodeReport(report, "  ")
 	if err != nil {

@@ -142,6 +142,9 @@ func TestLoggedIn(t *testing.T) {
 	h.store.cfg.UserToken = "tok"
 	assert.True(t, h.recorder().LoggedIn())
 
+	h.store.cfg.UserToken = "pt-abc"
+	assert.False(t, h.recorder().LoggedIn(), "a project access token cannot send reports")
+
 	h = newHarness()
 	h.store.failLoad = true
 	assert.False(t, h.recorder().LoggedIn(), "an unreadable config is not a login")

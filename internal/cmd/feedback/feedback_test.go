@@ -264,6 +264,25 @@ func TestFeedback_LoggedOutSendsNothing(t *testing.T) {
 	assert.Contains(t, stderr, "This report would not be sent.")
 }
 
+func TestFeedback_ProjectTokenSendsNothing(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	t.Setenv("VOLCANO_TOKEN", "pt-abc")
+
+	stdout, stderr, err := run(t, reportArgs...)
+	require.NoError(t, err, "exit 0, so an agent does not retry")
+	assert.Empty(t, stdout)
+	assert.Empty(t, stderr)
+	assert.Empty(t, *reports)
+
+	stdout, _, err = run(t, "status")
+	require.NoError(t, err)
+	assert.Equal(t, "Feedback is enabled, but a project access token cannot send reports. Log in with `volcano login`.\n", stdout)
+
+	_, stderr, err = run(t, append([]string{"--dry-run"}, reportArgs...)...)
+	require.NoError(t, err)
+	assert.Contains(t, stderr, "This report would not be sent.")
+}
+
 func TestFeedback_SettingSurvivesLogout(t *testing.T) {
 	setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
 	_, _, err := run(t, "disable")
