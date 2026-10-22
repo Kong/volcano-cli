@@ -59,6 +59,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeSendsFeedback(t, volcanoBin, env, projectDir)
 	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)
 
 	migrationOutput := runVolcanoLocalModeE2E(t, volcanoBin, env, projectDir, "migrations", "deploy", "--all", "-d", "app")
