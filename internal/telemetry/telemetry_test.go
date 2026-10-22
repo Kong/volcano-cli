@@ -182,6 +182,7 @@ func TestRecord_FreshMachineAnnouncesBoth(t *testing.T) {
 	assert.Contains(t, stderr.String(), "collects usage data")
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
 	assert.Contains(t, stderr.String(), "volcano feedback disable")
+	assert.Contains(t, stderr.String(), "`volcano feedback --help`")
 	assert.True(t, h.store.state().NoticeShown)
 	assert.True(t, h.store.cfg.Feedback.NoticeShown)
 	assert.Empty(t, h.sent)
@@ -341,6 +342,7 @@ func TestRecord_FeedbackEnabledWithTelemetryOff(t *testing.T) {
 
 	h.recorder().Record(Invocation{Stderr: &stderr})
 	assert.Contains(t, stderr.String(), "volcano feedback --help", "feedback is announced on its own")
+	assert.Contains(t, stderr.String(), "Turn it off with `volcano feedback disable`.", "the notice names the opt-out")
 	assert.NotContains(t, stderr.String(), "collects usage data", "telemetry is off")
 	assert.True(t, h.store.cfg.Feedback.NoticeShown)
 	assert.Nil(t, h.store.cfg.Telemetry, "telemetry's record is unchanged")
@@ -360,8 +362,7 @@ func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
 	var stderr bytes.Buffer
 
 	h.recorder().Record(Invocation{Stderr: &stderr})
-	assert.Contains(t, stderr.String(), "volcano feedback --help")
-	assert.NotContains(t, stderr.String(), "Nothing is sent", "this run sends its usage event")
+	assert.Equal(t, "Note: coding agents can send the Volcano team feedback reports about problems they hit with Volcano, with `volcano feedback`. Turn it off with `volcano feedback disable`. Details: `volcano feedback --help`.\n", stderr.String())
 	assert.True(t, h.store.cfg.Feedback.NoticeShown)
 	assert.Len(t, h.sent, 1, "telemetry was already announced, so this run still sends")
 
