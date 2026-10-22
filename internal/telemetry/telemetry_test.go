@@ -371,6 +371,26 @@ func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestRecord_FeedbackNoticeWithBrokenLink(t *testing.T) {
+	// An upgraded machine, run in a directory whose project link is broken.
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	r := h.recorder()
+	load := r.LoadConfig
+	r.LoadConfig = func() (*config.Config, error) {
+		cfg, _ := load()
+		return cfg, &config.LinkError{Dir: "/w", Err: errors.New("project link has no project_id")}
+	}
+	var stderr bytes.Buffer
+
+	r.Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "Turn it off with `volcano feedback disable`.")
+	require.NotNil(t, h.store.cfg.Feedback)
+	assert.True(t, h.store.cfg.Feedback.NoticeShown, "the feedback notice is saved, so the next report is sent")
+	assert.Empty(t, h.sent, "usage data still treats a broken link as unreadable")
+}
+
 func TestRecord_BothOffShowsNoNotice(t *testing.T) {
 	h := newHarness()
 	disabled := false

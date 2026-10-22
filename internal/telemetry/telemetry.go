@@ -340,7 +340,16 @@ func (r *Recorder) telemetryAnnounced() bool {
 // writes no config.
 func (r *Recorder) Record(inv Invocation) {
 	r.setup()
-	if skipped(inv.Command, inv.Args) || r.cfgErr != nil {
+	if skipped(inv.Command, inv.Args) {
+		return
+	}
+	if r.cfgErr != nil {
+		// A broken project link leaves feedback on, so its notice is still
+		// shown and saved, but usage data treats the config as unreadable
+		// and sends nothing.
+		if r.badLink {
+			r.AnnounceFeedback(inv.Stderr)
+		}
 		return
 	}
 	state := r.state()
