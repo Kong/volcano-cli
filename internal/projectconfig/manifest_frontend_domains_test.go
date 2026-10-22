@@ -106,3 +106,20 @@ frontends:
 	}
 	assert.NotContains(t, decoded.Frontends[2], "custom_domain")
 }
+
+func TestManifestReportsCustomDomains(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manifest string
+		want     bool
+	}{
+		"none":           {"version: 1\nfrontends:\n  - name: web\n", false},
+		"custom_domain":  {"version: 1\nfrontends:\n  - name: web\n    custom_domain: null\n", false},
+		"custom_domains": {"version: 1\nfrontends:\n  - name: web\n    custom_domains: []\n", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			manifest, err := Parse([]byte(tc.manifest), noEnv)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, manifest.DeclaresCustomDomains())
+		})
+	}
+}

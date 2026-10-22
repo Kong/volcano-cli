@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -178,8 +179,10 @@ func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Mani
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config apply; upgrade your local-mode server image and try again")
 		}
-		if hint := visibilityLevelsHint(opts.deps, manifest, err); hint != "" {
-			return fmt.Errorf("failed to deploy configuration from %s: %w\n%s", manifestPath, err, hint)
+		hints := slices.DeleteFunc([]string{visibilityLevelsHint(opts.deps, manifest, err), customDomainsHint(manifest, err)},
+			func(hint string) bool { return hint == "" })
+		if len(hints) > 0 {
+			return fmt.Errorf("failed to deploy configuration from %s: %w\n%s", manifestPath, err, strings.Join(hints, "\n"))
 		}
 		return fmt.Errorf("failed to deploy configuration from %s: %w", manifestPath, err)
 	}
@@ -292,6 +295,17 @@ func visibilityLevelsHint(deps cliruntime.Deps, manifest *projectconfig.Manifest
 	return fmt.Sprintf("if this server predates function visibility levels, it refuses %s this way: %s "+
 		"(public: true or public: false stands in for visibility on such a server)",
 		strings.Join(fields, " and "), remedy)
+}
+
+// customDomainsHint explains a 400 that may come from a server that predates
+// several domains per frontend, conditional for the reason visibilityLevelsHint
+// gives.
+func customDomainsHint(manifest *projectconfig.Manifest, err error) string {
+	if api.Status(err) != http.StatusBadRequest || !manifest.DeclaresCustomDomains() {
+		return ""
+	}
+	return "if this server predates several custom domains per frontend, it refuses custom_domains this way: " +
+		"declare a frontend's one domain with custom_domain instead"
 }
 
 // isConfigEndpointMissing detects a 404 from a server without the config

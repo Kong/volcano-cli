@@ -395,6 +395,12 @@ func (m *Manifest) VisibilityLevelFields() []string {
 	return fields
 }
 
+// DeclaresCustomDomains reports whether a frontend entry lists custom_domains,
+// which only a server with several domains per frontend accepts.
+func (m *Manifest) DeclaresCustomDomains() bool {
+	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.CustomDomains != nil })
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name

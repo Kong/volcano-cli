@@ -125,9 +125,13 @@ publish the DNS records that `add` and `get` print. A BYOC domain needs a
 [verified domain](domains.md) above it first; when none exists, `add` fails and
 prints the TXT record to publish.
 
-Running `add` again for a BYOC domain does not replace its certificate; rotate
-it through [`custom_domain`](/platform/projects/configuration) in
-`volcano-config.yaml` and `volcano cloud config deploy` instead.
+Running `add` again in the same TLS mode leaves the domain as it is, so it does
+not replace a BYOC certificate. To rotate one, put the new PEM fields in the
+domain's `tls` in the [declarative config](project-configuration.md) and run
+`volcano cloud config deploy`. The new certificate replaces the old one without
+downtime. Use the domain's `custom_domains` entry, keeping the frontend's other
+entries in the list, or `custom_domain` when the frontend has one domain and no
+redirect.
 
 `get` shows the DNS routing target hostname. Point every domain of the frontend
 at it, including the ones that redirect: the browser connects over HTTPS before
@@ -167,17 +171,21 @@ domain fails with `403` on any frontend. See
 
 ### Switch TLS modes
 
-Run `domain create` for the frontend's active domain with the other mode to
-switch it in place, without downtime:
+Run `add` for an active domain in the other mode to switch it in place, without
+downtime:
 
 ```bash
 # BYOC to managed: your certificate serves until Volcano issues its own
-volcano cloud frontends domain create my-site --domain app.example.com --tls managed
+volcano cloud frontends domains add my-site app.example.com
 
 # Managed to BYOC: your certificate replaces the managed one at once
-volcano cloud frontends domain create my-site --domain app.example.com \
+volcano cloud frontends domains add my-site app.example.com \
   --cert ./fullchain-leaf.pem --key ./privkey.pem
 ```
+
+On a server without the `domains` commands, use
+`volcano cloud frontends domain create my-site --domain app.example.com` with
+`--tls managed` or `--cert` and `--key` instead.
 
 Moving to managed TLS prints the `_acme-challenge` CNAME to publish.
 `Serving certificate` reads `uploaded` until the managed certificate serves,
@@ -187,8 +195,8 @@ certificate keeps serving. The switch needs a free managed certificate in your
 active has no certificate to keep serving. Wait until it is active, or delete
 it and attach it again in the other mode.
 
-If the frontend's entry in `volcano-config.yaml` declares `custom_domain.tls`,
-set it to the new mode too. Otherwise the next `volcano cloud config deploy` or
+If the frontend's entry in `volcano-config.yaml` declares the domain's `tls`,
+in `custom_domain` or its `custom_domains` entry, set it to the new mode too. Otherwise the next `volcano cloud config deploy` or
 `volcano deploy` switches the domain back. `mode: byoc` without PEM fields
 keeps the certificate you uploaded.
 
