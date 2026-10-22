@@ -894,6 +894,30 @@ func (e DurableApprovalStatus) Valid() bool {
 	}
 }
 
+// Defines values for DurableCallbackStatus.
+const (
+	DurableCallbackStatusDelivering DurableCallbackStatus = "delivering"
+	DurableCallbackStatusFailed     DurableCallbackStatus = "failed"
+	DurableCallbackStatusSucceeded  DurableCallbackStatus = "succeeded"
+	DurableCallbackStatusWaiting    DurableCallbackStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the DurableCallbackStatus enum.
+func (e DurableCallbackStatus) Valid() bool {
+	switch e {
+	case DurableCallbackStatusDelivering:
+		return true
+	case DurableCallbackStatusFailed:
+		return true
+	case DurableCallbackStatusSucceeded:
+		return true
+	case DurableCallbackStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DurableExecutionOperationKind.
 const (
 	DurableExecutionOperationKindCallback       DurableExecutionOperationKind = "callback"
@@ -6719,6 +6743,37 @@ type DurableApprovalStats struct {
 // is final.
 type DurableApprovalStatus string
 
+// DurableCallbackError The error the waiting step raises.
+type DurableCallbackError struct {
+	// Message A human-readable explanation of up to 32,768 bytes of UTF-8. A
+	// character outside ASCII takes more than one byte, so such text
+	// reaches the limit before `maxLength`.
+	Message *string `json:"message,omitempty"`
+
+	// Type A name workflows can branch on, such as `PaymentDeclined`. Up to
+	// 256 characters, without control characters.
+	Type string `json:"type"`
+}
+
+// DurableCallbackOutcome defines model for DurableCallbackOutcome.
+type DurableCallbackOutcome struct {
+	// Status `waiting` until the token is succeeded or failed. `delivering` while
+	// the outcome is on its way to the workflow; Volcano finishes the
+	// delivery on its own. `succeeded` or `failed` once the workflow has the
+	// outcome.
+	Status DurableCallbackStatus `json:"status"`
+}
+
+// DurableCallbackStatus `waiting` until the token is succeeded or failed. `delivering` while
+// the outcome is on its way to the workflow; Volcano finishes the
+// delivery on its own. `succeeded` or `failed` once the workflow has the
+// outcome.
+type DurableCallbackStatus string
+
+// DurableCallbackToken The `vcb_` token the workflow handed out. It is the only credential
+// the callback operations take, so treat it as a secret.
+type DurableCallbackToken = string
+
 // DurableExecution defines model for DurableExecution.
 type DurableExecution struct {
 	// ClientToken Lets a browser read and send the execution's messages. Returned only
@@ -7156,6 +7211,16 @@ type Error struct {
 type ExportProjectSourceRequest struct {
 	// ProductionBranch The currently configured production branch the user confirmed for export.
 	ProductionBranch string `json:"production_branch"`
+}
+
+// FailDurableCallbackRequest defines model for FailDurableCallbackRequest.
+type FailDurableCallbackRequest struct {
+	// Error The error the waiting step raises.
+	Error DurableCallbackError `json:"error"`
+
+	// Token The `vcb_` token the workflow handed out. It is the only credential
+	// the callback operations take, so treat it as a secret.
+	Token DurableCallbackToken `json:"token"`
 }
 
 // Frontend defines model for Frontend.
@@ -7821,6 +7886,13 @@ type GitRepositoryReference struct {
 
 	// Id GitHub's repository id. It stays the same through a rename or a transfer.
 	Id int64 `json:"id"`
+}
+
+// HeartbeatDurableCallbackRequest defines model for HeartbeatDurableCallbackRequest.
+type HeartbeatDurableCallbackRequest struct {
+	// Token The `vcb_` token the workflow handed out. It is the only credential
+	// the callback operations take, so treat it as a secret.
+	Token DurableCallbackToken `json:"token"`
 }
 
 // HostedAuthPageType defines model for HostedAuthPageType.
@@ -10846,6 +10918,18 @@ type StorageVisibilityRequest struct {
 	IsPublic bool `json:"is_public"`
 }
 
+// SucceedDurableCallbackRequest defines model for SucceedDurableCallbackRequest.
+type SucceedDurableCallbackRequest struct {
+	// Result Any JSON value other than null, up to 64 KiB. The waiting step
+	// resolves with it. Null is refused because a timeout resolves the
+	// step with null.
+	Result json.RawMessage `json:"result"`
+
+	// Token The `vcb_` token the workflow handed out. It is the only credential
+	// the callback operations take, so treat it as a secret.
+	Token DurableCallbackToken `json:"token"`
+}
+
 // TestEmailRequest When `html_body` or `text_body` is provided the backend renders
 // those (plus optional `subject`) through html/text templates
 // against the standard `Data` (ProjectName, Name, SiteURL)
@@ -13458,6 +13542,15 @@ type QueryDatabaseUpdateJSONRequestBody = DatabaseUpdateRequest
 // RequestDurableApprovalJSONRequestBody defines body for RequestDurableApproval for application/json ContentType.
 type RequestDurableApprovalJSONRequestBody = RequestDurableApprovalRequest
 
+// FailDurableCallbackJSONRequestBody defines body for FailDurableCallback for application/json ContentType.
+type FailDurableCallbackJSONRequestBody = FailDurableCallbackRequest
+
+// HeartbeatDurableCallbackJSONRequestBody defines body for HeartbeatDurableCallback for application/json ContentType.
+type HeartbeatDurableCallbackJSONRequestBody = HeartbeatDurableCallbackRequest
+
+// SucceedDurableCallbackJSONRequestBody defines body for SucceedDurableCallback for application/json ContentType.
+type SucceedDurableCallbackJSONRequestBody = SucceedDurableCallbackRequest
+
 // StartDurableExecutionFromApplicationJSONRequestBody defines body for StartDurableExecutionFromApplication for application/json ContentType.
 type StartDurableExecutionFromApplicationJSONRequestBody = StartDurableExecutionFromApplicationJSONBody
 
@@ -15337,6 +15430,21 @@ type ClientInterface interface {
 	RequestDurableApprovalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	RequestDurableApproval(ctx context.Context, body RequestDurableApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FailDurableCallbackWithBody request with any body
+	FailDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FailDurableCallback(ctx context.Context, body FailDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// HeartbeatDurableCallbackWithBody request with any body
+	HeartbeatDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	HeartbeatDurableCallback(ctx context.Context, body HeartbeatDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SucceedDurableCallbackWithBody request with any body
+	SucceedDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SucceedDurableCallback(ctx context.Context, body SucceedDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StartDurableExecutionFromApplicationWithBody request with any body
 	StartDurableExecutionFromApplicationWithBody(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -17280,6 +17388,78 @@ func (c *Client) RequestDurableApprovalWithBody(ctx context.Context, contentType
 
 func (c *Client) RequestDurableApproval(ctx context.Context, body RequestDurableApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRequestDurableApprovalRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FailDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFailDurableCallbackRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FailDurableCallback(ctx context.Context, body FailDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFailDurableCallbackRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) HeartbeatDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHeartbeatDurableCallbackRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) HeartbeatDurableCallback(ctx context.Context, body HeartbeatDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHeartbeatDurableCallbackRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SucceedDurableCallbackWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSucceedDurableCallbackRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SucceedDurableCallback(ctx context.Context, body SucceedDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSucceedDurableCallbackRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -23966,6 +24146,126 @@ func NewRequestDurableApprovalRequestWithBody(server string, contentType string,
 	}
 
 	operationPath := fmt.Sprintf("/durable-approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewFailDurableCallbackRequest calls the generic FailDurableCallback builder with application/json body
+func NewFailDurableCallbackRequest(server string, body FailDurableCallbackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFailDurableCallbackRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewFailDurableCallbackRequestWithBody generates requests for FailDurableCallback with any type of body
+func NewFailDurableCallbackRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-callbacks/fail")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewHeartbeatDurableCallbackRequest calls the generic HeartbeatDurableCallback builder with application/json body
+func NewHeartbeatDurableCallbackRequest(server string, body HeartbeatDurableCallbackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewHeartbeatDurableCallbackRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewHeartbeatDurableCallbackRequestWithBody generates requests for HeartbeatDurableCallback with any type of body
+func NewHeartbeatDurableCallbackRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-callbacks/heartbeat")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSucceedDurableCallbackRequest calls the generic SucceedDurableCallback builder with application/json body
+func NewSucceedDurableCallbackRequest(server string, body SucceedDurableCallbackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSucceedDurableCallbackRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSucceedDurableCallbackRequestWithBody generates requests for SucceedDurableCallback with any type of body
+func NewSucceedDurableCallbackRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/durable-callbacks/succeed")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -39217,6 +39517,21 @@ type ClientWithResponsesInterface interface {
 
 	RequestDurableApprovalWithResponse(ctx context.Context, body RequestDurableApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestDurableApprovalClientResponse, error)
 
+	// FailDurableCallbackWithBodyWithResponse request with any body
+	FailDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error)
+
+	FailDurableCallbackWithResponse(ctx context.Context, body FailDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error)
+
+	// HeartbeatDurableCallbackWithBodyWithResponse request with any body
+	HeartbeatDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatDurableCallbackClientResponse, error)
+
+	HeartbeatDurableCallbackWithResponse(ctx context.Context, body HeartbeatDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatDurableCallbackClientResponse, error)
+
+	// SucceedDurableCallbackWithBodyWithResponse request with any body
+	SucceedDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SucceedDurableCallbackClientResponse, error)
+
+	SucceedDurableCallbackWithResponse(ctx context.Context, body SucceedDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*SucceedDurableCallbackClientResponse, error)
+
 	// StartDurableExecutionFromApplicationWithBodyWithResponse request with any body
 	StartDurableExecutionFromApplicationWithBodyWithResponse(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDurableExecutionFromApplicationClientResponse, error)
 
@@ -41959,6 +42274,117 @@ func (r RequestDurableApprovalClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RequestDurableApprovalClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type FailDurableCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableCallbackOutcome
+	JSON202      *DurableCallbackOutcome
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON410      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r FailDurableCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FailDurableCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r FailDurableCallbackClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type HeartbeatDurableCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableCallbackOutcome
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON410      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r HeartbeatDurableCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r HeartbeatDurableCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r HeartbeatDurableCallbackClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SucceedDurableCallbackClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DurableCallbackOutcome
+	JSON202      *DurableCallbackOutcome
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON410      *Error
+	JSON413      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SucceedDurableCallbackClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SucceedDurableCallbackClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SucceedDurableCallbackClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -51730,6 +52156,57 @@ func (c *ClientWithResponses) RequestDurableApprovalWithResponse(ctx context.Con
 	return ParseRequestDurableApprovalClientResponse(rsp)
 }
 
+// FailDurableCallbackWithBodyWithResponse request with arbitrary body returning *FailDurableCallbackClientResponse
+func (c *ClientWithResponses) FailDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error) {
+	rsp, err := c.FailDurableCallbackWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFailDurableCallbackClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) FailDurableCallbackWithResponse(ctx context.Context, body FailDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*FailDurableCallbackClientResponse, error) {
+	rsp, err := c.FailDurableCallback(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFailDurableCallbackClientResponse(rsp)
+}
+
+// HeartbeatDurableCallbackWithBodyWithResponse request with arbitrary body returning *HeartbeatDurableCallbackClientResponse
+func (c *ClientWithResponses) HeartbeatDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatDurableCallbackClientResponse, error) {
+	rsp, err := c.HeartbeatDurableCallbackWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseHeartbeatDurableCallbackClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) HeartbeatDurableCallbackWithResponse(ctx context.Context, body HeartbeatDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatDurableCallbackClientResponse, error) {
+	rsp, err := c.HeartbeatDurableCallback(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseHeartbeatDurableCallbackClientResponse(rsp)
+}
+
+// SucceedDurableCallbackWithBodyWithResponse request with arbitrary body returning *SucceedDurableCallbackClientResponse
+func (c *ClientWithResponses) SucceedDurableCallbackWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SucceedDurableCallbackClientResponse, error) {
+	rsp, err := c.SucceedDurableCallbackWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSucceedDurableCallbackClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SucceedDurableCallbackWithResponse(ctx context.Context, body SucceedDurableCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*SucceedDurableCallbackClientResponse, error) {
+	rsp, err := c.SucceedDurableCallback(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSucceedDurableCallbackClientResponse(rsp)
+}
+
 // StartDurableExecutionFromApplicationWithBodyWithResponse request with arbitrary body returning *StartDurableExecutionFromApplicationClientResponse
 func (c *ClientWithResponses) StartDurableExecutionFromApplicationWithBodyWithResponse(ctx context.Context, functionId DurableFunctionId, params *StartDurableExecutionFromApplicationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartDurableExecutionFromApplicationClientResponse, error) {
 	rsp, err := c.StartDurableExecutionFromApplicationWithBody(ctx, functionId, params, contentType, body, reqEditors...)
@@ -57171,6 +57648,231 @@ func ParseRequestDurableApprovalClientResponse(rsp *http.Response) (*RequestDura
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFailDurableCallbackClientResponse parses an HTTP response from a FailDurableCallbackWithResponse call
+func ParseFailDurableCallbackClientResponse(rsp *http.Response) (*FailDurableCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FailDurableCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableCallbackOutcome
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DurableCallbackOutcome
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseHeartbeatDurableCallbackClientResponse parses an HTTP response from a HeartbeatDurableCallbackWithResponse call
+func ParseHeartbeatDurableCallbackClientResponse(rsp *http.Response) (*HeartbeatDurableCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &HeartbeatDurableCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableCallbackOutcome
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSucceedDurableCallbackClientResponse parses an HTTP response from a SucceedDurableCallbackWithResponse call
+func ParseSucceedDurableCallbackClientResponse(rsp *http.Response) (*SucceedDurableCallbackClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SucceedDurableCallbackClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DurableCallbackOutcome
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DurableCallbackOutcome
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON410 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
