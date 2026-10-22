@@ -102,7 +102,8 @@ export VOLCANO_TELEMETRY_DISABLED=1
 The CLI reads the setting when a command starts, so a change applies from the
 next command. `volcano telemetry status` shows the current setting, and
 `volcano telemetry enable` turns it back on. Logging out does not change the
-setting.
+setting. Turning telemetry off also turns off feedback reports, unless you
+ran `volcano feedback enable`; see [feedback.md](feedback.md).
 
 ## See what is sent
 

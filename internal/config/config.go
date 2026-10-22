@@ -85,6 +85,9 @@ type Config struct {
 	// Telemetry holds the usage-data settings (see internal/telemetry). Logout
 	// keeps it, so an opt-out survives logging out.
 	Telemetry *TelemetryConfig `json:"telemetry,omitempty"`
+	// Feedback holds the `volcano feedback` setting (see internal/feedback).
+	// Logout keeps it, like Telemetry.
+	Feedback *FeedbackConfig `json:"feedback,omitempty"`
 	// IgnoreEnv disables environment overrides for synthetic command configs.
 	IgnoreEnv bool `json:"-"`
 }
@@ -104,6 +107,17 @@ type TelemetryConfig struct {
 	// Disabled is set by `volcano telemetry disable`.
 	Disabled bool `json:"disabled,omitempty"`
 	// NoticeShown records that the first-run notice was printed.
+	NoticeShown bool `json:"notice_shown,omitempty"`
+}
+
+// FeedbackConfig persists the `volcano feedback` setting.
+type FeedbackConfig struct {
+	// Enabled is what the user chose: true after `volcano feedback enable`,
+	// false after `volcano feedback disable`. Unset, feedback follows the
+	// telemetry setting, so a telemetry opt-out also turns feedback off.
+	Enabled *bool `json:"enabled,omitempty"`
+	// NoticeShown records that the first-run notice was printed for
+	// feedback, which is tracked apart from telemetry's.
 	NoticeShown bool `json:"notice_shown,omitempty"`
 }
 
@@ -243,7 +257,8 @@ func Update(mutate func(*Config) (bool, error)) error {
 
 // ClearLogin removes the login and everything tied to the account (the current
 // project and function aliases) from ~/.volcano/config.json, and keeps the
-// settings that belong to the machine (docs source, telemetry). The file is
+// settings that belong to the machine (docs source, telemetry, and feedback,
+// including whether their first-run notices were shown). The file is
 // removed when nothing is left in it, or when it cannot be read or parsed, so
 // logout still removes the token from a damaged or unreadable file.
 func ClearLogin() error {
@@ -256,7 +271,7 @@ func ClearLogin() error {
 		cfg.UserID = ""
 		cfg.CurrentProject = nil
 		cfg.FunctionAliases = nil
-		if cfg.DocsSource == nil && cfg.Telemetry == nil {
+		if cfg.DocsSource == nil && cfg.Telemetry == nil && cfg.Feedback == nil {
 			return remove()
 		}
 		return cfg.save()
@@ -344,6 +359,20 @@ func (c *Config) ProjectID() string {
 	return ""
 }
 
+// SelectedProjectID returns what ProjectID returns without recording a
+// VOLCANO_PROJECT_ID use, for reporting the selected project in metadata
+// rather than running against it. A recorded use prints the deprecation
+// warning after the command.
+func (c *Config) SelectedProjectID() string {
+	if projectID := c.envProjectID(); projectID != "" {
+		return projectID
+	}
+	if project := c.Project(); project != nil {
+		return project.ID
+	}
+	return ""
+}
+
 // Project returns the selected project without the VOLCANO_PROJECT_ID
 // override: the working directory's link, else the project `volcano use`
 // saved. Nil when neither is set.
@@ -365,14 +394,20 @@ func (c *Config) Project() *ProjectConfig {
 // The variable is deprecated. A non-empty value is recorded so the CLI can
 // warn once, after the command, that it was used; see ConsumeProjectEnvUse.
 func (c *Config) ProjectIDFromEnv() string {
-	if c.IgnoreEnv {
-		return ""
-	}
-	projectID := strings.TrimSpace(os.Getenv(envProjectID))
+	projectID := c.envProjectID()
 	if projectID != "" {
 		projectEnvUsed.Store(true)
 	}
 	return projectID
+}
+
+// envProjectID is VOLCANO_PROJECT_ID, trimmed, or "" when env overrides are
+// disabled.
+func (c *Config) envProjectID() string {
+	if c.IgnoreEnv {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv(envProjectID))
 }
 
 // ProjectEnvDeprecation is the warning printed when VOLCANO_PROJECT_ID chose

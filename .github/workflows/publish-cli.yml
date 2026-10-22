@@ -160,7 +160,8 @@ jobs:
       - name: Smoke-test Linux binary
         if: matrix.target.id == 'linux-amd64'
         env:
-          # Release checks are not usage; keep them out of telemetry.
+          # Release checks are not usage; keep them out of telemetry, which also
+          # turns feedback and its first-run notice off.
           VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --help
@@ -260,7 +261,8 @@ jobs:
 
       - name: Verify uploaded Linux binary
         env:
-          # Release checks are not usage; keep them out of telemetry.
+          # Release checks are not usage; keep them out of telemetry, which also
+          # turns feedback and its first-run notice off.
           VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           set -euo pipefail

@@ -47,6 +47,10 @@ func (m *memConfig) load() (*config.Config, error) {
 		state := *m.cfg.Telemetry
 		cfg.Telemetry = &state
 	}
+	if m.cfg.Feedback != nil {
+		feedback := *m.cfg.Feedback
+		cfg.Feedback = &feedback
+	}
 	return &cfg, nil
 }
 
@@ -86,10 +90,13 @@ type harness struct {
 	now     time.Time
 }
 
+// newHarness returns a fresh machine where feedback was already announced, so
+// tests of usage data see only telemetry's notice. Tests of the feedback
+// notice clear store.cfg.Feedback.
 func newHarness() *harness {
 	return &harness{
 		env:     map[string]string{},
-		store:   &memConfig{},
+		store:   &memConfig{cfg: config.Config{Feedback: &config.FeedbackConfig{NoticeShown: true}}},
 		home:    "/home/dev",
 		plugins: map[string]string{},
 		now:     time.Date(2026, 10, 15, 3, 0, 0, 0, time.UTC),
@@ -152,6 +159,7 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	assert.Contains(t, stderr.String(), "collects usage data")
 	assert.Contains(t, stderr.String(), "volcano telemetry disable")
 	assert.Contains(t, stderr.String(), "volcano telemetry --help")
+	assert.NotContains(t, stderr.String(), "volcano feedback", "feedback was already announced")
 	assert.Empty(t, h.sent, "the run that shows the notice sends nothing")
 	assert.True(t, h.store.state().NoticeShown)
 	deviceID := h.store.state().DeviceID
@@ -163,6 +171,36 @@ func TestRecord_FirstRunPrintsNoticeAndSendsNothing(t *testing.T) {
 	require.Len(t, h.sent, 1)
 	assert.Equal(t, deviceID, h.lastEvent(t).DeviceID)
 	assert.Equal(t, 1, h.store.saves)
+}
+
+func TestRecord_FreshMachineAnnouncesBoth(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "collects usage data")
+	assert.Contains(t, stderr.String(), "volcano telemetry disable")
+	assert.Contains(t, stderr.String(), "volcano feedback disable")
+	assert.Contains(t, stderr.String(), "`volcano feedback --help`")
+	assert.True(t, h.store.state().NoticeShown)
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.Empty(t, h.sent)
+}
+
+func TestRecord_UnwritableHomeKeepsSendingAnnouncedTelemetry(t *testing.T) {
+	// Saved by a CLI from before feedback, then mounted read-only.
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.failSave = true
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "a notice that can never be marked shown would print on every run")
+	require.Len(t, h.sent, 1)
+	assert.Equal(t, "d", h.lastEvent(t).DeviceID)
+	assert.False(t, h.recorder().FeedbackOn())
 }
 
 func TestRecord_UnwritableStatePrintsNoNoticeAndSendsNothing(t *testing.T) {
@@ -271,6 +309,98 @@ func TestRecord_OptOuts(t *testing.T) {
 			assert.Zero(t, h.store.saves)
 		})
 	}
+}
+
+func TestRecord_TelemetryOffTurnsFeedbackOff(t *testing.T) {
+	for name, setup := range map[string]func(h *harness){
+		"VOLCANO_TELEMETRY_DISABLED": func(h *harness) { h.env[EnvDisabled] = "1" },
+		"telemetry disable":          func(h *harness) { h.store.setState(State{Disabled: true}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness()
+			h.store.cfg.Feedback = nil
+			setup(h)
+			var stderr bytes.Buffer
+
+			h.recorder().Record(Invocation{Stderr: &stderr})
+			assert.Empty(t, stderr.String(), "no notice: feedback follows telemetry")
+			assert.Zero(t, h.store.saves, "nothing is written to the config")
+			assert.Nil(t, h.store.cfg.Feedback)
+			assert.Empty(t, h.sent)
+			assert.False(t, h.recorder().FeedbackOn())
+		})
+	}
+}
+
+func TestRecord_FeedbackEnabledWithTelemetryOff(t *testing.T) {
+	enabled := true
+	h := newHarness()
+	// Enabled by hand, so the notice was never shown.
+	h.store.cfg.Feedback = &config.FeedbackConfig{Enabled: &enabled}
+	h.env[EnvDisabled] = "1"
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "volcano feedback --help", "feedback is announced on its own")
+	assert.Contains(t, stderr.String(), "Turn it off with `volcano feedback disable`.", "the notice names the opt-out")
+	assert.NotContains(t, stderr.String(), "collects usage data", "telemetry is off")
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.Nil(t, h.store.cfg.Telemetry, "telemetry's record is unchanged")
+	assert.Empty(t, h.sent)
+	assert.True(t, h.recorder().FeedbackOn(), "feedback is on from the next process")
+
+	stderr.Reset()
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "the notice is shown once")
+}
+
+func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
+	// A machine that saw the notice before feedback existed.
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Equal(t, "Note: coding agents can send the Volcano team feedback reports about problems they hit with Volcano, with `volcano feedback`. Turn it off with `volcano feedback disable`. Details: `volcano feedback --help`.\n", stderr.String())
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.Len(t, h.sent, 1, "telemetry was already announced, so this run still sends")
+
+	stderr.Reset()
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String())
+}
+
+func TestRecord_FeedbackNoticeWithBrokenLink(t *testing.T) {
+	// An upgraded machine, run in a directory whose project link is broken.
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	r := h.recorder()
+	load := r.LoadConfig
+	r.LoadConfig = func() (*config.Config, error) {
+		cfg, _ := load()
+		return cfg, &config.LinkError{Dir: "/w", Err: errors.New("project link has no project_id")}
+	}
+	var stderr bytes.Buffer
+
+	r.Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "Turn it off with `volcano feedback disable`.")
+	require.NotNil(t, h.store.cfg.Feedback)
+	assert.True(t, h.store.cfg.Feedback.NoticeShown, "the feedback notice is saved, so the next report is sent")
+	assert.Empty(t, h.sent, "usage data still treats a broken link as unreadable")
+}
+
+func TestRecord_BothOffShowsNoNotice(t *testing.T) {
+	h := newHarness()
+	disabled := false
+	h.store.cfg.Feedback = &config.FeedbackConfig{Enabled: &disabled}
+	h.env[EnvDisabled] = "1"
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String())
+	assert.Zero(t, h.store.saves)
 }
 
 func TestRecord_FalsyEnvDoesNotOptOut(t *testing.T) {
@@ -645,4 +775,42 @@ func TestRecord_SkipsOfflineWhenFlagParsingFailed(t *testing.T) {
 	h.store.setState(State{DeviceID: "d", NoticeShown: true})
 	h.recorder().Record(Invocation{Args: []string{"docs", "list", "--bogus", "--offline"}, Err: errors.New("unknown flag: --bogus"), ExitCode: 1})
 	assert.Empty(t, h.sent)
+}
+
+func TestAnnounceFeedback(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	r := h.recorder()
+	var stderr bytes.Buffer
+
+	assert.True(t, r.AnnounceFeedback(&stderr), "saved, so the next report is sent")
+	assert.Contains(t, stderr.String(), "collects usage data", "a fresh machine gets the whole notice")
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.True(t, h.store.state().NoticeShown)
+	saves := h.store.saves
+
+	stderr.Reset()
+	r.Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "Record in the same process does not repeat the notice")
+	assert.Empty(t, h.sent, "the run that showed the notice sends no usage event")
+	assert.Equal(t, saves, h.store.saves)
+}
+
+func TestAnnounceFeedback_Unsaved(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.store.failSave = true
+	var stderr bytes.Buffer
+
+	assert.False(t, h.recorder().AnnounceFeedback(&stderr))
+	assert.Empty(t, stderr.String())
+}
+
+func TestAnnounceFeedback_Off(t *testing.T) {
+	h := newHarness()
+	h.store.cfg.Feedback = nil
+	h.env[EnvDisabled] = "1"
+
+	assert.False(t, h.recorder().AnnounceFeedback(io.Discard), "feedback follows telemetry")
+	assert.Zero(t, h.store.saves)
 }

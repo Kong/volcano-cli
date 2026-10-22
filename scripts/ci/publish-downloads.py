@@ -129,7 +129,8 @@ def verify_downloads(base_url, version, assets, names=None):
 
 def verify_install(assets, base_url, version=None):
     with tempfile.TemporaryDirectory(prefix="cli-install-") as directory:
-        # A release check is not usage, so the installed CLI sends no telemetry.
+        # A release check is not usage, so the installed CLI sends no telemetry and,
+        # with telemetry off, no feedback or first-run notice.
         env = dict(os.environ, VOLCANO_CLI_RELEASES_URL=base_url, VOLCANO_INSTALL_DIR=directory,
                    VOLCANO_TELEMETRY_DISABLED="1")
         for name in ("VOLCANO_VERSION", "VOLCANO_GITHUB_RELEASES_URL", "VOLCANO_SKIP_SIGNATURE_VERIFICATION"):

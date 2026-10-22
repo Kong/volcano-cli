@@ -137,13 +137,7 @@ func errorMessage(err error, home string) string {
 		}
 		msg = strings.ReplaceAll(msg, text, redacted)
 	}
-	if len(home) > 1 {
-		// %q doubles each backslash in a Windows path.
-		if strings.Contains(home, `\`) {
-			msg = strings.ReplaceAll(msg, strings.ReplaceAll(home, `\`, `\\`), "~")
-		}
-		msg = strings.ReplaceAll(msg, home, "~")
-	}
+	msg = replaceHome(msg, home)
 	msg = ansiEscape.ReplaceAllString(msg, "")
 	msg = strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) {
@@ -156,6 +150,18 @@ func errorMessage(err error, home string) string {
 		msg = string(runes[:maxErrorMessageRunes])
 	}
 	return msg
+}
+
+// replaceHome replaces the home directory in s with "~", also where %q
+// doubled each backslash of a Windows home.
+func replaceHome(s, home string) string {
+	if len(home) <= 1 {
+		return s
+	}
+	if strings.Contains(home, `\`) {
+		s = strings.ReplaceAll(s, strings.ReplaceAll(home, `\`, `\\`), "~")
+	}
+	return strings.ReplaceAll(s, home, "~")
 }
 
 const redacted = "[redacted]"

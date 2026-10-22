@@ -60,6 +60,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeLeavesBuildReuseToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
+	requireLocalModeSendsFeedback(t, volcanoBin, env, projectDir)
 	requireLocalModeSendsNotifications(t, volcanoBin, env, projectDir)
 	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)
 
@@ -196,8 +197,12 @@ func localModeE2EEnv(t *testing.T) []string {
 		"VOLCANO_PROJECT_ID=",
 		"VOLCANO_API_URL=",
 		"VOLCANO_FIRST_PARTY_DEVICE_CLIENT_ID=",
-		// Telemetry off: no first-run notice in command output, no events.
+		// Telemetry off, which also turns feedback off: no first-run notice in
+		// command output, no events.
 		"VOLCANO_TELEMETRY_DISABLED=1",
+		// The feedback check turns feedback on itself, so a host opt-out must
+		// not leak in.
+		"VOLCANO_FEEDBACK_DISABLED=",
 	)
 	if os.Getenv("VOLCANO_IMAGE") == "" {
 		env = append(env, "VOLCANO_IMAGE=kong/volcano:local-nightly")

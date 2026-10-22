@@ -185,6 +185,13 @@ func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ..
 	return apiError(statusCode, body)
 }
 
+// ResponseError returns the *Error for a failed response with statusCode and
+// body, for requests made outside the generated client. It reads the message
+// from the API's JSON error body, or uses a short plain-text body.
+func ResponseError(statusCode int, body []byte) error {
+	return apiError(statusCode, body)
+}
+
 func apiError(statusCode int, body []byte) error {
 	var payload errorFields
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {

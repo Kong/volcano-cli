@@ -50,9 +50,16 @@ import (
 const (
 	// EnvDisabled turns telemetry off.
 	EnvDisabled = "VOLCANO_TELEMETRY_DISABLED"
+	// EnvFeedbackDisabled turns `volcano feedback` reports off, even after
+	// `volcano feedback enable`.
+	EnvFeedbackDisabled = "VOLCANO_FEEDBACK_DISABLED"
 	// EnvDebug prints each event to stderr instead of sending it. Off unless
 	// set.
 	EnvDebug = "VOLCANO_TELEMETRY_DEBUG"
+	// EnvFeedbackDebug appends each `volcano feedback` report to
+	// ~/.volcano/feedback.jsonl instead of sending it. Nothing else changes,
+	// including the output. For maintainers only, so it is not documented.
+	EnvFeedbackDebug = "VOLCANO_FEEDBACK_DEBUG"
 )
 
 // SkipAnnotation marks a command whose invocations, and its subcommands', are
@@ -114,7 +121,10 @@ type Recorder struct {
 	Getenv    func(string) string
 	LookupEnv func(string) (string, bool)
 	Now       func() time.Time
-	// LoadConfig reads the CLI config (config.Load).
+	// LoadConfig reads the CLI config (config.Load). When the working
+	// directory's project link cannot be used, it returns the
+	// *config.LinkError together with the config read without the link, so
+	// feedback, which does not need the link, still works.
 	LoadConfig func() (*config.Config, error)
 	// UpdateConfig changes the config under its lock (config.Update).
 	UpdateConfig func(mutate func(*config.Config) (bool, error)) error
@@ -128,6 +138,21 @@ type Recorder struct {
 	once   sync.Once
 	cfg    *config.Config
 	cfgErr error
+	// badLink is set when cfgErr is a *config.LinkError and cfg is the
+	// config without the link.
+	badLink bool
+
+	// announceOnce guards announced, so the first-run notice is saved and
+	// printed at most once per process, by AnnounceFeedback or Record.
+	announceOnce sync.Once
+	announced    announcement
+}
+
+// announcement is the result of the one attempt to save the first-run notice.
+type announcement struct {
+	state         State // the telemetry block after the attempt
+	feedbackShown bool  // the saved config records the feedback notice
+	err           error
 }
 
 // setup fills in the defaults and reads the config, once.
@@ -143,7 +168,7 @@ func (r *Recorder) setup() {
 			r.Now = time.Now
 		}
 		if r.LoadConfig == nil {
-			r.LoadConfig = config.Load
+			r.LoadConfig = loadConfig
 		}
 		if r.UpdateConfig == nil {
 			r.UpdateConfig = config.Update
@@ -160,7 +185,31 @@ func (r *Recorder) setup() {
 			}
 		}
 		r.cfg, r.cfgErr = r.LoadConfig()
+		if _, ok := errors.AsType[*config.LinkError](r.cfgErr); ok && r.cfg != nil {
+			r.badLink = true
+		} else if r.cfgErr != nil {
+			r.cfg = nil
+		}
 	})
+}
+
+// loadConfig is config.Load, except that a project link that cannot be used
+// also returns the config read without it.
+func loadConfig() (*config.Config, error) {
+	cfg, linkErr, err := config.LoadIgnoringBadLink()
+	if err != nil {
+		return nil, err
+	}
+	if linkErr != nil {
+		return cfg, linkErr
+	}
+	return cfg, nil
+}
+
+// feedbackConfigOK reports whether the config was read well enough for
+// feedback: fully, or without a project link that cannot be used.
+func (r *Recorder) feedbackConfigOK() bool {
+	return r.cfgErr == nil || r.badLink
 }
 
 // state is the telemetry block as the process found it at start.
@@ -176,6 +225,89 @@ func DisabledByEnv(getenv func(string) string) bool {
 	return isTruthy(getenv(EnvDisabled))
 }
 
+// FeedbackDisabledByEnv reports whether VOLCANO_FEEDBACK_DISABLED turns
+// feedback off.
+func FeedbackDisabledByEnv(getenv func(string) string) bool {
+	return isTruthy(getenv(EnvFeedbackDisabled))
+}
+
+// FeedbackDebugByEnv reports whether VOLCANO_FEEDBACK_DEBUG saves reports
+// locally instead of sending them.
+func FeedbackDebugByEnv(getenv func(string) string) bool {
+	return isTruthy(getenv(EnvFeedbackDebug))
+}
+
+// LoggedIn reports whether the config holds a login token that can send a
+// feedback report. `volcano feedback` sends nothing without one. A project
+// access token does not count: the server takes reports only from an account.
+func (r *Recorder) LoggedIn() bool {
+	r.setup()
+	return r.cfg != nil && CanSendFeedback(r.cfg.Token())
+}
+
+// CanSendFeedback reports whether token can send a feedback report: it is set
+// and is not a project access token.
+func CanSendFeedback(token string) bool {
+	return token != "" && !config.IsProjectToken(token)
+}
+
+// FeedbackOn reports whether `volcano feedback` may send a report: the config
+// is readable, the feedback setting is on (see FeedbackSetting), and an
+// earlier process showed the first-run notice for feedback. A project link
+// that cannot be used does not turn feedback off: a report does not need it,
+// and a broken link is a problem worth reporting.
+func (r *Recorder) FeedbackOn() bool {
+	r.setup()
+	return r.feedbackConfigOK() && r.feedbackSettingOn() && r.feedbackNoticeShown()
+}
+
+// FeedbackState says whether the feedback setting is on, and if not, why.
+type FeedbackState int
+
+const (
+	// FeedbackSettingOn means enabled with `volcano feedback enable`, or never
+	// chosen while telemetry is on.
+	FeedbackSettingOn FeedbackState = iota
+	// FeedbackOffByEnv means VOLCANO_FEEDBACK_DISABLED is set.
+	FeedbackOffByEnv
+	// FeedbackOffByUser means turned off with `volcano feedback disable`.
+	FeedbackOffByUser
+	// FeedbackOffWithTelemetry means never chosen, and telemetry is off.
+	FeedbackOffWithTelemetry
+)
+
+// FeedbackSetting returns the feedback setting for cfg, which may be nil for
+// a home with no config. VOLCANO_FEEDBACK_DISABLED turns feedback off.
+// Otherwise `volcano feedback enable` or `disable` decides, and when the user
+// chose neither, feedback follows telemetry: a telemetry opt-out, in the
+// config or by VOLCANO_TELEMETRY_DISABLED, also turns feedback off.
+func FeedbackSetting(cfg *config.Config, getenv func(string) string) FeedbackState {
+	if FeedbackDisabledByEnv(getenv) {
+		return FeedbackOffByEnv
+	}
+	if cfg != nil && cfg.Feedback != nil && cfg.Feedback.Enabled != nil {
+		if *cfg.Feedback.Enabled {
+			return FeedbackSettingOn
+		}
+		return FeedbackOffByUser
+	}
+	if DisabledByEnv(getenv) || cfg != nil && cfg.Telemetry != nil && cfg.Telemetry.Disabled {
+		return FeedbackOffWithTelemetry
+	}
+	return FeedbackSettingOn
+}
+
+// feedbackSettingOn reports whether the feedback setting is on.
+func (r *Recorder) feedbackSettingOn() bool {
+	return FeedbackSetting(r.cfg, r.Getenv) == FeedbackSettingOn
+}
+
+// feedbackNoticeShown reports whether the first-run notice was shown for
+// feedback.
+func (r *Recorder) feedbackNoticeShown() bool {
+	return r.cfg != nil && r.cfg.Feedback != nil && r.cfg.Feedback.NoticeShown
+}
+
 // Reporting reports whether this process may send usage data, including the
 // agent request headers: no env opt-out, not turned off with `volcano telemetry
 // disable`, and the first-run notice already shown by an earlier process. A
@@ -183,45 +315,62 @@ func DisabledByEnv(getenv func(string) string) bool {
 // in a home where the notice can never be saved), counts as off.
 func (r *Recorder) Reporting() bool {
 	r.setup()
-	if DisabledByEnv(r.Getenv) || r.cfgErr != nil {
+	return r.cfgErr == nil && r.telemetryAnnounced()
+}
+
+// telemetryAnnounced reports whether the config was read and telemetry is on
+// and was announced by an earlier process, whether or not the project link
+// can be used.
+func (r *Recorder) telemetryAnnounced() bool {
+	if r.cfg == nil || DisabledByEnv(r.Getenv) {
 		return false
 	}
 	state := r.state()
 	return !state.Disabled && state.NoticeShown
 }
 
-// Record records one invocation. It never fails the command: every error is
-// swallowed, since telemetry must not change what the CLI does.
+// Record records one invocation and shows the first-run notice. It never fails
+// the command: every error is swallowed, since telemetry must not change what
+// the CLI does.
+//
+// The notice covers usage data and feedback reports, and each has its own
+// "shown" record. It is printed when either one is on and has not been
+// announced yet. Feedback is off while telemetry is, unless the user ran
+// `volcano feedback enable`, so a telemetry opt-out prints no notice and
+// writes no config.
 func (r *Recorder) Record(inv Invocation) {
 	r.setup()
 	if skipped(inv.Command, inv.Args) {
 		return
 	}
-	// An env opt-out also means the user already knows: no notice.
-	if DisabledByEnv(r.Getenv) || r.cfgErr != nil {
+	if r.cfgErr != nil {
+		// A broken project link leaves feedback on, so its notice is still
+		// shown and saved, but usage data treats the config as unreadable
+		// and sends nothing.
+		if r.badLink {
+			r.AnnounceFeedback(inv.Stderr)
+		}
 		return
 	}
 	state := r.state()
-	if state.Disabled {
-		return
+	telemetryOn := r.telemetrySettingOn()
+	startedBeforeNotice := !state.NoticeShown
+	if r.needsNotice() {
+		a := r.announce(inv.Stderr)
+		switch {
+		case a.err == nil:
+			state = a.state
+		// A home that cannot be saved, such as one mounted read-only, keeps
+		// sending usage data when an earlier process already announced it.
+		case startedBeforeNotice || state.DeviceID == "":
+			return
+		}
 	}
-	if state.DeviceID == "" || !state.NoticeShown {
-		startedBeforeNotice := !state.NoticeShown
-		var firstRun bool
-		var err error
-		state, firstRun, err = r.initialize()
-		if err != nil || state.Disabled {
-			return
-		}
-		if firstRun && inv.Stderr != nil {
-			printNotice(inv.Stderr)
-		}
-		// A process that started before the notice was shown sends nothing,
-		// even when a concurrent process showed it first: the user had no
-		// chance to opt out before this command ran.
-		if startedBeforeNotice {
-			return
-		}
+	// A process that started before the notice was shown sends nothing,
+	// even when a concurrent process showed it first: the user had no
+	// chance to opt out before this command ran.
+	if !telemetryOn || state.Disabled || startedBeforeNotice {
+		return
 	}
 
 	payload, err := json.Marshal(r.build(inv, state.DeviceID))
@@ -237,36 +386,95 @@ func (r *Recorder) Record(inv Invocation) {
 	_ = r.Send(payload)
 }
 
-// initialize gives the machine a device id and marks the notice as shown, under
-// the config's lock so a concurrent `volcano telemetry disable` is never
-// overwritten. firstRun reports whether this call marked the notice. When the
-// config cannot be saved (a read-only home, a sandbox) it returns an error, so
-// the caller neither prints the notice nor sends anything: printing it on every
-// run would only add noise.
-func (r *Recorder) initialize() (state State, firstRun bool, err error) {
+// telemetrySettingOn reports whether usage data is on in the settings: no env
+// opt-out and not turned off with `volcano telemetry disable`.
+func (r *Recorder) telemetrySettingOn() bool {
+	return !DisabledByEnv(r.Getenv) && !r.state().Disabled
+}
+
+// needsNotice reports whether the config the process started with lacks a
+// first-run notice record for usage data or feedback while that one is on.
+func (r *Recorder) needsNotice() bool {
+	state := r.state()
+	return r.telemetrySettingOn() && (state.DeviceID == "" || !state.NoticeShown) ||
+		r.feedbackSettingOn() && !r.feedbackNoticeShown()
+}
+
+// announce saves the first-run notice for what needs it and prints it to w
+// when the save succeeds. Only the first call does anything; later calls
+// return its result, so Record after AnnounceFeedback prints nothing again.
+func (r *Recorder) announce(w io.Writer) announcement {
+	r.announceOnce.Do(func() {
+		state, feedbackShown, announced, err := r.initialize(r.telemetrySettingOn(), r.feedbackSettingOn())
+		r.announced = announcement{state: state, feedbackShown: feedbackShown, err: err}
+		if err == nil && w != nil {
+			printNotice(w, announced)
+		}
+	})
+	return r.announced
+}
+
+// AnnounceFeedback shows the first-run notice now, when the feedback setting
+// is on and feedback was not announced yet, and reports whether the config
+// records the feedback notice, so a report from the next process is sent. It
+// is false when the setting is off, the config cannot be read, or the notice
+// cannot be saved, such as in a read-only home. `volcano feedback status`
+// calls it so that its answer holds for the next command; Record in the same
+// process then shows nothing again.
+func (r *Recorder) AnnounceFeedback(w io.Writer) bool {
+	r.setup()
+	if !r.feedbackConfigOK() || !r.feedbackSettingOn() {
+		return false
+	}
+	if r.feedbackNoticeShown() {
+		return true
+	}
+	a := r.announce(w)
+	return a.err == nil && a.feedbackShown
+}
+
+// initialize marks the notice as shown for usage data when telemetry is on,
+// giving the machine a device id, and for feedback when feedback is on. It
+// runs under the config's lock and checks the saved settings again, so a
+// concurrent `volcano telemetry disable` or `volcano feedback disable` is never
+// overwritten. announced says which of the two this call marked, so the caller
+// prints the notice for those, and feedbackShown whether the saved config
+// records the feedback notice. When the config cannot be saved (a read-only
+// home, a sandbox) it returns an error, so the caller prints no notice and
+// sends nothing that was not announced before: printing it on every run would
+// only add noise.
+func (r *Recorder) initialize(telemetry, feedback bool) (state State, feedbackShown bool, announced notice, err error) {
 	err = r.UpdateConfig(func(cfg *config.Config) (bool, error) {
-		if cfg.Telemetry == nil {
+		changed := false
+		if telemetry && cfg.Telemetry == nil {
 			cfg.Telemetry = &State{}
 		}
-		s := cfg.Telemetry
-		if s.Disabled {
-			state = *s
-			return false, nil
+		if s := cfg.Telemetry; telemetry && !s.Disabled {
+			if s.DeviceID == "" {
+				s.DeviceID = uuid.NewString()
+				changed = true
+			}
+			if !s.NoticeShown {
+				s.NoticeShown = true
+				announced.telemetry = true
+				changed = true
+			}
 		}
-		changed := false
-		if s.DeviceID == "" {
-			s.DeviceID = uuid.NewString()
+		if feedback && FeedbackSetting(cfg, r.Getenv) == FeedbackSettingOn && (cfg.Feedback == nil || !cfg.Feedback.NoticeShown) {
+			if cfg.Feedback == nil {
+				cfg.Feedback = &config.FeedbackConfig{}
+			}
+			cfg.Feedback.NoticeShown = true
+			announced.feedback = true
 			changed = true
 		}
-		if !s.NoticeShown {
-			s.NoticeShown = true
-			firstRun = true
-			changed = true
+		if cfg.Telemetry != nil {
+			state = *cfg.Telemetry
 		}
-		state = *s
+		feedbackShown = cfg.Feedback != nil && cfg.Feedback.NoticeShown
 		return changed, nil
 	})
-	return state, firstRun, err
+	return state, feedbackShown, announced, err
 }
 
 // skipped reports whether an invocation of cmd is never recorded: commands
@@ -431,7 +639,7 @@ func errorKind(err error) string {
 		return "local_not_running"
 	case isNetworkError(err):
 		return "network"
-	case isUsageError(err):
+	case IsUsageError(err):
 		return "usage"
 	}
 	return "other"
@@ -453,9 +661,9 @@ func isNetworkError(err error) bool {
 	return ok && !errors.Is(err, context.DeadlineExceeded)
 }
 
-// isUsageError matches cobra's own argument and flag parsing errors, which are
+// IsUsageError matches cobra's own argument and flag parsing errors, which are
 // plain errors with fixed message prefixes.
-func isUsageError(err error) bool {
+func IsUsageError(err error) bool {
 	msg := err.Error()
 	for _, prefix := range []string{
 		"unknown command", "unknown flag", "unknown shorthand flag",
@@ -472,9 +680,28 @@ func isUsageError(err error) bool {
 	return false
 }
 
-func printNotice(w io.Writer) {
-	fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI.")
-	fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
+// notice says what the first-run notice announces: usage data, feedback
+// reports, or both. Each has its own "shown" record, so a machine that saw one
+// is told only about the other.
+type notice struct {
+	telemetry, feedback bool
+}
+
+// printNotice prints the first-run notice for what n announces. Nothing it
+// announces is sent until the next command: a feedback report needs the
+// notice shown by an earlier process (FeedbackOn), and the usage event of the
+// run that shows the telemetry notice is not sent.
+func printNotice(w io.Writer, n notice) {
+	switch {
+	case n.telemetry && n.feedback:
+		fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI. Coding agents can also send feedback reports about problems they hit with `volcano feedback`.")
+		fmt.Fprintf(w, "Nothing is sent until your next command. Turn off usage data with `volcano telemetry disable` or %s=1, and feedback with `volcano feedback disable`. Details: `volcano telemetry --help` and `volcano feedback --help`.\n", EnvDisabled)
+	case n.telemetry:
+		fmt.Fprintln(w, "Note: the Volcano CLI collects usage data: the command and flag names you use, the project and resource names it acts on, error messages, CLI version, platform, and which coding agent ran it. It is linked to a random ID for this machine and, when you are logged in, to your Volcano account. This helps us improve the CLI.")
+		fmt.Fprintf(w, "Nothing is sent until your next command. Turn it off with `volcano telemetry disable` or %s=1. Details: `volcano telemetry --help`.\n", EnvDisabled)
+	case n.feedback:
+		fmt.Fprintln(w, "Note: coding agents can send the Volcano team feedback reports about problems they hit with Volcano, with `volcano feedback`. Turn it off with `volcano feedback disable`. Details: `volcano feedback --help`.")
+	}
 }
 
 func isTruthy(v string) bool {

@@ -7,8 +7,12 @@ description: "How the Volcano CLI detects which coding agent ran a command, what
 
 When a coding agent runs a `volcano` command, the CLI works out which agent it
 was and reports the name to the Volcano API with each request. This tells the
-Volcano team which agents people build with. It never changes what a command
-does, and it is never used to allow or block a request.
+Volcano team which agents people build with. It is never used to allow or
+block a request. The one thing it changes is the output of a failed command:
+when a coding agent ran it and feedback can be sent, the CLI adds a line that
+points the agent to `volcano feedback` (see [feedback.md](feedback.md)). An
+agent found only by step 5 below does not count, since a person may be typing
+in that terminal.
 
 Detection reads environment variables only. It does not read files or inspect
 other processes, and the headers below carry no command arguments. The usage

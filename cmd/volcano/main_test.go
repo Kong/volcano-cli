@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
 	cliauth "github.com/Kong/volcano-cli/internal/auth"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
@@ -809,4 +810,72 @@ func TestRun_UseInALinkedDirectoryWarnsAboutVolcanoProjectID(t *testing.T) {
 	assert.Equal(t, 0, run(root, deps), stderr.String())
 	assert.Contains(t, stdout.String(), "Now using project: alpha")
 	assert.Equal(t, "Warning: "+cliconfig.ProjectEnvDeprecation+"\n", stderr.String())
+}
+
+func TestRun_FeedbackHint(t *testing.T) {
+	failing := func() *cobra.Command {
+		root := &cobra.Command{Use: "volcano", SilenceErrors: true, SilenceUsage: true}
+		feedback := &cobra.Command{Use: "feedback", RunE: func(*cobra.Command, []string) error { return errors.New("send feedback: HTTP 500") }}
+		feedback.AddCommand(&cobra.Command{Use: "disable", RunE: func(*cobra.Command, []string) error { return errors.New("read-only home") }})
+		root.AddCommand(
+			&cobra.Command{Use: "deploy", RunE: func(*cobra.Command, []string) error { return errors.New("deploy failed") }},
+			&cobra.Command{Use: "ok", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error { return nil }},
+			feedback,
+			&cobra.Command{Use: "whoami", RunE: func(*cobra.Command, []string) error {
+				return &api.Error{StatusCode: http.StatusUnauthorized, Message: "unauthorized"}
+			}},
+			&cobra.Command{Use: "old", RunE: func(*cobra.Command, []string) error {
+				return &api.Error{StatusCode: http.StatusUpgradeRequired, Message: "upgrade required"}
+			}},
+			&cobra.Command{Use: "exec", RunE: func(*cobra.Command, []string) error {
+				return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 3})
+			}},
+		)
+		return root
+	}
+	const hint = "Coding agents: if this is a problem with Volcano itself, report it after your task with `volcano feedback`. See `volcano feedback --help`."
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+		args    []string
+		want    bool
+	}{
+		{"failed command", true, []string{"deploy"}, true},
+		{"unknown command", true, []string{"nope"}, false},
+		{"unknown flag", true, []string{"deploy", "--bogus"}, false},
+		{"stray argument", true, []string{"ok", "extra"}, false},
+		{"no agent or feedback off", false, []string{"deploy"}, false},
+		{"success", true, []string{"ok"}, false},
+		{"failed feedback command", true, []string{"feedback"}, false},
+		{"failed feedback subcommand", true, []string{"feedback", "disable"}, false},
+		{"sandbox command exit status", true, []string{"exec"}, false},
+		{"unauthorized", true, []string{"whoami"}, false},
+		{"upgrade required", true, []string{"old"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetInstructions(t)
+			old := feedbackHint
+			feedbackHint = tc.enabled
+			t.Cleanup(func() { feedbackHint = old })
+			root := failing()
+			root.SetArgs(tc.args)
+			var stderr bytes.Buffer
+			root.SetErr(&stderr)
+			run(root, cliruntime.Deps{})
+			if tc.want {
+				assert.Contains(t, stderr.String(), hint)
+				assert.Less(t, strings.Index(stderr.String(), "Error:"), strings.Index(stderr.String(), hint))
+			} else {
+				assert.NotContains(t, stderr.String(), "Coding agents:")
+			}
+		})
+	}
+}
+
+func TestFeedbackHintFor(t *testing.T) {
+	assert.True(t, feedbackHintFor(true, agent.Result{Name: "claude-code", Source: agent.SourceMarker}))
+	assert.True(t, feedbackHintFor(true, agent.Result{Name: agent.Unknown, Source: agent.SourceAIAgent}))
+	assert.False(t, feedbackHintFor(true, agent.Result{Name: "cursor", Source: agent.SourceHost}), "a person in Cursor's terminal")
+	assert.False(t, feedbackHintFor(true, agent.Result{}), "no agent")
+	assert.False(t, feedbackHintFor(false, agent.Result{Name: "codex", Source: agent.SourceMarker}), "feedback off")
 }

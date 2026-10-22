@@ -13,7 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
+	feedbackcmd "github.com/Kong/volcano-cli/internal/cmd/feedback"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
@@ -43,6 +45,8 @@ func main() {
 	// count as usage data: none before the first-run notice.
 	recorder := &telemetry.Recorder{}
 	api.SetAgentReporting(recorder.Reporting())
+	feedbackcmd.SetRecorder(recorder)
+	feedbackHint = feedbackHintFor(recorder.FeedbackOn() && recorder.LoggedIn(), agent.Detect(os.LookupEnv))
 	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
@@ -58,6 +62,9 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	start := time.Now()
 	cmd, err := root.ExecuteC()
 	code := finish(root, deps, err)
+	if code != 0 && feedbackHint && wantsFeedbackHint(cmd, err) {
+		printFeedbackHint(root.ErrOrStderr(), deps)
+	}
 	recordTelemetry(telemetry.Invocation{
 		Command:  cmd,
 		Err:      err,
@@ -74,6 +81,52 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 // it; tests replace it so they never write the config or start a flush
 // process.
 var recordTelemetry = func(telemetry.Invocation) {}
+
+// feedbackHint is whether a failed command ends with a pointer to `volcano
+// feedback`: only when a coding agent ran the CLI and feedback can be sent. A
+// host-only signal, such as Cursor's integrated terminal, is also set when a
+// person types there, so it does not count.
+// main sets it; tests leave it off unless they cover the hint.
+var feedbackHint bool
+
+// feedbackHintFor decides feedbackHint from whether feedback can be sent and
+// the detected agent.
+func feedbackHintFor(on bool, detected agent.Result) bool {
+	return on && detected.Name != "" && detected.Source != agent.SourceHost
+}
+
+// wantsFeedbackHint reports whether a failure could be a Volcano problem worth
+// a hint. A sandbox command's own exit status is the user's command failing,
+// a usage error such as an unknown flag is what `volcano feedback --help` says
+// not to report, a 401 or 426 already says how to fix it, and a failed
+// `volcano feedback` would point at itself.
+func wantsFeedbackHint(cmd *cobra.Command, err error) bool {
+	if _, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
+		return false
+	}
+	if telemetry.IsUsageError(err) {
+		return false
+	}
+	// A 401 or 426 is answered by the login or upgrade line printed above it,
+	// and `volcano feedback` would fail the same way.
+	if status := api.Status(err); status == http.StatusUnauthorized || status == http.StatusUpgradeRequired {
+		return false
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "feedback" && c.HasParent() && !c.Parent().HasParent() {
+			return false
+		}
+	}
+	return true
+}
+
+// printFeedbackHint tells the coding agent how to report the failure if it is
+// a problem with Volcano. The volcano-feedback skill says what is worth
+// reporting.
+func printFeedbackHint(w io.Writer, deps cliruntime.Deps) {
+	fmt.Fprintf(w, "Coding agents: if this is a problem with Volcano itself, report it after your task with `%s`. See `%s`.\n",
+		cliruntime.CommandPath(deps, "feedback"), cliruntime.CommandPath(deps, "feedback --help"))
+}
 
 // finish prints the command's error and any pending API notices, and returns
 // the exit code.
