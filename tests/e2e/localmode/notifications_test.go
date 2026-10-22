@@ -37,8 +37,9 @@ func localModeSendsNotifications(t *testing.T, binary string, env []string, dir 
 	defaults, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "notifications", "get")
 	// This CLI merges before Kong/volcano-hosting#1965, and the lane runs the
 	// local-nightly image, which serves notifications only once a nightly
-	// includes that PR. Remove this once it does.
-	if err != nil && strings.Contains(defaults, "HTTP 404") {
+	// includes that PR. Remove this once it does. Only the router's plain-text
+	// answer to an unknown route is skipped; the API's own 404s are JSON.
+	if err != nil && strings.Contains(defaults, "HTTP 404: 404 page not found") {
 		t.Skipf("the local server image does not serve /projects/{id}/notifications yet (Kong/volcano-hosting#1965):\n%s", defaults)
 	}
 	if err != nil {
