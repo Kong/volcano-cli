@@ -6544,6 +6544,232 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /durable-callbacks/succeed:
+    post:
+      tags:
+        - Durable Functions
+      summary: Complete a waiting step with a result
+      description: |
+        Resumes the workflow step waiting on the token with `result`. Call it
+        from the system the workflow handed the token to.
+
+        The token is the only credential. A token takes one outcome: once it
+        has succeeded or failed, every later request is refused with
+        `409 callback_completed`, including a retry of the request that
+        succeeded it.
+      operationId: succeedDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SucceedDurableCallbackRequest'
+      responses:
+        '200':
+          description: The workflow has the result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '202':
+          description: |
+            The result is recorded and on its way to the workflow, which takes
+            longer than this request waits. Volcano finishes the delivery; do
+            not send it again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing, or `result` is missing, null, not JSON, or larger than 64 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` says why:
+
+            - `callback_expired`: the step timed out, on its own timeout or
+              its heartbeat timeout.
+            - `execution_ended`: the execution finished or stopped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-callbacks/fail:
+    post:
+      tags:
+        - Durable Functions
+      summary: Fail a waiting step
+      description: |
+        Resumes the workflow step waiting on the token by raising `error`. The
+        SDKs raise it as `CallbackFailedError`, carrying its `type` and
+        `message`.
+
+        The token is the only credential, and takes one outcome, as for
+        succeeding it.
+      operationId: failDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDurableCallbackRequest'
+      responses:
+        '200':
+          description: The workflow has the error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '202':
+          description: |
+            The error is recorded and on its way to the workflow. Volcano
+            finishes the delivery; do not send it again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing, or the error's `type` or `message` is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` is
+            `callback_expired` or `execution_ended`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-callbacks/heartbeat:
+    post:
+      tags:
+        - Durable Functions
+      summary: Keep a waiting step alive
+      description: |
+        Tells the workflow step waiting on the token that the work is still
+        going on, restarting its heartbeat timeout. A heartbeat never extends
+        the step's own timeout, and a step without a heartbeat timeout needs
+        none.
+      operationId: heartbeatDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatDurableCallbackRequest'
+      responses:
+        '200':
+          description: The step is still waiting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` is
+            `callback_expired` or `execution_ended`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 8 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The heartbeat could not reach the workflow right now. Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /durable-approvals:
     post:
       tags:
@@ -22659,6 +22885,91 @@ components:
         - limit
         - total
         - has_more
+    SucceedDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+        result:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: |
+            Any JSON value other than null, up to 64 KiB. The waiting step
+            resolves with it. Null is refused because a timeout resolves the
+            step with null.
+      required:
+        - token
+        - result
+      additionalProperties: false
+    FailDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+        error:
+          $ref: '#/components/schemas/DurableCallbackError'
+      required:
+        - token
+        - error
+      additionalProperties: false
+    HeartbeatDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+      required:
+        - token
+      additionalProperties: false
+    DurableCallbackOutcome:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/DurableCallbackStatus'
+      required:
+        - status
+    DurableCallbackToken:
+      type: string
+      minLength: 5
+      maxLength: 128
+      pattern: ^vcb_[A-Za-z0-9_-]+$
+      description: |
+        The `vcb_` token the workflow handed out. It is the only credential
+        the callback operations take, so treat it as a secret.
+    DurableCallbackStatus:
+      type: string
+      enum:
+        - waiting
+        - delivering
+        - succeeded
+        - failed
+      description: |
+        `waiting` until the token is succeeded or failed. `delivering` while
+        the outcome is on its way to the workflow; Volcano finishes the
+        delivery on its own. `succeeded` or `failed` once the workflow has the
+        outcome.
+    DurableCallbackError:
+      type: object
+      description: The error the waiting step raises.
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: ^[^\x00-\x1F\x7F]+$
+          description: |
+            A name workflows can branch on, such as `PaymentDeclined`. Up to
+            256 characters, without control characters.
+        message:
+          type: string
+          maxLength: 32768
+          pattern: ^[^\x00]*$
+          description: |
+            A human-readable explanation of up to 32,768 bytes of UTF-8. A
+            character outside ASCII takes more than one byte, so such text
+            reaches the limit before `maxLength`.
+      required:
+        - type
+      additionalProperties: false
     DurableApproval:
       type: object
       description: An approval a durable workflow requested.
