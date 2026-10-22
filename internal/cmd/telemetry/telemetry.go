@@ -38,8 +38,9 @@ telemetry commands are never recorded.
 
 Turn it off with ` + "`volcano telemetry disable`" + ` or VOLCANO_TELEMETRY_DISABLED=1. A
 change applies from the next command. Turning telemetry off also turns off
-feedback reports (volcano feedback), unless you ran volcano feedback enable. Set VOLCANO_TELEMETRY_DEBUG=1 to print
-each event instead of sending it. Full details: ` + "`volcano docs get cli/telemetry.md`" + `.`,
+feedback reports (volcano feedback), unless you ran volcano feedback enable.
+Set VOLCANO_TELEMETRY_DEBUG=1 to print each event instead of sending it.
+Full details: ` + "`volcano docs get cli/telemetry.md`" + `.`,
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{telemetry.SkipAnnotation: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
