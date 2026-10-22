@@ -6524,9 +6524,10 @@ type DurableApprovalStatus string
 
 // DurableCallbackError The error the waiting step raises.
 type DurableCallbackError struct {
-	// Message A human-readable explanation of up to 32,768 bytes of UTF-8. A
-	// character outside ASCII takes more than one byte, so such text
-	// reaches the limit before `maxLength`.
+	// Message A human-readable explanation of up to 32,768 bytes of UTF-8, with
+	// tab and newline as its only control characters. A character
+	// outside ASCII takes more than one byte, so such text reaches the
+	// limit before `maxLength`.
 	Message *string `json:"message,omitempty"`
 
 	// Type A name workflows can branch on, such as `PaymentDeclined`. Up to
