@@ -222,9 +222,15 @@ func schedulerTable(w io.Writer, on bool, schedulers []apiclient.FunctionSchedul
 			fmt.Fprintf(w, "  %s %s\n", theme.Dim("regions:", on), regions)
 		}
 		if lastErr := stringPtrValue(scheduler.LastError); lastErr != "" && schedulerHealth(scheduler) == schedulerFailing {
-			fmt.Fprintf(w, "  %s %s\n", theme.Dim("last error:", on), Truncate(theme.StripControl(lastErr), 120))
+			fmt.Fprintf(w, "  %s %s\n", theme.Dim("last error:", on), Truncate(schedulerError(lastErr), 120))
 		}
 	}
+}
+
+// schedulerError puts a run's error on one line: its line breaks become
+// spaces rather than vanishing with the other control characters.
+func schedulerError(s string) string {
+	return theme.StripControl(strings.Join(strings.Fields(s), " "))
 }
 
 // Scheduler renders one scheduler.
@@ -261,7 +267,7 @@ func Scheduler(w io.Writer, scheduler *apiclient.FunctionScheduler) {
 		kv(w, on, "Last Failure", "%s", failure)
 	}
 	if lastErr := stringPtrValue(scheduler.LastError); lastErr != "" {
-		kv(w, on, "Last Error", "%s", theme.StripControl(lastErr))
+		kv(w, on, "Last Error", "%s", schedulerError(lastErr))
 	}
 	if scheduler.CreatedAt != nil {
 		kv(w, on, "Created", "%s", FormatTimestamp(*scheduler.CreatedAt))

@@ -71,7 +71,7 @@ func TestSchedulersListShowsHealth(t *testing.T) {
 	failing["health"] = "failing"
 	failing["consecutive_failures"] = 49
 	failing["last_run_status"] = "failed"
-	failing["last_error"] = "Runtime.ImportModuleError: Cannot find module 'pg'\x1b[31m"
+	failing["last_error"] = "Runtime.ImportModuleError: Cannot find module 'pg'\nRequire stack:\r\n- /var/task/index.js\x1b[31m"
 	healthy := schedulerPayload("55555555-5555-4555-8555-555555555555", testFunctionID, testProjectID, "hourly sync", true)
 	healthy["health"] = "healthy"
 	healthy["consecutive_failures"] = 0
@@ -97,7 +97,7 @@ func TestSchedulersListShowsHealth(t *testing.T) {
 	assert.Contains(t, out, "Health    Fails")
 	assert.Regexp(t, `nightly export\s+enabled\s+failing\s+49\s`, out)
 	assert.Regexp(t, `hourly sync\s+enabled\s+healthy\s+0\s`, out)
-	assert.Contains(t, out, "last error: Runtime.ImportModuleError: Cannot find module 'pg'")
+	assert.Contains(t, out, "last error: Runtime.ImportModuleError: Cannot find module 'pg' Require stack: - /var/task/index.js")
 	assert.NotContains(t, out, "\x1b[31m", "an error the function raised cannot write terminal escapes")
 	assert.NotContains(t, out, "an old failure", "a healthy scheduler's last error is history, not news")
 }
