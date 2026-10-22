@@ -821,6 +821,12 @@ func TestRun_FeedbackHint(t *testing.T) {
 			&cobra.Command{Use: "deploy", RunE: func(*cobra.Command, []string) error { return errors.New("deploy failed") }},
 			&cobra.Command{Use: "ok", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error { return nil }},
 			feedback,
+			&cobra.Command{Use: "whoami", RunE: func(*cobra.Command, []string) error {
+				return &api.Error{StatusCode: http.StatusUnauthorized, Message: "unauthorized"}
+			}},
+			&cobra.Command{Use: "old", RunE: func(*cobra.Command, []string) error {
+				return &api.Error{StatusCode: http.StatusUpgradeRequired, Message: "upgrade required"}
+			}},
 			&cobra.Command{Use: "exec", RunE: func(*cobra.Command, []string) error {
 				return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 3})
 			}},
@@ -843,6 +849,8 @@ func TestRun_FeedbackHint(t *testing.T) {
 		{"failed feedback command", true, []string{"feedback"}, false},
 		{"failed feedback subcommand", true, []string{"feedback", "disable"}, false},
 		{"sandbox command exit status", true, []string{"exec"}, false},
+		{"unauthorized", true, []string{"whoami"}, false},
+		{"upgrade required", true, []string{"old"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resetInstructions(t)

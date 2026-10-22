@@ -98,12 +98,18 @@ func feedbackHintFor(on bool, detected agent.Result) bool {
 // wantsFeedbackHint reports whether a failure could be a Volcano problem worth
 // a hint. A sandbox command's own exit status is the user's command failing,
 // a usage error such as an unknown flag is what `volcano feedback --help` says
-// not to report, and a failed `volcano feedback` would point at itself.
+// not to report, a 401 or 426 already says how to fix it, and a failed
+// `volcano feedback` would point at itself.
 func wantsFeedbackHint(cmd *cobra.Command, err error) bool {
 	if _, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		return false
 	}
 	if telemetry.IsUsageError(err) {
+		return false
+	}
+	// A 401 or 426 is answered by the login or upgrade line printed above it,
+	// and `volcano feedback` would fail the same way.
+	if status := api.Status(err); status == http.StatusUnauthorized || status == http.StatusUpgradeRequired {
 		return false
 	}
 	for c := cmd; c != nil; c = c.Parent() {
