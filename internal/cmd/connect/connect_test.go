@@ -55,8 +55,12 @@ type fakeAPI struct {
 	polls     int
 	// listStatus makes GET /projects fail; 0 lists f.projects.
 	listStatus int
-	// deviceAuthorize records that browser login started. The fake refuses it.
+	// deviceAuthorize records that browser login started. The fake refuses it
+	// unless authorizeExpired is set.
 	deviceAuthorize bool
+	// authorizeExpired answers device authorization with a code that has
+	// already expired, so login opens the browser and then times out at once.
+	authorizeExpired bool
 	// anonKeyPages, when set, replace the default anon-key list, one entry per
 	// page.
 	anonKeyPages [][]any
@@ -77,6 +81,13 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	case r.Method == http.MethodPost && r.URL.Path == "/auth/device/authorize":
 		f.deviceAuthorize = true
+		if f.authorizeExpired {
+			writeConnectJSON(f.t, w, http.StatusOK, map[string]any{
+				"device_code": connectDeviceCode, "user_code": "ABCD-EFGH",
+				"verification_uri": "https://volcano.dev/device", "expires_in": 0, "interval": 1,
+			})
+			return
+		}
 		writeConnectJSON(f.t, w, http.StatusServiceUnavailable, map[string]any{"error": "unavailable"})
 	case r.Method == http.MethodPost && r.URL.Path == "/auth/device/token":
 		f.polls++
@@ -1354,8 +1365,9 @@ func TestConnectSignupAsksForAnEmailWhenGitHasNoUsableOne(t *testing.T) {
 	assert.Zero(t, fake.creates)
 }
 
-// --email is used as given, even when git has a relay address. The fake
-// refuses device authorization, so reaching it shows signup went ahead.
+// --email is used as given, even when git has a relay or a different usable
+// address. The fake's device code is already expired, so signup opens the
+// browser at the signup URL and then times out without waiting.
 func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 	for name, gitEmail := range map[string]string{
 		"relay git email":  "12345678+ted@users.noreply.github.com",
@@ -1363,16 +1375,21 @@ func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			setConnectTestHome(t)
-			fake := &fakeAPI{t: t}
+			fake := &fakeAPI{t: t, authorizeExpired: true}
 			server := httptest.NewServer(fake)
 			defer server.Close()
 
+			openedURL := ""
 			cmd := New(cliruntime.Deps{
 				HTTPClient: server.Client(),
 				APIBaseURL: server.URL,
 				GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
 					return []byte(gitEmail + "\n"), nil
 				}),
+				OpenBrowser: func(rawURL string) error {
+					openedURL = rawURL
+					return nil
+				},
 			})
 			cmd.SetOut(&bytes.Buffer{})
 			cmd.SetErr(&bytes.Buffer{})
@@ -1381,6 +1398,9 @@ func TestConnectSignupUsesEmailFlagOverARelayGitEmail(t *testing.T) {
 			err := cmd.Execute()
 			require.ErrorContains(t, err, "browser authentication failed")
 			assert.True(t, fake.deviceAuthorize, "signup started")
+			assert.Contains(t, openedURL, "email=marco%40volcano.dev")
+			assert.NotContains(t, openedURL, "support")
+			assert.NotContains(t, openedURL, "noreply")
 			assert.Zero(t, fake.creates)
 		})
 	}
