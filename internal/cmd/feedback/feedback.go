@@ -144,14 +144,16 @@ disable.`,
 			if err != nil {
 				return err
 			}
-			// Always the cloud API, also in local mode: reports go to the
-			// Volcano team, not the local server.
 			if telemetry.FeedbackDebugByEnv(os.Getenv) {
 				if err := saveReport(payload); err != nil {
 					return fmt.Errorf("save feedback: %w", err)
 				}
-			} else if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
-				return fmt.Errorf("send feedback: %w", err)
+			} else {
+				// Always the cloud API, also in local mode: reports go to
+				// the Volcano team, not the local server.
+				if err := feedback.Send(cmd.Context(), nil, cfg.APIURL(), token, payload); err != nil {
+					return fmt.Errorf("send feedback: %w", err)
+				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Feedback sent. ID: %s\n", report.FeedbackID)
 			return nil
