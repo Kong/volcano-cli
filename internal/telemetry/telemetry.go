@@ -591,7 +591,7 @@ func errorKind(err error) string {
 		return "local_not_running"
 	case isNetworkError(err):
 		return "network"
-	case isUsageError(err):
+	case IsUsageError(err):
 		return "usage"
 	}
 	return "other"
@@ -613,9 +613,9 @@ func isNetworkError(err error) bool {
 	return ok && !errors.Is(err, context.DeadlineExceeded)
 }
 
-// isUsageError matches cobra's own argument and flag parsing errors, which are
+// IsUsageError matches cobra's own argument and flag parsing errors, which are
 // plain errors with fixed message prefixes.
-func isUsageError(err error) bool {
+func IsUsageError(err error) bool {
 	msg := err.Error()
 	for _, prefix := range []string{
 		"unknown command", "unknown flag", "unknown shorthand flag",

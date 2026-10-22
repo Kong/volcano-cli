@@ -819,7 +819,7 @@ func TestRun_FeedbackHint(t *testing.T) {
 		feedback.AddCommand(&cobra.Command{Use: "disable", RunE: func(*cobra.Command, []string) error { return errors.New("read-only home") }})
 		root.AddCommand(
 			&cobra.Command{Use: "deploy", RunE: func(*cobra.Command, []string) error { return errors.New("deploy failed") }},
-			&cobra.Command{Use: "ok", RunE: func(*cobra.Command, []string) error { return nil }},
+			&cobra.Command{Use: "ok", Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error { return nil }},
 			feedback,
 			&cobra.Command{Use: "exec", RunE: func(*cobra.Command, []string) error {
 				return fmt.Errorf("command: %w", &sandboxcmd.ExitError{Code: 3})
@@ -835,7 +835,9 @@ func TestRun_FeedbackHint(t *testing.T) {
 		want    bool
 	}{
 		{"failed command", true, []string{"deploy"}, true},
-		{"unknown command", true, []string{"nope"}, true},
+		{"unknown command", true, []string{"nope"}, false},
+		{"unknown flag", true, []string{"deploy", "--bogus"}, false},
+		{"stray argument", true, []string{"ok", "extra"}, false},
 		{"no agent or feedback off", false, []string{"deploy"}, false},
 		{"success", true, []string{"ok"}, false},
 		{"failed feedback command", true, []string{"feedback"}, false},
