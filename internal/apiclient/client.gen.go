@@ -2010,6 +2010,27 @@ func (e ManagedProjectConfigFrontendCustomDomainTLSConfigMode) Valid() bool {
 	}
 }
 
+// Defines values for NotificationEmailStatus.
+const (
+	NotificationEmailStatusDelivering           NotificationEmailStatus = "delivering"
+	NotificationEmailStatusDisabled             NotificationEmailStatus = "disabled"
+	NotificationEmailStatusOwnerEmailUnverified NotificationEmailStatus = "owner_email_unverified"
+)
+
+// Valid indicates whether the value is a known member of the NotificationEmailStatus enum.
+func (e NotificationEmailStatus) Valid() bool {
+	switch e {
+	case NotificationEmailStatusDelivering:
+		return true
+	case NotificationEmailStatusDisabled:
+		return true
+	case NotificationEmailStatusOwnerEmailUnverified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotificationTestDeliveryChannel.
 const (
 	NotificationChannelEmail   NotificationTestDeliveryChannel = "email"
@@ -4727,13 +4748,13 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 
 // Defines values for StartGitConnectParamsProvider.
 const (
-	StartGitConnectParamsProviderGithub StartGitConnectParamsProvider = "github"
+	Github StartGitConnectParamsProvider = "github"
 )
 
 // Valid indicates whether the value is a known member of the StartGitConnectParamsProvider enum.
 func (e StartGitConnectParamsProvider) Valid() bool {
 	switch e {
-	case StartGitConnectParamsProviderGithub:
+	case Github:
 		return true
 	default:
 		return false
@@ -7940,9 +7961,15 @@ type NotificationEmailSettings struct {
 	// Enabled Whether alerts are emailed.
 	Enabled bool `json:"enabled"`
 
-	// Recipients Empty. Alerts are emailed to the project owner's account email address, the only recipient supported for now.
+	// Recipients Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
 	Recipients []openapi_types.Email `json:"recipients"`
+
+	// Status Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+	Status NotificationEmailStatus `json:"status"`
 }
+
+// NotificationEmailStatus Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+type NotificationEmailStatus string
 
 // NotificationSettings defines model for NotificationSettings.
 type NotificationSettings struct {
@@ -10571,7 +10598,7 @@ type UpdateFunctionSchedulerRequest struct {
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Recipients Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused as invalid.
+	// Recipients Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
 	Recipients *[]openapi_types.Email `json:"recipients,omitempty"`
 }
 
@@ -10584,7 +10611,7 @@ type UpdateNotificationSettingsRequest struct {
 
 // UpdateNotificationWebhook defines model for UpdateNotificationWebhook.
 type UpdateNotificationWebhook struct {
-	// Url An `http` or `https` URL. An empty string removes the webhook and its secret.
+	// Url An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
 	Url *string `json:"url,omitempty"`
 }
 

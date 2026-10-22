@@ -10,8 +10,8 @@ scheduler's runs keep failing, Volcano alerts the project by email, by a signed
 webhook, or both, and again when the scheduler recovers.
 
 A new project emails its owner after 3 failed scheduled runs in a row, with no
-further setup. Alert emails go only to the owner's account email address, once
-the owner has confirmed it; to alert anyone else, add a webhook.
+further setup. Alert emails go only to the owner's verified account email
+address; to alert anyone else, add a webhook.
 
 ## How it relates
 
@@ -54,6 +54,18 @@ Alert on: 3 failed scheduled runs in a row
 Recovery: notify when a failing scheduler succeeds again
 ```
 
+Until the owner verifies their account email address, email delivers nothing
+and the settings say so:
+
+```text
+Email: on, to the project owner (not delivering: owner email unverified)
+```
+
+Email then does not count as a channel: without a webhook, no alert is sent.
+Changing the account email address needs a new verification. In `--json`
+output, `email.status` is `delivering`, `disabled`, or
+`owner_email_unverified`.
+
 ## Add a webhook
 
 ```bash
@@ -91,7 +103,7 @@ volcano cloud notifications set --notify-on-recovery=false
 | Flag | Effect |
 |---|---|
 | `--email` | Email alerts. `--email=false` turns email off. |
-| `--recipients <address>` | Only the project owner's account email address is supported for now, and it is the default. Any other address is refused with `email.recipients: only the project owner's account email address is supported for now`. |
+| `--recipients <address>` | Only the project owner's verified account email address is supported, and it is the default. Any other address is refused with `email.recipients: only the project owner's verified account email address is supported; leave recipients empty to email the owner`. |
 | `--webhook-url <url>` | Post alerts to this `http` or `https` URL. |
 | `--remove-webhook` | Stop posting to the webhook and delete its signing secret. |
 | `--notify-on <when>` | `first_failure` alerts on a scheduler's first failed run; `consecutive_failures` waits for `--threshold` failed runs in a row. |
@@ -124,7 +136,8 @@ volcano cloud notifications test
 ```
 
 The test goes to every configured channel and reports whether each one
-arrived. The command fails when one did not:
+arrived. Email to an owner without a verified address is reported as not
+delivered and is not sent. The command fails when one did not:
 
 ```text
 ✓ Test email delivered

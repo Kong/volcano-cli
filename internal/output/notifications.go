@@ -39,14 +39,19 @@ func notificationEmail(email apiclient.NotificationEmailSettings) string {
 	if !email.Enabled {
 		return "off"
 	}
+	// A server older than email.status leaves it empty.
+	var delivery string
+	if email.Status == apiclient.NotificationEmailStatusOwnerEmailUnverified {
+		delivery = " (not delivering: owner email unverified)"
+	}
 	if len(email.Recipients) == 0 {
-		return "on, to the project owner"
+		return "on, to the project owner" + delivery
 	}
 	recipients := make([]string, 0, len(email.Recipients))
 	for _, recipient := range email.Recipients {
 		recipients = append(recipients, theme.StripControl(string(recipient)))
 	}
-	return "on, to " + strings.Join(recipients, ", ")
+	return "on, to " + strings.Join(recipients, ", ") + delivery
 }
 
 func notificationSecretState(configured bool) string {

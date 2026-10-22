@@ -5115,9 +5115,11 @@ paths:
         Changes the project's notification settings. Omitted fields keep their
         current values, so `{"email": {"enabled": false}}` only turns email off.
 
-        Alert emails go only to the project owner's account email address.
-        `email.recipients` may be empty or name that address; any other
-        address is refused with `400`.
+        Alert emails go only to the project owner's verified account email
+        address. `email.recipients` may be empty or name that address; any
+        other list is refused with `400`, and so is any non-empty list while
+        the owner has no verified address. `email.status` in the response
+        says whether alerts are being emailed.
 
         Setting `webhook.url` on a project without a webhook generates its
         signing secret, returned in `webhook.secret` in this response only.
@@ -5147,7 +5149,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationSettings'
         '400':
-          description: The request body is invalid, for example a recipient other than the project owner's account email address.
+          description: The request body is invalid, for example a recipient other than the project owner's verified account email address.
           content:
             application/json:
               schema:
@@ -5210,9 +5212,11 @@ paths:
         - Notifications
       summary: Send a test notification
       description: |
-        Sends a `notification.test` event on every configured channel right
-        away and reports how each delivery went. A webhook delivery is signed
-        like an alert. One test per project per minute.
+        Sends a `notification.test` event on every channel that delivers
+        right away and reports how each delivery went. A webhook delivery is
+        signed like an alert. Enabled email is reported undelivered, without
+        sending, while the project owner has no verified account email
+        address. One test per project per minute.
       operationId: sendTestNotification
       security:
         - UserToken: []
@@ -5239,7 +5243,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Email is disabled and no webhook is configured, so there is nowhere to send.
+          description: No webhook is configured, and email is disabled or the project owner has no verified account email address, so there is nowhere to send.
           content:
             application/json:
               schema:
@@ -21929,6 +21933,13 @@ components:
         - email
         - webhook
         - scheduler_failures
+    NotificationEmailStatus:
+      type: string
+      enum:
+        - delivering
+        - disabled
+        - owner_email_unverified
+      description: Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
     NotificationEmailSettings:
       type: object
       additionalProperties: false
@@ -21942,10 +21953,13 @@ components:
           items:
             type: string
             format: email
-          description: Empty. Alerts are emailed to the project owner's account email address, the only recipient supported for now.
+          description: Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
+        status:
+          $ref: '#/components/schemas/NotificationEmailStatus'
       required:
         - enabled
         - recipients
+        - status
     NotificationWebhookSettings:
       type: object
       additionalProperties: false
@@ -22012,7 +22026,7 @@ components:
             type: string
             format: email
             maxLength: 254
-          description: Only the project owner's account email address is supported for now. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other address is refused as invalid.
+          description: Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
     UpdateNotificationWebhook:
       type: object
       additionalProperties: false
@@ -22020,8 +22034,8 @@ components:
         url:
           type: string
           maxLength: 2048
-          pattern: ^(|https?://.+)$
-          description: An `http` or `https` URL. An empty string removes the webhook and its secret.
+          pattern: ^\s*(|[hH][tT][tT][pP][sS]?://.+)\s*$
+          description: An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
     UpdateSchedulerFailureAlertPolicy:
       type: object
       additionalProperties: false

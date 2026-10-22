@@ -28,7 +28,7 @@ const (
 	// notificationsOwner is the project owner's account address, the only
 	// recipient the API accepts.
 	notificationsOwner  = "owner@example.com"
-	ownerOnlyRecipients = "email.recipients: only the project owner's account email address is supported for now"
+	ownerOnlyRecipients = "email.recipients: only the project owner's verified account email address is supported; leave recipients empty to email the owner"
 )
 
 // notificationsServer is a fake API that keeps the project's settings, so a
@@ -63,7 +63,7 @@ func newNotificationsServer(t *testing.T) (*notificationsServer, cliruntime.Deps
 func defaultNotificationSettings() map[string]any {
 	return map[string]any{
 		"project_id": notificationsProjectID,
-		"email":      map[string]any{"enabled": true, "recipients": []any{}},
+		"email":      map[string]any{"enabled": true, "recipients": []any{}, "status": "delivering"},
 		"webhook":    map[string]any{"secret_configured": false},
 		"scheduler_failures": map[string]any{
 			"notify_on": "consecutive_failures", "threshold": 3, "notify_on_recovery": true,
@@ -129,6 +129,12 @@ func (s *notificationsServer) apply(update map[string]any) map[string]any {
 		maps.Copy(email, changes)
 		if _, ok := changes["recipients"]; ok {
 			email["recipients"] = []any{}
+		}
+		switch {
+		case email["enabled"] == false:
+			email["status"] = "disabled"
+		case email["status"] == "disabled":
+			email["status"] = "delivering"
 		}
 	}
 	policy, _ := s.settings["scheduler_failures"].(map[string]any)
@@ -202,6 +208,40 @@ func TestNotificationsGetShowsTheDefaults(t *testing.T) {
 	assert.Contains(t, out, "Webhook: not configured")
 	assert.Contains(t, out, "Alert on: 3 failed scheduled runs in a row")
 	assert.Contains(t, out, "Recovery: notify when a failing scheduler succeeds again")
+}
+
+// Email to an owner who has not verified their address delivers nothing, and
+// the settings have to say so rather than read as working.
+func TestNotificationsGetSaysWhenEmailIsNotDelivering(t *testing.T) {
+	fake, deps := newNotificationsServer(t)
+	email, _ := fake.settings["email"].(map[string]any)
+	email["status"] = "owner_email_unverified"
+
+	out, err := executeNotificationsCommand(t, New(deps), "", "get")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Email: on, to the project owner (not delivering: owner email unverified)")
+
+	out, err = executeNotificationsCommand(t, New(deps), "", "set", "--email=false")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Email: off")
+	assert.NotContains(t, out, "not delivering")
+
+	out, err = executeNotificationsCommand(t, New(deps), "", "get", "--json")
+	require.NoError(t, err)
+	var settings map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &settings), "--json emits only JSON: %s", out)
+	assert.Equal(t, map[string]any{"enabled": false, "recipients": []any{}, "status": "disabled"}, settings["email"])
+}
+
+// A server older than email.status leaves it out, which reads as delivering.
+func TestNotificationsGetWithoutAnEmailStatus(t *testing.T) {
+	fake, deps := newNotificationsServer(t)
+	email, _ := fake.settings["email"].(map[string]any)
+	delete(email, "status")
+
+	out, err := executeNotificationsCommand(t, New(deps), "", "get")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Email: on, to the project owner\n")
 }
 
 // The secret is the one thing the user cannot get back, so the command that

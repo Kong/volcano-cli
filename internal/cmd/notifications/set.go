@@ -42,8 +42,8 @@ Setting a webhook on a project without one generates its signing secret, which
 is printed once, in this command's output. Use it to verify that a delivery
 came from Volcano.
 
-Alert emails go to the project owner's account email address, the only
-recipient supported for now. Send alerts anywhere else through a webhook.
+Alert emails go only to the project owner's verified account email address.
+Send alerts anywhere else through a webhook.
 
 Examples:
   %s
@@ -81,7 +81,7 @@ Examples:
 	flags := cmd.Flags()
 	flags.BoolVar(&email, "email", true, "Email alerts; --email=false turns email off")
 	flags.StringSliceVar(&recipients, "recipients", nil,
-		"Only the project owner's account email address is supported for now, which is also the default; any other address is refused")
+		"Only the project owner's verified account email address is supported, which is also the default; any other address is refused")
 	flags.StringVar(&webhookURL, "webhook-url", "", "Post alerts to this http or https URL")
 	flags.BoolVar(&opts.removeWebhook, "remove-webhook", false, "Stop posting alerts to the webhook and delete its signing secret")
 	flags.StringVar(&notifyOn, "notify-on", "",
