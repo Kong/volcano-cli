@@ -72,9 +72,13 @@ type Input struct {
 	Commands   []string `json:"commands"`
 }
 
-// ParseInput reads one JSON object with Input's keys from r. Unknown keys and
-// anything after the object are errors, so a misspelled key is not silently
-// dropped.
+// inputKeys are the JSON keys of Input.
+var inputKeys = []string{"category", "summary", "details", "expected", "actual", "workaround", "commands"}
+
+// ParseInput reads one JSON object with Input's keys from r. Unknown keys, keys
+// that differ from Input's only in case, repeated keys, and anything after the
+// object are errors, so a misspelled key is not silently dropped and no value
+// silently replaces another.
 func ParseInput(r io.Reader) (Input, error) {
 	data, err := io.ReadAll(io.LimitReader(r, maxPayloadBytes+1))
 	if err != nil {
@@ -97,7 +101,41 @@ func ParseInput(r io.Reader) (Input, error) {
 	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return Input{}, errors.New("parse input: expected one JSON object")
 	}
+	// encoding/json matches keys regardless of case and keeps the last of
+	// repeated keys, so check them as written.
+	if err := checkKeys(data); err != nil {
+		return Input{}, fmt.Errorf("parse input: %w", sensitive.Wrap(err))
+	}
 	return in, nil
+}
+
+// checkKeys reports a key of the JSON object in data that is not exactly one
+// of inputKeys, or that appears twice. data already decoded as one object.
+func checkKeys(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if _, err := dec.Token(); err != nil { // the opening "{"
+		return err
+	}
+	seen := map[string]bool{}
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		key, _ := tok.(string)
+		if !slices.Contains(inputKeys, key) {
+			return fmt.Errorf("unknown field %q; keys are case-sensitive: %s", key, strings.Join(inputKeys, ", "))
+		}
+		if seen[key] {
+			return fmt.Errorf("field %q appears more than once", key)
+		}
+		seen[key] = true
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Report is the request body of POST /cli/feedback. Field names are the wire

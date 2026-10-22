@@ -42,8 +42,9 @@ Sending a report requires `volcano login`.
 `--input` takes one JSON object instead of the flags: the object itself, a
 file that holds it, or `-` for stdin. The keys are `category`, `summary`,
 `details`, `commands` (a list), `expected`, `actual`, and `workaround`, with
-the same limits as the flags. An unknown key is an error, and `--input` cannot
-be combined with the other report flags.
+the same limits as the flags. Keys are case-sensitive. An unknown key, a key
+written in other case such as `Details`, or a repeated key is an error, and
+`--input` cannot be combined with the other report flags.
 
 For example, `report.json` holds:
 

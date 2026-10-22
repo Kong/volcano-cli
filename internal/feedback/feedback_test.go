@@ -63,6 +63,17 @@ func TestParseInput(t *testing.T) {
 	_, err = ParseInput(strings.NewReader(`{"acme-customer":1}`))
 	assert.NotEmpty(t, sensitive.Text(err), "the decoder quotes the key, so usage telemetry must not send it")
 
+	for body, want := range map[string]string{
+		`{"category":"cli_bug","details":"y","Details":"z"}`: `parse input: unknown field "Details"; keys are case-sensitive`,
+		`{"Summary":"a"}`: `parse input: unknown field "Summary"`,
+		`{"summary":"a","details":"d","summary":"b"}`:       `parse input: field "summary" appears more than once`,
+		`{"commands":["a"],"commands":["b"],"summary":"s"}`: `parse input: field "commands" appears more than once`,
+	} {
+		_, err := ParseInput(strings.NewReader(body))
+		require.ErrorContains(t, err, want, body)
+		assert.NotEmpty(t, sensitive.Text(err), "the error quotes the key, so usage telemetry must not send it")
+	}
+
 	_, err = ParseInput(strings.NewReader(strings.Repeat(" ", maxPayloadBytes+1)))
 	require.ErrorContains(t, err, "input is over")
 }
