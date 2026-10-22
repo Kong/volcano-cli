@@ -257,7 +257,8 @@ func Update(mutate func(*Config) (bool, error)) error {
 
 // ClearLogin removes the login and everything tied to the account (the current
 // project and function aliases) from ~/.volcano/config.json, and keeps the
-// settings that belong to the machine (docs source, telemetry). The file is
+// settings that belong to the machine (docs source, telemetry, and feedback,
+// including whether their first-run notices were shown). The file is
 // removed when nothing is left in it, or when it cannot be read or parsed, so
 // logout still removes the token from a damaged or unreadable file.
 func ClearLogin() error {
