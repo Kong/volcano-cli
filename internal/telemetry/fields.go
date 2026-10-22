@@ -177,7 +177,7 @@ const redacted = "[redacted]"
 var (
 	bearerPattern = regexp.MustCompile(`(?i)\bbearer\s+\S+`)
 	jwtPattern    = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`)
-	keyPattern    = regexp.MustCompile(`\b(?:(?:(?:pk|pt|sk|ak)-|vbt_|vpg_)[A-Za-z0-9_-]{16,}|sbp1\.[A-Za-z0-9+/=:]{16,})`)
+	keyPattern    = regexp.MustCompile(`\b(?:(?:(?:pk|pt|sk|ak)-|vbt_|vpg_|vcb_)[A-Za-z0-9_-]{16,}|sbp1\.[A-Za-z0-9+/=:]{16,})`)
 	userPattern   = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/?#]*@`)
 	emailPattern  = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}`)
 	queryPattern  = regexp.MustCompile(`(https?://[^\s?#]+)\?[^\s#]*`)
