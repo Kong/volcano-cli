@@ -47,8 +47,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Long: `Manage the full project configuration through a declarative YAML manifest
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
-email, templates, managed pages), function visibility and schedulers, and
-frontend custom domains, function routes, and Sandbox template settings.
+email, templates, managed pages), function visibility and schedulers,
+notification settings, and frontend custom domains, function routes, and
+Sandbox template settings.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,
@@ -119,8 +120,9 @@ volcano-config.yaml rendered by the server.
 Write-only secrets (SMTP password, OAuth client secrets, custom domain TLS
 material) are omitted from the export; set them via ${ENV_VAR} interpolation
 before deploying. Variable values are omitted; shared_variables contains shared
-names only. Any variable values a server does return are removed before the
-manifest is written.
+names only. The notification webhook, whose URL can carry the receiver's
+token, is omitted too. Any variable values or webhook a server does return are
+removed before the manifest is written.
 
 Without --file the manifest is written to an existing manifest location, or
 volcano/volcano-config.yaml when the volcano directory exists, else
@@ -236,8 +238,11 @@ func runPull(ctx context.Context, opts pullOptions) error {
 
 	output.Success(opts.out, "Configuration written to %s", targetPath)
 	output.Note(opts.out, "variable values and write-only secrets (SMTP password, OAuth client secrets, TLS material) are omitted; set them via ${ENV_VAR} interpolation before deploying")
-	if pulled.StrippedVariablesSection {
+	if slices.Contains(pulled.Removed, projectconfig.RemovedVariables) {
 		output.Note(opts.out, "the server returned a variables section; it was removed so no variable values were written to disk")
+	}
+	if slices.Contains(pulled.Removed, projectconfig.RemovedNotificationsWebhook) {
+		output.Note(opts.out, "the server returned notifications.webhook; it was removed so no webhook URL was written to disk")
 	}
 	return nil
 }

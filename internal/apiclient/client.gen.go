@@ -1737,6 +1737,42 @@ func (e FunctionKindFilter) Valid() bool {
 	}
 }
 
+// Defines values for FunctionSchedulerHealth.
+const (
+	FunctionSchedulerHealthFailing FunctionSchedulerHealth = "failing"
+	FunctionSchedulerHealthHealthy FunctionSchedulerHealth = "healthy"
+)
+
+// Valid indicates whether the value is a known member of the FunctionSchedulerHealth enum.
+func (e FunctionSchedulerHealth) Valid() bool {
+	switch e {
+	case FunctionSchedulerHealthFailing:
+		return true
+	case FunctionSchedulerHealthHealthy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FunctionSchedulerLastRunStatus.
+const (
+	FunctionSchedulerLastRunStatusFailed    FunctionSchedulerLastRunStatus = "failed"
+	FunctionSchedulerLastRunStatusSucceeded FunctionSchedulerLastRunStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the FunctionSchedulerLastRunStatus enum.
+func (e FunctionSchedulerLastRunStatus) Valid() bool {
+	switch e {
+	case FunctionSchedulerLastRunStatusFailed:
+		return true
+	case FunctionSchedulerLastRunStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FunctionSchedulerScheduleKind.
 const (
 	FunctionSchedulerScheduleKindCron FunctionSchedulerScheduleKind = "cron"
@@ -1968,6 +2004,45 @@ const (
 func (e ManagedProjectConfigFrontendCustomDomainTLSConfigMode) Valid() bool {
 	switch e {
 	case ManagedProjectConfigFrontendCustomDomainTLSConfigModeManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationEmailStatus.
+const (
+	NotificationEmailStatusDelivering           NotificationEmailStatus = "delivering"
+	NotificationEmailStatusDisabled             NotificationEmailStatus = "disabled"
+	NotificationEmailStatusOwnerEmailUnverified NotificationEmailStatus = "owner_email_unverified"
+)
+
+// Valid indicates whether the value is a known member of the NotificationEmailStatus enum.
+func (e NotificationEmailStatus) Valid() bool {
+	switch e {
+	case NotificationEmailStatusDelivering:
+		return true
+	case NotificationEmailStatusDisabled:
+		return true
+	case NotificationEmailStatusOwnerEmailUnverified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationTestDeliveryChannel.
+const (
+	NotificationChannelEmail   NotificationTestDeliveryChannel = "email"
+	NotificationChannelWebhook NotificationTestDeliveryChannel = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the NotificationTestDeliveryChannel enum.
+func (e NotificationTestDeliveryChannel) Valid() bool {
+	switch e {
+	case NotificationChannelEmail:
+		return true
+	case NotificationChannelWebhook:
 		return true
 	default:
 		return false
@@ -3200,19 +3275,19 @@ func (e SandboxPresetMemoryMb) Valid() bool {
 
 // Defines values for SandboxSessionDesiredState.
 const (
-	Running    SandboxSessionDesiredState = "running"
-	Suspended  SandboxSessionDesiredState = "suspended"
-	Terminated SandboxSessionDesiredState = "terminated"
+	SandboxSessionDesiredStateRunning    SandboxSessionDesiredState = "running"
+	SandboxSessionDesiredStateSuspended  SandboxSessionDesiredState = "suspended"
+	SandboxSessionDesiredStateTerminated SandboxSessionDesiredState = "terminated"
 )
 
 // Valid indicates whether the value is a known member of the SandboxSessionDesiredState enum.
 func (e SandboxSessionDesiredState) Valid() bool {
 	switch e {
-	case Running:
+	case SandboxSessionDesiredStateRunning:
 		return true
-	case Suspended:
+	case SandboxSessionDesiredStateSuspended:
 		return true
-	case Terminated:
+	case SandboxSessionDesiredStateTerminated:
 		return true
 	default:
 		return false
@@ -3285,6 +3360,24 @@ const (
 func (e ScheduleRequestKind) Valid() bool {
 	switch e {
 	case ScheduleRequestKindCron:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchedulerFailureNotifyOn.
+const (
+	SchedulerFailureNotifyOnConsecutiveFailures SchedulerFailureNotifyOn = "consecutive_failures"
+	SchedulerFailureNotifyOnFirstFailure        SchedulerFailureNotifyOn = "first_failure"
+)
+
+// Valid indicates whether the value is a known member of the SchedulerFailureNotifyOn enum.
+func (e SchedulerFailureNotifyOn) Valid() bool {
+	switch e {
+	case SchedulerFailureNotifyOnConsecutiveFailures:
+		return true
+	case SchedulerFailureNotifyOnFirstFailure:
 		return true
 	default:
 		return false
@@ -4655,13 +4748,13 @@ func (e UploadStorageObjectParamsXUploadComplete) Valid() bool {
 
 // Defines values for StartGitConnectParamsProvider.
 const (
-	StartGitConnectParamsProviderGithub StartGitConnectParamsProvider = "github"
+	Github StartGitConnectParamsProvider = "github"
 )
 
 // Valid indicates whether the value is a known member of the StartGitConnectParamsProvider enum.
 func (e StartGitConnectParamsProvider) Valid() bool {
 	switch e {
-	case StartGitConnectParamsProviderGithub:
+	case Github:
 		return true
 	default:
 		return false
@@ -7326,21 +7419,35 @@ type FunctionRuntimesResponse struct {
 
 // FunctionScheduler defines model for FunctionScheduler.
 type FunctionScheduler struct {
-	CreatedAt      *time.Time          `json:"created_at,omitempty"`
-	CronExpression *string             `json:"cron_expression,omitempty"`
-	Enabled        *bool               `json:"enabled,omitempty"`
-	FunctionId     *openapi_types.UUID `json:"function_id,omitempty"`
+	// ConsecutiveFailures How many runs in a row have failed, in the region where the current streak is longest. Resets to 0 when a run succeeds.
+	ConsecutiveFailures *int64              `json:"consecutive_failures,omitempty"`
+	CreatedAt           *time.Time          `json:"created_at,omitempty"`
+	CronExpression      *string             `json:"cron_expression,omitempty"`
+	Enabled             *bool               `json:"enabled,omitempty"`
+	FunctionId          *openapi_types.UUID `json:"function_id,omitempty"`
 
 	// FunctionKind Which collection the scheduled function belongs to. A project-wide
 	// scheduler list mixes both kinds, and this is what says whether the
 	// function is read back from `/projects/{id}/functions` or
 	// `/projects/{id}/durable-functions` — and whether a tick invokes it
 	// or starts a durable execution.
-	FunctionKind    *FunctionKind           `json:"function_kind,omitempty"`
-	Id              *openapi_types.UUID     `json:"id,omitempty"`
-	LastCompletedAt *time.Time              `json:"last_completed_at,omitempty"`
-	LastError       *string                 `json:"last_error,omitempty"`
-	LastStartedAt   *time.Time              `json:"last_started_at,omitempty"`
+	FunctionKind *FunctionKind `json:"function_kind,omitempty"`
+
+	// Health `failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
+	Health          *FunctionSchedulerHealth `json:"health,omitempty"`
+	Id              *openapi_types.UUID      `json:"id,omitempty"`
+	LastCompletedAt *time.Time               `json:"last_completed_at,omitempty"`
+	LastError       *string                  `json:"last_error,omitempty"`
+
+	// LastFailureAt When the most recent failed run finished.
+	LastFailureAt *time.Time `json:"last_failure_at,omitempty"`
+
+	// LastRunStatus Outcome of the most recent finished run. Absent before the first.
+	LastRunStatus *FunctionSchedulerLastRunStatus `json:"last_run_status,omitempty"`
+	LastStartedAt *time.Time                      `json:"last_started_at,omitempty"`
+
+	// LastSuccessAt When the most recent successful run finished.
+	LastSuccessAt   *time.Time              `json:"last_success_at,omitempty"`
 	Name            *string                 `json:"name,omitempty"`
 	NextRunAt       *time.Time              `json:"next_run_at,omitempty"`
 	Payload         *map[string]interface{} `json:"payload,omitempty"`
@@ -7353,6 +7460,12 @@ type FunctionScheduler struct {
 	ScheduleKind *FunctionSchedulerScheduleKind `json:"schedule_kind,omitempty"`
 	UpdatedAt    *time.Time                     `json:"updated_at,omitempty"`
 }
+
+// FunctionSchedulerHealth `failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.
+type FunctionSchedulerHealth string
+
+// FunctionSchedulerLastRunStatus Outcome of the most recent finished run. Absent before the first.
+type FunctionSchedulerLastRunStatus string
 
 // FunctionSchedulerScheduleKind defines model for FunctionScheduler.ScheduleKind.
 type FunctionSchedulerScheduleKind string
@@ -7841,6 +7954,64 @@ type MetricUsageData struct {
 
 	// Total Total usage for the current usage month
 	Total int64 `json:"total"`
+}
+
+// NotificationEmailSettings defines model for NotificationEmailSettings.
+type NotificationEmailSettings struct {
+	// Enabled Whether alerts are emailed.
+	Enabled bool `json:"enabled"`
+
+	// Recipients Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
+	Recipients []openapi_types.Email `json:"recipients"`
+
+	// Status Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+	Status NotificationEmailStatus `json:"status"`
+}
+
+// NotificationEmailStatus Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+type NotificationEmailStatus string
+
+// NotificationSettings defines model for NotificationSettings.
+type NotificationSettings struct {
+	Email             NotificationEmailSettings   `json:"email"`
+	ProjectId         openapi_types.UUID          `json:"project_id"`
+	SchedulerFailures SchedulerFailureAlertPolicy `json:"scheduler_failures"`
+
+	// UpdatedAt When the settings were last saved. Absent until the first save.
+	UpdatedAt *time.Time                  `json:"updated_at,omitempty"`
+	Webhook   NotificationWebhookSettings `json:"webhook"`
+}
+
+// NotificationTestDelivery defines model for NotificationTestDelivery.
+type NotificationTestDelivery struct {
+	Channel   NotificationTestDeliveryChannel `json:"channel"`
+	Delivered bool                            `json:"delivered"`
+
+	// Error Why the delivery failed. Absent when it arrived.
+	Error *string `json:"error,omitempty"`
+
+	// StatusCode The webhook's response status. Absent for email, and when no response arrived.
+	StatusCode *int `json:"status_code,omitempty"`
+}
+
+// NotificationTestDeliveryChannel defines model for NotificationTestDelivery.Channel.
+type NotificationTestDeliveryChannel string
+
+// NotificationTestResult defines model for NotificationTestResult.
+type NotificationTestResult struct {
+	Deliveries []NotificationTestDelivery `json:"deliveries"`
+}
+
+// NotificationWebhookSettings defines model for NotificationWebhookSettings.
+type NotificationWebhookSettings struct {
+	// Secret The signing secret, starting with `whsec_`. Present only in the response that generated it: the update that first set `url`, or a rotation. Store it then; it cannot be read again.
+	Secret *string `json:"secret,omitempty"`
+
+	// SecretConfigured Whether a signing secret is set. The secret itself is returned only once.
+	SecretConfigured bool `json:"secret_configured"`
+
+	// Url Where alerts are posted. Absent when no webhook is configured.
+	Url *string `json:"url,omitempty"`
 }
 
 // OAuthConfig defines model for OAuthConfig.
@@ -8450,6 +8621,9 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
+	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
+	Notifications *ProjectConfigNotifications `json:"notifications,omitempty"`
+
 	// Project Project-level settings. `name` renames the project.
 	Project  *ProjectConfigProject  `json:"project,omitempty"`
 	Realtime *ProjectConfigRealtime `json:"realtime,omitempty"`
@@ -8969,6 +9143,13 @@ type ProjectConfigMissingResource struct {
 
 // ProjectConfigMissingResourceType defines model for ProjectConfigMissingResource.Type.
 type ProjectConfigMissingResourceType string
+
+// ProjectConfigNotifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
+type ProjectConfigNotifications struct {
+	Email             *UpdateNotificationEmail           `json:"email,omitempty"`
+	SchedulerFailures *UpdateSchedulerFailureAlertPolicy `json:"scheduler_failures,omitempty"`
+	Webhook           *UpdateNotificationWebhook         `json:"webhook,omitempty"`
+}
 
 // ProjectConfigOAuthProvider defines model for ProjectConfigOAuthProvider.
 type ProjectConfigOAuthProvider struct {
@@ -9970,6 +10151,21 @@ type ScheduleRequest struct {
 // ScheduleRequestKind defines model for ScheduleRequest.Kind.
 type ScheduleRequestKind string
 
+// SchedulerFailureAlertPolicy defines model for SchedulerFailureAlertPolicy.
+type SchedulerFailureAlertPolicy struct {
+	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
+	NotifyOn SchedulerFailureNotifyOn `json:"notify_on"`
+
+	// NotifyOnRecovery Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
+	NotifyOnRecovery bool `json:"notify_on_recovery"`
+
+	// Threshold How many runs in a row have to fail before a `consecutive_failures` alert. Ignored for `first_failure`.
+	Threshold int `json:"threshold"`
+}
+
+// SchedulerFailureNotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
+type SchedulerFailureNotifyOn string
+
 // SendDurableMessageRequest defines model for SendDurableMessageRequest.
 type SendDurableMessageRequest struct {
 	// Data Any JSON value, up to 64 KiB. Omitted means null.
@@ -10398,6 +10594,27 @@ type UpdateFunctionSchedulerRequest struct {
 	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
 }
 
+// UpdateNotificationEmail defines model for UpdateNotificationEmail.
+type UpdateNotificationEmail struct {
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Recipients Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
+	Recipients *[]openapi_types.Email `json:"recipients,omitempty"`
+}
+
+// UpdateNotificationSettingsRequest Omitted fields keep their current values.
+type UpdateNotificationSettingsRequest struct {
+	Email             *UpdateNotificationEmail           `json:"email,omitempty"`
+	SchedulerFailures *UpdateSchedulerFailureAlertPolicy `json:"scheduler_failures,omitempty"`
+	Webhook           *UpdateNotificationWebhook         `json:"webhook,omitempty"`
+}
+
+// UpdateNotificationWebhook defines model for UpdateNotificationWebhook.
+type UpdateNotificationWebhook struct {
+	// Url An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
+	Url *string `json:"url,omitempty"`
+}
+
 // UpdateOAuthConfigRequest defines model for UpdateOAuthConfigRequest.
 type UpdateOAuthConfigRequest struct {
 	// ClientId Supported for non-device providers. Not supported for `provider=device`.
@@ -10453,6 +10670,14 @@ type UpdateRealtimeConfigRequest struct {
 // UpdateSandboxTemplateRequest defines model for UpdateSandboxTemplateRequest.
 type UpdateSandboxTemplateRequest struct {
 	Name string `json:"name"`
+}
+
+// UpdateSchedulerFailureAlertPolicy defines model for UpdateSchedulerFailureAlertPolicy.
+type UpdateSchedulerFailureAlertPolicy struct {
+	// NotifyOn When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.
+	NotifyOn         *SchedulerFailureNotifyOn `json:"notify_on,omitempty"`
+	NotifyOnRecovery *bool                     `json:"notify_on_recovery,omitempty"`
+	Threshold        *int                      `json:"threshold,omitempty"`
 }
 
 // UpdateStorageBucketRequest defines model for UpdateStorageBucketRequest.
@@ -12880,6 +13105,9 @@ type StreamProjectLogsJSONRequestBody = LogStreamRequest
 // QueryProjectMetricsJSONRequestBody defines body for QueryProjectMetrics for application/json ContentType.
 type QueryProjectMetricsJSONRequestBody = ProjectMetricsQueryRequest
 
+// UpdateNotificationSettingsJSONRequestBody defines body for UpdateNotificationSettings for application/json ContentType.
+type UpdateNotificationSettingsJSONRequestBody = UpdateNotificationSettingsRequest
+
 // CreateOAuthConfigJSONRequestBody defines body for CreateOAuthConfig for application/json ContentType.
 type CreateOAuthConfigJSONRequestBody = CreateOAuthConfigRequest
 
@@ -15139,6 +15367,20 @@ type ClientInterface interface {
 	QueryProjectMetricsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	QueryProjectMetrics(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetNotificationSettings request
+	GetNotificationSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateNotificationSettingsWithBody request with any body
+	UpdateNotificationSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateNotificationSettings(ctx context.Context, id ProjectId, body UpdateNotificationSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendTestNotification request
+	SendTestNotification(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateNotificationWebhookSecret request
+	RotateNotificationWebhookSecret(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOAuthConfigs request
 	ListOAuthConfigs(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -19169,6 +19411,66 @@ func (c *Client) QueryProjectMetricsWithBody(ctx context.Context, id ProjectId, 
 
 func (c *Client) QueryProjectMetrics(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryProjectMetricsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetNotificationSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetNotificationSettingsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNotificationSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNotificationSettingsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNotificationSettings(ctx context.Context, id ProjectId, body UpdateNotificationSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNotificationSettingsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendTestNotification(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendTestNotificationRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RotateNotificationWebhookSecret(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateNotificationWebhookSecretRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -32663,6 +32965,155 @@ func NewQueryProjectMetricsRequestWithBody(server string, id ProjectId, contentT
 	return req, nil
 }
 
+// NewGetNotificationSettingsRequest generates requests for GetNotificationSettings
+func NewGetNotificationSettingsRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/notifications", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateNotificationSettingsRequest calls the generic UpdateNotificationSettings builder with application/json body
+func NewUpdateNotificationSettingsRequest(server string, id ProjectId, body UpdateNotificationSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateNotificationSettingsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateNotificationSettingsRequestWithBody generates requests for UpdateNotificationSettings with any type of body
+func NewUpdateNotificationSettingsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/notifications", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSendTestNotificationRequest generates requests for SendTestNotification
+func NewSendTestNotificationRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/notifications/test", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRotateNotificationWebhookSecretRequest generates requests for RotateNotificationWebhookSecret
+func NewRotateNotificationWebhookSecretRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/notifications/webhook-secret", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOAuthConfigsRequest generates requests for ListOAuthConfigs
 func NewListOAuthConfigsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -37995,6 +38446,20 @@ type ClientWithResponsesInterface interface {
 	QueryProjectMetricsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error)
 
 	QueryProjectMetricsWithResponse(ctx context.Context, id ProjectId, body QueryProjectMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryProjectMetricsClientResponse, error)
+
+	// GetNotificationSettingsWithResponse request
+	GetNotificationSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetNotificationSettingsClientResponse, error)
+
+	// UpdateNotificationSettingsWithBodyWithResponse request with any body
+	UpdateNotificationSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNotificationSettingsClientResponse, error)
+
+	UpdateNotificationSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateNotificationSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotificationSettingsClientResponse, error)
+
+	// SendTestNotificationWithResponse request
+	SendTestNotificationWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*SendTestNotificationClientResponse, error)
+
+	// RotateNotificationWebhookSecretWithResponse request
+	RotateNotificationWebhookSecretWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*RotateNotificationWebhookSecretClientResponse, error)
 
 	// ListOAuthConfigsWithResponse request
 	ListOAuthConfigsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*ListOAuthConfigsClientResponse, error)
@@ -45945,6 +46410,138 @@ func (r QueryProjectMetricsClientResponse) ContentType() string {
 	return ""
 }
 
+type GetNotificationSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotificationSettings
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetNotificationSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetNotificationSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetNotificationSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateNotificationSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotificationSettings
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateNotificationSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateNotificationSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateNotificationSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SendTestNotificationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotificationTestResult
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON429      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendTestNotificationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendTestNotificationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SendTestNotificationClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RotateNotificationWebhookSecretClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotificationSettings
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateNotificationWebhookSecretClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateNotificationWebhookSecretClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RotateNotificationWebhookSecretClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListOAuthConfigsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -51326,6 +51923,50 @@ func (c *ClientWithResponses) QueryProjectMetricsWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseQueryProjectMetricsClientResponse(rsp)
+}
+
+// GetNotificationSettingsWithResponse request returning *GetNotificationSettingsClientResponse
+func (c *ClientWithResponses) GetNotificationSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetNotificationSettingsClientResponse, error) {
+	rsp, err := c.GetNotificationSettings(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetNotificationSettingsClientResponse(rsp)
+}
+
+// UpdateNotificationSettingsWithBodyWithResponse request with arbitrary body returning *UpdateNotificationSettingsClientResponse
+func (c *ClientWithResponses) UpdateNotificationSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNotificationSettingsClientResponse, error) {
+	rsp, err := c.UpdateNotificationSettingsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNotificationSettingsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateNotificationSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateNotificationSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotificationSettingsClientResponse, error) {
+	rsp, err := c.UpdateNotificationSettings(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNotificationSettingsClientResponse(rsp)
+}
+
+// SendTestNotificationWithResponse request returning *SendTestNotificationClientResponse
+func (c *ClientWithResponses) SendTestNotificationWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*SendTestNotificationClientResponse, error) {
+	rsp, err := c.SendTestNotification(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendTestNotificationClientResponse(rsp)
+}
+
+// RotateNotificationWebhookSecretWithResponse request returning *RotateNotificationWebhookSecretClientResponse
+func (c *ClientWithResponses) RotateNotificationWebhookSecretWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*RotateNotificationWebhookSecretClientResponse, error) {
+	rsp, err := c.RotateNotificationWebhookSecret(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateNotificationWebhookSecretClientResponse(rsp)
 }
 
 // ListOAuthConfigsWithResponse request returning *ListOAuthConfigsClientResponse
@@ -62880,6 +63521,194 @@ func ParseQueryProjectMetricsClientResponse(rsp *http.Response) (*QueryProjectMe
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetNotificationSettingsClientResponse parses an HTTP response from a GetNotificationSettingsWithResponse call
+func ParseGetNotificationSettingsClientResponse(rsp *http.Response) (*GetNotificationSettingsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetNotificationSettingsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotificationSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateNotificationSettingsClientResponse parses an HTTP response from a UpdateNotificationSettingsWithResponse call
+func ParseUpdateNotificationSettingsClientResponse(rsp *http.Response) (*UpdateNotificationSettingsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateNotificationSettingsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotificationSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendTestNotificationClientResponse parses an HTTP response from a SendTestNotificationWithResponse call
+func ParseSendTestNotificationClientResponse(rsp *http.Response) (*SendTestNotificationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendTestNotificationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotificationTestResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateNotificationWebhookSecretClientResponse parses an HTTP response from a RotateNotificationWebhookSecretWithResponse call
+func ParseRotateNotificationWebhookSecretClientResponse(rsp *http.Response) (*RotateNotificationWebhookSecretClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateNotificationWebhookSecretClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotificationSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 

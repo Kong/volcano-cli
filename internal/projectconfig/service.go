@@ -40,19 +40,19 @@ func (s Service) Deploy(ctx context.Context, manifest *Manifest, dryRun bool) (*
 	return authenticated.API.ApplyProjectConfig(ctx, authenticated.ProjectID, body, dryRun)
 }
 
-// PullResult is a downloaded manifest plus whether the CLI had to remove
-// variable values the server should not have exported.
+// PullResult is a downloaded manifest plus what the CLI had to remove because
+// the server should not have exported it.
 type PullResult struct {
 	Manifest []byte
 
-	// StrippedVariablesSection reports that the response carried a top-level
-	// variables section and it was removed before the manifest was returned.
-	StrippedVariablesSection bool
+	// Removed lists the sections, RemovedVariables or
+	// RemovedNotificationsWebhook, taken out before the manifest was returned.
+	Removed []string
 }
 
 // Pull downloads the project's current configuration as the server-rendered
-// canonical YAML manifest, with variable values removed if the server included
-// any (see sanitizePulledManifest).
+// canonical YAML manifest, with variable values and the webhook URL removed if
+// the server included them (see sanitizePulledManifest).
 func (s Service) Pull(ctx context.Context) (PullResult, error) {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
@@ -62,9 +62,9 @@ func (s Service) Pull(ctx context.Context) (PullResult, error) {
 	if err != nil {
 		return PullResult{}, err
 	}
-	sanitized, stripped, err := sanitizePulledManifest(manifest)
+	sanitized, removed, err := sanitizePulledManifest(manifest)
 	if err != nil {
 		return PullResult{}, err
 	}
-	return PullResult{Manifest: sanitized, StrippedVariablesSection: stripped}, nil
+	return PullResult{Manifest: sanitized, Removed: removed}, nil
 }

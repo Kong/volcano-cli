@@ -31,6 +31,8 @@ tags:
       a start returns is an execution to poll and stop, not a result. Durable
       work is metered on its own allowances: executions, and the operations each
       execution performs while it runs.
+  - name: Notifications
+    description: Where a project's alerts go, by email and by a signed webhook, and when a failing function scheduler is announced.
   - name: Frontends
     description: Frontend deployment and management. Supports Next.js 15.x and 16.x with Node.js 22.x or 24.x inferred from package.json engines.node when the selected Node.js family satisfies the installed Next.js package engines.node constraint.
   - name: Tokens
@@ -5062,6 +5064,192 @@ paths:
                 $ref: '#/components/schemas/FunctionSchedulerListResponse'
         '400':
           description: Bad request - invalid pagination or filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notification settings
+      description: |
+        Returns where the project's alerts go and when a failing scheduler is
+        announced. A project that never saved settings returns the defaults:
+        email to the project owner, no webhook, and an alert after 3 failed
+        runs in a row, followed by one when the scheduler recovers.
+
+        The webhook signing secret is never returned here; `secret_configured`
+        shows whether one is set. A read-only project access token is refused
+        with `403`, because the webhook URL can carry the receiver's token.
+      operationId: getNotificationSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Notification settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Notifications
+      summary: Update notification settings
+      description: |
+        Changes the project's notification settings. Omitted fields keep their
+        current values, so `{"email": {"enabled": false}}` only turns email off.
+
+        Alert emails go only to the project owner's verified account email
+        address. `email.recipients` may be empty or name that address; any
+        other list is refused with `400`, and so is any non-empty list while
+        the owner has no verified address. `email.status` in the response
+        says whether alerts are being emailed.
+
+        Setting `webhook.url` on a project without a webhook generates its
+        signing secret, returned in `webhook.secret` in this response only.
+        Changing the URL keeps the secret. An empty `webhook.url` removes the
+        webhook and its secret.
+
+        Outside local mode the webhook must be reachable on the public
+        internet; a URL naming a private or loopback address is refused, and
+        so is a delivery to a host name that resolves to one.
+      operationId: updateNotificationSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationSettingsRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '400':
+          description: The request body is invalid, for example a recipient other than the project owner's verified account email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications/webhook-secret:
+    post:
+      tags:
+        - Notifications
+      summary: Rotate the webhook signing secret
+      description: |
+        Replaces the webhook signing secret and returns the settings with the
+        new one in `webhook.secret`, this once. Every delivery from now on is
+        signed with the new secret, including retries of earlier alerts.
+      operationId: rotateNotificationWebhookSecret
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: No webhook is configured. Set `webhook.url` first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications/test:
+    post:
+      tags:
+        - Notifications
+      summary: Send a test notification
+      description: |
+        Sends a `notification.test` event on every channel that delivers
+        right away and reports how each delivery went. A webhook delivery is
+        signed like an alert. Enabled email is reported undelivered, without
+        sending, while the project owner has no verified account email
+        address. One test per project per minute.
+      operationId: sendTestNotification
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: The test was attempted. Each delivery reports whether it arrived; a failed one is not retried.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTestResult'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: No webhook is configured, and email is disabled or the project owner has no verified account email address, so there is nowhere to send.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: A test was sent less than a minute ago.
           content:
             application/json:
               schema:
@@ -21692,12 +21880,207 @@ components:
           type: integer
           format: int64
           description: Total number of times this scheduler has executed. 0 for a scheduler that has never run.
+        health:
+          type: string
+          enum:
+            - healthy
+            - failing
+          description: '`failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.'
+        consecutive_failures:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many runs in a row have failed, in the region where the current streak is longest. Resets to 0 when a run succeeds.
+        last_run_status:
+          type: string
+          enum:
+            - succeeded
+            - failed
+          description: Outcome of the most recent finished run. Absent before the first.
+        last_success_at:
+          type: string
+          format: date-time
+          description: When the most recent successful run finished.
+        last_failure_at:
+          type: string
+          format: date-time
+          description: When the most recent failed run finished.
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+    NotificationSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        email:
+          $ref: '#/components/schemas/NotificationEmailSettings'
+        webhook:
+          $ref: '#/components/schemas/NotificationWebhookSettings'
+        scheduler_failures:
+          $ref: '#/components/schemas/SchedulerFailureAlertPolicy'
+        updated_at:
+          type: string
+          format: date-time
+          description: When the settings were last saved. Absent until the first save.
+      required:
+        - project_id
+        - email
+        - webhook
+        - scheduler_failures
+    NotificationEmailStatus:
+      type: string
+      enum:
+        - delivering
+        - disabled
+        - owner_email_unverified
+      description: Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+    NotificationEmailSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+          description: Whether alerts are emailed.
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+          description: Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
+        status:
+          $ref: '#/components/schemas/NotificationEmailStatus'
+      required:
+        - enabled
+        - recipients
+        - status
+    NotificationWebhookSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          description: Where alerts are posted. Absent when no webhook is configured.
+        secret_configured:
+          type: boolean
+          description: Whether a signing secret is set. The secret itself is returned only once.
+        secret:
+          type: string
+          description: 'The signing secret, starting with `whsec_`. Present only in the response that generated it: the update that first set `url`, or a rotation. Store it then; it cannot be read again.'
+      required:
+        - secret_configured
+    SchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: How many runs in a row have to fail before a `consecutive_failures` alert. Ignored for `first_failure`.
+        notify_on_recovery:
+          type: boolean
+          description: Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
+      required:
+        - notify_on
+        - threshold
+        - notify_on_recovery
+    SchedulerFailureNotifyOn:
+      type: string
+      enum:
+        - first_failure
+        - consecutive_failures
+      x-enum-varnames:
+        - SchedulerFailureNotifyOnFirstFailure
+        - SchedulerFailureNotifyOnConsecutiveFailures
+      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.'
+    UpdateNotificationSettingsRequest:
+      type: object
+      additionalProperties: false
+      description: Omitted fields keep their current values.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
+    UpdateNotificationEmail:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+            maxLength: 254
+          description: Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
+    UpdateNotificationWebhook:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          pattern: ^\s*(|[hH][tT][tT][pP][sS]?://.+)\s*$
+          description: An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
+    UpdateSchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+        notify_on_recovery:
+          type: boolean
+    NotificationTestResult:
+      type: object
+      additionalProperties: false
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTestDelivery'
+      required:
+        - deliveries
+    NotificationTestDelivery:
+      type: object
+      additionalProperties: false
+      properties:
+        channel:
+          type: string
+          enum:
+            - email
+            - webhook
+          x-enum-varnames:
+            - NotificationChannelEmail
+            - NotificationChannelWebhook
+        delivered:
+          type: boolean
+        status_code:
+          type: integer
+          description: The webhook's response status. Absent for email, and when no response arrived.
+        error:
+          type: string
+          description: Why the delivery failed. Absent when it arrived.
+      required:
+        - channel
+        - delivered
     FunctionSchedulerListResponse:
       type: object
       properties:
@@ -22927,6 +23310,8 @@ components:
             $ref: '#/components/schemas/ProjectConfigBucket'
         realtime:
           $ref: '#/components/schemas/ProjectConfigRealtime'
+        notifications:
+          $ref: '#/components/schemas/ProjectConfigNotifications'
         auth:
           $ref: '#/components/schemas/ProjectConfigAuth'
         functions:
@@ -23697,6 +24082,23 @@ components:
           items:
             type: string
           description: Region subset (bare region names). Requires `all_regions=false`.
+    ProjectConfigNotifications:
+      type: object
+      additionalProperties: false
+      description: >-
+        Where the project's alerts go and when a failing scheduler is
+        announced. Omitted fields keep their current value. The webhook
+        signing secret is never part of the manifest: setting `webhook.url`
+        on a project without a webhook generates one that is never shown.
+        Rotate it with `POST /projects/{id}/notifications/webhook-secret` to
+        get a secret you can use.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
     ProjectConfigRealtime:
       type: object
       additionalProperties: false
