@@ -1348,7 +1348,7 @@ func TestConnectSignupAsksForAnEmailWhenGitHasNoUsableOne(t *testing.T) {
 	cmd.SetIn(strings.NewReader(""))
 	cmd.SetArgs([]string{t.TempDir(), "--skip-skills", "--signup"})
 	err := cmd.Execute()
-	require.ErrorContains(t, err, "Ask the user which email to sign up with")
+	require.ErrorContains(t, err, "agents: ask the user which address to use")
 	require.ErrorContains(t, err, "--email")
 	assert.False(t, fake.deviceAuthorize)
 	assert.Zero(t, fake.creates)
