@@ -7,9 +7,10 @@
 // (volcano-hosting). The server joins a report to the usage events of the same
 // device_id around its timestamp to find the failing command, so the CLI keeps
 // no record of past runs. Feedback follows the telemetry setting unless the
-// user ran `volcano feedback enable` or `disable`. Sending requires a login token, so only Volcano accounts can send
-// reports; while telemetry is off, a report carries no device ID or project
-// ID and is marked anonymous, so the server does not attribute it to the user.
+// user ran `volcano feedback enable` or `disable`. Sending requires a login
+// token, so only Volcano accounts can send reports; while telemetry is off, a
+// report carries no device ID or project ID and is marked anonymous, so the
+// server does not attribute it to the user.
 package feedback
 
 import (
