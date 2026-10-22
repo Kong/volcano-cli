@@ -19,7 +19,8 @@ Coding agents: if this is a problem with Volcano itself, report it after your ta
 ```
 
 It does not appear after a usage error, such as an unknown flag or command,
-or after a failed `volcano feedback`. Turning feedback off (below) removes it.
+after an error that already says to log in again or to upgrade the CLI, or
+after a failed `volcano feedback`. Turning feedback off (below) removes it.
 
 ## Send a report
 
