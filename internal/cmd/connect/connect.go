@@ -139,7 +139,7 @@ It ends with the project's name, its directory, and its dashboard link.
 	cmd.Flags().StringVar(&opts.name, "name", "", "Name for the new project (default: the directory argument's name, else a generated name)")
 	cmd.Flags().StringVar(&opts.template, "template", "", "Starter to scaffold: nextjs, javascript, python, ruby (default: base scaffold)")
 	cmd.Flags().BoolVar(&opts.signup, "signup", false, "Create a Volcano account in the browser before connecting")
-	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config user.email)")
+	cmd.Flags().StringVar(&opts.email, "email", "", "Email for --signup (default: git config --global user.email, when it is a usable address)")
 	cmd.Flags().BoolVar(&opts.skipSkills, "skip-skills", false, "Don't install the Volcano skills")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Print the result as JSON")
 	cmd.MarkFlagsMutuallyExclusive("device-code", "signup")
@@ -411,7 +411,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			email = cliauth.GitEmail(ctx, opts.deps)
 		}
 		if email == "" {
-			return errors.New("--signup needs an email address: pass --email, or set git config --global user.email")
+			return errors.New("--signup needs an email address, and git has no usable one. Run again with --email <address>. Agents: ask the user for the email to sign up with (use a native input tool such as AskUserQuestion if you have one), then run again with --email")
 		}
 		credentials, err = auth.Signup(ctx, cfg, email, opts.log)
 	} else {

@@ -209,9 +209,10 @@ func NewSignup(deps cliruntime.Deps) *cobra.Command {
 		Short: "Create a Volcano account",
 		Long: `Create a Volcano account from the CLI.
 
-The command uses your git user.email as the default email address when available,
-then opens Volcano's web signup flow in your browser. After you finish signing up,
-the CLI completes authentication and saves your credentials, leaving you logged in.`,
+The command uses your global git user.email as the default email address when it
+is a usable address, not a private relay, local, or test address. It then opens
+Volcano's web signup flow in your browser. After you finish signing up, the CLI
+completes authentication and saves your credentials, leaving you logged in.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSignup(cmd.Context(), signupOptions{
 				deps:   deps,

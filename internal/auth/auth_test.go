@@ -934,3 +934,45 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
 }
+
+func TestGitEmailSkipsUnusableAddresses(t *testing.T) {
+	for email, want := range map[string]string{
+		"support@volcano.dev":                   "support@volcano.dev",
+		"support+work@volcano.dev":              "support+work@volcano.dev",
+		"12345678+ted@users.noreply.github.com": "",
+		"ted@users.noreply.github.com":          "",
+		"ted@noreply.github.com":                "",
+		"1234-ted@users.noreply.gitlab.com":     "",
+		"ted@users.noreply.bitbucket.org":       "",
+		"noreply@anthropic.com":                 "",
+		"no-reply@volcano.dev":                  "",
+		"ted@example.com":                       "",
+		"ted@sub.example.com":                   "",
+		"ted@build.internal":                    "",
+		"1234-ted@users.noreply.git.corp.dev":   "",
+		"no_reply@volcano.dev":                  "",
+		"donotreply@volcano.dev":                "",
+		"ted@volcano.dev.":                      "",
+		"ted@macbook.local":                     "",
+		"ted@macbook-pro.lan":                   "",
+		"ted@localhost":                         "",
+		"ted@macbook":                           "",
+		"ted":                                   "",
+		"Support <support@volcano.dev>":         "",
+		"":                                      "",
+	} {
+		deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
+			assert.Equal(t, "git", name)
+			assert.Equal(t, []string{"config", "--global", "user.email"}, args)
+			return []byte(email + "\n"), nil
+		})}
+		assert.Equal(t, want, GitEmail(context.Background(), deps), email)
+	}
+}
+
+func TestGitEmailEmptyWhenGitFails(t *testing.T) {
+	deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("exit status 1")
+	})}
+	assert.Empty(t, GitEmail(context.Background(), deps))
+}
