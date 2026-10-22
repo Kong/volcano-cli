@@ -8,8 +8,8 @@
 // device_id around its timestamp to find the failing command, so the CLI keeps
 // no record of past runs. Feedback follows the telemetry setting unless the
 // user ran `volcano feedback enable` or `disable`. Sending requires a login token, so only Volcano accounts can send
-// reports; while telemetry is off, a report carries no device ID and is marked
-// anonymous, so the server does not attribute it to the user.
+// reports; while telemetry is off, a report carries no device ID or project
+// ID and is marked anonymous, so the server does not attribute it to the user.
 package feedback
 
 import (
@@ -111,7 +111,7 @@ type Report struct {
 	// Anonymous asks the server not to attribute the report to the logged-in
 	// user. It is set while telemetry is off.
 	Anonymous bool `json:"anonymous"`
-	// DeviceID is empty while telemetry is off.
+	// DeviceID is empty while telemetry is off, as is ProjectID.
 	DeviceID   string   `json:"device_id,omitempty"`
 	Timestamp  string   `json:"timestamp"`
 	Category   string   `json:"category"`
@@ -198,6 +198,7 @@ func Build(in Input, client telemetry.Client, home string, now time.Time) Report
 	}
 	return Report{
 		FeedbackID:      uuid.NewString(),
+		Anonymous:       client.Anonymous,
 		DeviceID:        client.DeviceID,
 		Timestamp:       now.UTC().Format(time.RFC3339),
 		Category:        in.Category,

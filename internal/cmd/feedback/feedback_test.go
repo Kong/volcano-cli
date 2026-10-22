@@ -209,7 +209,7 @@ func TestFeedback_EnabledWithTelemetryOffSendsAnonymously(t *testing.T) {
 			require.NoError(t, json.Unmarshal(body, &fields))
 			assert.Equal(t, true, fields["anonymous"])
 			assert.NotContains(t, fields, "device_id")
-			assert.Equal(t, "p-env", fields["project_id"])
+			assert.NotContains(t, fields, "project_id", "a project belongs to one account")
 			assert.Equal(t, "cli_bug", fields["category"])
 		})
 	}

@@ -12,8 +12,12 @@ import (
 // Client describes this machine and the coding agent that ran the CLI, with the
 // same values a usage event carries. `volcano feedback` attaches it to each
 // report, so the server can join a report to the usage events of the same
-// device. DeviceID is set only while telemetry is on.
+// device. While telemetry is off, the report is anonymous: DeviceID and
+// ProjectID are empty, since either one ties a report to this machine or to
+// the account that owns the project.
 type Client struct {
+	// Anonymous asks the server not to attribute the report to the user.
+	Anonymous       bool
 	DeviceID        string
 	CLIVersion      string
 	OS              string
@@ -26,24 +30,21 @@ type Client struct {
 }
 
 // Client returns what this process may report about the machine and the coding
-// agent with a feedback report. The device ID is set only while usage data may
-// be sent (see Reporting), since it ties a report to this machine. A machine
-// that has seen the notice but has no device ID yet, such as after `volcano
-// telemetry enable` on a fresh home, gets one now.
+// agent with a feedback report. The device ID and the project ID are set only
+// while usage data may be sent (see Reporting); otherwise the report is
+// anonymous. A machine that has seen the notice but has no device ID yet, such
+// as after `volcano telemetry enable` on a fresh home, gets one now.
 func (r *Recorder) Client() Client {
 	r.setup()
 	detected := agent.Detect(r.LookupEnv)
+	reporting := r.Reporting()
 	c := Client{
+		Anonymous:   !reporting,
 		CLIVersion:  version.Version,
 		OS:          runtime.GOOS,
 		Arch:        runtime.GOARCH,
 		Agent:       detected.Name,
 		AgentSource: string(detected.Source),
-	}
-	if r.cfg != nil {
-		// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI
-		// would then warn that the command ran against that project.
-		c.ProjectID = r.cfg.SelectedProjectID()
 	}
 	if detected.Name != "" {
 		c.PluginInstalled, c.PluginVersion = r.PluginStatus(harnessFor(detected.Name))
@@ -51,9 +52,12 @@ func (r *Recorder) Client() Client {
 			c.PluginVersion = ""
 		}
 	}
-	if !r.Reporting() {
+	if !reporting {
 		return c
 	}
+	// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI would
+	// then warn that the command ran against that project.
+	c.ProjectID = r.cfg.SelectedProjectID()
 	state := r.state()
 	if state.DeviceID == "" {
 		var err error

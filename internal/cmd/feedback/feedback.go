@@ -72,9 +72,10 @@ passwords in URLs, email addresses, and URL query strings. It removes nothing
 else, so redact other secrets yourself.
 
 Each report also carries the CLI version, OS, architecture, the coding agent,
-whether the Volcano plugin is installed, and the selected project ID. While
-telemetry is on, it also carries this machine's telemetry ID, and is linked to
-your account. Every report is sent with your login, which the server checks, so
+and whether the Volcano plugin is installed. While telemetry is on, it also
+carries the selected project ID and this machine's telemetry ID, and is linked
+to your account. With telemetry off and feedback turned on with volcano
+feedback enable, it carries neither and is not linked to your account. Every report is sent with your login, which the server checks, so
 sending one requires volcano login.
 
 Feedback follows telemetry: turning telemetry off also turns feedback off,
@@ -126,10 +127,9 @@ disable.`,
 			if err := in.Validate(); err != nil {
 				return err
 			}
+			// While telemetry is off, the report is anonymous: the server
+			// checks the login but does not attribute the report to the user.
 			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
-			// While telemetry is off, the server checks the login but does
-			// not attribute the report to the user.
-			report.Anonymous = !recorder.Reporting()
 			if err := report.Validate(); err != nil {
 				return fmt.Errorf("after redaction, %w", err)
 			}

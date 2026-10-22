@@ -99,6 +99,9 @@ func TestBuild(t *testing.T) {
 		ProjectID:   "p",
 	}, r)
 
+	anonymous := Build(validInput(), telemetry.Client{Anonymous: true}, "", now)
+	assert.True(t, anonymous.Anonymous)
+
 	payload, err := json.Marshal(Build(validInput(), telemetry.Client{}, "", now))
 	require.NoError(t, err)
 	assert.Contains(t, string(payload), `"commands":[]`, "commands is always a list")

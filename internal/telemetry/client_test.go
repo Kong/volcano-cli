@@ -30,7 +30,7 @@ func TestClient(t *testing.T) {
 	}, h.recorder().Client())
 }
 
-func TestClient_NotReportingHasNoDeviceID(t *testing.T) {
+func TestClient_NotReportingIsAnonymous(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"before the notice": func(*harness) {},
 		"disabled":          func(h *harness) { h.store.setState(State{DeviceID: "d", NoticeShown: true, Disabled: true}) },
@@ -46,8 +46,9 @@ func TestClient_NotReportingHasNoDeviceID(t *testing.T) {
 			h.env["CLAUDECODE"] = "1"
 
 			c := h.recorder().Client()
+			assert.True(t, c.Anonymous)
 			assert.Empty(t, c.DeviceID)
-			assert.Equal(t, "p", c.ProjectID)
+			assert.Empty(t, c.ProjectID, "a project belongs to one account")
 			assert.Equal(t, "claude-code", c.Agent)
 			assert.Equal(t, version.Version, c.CLIVersion)
 		})

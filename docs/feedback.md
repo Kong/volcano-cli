@@ -99,12 +99,13 @@ Each report carries the text you wrote and these fields:
 - CLI version, operating system, and CPU architecture
 - The coding agent that ran the command, whether the Volcano plugin is
   installed for it, and the plugin version
-- The selected project ID
 - A random report ID and the time
 - Your Volcano login, which the server checks
 
-While telemetry is on, it also carries the random machine ID that telemetry
-uses, and the report is linked to your account.
+While telemetry is on, it also carries the selected project ID and the random
+machine ID that telemetry uses, and the report is linked to your account. With
+telemetry off and feedback turned on with `volcano feedback enable`, the report
+carries neither ID and is not linked to your account.
 
 Before sending, the CLI replaces your home directory with `~`, strips terminal
 color codes, and removes what it removes from telemetry error messages: bearer
