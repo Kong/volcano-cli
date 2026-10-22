@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"errors"
 	"runtime"
 	"testing"
 
@@ -148,4 +149,23 @@ func TestLoggedIn(t *testing.T) {
 	h = newHarness()
 	h.store.failLoad = true
 	assert.False(t, h.recorder().LoggedIn(), "an unreadable config is not a login")
+}
+
+func TestFeedbackOn_BrokenLink(t *testing.T) {
+	h := newHarness()
+	h.store.setState(State{DeviceID: "d", NoticeShown: true})
+	h.store.cfg.CurrentProject = &config.ProjectConfig{ID: "p"}
+	r := h.recorder()
+	load := r.LoadConfig
+	r.LoadConfig = func() (*config.Config, error) {
+		cfg, _ := load()
+		return cfg, &config.LinkError{Dir: "/w", Err: errors.New("project link has no project_id")}
+	}
+
+	assert.True(t, r.FeedbackOn(), "a broken link does not turn feedback off")
+	assert.False(t, r.Reporting(), "usage data still treats it as unreadable")
+	c := r.Client()
+	assert.False(t, c.Anonymous)
+	assert.Equal(t, "d", c.DeviceID)
+	assert.Empty(t, c.ProjectID)
 }

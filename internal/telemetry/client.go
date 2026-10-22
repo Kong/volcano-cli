@@ -31,13 +31,15 @@ type Client struct {
 
 // Client returns what this process may report about the machine and the coding
 // agent with a feedback report. The device ID and the project ID are set only
-// while usage data may be sent (see Reporting); otherwise the report is
+// while telemetry is on and was announced (see Reporting); otherwise the
+// report is anonymous. A project link that cannot be used leaves the project
+// ID out, since the project it names is unknown, and does not make the report
 // anonymous. A machine that has seen the notice but has no device ID yet, such
 // as after `volcano telemetry enable` on a fresh home, gets one now.
 func (r *Recorder) Client() Client {
 	r.setup()
 	detected := agent.Detect(r.LookupEnv)
-	reporting := r.Reporting()
+	reporting := r.feedbackConfigOK() && r.telemetryAnnounced()
 	c := Client{
 		Anonymous:   !reporting,
 		CLIVersion:  version.Version,
@@ -57,7 +59,9 @@ func (r *Recorder) Client() Client {
 	}
 	// Not ProjectID: it records a VOLCANO_PROJECT_ID use, and the CLI would
 	// then warn that the command ran against that project.
-	c.ProjectID = r.cfg.SelectedProjectID()
+	if !r.badLink {
+		c.ProjectID = r.cfg.SelectedProjectID()
+	}
 	state := r.state()
 	if state.DeviceID == "" {
 		var err error

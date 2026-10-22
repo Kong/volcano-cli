@@ -101,10 +101,11 @@ disable.`,
 			return sensitive.Wrap(cobra.NoArgs(cmd, args))
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The recorder also turns feedback off when the config or the
-			// working directory's project link cannot be read. Return that
-			// error instead of sending nothing without a word.
-			cfg, err := config.Load()
+			// The recorder also turns feedback off when the config cannot be
+			// read. Return that error instead of sending nothing without a
+			// word. A project link that cannot be used does not stop a
+			// report, which then leaves out the project ID.
+			cfg, _, err := config.LoadIgnoringBadLink()
 			if err != nil {
 				return err
 			}

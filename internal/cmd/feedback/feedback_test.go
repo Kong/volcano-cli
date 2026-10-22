@@ -399,6 +399,30 @@ func TestFeedback_UnreadableConfigFails(t *testing.T) {
 	assert.Empty(t, *reports)
 }
 
+func TestFeedback_BrokenProjectLinkStillSends(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	require.NoError(t, config.Update(func(cfg *config.Config) (bool, error) {
+		cfg.CurrentProject = &config.ProjectConfig{ID: "p-saved"}
+		return true, nil
+	}))
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, config.LinkRelPath), []byte("{"), 0o600))
+	t.Chdir(dir)
+	_, err := config.Load()
+	var linkErr *config.LinkError
+	require.ErrorAs(t, err, &linkErr, "the link is unusable")
+
+	stdout, _, err := run(t, reportArgs...)
+	require.NoError(t, err)
+	require.Len(t, *reports, 1)
+	assert.Contains(t, stdout, "Feedback sent. ID: ")
+	r := (*reports)[0]
+	assert.Empty(t, r.ProjectID, "the link's project is unknown, and the saved one may not be the one in use")
+	assert.Equal(t, "d", r.DeviceID)
+	assert.False(t, r.Anonymous)
+}
+
 func TestFeedback_ProjectEnvIsNotAUse(t *testing.T) {
 	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
 	t.Setenv("VOLCANO_PROJECT_ID", "p-env")

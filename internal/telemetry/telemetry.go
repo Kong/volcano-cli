@@ -121,7 +121,10 @@ type Recorder struct {
 	Getenv    func(string) string
 	LookupEnv func(string) (string, bool)
 	Now       func() time.Time
-	// LoadConfig reads the CLI config (config.Load).
+	// LoadConfig reads the CLI config (config.Load). When the working
+	// directory's project link cannot be used, it returns the
+	// *config.LinkError together with the config read without the link, so
+	// feedback, which does not need the link, still works.
 	LoadConfig func() (*config.Config, error)
 	// UpdateConfig changes the config under its lock (config.Update).
 	UpdateConfig func(mutate func(*config.Config) (bool, error)) error
@@ -135,6 +138,9 @@ type Recorder struct {
 	once   sync.Once
 	cfg    *config.Config
 	cfgErr error
+	// badLink is set when cfgErr is a *config.LinkError and cfg is the
+	// config without the link.
+	badLink bool
 
 	// announceOnce guards announced, so the first-run notice is saved and
 	// printed at most once per process, by AnnounceFeedback or Record.
@@ -162,7 +168,7 @@ func (r *Recorder) setup() {
 			r.Now = time.Now
 		}
 		if r.LoadConfig == nil {
-			r.LoadConfig = config.Load
+			r.LoadConfig = loadConfig
 		}
 		if r.UpdateConfig == nil {
 			r.UpdateConfig = config.Update
@@ -179,7 +185,31 @@ func (r *Recorder) setup() {
 			}
 		}
 		r.cfg, r.cfgErr = r.LoadConfig()
+		if _, ok := errors.AsType[*config.LinkError](r.cfgErr); ok && r.cfg != nil {
+			r.badLink = true
+		} else if r.cfgErr != nil {
+			r.cfg = nil
+		}
 	})
+}
+
+// loadConfig is config.Load, except that a project link that cannot be used
+// also returns the config read without it.
+func loadConfig() (*config.Config, error) {
+	cfg, linkErr, err := config.LoadIgnoringBadLink()
+	if err != nil {
+		return nil, err
+	}
+	if linkErr != nil {
+		return cfg, linkErr
+	}
+	return cfg, nil
+}
+
+// feedbackConfigOK reports whether the config was read well enough for
+// feedback: fully, or without a project link that cannot be used.
+func (r *Recorder) feedbackConfigOK() bool {
+	return r.cfgErr == nil || r.badLink
 }
 
 // state is the telemetry block as the process found it at start.
@@ -223,10 +253,12 @@ func CanSendFeedback(token string) bool {
 
 // FeedbackOn reports whether `volcano feedback` may send a report: the config
 // is readable, the feedback setting is on (see FeedbackSetting), and an
-// earlier process showed the first-run notice for feedback.
+// earlier process showed the first-run notice for feedback. A project link
+// that cannot be used does not turn feedback off: a report does not need it,
+// and a broken link is a problem worth reporting.
 func (r *Recorder) FeedbackOn() bool {
 	r.setup()
-	return r.cfgErr == nil && r.feedbackSettingOn() && r.feedbackNoticeShown()
+	return r.feedbackConfigOK() && r.feedbackSettingOn() && r.feedbackNoticeShown()
 }
 
 // FeedbackState says whether the feedback setting is on, and if not, why.
@@ -283,7 +315,14 @@ func (r *Recorder) feedbackNoticeShown() bool {
 // in a home where the notice can never be saved), counts as off.
 func (r *Recorder) Reporting() bool {
 	r.setup()
-	if DisabledByEnv(r.Getenv) || r.cfgErr != nil {
+	return r.cfgErr == nil && r.telemetryAnnounced()
+}
+
+// telemetryAnnounced reports whether the config was read and telemetry is on
+// and was announced by an earlier process, whether or not the project link
+// can be used.
+func (r *Recorder) telemetryAnnounced() bool {
+	if r.cfg == nil || DisabledByEnv(r.Getenv) {
 		return false
 	}
 	state := r.state()
@@ -375,7 +414,7 @@ func (r *Recorder) announce(w io.Writer) announcement {
 // process then shows nothing again.
 func (r *Recorder) AnnounceFeedback(w io.Writer) bool {
 	r.setup()
-	if r.cfgErr != nil || !r.feedbackSettingOn() {
+	if !r.feedbackConfigOK() || !r.feedbackSettingOn() {
 		return false
 	}
 	if r.feedbackNoticeShown() {
