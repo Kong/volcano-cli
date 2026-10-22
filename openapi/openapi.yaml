@@ -6688,7 +6688,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '413':
-          description: The request body is larger than 72 KiB
+          description: The request body is larger than 200 KiB
           content:
             application/json:
               schema:
