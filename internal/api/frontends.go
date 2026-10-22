@@ -125,6 +125,34 @@ func (c *Client) RedeployFrontend(ctx context.Context, projectID, frontendID uui
 	return nil, apiErrorFromGeneratedErrors(status, resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
 }
 
+// CreateFrontendDeployment deploys the build of sourceDeploymentID, a
+// deployment of another frontend in the project, to frontendID without
+// compiling it again.
+func (c *Client) CreateFrontendDeployment(ctx context.Context, projectID, frontendID, sourceDeploymentID uuid.UUID) (*apiclient.Frontend, error) {
+	rsp, err := c.client.CreateFrontendDeployment(ctx, projectID, frontendID, apiclient.CreateFrontendDeploymentRequest{
+		SourceDeploymentId: sourceDeploymentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rsp.Body.Close() }()
+	resp, parseErr := apiclient.ParseCreateFrontendDeploymentClientResponse(rsp)
+	if rsp.StatusCode >= 200 && rsp.StatusCode < 300 {
+		if parseErr == nil && resp.JSON200 != nil {
+			return resp.JSON200, nil
+		}
+		// Contract violation: the deployment was accepted, so retrying would
+		// replace it. Report success as RedeployFrontend does, even when the
+		// body is empty or does not decode.
+		return &apiclient.Frontend{Id: frontendID}, nil
+	}
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	return nil, apiErrorFromGeneratedErrors(resp.StatusCode(), resp.Body,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON500, resp.JSON501, resp.JSON503)
+}
+
 // ListFrontendDeployments lists one deployment page for a frontend.
 func (c *Client) ListFrontendDeployments(ctx context.Context, projectID, frontendID uuid.UUID, page, limit int) (*apiclient.PaginatedFrontendDeployments, error) {
 	resp, err := c.client.ListFrontendDeploymentsWithResponse(ctx, projectID, frontendID, &apiclient.ListFrontendDeploymentsParams{

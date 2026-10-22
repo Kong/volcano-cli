@@ -154,6 +154,20 @@ func requireLocalModeLeavesFrontendDomainsToTheCloud(t *testing.T, binary string
 	}
 }
 
+// requireLocalModeLeavesBuildReuseToTheCloud checks that deploying another
+// frontend's build, which local development does not offer, names the
+// commands to run instead.
+func requireLocalModeLeavesBuildReuseToTheCloud(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	output, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "frontends", "deploy", "web-eu", "--from", "web")
+	if err == nil {
+		t.Fatalf("expected volcano frontends deploy --from to fail in local mode\n%s", output)
+	}
+	requireContains(t, output, "--from is a cloud option")
+	requireContains(t, output, "run 'volcano frontends deploy --name web-eu' in the frontend's directory")
+	requireContains(t, output, "'volcano cloud frontends deploy web-eu --from web' to deploy the build in the cloud project")
+}
+
 // awaitLocalModeE2EFrontendActive waits for the frontend's build to finish and
 // returns its site URL.
 func awaitLocalModeE2EFrontendActive(t *testing.T, binary string, env []string, dir, name string) string {

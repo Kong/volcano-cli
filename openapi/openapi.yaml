@@ -7796,6 +7796,100 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Deploy an existing build to a frontend
+      description: |
+        Deploys the build of another frontend's deployment in the same project to this frontend, without
+        compiling it again. Use it to serve one build from several frontends, such as one per region or
+        brand. This frontend gets its own copy of the source archive and the build, so later changes to the
+        source frontend do not reach it, and a later redeploy of this frontend compiles that copied source.
+
+        The build-time variables this frontend would build with must equal those the source build read,
+        compared by name and value. Volcano records a salted hash of each value with every build and never
+        stores the values. A mismatch returns `409` with `code: build_variables_differ` and the differing
+        names in `error`. The source deployment must be `active` or `degraded`, and both frontends must use
+        the same framework and app root.
+
+        Admission is the redeploy's: the deployment starts with `status: provisioning`, or, while another
+        deployment is in progress, is exposed through `pending_deployment_id` and supersedes any older
+        queued deployment. Nothing is compiled: the deployment's build minutes cover publishing the build
+        alone.
+      operationId: createFrontendDeployment
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendDeploymentRequest'
+      responses:
+        '200':
+          description: Deployment started or queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Frontend'
+        '400':
+          description: 'Bad request - invalid identifier or body, or `code: source_deployment_same_frontend` when the source deployment belongs to this frontend; redeploy the frontend instead.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 'Frontend not found, or `code: source_deployment_not_found` when the source deployment is not in this project.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: build_variables_differ` names the build-time variables whose values differ. `code: source_deployment_not_active` refuses a deployment that is not `active` or `degraded`. `code: source_build_unavailable` refuses a deployment made before Volcano kept builds, or whose build is no longer kept; redeploy the source frontend once and deploy from that deployment. `code: frontend_incompatible` refuses a different framework or app root. Without a code, the frontend''s deletion is queued or running.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Monthly build-minutes allowance exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: '`code: build_reuse_unavailable` - this server cannot deploy an existing build. Local mode answers this; deploy the frontend from source instead.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - frontend workflow configuration missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/frontends/{frontendId}/usage:
     get:
       tags:
@@ -20375,6 +20469,17 @@ components:
       required:
         - function_id
         - path_prefix
+    CreateFrontendDeploymentRequest:
+      type: object
+      additionalProperties: false
+      description: Deploys the build of an existing deployment instead of compiling the frontend's source.
+      properties:
+        source_deployment_id:
+          type: string
+          format: uuid
+          description: An `active` or `degraded` deployment of another frontend in the same project. Its build is copied to this frontend and published without compiling it again.
+      required:
+        - source_deployment_id
     FrontendCustomDomainTLSConfig:
       type: object
       description: 'TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.'
@@ -20607,6 +20712,10 @@ components:
         initiated_by:
           type: string
           description: Platform user that triggered a request-initiated deployment; absent for git and system deployments.
+        source_deployment_id:
+          type: string
+          format: uuid
+          description: The deployment whose build this deployment published instead of compiling its own source. Absent when the deployment compiled.
         site_url:
           type: string
         build_duration_seconds:
