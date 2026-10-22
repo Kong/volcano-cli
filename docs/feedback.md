@@ -133,7 +133,8 @@ environment variable values, application data, or customer names in a report.
 
 ## When a report is not sent
 
-`volcano feedback` sends nothing, prints nothing, and exits 0 when:
+`volcano feedback` sends nothing, prints nothing other than the first-run notice
+when this run shows it, and exits 0 when:
 
 - Feedback is off. See [Turn it off](#turn-it-off).
 - You are not logged in, or are logged in only with a project access token.
