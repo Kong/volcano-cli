@@ -481,7 +481,7 @@ func TestFeedback_SendFailureFails(t *testing.T) {
 	t.Setenv("VOLCANO_API_URL", srv.URL)
 
 	_, _, err := run(t, reportArgs...)
-	assert.EqualError(t, err, "send feedback: feedback endpoint returned HTTP 404: Not Found")
+	assert.EqualError(t, err, "send feedback: HTTP 404: Not Found")
 }
 
 const inputJSON = `{

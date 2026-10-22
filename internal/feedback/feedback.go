@@ -294,7 +294,7 @@ func Send(ctx context.Context, client *http.Client, apiURL, token string, payloa
 		// An api.Error, so the exit code and usage telemetry carry the
 		// status. The server's message can quote the report, so usage
 		// telemetry does not send it.
-		return fmt.Errorf("feedback endpoint returned %w", sensitive.Wrap(api.ResponseError(resp.StatusCode, body)))
+		return sensitive.Wrap(api.ResponseError(resp.StatusCode, body))
 	}
 	return nil
 }

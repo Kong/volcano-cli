@@ -183,7 +183,7 @@ func TestSend_KeepsServerMessage(t *testing.T) {
 	defer srv.Close()
 
 	err := Send(context.Background(), srv.Client(), srv.URL, "", []byte(`{}`))
-	require.EqualError(t, err, "feedback endpoint returned HTTP 422: summary is over 120 characters")
+	require.EqualError(t, err, "HTTP 422: summary is over 120 characters")
 	assert.NotEmpty(t, sensitive.Text(err), "the message can quote the report")
 }
 
@@ -194,7 +194,7 @@ func TestSend_Errors(t *testing.T) {
 	defer srv.Close()
 
 	err := Send(context.Background(), srv.Client(), srv.URL, "", []byte(`{}`))
-	require.EqualError(t, err, "feedback endpoint returned HTTP 404: Not Found")
+	require.EqualError(t, err, "HTTP 404: Not Found")
 	assert.Equal(t, http.StatusNotFound, api.Status(err))
 	assert.ErrorContains(t, Send(context.Background(), srv.Client(), srv.URL, "", make([]byte, maxPayloadBytes+1)), "over")
 }
