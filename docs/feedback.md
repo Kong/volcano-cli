@@ -10,6 +10,17 @@ with Volcano: the CLI, the platform, the docs, or the agent skills. The Volcano
 agent skills tell coding agents to run it after they finish a task, for each
 distinct Volcano problem they ran into. You can run it yourself too.
 
+When a coding agent runs a `volcano` command that fails, feedback is on, and
+you are logged in with your account, the error ends with one more line on
+stderr:
+
+```text
+Coding agents: if this is a problem with Volcano itself, report it after your task with `volcano feedback`. See `volcano feedback --help`.
+```
+
+It does not appear after a usage error, such as an unknown flag or command,
+or after a failed `volcano feedback`. Turning feedback off (below) removes it.
+
 ## Send a report
 
 ```bash
