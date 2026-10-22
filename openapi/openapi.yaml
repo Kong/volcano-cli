@@ -23694,11 +23694,12 @@ components:
         message:
           type: string
           maxLength: 32768
-          pattern: ^[^\x00]*$
+          pattern: ^[^\x00-\x08\x0B-\x1F\x7F]*$
           description: |
-            A human-readable explanation of up to 32,768 bytes of UTF-8. A
-            character outside ASCII takes more than one byte, so such text
-            reaches the limit before `maxLength`.
+            A human-readable explanation of up to 32,768 bytes of UTF-8, with
+            tab and newline as its only control characters. A character
+            outside ASCII takes more than one byte, so such text reaches the
+            limit before `maxLength`.
       required:
         - type
       additionalProperties: false
