@@ -31,10 +31,11 @@ type CustomDomainEntry struct {
 type CustomDomainChange int
 
 const (
-	// CustomDomainCreated means the frontend had no domain and now has one.
+	// CustomDomainCreated means the frontend did not have the domain and now
+	// has it.
 	CustomDomainCreated CustomDomainChange = iota
-	// CustomDomainSwitched means the frontend's active domain changed TLS mode
-	// in place.
+	// CustomDomainSwitched means an active domain of the frontend changed TLS
+	// mode in place.
 	CustomDomainSwitched
 	// CustomDomainUnchanged means the frontend already had the domain in the
 	// requested TLS mode. The server ignores certificate material then.

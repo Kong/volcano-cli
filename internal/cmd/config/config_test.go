@@ -345,6 +345,42 @@ func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
 	}
 }
 
+func TestDeployHintsAtAServerWithoutSeveralCustomDomains(t *testing.T) {
+	const hint = "if this server predates several custom domains per frontend, it refuses custom_domains this way: " +
+		"declare a frontend's one domain with custom_domain instead"
+	for name, tc := range map[string]struct {
+		manifest string
+		hint     bool
+	}{
+		"custom_domains": {manifest: "version: 1\nfrontends:\n  - name: web\n    custom_domains: []\n", hint: true},
+		"custom_domain": {
+			manifest: "version: 1\nfrontends:\n  - name: web\n    custom_domain:\n      domain: app.example.com\n      tls:\n        mode: managed\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if tc.hint {
+				assert.Contains(t, err.Error(), "\n"+hint)
+			} else {
+				assert.NotContains(t, err.Error(), "custom_domains")
+			}
+		})
+	}
+}
+
 // public: false reads as "not public" but now admits signed-in users, so every
 // deploy that reads it, the dry run included, warns. The warning goes to
 // stderr so it cannot break output a script parses.
