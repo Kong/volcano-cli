@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -265,6 +266,9 @@ func TestFeedback_StatusOnAFreshMachineShowsTheNotice(t *testing.T) {
 }
 
 func TestFeedback_StatusInAReadOnlyHome(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a directory the test can't write to")
+	}
 	reports := setup(t, nil)
 	// A fresh home where ~/.volcano cannot be created, as in a read-only
 	// mount.
@@ -396,6 +400,20 @@ func TestFeedback_UnreadableConfigFails(t *testing.T) {
 
 	_, _, err = run(t, reportArgs...)
 	require.Error(t, err)
+	assert.Empty(t, *reports)
+}
+
+func TestFeedback_EnvOptOutHoldsWithUnreadableConfig(t *testing.T) {
+	reports := setup(t, &config.TelemetryConfig{DeviceID: "d", NoticeShown: true})
+	path, err := config.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte("{"), 0o600))
+	t.Setenv(telemetry.EnvFeedbackDisabled, "1")
+
+	stdout, stderr, err := run(t, reportArgs...)
+	require.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Empty(t, stderr)
 	assert.Empty(t, *reports)
 }
 

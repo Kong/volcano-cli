@@ -106,6 +106,11 @@ disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 			return sensitive.Wrap(cobra.NoArgs(cmd, args))
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// The env opt-out does not depend on the config, so it holds
+			// even when the config cannot be read.
+			if telemetry.FeedbackDisabledByEnv(os.Getenv) && !dryRun {
+				return nil
+			}
 			// The recorder also turns feedback off when the config cannot be
 			// read. Return that error instead of sending nothing without a
 			// word. A project link that cannot be used does not stop a
