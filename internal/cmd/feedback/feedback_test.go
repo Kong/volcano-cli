@@ -54,7 +54,7 @@ func setup(t *testing.T, state *config.TelemetryConfig) *[]feedback.Report {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var report feedback.Report
-		require.NoError(t, json.Unmarshal(body, &report))
+		assert.NoError(t, json.Unmarshal(body, &report))
 		reports = append(reports, report)
 		w.WriteHeader(http.StatusAccepted)
 	}))
