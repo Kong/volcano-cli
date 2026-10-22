@@ -142,8 +142,8 @@ the signup page, and the CLI is signed in when you finish.
 
 `--signup` needs an email address. It uses `--email`, else your global git
 email when that is a usable address. When neither is available, `connect`
-stops before it signs in and changes nothing. Ask the user for the address
-they want to sign up with, then run the same command again with `--email`:
+stops before it signs in and changes nothing. Run the same command again with
+the address you want to sign up with:
 
 ```bash
 volcano connect --signup --email you@company.com
