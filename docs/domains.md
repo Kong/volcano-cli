@@ -15,10 +15,10 @@ projects, with no further record.
 - Belongs to your **account**, not a project, so the commands need an account
   token from `volcano login`. A project access token is refused.
 - Every **frontend custom domain** must sit at or below a domain your account
-  has verified. `volcano cloud frontends domain create` and `volcano cloud
-  config deploy` print the record to publish when it is missing. With managed
-  TLS, Volcano holds the hostname for your account while it waits for the
-  record.
+  has verified. `volcano cloud frontends domains add`, `volcano cloud frontends
+  domain create`, and `volcano cloud config deploy` print the record to publish
+  when it is missing. With managed TLS, Volcano holds the hostname for your
+  account while it waits for the record.
 - Local development serves no custom domains, so these commands are cloud-only.
 
 ## CLI operations

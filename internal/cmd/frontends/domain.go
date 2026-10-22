@@ -52,7 +52,10 @@ func newDomain(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "domain",
 		Short: "Manage frontend custom domains",
-		Long:  "Manage custom domains attached to frontends in the current project.",
+		Long: fmt.Sprintf(`Manage custom domains attached to frontends in the current project.
+
+These commands act on a frontend's oldest domain that serves it. Use '%s'
+to manage several domains and redirects.`, cliruntime.CommandPath(deps, "frontends domains")),
 	}
 	cmd.AddCommand(newDomainCreate(deps))
 	cmd.AddCommand(newDomainGet(deps))

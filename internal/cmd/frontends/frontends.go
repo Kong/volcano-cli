@@ -1,7 +1,7 @@
 package frontends
 
 import (
-	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/spf13/cobra"
@@ -17,7 +17,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "frontends",
 		Short: "Manage frontends",
-		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage frontend custom domains and function routes.",
+		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage frontend custom domains, redirects, and function routes.",
 	}
 	cmd.AddCommand(newDeploy(deps))
 	cmd.AddCommand(newList(deps))
@@ -26,6 +26,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newRedeploy(deps))
 	cmd.AddCommand(newLogs(deps))
 	cmd.AddCommand(newDomain(deps))
+	cmd.AddCommand(newDomains(deps))
 	cmd.AddCommand(newRoutes(deps))
 	return cmd
 }
@@ -45,18 +46,19 @@ func NewLocal(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newRedeploy(deps))
 	cmd.AddCommand(newLogs(deps))
 	cmd.AddCommand(newRoutes(deps))
-	cmd.AddCommand(newDomainCloudOnly())
+	cmd.AddCommand(newDomainCloudOnly("domain"))
+	cmd.AddCommand(newDomainCloudOnly("domains"))
 	return cmd
 }
 
-func newDomainCloudOnly() *cobra.Command {
+func newDomainCloudOnly(use string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "domain",
+		Use:   use,
 		Short: "Manage frontend custom domains",
-		Long: `Manage frontend custom domains.
+		Long: fmt.Sprintf(`Manage frontend custom domains.
 
 Local development serves no custom domains, so this is a cloud command: run
-'volcano cloud frontends domain ...' instead.`,
+'volcano cloud frontends %s ...' instead.`, use),
 		Hidden:             true,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,8 +66,8 @@ Local development serves no custom domains, so this is a cloud command: run
 			if slices.ContainsFunc(args, func(arg string) bool { return arg == "--help" || arg == "-h" }) {
 				return cmd.Help()
 			}
-			return errors.New(`"frontends domain" is a cloud command: local development serves no custom domains, ` +
-				"so run 'volcano cloud frontends domain ...' instead")
+			return fmt.Errorf("%q is a cloud command: local development serves no custom domains, "+
+				"so run 'volcano cloud frontends %s ...' instead", "frontends "+use, use)
 		},
 	}
 }

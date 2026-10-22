@@ -1302,6 +1302,54 @@ func (e FrontendVariableScope) Valid() bool {
 	}
 }
 
+// Defines values for FrontendCustomDomainRedirectStatus.
+const (
+	FrontendCustomDomainRedirectStatusN301 FrontendCustomDomainRedirectStatus = 301
+	FrontendCustomDomainRedirectStatusN302 FrontendCustomDomainRedirectStatus = 302
+	FrontendCustomDomainRedirectStatusN307 FrontendCustomDomainRedirectStatus = 307
+	FrontendCustomDomainRedirectStatusN308 FrontendCustomDomainRedirectStatus = 308
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainRedirectStatus enum.
+func (e FrontendCustomDomainRedirectStatus) Valid() bool {
+	switch e {
+	case FrontendCustomDomainRedirectStatusN301:
+		return true
+	case FrontendCustomDomainRedirectStatusN302:
+		return true
+	case FrontendCustomDomainRedirectStatusN307:
+		return true
+	case FrontendCustomDomainRedirectStatusN308:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCustomDomainRedirectRequestStatus.
+const (
+	FrontendCustomDomainRedirectRequestStatusN301 FrontendCustomDomainRedirectRequestStatus = 301
+	FrontendCustomDomainRedirectRequestStatusN302 FrontendCustomDomainRedirectRequestStatus = 302
+	FrontendCustomDomainRedirectRequestStatusN307 FrontendCustomDomainRedirectRequestStatus = 307
+	FrontendCustomDomainRedirectRequestStatusN308 FrontendCustomDomainRedirectRequestStatus = 308
+)
+
+// Valid indicates whether the value is a known member of the FrontendCustomDomainRedirectRequestStatus enum.
+func (e FrontendCustomDomainRedirectRequestStatus) Valid() bool {
+	switch e {
+	case FrontendCustomDomainRedirectRequestStatusN301:
+		return true
+	case FrontendCustomDomainRedirectRequestStatusN302:
+		return true
+	case FrontendCustomDomainRedirectRequestStatusN307:
+		return true
+	case FrontendCustomDomainRedirectRequestStatusN308:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FrontendCustomDomainResponseDomainStatus.
 const (
 	FrontendCustomDomainResponseDomainStatusActive              FrontendCustomDomainResponseDomainStatus = "active"
@@ -2154,6 +2202,30 @@ func (e ProjectConfigBucketPolicyOperation) Valid() bool {
 	case ProjectConfigBucketPolicyOperationSELECT:
 		return true
 	case ProjectConfigBucketPolicyOperationUPDATE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProjectConfigCustomDomainRedirectStatus.
+const (
+	N301 ProjectConfigCustomDomainRedirectStatus = 301
+	N302 ProjectConfigCustomDomainRedirectStatus = 302
+	N307 ProjectConfigCustomDomainRedirectStatus = 307
+	N308 ProjectConfigCustomDomainRedirectStatus = 308
+)
+
+// Valid indicates whether the value is a known member of the ProjectConfigCustomDomainRedirectStatus enum.
+func (e ProjectConfigCustomDomainRedirectStatus) Valid() bool {
+	switch e {
+	case N301:
+		return true
+	case N302:
+		return true
+	case N307:
+		return true
+	case N308:
 		return true
 	default:
 		return false
@@ -5318,6 +5390,18 @@ type CreateFrontendCustomDomainRequest struct {
 	Tls FrontendCustomDomainTLSConfig `json:"tls"`
 }
 
+// CreateFrontendDomainRequest defines model for CreateFrontendDomainRequest.
+type CreateFrontendDomainRequest struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
+	Domain string `json:"domain"`
+
+	// Redirect Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
+	Redirect *FrontendCustomDomainRedirectRequest `json:"redirect,omitempty"`
+
+	// Tls TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.
+	Tls FrontendCustomDomainTLSConfig `json:"tls"`
+}
+
 // CreateFrontendFunctionRouteRequest defines model for CreateFrontendFunctionRouteRequest.
 type CreateFrontendFunctionRouteRequest struct {
 	FunctionId  openapi_types.UUID `json:"function_id"`
@@ -6835,6 +6919,34 @@ type FrontendCustomDomainConflictError struct {
 	RequiredRecord *FrontendDomainVerificationRecord `json:"required_record,omitempty"`
 }
 
+// FrontendCustomDomainList defines model for FrontendCustomDomainList.
+type FrontendCustomDomainList struct {
+	Data []FrontendCustomDomainResponse `json:"data"`
+}
+
+// FrontendCustomDomainRedirect defines model for FrontendCustomDomainRedirect.
+type FrontendCustomDomainRedirect struct {
+	Status FrontendCustomDomainRedirectStatus `json:"status"`
+
+	// To Hostname the domain redirects to.
+	To string `json:"to"`
+}
+
+// FrontendCustomDomainRedirectStatus defines model for FrontendCustomDomainRedirect.Status.
+type FrontendCustomDomainRedirectStatus int
+
+// FrontendCustomDomainRedirectRequest Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
+type FrontendCustomDomainRedirectRequest struct {
+	// Status Redirect status. 301 and 308 are permanent, 302 and 307 temporary; 307 and 308 keep the request method and body.
+	Status *FrontendCustomDomainRedirectRequestStatus `json:"status,omitempty"`
+
+	// To Hostname of an active domain of the same frontend that serves it.
+	To string `json:"to"`
+}
+
+// FrontendCustomDomainRedirectRequestStatus Redirect status. 301 and 308 are permanent, 302 and 307 temporary; 307 and 308 keep the request method and body.
+type FrontendCustomDomainRedirectRequestStatus int
+
 // FrontendCustomDomainResponse defines model for FrontendCustomDomainResponse.
 type FrontendCustomDomainResponse struct {
 	CreatedAt     time.Time                                `json:"created_at"`
@@ -6844,6 +6956,9 @@ type FrontendCustomDomainResponse struct {
 
 	// FailureReason Failure category, present when managed TLS setup has failed, or when issuance is failing for a domain that switched to managed TLS and still serves its uploaded certificate. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
 	FailureReason *string `json:"failure_reason,omitempty"`
+
+	// Redirect Where the domain redirects every request, or null when it serves the frontend.
+	Redirect *FrontendCustomDomainRedirect `json:"redirect"`
 
 	// RequiredRoutingRecord Deprecated and no longer returned. Use routing_target_hostname as the DNS routing target.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
@@ -8643,6 +8758,17 @@ type ProjectConfigCustomDomain struct {
 	Tls *ProjectConfigFrontendCustomDomainTLSConfig `json:"tls,omitempty"`
 }
 
+// ProjectConfigCustomDomainRedirect defines model for ProjectConfigCustomDomainRedirect.
+type ProjectConfigCustomDomainRedirect struct {
+	Status *ProjectConfigCustomDomainRedirectStatus `json:"status,omitempty"`
+
+	// To Another domain in the same `custom_domains` list, without `redirect`.
+	To string `json:"to"`
+}
+
+// ProjectConfigCustomDomainRedirectStatus defines model for ProjectConfigCustomDomainRedirect.Status.
+type ProjectConfigCustomDomainRedirectStatus int
+
 // ProjectConfigDatabase Assertion-only entry for an existing database. No database property is
 // mutable through the manifest; declared values are compared against the
 // deployed database and any mismatch fails validation. Databases are
@@ -8693,19 +8819,19 @@ type ProjectConfigEmailTemplates struct {
 }
 
 // ProjectConfigFrontend Configuration for an existing (deployed) frontend. Frontends are never
-// created or deleted through the manifest. A declared frontend entry
-// without `custom_domain` deletes an existing custom domain.
+// created or deleted through the manifest.
 type ProjectConfigFrontend struct {
-	// CustomDomain Custom domain with managed or BYOC TLS. `tls` is required
-	// when the domain is first created and optional afterwards. For an existing
-	// domain, omitting `tls` or sending only `tls.mode` keeps the stored
-	// certificate; new BYOC material for the same domain rotates the
-	// certificate in place (zero downtime). Changing `tls.mode` for the same
-	// hostname switches an active domain in place (zero downtime); a domain
-	// that is not yet active, or a managed domain changing hostname, must be
-	// deleted first. BYOC TLS material is write-only; exports render only
-	// `tls.mode`.
-	CustomDomain *ProjectConfigCustomDomain `json:"custom_domain,omitempty"`
+	// CustomDomain The frontend's custom domain. Omission leaves an existing domain
+	// untouched; null deletes it. For a frontend with more than one
+	// domain, or a redirect, use `custom_domains`; an entry may not set
+	// both.
+	CustomDomain nullable.Nullable[ProjectConfigCustomDomain] `json:"custom_domain,omitempty"`
+
+	// CustomDomains Complete set of the frontend's custom domains when declared.
+	// Domains not listed are deleted; an empty list deletes all of them.
+	// Omission leaves existing domains untouched. More than one domain
+	// needs a plan that allows it.
+	CustomDomains *[]ProjectConfigFrontendCustomDomain `json:"custom_domains,omitempty"`
 
 	// FunctionRoutes Complete set of same-origin Function path mappings when declared. Omission preserves existing mappings; an empty list deletes all mappings.
 	FunctionRoutes *[]ProjectConfigFrontendFunctionRoute `json:"function_routes,omitempty"`
@@ -8720,6 +8846,18 @@ type ProjectConfigFrontend struct {
 
 // ProjectConfigFrontendVariableScope All preserves access to all project variables. Shared includes the project frontend_shared_variables list. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
 type ProjectConfigFrontendVariableScope string
+
+// ProjectConfigFrontendCustomDomain One of the frontend's custom domains. `domain` and `tls` behave as in
+// `custom_domain`. With `redirect`, the domain redirects every request to
+// another listed domain that serves the frontend.
+type ProjectConfigFrontendCustomDomain struct {
+	// Domain Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.
+	Domain   string                             `json:"domain"`
+	Redirect *ProjectConfigCustomDomainRedirect `json:"redirect,omitempty"`
+
+	// Tls TLS for the custom domain. `mode` defaults to `byoc` when omitted.
+	Tls *ProjectConfigFrontendCustomDomainTLSConfig `json:"tls,omitempty"`
+}
 
 // ProjectConfigFrontendCustomDomainTLSConfig TLS for the custom domain. `mode` defaults to `byoc` when omitted.
 type ProjectConfigFrontendCustomDomainTLSConfig struct {
@@ -9016,6 +9154,9 @@ type ProjectFrontendCustomDomain struct {
 		Id   openapi_types.UUID `json:"id"`
 		Name string             `json:"name"`
 	} `json:"frontend"`
+
+	// Redirect Where the domain redirects every request, or null when it serves the frontend.
+	Redirect *FrontendCustomDomainRedirect `json:"redirect"`
 
 	// RequiredRoutingRecord Deprecated and no longer returned. Use routing_target_hostname as the DNS routing target.
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
@@ -10210,6 +10351,12 @@ type UpdateEmailTemplateRequest struct {
 	TextBody *string `json:"text_body,omitempty"`
 }
 
+// UpdateFrontendCustomDomainRequest defines model for UpdateFrontendCustomDomainRequest.
+type UpdateFrontendCustomDomainRequest struct {
+	// Redirect The redirect to set, or null to make the domain serve the frontend.
+	Redirect *FrontendCustomDomainRedirectRequest `json:"redirect"`
+}
+
 // UpdateFunctionRequest defines model for UpdateFunctionRequest.
 type UpdateFunctionRequest struct {
 	// HttpAuthMode Authentication applied by the HTTP ingress. `none` is valid only for
@@ -10521,6 +10668,9 @@ type DurableMessageNameFilter = DurableMessageName
 
 // EndingBefore defines model for EndingBefore.
 type EndingBefore = string
+
+// FrontendCustomDomainHostname defines model for FrontendCustomDomainHostname.
+type FrontendCustomDomainHostname = string
 
 // FrontendFunctionRouteId defines model for FrontendFunctionRouteId.
 type FrontendFunctionRouteId = openapi_types.UUID
@@ -12678,6 +12828,12 @@ type CreateFrontendMultipartRequestBody CreateFrontendMultipartBody
 
 // CreateFrontendCustomDomainJSONRequestBody defines body for CreateFrontendCustomDomain for application/json ContentType.
 type CreateFrontendCustomDomainJSONRequestBody = CreateFrontendCustomDomainRequest
+
+// CreateFrontendDomainJSONRequestBody defines body for CreateFrontendDomain for application/json ContentType.
+type CreateFrontendDomainJSONRequestBody = CreateFrontendDomainRequest
+
+// UpdateFrontendDomainJSONRequestBody defines body for UpdateFrontendDomain for application/json ContentType.
+type UpdateFrontendDomainJSONRequestBody = UpdateFrontendCustomDomainRequest
 
 // CreateFrontendFunctionRouteJSONRequestBody defines body for CreateFrontendFunctionRoute for application/json ContentType.
 type CreateFrontendFunctionRouteJSONRequestBody = CreateFrontendFunctionRouteRequest
@@ -14844,6 +15000,25 @@ type ClientInterface interface {
 	CreateFrontendCustomDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateFrontendCustomDomain(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendCustomDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFrontendDomains request
+	ListFrontendDomains(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFrontendDomainWithBody request with any body
+	CreateFrontendDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFrontendDomain request
+	DeleteFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFrontendDomain request
+	GetFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateFrontendDomainWithBody request with any body
+	UpdateFrontendDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFrontendFunctionRoutes request
 	ListFrontendFunctionRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18382,6 +18557,90 @@ func (c *Client) CreateFrontendCustomDomainWithBody(ctx context.Context, id Proj
 
 func (c *Client) CreateFrontendCustomDomain(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendCustomDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateFrontendCustomDomainRequest(c.Server, id, frontendId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFrontendDomains(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFrontendDomainsRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendDomainRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendDomainRequest(c.Server, id, frontendId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFrontendDomainRequest(c.Server, id, frontendId, domain)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFrontendDomainRequest(c.Server, id, frontendId, domain)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendDomainRequestWithBody(c.Server, id, frontendId, domain, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendDomainRequest(c.Server, id, frontendId, domain, body)
 	if err != nil {
 		return nil, err
 	}
@@ -30567,6 +30826,258 @@ func NewCreateFrontendCustomDomainRequestWithBody(server string, id ProjectId, f
 	return req, nil
 }
 
+// NewListFrontendDomainsRequest generates requests for ListFrontendDomains
+func NewListFrontendDomainsRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/domains", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFrontendDomainRequest calls the generic CreateFrontendDomain builder with application/json body
+func NewCreateFrontendDomainRequest(server string, id ProjectId, frontendId FrontendId, body CreateFrontendDomainJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFrontendDomainRequestWithBody(server, id, frontendId, "application/json", bodyReader)
+}
+
+// NewCreateFrontendDomainRequestWithBody generates requests for CreateFrontendDomain with any type of body
+func NewCreateFrontendDomainRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/domains", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFrontendDomainRequest generates requests for DeleteFrontendDomain
+func NewDeleteFrontendDomainRequest(server string, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "domain", domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/domains/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFrontendDomainRequest generates requests for GetFrontendDomain
+func NewGetFrontendDomainRequest(server string, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "domain", domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/domains/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateFrontendDomainRequest calls the generic UpdateFrontendDomain builder with application/json body
+func NewUpdateFrontendDomainRequest(server string, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateFrontendDomainRequestWithBody(server, id, frontendId, domain, "application/json", bodyReader)
+}
+
+// NewUpdateFrontendDomainRequestWithBody generates requests for UpdateFrontendDomain with any type of body
+func NewUpdateFrontendDomainRequestWithBody(server string, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "domain", domain, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/domains/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFrontendFunctionRoutesRequest generates requests for ListFrontendFunctionRoutes
 func NewListFrontendFunctionRoutesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
 	var err error
@@ -37345,6 +37856,25 @@ type ClientWithResponsesInterface interface {
 	CreateFrontendCustomDomainWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendCustomDomainClientResponse, error)
 
 	CreateFrontendCustomDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendCustomDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendCustomDomainClientResponse, error)
+
+	// ListFrontendDomainsWithResponse request
+	ListFrontendDomainsWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendDomainsClientResponse, error)
+
+	// CreateFrontendDomainWithBodyWithResponse request with any body
+	CreateFrontendDomainWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendDomainClientResponse, error)
+
+	CreateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendDomainClientResponse, error)
+
+	// DeleteFrontendDomainWithResponse request
+	DeleteFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*DeleteFrontendDomainClientResponse, error)
+
+	// GetFrontendDomainWithResponse request
+	GetFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*GetFrontendDomainClientResponse, error)
+
+	// UpdateFrontendDomainWithBodyWithResponse request with any body
+	UpdateFrontendDomainWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error)
+
+	UpdateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error)
 
 	// ListFrontendFunctionRoutesWithResponse request
 	ListFrontendFunctionRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendFunctionRoutesClientResponse, error)
@@ -44161,6 +44691,182 @@ func (r CreateFrontendCustomDomainClientResponse) ContentType() string {
 	return ""
 }
 
+type ListFrontendDomainsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCustomDomainList
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFrontendDomainsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFrontendDomainsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFrontendDomainsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFrontendDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCustomDomainResponse
+	JSON201      *FrontendCustomDomainResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *FrontendCustomDomainConflictError
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFrontendDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFrontendDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFrontendDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFrontendDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFrontendDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFrontendDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCustomDomainResponse
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFrontendDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFrontendDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateFrontendDomainClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCustomDomainResponse
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateFrontendDomainClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateFrontendDomainClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFrontendFunctionRoutesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -50175,6 +50881,67 @@ func (c *ClientWithResponses) CreateFrontendCustomDomainWithResponse(ctx context
 		return nil, err
 	}
 	return ParseCreateFrontendCustomDomainClientResponse(rsp)
+}
+
+// ListFrontendDomainsWithResponse request returning *ListFrontendDomainsClientResponse
+func (c *ClientWithResponses) ListFrontendDomainsWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendDomainsClientResponse, error) {
+	rsp, err := c.ListFrontendDomains(ctx, id, frontendId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFrontendDomainsClientResponse(rsp)
+}
+
+// CreateFrontendDomainWithBodyWithResponse request with arbitrary body returning *CreateFrontendDomainClientResponse
+func (c *ClientWithResponses) CreateFrontendDomainWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendDomainClientResponse, error) {
+	rsp, err := c.CreateFrontendDomainWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendDomainClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendDomainClientResponse, error) {
+	rsp, err := c.CreateFrontendDomain(ctx, id, frontendId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendDomainClientResponse(rsp)
+}
+
+// DeleteFrontendDomainWithResponse request returning *DeleteFrontendDomainClientResponse
+func (c *ClientWithResponses) DeleteFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*DeleteFrontendDomainClientResponse, error) {
+	rsp, err := c.DeleteFrontendDomain(ctx, id, frontendId, domain, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFrontendDomainClientResponse(rsp)
+}
+
+// GetFrontendDomainWithResponse request returning *GetFrontendDomainClientResponse
+func (c *ClientWithResponses) GetFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, reqEditors ...RequestEditorFn) (*GetFrontendDomainClientResponse, error) {
+	rsp, err := c.GetFrontendDomain(ctx, id, frontendId, domain, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFrontendDomainClientResponse(rsp)
+}
+
+// UpdateFrontendDomainWithBodyWithResponse request with arbitrary body returning *UpdateFrontendDomainClientResponse
+func (c *ClientWithResponses) UpdateFrontendDomainWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error) {
+	rsp, err := c.UpdateFrontendDomainWithBody(ctx, id, frontendId, domain, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendDomainClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error) {
+	rsp, err := c.UpdateFrontendDomain(ctx, id, frontendId, domain, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendDomainClientResponse(rsp)
 }
 
 // ListFrontendFunctionRoutesWithResponse request returning *ListFrontendFunctionRoutesClientResponse
@@ -60143,6 +60910,318 @@ func ParseCreateFrontendCustomDomainClientResponse(rsp *http.Response) (*CreateF
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFrontendDomainsClientResponse parses an HTTP response from a ListFrontendDomainsWithResponse call
+func ParseListFrontendDomainsClientResponse(rsp *http.Response) (*ListFrontendDomainsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFrontendDomainsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCustomDomainList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFrontendDomainClientResponse parses an HTTP response from a CreateFrontendDomainWithResponse call
+func ParseCreateFrontendDomainClientResponse(rsp *http.Response) (*CreateFrontendDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFrontendDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest FrontendCustomDomainConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFrontendDomainClientResponse parses an HTTP response from a DeleteFrontendDomainWithResponse call
+func ParseDeleteFrontendDomainClientResponse(rsp *http.Response) (*DeleteFrontendDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFrontendDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFrontendDomainClientResponse parses an HTTP response from a GetFrontendDomainWithResponse call
+func ParseGetFrontendDomainClientResponse(rsp *http.Response) (*GetFrontendDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFrontendDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateFrontendDomainClientResponse parses an HTTP response from a UpdateFrontendDomainWithResponse call
+func ParseUpdateFrontendDomainClientResponse(rsp *http.Response) (*UpdateFrontendDomainClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateFrontendDomainClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

@@ -428,6 +428,9 @@ type FrontendManifest struct {
 	Variables     *[]string             `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Name          string                `yaml:"name" json:"name"`
 	CustomDomain  *CustomDomainManifest `yaml:"custom_domain,omitempty" json:"custom_domain,omitempty"`
+	// CustomDomains replaces the frontend's domains; nil leaves them unmanaged
+	// and [] removes them. The server refuses it beside CustomDomain.
+	CustomDomains *[]FrontendCustomDomainManifest `yaml:"custom_domains,omitempty" json:"custom_domains,omitempty"`
 	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
 	// removes them.
 	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
@@ -447,7 +450,21 @@ type CustomDomainManifest struct {
 	TLS    *TLSManifest `yaml:"tls,omitempty" json:"tls,omitempty"`
 }
 
-// TLSManifest declares BYOC TLS material for a custom domain.
+// FrontendCustomDomainManifest is one entry of a frontend's custom_domains.
+type FrontendCustomDomainManifest struct {
+	Domain   string                  `yaml:"domain" json:"domain"`
+	TLS      *TLSManifest            `yaml:"tls,omitempty" json:"tls,omitempty"`
+	Redirect *DomainRedirectManifest `yaml:"redirect,omitempty" json:"redirect,omitempty"`
+}
+
+// DomainRedirectManifest sends every request for a domain to To, another
+// domain of the same frontend that serves it. The server defaults Status to 308.
+type DomainRedirectManifest struct {
+	To     string `yaml:"to" json:"to"`
+	Status *int   `yaml:"status,omitempty" json:"status,omitempty"`
+}
+
+// TLSManifest declares a custom domain's TLS: managed, or BYOC material.
 type TLSManifest struct {
 	Mode                string  `yaml:"mode" json:"mode"`
 	CertificatePEM      string  `yaml:"certificate_pem" json:"certificate_pem"`

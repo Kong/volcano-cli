@@ -160,6 +160,9 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 	if domain.FailureReason != nil && *domain.FailureReason != "" {
 		kv(w, on, "Failure reason", "%s", *domain.FailureReason)
 	}
+	if domain.Redirect != nil {
+		kv(w, on, "Redirects to", "%s", domainRedirect(domain.Redirect))
+	}
 
 	if domain.RoutingTargetHostname != nil && *domain.RoutingTargetHostname != "" {
 		kv(w, on, "DNS routing target", "%s", *domain.RoutingTargetHostname)
@@ -179,6 +182,37 @@ func FrontendCustomDomain(w io.Writer, domain *apiclient.FrontendCustomDomainRes
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(domain.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(domain.UpdatedAt))
+}
+
+// FrontendDomains renders one frontend's custom domains.
+func FrontendDomains(w io.Writer, frontend string, domains []apiclient.FrontendCustomDomainResponse) {
+	if len(domains) == 0 {
+		fmt.Fprintf(w, "No custom domains on frontend %q\n", frontend)
+		return
+	}
+
+	on := theme.On(w)
+	// Hostnames are the arguments of the other domains commands, so they are
+	// never truncated.
+	tableHead(w, on, false, 128, "%-48s  %-8s  %-22s  %-15s  %s", "Domain", "TLS", "Status", "Created", "Redirects to")
+	for _, domain := range domains {
+		redirect := "-"
+		if domain.Redirect != nil {
+			redirect = domainRedirect(domain.Redirect)
+		}
+		fmt.Fprintf(w, "%-48s  %-8s  %s  %-15s  %s\n",
+			domain.Domain,
+			strings.TrimSpace(string(domain.TlsMode)),
+			statusCell(strings.TrimSpace(string(domain.DomainStatus)), 22, on),
+			FormatTimeAgo(domain.CreatedAt),
+			redirect,
+		)
+	}
+	summary(w, on, "Total: %d custom domain(s)", len(domains))
+}
+
+func domainRedirect(redirect *apiclient.FrontendCustomDomainRedirect) string {
+	return fmt.Sprintf("%s (%d)", redirect.To, redirect.Status)
 }
 
 // FrontendCustomDomains renders custom domains configured for frontends.
