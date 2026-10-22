@@ -118,11 +118,14 @@ environment variable values, application data, or customer names in a report.
 
 ## Turn it off
 
-Turning telemetry off does not turn off feedback. Run:
+Feedback follows telemetry. While telemetry is off, with `volcano telemetry
+disable` or `VOLCANO_TELEMETRY_DISABLED=1`, feedback is off too, unless you
+turn it on with `volcano feedback enable`. To turn feedback off while telemetry
+stays on, run:
 
 ```bash
 volcano feedback disable    # saved in ~/.volcano/config.json
 ```
 
 `volcano feedback status` shows the current setting, and `volcano feedback
-enable` turns it back on.
+enable` turns it back on, also while telemetry is off.

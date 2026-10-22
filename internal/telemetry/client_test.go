@@ -64,24 +64,37 @@ func TestClient_MissingDeviceIDGetsOne(t *testing.T) {
 }
 
 func TestFeedbackOn(t *testing.T) {
+	enabled, disabled := true, false
 	shown := func(h *harness) { h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true} }
 	for name, tc := range map[string]struct {
 		setup func(h *harness)
 		want  bool
 	}{
 		"on": {shown, true},
-		"telemetry off": {func(h *harness) {
+		"telemetry disabled": {func(h *harness) {
 			shown(h)
+			h.store.setState(State{Disabled: true})
+		}, false},
+		"telemetry env opt-out": {func(h *harness) {
+			shown(h)
+			h.env[EnvDisabled] = "1"
+		}, false},
+		"enabled with telemetry off": {func(h *harness) {
+			h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true, Enabled: &enabled}
 			h.store.setState(State{Disabled: true})
 			h.env[EnvDisabled] = "1"
 		}, true},
 		"before the notice":         {func(*harness) {}, false},
 		"only the telemetry notice": {func(h *harness) { h.store.setState(State{NoticeShown: true}) }, false},
 		"disabled": {func(h *harness) {
-			h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true, Disabled: true}
+			h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true, Enabled: &disabled}
 		}, false},
 		"env opt-out": {func(h *harness) {
 			shown(h)
+			h.env[EnvFeedbackDisabled] = "1"
+		}, false},
+		"env opt-out after enable": {func(h *harness) {
+			h.store.cfg.Feedback = &config.FeedbackConfig{NoticeShown: true, Enabled: &enabled}
 			h.env[EnvFeedbackDisabled] = "1"
 		}, false},
 		"unreadable config": {func(h *harness) {

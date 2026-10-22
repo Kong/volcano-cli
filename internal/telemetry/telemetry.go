@@ -50,8 +50,8 @@ import (
 const (
 	// EnvDisabled turns telemetry off.
 	EnvDisabled = "VOLCANO_TELEMETRY_DISABLED"
-	// EnvFeedbackDisabled turns `volcano feedback` reports off. It is
-	// separate from EnvDisabled.
+	// EnvFeedbackDisabled turns `volcano feedback` reports off, even after
+	// `volcano feedback enable`.
 	EnvFeedbackDisabled = "VOLCANO_FEEDBACK_DISABLED"
 	// EnvDebug prints each event to stderr instead of sending it. Off unless
 	// set.
@@ -203,21 +203,52 @@ func (r *Recorder) LoggedIn() bool {
 }
 
 // FeedbackOn reports whether `volcano feedback` may send a report: the config
-// is readable, feedback is not turned off with `volcano feedback disable` or
-// VOLCANO_FEEDBACK_DISABLED, and an earlier process showed the first-run
-// notice for feedback. It does not depend on the telemetry setting.
+// is readable, the feedback setting is on (see FeedbackSetting), and an
+// earlier process showed the first-run notice for feedback.
 func (r *Recorder) FeedbackOn() bool {
 	r.setup()
 	return r.cfgErr == nil && r.feedbackSettingOn() && r.feedbackNoticeShown()
 }
 
-// feedbackSettingOn reports whether feedback is not turned off in the config
-// or by VOLCANO_FEEDBACK_DISABLED.
-func (r *Recorder) feedbackSettingOn() bool {
-	if FeedbackDisabledByEnv(r.Getenv) {
-		return false
+// FeedbackState says whether the feedback setting is on, and if not, why.
+type FeedbackState int
+
+const (
+	// FeedbackSettingOn means enabled with `volcano feedback enable`, or never
+	// chosen while telemetry is on.
+	FeedbackSettingOn FeedbackState = iota
+	// FeedbackOffByEnv means VOLCANO_FEEDBACK_DISABLED is set.
+	FeedbackOffByEnv
+	// FeedbackOffByUser means turned off with `volcano feedback disable`.
+	FeedbackOffByUser
+	// FeedbackOffWithTelemetry means never chosen, and telemetry is off.
+	FeedbackOffWithTelemetry
+)
+
+// FeedbackSetting returns the feedback setting for cfg, which may be nil for
+// a home with no config. VOLCANO_FEEDBACK_DISABLED turns feedback off.
+// Otherwise `volcano feedback enable` or `disable` decides, and when the user
+// chose neither, feedback follows telemetry: a telemetry opt-out, in the
+// config or by VOLCANO_TELEMETRY_DISABLED, also turns feedback off.
+func FeedbackSetting(cfg *config.Config, getenv func(string) string) FeedbackState {
+	if FeedbackDisabledByEnv(getenv) {
+		return FeedbackOffByEnv
 	}
-	return r.cfg == nil || r.cfg.Feedback == nil || !r.cfg.Feedback.Disabled
+	if cfg != nil && cfg.Feedback != nil && cfg.Feedback.Enabled != nil {
+		if *cfg.Feedback.Enabled {
+			return FeedbackSettingOn
+		}
+		return FeedbackOffByUser
+	}
+	if DisabledByEnv(getenv) || cfg != nil && cfg.Telemetry != nil && cfg.Telemetry.Disabled {
+		return FeedbackOffWithTelemetry
+	}
+	return FeedbackSettingOn
+}
+
+// feedbackSettingOn reports whether the feedback setting is on.
+func (r *Recorder) feedbackSettingOn() bool {
+	return FeedbackSetting(r.cfg, r.Getenv) == FeedbackSettingOn
 }
 
 // feedbackNoticeShown reports whether the first-run notice was shown for
@@ -246,8 +277,9 @@ func (r *Recorder) Reporting() bool {
 //
 // The notice covers usage data and feedback reports, and each has its own
 // "shown" record. It is printed when either one is on and has not been
-// announced yet, so feedback is announced on first launch even when telemetry
-// is off. An env opt-out means the user already knows about that one.
+// announced yet. Feedback is off while telemetry is, unless the user ran
+// `volcano feedback enable`, so a telemetry opt-out prints no notice and
+// writes no config.
 func (r *Recorder) Record(inv Invocation) {
 	r.setup()
 	if skipped(inv.Command, inv.Args) || r.cfgErr != nil {
@@ -317,7 +349,7 @@ func (r *Recorder) initialize(telemetry, feedback bool) (state State, announced 
 				changed = true
 			}
 		}
-		if feedback && (cfg.Feedback == nil || !cfg.Feedback.Disabled && !cfg.Feedback.NoticeShown) {
+		if feedback && FeedbackSetting(cfg, r.Getenv) == FeedbackSettingOn && (cfg.Feedback == nil || !cfg.Feedback.NoticeShown) {
 			if cfg.Feedback == nil {
 				cfg.Feedback = &config.FeedbackConfig{}
 			}

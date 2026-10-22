@@ -6,8 +6,8 @@
 // carries (telemetry.Client). It is sent to POST /cli/feedback on the cloud API
 // (volcano-hosting). The server joins a report to the usage events of the same
 // device_id around its timestamp to find the failing command, so the CLI keeps
-// no record of past runs. Feedback has its own setting, separate from
-// telemetry. Sending requires a login token, so only Volcano accounts can send
+// no record of past runs. Feedback follows the telemetry setting unless the
+// user ran `volcano feedback enable` or `disable`. Sending requires a login token, so only Volcano accounts can send
 // reports; while telemetry is off, a report carries no device ID and is marked
 // anonymous, so the server does not attribute it to the user.
 package feedback

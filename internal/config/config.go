@@ -110,11 +110,12 @@ type TelemetryConfig struct {
 	NoticeShown bool `json:"notice_shown,omitempty"`
 }
 
-// FeedbackConfig persists the `volcano feedback` setting, which is separate
-// from telemetry.
+// FeedbackConfig persists the `volcano feedback` setting.
 type FeedbackConfig struct {
-	// Disabled is set by `volcano feedback disable`.
-	Disabled bool `json:"disabled,omitempty"`
+	// Enabled is what the user chose: true after `volcano feedback enable`,
+	// false after `volcano feedback disable`. Unset, feedback follows the
+	// telemetry setting, so a telemetry opt-out also turns feedback off.
+	Enabled *bool `json:"enabled,omitempty"`
 	// NoticeShown records that the first-run notice was printed for
 	// feedback, which is tracked apart from telemetry's.
 	NoticeShown bool `json:"notice_shown,omitempty"`

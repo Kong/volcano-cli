@@ -77,8 +77,9 @@ telemetry is on, it also carries this machine's telemetry ID, and is linked to
 your account. Every report is sent with your login, which the server checks, so
 sending one requires volcano login.
 
-Feedback has its own setting, separate from telemetry. Turn it off with
-volcano feedback disable.`,
+Feedback follows telemetry: turning telemetry off also turns feedback off,
+unless you run volcano feedback enable. Turn it off with volcano feedback
+disable.`,
 		Example: `  volcano feedback \
     --category docs_mismatch \
     --summary "volcano-platform skill passes --json to functions list; the CLI rejects it" \
@@ -179,7 +180,7 @@ volcano feedback disable.`,
 			Short: "Send feedback reports",
 			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error {
-				return setDisabled(cmd, false)
+				return setEnabled(cmd, true)
 			},
 		},
 		&cobra.Command{
@@ -187,7 +188,7 @@ volcano feedback disable.`,
 			Short: "Stop sending feedback reports",
 			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, _ []string) error {
-				return setDisabled(cmd, true)
+				return setEnabled(cmd, false)
 			},
 		},
 	)
@@ -206,8 +207,12 @@ func printStatus(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	if cfg.Feedback != nil && cfg.Feedback.Disabled {
+	switch telemetry.FeedbackSetting(cfg, os.Getenv) {
+	case telemetry.FeedbackOffByUser:
 		fmt.Fprintln(w, "Feedback is disabled. Run `volcano feedback enable` to turn it on.")
+		return nil
+	case telemetry.FeedbackOffWithTelemetry:
+		fmt.Fprintln(w, "Feedback is disabled because telemetry is off. Run `volcano feedback enable` to turn it on.")
 		return nil
 	}
 	if cfg.Token() == "" {
@@ -218,13 +223,14 @@ func printStatus(cmd *cobra.Command) error {
 	return nil
 }
 
-// setDisabled saves the feedback setting.
-func setDisabled(cmd *cobra.Command, disabled bool) error {
+// setEnabled saves the user's feedback choice, which from then on applies
+// whatever the telemetry setting is.
+func setEnabled(cmd *cobra.Command, enabled bool) error {
 	err := config.Update(func(cfg *config.Config) (bool, error) {
 		if cfg.Feedback == nil {
 			cfg.Feedback = &config.FeedbackConfig{}
 		}
-		cfg.Feedback.Disabled = disabled
+		cfg.Feedback.Enabled = &enabled
 		// Choosing a setting means the user has seen what feedback is.
 		cfg.Feedback.NoticeShown = true
 		return true, nil
@@ -232,12 +238,12 @@ func setDisabled(cmd *cobra.Command, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	if disabled {
-		fmt.Fprintln(cmd.OutOrStdout(), "Feedback is disabled.")
-	} else {
+	if enabled {
 		fmt.Fprintln(cmd.OutOrStdout(), "Feedback is enabled.")
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "Feedback is disabled.")
 	}
-	if !disabled && telemetry.FeedbackDisabledByEnv(os.Getenv) {
+	if enabled && telemetry.FeedbackDisabledByEnv(os.Getenv) {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Note: %s is set, so no feedback is sent until it is unset.\n", telemetry.EnvFeedbackDisabled)
 	}
 	return nil

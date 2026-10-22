@@ -310,7 +310,7 @@ func TestRecord_OptOuts(t *testing.T) {
 	}
 }
 
-func TestRecord_FeedbackNoticeWithTelemetryOff(t *testing.T) {
+func TestRecord_TelemetryOffTurnsFeedbackOff(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"VOLCANO_TELEMETRY_DISABLED": func(h *harness) { h.env[EnvDisabled] = "1" },
 		"telemetry disable":          func(h *harness) { h.store.setState(State{Disabled: true}) },
@@ -319,22 +319,37 @@ func TestRecord_FeedbackNoticeWithTelemetryOff(t *testing.T) {
 			h := newHarness()
 			h.store.cfg.Feedback = nil
 			setup(h)
-			telemetryBefore := h.store.state()
 			var stderr bytes.Buffer
 
 			h.recorder().Record(Invocation{Stderr: &stderr})
-			assert.Contains(t, stderr.String(), "volcano feedback --help", "first launch announces feedback")
-			assert.NotContains(t, stderr.String(), "collects usage data", "telemetry is off")
-			assert.True(t, h.store.cfg.Feedback.NoticeShown)
-			assert.Equal(t, telemetryBefore, h.store.state(), "telemetry's record is unchanged")
+			assert.Empty(t, stderr.String(), "no notice: feedback follows telemetry")
+			assert.Zero(t, h.store.saves, "nothing is written to the config")
+			assert.Nil(t, h.store.cfg.Feedback)
 			assert.Empty(t, h.sent)
-			assert.True(t, h.recorder().FeedbackOn(), "feedback is on from the next process")
-
-			stderr.Reset()
-			h.recorder().Record(Invocation{Stderr: &stderr})
-			assert.Empty(t, stderr.String(), "the notice is shown once")
+			assert.False(t, h.recorder().FeedbackOn())
 		})
 	}
+}
+
+func TestRecord_FeedbackEnabledWithTelemetryOff(t *testing.T) {
+	enabled := true
+	h := newHarness()
+	// Enabled by hand, so the notice was never shown.
+	h.store.cfg.Feedback = &config.FeedbackConfig{Enabled: &enabled}
+	h.env[EnvDisabled] = "1"
+	var stderr bytes.Buffer
+
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Contains(t, stderr.String(), "volcano feedback --help", "feedback is announced on its own")
+	assert.NotContains(t, stderr.String(), "collects usage data", "telemetry is off")
+	assert.True(t, h.store.cfg.Feedback.NoticeShown)
+	assert.Nil(t, h.store.cfg.Telemetry, "telemetry's record is unchanged")
+	assert.Empty(t, h.sent)
+	assert.True(t, h.recorder().FeedbackOn(), "feedback is on from the next process")
+
+	stderr.Reset()
+	h.recorder().Record(Invocation{Stderr: &stderr})
+	assert.Empty(t, stderr.String(), "the notice is shown once")
 }
 
 func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
@@ -357,7 +372,8 @@ func TestRecord_FeedbackNoticeAfterTelemetryNotice(t *testing.T) {
 
 func TestRecord_BothOffShowsNoNotice(t *testing.T) {
 	h := newHarness()
-	h.store.cfg.Feedback = &config.FeedbackConfig{Disabled: true}
+	disabled := false
+	h.store.cfg.Feedback = &config.FeedbackConfig{Enabled: &disabled}
 	h.env[EnvDisabled] = "1"
 	var stderr bytes.Buffer
 
