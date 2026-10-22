@@ -411,7 +411,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			email = cliauth.GitEmail(ctx, opts.deps)
 		}
 		if email == "" {
-			return errors.New("--signup needs an email address, and git has no usable one. Agents: ask the user for the email to sign up with (use a native input tool such as AskUserQuestion if you have one), then run this command again with --email <address>")
+			return errors.New("--signup needs an email address, and git has no usable one. Run again with --email <address>. Agents: ask the user for the email to sign up with (use a native input tool such as AskUserQuestion if you have one), then run again with --email")
 		}
 		credentials, err = auth.Signup(ctx, cfg, email, opts.log)
 	} else {
