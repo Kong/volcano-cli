@@ -58,6 +58,7 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeRunsSandboxes(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsAccessTokenCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeLeavesFrontendDomainsToTheCloud(t, volcanoBin, env, projectDir)
+	requireLocalModeLeavesBuildReuseToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeSendsNotifications(t, volcanoBin, env, projectDir)
 	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)

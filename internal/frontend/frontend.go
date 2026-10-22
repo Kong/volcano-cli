@@ -81,15 +81,7 @@ func (s Service) Resolve(ctx context.Context, identifier string) (*apiclient.Fro
 	if err != nil {
 		return nil, err
 	}
-
-	frontend, err := resolveFrontend(ctx, authenticated, identifier)
-	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("frontend %q %w", identifier, api.ErrNotFound)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve frontend %q: %w", identifier, err)
-	}
-	return frontend, nil
+	return resolveNamedFrontend(ctx, authenticated, identifier)
 }
 
 // Get returns one frontend by name or UUID.
@@ -150,7 +142,18 @@ func (s Service) ResolveDeployment(ctx context.Context, frontendID uuid.UUID, de
 	if deploymentID == "" {
 		return nil, api.ErrNotFound
 	}
+	return findDeployment(ctx, authenticated, frontendID, func(deployment *apiclient.FrontendDeployment) bool {
+		return deployment.Id.String() == deploymentID
+	})
+}
 
+// findDeployment returns the newest deployment of the frontend that matches.
+func findDeployment(
+	ctx context.Context,
+	authenticated *clisession.ProjectSession,
+	frontendID uuid.UUID,
+	match func(*apiclient.FrontendDeployment) bool,
+) (*apiclient.FrontendDeployment, error) {
 	seen := make(map[uuid.UUID]struct{})
 	for page := api.DefaultPage; page < api.DefaultPage+maxResolvePages; page++ {
 		if err := ctx.Err(); err != nil {
@@ -170,7 +173,7 @@ func (s Service) ResolveDeployment(ctx context.Context, frontendID uuid.UUID, de
 			}
 			seen[deployments.Data[i].Id] = struct{}{}
 			progressed = true
-			if deployments.Data[i].Id.String() == deploymentID {
+			if match(&deployments.Data[i]) {
 				return &deployments.Data[i], nil
 			}
 		}
