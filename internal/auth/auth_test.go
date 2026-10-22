@@ -937,22 +937,22 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 
 func TestGitEmailSkipsUnusableAddresses(t *testing.T) {
 	for email, want := range map[string]string{
-		"ted@konghq.com":                        "ted@konghq.com",
-		"ted.kim+work@gmail.com":                "ted.kim+work@gmail.com",
+		"support@volcano.dev":                   "support@volcano.dev",
+		"support+work@volcano.dev":              "support+work@volcano.dev",
 		"12345678+ted@users.noreply.github.com": "",
 		"ted@users.noreply.github.com":          "",
 		"ted@noreply.github.com":                "",
 		"1234-ted@users.noreply.gitlab.com":     "",
 		"ted@users.noreply.bitbucket.org":       "",
 		"noreply@anthropic.com":                 "",
-		"no-reply@konghq.com":                   "",
+		"no-reply@volcano.dev":                  "",
 		"ted@example.com":                       "",
 		"ted@macbook.local":                     "",
 		"ted@macbook-pro.lan":                   "",
 		"ted@localhost":                         "",
 		"ted@macbook":                           "",
 		"ted":                                   "",
-		"Ted Kim <ted@konghq.com>":              "",
+		"Support <support@volcano.dev>":         "",
 		"":                                      "",
 	} {
 		deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
