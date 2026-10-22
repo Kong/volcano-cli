@@ -23,7 +23,8 @@ volcano feedback \
   --workaround "Parsed the table output instead."
 ```
 
-Sending a report requires `volcano login`.
+Sending a report requires `volcano login`. A project access token cannot send
+one. See [When a report is not sent](#when-a-report-is-not-sent).
 
 | Flag | Required | Limit | Content |
 |---|---|---|---|
@@ -118,6 +119,21 @@ write `<secret>` for every password, token, or key, and placeholders such as
 bucket names, file paths, and payload values. Do not put file contents,
 environment variable values, application data, or customer names in a report.
 
+## When a report is not sent
+
+`volcano feedback` sends nothing, prints nothing, and exits 0 when:
+
+- Feedback is off. See [Turn it off](#turn-it-off).
+- You are not logged in, or are logged in only with a project access token.
+- The first-run notice has not been shown yet. The first `volcano` command on a
+  machine shows it, and reports are sent from the next command on. Where
+  `~/.volcano/config.json` cannot be saved, such as a read-only home, the
+  notice is never recorded, so no report is sent.
+
+It exits 0 so a coding agent does not retry. `volcano feedback --dry-run` prints
+the report and, when a real run would send nothing, says `This report would not
+be sent.` `volcano feedback status` says which case applies.
+
 ## Turn it off
 
 Feedback follows telemetry. While telemetry is off, with `volcano telemetry
@@ -127,7 +143,10 @@ stays on, run:
 
 ```bash
 volcano feedback disable    # saved in ~/.volcano/config.json
+export VOLCANO_FEEDBACK_DISABLED=1
 ```
 
+`VOLCANO_FEEDBACK_DISABLED=1` turns feedback off even after `volcano feedback
+enable`, and suits a CI job or container whose home starts empty on every run.
 `volcano feedback status` shows the current setting, and `volcano feedback
 enable` turns it back on, also while telemetry is off.

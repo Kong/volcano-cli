@@ -79,9 +79,14 @@ feedback enable, it carries neither and is not linked to your account. Every
 report is sent with your login, which the server checks, so sending one
 requires volcano login. A project access token cannot send reports.
 
+A report is not sent, and the command exits 0 with no output, while feedback
+is off, when you are not logged in or use a project access token, or before
+the first-run notice has been shown. --dry-run says whether a report would be
+sent, and volcano feedback status says why not.
+
 Feedback follows telemetry: turning telemetry off also turns feedback off,
 unless you run volcano feedback enable. Turn it off with volcano feedback
-disable.`,
+disable or VOLCANO_FEEDBACK_DISABLED=1.`,
 		Example: `  volcano feedback \
     --category docs_mismatch \
     --summary "volcano-platform skill passes --json to functions list; the CLI rejects it" \

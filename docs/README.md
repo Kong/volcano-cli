@@ -88,7 +88,8 @@ and which coding agent ran it. Turn it off with `volcano telemetry disable` or
 
 `volcano feedback` sends the Volcano team a report about a problem with the
 CLI, the platform, the docs, or the agent skills. Coding agents run it after a
-task. Turn it off with `volcano feedback disable`. See
+task. Turning telemetry off also turns it off, unless you run `volcano feedback
+enable`. Turn it off on its own with `volcano feedback disable`. See
 [feedback.md](feedback.md).
 
 ## Element → CLI ability at a glance
