@@ -133,7 +133,10 @@ disable.`,
 			}
 			// While telemetry is off, the report is anonymous: the server
 			// checks the login but does not attribute the report to the user.
-			report := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
+			report, err := feedback.Build(in, recorder.Client(), recorder.Home(), time.Now())
+			if err != nil {
+				return err
+			}
 			if err := report.Validate(); err != nil {
 				return fmt.Errorf("after redaction, %w", err)
 			}

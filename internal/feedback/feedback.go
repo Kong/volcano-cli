@@ -141,9 +141,10 @@ func checkKeys(data []byte) error {
 // contract with volcano-hosting; the server validates and redacts every value
 // again.
 type Report struct {
-	// FeedbackID is generated here, so the CLI can print it without reading
-	// the response. Each run generates a new one, so an agent that reruns
-	// the command after a failed send sends a new ID.
+	// FeedbackID is a UUIDv7 generated here, so the CLI can print it without
+	// reading the response, and the server can read the time it was made
+	// from it. Each run generates a new one, so an agent that reruns the
+	// command after a failed send sends a new ID.
 	FeedbackID string `json:"feedback_id"`
 	// Anonymous asks the server not to attribute the report to the logged-in
 	// user. It is set while telemetry is off.
@@ -224,8 +225,12 @@ func (r Report) Validate() error {
 }
 
 // Build returns the report for in, with every text field passed through
-// telemetry.ScrubText.
-func Build(in Input, client telemetry.Client, home string, now time.Time) Report {
+// telemetry.ScrubText. It fails only when no report ID can be generated.
+func Build(in Input, client telemetry.Client, home string, now time.Time) (Report, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return Report{}, fmt.Errorf("generate report ID: %w", err)
+	}
 	scrub := func(s string) string { return telemetry.ScrubText(s, home) }
 	commands := []string{}
 	for _, c := range in.Commands {
@@ -234,7 +239,7 @@ func Build(in Input, client telemetry.Client, home string, now time.Time) Report
 		}
 	}
 	return Report{
-		FeedbackID:      uuid.NewString(),
+		FeedbackID:      id.String(),
 		Anonymous:       client.Anonymous,
 		DeviceID:        client.DeviceID,
 		Timestamp:       now.UTC().Format(time.RFC3339),
@@ -253,7 +258,7 @@ func Build(in Input, client telemetry.Client, home string, now time.Time) Report
 		PluginInstalled: client.PluginInstalled,
 		PluginVersion:   client.PluginVersion,
 		ProjectID:       client.ProjectID,
-	}
+	}, nil
 }
 
 // Send posts payload to apiURL's /cli/feedback, with token as a bearer when it

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -90,8 +91,11 @@ func TestBuild(t *testing.T) {
 	client := telemetry.Client{DeviceID: "d", CLIVersion: "v1.2.3", OS: "darwin", Arch: "arm64", Agent: "codex", AgentSource: "marker", ProjectID: "p"}
 	now := time.Date(2026, 10, 15, 3, 0, 0, 0, time.FixedZone("x", 3600))
 
-	r := Build(in, client, "/home/dev", now)
-	assert.NotEmpty(t, r.FeedbackID)
+	r, err := Build(in, client, "/home/dev", now)
+	require.NoError(t, err)
+	id, err := uuid.Parse(r.FeedbackID)
+	require.NoError(t, err)
+	assert.Equal(t, uuid.Version(7), id.Version(), "the server reads the time from a UUIDv7")
 	r.FeedbackID = ""
 	assert.Equal(t, Report{
 		DeviceID:    "d",
@@ -110,10 +114,13 @@ func TestBuild(t *testing.T) {
 		ProjectID:   "p",
 	}, r)
 
-	anonymous := Build(validInput(), telemetry.Client{Anonymous: true}, "", now)
+	anonymous, err := Build(validInput(), telemetry.Client{Anonymous: true}, "", now)
+	require.NoError(t, err)
 	assert.True(t, anonymous.Anonymous)
 
-	payload, err := json.Marshal(Build(validInput(), telemetry.Client{}, "", now))
+	report, err := Build(validInput(), telemetry.Client{}, "", now)
+	require.NoError(t, err)
+	payload, err := json.Marshal(report)
 	require.NoError(t, err)
 	assert.Contains(t, string(payload), `"commands":[]`, "commands is always a list")
 	assert.NotContains(t, string(payload), "expected")
