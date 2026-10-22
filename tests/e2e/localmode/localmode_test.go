@@ -199,6 +199,9 @@ func localModeE2EEnv(t *testing.T) []string {
 		// Telemetry off, which also turns feedback off: no first-run notice in
 		// command output, no events.
 		"VOLCANO_TELEMETRY_DISABLED=1",
+		// The feedback check turns feedback on itself, so a host opt-out must
+		// not leak in.
+		"VOLCANO_FEEDBACK_DISABLED=",
 	)
 	if os.Getenv("VOLCANO_IMAGE") == "" {
 		env = append(env, "VOLCANO_IMAGE=kong/volcano:local-nightly")
