@@ -30,7 +30,6 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/telemetry"
-	"github.com/Kong/volcano-cli/internal/version"
 )
 
 // Categories are the kinds of problem a report can be about.
@@ -259,7 +258,9 @@ func Build(in Input, client telemetry.Client, home string, now time.Time) Report
 
 // Send posts payload to apiURL's /cli/feedback, with token as a bearer when it
 // is set. The server rejects a report without a valid token. A nil client uses
-// one with a timeout.
+// one with a timeout. The request goes through the API client's shared
+// transport (api.WrapDoer), so --debug traces it and the CLI acts on the
+// response's instructions, such as a reauth notice, as for any API call.
 func Send(ctx context.Context, client *http.Client, apiURL, token string, payload []byte) error {
 	if len(payload) > maxPayloadBytes {
 		return fmt.Errorf("feedback report is over %d bytes", maxPayloadBytes)
@@ -267,17 +268,17 @@ func Send(ctx context.Context, client *http.Client, apiURL, token string, payloa
 	if client == nil {
 		client = &http.Client{Timeout: sendTimeout}
 	}
+	doer := api.WrapDoer(apiURL, client)
 	url := strings.TrimRight(apiURL, "/") + "/cli/feedback"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "volcano-cli/"+version.Version)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := client.Do(req)
+	resp, err := doer.Do(req)
 	if err != nil {
 		return err
 	}

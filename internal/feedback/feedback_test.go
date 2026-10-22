@@ -140,6 +140,34 @@ func TestSend(t *testing.T) {
 	assert.Empty(t, got.Header.Get("Authorization"))
 }
 
+func TestSend_SharesTheAPITransport(t *testing.T) {
+	api.ResetLastInstructionsForTest()
+	t.Cleanup(api.ResetLastInstructionsForTest)
+	var got *http.Request
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r
+		w.Header().Set("X-Volcano-Device-Instruction", api.DeviceInstructionReauth)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	err := Send(context.Background(), srv.Client(), srv.URL, "tok", []byte(`{}`))
+	require.Error(t, err)
+	assert.Equal(t, http.StatusUnauthorized, api.Status(err))
+	assert.NotEmpty(t, got.Header.Get("X-Volcano-CLI-Version"), "the version protocol reports the CLI version")
+	assert.Contains(t, got.Header.Get("User-Agent"), "volcano")
+	assert.Equal(t, api.DeviceInstructionReauth, api.LastInstructions().DeviceInstruction, "main prints the login hint")
+}
+
+func TestSend_UnreachableNamesTheAPI(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	url := srv.URL
+	srv.Close()
+
+	err := Send(context.Background(), nil, url, "tok", []byte(`{}`))
+	require.ErrorContains(t, err, "cannot reach the Volcano API")
+}
+
 func TestSend_KeepsServerMessage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
