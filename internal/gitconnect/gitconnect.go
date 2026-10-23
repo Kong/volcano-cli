@@ -294,6 +294,11 @@ func (s Service) resolveThroughConnection(
 // three provider round-trips plus however long the user takes to answer. Within
 // it another actor can point the project somewhere the user was never shown.
 // Re-reading narrows that; the API has no conditional write to close it.
+//
+// A bind that leaves out the production branch follows the repository's
+// default, discarding a branch the project pinned. Binding the same repository
+// again keeps the pin by sending it back; a different repository starts from
+// its own default, since a pin chosen for the old one means nothing there.
 func (s Service) Connect(
 	ctx context.Context, target Target, rootDirectory string, expected *apiclient.ProjectGitConnection,
 ) (*apiclient.ProjectGitConnection, error) {
@@ -314,6 +319,10 @@ func (s Service) Connect(
 	}
 	if trimmed := strings.TrimSpace(rootDirectory); trimmed != "" {
 		body.RootDirectory = &trimmed
+	}
+	if expected != nil && expected.RepoId == repositoryID && !expected.ProductionBranchFollowsDefault {
+		pinned := expected.ProductionBranch
+		body.ProductionBranch = &pinned
 	}
 
 	connection, err := authenticated.API.ConnectProjectGit(ctx, authenticated.ProjectID, body)
@@ -354,6 +363,28 @@ func (s Service) SetRootDirectory(
 			return nil, s.explainNotFound(ctx)
 		}
 		return nil, classify(err, "failed to set the root directory")
+	}
+	return connection, nil
+}
+
+// SetProductionBranch changes only the branch the project deploys from,
+// leaving the repository bound alone. A project access token may make it, like
+// SetRootDirectory. An empty branch makes the project follow the repository's
+// default branch again, and the connection returned names that default.
+func (s Service) SetProductionBranch(ctx context.Context, branch string) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := authenticated.API.SetProjectGitProductionBranch(ctx, authenticated.ProjectID, branch)
+	if err != nil {
+		// The route answers 404 both for a project with no repository and for
+		// a project that does not exist, like the binding read.
+		if api.Status(err) == http.StatusNotFound {
+			return nil, s.explainNotFound(ctx)
+		}
+		return nil, classify(err, "failed to set the production branch")
 	}
 	return connection, nil
 }
@@ -447,6 +478,7 @@ func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
 		a.RepoInstallationId == b.RepoInstallationId &&
 		a.RootDirectory == b.RootDirectory &&
 		a.ProductionBranch == b.ProductionBranch &&
+		a.ProductionBranchFollowsDefault == b.ProductionBranchFollowsDefault &&
 		strings.EqualFold(a.RepoFullName, b.RepoFullName)
 }
 

@@ -20,9 +20,25 @@ func TestStatusReportsTheBinding(t *testing.T) {
 
 	assert.Contains(t, out, "Project: Storefront ("+gitProjectID+")")
 	assert.Contains(t, out, "Repository: octo/storefront")
-	assert.Contains(t, out, "Production branch: main")
+	assert.Contains(t, out, "Production branch: main (follows the default)")
 	assert.Contains(t, out, "Root directory: apps/api")
 	assert.Contains(t, out, "A push to main deploys: functions, frontend web")
+}
+
+// A pinned branch is said to be one, even when it is the default today: it
+// stays put when the default changes, and a followed one does not.
+func TestStatusSaysWhenTheProductionBranchIsPinned(t *testing.T) {
+	for _, branch := range []string{"release", "main"} {
+		setGitCommandTestHome(t)
+		api := newGitAPI(t)
+		api.connected = "octo/storefront"
+		api.connectedBranch, api.connectedPinned = branch, true
+
+		out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+		require.NoError(t, err, branch)
+		assert.Contains(t, out, "Production branch: "+branch+" (pinned)", branch)
+		assert.NotContains(t, out, "follows the default", branch)
+	}
 }
 
 // Status reads the project's own binding and nothing else. Contacting GitHub

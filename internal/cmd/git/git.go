@@ -2,6 +2,7 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ your machine.`,
 	cmd.AddCommand(newStatus(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newRootDirectory(deps))
+	cmd.AddCommand(newProductionBranch(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }
@@ -47,6 +49,20 @@ func ask(in io.Reader, out io.Writer, yes bool, warning, question string) (bool,
 		return false, fmt.Errorf("%s\n\nThis needs confirmation and stdin is not a terminal. Pass --yes to proceed", warning)
 	}
 	return confirm.Action(in, out, warning, question)
+}
+
+// guideBindingEdit is guide for a command that changes one part of a binding.
+// Such a write is refused as not connected also where no repository can be
+// connected at all, as in local mode, and "connect one" is no advice there.
+func guideBindingEdit(
+	ctx context.Context, deps cliruntime.Deps, service gitconnect.Service, webURL string, err error,
+) error {
+	if errors.Is(err, gitconnect.ErrNotConnected) {
+		if cannot := service.CanConnect(ctx); cannot != nil {
+			err = cannot
+		}
+	}
+	return guide(deps, webURL, err)
 }
 
 // guide rewrites the failures a user can act on into errors that say what to do

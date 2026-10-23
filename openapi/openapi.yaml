@@ -3080,8 +3080,15 @@ paths:
         to be pushed — the case a repository created empty depends on.
 
         Setting the branch here marks it as the project's own choice, so a later
-        default-branch rename on GitHub no longer moves it. Projects that never
+        default-branch rename on GitHub no longer moves it, and the response
+        reports `production_branch_follows_default: false`. Projects that never
         set one keep following the repository's default branch.
+
+        An empty string undoes that choice: the project deploys from the
+        repository's default branch again and follows later renames. Volcano
+        reads the default branch from GitHub through the project owner's
+        connection, and the response carries it with
+        `production_branch_follows_default: true`.
       operationId: setProjectGitProductionBranch
       security:
         - UserToken: []
@@ -3103,8 +3110,9 @@ paths:
                 $ref: '#/components/schemas/ProjectGitConnection'
         '400':
           description: |
-            Malformed request body, or a production_branch that is not a valid
-            Git branch name
+            Malformed request body, a production_branch that is not a valid
+            Git branch name, or an empty one for a repository with no default
+            branch yet
           content:
             application/json:
               schema:
@@ -3131,7 +3139,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: A Git source transition is pending
+          description: |
+            A Git source transition is pending, or an empty production_branch
+            could not read the default branch because the project owner's
+            GitHub connection needs reconnecting or lost access to the
+            repository
           content:
             application/json:
               schema:
@@ -3149,8 +3161,8 @@ paths:
         - Git Connections
       summary: Set the directory a project builds from
       description: |
-        Changes only the root directory, leaving the repository and production
-        branch alone. Unlike PUT /projects/{id}/git-connection, this accepts a
+        Changes only the root directory, leaving the repository, the production
+        branch and `production_branch_follows_default` alone. Unlike PUT /projects/{id}/git-connection, this accepts a
         project access token, so CI or an agent can move a project within its
         repository without being able to change the repository.
 
@@ -3225,6 +3237,11 @@ paths:
         - Projects
         - Git Connections
       summary: Get a project's repo connection
+      description: |
+        Returns the repository binding. `production_branch_follows_default`
+        tells a branch that tracks the repository's default from one the
+        project pinned: a client rebinding the same repository sends a pinned
+        branch back to keep it.
       operationId: getProjectGitConnection
       security:
         - UserToken: []
@@ -3276,6 +3293,12 @@ paths:
         accessible through installation_id via connection_id's stored GitHub
         user token, then persists repository metadata only from that validated
         GitHub response.
+
+        Omitting production_branch follows the repository's default and
+        discards a pinned branch. To keep a pin when rebinding the same
+        repository, read the connection first and send production_branch back
+        when `production_branch_follows_default` is false. The response reports
+        the result in the same field.
 
         Project access tokens are refused. Which repository a project deploys
         from is a person's decision, made with a platform token or in the
@@ -20133,6 +20156,9 @@ components:
         production_branch:
           type: string
           description: The branch a push must land on to deploy. Follows the repository's GitHub default branch unless the project set its own, which a default-branch rename on GitHub then leaves alone.
+        production_branch_follows_default:
+          type: boolean
+          description: True when `production_branch` follows the repository's default branch and moves with a default-branch rename on GitHub. False when the project pinned a branch, even one that matches the current default. Pin a branch with `PUT /projects/{id}/git-connection/production-branch`; send an empty `production_branch` there to follow the default again.
         updated_at:
           type: string
           format: date-time
@@ -20142,6 +20168,7 @@ components:
         - repo_full_name
         - root_directory
         - production_branch
+        - production_branch_follows_default
         - updated_at
     ProjectGitDeploySettings:
       type: object
@@ -20343,9 +20370,8 @@ components:
       properties:
         production_branch:
           type: string
-          minLength: 1
           maxLength: 255
-          description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+          description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet. An empty string follows the repository's default branch, including later renames.
       required:
         - production_branch
     SetProjectGitRootDirectoryRequest:
