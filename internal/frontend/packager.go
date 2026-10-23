@@ -15,6 +15,10 @@ import (
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
+// AppPathMarker is the entry PackageDirectory writes into an archive promoted
+// to a workspace root. It is packaging metadata, not a project file.
+const AppPathMarker = frontendAppPathMarker
+
 const (
 	frontendAppPathMarker = ".volcano/frontend-app-path"
 	// maxFrontendPackageFiles caps how many files we will package into a

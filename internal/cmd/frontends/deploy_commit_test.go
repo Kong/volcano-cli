@@ -2,17 +2,16 @@ package frontends
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/deploycommit/deploycommittest"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -21,9 +20,7 @@ import (
 func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)
-	for _, name := range []string{"GITHUB_REPOSITORY", "GITHUB_SHA", "GITHUB_SERVER_URL", "VOLCANO_DEPLOY_COMMIT"} {
-		t.Setenv(name, "")
-	}
+	t.Setenv("VOLCANO_DEPLOY_COMMIT", "")
 	projectDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "package.json"), []byte(`{"name":"web","dependencies":{"next":"15.5.9"}}`), 0o644))
 
@@ -40,25 +37,18 @@ func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 	defer server.Close()
 
 	var dirs []string
+	checkout := deploycommittest.Commit(t, "https://github.com/acme/web", projectDir)
 	deps := cliruntime.Deps{
 		HTTPClient: server.Client(),
 		APIBaseURL: server.URL,
-		GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			dirs = append(dirs, args[1])
-			switch strings.Join(args[2:], " ") {
-			case "remote get-url origin":
-				return []byte("https://github.com/acme/web\n"), nil
-			case "rev-parse HEAD":
-				return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
-			case "status --porcelain":
-				return nil, nil
-			}
-			return nil, errors.New("unexpected git call")
+			return checkout.Run(ctx, name, args...)
 		}),
 	}
 	_, err := executeFrontendsCommand(t, New(deps), "deploy", "--name", "web", "--path", projectDir)
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"repository":"acme/web","sha":"0123456789abcdef0123456789abcdef01234567","dirty":false}`, commit)
+	assert.JSONEq(t, `{"repository":"acme/web","sha":"`+deploycommittest.SHA+`","dirty":false}`, commit)
 	require.NotEmpty(t, dirs)
 	for _, dir := range dirs {
 		assert.Equal(t, filepath.Base(projectDir), filepath.Base(dir))

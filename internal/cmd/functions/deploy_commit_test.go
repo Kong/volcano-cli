@@ -1,45 +1,31 @@
 package functions
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/deploycommit/deploycommittest"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-const deployCommitJSON = `{"repository":"acme/app","sha":"0123456789abcdef0123456789abcdef01234567","dirty":false}`
+const deployCommitJSON = `{"repository":"acme/app","sha":"` + deploycommittest.SHA + `","dirty":false}`
 
-// commitDeps answers git as a clean checkout of acme/app would, with the
-// machine's own GitHub Actions variables cleared.
+// commitDeps answers git as a clean checkout of acme/app whose HEAD holds
+// the project as it is on disk.
 func commitDeps(t *testing.T, server *httptest.Server) cliruntime.Deps {
 	t.Helper()
-	for _, name := range []string{"GITHUB_REPOSITORY", "GITHUB_SHA", "GITHUB_SERVER_URL", "VOLCANO_DEPLOY_COMMIT"} {
-		t.Setenv(name, "")
-	}
+	t.Setenv("VOLCANO_DEPLOY_COMMIT", "")
 	return cliruntime.Deps{
-		HTTPClient: server.Client(),
-		APIBaseURL: server.URL,
-		GitCommandRunner: cliruntime.CommandRunnerFunc(func(_ context.Context, _ string, args ...string) ([]byte, error) {
-			switch strings.Join(args[2:], " ") {
-			case "remote get-url origin":
-				return []byte("https://github.com/acme/app.git\n"), nil
-			case "rev-parse HEAD":
-				return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
-			case "status --porcelain":
-				return nil, nil
-			}
-			return nil, errors.New("unexpected git call")
-		}),
+		HTTPClient:       server.Client(),
+		APIBaseURL:       server.URL,
+		GitCommandRunner: deploycommittest.Commit(t, "https://github.com/acme/app.git", "."),
 	}
 }
 

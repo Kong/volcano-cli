@@ -193,19 +193,25 @@ lists any domain it would delete.
 A cloud deploy of functions, durable functions, or frontends reports the commit
 its source came from, so Volcano can tie each deployment to your repository.
 The CLI sends three things: the GitHub repository as `owner/name`, the commit
-ID, and whether the working tree had uncommitted changes. It never sends the
+ID, and whether the uploaded files differ from that commit. It never sends the
 remote URL or any credentials in it, file paths, branch names, or diffs.
 
-In GitHub Actions the CLI reads `GITHUB_REPOSITORY` and `GITHUB_SHA`; elsewhere
-it reads the `origin` remote and the checked-out commit. It sends nothing, and
-the deploy goes ahead, when git isn't available, the repository isn't on
-github.com, or any part is missing. Local deploys never send it.
+The CLI reads the commit checked out in the directory it deploys from: the
+`origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
+sends nothing, and the deploy goes ahead, when git isn't available, the
+repository isn't on github.com, or any part is missing. Local deploys never
+send it.
+
+The upload counts as changed when any file in it is not in the commit as it
+is. That includes edited files and files the commit doesn't have, such as an
+untracked file or one `.gitignore` lists that the upload still includes, like
+a `.env.production` file.
 
 Volcano verifies the commit against the project's connected repository: a
 commit on its production branch is verified. LavaFlow reads source and opens
 fix pull requests only for a deployment whose commit is verified and whose
-working tree was clean, so commit your changes before you deploy. A workflow
-run for a pull request deploys GitHub's merge commit, which is on no branch, so
+upload matched it, so commit your changes before you deploy. A workflow run
+for a pull request deploys GitHub's merge commit, which is on no branch, so
 that deployment is recorded unverified. `frontends deploy --from` and a
 redeploy keep the commit of the build they publish.
 
