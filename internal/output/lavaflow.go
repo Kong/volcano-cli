@@ -183,9 +183,9 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 
 func lavaFlowDiagnosis(w io.Writer, on bool, diagnosis *apiclient.LavaFlowDiagnosis) {
 	fmt.Fprintf(w, "\n%s\n", theme.Title("Diagnosis", on))
-	kv(w, on, "Summary", "%s", theme.StripControl(diagnosis.Summary))
-	kv(w, on, "Root cause", "%s", theme.StripControl(diagnosis.RootCause))
-	kv(w, on, "Suggested fix", "%s", theme.StripControl(diagnosis.SuggestedFix))
+	kv(w, on, "Summary", "%s", lavaFlowText(diagnosis.Summary))
+	kv(w, on, "Root cause", "%s", lavaFlowText(diagnosis.RootCause))
+	kv(w, on, "Suggested fix", "%s", lavaFlowText(diagnosis.SuggestedFix))
 	kv(w, on, "Confidence", "%s", theme.StripControl(string(diagnosis.Confidence)))
 	if diagnosis.Fixable {
 		kv(w, on, "Fixable", "yes")
@@ -204,8 +204,23 @@ func lavaFlowDiagnosis(w io.Writer, on bool, diagnosis *apiclient.LavaFlowDiagno
 		if evidence.Location != nil && *evidence.Location != "" {
 			where = " (" + theme.StripControl(*evidence.Location) + ")"
 		}
-		kv(w, on, "Evidence", "%s%s: %s", theme.StripControl(string(evidence.Kind)), where, theme.StripControl(evidence.Detail))
+		kv(w, on, "Evidence", "%s%s: %s", theme.StripControl(string(evidence.Kind)), where, lavaFlowText(evidence.Detail))
 	}
+}
+
+// lavaFlowText prints the diagnosis's free text, which can span lines, such
+// as a stack trace or numbered steps. It keeps the line breaks, indenting
+// each continuation line under its label, and strips every other control
+// character.
+func lavaFlowText(s string) string {
+	lines := strings.Split(strings.ReplaceAll(strings.TrimSpace(s), "\r\n", "\n"), "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(theme.StripControl(line), " ")
+		if i > 0 && lines[i] != "" {
+			lines[i] = "  " + lines[i]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // lavaFlowRunIssue is the issue a run works on, or nil for a trigger type

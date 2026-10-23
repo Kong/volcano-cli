@@ -46,6 +46,24 @@ func TestRunsGetStripsControlCharacters(t *testing.T) {
 	assert.NotContains(t, out, "\x1b")
 }
 
+// The diagnosis can span lines, such as a stack trace; it keeps them,
+// indented under the label.
+func TestRunsGetKeepsTheDiagnosisLineBreaks(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := fixedRun()
+	diagnosis := run["diagnosis"].(map[string]any)
+	diagnosis["suggested_fix"] = "Guard the cart.\r\n\n1. Return 409\x1b[2J until it loads."
+	diagnosis["evidence"] = []any{map[string]any{"kind": "log", "detail": "TypeError\n    at checkout.ts:12"}}
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Suggested fix: Guard the cart.\n\n  1. Return 409[2J until it loads.\n")
+	assert.Contains(t, out, "Evidence: log: TypeError\n      at checkout.ts:12\n")
+	assert.NotContains(t, out, "\x1b")
+	assert.NotContains(t, out, "\r")
+}
+
 func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	run := fixedRun()
