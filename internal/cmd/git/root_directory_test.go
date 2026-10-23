@@ -80,6 +80,19 @@ func TestRootDirectoryWorksWithAProjectAccessToken(t *testing.T) {
 	assert.Equal(t, map[string]any{"root_directory": "apps/web"}, api.sentRootBody())
 }
 
+// After "--" a directory named like a flag is a directory, which is how connect
+// spells such a directory when it suggests this command.
+func TestRootDirectoryTakesAHyphenatedDirectoryAfterDoubleDash(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "root-directory", "--", "--reset")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"root_directory": "--reset"}, api.sentRootBody())
+	assert.Contains(t, out, "Root directory set to --reset")
+}
+
 func TestRootDirectoryRefusesWhatCannotMeanADirectory(t *testing.T) {
 	for _, tc := range []struct {
 		args []string
