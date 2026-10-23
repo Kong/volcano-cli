@@ -131,7 +131,7 @@ func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextComman
 		fmt.Fprintf(w, "%-36s  %-36s  %-10s  %s  %-26s  %-12s\n",
 			run.Id.String(),
 			Truncate(lavaFlowIssue(run), 36),
-			lavaFlowTrigger(run.Trigger),
+			lavaFlowTrigger(run),
 			statusCell(theme.StripControl(string(run.Status)), 10, on),
 			Truncate(lavaFlowResult(run), 26),
 			FormatTimeAgo(run.CreatedAt),
@@ -158,7 +158,7 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 			kv(w, on, "Issue", "%s", issue.Id)
 		}
 	}
-	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run.Trigger))
+	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run))
 	kv(w, on, "Status", "%s", theme.Status(theme.StripControl(string(run.Status)), on))
 	if reason := lavaFlowFailure(run); reason != "" {
 		kv(w, on, "Reason", "%s", reason)
@@ -227,13 +227,28 @@ func lavaFlowText(s string) string {
 	return strings.Join(lines, "\n")
 }
 
-// lavaFlowRunIssue is the issue a run works on, or nil for a trigger type
-// this CLI does not know, which renders as "other" without an issue.
-func lavaFlowRunIssue(run *apiclient.LavaFlowRun) *apiclient.LavaFlowTriggerIssue {
-	if run.Trigger.Type != apiclient.LavaFlowRunTriggerTypeIssue {
+// lavaFlowIssueTrigger is the run's trigger when it is an issue run, or nil
+// for a trigger type this CLI does not know, which renders as "other"
+// without an issue.
+func lavaFlowIssueTrigger(run *apiclient.LavaFlowRun) *apiclient.LavaFlowIssueTrigger {
+	kind, err := run.Trigger.Discriminator()
+	if err != nil || kind != string(apiclient.LavaFlowIssueTriggerTypeIssue) {
 		return nil
 	}
-	return run.Trigger.Issue
+	trigger, err := run.Trigger.AsLavaFlowIssueTrigger()
+	if err != nil {
+		return nil
+	}
+	return &trigger
+}
+
+// lavaFlowRunIssue is the issue a run works on, or nil when it is not an
+// issue run.
+func lavaFlowRunIssue(run *apiclient.LavaFlowRun) *apiclient.LavaFlowTriggerIssue {
+	if trigger := lavaFlowIssueTrigger(run); trigger != nil {
+		return &trigger.Issue
+	}
+	return nil
 }
 
 func lavaFlowIssue(run *apiclient.LavaFlowRun) string {
@@ -253,16 +268,17 @@ func lavaFlowIssueTitle(issue *apiclient.LavaFlowTriggerIssue) string {
 	return strings.TrimSpace(theme.StripControl(issue.Title))
 }
 
-func lavaFlowTrigger(trigger apiclient.LavaFlowRunTrigger) string {
+func lavaFlowTrigger(run *apiclient.LavaFlowRun) string {
+	trigger := lavaFlowIssueTrigger(run)
 	switch {
-	case trigger.Type != apiclient.LavaFlowRunTriggerTypeIssue:
+	case trigger == nil:
 		return "other"
-	case trigger.Reason == nil:
+	case trigger.Reason == "":
 		return "-"
-	case *trigger.Reason == apiclient.LavaFlowRunTriggerReasonNewIssue:
+	case trigger.Reason == apiclient.LavaFlowIssueTriggerReasonNewIssue:
 		return "new issue"
 	default:
-		return theme.StripControl(string(*trigger.Reason))
+		return theme.StripControl(string(trigger.Reason))
 	}
 }
 
@@ -296,18 +312,18 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 // code missing here shows the API's failure_message, or the code as words.
 var lavaFlowFailureText = map[string]string{
 	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
-	"feature_paused":         "waiting: Volcano paused LavaFlow runs; the run resumes when they restart",
-	"model_request_rejected": "LavaFlow could not run the diagnosis",
-	"model_unavailable":      "LavaFlow was busy",
+	"feature_paused":         "waiting: LavaFlow is paused; this run starts when LavaFlow resumes",
+	"model_request_rejected": "LavaFlow's AI service rejected the request",
+	"model_unavailable":      "LavaFlow couldn't reach its AI service",
 	"model_refused":          "LavaFlow declined to diagnose this issue",
 	"no_diagnosis":           "LavaFlow finished without a diagnosis",
-	"budget_exhausted":       "the run reached its limit before a diagnosis",
+	"budget_exhausted":       "LavaFlow reached this run's limit before finding a diagnosis",
 	"timed_out":              "the run did not finish in time",
-	"attempts_exhausted":     "the run failed on every attempt",
-	"lavaflow_disabled":      "LavaFlow was turned off",
-	"plan_required":          "the plan no longer allows LavaFlow",
+	"attempts_exhausted":     "the run did not finish within its attempts",
+	"lavaflow_disabled":      "LavaFlow was turned off before the run started",
+	"plan_required":          "the project's plan no longer allows LavaFlow",
 	"issue_not_found":        "the issue no longer exists",
-	"internal_error":         "Volcano could not run the diagnosis",
+	"internal_error":         "LavaFlow could not run the diagnosis",
 }
 
 func lavaFlowFailure(run *apiclient.LavaFlowRun) string {

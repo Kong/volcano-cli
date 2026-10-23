@@ -116,18 +116,18 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == project+"/lavaflow":
 		s.write(w, http.StatusOK, s.settings)
-	case r.Method == http.MethodPut && r.URL.Path == project+"/lavaflow":
+	case r.Method == http.MethodPatch && r.URL.Path == project+"/lavaflow":
 		var update map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			s.t.Errorf("decode update: %v", err)
 		}
 		s.updates = append(s.updates, update)
-		// A full replace: omitted fields take their defaults. The plan is the
-		// server's to report, so it carries over.
-		saved := defaultLavaflowSettings()
-		saved["plan_allows_lavaflow"] = s.settings["plan_allows_lavaflow"]
-		maps.Copy(saved, update)
-		s.settings = saved
+		if len(update) == 0 {
+			s.write(w, http.StatusBadRequest, map[string]any{"error": "request body must change at least one field"})
+			return
+		}
+		// An omitted field keeps its saved value.
+		maps.Copy(s.settings, update)
 		s.write(w, http.StatusOK, s.settings)
 	case r.Method == http.MethodGet && r.URL.Path == project+"/lavaflow-runs":
 		s.listQueries = append(s.listQueries, r.URL.Query())

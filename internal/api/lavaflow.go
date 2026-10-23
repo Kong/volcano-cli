@@ -18,8 +18,8 @@ func (c *Client) GetLavaFlowSettings(ctx context.Context, projectID uuid.UUID) (
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404, resp.JSON501, resp.JSON503)
 }
 
-// UpdateLavaFlowSettings replaces a project's LavaFlow settings. Omitted
-// fields take their defaults, so callers send back the fields they keep.
+// UpdateLavaFlowSettings changes a project's LavaFlow settings. An omitted
+// field keeps its saved value.
 func (c *Client) UpdateLavaFlowSettings(
 	ctx context.Context, projectID uuid.UUID, body apiclient.UpdateLavaFlowSettingsRequest,
 ) (*apiclient.LavaFlowSettings, error) {

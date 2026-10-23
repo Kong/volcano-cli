@@ -1923,6 +1923,42 @@ func (e LavaFlowEvidenceKind) Valid() bool {
 	}
 }
 
+// Defines values for LavaFlowIssueTriggerType.
+const (
+	LavaFlowIssueTriggerTypeIssue LavaFlowIssueTriggerType = "issue"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowIssueTriggerType enum.
+func (e LavaFlowIssueTriggerType) Valid() bool {
+	switch e {
+	case LavaFlowIssueTriggerTypeIssue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowIssueTriggerReason.
+const (
+	LavaFlowIssueTriggerReasonManual     LavaFlowIssueTriggerReason = "manual"
+	LavaFlowIssueTriggerReasonNewIssue   LavaFlowIssueTriggerReason = "new_issue"
+	LavaFlowIssueTriggerReasonRegression LavaFlowIssueTriggerReason = "regression"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowIssueTriggerReason enum.
+func (e LavaFlowIssueTriggerReason) Valid() bool {
+	switch e {
+	case LavaFlowIssueTriggerReasonManual:
+		return true
+	case LavaFlowIssueTriggerReasonNewIssue:
+		return true
+	case LavaFlowIssueTriggerReasonRegression:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaFlowPullRequestSkipped.
 const (
 	LavaFlowPullRequestSkippedLowConfidence     LavaFlowPullRequestSkipped = "low_confidence"
@@ -2001,42 +2037,6 @@ func (e LavaFlowRunStatus) Valid() bool {
 	case LavaFlowRunStatusRunning:
 		return true
 	case LavaFlowRunStatusSucceeded:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LavaFlowRunTriggerReason.
-const (
-	LavaFlowRunTriggerReasonManual     LavaFlowRunTriggerReason = "manual"
-	LavaFlowRunTriggerReasonNewIssue   LavaFlowRunTriggerReason = "new_issue"
-	LavaFlowRunTriggerReasonRegression LavaFlowRunTriggerReason = "regression"
-)
-
-// Valid indicates whether the value is a known member of the LavaFlowRunTriggerReason enum.
-func (e LavaFlowRunTriggerReason) Valid() bool {
-	switch e {
-	case LavaFlowRunTriggerReasonManual:
-		return true
-	case LavaFlowRunTriggerReasonNewIssue:
-		return true
-	case LavaFlowRunTriggerReasonRegression:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LavaFlowRunTriggerType.
-const (
-	LavaFlowRunTriggerTypeIssue LavaFlowRunTriggerType = "issue"
-)
-
-// Valid indicates whether the value is a known member of the LavaFlowRunTriggerType enum.
-func (e LavaFlowRunTriggerType) Valid() bool {
-	switch e {
-	case LavaFlowRunTriggerTypeIssue:
 		return true
 	default:
 		return false
@@ -7843,6 +7843,21 @@ type LavaFlowEvidence struct {
 // LavaFlowEvidenceKind defines model for LavaFlowEvidence.Kind.
 type LavaFlowEvidenceKind string
 
+// LavaFlowIssueTrigger A run for one of the project's issues.
+type LavaFlowIssueTrigger struct {
+	Issue LavaFlowTriggerIssue `json:"issue"`
+
+	// Reason Why the run started. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+	Reason LavaFlowIssueTriggerReason `json:"reason"`
+	Type   LavaFlowIssueTriggerType   `json:"type"`
+}
+
+// LavaFlowIssueTriggerType defines model for LavaFlowIssueTrigger.Type.
+type LavaFlowIssueTriggerType string
+
+// LavaFlowIssueTriggerReason Why the run started. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+type LavaFlowIssueTriggerReason string
+
 // LavaFlowPatch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
 type LavaFlowPatch struct {
 	Edits []LavaFlowEdit `json:"edits"`
@@ -7878,7 +7893,7 @@ type LavaFlowRun struct {
 	CreatedAt   time.Time          `json:"created_at"`
 	Diagnosis   *LavaFlowDiagnosis `json:"diagnosis,omitempty"`
 
-	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waits with `feature_paused` while Volcano pauses LavaFlow runs, and resumes when they restart. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
+	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run held while Volcano pauses LavaFlow platform-wide reports `feature_paused` ("LavaFlow is paused. This run will start when LavaFlow resumes.") and starts without spending an attempt when it resumes. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
 	FailureCode    *string            `json:"failure_code,omitempty"`
 	FailureMessage *string            `json:"failure_message,omitempty"`
 	Id             openapi_types.UUID `json:"id"`
@@ -7887,7 +7902,9 @@ type LavaFlowRun struct {
 	MaxStage LavaFlowStage `json:"max_stage"`
 
 	// Patch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
-	Patch     *LavaFlowPatch      `json:"patch,omitempty"`
+	Patch *LavaFlowPatch `json:"patch,omitempty"`
+
+	// ProjectId The project the run belongs to.
 	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
 
 	// PullRequest The draft pull request the run opened on the connected repository.
@@ -7903,43 +7920,30 @@ type LavaFlowRun struct {
 	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
 	Status LavaFlowRunStatus `json:"status"`
 
-	// Trigger What the run works on and what started it. Clients must tolerate `type` values they do not know.
+	// Trigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
 	Trigger LavaFlowRunTrigger `json:"trigger"`
 }
 
 // LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
 type LavaFlowRunStatus string
 
-// LavaFlowRunTrigger What the run works on and what started it. Clients must tolerate `type` values they do not know.
+// LavaFlowRunTrigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
 type LavaFlowRunTrigger struct {
-	// Issue The issue an `issue` run diagnoses.
-	Issue *LavaFlowTriggerIssue `json:"issue,omitempty"`
-
-	// Reason What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
-	Reason *LavaFlowRunTriggerReason `json:"reason,omitempty"`
-
-	// Type What the run works on. `issue` is the only value today; more may be added.
-	Type LavaFlowRunTriggerType `json:"type"`
+	union json.RawMessage
 }
 
-// LavaFlowRunTriggerReason What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
-type LavaFlowRunTriggerReason string
-
-// LavaFlowRunTriggerType What the run works on. `issue` is the only value today; more may be added.
-type LavaFlowRunTriggerType string
-
-// LavaFlowSettings defines model for LavaFlowSettings.
+// LavaFlowSettings LavaFlow settings. The path names what they belong to, so the object carries no project fields.
 type LavaFlowSettings struct {
-	// AutoTrigger Whether a new or reopened issue starts a run on its own. When false, runs start only on request.
+	// AutoTrigger Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
 	AutoTrigger bool `json:"auto_trigger"`
 
 	// Enabled Whether Volcano diagnoses the project's issues with AI.
 	Enabled bool `json:"enabled"`
 
-	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	// MaxStage How far a run goes. Defaults to `pull_request`.
 	MaxStage LavaFlowStage `json:"max_stage"`
 
-	// PlanAllowsLavaflow Whether the owner's plan includes LavaFlow. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
+	// PlanAllowsLavaflow Whether the owner's plan allows turning LavaFlow on. LavaFlow is a usage-billed add-on rather than part of a plan; during the preview it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
 	PlanAllowsLavaflow *bool `json:"plan_allows_lavaflow,omitempty"`
 
 	// UpdatedAt When the settings were last saved. Absent until the first save.
@@ -7949,10 +7953,12 @@ type LavaFlowSettings struct {
 // LavaFlowStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
 type LavaFlowStage string
 
-// LavaFlowTriggerIssue The issue an `issue` run diagnoses.
+// LavaFlowTriggerIssue defines model for LavaFlowTriggerIssue.
 type LavaFlowTriggerIssue struct {
-	Id    openapi_types.UUID `json:"id"`
-	Title string             `json:"title"`
+	Id openapi_types.UUID `json:"id"`
+
+	// Title The issue's title, as the issues API reports it.
+	Title string `json:"title"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -8975,7 +8981,7 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
-	// Lavaflow AI diagnosis and fix settings. Omitted fields keep their current value.
+	// Lavaflow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
 	Lavaflow *ProjectConfigLavaFlow `json:"lavaflow,omitempty"`
 
 	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
@@ -9492,7 +9498,7 @@ type ProjectConfigHostedPages struct {
 	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
 }
 
-// ProjectConfigLavaFlow AI diagnosis and fix settings. Omitted fields keep their current value.
+// ProjectConfigLavaFlow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
 type ProjectConfigLavaFlow struct {
 	AutoTrigger *bool `json:"auto_trigger,omitempty"`
 	Enabled     *bool `json:"enabled,omitempty"`
@@ -10960,12 +10966,13 @@ type UpdateFunctionSchedulerRequest struct {
 	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
 }
 
-// UpdateLavaFlowSettingsRequest defines model for UpdateLavaFlowSettingsRequest.
+// UpdateLavaFlowSettingsRequest The fields to change. An omitted field keeps its saved value, or takes its default when the project has no saved settings.
 type UpdateLavaFlowSettingsRequest struct {
+	// AutoTrigger Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
 	AutoTrigger *bool `json:"auto_trigger,omitempty"`
-	Enabled     bool  `json:"enabled"`
+	Enabled     *bool `json:"enabled,omitempty"`
 
-	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	// MaxStage How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
 	MaxStage *LavaFlowStage `json:"max_stage,omitempty"`
 }
 
@@ -13949,6 +13956,65 @@ func (t DatabaseQueryFilter_Value) MarshalJSON() ([]byte, error) {
 }
 
 func (t *DatabaseQueryFilter_Value) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsLavaFlowIssueTrigger returns the union data inside the LavaFlowRunTrigger as a LavaFlowIssueTrigger
+func (t LavaFlowRunTrigger) AsLavaFlowIssueTrigger() (LavaFlowIssueTrigger, error) {
+	var body LavaFlowIssueTrigger
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLavaFlowIssueTrigger overwrites any union data inside the LavaFlowRunTrigger as the provided LavaFlowIssueTrigger
+func (t *LavaFlowRunTrigger) FromLavaFlowIssueTrigger(v LavaFlowIssueTrigger) error {
+	v.Type = "issue"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLavaFlowIssueTrigger performs a merge with any union data inside the LavaFlowRunTrigger, using the provided LavaFlowIssueTrigger
+func (t *LavaFlowRunTrigger) MergeLavaFlowIssueTrigger(v LavaFlowIssueTrigger) error {
+	v.Type = "issue"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LavaFlowRunTrigger) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t LavaFlowRunTrigger) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "issue":
+		return t.AsLavaFlowIssueTrigger()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t LavaFlowRunTrigger) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LavaFlowRunTrigger) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -33321,7 +33387,7 @@ func NewUpdateLavaFlowSettingsRequestWithBody(server string, id ProjectId, conte
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}

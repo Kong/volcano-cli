@@ -30,7 +30,7 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	assert.Contains(t, out, "TypeError: cart is undefined")
 	assert.Contains(t, out, "new issue")
 	assert.Contains(t, out, "PR #42 open")
-	assert.Contains(t, out, "waiting: Volcano paused")
+	assert.Contains(t, out, "waiting: LavaFlow is pa")
 	assert.Contains(t, out, lavaflowIssueID, "a run without a title shows its issue ID")
 	assert.Contains(t, out, "regression")
 	assertLavaFlowWording(t, out)
@@ -124,13 +124,13 @@ func TestRunsListSaysRetryingOnlyForQueuedRuns(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
 	require.NoError(t, err)
-	assert.Regexp(t, lavaflowRunID+`.*retrying: LavaFlow was`, out)
-	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*failed +LavaFlow was busy`, out)
+	assert.Regexp(t, lavaflowRunID+`.*retrying: LavaFlow coul`, out)
+	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*failed +LavaFlow couldn't reach`, out)
 	assert.Equal(t, 1, strings.Count(out, "retrying"))
 
 	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Reason: retrying: LavaFlow was busy")
+	assert.Contains(t, out, "Reason: retrying: LavaFlow couldn't reach its AI service")
 }
 
 // A title with nothing printable left is shown by the issue's ID.

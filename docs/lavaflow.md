@@ -64,9 +64,8 @@ non-zero. A project that had LavaFlow on before its plan changed stays on;
 `enable` then succeeds and says no run starts until the plan allows LavaFlow
 again. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
-Turning LavaFlow off works even when the project's plan cannot be checked; then
-`max_stage` and `auto_trigger` go back to their defaults, and the command says
-so.
+Where LavaFlow is not available, turning it on fails with `LavaFlow is not
+available`; turning it off still works.
 
 ## Check the status
 
@@ -113,9 +112,9 @@ the run as JSON, including the proposed edits.
 volcano cloud lavaflow runs get 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 ```
 
-A queued run can wait. Its result says `waiting` when Volcano has paused
-LavaFlow runs, and the run resumes on its own. A queued run whose last attempt
-failed says `retrying`.
+A queued run can wait. Its result says `waiting` while LavaFlow is paused or
+unavailable, and the run starts on its own when LavaFlow resumes. A queued run
+whose last attempt failed says `retrying`.
 
 To diagnose an issue again, for example after a run failed, start a run with
 the issue ID (`trigger.issue.id`) from an earlier run in `runs list --json`, or
@@ -142,6 +141,4 @@ does. `max_stage: diagnose` stops each run at the diagnosis and opens no pull
 request; the default, `pull_request`, opens one. `auto_trigger: false` starts
 runs only with `runs start`; the default, `true`, starts one for every new or
 reopened issue. An omitted field keeps its current value. `enable` and
-`disable` change only `enabled`, so they keep what the manifest set. The one
-exception is a `disable` that cannot read the current settings: it resets
-`max_stage` and `auto_trigger` to their defaults and says so.
+`disable` change only `enabled`, so they keep what the manifest set.
