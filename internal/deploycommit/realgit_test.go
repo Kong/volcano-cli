@@ -262,7 +262,8 @@ func TestCommitComparesBinaryLineEndingsAsGitStoresThem(t *testing.T) {
 }
 
 // Whether bytes are binary is git's own judgement: git hash-object stores
-// them as they are when it judges them binary, and with LF when not.
+// them as they are when it judges them binary, and with LF when not. Each
+// sample has a CRLF, so the two differ.
 func TestBinaryMatchesGit(t *testing.T) {
 	root, _ := newRepository(t)
 	deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
@@ -271,11 +272,19 @@ func TestBinaryMatchesGit(t *testing.T) {
 		"text":                             "a\r\nb\r\n",
 		"a NUL":                            "A\x00\r\n",
 		"a lone CR":                        "a\rb\r\n",
+		"a final lone CR":                  "a\r\nb\r",
+		"CR then CRLF":                     "\r\r\n",
 		"control bytes":                    "\x01\x02\x03\r\n",
 		"a final ^Z":                       "text\r\n\x1a",
+		"a ^Z not at the end":              "\x1a\r\ntext",
+		"1 control byte, 127 printable":    strings.Repeat("a", 127) + "\r\n\x01",
+		"1 control byte, 128 printable":    strings.Repeat("a", 128) + "\r\n\x01",
 		"2 control bytes, 253 printable":   strings.Repeat("a", 253) + "\r\n\x01\x02",
 		"2 control bytes, 256 printable":   strings.Repeat("a", 256) + "\r\n\x01\x02",
+		"2 DEL bytes, 128 printable":       strings.Repeat("a", 128) + "\r\n\x7f\x7f",
 		"tabs, backspace, escape and feed": "a\tb\bc\033d\f\r\n",
+		"UTF-8":                            "h\u00e9llo\r\n",
+		"a NUL after 9000 bytes":           strings.Repeat("a", 9000) + "\r\n\x00",
 	} {
 		writeFile(t, root, "sample.txt", content)
 		stored := deploycommittest.Git(t, root, "hash-object", "sample.txt")
