@@ -312,7 +312,7 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 // code missing here shows the API's failure_message, or the code as words.
 var lavaFlowFailureText = map[string]string{
 	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
-	"feature_paused":         "waiting: LavaFlow is paused; this run starts when LavaFlow resumes",
+	"feature_paused":         "waiting: LavaFlow is paused. This run will start when LavaFlow resumes",
 	"model_request_rejected": "LavaFlow's AI service rejected the request",
 	"model_unavailable":      "LavaFlow couldn't reach its AI service",
 	"model_refused":          "LavaFlow declined to diagnose this issue",
@@ -320,7 +320,7 @@ var lavaFlowFailureText = map[string]string{
 	"budget_exhausted":       "LavaFlow reached this run's limit before finding a diagnosis",
 	"timed_out":              "the run did not finish in time",
 	"attempts_exhausted":     "the run did not finish within its attempts",
-	"lavaflow_disabled":      "LavaFlow was turned off before the run started",
+	"lavaflow_disabled":      "LavaFlow was turned off before the run finished",
 	"plan_required":          "the project's plan no longer allows LavaFlow",
 	"issue_not_found":        "the issue no longer exists",
 	"internal_error":         "LavaFlow could not run the diagnosis",
@@ -353,7 +353,7 @@ func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
 }
 
 var lavaFlowSkippedText = map[apiclient.LavaFlowPullRequestSkipped]string{
-	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: "the source of the deployed code is not available",
+	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: "LavaFlow couldn't read the deployed source",
 	apiclient.LavaFlowPullRequestSkippedPullRequestOpen:   "a LavaFlow pull request for this issue is already open",
 	apiclient.LavaFlowPullRequestSkippedNotFixable:        "a code change would not fix it",
 	apiclient.LavaFlowPullRequestSkippedLowConfidence:     "the diagnosis is not confident enough",

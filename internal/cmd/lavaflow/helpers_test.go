@@ -25,6 +25,9 @@ const (
 	lavaflowRunID     = "44444444-4444-4444-8444-444444444444"
 	lavaflowIssueID   = "55555555-5555-4555-8555-555555555555"
 	lavaflowRepo      = "acme/shop"
+	// lavaflowIssueTitle is a real issue title: Volcano groups errors by a
+	// template of their message, with values replaced by placeholders.
+	lavaflowIssueTitle = "TypeError: Cannot read properties of undefined (reading <str>)"
 )
 
 // lavaflowServer is a fake API that keeps the project's settings, so a
@@ -48,6 +51,8 @@ type lavaflowServer struct {
 	refuse       int
 	refuseMethod string
 	refusal      map[string]any
+	// refusalHeader is sent with the refusal, such as a Retry-After.
+	refusalHeader http.Header
 }
 
 func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
@@ -110,6 +115,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
+		maps.Copy(w.Header(), s.refusalHeader)
 		s.write(w, s.refuse, s.refusal)
 		return
 	}
@@ -150,7 +156,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		issue := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, project+"/issues/"), "/lavaflow-runs")
 		s.started = append(s.started, issue)
 		run := queuedRun()
-		run["trigger"] = issueTrigger("manual", issue, "TypeError: cart is undefined")
+		run["trigger"] = issueTrigger("manual", issue, lavaflowIssueTitle)
 		s.write(w, http.StatusAccepted, run)
 	default:
 		http.NotFound(w, r)
@@ -183,7 +189,7 @@ func (s *lavaflowServer) set(change func(*lavaflowServer)) {
 func queuedRun() map[string]any {
 	return map[string]any{
 		"id": lavaflowRunID, "project_id": lavaflowProjectID,
-		"trigger": issueTrigger("manual", lavaflowIssueID, "TypeError: cart is undefined"),
+		"trigger": issueTrigger("manual", lavaflowIssueID, lavaflowIssueTitle),
 		"status":  "queued", "max_stage": "pull_request", "created_at": "2026-10-23T09:00:00Z",
 	}
 }
@@ -196,7 +202,7 @@ func issueTrigger(reason, issueID, title string) map[string]any {
 func fixedRun() map[string]any {
 	run := queuedRun()
 	maps.Copy(run, map[string]any{
-		"trigger": issueTrigger("new_issue", lavaflowIssueID, "TypeError: cart is undefined"),
+		"trigger": issueTrigger("new_issue", lavaflowIssueID, lavaflowIssueTitle),
 		"status":  "succeeded", "stage_reached": "pull_request",
 		"started_at": "2026-10-23T09:00:05Z", "completed_at": "2026-10-23T09:03:00Z",
 		"commit_sha": "0123abcd",
@@ -208,7 +214,7 @@ func fixedRun() map[string]any {
 			"fixable":       true,
 			"files":         []any{"functions/checkout.ts"},
 			"evidence": []any{map[string]any{
-				"kind": "log", "detail": "TypeError: cart is undefined", "location": "2026-10-23T08:59:00Z",
+				"kind": "log", "detail": "TypeError: Cannot read properties of undefined (reading 'items')", "location": "2026-10-23T08:59:00Z",
 			}},
 		},
 		"pull_request": map[string]any{

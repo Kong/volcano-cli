@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -56,11 +57,16 @@ type Status struct {
 // Service performs LavaFlow workflows against the current project.
 type Service struct {
 	sessions clisession.Factory
+	now      func() time.Time
 }
 
 // NewService returns a LavaFlow service.
 func NewService(deps cliruntime.Deps) Service {
-	return Service{sessions: clisession.NewFactory(deps)}
+	now := deps.Now
+	if now == nil {
+		now = time.Now
+	}
+	return Service{sessions: clisession.NewFactory(deps), now: now}
 }
 
 // Status returns the current project's LavaFlow settings and its repository
@@ -162,7 +168,7 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	}
 	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
 	if err != nil {
-		return nil, refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err))
+		return nil, retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now())
 	}
 	return run, nil
 }
@@ -174,4 +180,29 @@ func refusal(err error) error {
 		return api.WithCause(errors.New(err.Error()+"\nLavaFlow needs a paid plan: upgrade the project's plan in the dashboard. "+CostNote), err)
 	}
 	return err
+}
+
+// retryHint adds when to try again to a refusal whose response said, such as
+// a run limit, keeping the refusal so the exit code still reports it. The CLI
+// never retries on its own: every run counts toward the project's usage.
+func retryHint(err error, now time.Time) error {
+	at, ok := api.RetryAt(err, now)
+	if !ok {
+		return err
+	}
+	return api.WithCause(errors.New(err.Error()+"\n"+tryAgain(at, now)), err)
+}
+
+func tryAgain(at, now time.Time) string {
+	if at.Sub(now) < time.Minute {
+		return "Try again in a minute."
+	}
+	// Round up to the minute, so neither the time nor the wait named is early.
+	at = at.Add(time.Minute - time.Nanosecond).Truncate(time.Minute)
+	minutes := int((at.Sub(now) + time.Minute - time.Nanosecond) / time.Minute)
+	in := fmt.Sprintf("%dm", minutes)
+	if minutes >= 60 {
+		in = fmt.Sprintf("%dh%02dm", minutes/60, minutes%60)
+	}
+	return fmt.Sprintf("Try again after %s (in %s).", at.In(now.Location()).Format("2006-01-02 15:04 MST"), in)
 }

@@ -23,6 +23,9 @@ billing starts.
 - Opens pull requests in the repository the **Git connection** names. Without
   one, LavaFlow diagnoses issues and opens no pull requests. See
   [git.md](git.md).
+- Fixes code it can read at the commit that built it: code that a push to the
+  connected repository deployed. For any other deployment, LavaFlow diagnoses
+  the issue and opens no pull request.
 - Declared in the **project configuration** under `lavaflow:`. See
   [project-configuration.md](project-configuration.md).
 - Cloud only. Local development has no GitHub App for LavaFlow to open pull
@@ -65,7 +68,9 @@ non-zero. A project that had LavaFlow on before its plan changed stays on;
 again. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
 Where LavaFlow is not available, turning it on fails with `LavaFlow is not
-available`; turning it off still works.
+available`. Turning it off still works for a project that has saved LavaFlow
+settings. A project that never saved them already has LavaFlow off, and
+`disable` fails the same way.
 
 ## Check the status
 
@@ -99,17 +104,30 @@ volcano cloud lavaflow runs list
 ```text
 ID                                    Issue                                 Trigger     Status      Result                      Created
 --------------------------------------------------------------------------------------------------------------------------------------------
-9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c  TypeError: cart is undefined          new issue   succeeded   PR #42 open                 2h ago
+9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c  TypeError: Cannot read properties...  new issue   succeeded   PR #42 open                 2h ago
 ```
+
+An issue's title is a template of its error message, with values replaced by
+placeholders such as `<str>`. The list shortens long titles; `runs get` shows
+the whole title.
 
 `runs get` shows a run's diagnosis: a summary, the root cause, the suggested
 fix, the evidence it found, and the pull request it opened. When it opened
-none, it says why, such as a code change not fixing the issue or
-`max_stage: diagnose`. Add `--json` for
-the run as JSON, including the proposed edits.
+none, it says why, such as a code change not fixing the issue, LavaFlow not
+being able to read the deployed source, or `max_stage: diagnose`. Add `--json`
+for the run as JSON, including the proposed edits.
 
 ```bash
 volcano cloud lavaflow runs get 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
+```
+
+```text
+ID: 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
+Issue: TypeError: Cannot read properties of undefined (reading <str>) (3f5a8b1c-2d4e-4f6a-8b9c-0d1e2f3a4b5c)
+Trigger: new issue
+Status: succeeded
+...
+Pull request: https://github.com/acme/shop/pull/42 (open)
 ```
 
 A queued run can wait. Its result says `waiting` while LavaFlow is paused or
@@ -125,8 +143,10 @@ from the
 volcano cloud lavaflow runs start --issue 3f5a8b1c-2d4e-4f6a-8b9c-0d1e2f3a4b5c
 ```
 
-An issue has at most one queued or running run, and a project starts at most
-25 runs in any 24 hours.
+An issue has at most one queued or running run. LavaFlow also limits how many
+runs an issue and a project start in 24 hours. At a limit, `runs start` prints
+the reason and when to try again, and exits non-zero; it never retries on its
+own.
 
 ## Declare it in the project configuration
 

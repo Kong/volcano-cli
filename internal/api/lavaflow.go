@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/google/uuid"
 
@@ -58,6 +59,12 @@ func (c *Client) StartLavaFlowRun(ctx context.Context, projectID, issueID uuid.U
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON403,
+	run, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON202, resp.JSON400, resp.JSON403,
 		resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON501, resp.JSON503)
+	if resp.StatusCode() == http.StatusTooManyRequests && resp.HTTPResponse != nil {
+		// The issue or the project reached its run limit; Retry-After says
+		// when a run can start.
+		return nil, withRetryAfter(err, resp.HTTPResponse.Header)
+	}
+	return run, err
 }

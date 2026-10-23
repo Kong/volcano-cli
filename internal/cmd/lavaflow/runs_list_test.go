@@ -14,7 +14,7 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	paused := queuedRun()
 	paused["id"] = "66666666-6666-4666-8666-666666666666"
-	paused["trigger"] = issueTrigger("manual", lavaflowIssueID, "Timeout calling payments")
+	paused["trigger"] = issueTrigger("manual", lavaflowIssueID, "{<str>:<str>,<str>:<num>}")
 	paused["failure_code"] = "feature_paused"
 	failed := queuedRun()
 	failed["id"] = "77777777-7777-4777-8777-777777777777"
@@ -27,7 +27,9 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
 	require.NoError(t, err)
 	assert.Contains(t, out, lavaflowRunID)
-	assert.Contains(t, out, "TypeError: cart is undefined")
+	assert.Contains(t, out, "TypeError: Cannot read properties...", "the list truncates a long title")
+	assert.NotContains(t, out, lavaflowIssueTitle)
+	assert.Contains(t, out, "{<str>:<str>,<str>:<num>}")
 	assert.Contains(t, out, "new issue")
 	assert.Contains(t, out, "PR #42 open")
 	assert.Contains(t, out, "waiting: LavaFlow is pa")

@@ -18,7 +18,7 @@ func TestRunsGetShowsTheDiagnosisAndPullRequest(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
 	for _, want := range []string{
-		"Issue: TypeError: cart is undefined (" + lavaflowIssueID + ")",
+		"Issue: " + lavaflowIssueTitle + " (" + lavaflowIssueID + ")",
 		"Status: succeeded",
 		"Pull request: https://github.com/acme/shop/pull/42 (open)",
 		"Summary: Checkout reads the cart before it loads.",
@@ -26,7 +26,7 @@ func TestRunsGetShowsTheDiagnosisAndPullRequest(t *testing.T) {
 		"Suggested fix: Return 409 until the cart has loaded.",
 		"Confidence: high",
 		"Files: functions/checkout.ts",
-		"Evidence: log (2026-10-23T08:59:00Z): TypeError: cart is undefined",
+		"Evidence: log (2026-10-23T08:59:00Z): TypeError: Cannot read properties of undefined (reading 'items')",
 	} {
 		assert.Contains(t, out, want)
 	}
@@ -78,14 +78,44 @@ func TestRunsGetShowsAnUntitledIssueByID(t *testing.T) {
 
 func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
-	run := fixedRun()
-	delete(run, "pull_request")
-	run["pull_request_skipped"] = "not_fixable"
-	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+	for reason, want := range map[string]string{
+		"not_fixable":        "Pull request: none: a code change would not fix it",
+		"source_unavailable": "Pull request: none: LavaFlow couldn't read the deployed source",
+	} {
+		run := fixedRun()
+		delete(run, "pull_request")
+		run["pull_request_skipped"] = reason
+		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
 
-	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
-	require.NoError(t, err)
-	assert.Contains(t, out, "Pull request: none: a code change would not fix it")
+		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+		require.NoError(t, err)
+		assert.Contains(t, out, want)
+	}
+}
+
+// A canceled run may have started before LavaFlow was turned off, and a
+// paused run waits for LavaFlow to resume.
+func TestRunsGetSaysWhyARunStoppedOrWaits(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	canceled := queuedRun()
+	canceled["status"] = "canceled"
+	canceled["started_at"] = "2026-10-23T09:00:05Z"
+	canceled["failure_code"] = "lavaflow_disabled"
+	paused := queuedRun()
+	paused["failure_code"] = "feature_paused"
+
+	for _, tc := range []struct {
+		run  map[string]any
+		want string
+	}{
+		{canceled, "Reason: LavaFlow was turned off before the run finished"},
+		{paused, "Reason: waiting: LavaFlow is paused. This run will start when LavaFlow resumes"},
+	} {
+		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })
+		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+		require.NoError(t, err)
+		assert.Contains(t, out, tc.want)
+	}
 }
 
 // A diagnose-only run has neither a pull request nor a skipped reason.

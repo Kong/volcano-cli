@@ -29,9 +29,10 @@ func newRunsStart(deps cliruntime.Deps) *cobra.Command {
 issue ID (trigger.issue.id) from an earlier run in '%s', or from the
 Issues API (GET /projects/{id}/issues).
 
-LavaFlow must be on. An issue has at most one queued or running run, and a
-project starts at most 25 runs, on their own or by hand, in any 24 hours.
-A run counts toward the project's usage.`, cliruntime.CommandPath(deps, "lavaflow runs list --json")),
+LavaFlow must be on. An issue has at most one queued or running run, and
+LavaFlow limits how many runs an issue and a project start in 24 hours. At a
+limit, the command says when to try again; it never retries on its own. A run
+counts toward the project's usage.`, cliruntime.CommandPath(deps, "lavaflow runs list --json")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
