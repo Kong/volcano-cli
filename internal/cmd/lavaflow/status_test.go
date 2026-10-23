@@ -165,3 +165,88 @@ func TestStatusReportsTheLocalModeRefusal(t *testing.T) {
 	assert.Contains(t, err.Error(), "LavaFlow is not available in local mode")
 	assert.Equal(t, http.StatusNotImplemented, api.Status(err))
 }
+
+// LavaFlow works only in the repository it was turned on for. Status says
+// which changed and how to resume, in each of the shapes the settings take.
+func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
+	for name, tc := range map[string]struct {
+		enabledRepository map[string]any
+		connected         bool
+		want              string
+	}{
+		"another repository": {
+			map[string]any{"id": 7, "full_name": "acme/old"},
+			true,
+			"paused: the repository changed from acme/old. Run 'volcano cloud lavaflow enable' to use the new repository.",
+		},
+		"one connected after it was turned on with none": {
+			nil, true,
+			"paused: a repository was connected after LavaFlow was turned on. Run 'volcano cloud lavaflow enable' to use it.",
+		},
+		"none any more": {
+			map[string]any{"id": 7, "full_name": "acme/old"},
+			false,
+			"paused: acme/old is no longer connected. Connect a repository with 'volcano git connect', " +
+				"then run 'volcano cloud lavaflow enable'.",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) {
+				s.settings["enabled"] = true
+				s.settings["repository_changed"] = true
+				if tc.enabledRepository != nil {
+					s.settings["enabled_repository"] = tc.enabledRepository
+				}
+				s.repoConnected = tc.connected
+			})
+
+			out, err := executeLavaflowCommand(t, New(deps), "status")
+			require.NoError(t, err)
+			assert.Contains(t, out, "LavaFlow: on")
+			assert.Contains(t, out, tc.want)
+			assert.NotContains(t, out, "Connect a repository so LavaFlow can open fix pull requests",
+				"the paused line already says what to do")
+			assertLavaFlowWording(t, out)
+		})
+	}
+}
+
+func TestStatusIsNotPausedInTheRepositoryLavaFlowWasTurnedOnFor(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.settings["repository_changed"] = false
+		s.settings["enabled_repository"] = map[string]any{"id": 1, "full_name": lavaflowRepo}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "paused")
+}
+
+// Settings saved while off keep the flag, which says nothing until LavaFlow is
+// on again.
+func TestStatusOffIsNotPaused(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["repository_changed"] = true })
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "paused")
+	assert.Contains(t, out, "Turn it on: volcano cloud lavaflow enable")
+}
+
+func TestStatusJSONCarriesTheRepositoryLavaFlowWasTurnedOnFor(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.settings["repository_changed"] = true
+		s.settings["enabled_repository"] = map[string]any{"id": 7, "full_name": "acme/old"}
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status", "--json")
+	require.NoError(t, err)
+	assert.Contains(t, out, `"repository_changed": true`)
+	assert.Contains(t, out, `"full_name": "acme/old"`)
+}

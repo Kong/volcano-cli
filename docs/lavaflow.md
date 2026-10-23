@@ -64,8 +64,9 @@ Note: LavaFlow watches this project's errors, diagnoses new issues automatically
 Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
-A project whose plan does not allow LavaFlow is refused, and the command exits
-non-zero. A project that had LavaFlow on before its plan changed stays on;
+Turning LavaFlow on needs a person signed in with `volcano login`. With a
+project access token, `enable` says so and sends nothing. A project whose plan
+does not allow LavaFlow is refused, and the command exits non-zero. A project that had LavaFlow on before its plan changed stays on;
 `enable` then succeeds and says no run starts until the plan allows LavaFlow
 again. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
@@ -94,6 +95,28 @@ to open pull requests, it also names `volcano git connect`. When the project con
 that too, and the status says it while LavaFlow is off, because those settings
 apply when it is turned on. With `--json`, `repository_state` is `connected`,
 `not_connected`, or `unknown` when the connection could not be read.
+
+## When the project's repository changes
+
+LavaFlow works in the repository the project was connected to when a person
+turned it on. A rename or a transfer on GitHub keeps it the same repository.
+When the project is connected to a different repository, or to none, or a
+repository is connected after LavaFlow was turned on with none, LavaFlow
+pauses: no run starts, and a run already queued opens no pull request. The
+status says so:
+
+```text
+LavaFlow: on
+Plan: allows LavaFlow
+Repository: acme/new
+
+paused: the repository changed from acme/old. Run 'volcano cloud lavaflow enable' to use the new repository.
+```
+
+Turning LavaFlow on again, as a person, resumes it in the repository the
+project is connected to now. Until then, `runs start` prints why it was refused
+and exits non-zero. With `--json`, the status carries `repository_changed` and
+`enabled_repository`, the repository LavaFlow was turned on for.
 
 ## Follow the runs
 

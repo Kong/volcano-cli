@@ -48,6 +48,10 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	default:
 		kv(w, on, "Repository", "not connected")
 	}
+	paused := lavaFlowRepositoryPaused(details)
+	if paused != "" {
+		fmt.Fprintf(w, "\n%s\n", paused)
+	}
 
 	fmt.Fprintln(w)
 	for _, limit := range lavaFlowLimits(settings) {
@@ -57,7 +61,7 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		Note(w, "%s", limit)
 	}
 	opensPullRequests := settings.MaxStage == apiclient.LavaFlowStagePullRequest
-	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown {
+	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown && paused == "" {
 		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}
@@ -73,6 +77,26 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		}
 		fmt.Fprintf(w, "%s%s\n", theme.Dim(label, on), theme.Command(details.EnableCommand, on))
 	}
+}
+
+// lavaFlowRepositoryPaused says why LavaFlow is paused when the project points
+// at another repository than the one it was turned on for, and how to resume,
+// or "" when it is not.
+func lavaFlowRepositoryPaused(details LavaFlowStatusDetails) string {
+	settings := details.Settings
+	if !settings.Enabled || settings.RepositoryChanged == nil || !*settings.RepositoryChanged {
+		return ""
+	}
+	enable := "'" + details.EnableCommand + "'"
+	if settings.EnabledRepository == nil {
+		return "paused: a repository was connected after LavaFlow was turned on. Run " + enable + " to use it."
+	}
+	previous := theme.StripControl(settings.EnabledRepository.FullName)
+	if details.Repository == "" && !details.RepositoryUnknown {
+		return fmt.Sprintf("paused: %s is no longer connected. Connect a repository with '%s', then run %s.",
+			previous, details.GitConnectCommand, enable)
+	}
+	return fmt.Sprintf("paused: the repository changed from %s. Run %s to use the new repository.", previous, enable)
 }
 
 // LavaFlowEnabled renders LavaFlow turned on: what it now does, which is
@@ -360,7 +384,7 @@ var lavaFlowSkippedText = map[apiclient.LavaFlowPullRequestSkipped]string{
 	apiclient.LavaFlowPullRequestSkippedLowConfidence:     "the diagnosis is not confident enough",
 	apiclient.LavaFlowPullRequestSkippedNoPatch:           "LavaFlow found no fix",
 	apiclient.LavaFlowPullRequestSkippedPermissionMissing: "the Volcano GitHub App cannot open pull requests in the repository",
-	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: "the connected repository changed during the run",
+	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: "the project's repository changed since LavaFlow was turned on",
 	apiclient.LavaFlowPullRequestSkippedPublishFailed:     "the pull request could not be opened",
 }
 

@@ -7885,6 +7885,15 @@ type LavaFlowPullRequestSkipped string
 // LavaFlowPullRequestState defines model for LavaFlowPullRequestState.
 type LavaFlowPullRequestState string
 
+// LavaFlowRepository A GitHub repository.
+type LavaFlowRepository struct {
+	// FullName The repository's owner and name, such as `acme/shop`. While the project still points at the repository, this is its current name.
+	FullName string `json:"full_name"`
+
+	// Id GitHub's repository id. It stays the same through a rename or a transfer.
+	Id int64 `json:"id"`
+}
+
 // LavaFlowRun defines model for LavaFlowRun.
 type LavaFlowRun struct {
 	// CommitSha The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
@@ -7940,11 +7949,17 @@ type LavaFlowSettings struct {
 	// Enabled Whether Volcano diagnoses the project's issues with AI.
 	Enabled bool `json:"enabled"`
 
+	// EnabledRepository The repository the project was connected to when a person last turned LavaFlow on. LavaFlow reads source from and opens pull requests in this repository only. Absent while LavaFlow is off, or when no repository was connected then.
+	EnabledRepository *LavaFlowRepository `json:"enabled_repository,omitempty"`
+
 	// MaxStage How far a run goes. Defaults to `pull_request`.
 	MaxStage LavaFlowStage `json:"max_stage"`
 
 	// PlanAllowsLavaflow Whether the owner's plan allows turning LavaFlow on. LavaFlow is a usage-billed add-on rather than part of a plan; during the preview it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
 	PlanAllowsLavaflow *bool `json:"plan_allows_lavaflow,omitempty"`
+
+	// RepositoryChanged Whether the project now points at a different repository than `enabled_repository`, including a repository connected after LavaFlow was turned on with none. While true, no run starts, and a run already queued reads no source and opens no pull request. A person turning LavaFlow on again (`enabled: true`) records the current repository. A rename or a transfer keeps the repository.
+	RepositoryChanged *bool `json:"repository_changed,omitempty"`
 
 	// UpdatedAt When the settings were last saved. Absent until the first save.
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
