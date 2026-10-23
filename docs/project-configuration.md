@@ -16,7 +16,7 @@ validates and applies the full project configuration:
 - Auth configuration, including providers, email, templates, and managed pages
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
-- Frontend custom domains and function routes
+- Frontend custom domains, function routes, and Frontend routes
 - Sandbox template image assertions and default session timeouts
 
 The same manifest applies to local development and cloud projects — only the
@@ -74,6 +74,10 @@ frontends:
       - function: hello
         path_prefix: /api/hello
         strip_prefix: true
+    frontend_routes:           # the complete set; routes left out are deleted
+      - frontend: docs         # another frontend of the project
+        path_prefix: /docs
+  - name: docs
 ```
 
 Cloud example — export the current cloud project's configuration to a file,
@@ -100,7 +104,7 @@ Key semantics:
   have.
 - Declared config sections are the source of truth. Variables, bucket policies,
   OAuth providers, email templates, function schedulers, and frontend function
-  routes are fully synced when declared: entries absent from the manifest are
+  and Frontend routes are fully synced when declared: entries absent from the manifest are
   deleted. Omitted sections and fields keep their existing values.
 - Functions, frontends, databases, and buckets are never created or deleted
   through the manifest; only their configuration is updated. A manifest entry
@@ -220,6 +224,42 @@ manifest deploys again unchanged.
 One deploy can make a function public and add its route, or delete a route and
 make the function private. A route to a function that stays non-public fails
 the dry run and nothing is applied. See [frontends](frontends.md#function-routes).
+
+## Frontend routes
+
+`frontends[].frontend_routes` serves every request under a path of a frontend
+from another frontend of the project, so one hostname runs several apps:
+
+```yaml
+version: 1
+frontends:
+  - name: web
+    frontend_routes:
+      - frontend: docs
+        path_prefix: /docs
+      - frontend: docs
+        path_prefix: /blog
+  - name: docs
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `frontend` | Yes | Another deployed frontend of the project, by name. A frontend can't mount itself. |
+| `path_prefix` | Yes | The path to serve, such as `/docs`. It matches that path and everything under it, and reaches the mounted frontend unchanged. It starts with `/` and does not end with one. |
+
+The list is the frontend's complete set of Frontend routes:
+
+- Omitting `frontend_routes` keeps the frontend's Frontend routes as they are.
+- Declaring it replaces them: a route left out of the list is deleted.
+- `frontend_routes: []` deletes every Frontend route on the frontend.
+
+Function and Frontend routes on one frontend share one set of paths and the
+64-route limit. A path listed in both is a validation error, as is a path the
+other kind already routes when the manifest leaves that kind alone. A deploy
+removes routes before it adds any, so it can move a path from one kind to the
+other. `config pull` writes `frontend_routes` after `function_routes`, only on
+frontends that have Frontend routes, so a pulled manifest deploys again
+unchanged. See [frontends](frontends.md#frontend-routes).
 
 ## Frontend custom domains
 
@@ -394,7 +434,8 @@ snapshot of a prior apply. Practical implications:
   **not** apply within a section you've already declared as fully synced
   (`variables`, `buckets[].policies`, `auth.providers.oauth`,
   `auth.email.templates`, `functions[].schedulers`,
-  `functions[].variables`, `frontends[].function_routes`) — omitting one entry
+  `functions[].variables`, `frontends[].function_routes`,
+  `frontends[].frontend_routes`) — omitting one entry
   from an otherwise-declared list still deletes that entry, since the
   declared list is the source of truth for the whole section. See "Key
   semantics" above.
