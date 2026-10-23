@@ -32,7 +32,7 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	assert.Contains(t, out, "{<str>:<str>,<str>:<num>}")
 	assert.Contains(t, out, "new issue")
 	assert.Contains(t, out, "PR #42 open")
-	assert.Contains(t, out, "waiting: LavaFlow is pa")
+	assert.Contains(t, out, "paused: LavaFlow is pau")
 	assert.Contains(t, out, lavaflowIssueID, "a run without a title shows its issue ID")
 	assert.Contains(t, out, "regression")
 	assertLavaFlowWording(t, out)

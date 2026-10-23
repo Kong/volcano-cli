@@ -305,14 +305,15 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 	return theme.StripControl(string(pr.State))
 }
 
-// lavaFlowFailureText says why a run stopped, or why a queued run waits, in
-// LavaFlow's words. A queued run with any other code is retrying its last
-// attempt, which lavaFlowFailure puts first, like "waiting:", so the runs
-// list's narrow Result column keeps it. Volcano adds codes over time, so a
+// lavaFlowFailureText says why a run stopped, or why a queued run is paused,
+// in LavaFlow's words. "Paused" matches the dashboard; "waiting" is kept for
+// a run that waits on a person. A queued run with any other code is retrying
+// its last attempt, which lavaFlowFailure puts first, like "paused:", so the
+// runs list's narrow Result column keeps it. Volcano adds codes over time, so a
 // code missing here shows the API's failure_message, or the code as words.
 var lavaFlowFailureText = map[string]string{
-	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
-	"feature_paused":         "waiting: LavaFlow is paused. This run will start when LavaFlow resumes",
+	"feature_unavailable":    "paused: LavaFlow is unavailable here; the run resumes when it returns",
+	"feature_paused":         "paused: LavaFlow is paused. This run will start when LavaFlow resumes",
 	"model_request_rejected": "LavaFlow's AI service rejected the request",
 	"model_unavailable":      "LavaFlow couldn't reach its AI service",
 	"model_refused":          "LavaFlow declined to diagnose this issue",
@@ -336,7 +337,7 @@ func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
 	}
 	text, ok := lavaFlowFailureText[code]
 	switch {
-	case ok && strings.HasPrefix(text, "waiting:"):
+	case ok && strings.HasPrefix(text, "paused:"):
 		return text
 	case ok:
 	case message != "":

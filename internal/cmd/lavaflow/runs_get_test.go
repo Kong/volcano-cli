@@ -94,8 +94,8 @@ func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 }
 
 // A canceled run may have started before LavaFlow was turned off, and a
-// paused run waits for LavaFlow to resume.
-func TestRunsGetSaysWhyARunStoppedOrWaits(t *testing.T) {
+// paused run starts when LavaFlow resumes.
+func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	canceled := queuedRun()
 	canceled["status"] = "canceled"
@@ -103,13 +103,16 @@ func TestRunsGetSaysWhyARunStoppedOrWaits(t *testing.T) {
 	canceled["failure_code"] = "lavaflow_disabled"
 	paused := queuedRun()
 	paused["failure_code"] = "feature_paused"
+	unavailable := queuedRun()
+	unavailable["failure_code"] = "feature_unavailable"
 
 	for _, tc := range []struct {
 		run  map[string]any
 		want string
 	}{
 		{canceled, "Reason: LavaFlow was turned off before the run finished"},
-		{paused, "Reason: waiting: LavaFlow is paused. This run will start when LavaFlow resumes"},
+		{paused, "Reason: paused: LavaFlow is paused. This run will start when LavaFlow resumes"},
+		{unavailable, "Reason: paused: LavaFlow is unavailable here; the run resumes when it returns"},
 	} {
 		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })
 		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)

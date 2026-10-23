@@ -130,8 +130,8 @@ Status: succeeded
 Pull request: https://github.com/acme/shop/pull/42 (open)
 ```
 
-A queued run can wait. Its result says `waiting` while LavaFlow is paused or
-unavailable, and the run starts on its own when LavaFlow resumes. A queued run
+A queued run can be paused. Its result says `paused` while LavaFlow is paused
+or unavailable, and the run starts on its own when LavaFlow resumes. A queued run
 whose last attempt failed says `retrying`.
 
 To diagnose an issue again, for example after a run failed, start a run with
