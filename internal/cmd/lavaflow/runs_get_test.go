@@ -95,3 +95,33 @@ func TestRunsGetRefusesAnInvalidIDAndReportsAMissingRun(t *testing.T) {
 	assert.Contains(t, err.Error(), "run not found")
 	assert.Equal(t, http.StatusNotFound, api.Status(err))
 }
+
+// Volcano adds failure codes and skipped reasons over time. One this CLI does
+// not know is still explained, never left blank.
+func TestRunsGetExplainsValuesItDoesNotKnow(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := fixedRun()
+	delete(run, "pull_request")
+	run["pull_request_skipped"] = "source_not_committed"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Pull request: none: source not committed")
+
+	failed := queuedRun()
+	failed["status"] = "failed"
+	failed["failure_code"] = "brand_new_code"
+	failed["failure_message"] = "Something new\x1b[2J went wrong"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: Something new")
+	assert.NotContains(t, out, "\x1b")
+
+	delete(failed, "failure_message")
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: brand new code")
+}

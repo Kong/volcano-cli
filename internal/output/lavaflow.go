@@ -132,7 +132,7 @@ func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextComman
 			run.Id.String(),
 			Truncate(lavaFlowIssue(run), 36),
 			lavaFlowTrigger(run.Trigger),
-			statusCell(string(run.Status), 10, on),
+			statusCell(theme.StripControl(string(run.Status)), 10, on),
 			Truncate(lavaFlowResult(run), 26),
 			FormatTimeAgo(run.CreatedAt),
 		)
@@ -155,7 +155,7 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 		kv(w, on, "Issue", "%s (%s)", theme.StripControl(issue.Title), issue.Id)
 	}
 	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run.Trigger))
-	kv(w, on, "Status", "%s", theme.Status(string(run.Status), on))
+	kv(w, on, "Status", "%s", theme.Status(theme.StripControl(string(run.Status)), on))
 	if reason := lavaFlowFailure(run); reason != "" {
 		kv(w, on, "Reason", "%s", reason)
 	}
@@ -186,7 +186,7 @@ func lavaFlowDiagnosis(w io.Writer, on bool, diagnosis *apiclient.LavaFlowDiagno
 	kv(w, on, "Summary", "%s", theme.StripControl(diagnosis.Summary))
 	kv(w, on, "Root cause", "%s", theme.StripControl(diagnosis.RootCause))
 	kv(w, on, "Suggested fix", "%s", theme.StripControl(diagnosis.SuggestedFix))
-	kv(w, on, "Confidence", "%s", diagnosis.Confidence)
+	kv(w, on, "Confidence", "%s", theme.StripControl(string(diagnosis.Confidence)))
 	if diagnosis.Fixable {
 		kv(w, on, "Fixable", "yes")
 	} else {
@@ -204,7 +204,7 @@ func lavaFlowDiagnosis(w io.Writer, on bool, diagnosis *apiclient.LavaFlowDiagno
 		if evidence.Location != nil && *evidence.Location != "" {
 			where = " (" + theme.StripControl(*evidence.Location) + ")"
 		}
-		kv(w, on, "Evidence", "%s%s: %s", evidence.Kind, where, theme.StripControl(evidence.Detail))
+		kv(w, on, "Evidence", "%s%s: %s", theme.StripControl(string(evidence.Kind)), where, theme.StripControl(evidence.Detail))
 	}
 }
 
@@ -250,9 +250,10 @@ func lavaFlowResult(run *apiclient.LavaFlowRun) string {
 		return fmt.Sprintf("PR #%d %s", run.PullRequest.Number, lavaFlowPullRequestState(run.PullRequest))
 	case run.Status == apiclient.LavaFlowRunStatusSucceeded && run.Diagnosis != nil:
 		return "diagnosed"
-	case run.FailureCode != nil:
-		return lavaFlowFailure(run)
 	default:
+		if reason := lavaFlowFailure(run); reason != "" {
+			return reason
+		}
 		return "-"
 	}
 }
@@ -261,14 +262,14 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 	if pr.State == apiclient.LavaFlowPullRequestStateMerged && pr.DeployedAt != nil {
 		return "merged, deployed"
 	}
-	return string(pr.State)
+	return theme.StripControl(string(pr.State))
 }
 
 // lavaFlowFailureText says why a run stopped, or why a queued run waits, in
 // LavaFlow's words. A queued run with any other code is retrying its last
 // attempt, which lavaFlowFailure puts first, like "waiting:", so the runs
-// list's narrow Result column keeps it. The API's failure_message is not
-// printed: --json carries it for anyone who needs the raw detail.
+// list's narrow Result column keeps it. Volcano adds codes over time, so a
+// code missing here shows the API's failure_message, or the code as words.
 var lavaFlowFailureText = map[string]string{
 	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
 	"feature_paused":         "waiting: Volcano paused LavaFlow runs; the run resumes when they restart",
@@ -286,18 +287,24 @@ var lavaFlowFailureText = map[string]string{
 }
 
 func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
-	code := ""
+	code, message := "", ""
 	if run.FailureCode != nil {
-		code = *run.FailureCode
+		code = theme.StripControl(strings.TrimSpace(*run.FailureCode))
+	}
+	if run.FailureMessage != nil {
+		message = theme.StripControl(strings.TrimSpace(*run.FailureMessage))
 	}
 	text, ok := lavaFlowFailureText[code]
 	switch {
-	case code == "":
-		return ""
-	case strings.HasPrefix(text, "waiting:"):
+	case ok && strings.HasPrefix(text, "waiting:"):
 		return text
-	case !ok:
-		text = theme.StripControl(code)
+	case ok:
+	case message != "":
+		text = message
+	case code != "":
+		text = codeWords(code)
+	default:
+		return ""
 	}
 	if run.Status == apiclient.LavaFlowRunStatusQueued {
 		return "retrying: " + text
@@ -316,9 +323,20 @@ var lavaFlowSkippedText = map[apiclient.LavaFlowPullRequestSkipped]string{
 	apiclient.LavaFlowPullRequestSkippedPublishFailed:     "the pull request could not be opened",
 }
 
+// lavaFlowSkipped says why a run opened no pull request. Volcano adds
+// reasons over time, so one missing here is shown as words.
 func lavaFlowSkipped(reason apiclient.LavaFlowPullRequestSkipped) string {
 	if text, ok := lavaFlowSkippedText[reason]; ok {
 		return text
 	}
-	return theme.StripControl(string(reason))
+	if words := codeWords(theme.StripControl(strings.TrimSpace(string(reason)))); words != "" {
+		return words
+	}
+	return "LavaFlow did not open one"
+}
+
+// codeWords shows an API code this CLI has no text for, such as
+// source_not_committed, as words.
+func codeWords(code string) string {
+	return strings.ReplaceAll(code, "_", " ")
 }
