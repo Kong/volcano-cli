@@ -64,6 +64,18 @@ func TestRunsGetKeepsTheDiagnosisLineBreaks(t *testing.T) {
 	assert.NotContains(t, out, "\r")
 }
 
+// An issue without a title is shown by its ID alone.
+func TestRunsGetShowsAnUntitledIssueByID(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := fixedRun()
+	run["trigger"] = issueTrigger("manual", lavaflowIssueID, "")
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Issue: "+lavaflowIssueID+"\n")
+}
+
 func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	run := fixedRun()

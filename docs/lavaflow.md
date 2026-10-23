@@ -82,8 +82,8 @@ Repository: acme/shop
 LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
-When no repository is connected, the status says so and names
-`volcano git connect`. When the project configuration narrows LavaFlow, with
+The status says when no repository is connected. When LavaFlow is on and set
+to open pull requests, it also names `volcano git connect`. When the project configuration narrows LavaFlow, with
 `max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
 that too, and the status says it while LavaFlow is off, because those settings
 apply when it is turned on. With `--json`, `repository_state` is `connected`,

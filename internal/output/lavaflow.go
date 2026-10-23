@@ -152,7 +152,11 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", run.Id.String())
 	if issue := lavaFlowRunIssue(run); issue != nil {
-		kv(w, on, "Issue", "%s (%s)", theme.StripControl(issue.Title), issue.Id)
+		if title := theme.StripControl(issue.Title); title != "" {
+			kv(w, on, "Issue", "%s (%s)", title, issue.Id)
+		} else {
+			kv(w, on, "Issue", "%s", issue.Id)
+		}
 	}
 	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run.Trigger))
 	kv(w, on, "Status", "%s", theme.Status(theme.StripControl(string(run.Status)), on))
