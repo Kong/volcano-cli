@@ -107,6 +107,7 @@ func TestRedact(t *testing.T) {
 		"proxy sbp1.AbC+dEf/GhI0123456789= denied":                                         "proxy [redacted] denied",
 		"exchange vbt_0123456789abcdefABCD failed":                                         "exchange [redacted] failed",
 		"login vpg_0123456789abcdef_ABCD-xyz refused":                                      "login [redacted] refused",
+		"answer vcb_0123456789abcdef_ABCD-xyz refused":                                     "answer [redacted] refused",
 		"GET https://x.dev/o/a.png?X-Amz-Signature=abc&b=1 failed":                         "GET https://x.dev/o/a.png?[redacted] failed",
 		"GET https://example.com?email=a@b.com&key=x failed":                               "GET https://example.com?[redacted] failed",
 		"dial postgres://admin:p@ss@db:5432/app failed":                                    "dial postgres://[redacted]@db:5432/app failed",
