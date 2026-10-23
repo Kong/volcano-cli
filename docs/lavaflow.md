@@ -9,8 +9,10 @@ LavaFlow watches this project's errors, diagnoses new issues automatically,
 and opens fix pull requests in your connected repository. Turning it on is the
 whole setup: there is nothing to choose and no key to bring.
 
-Runs start without a request once LavaFlow is on. You review and merge its
-pull requests like any other.
+By default, runs start without a request once LavaFlow is on. A project
+configuration with `auto_trigger: false` keeps them to `runs start` instead
+(see "Declare it in the project configuration" below). You review and merge
+its pull requests like any other.
 
 LavaFlow is in preview and needs a paid plan. LavaFlow is a usage-billed
 add-on, priced per issue and per fix pull request. Prices are announced before

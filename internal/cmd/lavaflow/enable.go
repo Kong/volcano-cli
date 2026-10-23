@@ -24,7 +24,9 @@ func newEnable(deps cliruntime.Deps) *cobra.Command {
 		Short: "Turn LavaFlow on",
 		Long: `Turn LavaFlow on for the current project. ` + clilavaflow.OnDescription + `
 
-Runs start without a request, and each one counts toward the project's usage.
+By default, runs start without a request; a project configuration with
+auto_trigger: false keeps them to '` + cliruntime.CommandPath(deps, "lavaflow runs start") + `'.
+Each run counts toward the project's usage.
 ` + clilavaflow.CostNote + `
 
 Turning LavaFlow on needs a paid plan and a person's login: a project access
