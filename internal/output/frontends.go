@@ -1,8 +1,10 @@
 package output
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -49,18 +51,26 @@ func printFrontendPageSummary(w io.Writer, on bool, page *apiclient.PaginatedFro
 	summary(w, on, "Showing %d of %d frontend(s) (page %d, limit %d)", len(page.Data), page.Total, page.Page, page.Limit)
 }
 
-// FrontendRouteEntry is one frontend function route and the function it forwards to.
+// FrontendRouteEntry is one route of a frontend: a function route and the
+// function it forwards to, or a Frontend route and the frontend it mounts.
 type FrontendRouteEntry struct {
 	ID          string
 	PathPrefix  string
 	StripPrefix bool
-	// Function is the target's name, or its ID when the name is unknown.
+	// Function is a function route's target name, or its ID when the name is
+	// unknown.
 	Function string
 	// Visibility is empty when the target is unknown.
 	Visibility string
+	// Frontend is set on a Frontend route only: the mounted frontend's name,
+	// or its ID when the name is unknown.
+	Frontend string
 }
 
-// Frontend renders one frontend detail view and its function routes.
+func (r FrontendRouteEntry) isFrontendRoute() bool { return r.Frontend != "" }
+
+// Frontend renders one frontend detail view and its function and Frontend
+// routes.
 func Frontend(w io.Writer, fe *apiclient.Frontend, routes []FrontendRouteEntry) {
 	if fe == nil {
 		return
@@ -90,40 +100,68 @@ func Frontend(w io.Writer, fe *apiclient.Frontend, routes []FrontendRouteEntry) 
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(fe.CreatedAt))
 	kv(w, on, "Updated", "%s", FormatTimestamp(fe.UpdatedAt))
-	if len(routes) > 0 {
+	var functionRoutes, frontendRoutes []FrontendRouteEntry
+	for _, route := range routes {
+		if route.isFrontendRoute() {
+			frontendRoutes = append(frontendRoutes, route)
+		} else {
+			functionRoutes = append(functionRoutes, route)
+		}
+	}
+	if len(functionRoutes) > 0 {
 		fmt.Fprintln(w, theme.Dim("Function routes:", on))
-		for _, route := range routes {
+		for _, route := range functionRoutes {
 			fmt.Fprintf(w, "  %s -> %s (%s)\n", route.PathPrefix, route.Function, routeDetails(route, on))
+		}
+	}
+	if len(frontendRoutes) > 0 {
+		fmt.Fprintln(w, theme.Dim("Frontend routes:", on))
+		for _, route := range frontendRoutes {
+			fmt.Fprintf(w, "  %s -> frontend %s\n", route.PathPrefix, route.Frontend)
 		}
 	}
 }
 
-// FrontendRoutes renders a frontend's function routes.
+// FrontendRoutes renders a frontend's function and Frontend routes, longest
+// path first: the longest matching prefix wins whatever the kind.
 func FrontendRoutes(w io.Writer, frontend string, routes []FrontendRouteEntry) {
 	if len(routes) == 0 {
-		fmt.Fprintf(w, "No function routes on frontend %q\n", frontend)
+		fmt.Fprintf(w, "No routes on frontend %q\n", frontend)
 		return
 	}
+	routes = slices.Clone(routes)
+	slices.SortStableFunc(routes, func(a, b FrontendRouteEntry) int {
+		return cmp.Compare(len(b.PathPrefix), len(a.PathPrefix))
+	})
 
 	on := theme.On(w)
-	tableHead(w, on, false, 120, "%-32s  %-24s  %-13s  %-5s  %-36s", "Path", "Function", "Visibility", "Strip", "ID")
+	tableHead(w, on, false, 130, "%-32s  %-8s  %-24s  %-13s  %-5s  %-36s", "Path", "Kind", "Target", "Visibility", "Strip", "ID")
 	for _, route := range routes {
-		fmt.Fprintf(w, "%-32s  %-24s  %s  %-5s  %-36s\n",
+		kind, target, visibility, strip := "function", route.Function, blankString(route.Visibility), formatBool(route.StripPrefix)
+		if route.isFrontendRoute() {
+			kind, target, visibility, strip = "frontend", route.Frontend, "-", "-"
+		}
+		fmt.Fprintf(w, "%-32s  %-8s  %-24s  %s  %-5s  %-36s\n",
 			Truncate(route.PathPrefix, 32),
-			Truncate(route.Function, 24),
-			statusCell(blankString(route.Visibility), 13, on),
-			formatBool(route.StripPrefix),
+			kind,
+			Truncate(target, 24),
+			statusCell(visibility, 13, on),
+			strip,
 			route.ID,
 		)
 	}
 	summary(w, on, "Total: %d route(s)", len(routes))
 }
 
-// FrontendRoute renders one frontend function route.
+// FrontendRoute renders one frontend route of either kind.
 func FrontendRoute(w io.Writer, route FrontendRouteEntry) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", route.ID)
 	kv(w, on, "Path", "%s", route.PathPrefix)
+	if route.isFrontendRoute() {
+		kv(w, on, "Frontend", "%s", route.Frontend)
+		return
+	}
 	kv(w, on, "Function", "%s", route.Function)
 	kv(w, on, "Visibility", "%s", theme.Status(blankString(route.Visibility), on))
 	kv(w, on, "Strip prefix", "%s", formatBool(route.StripPrefix))

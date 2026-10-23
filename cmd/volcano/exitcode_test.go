@@ -139,13 +139,14 @@ func TestRunNamedNotFoundErrorsExitNotFound(t *testing.T) {
 // the frontend and its routes.
 func TestRunMissingFrontendRouteExitsNotFound(t *testing.T) {
 	routesAt := "/projects/" + mainTestProjectAlpha + "/frontends/" + exitTestFrontendID + "/function-routes"
+	mountsAt := "/projects/" + mainTestProjectAlpha + "/frontends/" + exitTestFrontendID + "/frontend-routes"
 	code, stderr := runAgainst(t, "test-token", func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/projects/" + mainTestProjectAlpha + "/frontends":
 			respondExitTestJSON(w, http.StatusOK, `{"data":[{"id":"`+exitTestFrontendID+`","project_id":"`+mainTestProjectAlpha+
 				`","name":"web","framework":"nextjs","status":"ready","created_at":"2026-05-20T00:00:00Z","updated_at":"2026-05-20T00:00:00Z"}],`+
 				`"has_more":false,"page":1,"limit":100,"total":1}`)
-		case routesAt:
+		case routesAt, mountsAt:
 			respondExitTestJSON(w, http.StatusOK, `{"data":[]}`)
 		default:
 			respondExitTestJSON(w, http.StatusTeapot, `{"error":"unexpected `+r.Method+" "+r.URL.Path+`"}`)
