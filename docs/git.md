@@ -1,13 +1,14 @@
 ---
 title: "Git connection"
-description: "Bind a project to a GitHub repository so that pushing to its default branch deploys."
+description: "Bind a project to a GitHub repository so that pushing to its production branch deploys."
 ---
 
 ## What it is
 
 A binding between a **project** and a GitHub repository. Once connected, a push
-to the repository's default branch deploys the project — no CLI invocation
-needed.
+to the project's production branch deploys the project — no CLI invocation
+needed. The production branch is the repository's default branch unless you
+name another.
 
 Connecting only records the binding. Volcano never creates push credentials,
 never pushes on your behalf, and never writes a token into your `.git/config`.
@@ -23,8 +24,8 @@ Pushing stays your own `git push`, with the credentials already on your machine.
   token (`pk-`) and says so when run with a project access token. Which
   repository a project deploys from is a person's choice.
 - `root-directory` changes only the subdirectory the connected repository
-  builds from, and works with a project access token, so a CI job or an agent
-  can use it.
+  builds from, and `production-branch` only the branch a push has to land on.
+  Both work with a project access token, so a CI job or an agent can use them.
 - What a push actually deploys is governed by the project's Git deploy settings,
   reported after a successful connect.
 
@@ -35,6 +36,7 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Show the connection | `volcano git status` |
 | Connect | `volcano git connect [git-url]` |
 | Change the root directory | `volcano git root-directory <path>` |
+| Change the production branch | `volcano git production-branch <branch>` |
 | Disconnect | `volcano git disconnect` |
 
 ## Seeing what is connected
@@ -131,9 +133,10 @@ In a script or a CI job there is nobody to prompt, so a command that would ask
 fails and says to pass `--yes` rather than cancelling silently.
 
 After connecting, start deploying by pushing yourself. Only a push to the
-repository's GitHub default branch deploys — `volcano git connect` prints which
-branch that is, as `Production branch`. Pushing any other branch is safe and
-deploys nothing.
+production branch deploys — the repository's GitHub default branch, unless you
+[choose another](#changing-the-production-branch). `volcano git connect` prints
+which branch that is, as `Production branch`. Pushing any other branch is safe
+and deploys nothing.
 
 A bare `git push` goes to the repository the binding was read from, since both
 follow the same routing:
@@ -174,6 +177,35 @@ branch deploys, which is nothing while auto-deploy is off.
 A project with no repository connected has no root directory to change, so the
 command says so and exits non-zero.
 
+## Changing the production branch
+
+A push deploys only when it lands on the production branch. That is the
+repository's default branch unless you name another:
+
+```bash
+volcano git production-branch release
+volcano git production-branch --reset     # follow the repository's default branch again
+```
+
+The branch does not have to exist yet, so a project can point at a branch you
+are about to push. Volcano checks only that it is a valid Git branch name.
+
+A branch you name stays the production branch if the repository's default
+branch is renamed or changed on GitHub. With `--reset`, the project follows the
+default branch again, including later renames, and the command prints which
+branch that is. Volcano reads the default branch from GitHub through the project
+owner's GitHub connection: if that connection needs reconnecting, or has lost
+access to the repository, the command says so and nothing changes. A repository
+with no commits has no default branch yet, so name a branch instead.
+
+This works with a project access token, so a CI job or an agent can change it.
+
+Nothing is redeployed. Like `connect`, the command then says what a push to the
+production branch deploys, which is nothing while auto-deploy is off.
+
+A project with no repository connected has no production branch to change, so
+the command says so and exits non-zero.
+
 ## Disconnecting
 
 ```bash
@@ -202,5 +234,6 @@ configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
-`volcano git root-directory` reports that the integration is not configured,
-since no repository can be connected there for it to change.
+`volcano git root-directory` and `volcano git production-branch` report that
+the integration is not configured, since no repository can be connected there
+for them to change.

@@ -84,6 +84,26 @@ func GitRootDirectorySet(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitProductionBranchSet renders a production branch that was just set,
+// followed by what a push to it deploys. followsDefault says the branch was
+// reset to follow the repository's default: the connection names the branch
+// either way, and nothing in it says which of the two it is.
+func GitProductionBranchSet(w io.Writer, binding GitBinding, followsDefault bool) {
+	branch := binding.Connection.ProductionBranch
+	if followsDefault {
+		Success(w, "Production branch now follows the repository's default branch (%s).", branch)
+	} else {
+		Success(w, "Production branch set to %s", branch)
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	if followsDefault {
+		Note(w, "Nothing was redeployed.")
+	} else {
+		Note(w, "Nothing was redeployed. %s stays the production branch if the repository's default branch changes.", branch)
+	}
+	gitDeploySettings(w, binding)
+}
+
 // GitDisconnected renders a removed binding. The repository is untouched, which
 // is worth saying: "disconnect" reads as destructive and is not.
 func GitDisconnected(w io.Writer, repoFullName string) {

@@ -358,6 +358,28 @@ func (s Service) SetRootDirectory(
 	return connection, nil
 }
 
+// SetProductionBranch changes only the branch the project deploys from,
+// leaving the repository bound alone. A project access token may make it, like
+// SetRootDirectory. An empty branch makes the project follow the repository's
+// default branch again, and the connection returned names that default.
+func (s Service) SetProductionBranch(ctx context.Context, branch string) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	connection, err := authenticated.API.SetProjectGitProductionBranch(ctx, authenticated.ProjectID, branch)
+	if err != nil {
+		// The route answers 404 both for a project with no repository and for
+		// a project that does not exist, like the binding read.
+		if api.Status(err) == http.StatusNotFound {
+			return nil, s.explainNotFound(ctx)
+		}
+		return nil, classify(err, "failed to set the production branch")
+	}
+	return connection, nil
+}
+
 // CanConnect reports ErrProviderNotConfigured when this API has no GitHub App,
 // so no repository can be connected through it at all. That is the case in
 // local mode, and it is a better answer than "connect one" for a project with
