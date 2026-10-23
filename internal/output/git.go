@@ -85,11 +85,10 @@ func GitRootDirectorySet(w io.Writer, binding GitBinding) {
 }
 
 // GitProductionBranchSet renders a production branch that was just set,
-// followed by what a push to it deploys. followsDefault says the branch was
-// reset to follow the repository's default: the connection names the branch
-// either way, and nothing in it says which of the two it is.
-func GitProductionBranchSet(w io.Writer, binding GitBinding, followsDefault bool) {
+// followed by what a push to it deploys.
+func GitProductionBranchSet(w io.Writer, binding GitBinding) {
 	branch := binding.Connection.ProductionBranch
+	followsDefault := binding.Connection.ProductionBranchFollowsDefault
 	if followsDefault {
 		Success(w, "Production branch now follows the repository's default branch (%s).", branch)
 	} else {
@@ -117,7 +116,11 @@ func gitBindingDetail(w io.Writer, on bool, binding GitBinding) {
 		kv(w, on, "Project", "%s", binding.Project)
 	}
 	kv(w, on, "Repository", "%s", connection.RepoFullName)
-	kv(w, on, "Production branch", "%s", connection.ProductionBranch)
+	if connection.ProductionBranchFollowsDefault {
+		kv(w, on, "Production branch", "%s (follows the default)", connection.ProductionBranch)
+	} else {
+		kv(w, on, "Production branch", "%s (pinned)", connection.ProductionBranch)
+	}
 	if root := strings.TrimSpace(connection.RootDirectory); root != "" {
 		kv(w, on, "Root directory", "%s", root)
 	}

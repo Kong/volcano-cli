@@ -102,6 +102,6 @@ func runProductionBranch(ctx context.Context, opts productionBranchOptions) erro
 		Settings:    settings,
 		SettingsErr: settingsErr,
 		Project:     project.Label(),
-	}, opts.branch == "")
+	})
 	return nil
 }

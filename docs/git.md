@@ -46,9 +46,12 @@ volcano git status
 ```
 
 This reports the project's own binding — the repository, the branch a push has
-to land on, the subdirectory it builds from, and what a push deploys. It does
-not contact GitHub, so it tells you what the platform recorded rather than
-whether that recording still works.
+to land on, the subdirectory it builds from, and what a push deploys. The branch
+is marked `(follows the default)` when it is the repository's default branch and
+moves with it, or `(pinned)` when it was
+[chosen for the project](#changing-the-production-branch). It does not contact
+GitHub, so it tells you what the platform recorded rather than whether that
+recording still works.
 
 A project with nothing connected is not an error: it says so and exits 0, so the
 command is usable in a conditional. A project that does not exist — a deleted
@@ -120,9 +123,11 @@ volcano git connect --root-directory ""     # back to the repository root
 Connecting is idempotent: running it again on a project already bound to the
 same repository reports that nothing changed and writes nothing. "The same" means
 every part of the binding — the repository, the App installation, the root
-directory, and the production branch — so a repository whose GitHub default
-branch has moved is *not* unchanged, and re-running connect updates the branch a
-push has to land on. A repository renamed on
+directory, and the production branch — so for a project that follows the
+default branch, a repository whose GitHub default branch has moved is *not*
+unchanged, and re-running connect updates the branch a push has to land on. A
+pinned branch is left as it is, and connecting the same repository again keeps
+it. A repository renamed on
 GitHub is still the same repository — the binding follows its id, not its name —
 so re-running connect simply refreshes the name. Re-running it with a
 different `--root-directory` edits that, as `volcano git root-directory` does. Pointing it at a *different* repository asks for
@@ -190,10 +195,12 @@ volcano git production-branch --reset     # follow the repository's default bran
 The branch does not have to exist yet, so a project can point at a branch you
 are about to push. Volcano checks only that it is a valid Git branch name.
 
-A branch you name stays the production branch if the repository's default
-branch is renamed or changed on GitHub. With `--reset`, the project follows the
+A branch you name is pinned: it stays the production branch if the repository's
+default branch is renamed or changed on GitHub, and re-running
+`volcano git connect` for the same repository keeps it. Naming the branch that
+is the default today pins it too. With `--reset`, the project follows the
 default branch again, including later renames, and the command prints which
-branch that is. Volcano reads the default branch from GitHub through the project
+branch that is. `volcano git status` shows which of the two applies. Volcano reads the default branch from GitHub through the project
 owner's GitHub connection: if that connection needs reconnecting, or has lost
 access to the repository, the command says so and nothing changes. A repository
 with no commits has no default branch yet, so name a branch instead.
