@@ -10,42 +10,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// localModeE2EDurableCallbackSource is the cloud E2E's workflow: callbacks work
-// the same in both modes, and so does the code a user writes for them. Each
-// submitter logs its token for the test to answer with.
+// localModeE2EDurableCallbackSource is the cloud E2E's workflow in Python:
+// callbacks work the same in both modes, and so does the code a user writes for
+// them. Each submitter prints its token for the test to answer with.
 const localModeE2EDurableCallbackSource = `
-const { durable, CallbackFailedError } = require('@volcano.dev/sdk/durable');
+from volcano_sdk.durable_authoring import CallbackFailedError, durable
 
-const handOff = (name) => (token) => {
-  console.log('callback-token ' + name + ' ' + token);
-};
 
-exports.handler = durable(async (input, ctx) => {
-  const paid = await ctx.waitForCallback('payment', handOff('payment'), {
-    timeout: '10m',
-    heartbeatTimeout: '5m',
-  });
-  let declined = null;
-  try {
-    await ctx.waitForCallback('refund', handOff('refund'), { timeout: '10m' });
-  } catch (error) {
-    if (!(error instanceof CallbackFailedError)) throw error;
-    declined = { type: error.type, message: error.message };
-  }
-  return { paid, declined };
-});
+def hand_off(name):
+    def submit(token):
+        print(f"callback-token {name} {token}", flush=True)
+
+    return submit
+
+
+@durable
+def handler(event, ctx):
+    paid = ctx.wait_for_callback("payment", hand_off("payment"), timeout="10m", heartbeat_timeout="5m")
+    declined = None
+    try:
+        ctx.wait_for_callback("refund", hand_off("refund"), timeout="10m")
+    except CallbackFailedError as error:
+        declined = {"type": error.type, "message": error.message}
+    return {"paid": paid, "declined": declined}
 `
 
-// localModeE2EDurableCallbackManifest pins the first SDK release that ships
-// ctx.waitForCallback.
-const localModeE2EDurableCallbackManifest = `{
-  "name": "callback-pipeline",
-  "private": true,
-  "dependencies": {
-    "@volcano.dev/sdk": "^2.2.0"
-  }
-}
-`
+// localModeE2EDurableCallbackRequirements builds volcano-sdk-python from a
+// fixed commit's source archive, which needs no git in the local image: the
+// callbacks change ships to Volcano before the SDK release that has
+// ctx.wait_for_callback. It is the head of Kong/volcano-sdk-python#400 until
+// that merges, then its merge commit on main, and once 0.16 is published it
+// becomes "volcano-sdk-python~=0.16.0".
+const localModeE2EDurableCallbackRequirements = "volcano-sdk-python @ " +
+	"https://github.com/Kong/volcano-sdk-python/archive/0f5fd6ea0b5c6d0d90d657ccf3d274b5943e7aec.tar.gz\n"
 
 // TestLocalModeE2EDurableCallbacks is the cloud callbacks round trip against
 // the local stack: a heartbeat and a success on one token, a failure on the
@@ -71,8 +68,8 @@ functions:
   - name: callback-pipeline
     kind: durable
 `)
-	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "index.js"), localModeE2EDurableCallbackSource)
-	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "package.json"), localModeE2EDurableCallbackManifest)
+	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "main.py"), localModeE2EDurableCallbackSource)
+	writeLocalModeE2EFile(t, dir, filepath.Join(functionDir, "requirements.txt"), localModeE2EDurableCallbackRequirements)
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "start"),
 		"Volcano is ready for local development.")
 
