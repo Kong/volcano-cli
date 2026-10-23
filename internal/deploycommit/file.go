@@ -169,24 +169,31 @@ type lfWriter struct {
 }
 
 func (l *lfWriter) Write(p []byte) (int, error) {
-	out := make([]byte, 0, len(p)+1)
-	for _, c := range p {
+	n := len(p)
+	for len(p) > 0 {
 		if l.cr {
 			l.cr = false
-			if c != '\n' {
-				out = append(out, '\r')
+			if p[0] != '\n' {
+				if _, err := l.w.Write([]byte{'\r'}); err != nil {
+					return 0, err
+				}
 			}
 		}
-		if c == '\r' {
-			l.cr = true
-			continue
+		i := bytes.IndexByte(p, '\r')
+		if i < 0 {
+			if _, err := l.w.Write(p); err != nil {
+				return 0, err
+			}
+			break
 		}
-		out = append(out, c)
+		// Hold the CR back until the next byte says whether it ends a CRLF.
+		if _, err := l.w.Write(p[:i]); err != nil {
+			return 0, err
+		}
+		l.cr = true
+		p = p[i+1:]
 	}
-	if _, err := l.w.Write(out); err != nil {
-		return 0, err
-	}
-	return len(p), nil
+	return n, nil
 }
 
 // flush writes a final CR held back in case an LF followed it.
