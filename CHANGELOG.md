@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.51.0](https://github.com/Kong/volcano-cli/compare/v0.50.0...v0.51.0) (2026-10-23)
+
+
+### Features
+
+* **feedback:** add volcano feedback command for agent-reported issues ([#319](https://github.com/Kong/volcano-cli/issues/319)) ([cd3d4cb](https://github.com/Kong/volcano-cli/commit/cd3d4cb1213991a0e55754eff72f26aba99646eb))
+* **frontends:** deploy another frontend's build with --from ([#321](https://github.com/Kong/volcano-cli/issues/321)) ([9107a67](https://github.com/Kong/volcano-cli/commit/9107a670137c9ab9f7488877e6433f0a14ae8ca1))
+* **frontends:** manage several custom domains and redirects per frontend ([#323](https://github.com/Kong/volcano-cli/issues/323)) ([4a15e48](https://github.com/Kong/volcano-cli/commit/4a15e487a6f7529b24544216844f3d32801d1069))
+* **notifications:** manage scheduler failure alerts ([#324](https://github.com/Kong/volcano-cli/issues/324)) ([a76344f](https://github.com/Kong/volcano-cli/commit/a76344f376d04c3da4740bc5d460e22819b9df86))
+
 ## [0.50.0](https://github.com/Kong/volcano-cli/compare/v0.49.0...v0.50.0) (2026-10-21)
 
 
