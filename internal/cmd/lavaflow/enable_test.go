@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
@@ -82,4 +83,16 @@ func TestEnableOnAPlanThatNoLongerAllowsLavaFlow(t *testing.T) {
 	assert.Contains(t, out, "LavaFlow is on")
 	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
 	assert.NotContains(t, out, clilavaflow.OnDescription)
+}
+
+// Turning LavaFlow on decides which repository it works in, so a project
+// access token is refused before anything is sent.
+func TestEnableWithAProjectTokenSaysAPersonHasToTurnItOn(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+
+	_, err := executeLavaflowCommand(t, New(deps), "enable")
+	require.ErrorIs(t, err, clilavaflow.ErrPersonMustTurnOn)
+	assert.Contains(t, err.Error(), "a person has to turn LavaFlow on")
+	assert.Empty(t, fake.updates)
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -31,6 +32,17 @@ const OnDescription = "LavaFlow watches this project's errors, diagnoses new iss
 
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"
+
+// codeRepositoryChanged is the code of a start refused because the project
+// points at another repository than when LavaFlow was turned on.
+const codeRepositoryChanged = "repository_changed"
+
+// ErrPersonMustTurnOn refuses turning LavaFlow on with a project access token.
+// Turning it on decides which repository LavaFlow reads and opens pull
+// requests in, so the API leaves it to a person, and the CLI says so before
+// asking.
+var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a project access token can't. " +
+	"Sign in with 'volcano login' and run this again, or turn it on in the dashboard")
 
 // MaxRunsLimit is the largest page of runs the API returns.
 const MaxRunsLimit = 100
@@ -110,6 +122,9 @@ func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaF
 	if err != nil {
 		return nil, err
 	}
+	if enabled && config.IsProjectToken(authenticated.Config.Token()) {
+		return nil, ErrPersonMustTurnOn
+	}
 	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
 		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
 	if err != nil {
@@ -168,6 +183,11 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	}
 	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
 	if err != nil {
+		// The server's message already says which repository changed and what
+		// to do, so it is shown as given.
+		if api.Code(err) == codeRepositoryChanged && api.Message(err) != "" {
+			return nil, api.WithCause(errors.New(api.Message(err)), err)
+		}
 		return nil, retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now())
 	}
 	return run, nil

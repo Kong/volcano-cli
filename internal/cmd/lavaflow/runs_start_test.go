@@ -76,3 +76,19 @@ func TestRunsStartReportsARunLimitAndWhenToRetry(t *testing.T) {
 		assert.Equal(t, "issue_run_limit", api.Code(err))
 	}
 }
+
+// The server's message already splits the two cases, so it is shown as given.
+func TestRunsStartShowsWhyTheRepositoryChangeStopsIt(t *testing.T) {
+	const message = "The project's repository changed from acme/old since LavaFlow was turned on. " +
+		"Turn LavaFlow on again to use the new repository."
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse = http.StatusConflict
+		s.refusal = map[string]any{"error": message, "code": "repository_changed"}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", "--issue", lavaflowIssueID)
+	require.Error(t, err)
+	assert.Equal(t, message, err.Error())
+	assert.Equal(t, http.StatusConflict, api.Status(err), "the exit code still reports the refusal")
+}
