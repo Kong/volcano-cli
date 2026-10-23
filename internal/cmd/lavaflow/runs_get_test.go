@@ -58,6 +58,20 @@ func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 	assert.Contains(t, out, "Pull request: none: a code change would not fix it")
 }
 
+// A diagnose-only run has neither a pull request nor a skipped reason.
+func TestRunsGetSaysADiagnoseOnlyRunOpensNoPullRequest(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := fixedRun()
+	delete(run, "pull_request")
+	run["max_stage"] = "diagnose"
+	run["stage_reached"] = "diagnose"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Pull request: none: the run only diagnoses (max_stage: diagnose)")
+}
+
 func TestRunsGetJSONKeepsTheRawRun(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{fixedRun()} })

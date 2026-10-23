@@ -56,6 +56,23 @@ func TestStatusNamesWhatTheProjectConfigurationNarrowed(t *testing.T) {
 	assert.NotContains(t, out, "Connect a repository", "diagnosing needs no repository")
 }
 
+// The saved settings apply the next time LavaFlow is turned on, so the status
+// names them while it is off, without saying it is running.
+func TestStatusOffStillNamesTheSavedLimits(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["max_stage"] = "diagnose"
+		s.settings["auto_trigger"] = false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow: off")
+	assert.Contains(t, out, "When it is on, LavaFlow diagnoses issues but opens no pull requests (max_stage: diagnose")
+	assert.Contains(t, out, "When it is on, LavaFlow runs only when a run is started by hand (auto_trigger: false")
+	assert.Contains(t, out, "Turn it on: volcano cloud lavaflow enable")
+}
+
 // A connection that could not be read is reported as unknown, never as none.
 func TestStatusRepositoryUnknown(t *testing.T) {
 	fake, deps := newLavaflowServer(t)

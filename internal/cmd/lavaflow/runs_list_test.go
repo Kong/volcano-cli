@@ -55,6 +55,19 @@ func TestRunsListPagesWithTheCursor(t *testing.T) {
 	})
 }
 
+// The cursor is opaque, so the next-page hint quotes it for the shell.
+func TestRunsListQuotesTheCursor(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.runs = []map[string]any{fixedRun()}
+		s.nextCursor = "a b'c"
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, `--cursor 'a b'\''c'`)
+}
+
 func TestRunsListRefusesALimitOutOfRange(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 

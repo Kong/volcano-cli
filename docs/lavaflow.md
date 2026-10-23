@@ -60,7 +60,9 @@ Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull reque
 ```
 
 A project whose plan does not allow LavaFlow is refused, and the command exits
-non-zero. Turn it off again with `volcano cloud lavaflow disable`. Runs that
+non-zero. A project that had LavaFlow on before its plan changed stays on;
+`enable` then succeeds and says no run starts until the plan allows LavaFlow
+again. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
 Turning LavaFlow off works even when the project's plan cannot be checked; then
 `max_stage` and `auto_trigger` go back to their defaults, and the command says
@@ -83,7 +85,8 @@ LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Pr
 When no repository is connected, the status says so and names
 `volcano git connect`. When the project configuration narrows LavaFlow, with
 `max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
-that too. With `--json`, `repository_state` is `connected`, `not_connected`, or
+that too, and the status says it while LavaFlow is off, because those settings
+apply when it is turned on. With `--json`, `repository_state` is `connected`, `not_connected`, or
 `unknown` when the connection could not be read.
 
 ## Follow the runs
@@ -102,7 +105,8 @@ ID                                    Issue                                 Trig
 
 `runs get` shows a run's diagnosis: a summary, the root cause, the suggested
 fix, the evidence it found, and the pull request it opened. When it opened
-none, it says why, such as a code change not fixing the issue. Add `--json` for
+none, it says why, such as a code change not fixing the issue or
+`max_stage: diagnose`. Add `--json` for
 the full run, including the proposed edits.
 
 ```bash

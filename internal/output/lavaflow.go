@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
@@ -50,6 +51,9 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 
 	fmt.Fprintln(w)
 	for _, limit := range lavaFlowLimits(settings) {
+		if !settings.Enabled {
+			limit = "When it is on, " + limit
+		}
 		Note(w, "%s", limit)
 	}
 	opensPullRequests := settings.MaxStage == apiclient.LavaFlowStagePullRequest
@@ -90,11 +94,10 @@ func LavaFlowEnabled(w io.Writer, settings *apiclient.LavaFlowSettings, onDescri
 
 // lavaFlowLimits names the settings a project configuration file narrowed.
 // LavaFlow on runs on its own and opens pull requests; anything less is
-// worth saying, because on/off is all the command shows otherwise.
+// worth saying, because on/off is all the command shows otherwise. The saved
+// settings apply the next time LavaFlow is turned on, so they count while it
+// is off too.
 func lavaFlowLimits(settings *apiclient.LavaFlowSettings) []string {
-	if !settings.Enabled {
-		return nil
-	}
 	var limits []string
 	if settings.MaxStage == apiclient.LavaFlowStageDiagnose {
 		limits = append(limits, "LavaFlow diagnoses issues but opens no pull requests (max_stage: diagnose in the project configuration).")
@@ -130,7 +133,7 @@ func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextComman
 		)
 	}
 	if page.HasMore && page.NextCursor != nil {
-		nextPage(w, on, fmt.Sprintf("%s --cursor %s", nextCommand, *page.NextCursor))
+		nextPage(w, on, fmt.Sprintf("%s --cursor %s", nextCommand, cliruntime.ShellQuote(*page.NextCursor)))
 	}
 }
 
@@ -162,6 +165,8 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 		kv(w, on, "Pull request", "%s (%s)", theme.StripControl(pr.Url), lavaFlowPullRequestState(pr))
 	} else if run.PullRequestSkipped != nil {
 		kv(w, on, "Pull request", "none: %s", lavaFlowSkipped(*run.PullRequestSkipped))
+	} else if run.MaxStage == apiclient.LavaFlowStageDiagnose && run.Status == apiclient.LavaFlowRunStatusSucceeded {
+		kv(w, on, "Pull request", "none: the run only diagnoses (max_stage: diagnose)")
 	}
 	if run.CommitSha != nil {
 		kv(w, on, "Commit", "%s", theme.StripControl(*run.CommitSha))
