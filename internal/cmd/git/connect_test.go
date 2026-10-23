@@ -512,6 +512,8 @@ func TestConnectWithAProjectTokenPointsAtTheRootDirectoryCommand(t *testing.T) {
 	for root, command := range map[string]string{
 		"apps/api":  "volcano git root-directory apps/api",
 		"apps/my x": "volcano git root-directory 'apps/my x'",
+		"--reset":   "volcano git root-directory -- --reset",
+		"-web":      "volcano git root-directory -- -web",
 		"":          "volcano git root-directory --reset",
 	} {
 		_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},

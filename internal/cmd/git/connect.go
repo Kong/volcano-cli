@@ -396,12 +396,17 @@ func sameRepositoryBinding(existing *apiclient.ProjectGitConnection, target *git
 }
 
 // rootDirectoryCommand is the root-directory command that sets rootDirectory,
-// ready to paste.
+// ready to paste. A directory starting with a hyphen follows "--", or it would
+// be read as a flag: one named --reset would reset instead.
 func rootDirectoryCommand(deps cliruntime.Deps, rootDirectory string) string {
 	if rootDirectory == "" {
 		return cliruntime.CommandPath(deps, "git root-directory --reset")
 	}
-	return cliruntime.CommandPath(deps, "git root-directory "+cliruntime.ShellQuote(rootDirectory))
+	argument := cliruntime.ShellQuote(rootDirectory)
+	if strings.HasPrefix(rootDirectory, "-") {
+		argument = "-- " + argument
+	}
+	return cliruntime.CommandPath(deps, "git root-directory "+argument)
 }
 
 // rootDirectoryFor decides what the full-replace bind carries. An omitted flag
