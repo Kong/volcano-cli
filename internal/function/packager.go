@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
@@ -45,6 +46,10 @@ type Package struct {
 	// sends neither field and the server keeps the function's stored scope.
 	VariableScope *string
 	Variables     *[]string
+
+	// Commit is the commit the source came from, nil when the deploy reports
+	// none. The deploy command detects it once for the whole run.
+	Commit *api.DeployCommit
 }
 
 // PackageSource packages a cloud function source bundle with manifests and shared libraries.

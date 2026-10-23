@@ -13,6 +13,7 @@ import (
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -236,6 +237,7 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 		VariableScope: variableScope,
 		Variables:     opts.variables,
 		Archive:       pkg.Archive,
+		Commit:        deploycommit.Detect(ctx, opts.deps, absPath),
 	})
 	if err != nil {
 		return nil, err

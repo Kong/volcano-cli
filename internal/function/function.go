@@ -139,6 +139,7 @@ func (s Service) DeployPackage(ctx context.Context, pkg Package) (*apiclient.Fun
 		SourceArchive: pkg.ArchiveData,
 		VariableScope: pkg.VariableScope,
 		Variables:     pkg.Variables,
+		Commit:        pkg.Commit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy function %q: %w", pkg.Name, err)
@@ -162,6 +163,7 @@ func (s Service) DeployPackageBatch(ctx context.Context, packages []Package) (*a
 			SourceArchive: pkg.ArchiveData,
 			VariableScope: pkg.VariableScope,
 			Variables:     pkg.Variables,
+			Commit:        pkg.Commit,
 		})
 	}
 	resp, err := authenticated.API.DeployFunctionsBatch(ctx, authenticated.ProjectID, inputs)

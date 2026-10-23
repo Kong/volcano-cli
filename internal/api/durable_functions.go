@@ -27,6 +27,8 @@ type DurableFunctionDeployInput struct {
 	// declared none — which leaves an existing function's scope alone.
 	VariableScope *string
 	Variables     *[]string
+	// Commit is the commit the source came from, nil to send none.
+	Commit *DeployCommit
 }
 
 // DurableExecutionStartInput contains one durable execution start request. Name
@@ -281,6 +283,9 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 		if err := writer.WriteField("variables", string(encoded)); err != nil {
 			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
+	}
+	if err := writeCommitField(writer, fn.Commit); err != nil {
+		return nil, "", err
 	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
 		return nil, "", err

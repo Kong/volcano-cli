@@ -188,6 +188,33 @@ the domain of an entry without `custom_domain`. Deploying a manifest written by
 `volcano config pull` keeps every domain on either server, and the dry run
 lists any domain it would delete.
 
+## Source commit
+
+A cloud deploy of functions, durable functions, or frontends reports the commit
+its source came from, so Volcano can tie each deployment to your repository.
+The CLI sends three things: the GitHub repository as `owner/name`, the commit
+ID, and whether the working tree had uncommitted changes. It never sends the
+remote URL or any credentials in it, file paths, branch names, or diffs.
+
+In GitHub Actions the CLI reads `GITHUB_REPOSITORY` and `GITHUB_SHA`; elsewhere
+it reads the `origin` remote and the checked-out commit. It sends nothing, and
+the deploy goes ahead, when git isn't available, the repository isn't on
+github.com, or any part is missing. Local deploys never send it.
+
+Volcano verifies the commit against the project's connected repository: a
+commit on its production branch is verified. LavaFlow reads source and opens
+fix pull requests only for a deployment whose commit is verified and whose
+working tree was clean, so commit your changes before you deploy. A workflow
+run for a pull request deploys GitHub's merge commit, which is on no branch, so
+that deployment is recorded unverified. `frontends deploy --from` and a
+redeploy keep the commit of the build they publish.
+
+To send nothing, set:
+
+```bash
+export VOLCANO_DEPLOY_COMMIT=off
+```
+
 ## Cloud projects that deploy from Git
 
 When a cloud project's code deploys from its connected repository, functions

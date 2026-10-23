@@ -11,9 +11,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
 	"github.com/Kong/volcano-cli/internal/projectconfig"
@@ -184,10 +186,11 @@ func deploy(ctx context.Context, opts deployOptions) ([]apiclient.Function, erro
 	}
 
 	report := newDeployReport(ctx, opts, service, manifest.Visibility)
+	commit := deploycommit.Detect(ctx, opts.deps, baseDir)
 	if opts.all {
-		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, report)
+		err = runDeployAll(ctx, opts.out, service, baseDir, sources, opts.batchAll, manifest.Declarations, commit, report)
 	} else {
-		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, report)
+		err = runDeployOne(ctx, opts.out, service, baseDir, sources[0], manifest.Declarations, commit, report)
 	}
 	report.finish(opts.out, opts.errOut)
 	return report.started, err
@@ -293,7 +296,7 @@ func applyVariableDeclaration(pkg *clifunction.Package, declarations map[string]
 
 func runDeployOne(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, source clifunction.SourceInfo,
-	declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	declarations map[string]projectconfig.FunctionVariableDeclaration, commit *api.DeployCommit, report *deployReport,
 ) error {
 	fmt.Fprintf(out, "\n[1/1] Deploying %s...\n", source.Name)
 	printSourceSummary(out, source)
@@ -303,6 +306,7 @@ func runDeployOne(
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 	applyVariableDeclaration(pkg, declarations)
+	pkg.Commit = commit
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -317,7 +321,8 @@ func runDeployOne(
 
 func runDeployAll(
 	ctx context.Context, out io.Writer, service clifunction.Service, baseDir string, sources []clifunction.SourceInfo,
-	batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, report *deployReport,
+	batch bool, declarations map[string]projectconfig.FunctionVariableDeclaration, commit *api.DeployCommit,
+	report *deployReport,
 ) error {
 	packages := make([]clifunction.Package, 0, len(sources))
 	var totalSize int64
@@ -330,6 +335,7 @@ func runDeployAll(
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 		applyVariableDeclaration(pkg, declarations)
+		pkg.Commit = commit
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}
