@@ -217,7 +217,7 @@ func deployOne(
 		pkg.VariableScope = declaration.VariableScope
 		pkg.Variables = declaration.Variables
 	}
-	pkg.Commit = checkout.Commit(ctx, pkg.Sources, pkg.Reads)
+	pkg.Commit = checkout.Commit(ctx, pkg.Files, pkg.Reads)
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 
 	deployed, created, err = service.Deploy(ctx, *pkg, visibility)

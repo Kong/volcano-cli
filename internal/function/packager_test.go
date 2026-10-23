@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 )
 
 func TestPackageSourceRenamesSingleFilesToStandardEntrypoints(t *testing.T) {
@@ -48,7 +49,9 @@ func TestPackageSourceRenamesSingleFilesToStandardEntrypoints(t *testing.T) {
 			names := packageArchiveNames(t, pkg.ArchiveData)
 			assert.Contains(t, names, tc.wantEntry)
 			assert.NotContains(t, names, tc.filename)
-			assert.Equal(t, []string{path}, pkg.Sources, "the renamed entrypoint names the file it was read from")
+			require.Len(t, pkg.Files, 1)
+			assert.Equal(t, path, pkg.Files[0].Path, "the renamed entrypoint names the file it was read from")
+			assert.Nil(t, pkg.Files[0].Executable, "the archive keeps no executable bit")
 		})
 	}
 }
@@ -88,7 +91,7 @@ func TestPackageSourceIncludesManifestsAndSharedLibraries(t *testing.T) {
 		filepath.Join(dir, "package.json"),
 		filepath.Join(dir, "volcano", "lib", "_helpers", "format.js"),
 		filepath.Join(dir, "volcano", "functions", "_runtime", "config", "defaults.json"),
-	}, pkg.Sources, "each archived file names the file it was read from")
+	}, filePaths(pkg.Files), "each archived file names the file it was read from")
 	assert.Contains(t, pkg.Reads, functionDir)
 	assert.Contains(t, pkg.Reads, filepath.Join(dir, "volcano", "lib", "_helpers"))
 	assert.Contains(t, pkg.Reads, filepath.Join(functionDir, "package.json"), "a manifest looked for counts, though absent")
@@ -251,4 +254,12 @@ func packageArchiveNames(t *testing.T, archiveData []byte) []string {
 		names = append(names, header.Name)
 	}
 	return names
+}
+
+func filePaths(files []deploycommit.File) []string {
+	paths := make([]string, len(files))
+	for i, file := range files {
+		paths[i] = file.Path
+	}
+	return paths
 }

@@ -12,10 +12,6 @@ package deploycommit
 
 import (
 	"context"
-	"crypto/sha1" //nolint:gosec // git names a blob by its SHA-1; this matches it, it does not secure anything
-	"encoding/hex"
-	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,9 +32,9 @@ const OptOutEnv = "VOLCANO_DEPLOY_COMMIT"
 // deploy; a timeout reports nothing, like any other failure.
 const gitTimeout = 10 * time.Second
 
-// maxHashArgs bounds the paths one `git hash-object` call names, in bytes,
+// maxPathArgs bounds the paths one `git check-attr` call names, in bytes,
 // well under Windows' 32,767-character command line.
-const maxHashArgs = 8000
+const maxPathArgs = 8000
 
 // The server's own checks, so a value it would refuse is never sent.
 var (
@@ -64,6 +60,9 @@ type Source struct {
 	tree map[string]treeEntry
 	// fileMode is whether git tracks the executable bit here.
 	fileMode bool
+	// autocrlf is whether core.autocrlf has git store CRLF line endings
+	// as LF.
+	autocrlf bool
 	git      cliruntime.CommandRunner
 }
 
@@ -112,7 +111,10 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 	if err != nil {
 		return nil
 	}
-	tree, err := run(ctx, git, root, "ls-tree", "-r", "-z", "--full-tree", "HEAD")
+	// The tree is read at the commit already read, never HEAD again, so a
+	// checkout that moves meanwhile cannot pair one commit with another's
+	// files.
+	tree, err := run(ctx, git, root, "ls-tree", "-r", "-z", "--full-tree", sha)
 	if err != nil {
 		return nil
 	}
@@ -122,18 +124,25 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 		root:       root,
 		tree:       parseTree(tree),
 		fileMode:   tracksFileMode(ctx, git, root),
+		autocrlf:   autocrlfOn(ctx, git, root),
 		git:        git,
 	}
 }
 
-// Commit reports the commit for one upload. files are the project files the
-// upload holds; reads are the files and directories packaging read from. The
-// upload is clean only when each file is in the commit at its own path, with
-// the content and executable bit the commit gives it, and no file the commit
-// holds under reads is missing. Anything else marks it dirty: an untracked or
-// ignored file, an edit git's own status would not show, or a deleted file.
-// It returns nil when s is nil or a file cannot be read.
-func (s *Source) Commit(ctx context.Context, files, reads []string) *api.DeployCommit {
+// Commit reports the commit for one upload. files are the files the upload
+// holds; reads are the files and directories packaging read from. The upload
+// is clean only when each file is in the commit at its own path, with the
+// content the commit gives it and, where the archive keeps one, the same
+// executable bit, and no file the commit holds under reads is missing.
+// Anything else marks it dirty: an untracked or ignored file, an edit git's
+// own status would not show, or a deleted file. It returns nil when s is nil
+// or git cannot be asked.
+//
+// Content is compared without running git: a clean or smudge filter is a
+// program the repository's configuration names. Line endings git converts
+// and Git LFS pointers are compared here instead; content another filter
+// changes reads as changed.
+func (s *Source) Commit(ctx context.Context, files []File, reads []string) *api.DeployCommit {
 	if s == nil {
 		return nil
 	}
@@ -144,13 +153,12 @@ func (s *Source) Commit(ctx context.Context, files, reads []string) *api.DeployC
 	return &api.DeployCommit{Repository: s.repository, SHA: s.sha, Dirty: dirty}
 }
 
-func (s *Source) differs(ctx context.Context, files, reads []string) (bool, error) {
-	// unfiltered are files whose bytes are not HEAD's blob as they are. Git
-	// may still store them as that blob: core.autocrlf and clean filters
-	// turn a checkout's bytes back into what the commit holds.
-	var unfiltered []string
+func (s *Source) differs(ctx context.Context, files []File, reads []string) (bool, error) {
+	// crlf are files that match the commit once CRLF line endings become LF,
+	// which is what the commit holds if git converts them.
+	var crlf []string
 	for _, file := range files {
-		path, ok := s.repoPath(file)
+		path, ok := s.repoPath(file.Path)
 		if !ok {
 			return true, nil
 		}
@@ -158,29 +166,23 @@ func (s *Source) differs(ctx context.Context, files, reads []string) (bool, erro
 		if !ok {
 			return true, nil
 		}
-		info, err := os.Lstat(file)
-		if err != nil {
-			return false, err
-		}
-		if s.fileMode && entry.mode != modeSymlink && (entry.mode == modeExecutable) != (info.Mode()&0o111 != 0) {
+		if file.Executable != nil && s.fileMode && entry.mode != modeSymlink && (entry.mode == modeExecutable) != *file.Executable {
 			return true, nil
 		}
-		blob, err := fileBlobID(file)
-		if err != nil {
-			return false, err
-		}
-		if blob != entry.blob {
-			unfiltered = append(unfiltered, path)
+		switch entry.blob {
+		case file.raw, file.lfs:
+		case file.lf:
+			crlf = append(crlf, path)
+		default:
+			return true, nil
 		}
 	}
-	blobs, err := s.hashObjects(ctx, unfiltered)
+	converts, err := s.convertsLineEndings(ctx, crlf)
 	if err != nil {
 		return false, err
 	}
-	for i, path := range unfiltered {
-		if blobs[i] != s.tree[path].blob {
-			return true, nil
-		}
+	if !converts {
+		return true, nil
 	}
 	return s.missing(reads), nil
 }
@@ -227,52 +229,49 @@ func (s *Source) repoPath(file string) (string, bool) {
 	return filepath.ToSlash(rel), true
 }
 
-// hashObjects returns the blob ID git would store for each path, applying the
-// repository's end-of-line conversion and clean filters.
-func (s *Source) hashObjects(ctx context.Context, paths []string) ([]string, error) {
-	var blobs []string
+// convertsLineEndings reports whether git stores each path's CRLF line
+// endings as LF, from its text and eol attributes or, when they say
+// nothing, core.autocrlf. Reading attributes runs nothing they name.
+func (s *Source) convertsLineEndings(ctx context.Context, paths []string) (bool, error) {
 	for len(paths) > 0 {
-		args, size := []string{"hash-object", "--"}, 0
-		for len(paths) > 0 && (size == 0 || size+len(paths[0]) < maxHashArgs) {
+		args, size := []string{"check-attr", "-z", "text", "eol", "--"}, 0
+		for len(paths) > 0 && (size == 0 || size+len(paths[0]) < maxPathArgs) {
 			args = append(args, paths[0])
 			size += len(paths[0]) + 1
 			paths = paths[1:]
 		}
 		out, err := run(ctx, s.git, s.root, args...)
 		if err != nil {
-			return nil, err
+			return false, err
 		}
-		ids := strings.Fields(out)
-		if len(ids) != len(args)-2 {
-			return nil, fmt.Errorf("git hash-object returned %d IDs for %d paths", len(ids), len(args)-2)
+		attrs := attributes(out)
+		for _, path := range args[5:] {
+			text, eol := attrs[path]["text"], attrs[path]["eol"]
+			switch {
+			case text == "unset":
+				return false, nil
+			case text == "set" || text == "auto" || eol == "lf" || eol == "crlf":
+			case !s.autocrlf:
+				return false, nil
+			}
 		}
-		blobs = append(blobs, ids...)
 	}
-	return blobs, nil
+	return true, nil
 }
 
-// fileBlobID is the ID git gives a blob with the file's bytes as they are.
-func fileBlobID(file string) (string, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return "", err
+// attributes reads `git check-attr -z` output: "<path>\0<attribute>\0<value>\0"
+// for each path and attribute.
+func attributes(out string) map[string]map[string]string {
+	fields := strings.Split(out, "\x00")
+	attrs := map[string]map[string]string{}
+	for i := 0; i+2 < len(fields); i += 3 {
+		path, name, value := fields[i], fields[i+1], fields[i+2]
+		if attrs[path] == nil {
+			attrs[path] = map[string]string{}
+		}
+		attrs[path][name] = value
 	}
-	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		return "", err
-	}
-	return blobID(f, info.Size())
-}
-
-// blobID is the ID git gives a blob with this content.
-func blobID(content io.Reader, size int64) (string, error) {
-	hash := sha1.New() //nolint:gosec // see the import
-	fmt.Fprintf(hash, "blob %d\x00", size)
-	if _, err := io.Copy(hash, content); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	return attrs
 }
 
 // parseTree reads `git ls-tree -r -z` output: "<mode> <type> <object>\t<path>"
@@ -297,6 +296,20 @@ func tracksFileMode(ctx context.Context, git cliruntime.CommandRunner, root stri
 	}
 	value, err := run(ctx, git, root, "config", "--type=bool", "--get", "core.fileMode")
 	return err != nil || strings.TrimSpace(value) != "false"
+}
+
+// autocrlfOn reports whether core.autocrlf has git store CRLF line endings
+// as LF where no attribute says otherwise.
+func autocrlfOn(ctx context.Context, git cliruntime.CommandRunner, root string) bool {
+	value, err := run(ctx, git, root, "config", "--get", "core.autocrlf")
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "input", "yes", "on", "1":
+		return true
+	}
+	return false
 }
 
 // valid applies the server's checks: a GitHub owner/name and a full SHA-1

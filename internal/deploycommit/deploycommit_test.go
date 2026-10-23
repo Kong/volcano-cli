@@ -36,9 +36,9 @@ func (f *fakeGit) Run(_ context.Context, name string, args ...string) ([]byte, e
 		return answer(f.head)
 	case "rev-parse --show-toplevel":
 		return answer(f.root)
-	case "ls-tree -r -z --full-tree HEAD":
+	case "ls-tree -r -z --full-tree " + f.head:
 		return nil, nil
-	case "config --type=bool --get core.fileMode":
+	case "config --type=bool --get core.fileMode", "config --get core.autocrlf":
 		return nil, errors.New("exit status 1")
 	}
 	return nil, errors.New("unexpected git call: " + call)
@@ -128,7 +128,7 @@ func TestDetectSendsNothingWithoutGit(t *testing.T) {
 
 func TestCommitOnNoSourceSendsNothing(t *testing.T) {
 	var source *Source
-	assert.Nil(t, source.Commit(context.Background(), []string{"index.js"}, nil))
+	assert.Nil(t, source.Commit(context.Background(), []File{NewFile("index.js", nil, nil)}, nil))
 }
 
 // blobID must match git's own object IDs, or every deploy reads as dirty.
@@ -137,10 +137,27 @@ func TestBlobIDMatchesGit(t *testing.T) {
 		"":        "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 		"hello\n": "ce013625030ba8dba906f756967f9e9ca394464a",
 	} {
-		got, err := blobID(strings.NewReader(content), int64(len(content)))
-		require.NoError(t, err)
-		assert.Equal(t, want, got, "%q", content)
+		assert.Equal(t, want, blobID([]byte(content)), "%q", content)
 	}
+}
+
+// The tree is read at the commit rev-parse gave, not at HEAD again.
+func TestDetectReadsTheTreeAtTheCommitItRead(t *testing.T) {
+	git := checkout(t)
+	require.NotNil(t, detect(t, git, cliruntime.Deps{}))
+	assert.Contains(t, git.calls, "ls-tree -r -z --full-tree "+headSHA)
+}
+
+func TestNewFileRecordsWhatTheBytesCouldBeStoredAs(t *testing.T) {
+	file := NewFile("a.txt", []byte("one\r\ntwo\r\n"), nil)
+	assert.Equal(t, blobID([]byte("one\r\ntwo\r\n")), file.raw)
+	assert.Equal(t, blobID([]byte("one\ntwo\n")), file.lf)
+	// The pointer Git LFS's specification gives for these bytes.
+	assert.Equal(t, "version https://git-lfs.github.com/spec/v1\n"+
+		"oid sha256:6f4792b265fe72790b344fd3ef5294701d9d087bed9fce815c0f4bbad6d2ed87\nsize 10\n",
+		string(lfsPointer([]byte("one\r\ntwo\r\n"))))
+
+	assert.Empty(t, NewFile("b.txt", []byte("one\n"), nil).lf, "no CRLF, nothing to convert")
 }
 
 func TestParseTreeKeepsBlobsWithTheirModes(t *testing.T) {

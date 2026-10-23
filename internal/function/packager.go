@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
@@ -52,8 +53,9 @@ type Package struct {
 	// none. The deploy command detects it once for the whole run.
 	Commit *api.DeployCommit
 
-	// Sources are the project files the archive holds, each read as is.
-	Sources []string
+	// Files are the project files the archive holds, recorded from the bytes
+	// it holds. The archive keeps no executable bit: every entry is 0644.
+	Files []deploycommit.File
 	// Reads are the files and directories packaging read from, present or
 	// not, so a file a commit holds there that is missing can be told apart.
 	Reads []string
@@ -69,8 +71,8 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile project ignore rules: %w", err)
 	}
-	// addedFiles maps each archive path to the file it was read from.
-	addedFiles := map[string]string{}
+	// addedFiles maps each archive path to the file it holds.
+	addedFiles := map[string]deploycommit.File{}
 	var reads []string
 
 	if info.IsDir {
@@ -149,7 +151,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Handler:     info.Runtime.Deployment.Handler,
 		ArchiveData: buf.Bytes(),
 		Size:        int64(buf.Len()),
-		Sources:     slices.Sorted(maps.Values(addedFiles)),
+		Files:       sortedFiles(addedFiles),
 		Reads:       reads,
 	}, nil
 }
@@ -183,7 +185,7 @@ func readOptionalRegularFile(filePath string) ([]byte, bool, error) {
 	return content, true, nil
 }
 
-func addFileToTarOnce(tarWriter *tar.Writer, added map[string]string, archivePath, sourcePath string, content []byte) error {
+func addFileToTarOnce(tarWriter *tar.Writer, added map[string]deploycommit.File, archivePath, sourcePath string, content []byte) error {
 	cleanPath := filepath.ToSlash(archivePath)
 	if _, ok := added[cleanPath]; ok {
 		return nil
@@ -198,11 +200,11 @@ func addFileToTarOnce(tarWriter *tar.Writer, added map[string]string, archivePat
 	if _, err := tarWriter.Write(content); err != nil {
 		return err
 	}
-	added[cleanPath] = sourcePath
+	added[cleanPath] = deploycommit.NewFile(sourcePath, content, nil)
 	return nil
 }
 
-func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]string, srcPath, matchRoot, destPrefix string, matcher *ignore.Matcher) error {
+func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]deploycommit.File, srcPath, matchRoot, destPrefix string, matcher *ignore.Matcher) error {
 	files, err := readDirectoryWithMatcher(srcPath, matchRoot, matcher)
 	if err != nil {
 		return err
@@ -211,7 +213,7 @@ func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]string, srcPa
 }
 
 // addFilesToTar adds files, read from under srcRoot by their relative paths.
-func addFilesToTar(tarWriter *tar.Writer, added map[string]string, srcRoot, destPrefix string, files map[string][]byte) error {
+func addFilesToTar(tarWriter *tar.Writer, added map[string]deploycommit.File, srcRoot, destPrefix string, files map[string][]byte) error {
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -231,7 +233,7 @@ func addFilesToTar(tarWriter *tar.Writer, added map[string]string, srcRoot, dest
 
 // addDependencyManifests adds the manifests found from the function's
 // directory up to the project root, and returns every path it looked at.
-func addDependencyManifests(tarWriter *tar.Writer, added map[string]string, funcPath, baseDir string, manifestNames []string) ([]string, error) {
+func addDependencyManifests(tarWriter *tar.Writer, added map[string]deploycommit.File, funcPath, baseDir string, manifestNames []string) ([]string, error) {
 	if len(manifestNames) == 0 {
 		return nil, nil
 	}
@@ -287,6 +289,13 @@ func addDependencyManifests(tarWriter *tar.Writer, added map[string]string, func
 		current = parent
 	}
 	return looked, nil //nolint:nilerr // loop exits via break on filepath.Rel error; this is the success return after the walk
+}
+
+// sortedFiles lists the archived files by the path they were read from.
+func sortedFiles(added map[string]deploycommit.File) []deploycommit.File {
+	files := slices.Collect(maps.Values(added))
+	slices.SortFunc(files, func(a, b deploycommit.File) int { return strings.Compare(a.Path, b.Path) })
+	return files
 }
 
 func safeArchivePath(value string) (string, error) {

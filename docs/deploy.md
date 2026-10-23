@@ -203,12 +203,14 @@ repository isn't on github.com, or any part is missing. Local deploys never
 send it.
 
 The upload matches the commit when each file in it is in the commit at the
-same path, with the same content and executable bit, and no file the commit
-holds where the upload reads is missing. Content is compared the way git
-stores it, so a checkout with Windows line endings from `core.autocrlf`
-matches. Anything else counts as changed: an edited, moved, or deleted file,
-or a file the commit doesn't have that the upload includes, such as an
-untracked file. The upload skips what the project root's `.gitignore` lists
+same path with the same content, and no file the commit holds where the upload
+reads is missing. A frontend upload keeps each file's executable bit, so that
+must match too. Line endings count as the same where git converts them, with
+`core.autocrlf` or a `text` attribute, and a file Git LFS stores matches its
+pointer. The CLI runs no other git filter, so a file another filter changes
+counts as changed. Anything else counts as changed: an edited, moved, or
+deleted file, or a file the commit doesn't have that the upload includes, such
+as an untracked file. The upload skips what the project root's `.gitignore` lists
 (for a frontend, the root of the uploaded directory), not what a `.gitignore`
 in a subdirectory or outside the project lists, so a file only those ignore is
 uploaded and counts as changed.
