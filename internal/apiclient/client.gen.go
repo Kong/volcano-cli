@@ -10259,7 +10259,7 @@ type ServiceKey struct {
 
 // SetProjectGitProductionBranchRequest defines model for SetProjectGitProductionBranchRequest.
 type SetProjectGitProductionBranchRequest struct {
-	// ProductionBranch The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+	// ProductionBranch The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet. An empty string follows the repository's default branch, including later renames.
 	ProductionBranch string `json:"production_branch"`
 }
 

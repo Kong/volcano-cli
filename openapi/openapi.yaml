@@ -3082,6 +3082,11 @@ paths:
         Setting the branch here marks it as the project's own choice, so a later
         default-branch rename on GitHub no longer moves it. Projects that never
         set one keep following the repository's default branch.
+
+        An empty string undoes that choice: the project deploys from the
+        repository's default branch again and follows later renames. Volcano
+        reads the default branch from GitHub through the project owner's
+        connection, and the response carries it.
       operationId: setProjectGitProductionBranch
       security:
         - UserToken: []
@@ -3103,8 +3108,9 @@ paths:
                 $ref: '#/components/schemas/ProjectGitConnection'
         '400':
           description: |
-            Malformed request body, or a production_branch that is not a valid
-            Git branch name
+            Malformed request body, a production_branch that is not a valid
+            Git branch name, or an empty one for a repository with no default
+            branch yet
           content:
             application/json:
               schema:
@@ -3131,7 +3137,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: A Git source transition is pending
+          description: |
+            A Git source transition is pending, or an empty production_branch
+            could not read the default branch because the project owner's
+            GitHub connection needs reconnecting or lost access to the
+            repository
           content:
             application/json:
               schema:
@@ -20559,9 +20569,8 @@ components:
       properties:
         production_branch:
           type: string
-          minLength: 1
           maxLength: 255
-          description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
+          description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet. An empty string follows the repository's default branch, including later renames.
       required:
         - production_branch
     SetProjectGitRootDirectoryRequest:

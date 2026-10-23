@@ -193,11 +193,16 @@ type gitAPI struct {
 	// rootStatus and rootMessage make the root-directory route refuse.
 	rootStatus  int
 	rootMessage string
+	// branchStatus and branchMessage make the production-branch route refuse.
+	branchStatus  int
+	branchMessage string
 
 	mu          sync.Mutex
 	connectBody map[string]any
 	// rootBody is what the root-directory route was sent.
-	rootBody        map[string]any
+	rootBody map[string]any
+	// branchBody is what the production-branch route was sent.
+	branchBody      map[string]any
 	deleted         bool
 	connectionReads int
 	// accountReads counts the calls to the caller's own GitHub routes, which
@@ -259,6 +264,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveConnect(w, r)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/root-directory"):
 		a.serveRootDirectory(w, r)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/production-branch"):
+		a.serveProductionBranch(w, r)
 	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveDisconnect(w)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
@@ -439,6 +446,31 @@ func (a *gitAPI) serveRootDirectory(w http.ResponseWriter, r *http.Request) {
 		connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation()))
 }
 
+// serveProductionBranch changes only the binding's production branch. An empty
+// one follows the repository's default, which the platform reads from GitHub
+// and answers with; this fixture's default is main.
+func (a *gitAPI) serveProductionBranch(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.branchBody))
+
+	if a.branchStatus != 0 {
+		writeGitJSON(a.t, w, a.branchStatus, map[string]any{"error": a.branchMessage})
+		return
+	}
+	if a.connected == "" {
+		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repository connected"})
+		return
+	}
+	a.connectedBranch, _ = a.branchBody["production_branch"].(string)
+	if a.connectedBranch == "" {
+		a.connectedBranch = "main"
+	}
+	payload := connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation())
+	payload["production_branch"] = a.connectedBranch
+	writeGitJSON(a.t, w, http.StatusOK, payload)
+}
+
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -476,6 +508,12 @@ func (a *gitAPI) sentRootBody() map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.rootBody
+}
+
+func (a *gitAPI) sentBranchBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.branchBody
 }
 
 func (a *gitAPI) accountRouteReads() int {
