@@ -1,57 +1,48 @@
-// Package deploycommittest fakes the git calls deploycommit makes, for
-// command tests that deploy a project.
+// Package deploycommittest makes git repositories for tests of deploys that
+// report their source commit.
 package deploycommittest
 
 import (
-	"context"
-	"crypto/sha1" //nolint:gosec // git names a blob by its SHA-1
-	"errors"
-	"fmt"
-	"io/fs"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-// SHA is the commit the fake checkout has at HEAD.
-const SHA = "0123456789abcdef0123456789abcdef01234567"
-
-// Commit records every regular file under root as HEAD of a checkout whose
-// origin is remote, and returns a runner that answers deploycommit's git
-// calls for that checkout. A file changed after Commit reads as uncommitted.
-func Commit(t *testing.T, remote, root string) cliruntime.CommandRunner {
+// Repository makes root a git repository whose origin is remote, with one
+// commit that holds every file in root that git does not ignore, and returns
+// that commit's ID. git runs with none of the machine's own configuration,
+// for the rest of the test too. The test is skipped when git is not
+// installed.
+func Repository(t *testing.T, root, remote string) string {
 	t.Helper()
-	files, err := os.OpenRoot(root)
-	require.NoError(t, err)
-	defer func() { _ = files.Close() }()
-	var tree strings.Builder
-	err = fs.WalkDir(files.FS(), ".", func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || !entry.Type().IsRegular() {
-			return err
-		}
-		content, err := fs.ReadFile(files.FS(), path)
-		if err != nil {
-			return err
-		}
-		blob := sha1.Sum(append(fmt.Appendf(nil, "blob %d\x00", len(content)), content...)) //nolint:gosec // see the import
-		fmt.Fprintf(&tree, "100644 blob %x\t%s\x00", blob, path)
-		return nil
-	})
-	require.NoError(t, err)
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	for name, value := range map[string]string{
+		"VOLCANO_DEPLOY_COMMIT": "",
+		"GIT_CONFIG_GLOBAL":     os.DevNull,
+		"GIT_CONFIG_NOSYSTEM":   "1",
+		"GIT_AUTHOR_NAME":       "Test",
+		"GIT_AUTHOR_EMAIL":      "test@example.com",
+		"GIT_COMMITTER_NAME":    "Test",
+		"GIT_COMMITTER_EMAIL":   "test@example.com",
+	} {
+		t.Setenv(name, value)
+	}
+	Git(t, root, "init", "--quiet")
+	Git(t, root, "remote", "add", "origin", remote)
+	Git(t, root, "add", ".")
+	Git(t, root, "commit", "--quiet", "-m", "initial")
+	return Git(t, root, "rev-parse", "HEAD")
+}
 
-	return cliruntime.CommandRunnerFunc(func(_ context.Context, _ string, args ...string) ([]byte, error) {
-		switch strings.Join(args[2:], " ") {
-		case "remote get-url origin":
-			return []byte(remote + "\n"), nil
-		case "rev-parse HEAD":
-			return []byte(SHA + "\n"), nil
-		case "ls-tree -r -z --full-tree HEAD":
-			return []byte(tree.String()), nil
-		}
-		return nil, errors.New("unexpected git call: " + strings.Join(args, " "))
-	})
+// Git runs git in root and returns its trimmed output.
+func Git(t *testing.T, root string, args ...string) string {
+	t.Helper()
+	out, err := exec.CommandContext(t.Context(), "git", append([]string{"-C", root}, args...)...).CombinedOutput() //nolint:gosec // a test runs git in its own repository
+	require.NoError(t, err, "git %s: %s", strings.Join(args, " "), out)
+	return strings.TrimSpace(string(out))
 }

@@ -305,7 +305,7 @@ func runDeployOne(
 	}
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 	applyVariableDeclaration(pkg, declarations)
-	pkg.Commit = checkout.Commit(pkg.ArchiveData)
+	pkg.Commit = checkout.Commit(ctx, pkg.Sources, pkg.Reads)
 
 	deployed, err := service.DeployPackage(ctx, *pkg)
 	if err != nil {
@@ -334,7 +334,7 @@ func runDeployAll(
 		}
 		fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 		applyVariableDeclaration(pkg, declarations)
-		pkg.Commit = checkout.Commit(pkg.ArchiveData)
+		pkg.Commit = checkout.Commit(ctx, pkg.Sources, pkg.Reads)
 		totalSize += pkg.Size
 		packages = append(packages, *pkg)
 	}

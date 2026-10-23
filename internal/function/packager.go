@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -50,6 +51,12 @@ type Package struct {
 	// Commit is the commit the source came from, nil when the deploy reports
 	// none. The deploy command detects it once for the whole run.
 	Commit *api.DeployCommit
+
+	// Sources are the project files the archive holds, each read as is.
+	Sources []string
+	// Reads are the files and directories packaging read from, present or
+	// not, so a file a commit holds there that is missing can be told apart.
+	Reads []string
 }
 
 // PackageSource packages a cloud function source bundle with manifests and shared libraries.
@@ -62,18 +69,22 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile project ignore rules: %w", err)
 	}
-	addedFiles := map[string]struct{}{}
+	// addedFiles maps each archive path to the file it was read from.
+	addedFiles := map[string]string{}
+	var reads []string
 
 	if info.IsDir {
 		functionDir := filepath.Dir(info.Path)
+		reads = append(reads, functionDir)
 		files, err := readDirectoryWithMatcher(functionDir, functionDir, matcher)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read function directory: %w", err)
 		}
-		if err := addFilesToTar(tarWriter, addedFiles, "", files); err != nil {
+		if err := addFilesToTar(tarWriter, addedFiles, functionDir, "", files); err != nil {
 			return nil, err
 		}
 	} else {
+		reads = append(reads, info.Path)
 		content, err := readRequiredRegularFile(info.Path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read function file: %w", err)
@@ -82,20 +93,23 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unsafe function entrypoint %q: %w", info.Runtime.Deployment.Entrypoint, err)
 		}
-		if err := addFileToTarOnce(tarWriter, addedFiles, entrypoint, content); err != nil {
+		if err := addFileToTarOnce(tarWriter, addedFiles, entrypoint, info.Path, content); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := addDependencyManifests(tarWriter, addedFiles, info.Path, baseDir, info.Runtime.Deployment.DependencyManifests); err != nil {
+	manifests, err := addDependencyManifests(tarWriter, addedFiles, info.Path, baseDir, info.Runtime.Deployment.DependencyManifests)
+	if err != nil {
 		return nil, err
 	}
+	reads = append(reads, manifests...)
 
 	sharedLibs, err := FindSharedLibraries(baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find shared libraries: %w", err)
 	}
 	for _, lib := range sharedLibs {
+		reads = append(reads, lib.Path)
 		if lib.IsDir {
 			if err := addDirectoryToTarOnce(tarWriter, addedFiles, lib.Path, baseDir, lib.Name, matcher); err != nil {
 				return nil, fmt.Errorf("failed to add shared library %s: %w", lib.Name, err)
@@ -116,7 +130,7 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		if !ok {
 			continue
 		}
-		if err := addFileToTarOnce(tarWriter, addedFiles, lib.Name, content); err != nil {
+		if err := addFileToTarOnce(tarWriter, addedFiles, lib.Name, lib.Path, content); err != nil {
 			return nil, fmt.Errorf("failed to add shared file %s: %w", lib.Name, err)
 		}
 	}
@@ -135,6 +149,8 @@ func PackageSource(info SourceInfo, baseDir string) (*Package, error) {
 		Handler:     info.Runtime.Deployment.Handler,
 		ArchiveData: buf.Bytes(),
 		Size:        int64(buf.Len()),
+		Sources:     slices.Sorted(maps.Values(addedFiles)),
+		Reads:       reads,
 	}, nil
 }
 
@@ -167,7 +183,7 @@ func readOptionalRegularFile(filePath string) ([]byte, bool, error) {
 	return content, true, nil
 }
 
-func addFileToTarOnce(tarWriter *tar.Writer, added map[string]struct{}, archivePath string, content []byte) error {
+func addFileToTarOnce(tarWriter *tar.Writer, added map[string]string, archivePath, sourcePath string, content []byte) error {
 	cleanPath := filepath.ToSlash(archivePath)
 	if _, ok := added[cleanPath]; ok {
 		return nil
@@ -182,19 +198,20 @@ func addFileToTarOnce(tarWriter *tar.Writer, added map[string]struct{}, archiveP
 	if _, err := tarWriter.Write(content); err != nil {
 		return err
 	}
-	added[cleanPath] = struct{}{}
+	added[cleanPath] = sourcePath
 	return nil
 }
 
-func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]struct{}, srcPath, matchRoot, destPrefix string, matcher *ignore.Matcher) error {
+func addDirectoryToTarOnce(tarWriter *tar.Writer, added map[string]string, srcPath, matchRoot, destPrefix string, matcher *ignore.Matcher) error {
 	files, err := readDirectoryWithMatcher(srcPath, matchRoot, matcher)
 	if err != nil {
 		return err
 	}
-	return addFilesToTar(tarWriter, added, destPrefix, files)
+	return addFilesToTar(tarWriter, added, srcPath, destPrefix, files)
 }
 
-func addFilesToTar(tarWriter *tar.Writer, added map[string]struct{}, destPrefix string, files map[string][]byte) error {
+// addFilesToTar adds files, read from under srcRoot by their relative paths.
+func addFilesToTar(tarWriter *tar.Writer, added map[string]string, srcRoot, destPrefix string, files map[string][]byte) error {
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -205,38 +222,42 @@ func addFilesToTar(tarWriter *tar.Writer, added map[string]struct{}, destPrefix 
 		if destPrefix != "" {
 			tarPath = filepath.Join(destPrefix, relPath)
 		}
-		if err := addFileToTarOnce(tarWriter, added, tarPath, files[relPath]); err != nil {
+		if err := addFileToTarOnce(tarWriter, added, tarPath, filepath.Join(srcRoot, filepath.FromSlash(relPath)), files[relPath]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func addDependencyManifests(tarWriter *tar.Writer, added map[string]struct{}, funcPath, baseDir string, manifestNames []string) error {
+// addDependencyManifests adds the manifests found from the function's
+// directory up to the project root, and returns every path it looked at.
+func addDependencyManifests(tarWriter *tar.Writer, added map[string]string, funcPath, baseDir string, manifestNames []string) ([]string, error) {
 	if len(manifestNames) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	searchRoot, err := filepath.Abs(baseDir)
 	if err != nil {
-		return fmt.Errorf("failed to resolve project root: %w", err)
+		return nil, fmt.Errorf("failed to resolve project root: %w", err)
 	}
 	current, err := filepath.Abs(filepath.Dir(funcPath))
 	if err != nil {
-		return fmt.Errorf("failed to resolve function path: %w", err)
+		return nil, fmt.Errorf("failed to resolve function path: %w", err)
 	}
+	var looked []string
 	functionSourceDir := current
 
 	for {
 		for _, name := range manifestNames {
 			manifestPath, err := safeArchivePath(name)
 			if err != nil {
-				return fmt.Errorf("unsafe dependency manifest %q: %w", name, err)
+				return nil, fmt.Errorf("unsafe dependency manifest %q: %w", name, err)
 			}
 			sourcePath := filepath.Join(current, filepath.FromSlash(manifestPath))
+			looked = append(looked, sourcePath)
 			content, ok, err := readOptionalRegularFile(sourcePath)
 			if err != nil {
-				return fmt.Errorf("failed to read dependency manifest %s: %w", sourcePath, err)
+				return nil, fmt.Errorf("failed to read dependency manifest %s: %w", sourcePath, err)
 			}
 			if !ok {
 				continue
@@ -247,8 +268,8 @@ func addDependencyManifests(tarWriter *tar.Writer, added map[string]struct{}, fu
 					archivePath = filepath.ToSlash(rel)
 				}
 			}
-			if err := addFileToTarOnce(tarWriter, added, archivePath, content); err != nil {
-				return err
+			if err := addFileToTarOnce(tarWriter, added, archivePath, sourcePath, content); err != nil {
+				return nil, err
 			}
 		}
 
@@ -265,7 +286,7 @@ func addDependencyManifests(tarWriter *tar.Writer, added map[string]struct{}, fu
 		}
 		current = parent
 	}
-	return nil //nolint:nilerr // loop exits via break on filepath.Rel error; this is the success return after the walk
+	return looked, nil //nolint:nilerr // loop exits via break on filepath.Rel error; this is the success return after the walk
 }
 
 func safeArchivePath(value string) (string, error) {

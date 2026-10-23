@@ -1,7 +1,7 @@
 package frontends
 
 import (
-	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,14 +15,52 @@ import (
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
-// The commit is read from the directory being deployed, not the one the CLI
-// runs in.
+// writeMonorepo writes a pnpm monorepo whose Next.js app uses a workspace
+// package, so the upload is the whole workspace plus the app-path marker the
+// CLI writes. It commits it to a repository whose origin is acme/web, adds
+// what a developer's checkout holds that git ignores, and returns the root
+// and the commit.
+func writeMonorepo(t *testing.T) (string, string) {
+	t.Helper()
+	root := t.TempDir()
+	write := func(path, content string) {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(content), 0o644))
+	}
+	for path, content := range map[string]string{
+		".gitignore":                 "node_modules/\n.next/\n.env*\nnext-env.d.ts\n*.tsbuildinfo\n",
+		"package.json":               `{"name":"monorepo","private":true,"workspaces":["apps/*","packages/*"]}`,
+		"pnpm-workspace.yaml":        "packages: [\"apps/*\", \"packages/*\"]\n",
+		"apps/web/package.json":      `{"name":"web","dependencies":{"@acme/ui":"workspace:*","next":"15.5.9"}}`,
+		"apps/web/next.config.mjs":   "export default {};\n",
+		"apps/web/app/page.tsx":      "export default function Page() { return null; }\n",
+		"apps/web/public/logo.svg":   "<svg/>\n",
+		"packages/ui/package.json":   `{"name":"@acme/ui"}`,
+		"packages/ui/src/button.tsx": "export const Button = () => null;\n",
+	} {
+		write(path, content)
+	}
+	sha := deploycommittest.Repository(t, root, "https://github.com/acme/web")
+	for path, content := range map[string]string{
+		"node_modules/next/package.json":  `{"name":"next"}`,
+		"apps/web/.next/cache/build.json": "{}",
+		"apps/web/next-env.d.ts":          "/// <reference types=\"next\" />\n",
+		"apps/web/.env.local":             "API_KEY=secret\n",
+		"apps/web/tsconfig.tsbuildinfo":   "{}",
+	} {
+		write(path, content)
+	}
+	return root, sha
+}
+
+// An honest deploy from a clean checkout reports the commit clean; an edited
+// or deleted file marks it dirty. The commit is read from --path, not the
+// directory the CLI runs in.
 func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)
-	t.Setenv("VOLCANO_DEPLOY_COMMIT", "")
-	projectDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "package.json"), []byte(`{"name":"web","dependencies":{"next":"15.5.9"}}`), 0o644))
+	root, sha := writeMonorepo(t)
+	t.Chdir(t.TempDir())
 
 	var commit string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,22 +73,24 @@ func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	deploy := func() string {
+		t.Helper()
+		commit = ""
+		_, err := executeFrontendsCommand(t, New(deps), "deploy", "--name", "web", "--path", filepath.Join(root, "apps", "web"))
+		require.NoError(t, err)
+		return commit
+	}
+	want := func(dirty bool) string {
+		return fmt.Sprintf(`{"repository":"acme/web","sha":%q,"dirty":%t}`, sha, dirty)
+	}
 
-	var dirs []string
-	checkout := deploycommittest.Commit(t, "https://github.com/acme/web", projectDir)
-	deps := cliruntime.Deps{
-		HTTPClient: server.Client(),
-		APIBaseURL: server.URL,
-		GitCommandRunner: cliruntime.CommandRunnerFunc(func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			dirs = append(dirs, args[1])
-			return checkout.Run(ctx, name, args...)
-		}),
-	}
-	_, err := executeFrontendsCommand(t, New(deps), "deploy", "--name", "web", "--path", projectDir)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"repository":"acme/web","sha":"`+deploycommittest.SHA+`","dirty":false}`, commit)
-	require.NotEmpty(t, dirs)
-	for _, dir := range dirs {
-		assert.Equal(t, filepath.Base(projectDir), filepath.Base(dir))
-	}
+	assert.JSONEq(t, want(false), deploy())
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "packages", "ui", "src", "button.tsx"), []byte("export const Button = () => 1;\n"), 0o644))
+	assert.JSONEq(t, want(true), deploy(), "an edit in a workspace package")
+	deploycommittest.Git(t, root, "checkout", "--", ".")
+
+	require.NoError(t, os.Remove(filepath.Join(root, "apps", "web", "public", "logo.svg")))
+	assert.JSONEq(t, want(true), deploy(), "a deleted file")
 }

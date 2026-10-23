@@ -202,10 +202,16 @@ sends nothing, and the deploy goes ahead, when git isn't available, the
 repository isn't on github.com, or any part is missing. Local deploys never
 send it.
 
-The upload counts as changed when any file in it is not in the commit as it
-is. That includes edited files and files the commit doesn't have, such as an
-untracked file or one `.gitignore` lists that the upload still includes, like
-a `.env.production` file.
+The upload matches the commit when each file in it is in the commit at the
+same path, with the same content and executable bit, and no file the commit
+holds where the upload reads is missing. Content is compared the way git
+stores it, so a checkout with Windows line endings from `core.autocrlf`
+matches. Anything else counts as changed: an edited, moved, or deleted file,
+or a file the commit doesn't have that the upload includes, such as an
+untracked file. The upload skips what the project root's `.gitignore` lists
+(for a frontend, the root of the uploaded directory), not what a `.gitignore`
+in a subdirectory or outside the project lists, so a file only those ignore is
+uploaded and counts as changed.
 
 Volcano verifies the commit against the project's connected repository: a
 commit on its production branch is verified. LavaFlow reads source and opens

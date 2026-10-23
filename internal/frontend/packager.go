@@ -15,10 +15,6 @@ import (
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
-// AppPathMarker is the entry PackageDirectory writes into an archive promoted
-// to a workspace root. It is packaging metadata, not a project file.
-const AppPathMarker = frontendAppPathMarker
-
 const (
 	frontendAppPathMarker = ".volcano/frontend-app-path"
 	// maxFrontendPackageFiles caps how many files we will package into a
@@ -56,6 +52,9 @@ type Package struct {
 	// should surface these so users notice missing files (e.g. monorepo
 	// assets symlinked across packages).
 	SkippedSymlinks []string
+	// Sources are the project files the archive holds, each read as is. The
+	// app-path marker is written by the CLI, so it is not one of them.
+	Sources []string
 }
 
 // PackageOptions tunes how PackageDirectory builds the archive.
@@ -101,7 +100,7 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, skipped, err := buildArchive(packagingRoot, appPath, matcher, excluded)
+	data, skipped, sources, err := buildArchive(packagingRoot, appPath, matcher, excluded)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +111,7 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 		PackagingRoot:   packagingRoot,
 		AppPath:         appPath,
 		SkippedSymlinks: skipped,
+		Sources:         sources,
 	}, nil
 }
 
@@ -156,42 +156,42 @@ func archivePaths(root string, files []string) (map[string]bool, error) {
 }
 
 // buildArchive writes the project tree and optional app-path marker into a
-// gzip-compressed tar archive. It returns the raw bytes plus any
-// archive-relative paths whose symlinks were dropped.
-func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, []string, error) {
+// gzip-compressed tar archive. It returns the raw bytes, any archive-relative
+// paths whose symlinks were dropped, and the files the archive holds.
+func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, []string, []string, error) {
 	buf := new(bytes.Buffer)
 	gz := gzip.NewWriter(buf)
 	tw := tar.NewWriter(gz)
 
-	skipped, err := writeProjectTree(tw, packagingRoot, matcher, excluded)
+	skipped, sources, err := writeProjectTree(tw, packagingRoot, matcher, excluded)
 	if err != nil {
 		_ = tw.Close()
 		_ = gz.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := writeAppPathMarker(tw, appPath); err != nil {
 		_ = tw.Close()
 		_ = gz.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := tw.Close(); err != nil {
 		_ = gz.Close()
-		return nil, nil, fmt.Errorf("failed to finalize tar archive: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to finalize tar archive: %w", err)
 	}
 	if err := gz.Close(); err != nil {
-		return nil, nil, fmt.Errorf("failed to finalize gzip archive: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to finalize gzip archive: %w", err)
 	}
-	return buf.Bytes(), skipped, nil
+	return buf.Bytes(), skipped, sources, nil
 }
 
 // writeProjectTree walks root and writes every regular file that neither
 // matcher nor excluded leaves out into the tar writer. It enforces
 // maxFrontendPackageFiles so a runaway tree (missing .gitignore, stray cache
 // directory) cannot OOM the CLI, and reports any symlinks it had to drop so
-// callers can warn the user.
-func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) ([]string, error) {
+// callers can warn the user, and the files it wrote.
+func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) ([]string, []string, error) {
 	fileCount := 0
-	var skippedSymlinks []string
+	var skippedSymlinks, sources []string
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -232,12 +232,13 @@ func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excl
 		if fileCount > maxFrontendPackageFiles {
 			return fmt.Errorf("too many files (limit: %d)", maxFrontendPackageFiles)
 		}
+		sources = append(sources, path)
 		return writeFileEntry(tw, path, relPath, info)
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return skippedSymlinks, nil
+	return skippedSymlinks, sources, nil
 }
 
 // writeFileEntry writes one regular file at path under the archive name
