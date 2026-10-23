@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -41,9 +42,12 @@ type lavaflowServer struct {
 	started       []string
 	repoConnected bool
 	repoFailure   int
-	refuse        int
-	refuseMethod  string
-	refusal       map[string]any
+	// onRepo runs when the repository is read, and the request then waits
+	// for the client to go away, so a test can cancel mid-request.
+	onRepo       func()
+	refuse       int
+	refuseMethod string
+	refusal      map[string]any
 }
 
 func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
@@ -82,6 +86,15 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	project := "/projects/" + lavaflowProjectID
 	if r.URL.Path == project+"/git-connection" {
+		if s.onRepo != nil {
+			s.onRepo()
+			select {
+			case <-r.Context().Done():
+			case <-time.After(5 * time.Second):
+				s.t.Error("the client kept waiting after it was canceled")
+			}
+			return
+		}
 		if s.repoFailure != 0 {
 			s.write(w, s.repoFailure, map[string]any{"error": "git connection unavailable"})
 			return

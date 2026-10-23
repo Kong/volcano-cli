@@ -133,6 +133,18 @@ func TestRunsListSaysRetryingOnlyForQueuedRuns(t *testing.T) {
 	assert.Contains(t, out, "Reason: retrying: LavaFlow was busy")
 }
 
+// A title with nothing printable left is shown by the issue's ID.
+func TestRunsListShowsAnUnprintableTitleByID(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := queuedRun()
+	run["trigger"] = issueTrigger("manual", lavaflowIssueID, "\n\t ")
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, lavaflowRunID+"  "+lavaflowIssueID)
+}
+
 // Volcano adds failure codes over time. One this CLI does not know shows its
 // failure_message, or the code itself, and never leaves the result blank.
 func TestRunsListShowsFailureCodesItDoesNotKnow(t *testing.T) {

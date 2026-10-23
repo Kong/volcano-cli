@@ -152,7 +152,7 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", run.Id.String())
 	if issue := lavaFlowRunIssue(run); issue != nil {
-		if title := theme.StripControl(issue.Title); title != "" {
+		if title := lavaFlowIssueTitle(issue); title != "" {
 			kv(w, on, "Issue", "%s (%s)", title, issue.Id)
 		} else {
 			kv(w, on, "Issue", "%s", issue.Id)
@@ -238,14 +238,19 @@ func lavaFlowRunIssue(run *apiclient.LavaFlowRun) *apiclient.LavaFlowTriggerIssu
 
 func lavaFlowIssue(run *apiclient.LavaFlowRun) string {
 	issue := lavaFlowRunIssue(run)
-	switch {
-	case issue == nil:
+	if issue == nil {
 		return "-"
-	case issue.Title != "":
-		return theme.StripControl(issue.Title)
-	default:
-		return issue.Id.String()
 	}
+	if title := lavaFlowIssueTitle(issue); title != "" {
+		return title
+	}
+	return issue.Id.String()
+}
+
+// lavaFlowIssueTitle is the printable title, empty when the title has nothing
+// left to show once control characters are stripped.
+func lavaFlowIssueTitle(issue *apiclient.LavaFlowTriggerIssue) string {
+	return strings.TrimSpace(theme.StripControl(issue.Title))
 }
 
 func lavaFlowTrigger(trigger apiclient.LavaFlowRunTrigger) string {

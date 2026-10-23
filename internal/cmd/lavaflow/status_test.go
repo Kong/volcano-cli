@@ -1,6 +1,8 @@
 package lavaflow
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -116,6 +118,24 @@ func TestStatusOffOnAPlanThatDoesNotAllowLavaFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "After upgrading, turn it on: volcano cloud lavaflow enable")
 	assert.NotContains(t, out, "\nTurn it on")
+}
+
+// A cancel during the repository read ends the command, rather than report
+// the repository as unknown.
+func TestStatusHonorsACancelDuringTheRepositoryRead(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fake.set(func(s *lavaflowServer) { s.onRepo = cancel })
+
+	cmd := New(deps)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"status"})
+	err := cmd.ExecuteContext(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotContains(t, out.String(), "LavaFlow:")
 }
 
 func TestStatusJSON(t *testing.T) {

@@ -80,6 +80,10 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	case err == nil:
 		status.RepositoryState = RepositoryConnected
 		status.Repository = connection.RepoFullName
+	case ctx.Err() != nil:
+		// The repository is optional detail, but a cancel or deadline still
+		// ends the command.
+		return nil, ctx.Err()
 	case api.Status(err) == http.StatusNotFound:
 		// The settings read already proved the project exists, so a 404 means
 		// no repository; anything else leaves the connection unknown.
