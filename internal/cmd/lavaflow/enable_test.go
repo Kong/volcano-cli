@@ -85,3 +85,16 @@ func TestEnablePassesOtherRefusalsThrough(t *testing.T) {
 	assert.NotContains(t, err.Error(), "paid plan")
 	assert.Equal(t, "feature_unavailable", api.Code(err))
 }
+
+// Settings already on stay on after a downgrade, and saving them again
+// succeeds, so enable says no run starts rather than describe automatic runs.
+func TestEnableOnAPlanThatNoLongerAllowsLavaFlow(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["plan_allows_lavaflow"] = false })
+
+	out, err := executeLavaflowCommand(t, New(deps), "enable")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow is on")
+	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
+	assert.NotContains(t, out, clilavaflow.OnDescription)
+}

@@ -68,9 +68,16 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 
 // LavaFlowEnabled renders LavaFlow turned on: what it now does, which is
 // onDescription unless the project configuration narrowed it, and what it
-// costs.
+// costs. Settings already on stay on after the plan stops allowing LavaFlow,
+// and saving them again succeeds, so that case says no run starts instead.
 func LavaFlowEnabled(w io.Writer, settings *apiclient.LavaFlowSettings, onDescription, costNote string) {
 	Success(w, "LavaFlow is on")
+	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
+		Warning(w, "No run starts until the project's plan allows LavaFlow. LavaFlow needs a paid plan: "+
+			"upgrade the plan in the dashboard.")
+		Note(w, "%s", costNote)
+		return
+	}
 	limits := lavaFlowLimits(settings)
 	if len(limits) == 0 {
 		limits = []string{onDescription}
@@ -248,13 +255,14 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 }
 
 // lavaFlowFailureText says why a run stopped, or why a queued run waits, in
-// LavaFlow's words. The API's failure_message is not printed: --json carries
-// it for anyone who needs the raw detail.
+// LavaFlow's words. A queued run with any other code is retrying its last
+// attempt, which lavaFlowFailure adds. The API's failure_message is not
+// printed: --json carries it for anyone who needs the raw detail.
 var lavaFlowFailureText = map[string]string{
 	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
 	"feature_paused":         "waiting: Volcano paused LavaFlow runs; the run resumes when they restart",
 	"model_request_rejected": "LavaFlow could not run the diagnosis",
-	"model_unavailable":      "LavaFlow was busy; the run is retried",
+	"model_unavailable":      "LavaFlow was busy",
 	"model_refused":          "LavaFlow declined to diagnose this issue",
 	"no_diagnosis":           "LavaFlow finished without a diagnosis",
 	"budget_exhausted":       "the run reached its limit before a diagnosis",
@@ -267,13 +275,23 @@ var lavaFlowFailureText = map[string]string{
 }
 
 func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
-	if run.FailureCode == nil || *run.FailureCode == "" {
+	code := ""
+	if run.FailureCode != nil {
+		code = *run.FailureCode
+	}
+	text, ok := lavaFlowFailureText[code]
+	switch {
+	case code == "":
 		return ""
-	}
-	if text, ok := lavaFlowFailureText[*run.FailureCode]; ok {
+	case strings.HasPrefix(text, "waiting:"):
 		return text
+	case !ok:
+		text = theme.StripControl(code)
 	}
-	return theme.StripControl(*run.FailureCode)
+	if run.Status == apiclient.LavaFlowRunStatusQueued {
+		return text + "; retrying"
+	}
+	return text
 }
 
 var lavaFlowSkippedText = map[apiclient.LavaFlowPullRequestSkipped]string{

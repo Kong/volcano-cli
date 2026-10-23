@@ -109,8 +109,9 @@ the full run, including the proposed edits.
 volcano cloud lavaflow runs get 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
 ```
 
-A queued run can wait. The status says `waiting` when Volcano has paused
-LavaFlow runs; the run resumes on its own.
+A queued run can wait. Its result says `waiting` when Volcano has paused
+LavaFlow runs, and the run resumes on its own. A queued run whose last attempt
+failed says `retrying`.
 
 To diagnose an issue again, for example after a run failed, start a run with
 the issue ID (`trigger.issue.id`) from an earlier run in `runs list --json`, or

@@ -96,3 +96,24 @@ func TestRunsListRendersAnUnknownTriggerAsOther(t *testing.T) {
 	assert.Contains(t, out, "Trigger: other")
 	assert.NotContains(t, out, "Issue:")
 }
+
+// Only a queued run retries; a failed run with the same code is done.
+func TestRunsListSaysRetryingOnlyForQueuedRuns(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	retrying := queuedRun()
+	retrying["failure_code"] = "model_unavailable"
+	failed := queuedRun()
+	failed["id"] = "77777777-7777-4777-8777-777777777777"
+	failed["status"] = "failed"
+	failed["failure_code"] = "model_unavailable"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{retrying} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: LavaFlow was busy; retrying")
+
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", "77777777-7777-4777-8777-777777777777")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: LavaFlow was busy\n")
+}

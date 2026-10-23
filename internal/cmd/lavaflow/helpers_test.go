@@ -109,8 +109,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.t.Errorf("decode update: %v", err)
 		}
 		s.updates = append(s.updates, update)
-		// A full replace: omitted fields take their defaults.
+		// A full replace: omitted fields take their defaults. The plan is the
+		// server's to report, so it carries over.
 		saved := defaultLavaflowSettings()
+		saved["plan_allows_lavaflow"] = s.settings["plan_allows_lavaflow"]
 		maps.Copy(saved, update)
 		s.settings = saved
 		s.write(w, http.StatusOK, s.settings)
