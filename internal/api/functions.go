@@ -24,8 +24,6 @@ type FunctionDeployInput struct {
 	SourceArchive []byte
 	VariableScope *string
 	Variables     *[]string
-	// Commit is the commit the source came from, nil to send none.
-	Commit *DeployCommit
 }
 
 // FunctionSchedulerInput contains one function scheduler create or update request.
@@ -220,9 +218,6 @@ func buildFunctionDeployMultipart(fn FunctionDeployInput) (*bytes.Buffer, string
 			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
 	}
-	if err := writeCommitField(writer, fn.Commit); err != nil {
-		return nil, "", err
-	}
 	if err := archive.WriteArchivePart(writer, "code", fn.Name, fn.SourceArchive); err != nil {
 		return nil, "", err
 	}
@@ -236,13 +231,12 @@ func buildFunctionsBatchMultipart(functions []FunctionDeployInput) (*bytes.Buffe
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	type manifestItem struct {
-		Name          string        `json:"name"`
-		Runtime       string        `json:"runtime"`
-		Handler       string        `json:"handler"`
-		FileField     string        `json:"file_field"`
-		VariableScope *string       `json:"variable_scope,omitempty"`
-		Variables     *[]string     `json:"variables,omitempty"`
-		Commit        *DeployCommit `json:"commit,omitempty"`
+		Name          string    `json:"name"`
+		Runtime       string    `json:"runtime"`
+		Handler       string    `json:"handler"`
+		FileField     string    `json:"file_field"`
+		VariableScope *string   `json:"variable_scope,omitempty"`
+		Variables     *[]string `json:"variables,omitempty"`
 	}
 	manifest := make([]manifestItem, 0, len(functions))
 	for i, fn := range functions {
@@ -254,7 +248,6 @@ func buildFunctionsBatchMultipart(functions []FunctionDeployInput) (*bytes.Buffe
 			FileField:     fieldName,
 			VariableScope: fn.VariableScope,
 			Variables:     fn.Variables,
-			Commit:        fn.Commit,
 		})
 		if err := archive.WriteArchivePart(writer, fieldName, fn.Name, fn.SourceArchive); err != nil {
 			return nil, "", err

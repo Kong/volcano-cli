@@ -190,38 +190,43 @@ lists any domain it would delete.
 
 ## Source commit
 
-A cloud deploy of functions, durable functions, or frontends reports the commit
-its source came from, so Volcano can tie each deployment to your repository.
-The CLI sends three things: the GitHub repository as `owner/name`, the commit
-ID, and whether the uploaded files differ from that commit. It never sends the
-remote URL or any credentials in it, file paths, branch names, or diffs.
+A cloud frontend deploy reports the commit its source came from, so Volcano
+can tie the deployment to your repository. The CLI sends four things: the
+GitHub repository as `owner/name`, the commit ID, whether the uploaded files
+differ from that commit, and the uploaded directory's path in the repository,
+which is empty when it's the repository's top level. It never sends the
+remote URL or any credentials in it, local paths, branch names, or diffs.
+Function and durable function deploys don't report a commit for now.
 
-The CLI reads the commit checked out in the directory it deploys from: the
+The CLI reads the commit checked out in the directory `--path` names: the
 `origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
 sends nothing, and the deploy goes ahead, when git isn't available, the
-repository isn't on github.com, or any part is missing. Local deploys never
-send it.
+repository isn't on github.com, the uploaded directory is outside the
+repository, or any part is missing. Local deploys never send it.
 
 The upload matches the commit when each file in it is in the commit at the
-same path with the same content, and no file the commit holds where the upload
-reads is missing. A frontend upload keeps each file's executable bit, so that
-must match too. Line endings count as the same where git converts them, with
-`core.autocrlf` or a `text` attribute, and a file Git LFS stores matches its
-pointer. The CLI runs no other git filter, so a file another filter changes
-counts as changed. Anything else counts as changed: an edited, moved, or
-deleted file, or a file the commit doesn't have that the upload includes, such
-as an untracked file. The upload skips what the project root's `.gitignore` lists
-(for a frontend, the root of the uploaded directory), not what a `.gitignore`
-in a subdirectory or outside the project lists, so a file only those ignore is
-uploaded and counts as changed.
+same path with the same content and executable bit, and no file the commit
+holds in the uploaded directory is missing. Line endings count as the same
+where git converts them, with `core.autocrlf` or a `text` attribute, and a
+file Git LFS stores matches its pointer. The CLI runs no other git filter, so
+a file another filter changes counts as changed. Anything else counts as
+changed: an edited, moved, or deleted file, or a file the commit doesn't have
+that the upload includes, such as an untracked file. The upload skips what the
+`.gitignore` at the root of the uploaded directory lists, not what a
+`.gitignore` in a subdirectory or outside it lists, so a file only those
+ignore is uploaded and counts as changed. Windows has no executable bit, so a
+frontend deployed from Windows doesn't match a commit that holds an
+executable file.
 
 Volcano verifies the commit against the project's connected repository: a
 commit on its production branch is verified. LavaFlow reads source and opens
 fix pull requests only for a deployment whose commit is verified and whose
-upload matched it, so commit your changes before you deploy. A workflow run
-for a pull request deploys GitHub's merge commit, which is on no branch, so
-that deployment is recorded unverified. `frontends deploy --from` and a
-redeploy keep the commit of the build they publish.
+upload matched it, so commit your changes before you deploy. Of the deploys
+the CLI runs, only frontend deploys can get LavaFlow fix pull requests for
+now. A workflow run for a pull request deploys GitHub's merge commit, which is
+on no branch, so that deployment is recorded unverified.
+`frontends deploy --from` and a redeploy keep the commit of the build they
+publish.
 
 To send nothing, set:
 

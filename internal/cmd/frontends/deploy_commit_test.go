@@ -55,7 +55,8 @@ func writeMonorepo(t *testing.T) (string, string) {
 
 // An honest deploy from a clean checkout reports the commit clean; an edited
 // or deleted file marks it dirty. The commit is read from --path, not the
-// directory the CLI runs in.
+// directory the CLI runs in. The upload is the whole workspace, so its root
+// is the repository's.
 func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 	setFrontendCommandTestHome(t)
 	saveFrontendCommandTestConfig(t)
@@ -82,7 +83,7 @@ func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 		return commit
 	}
 	want := func(dirty bool) string {
-		return fmt.Sprintf(`{"repository":"acme/web","sha":%q,"dirty":%t}`, sha, dirty)
+		return fmt.Sprintf(`{"repository":"acme/web","sha":%q,"dirty":%t,"root":""}`, sha, dirty)
 	}
 
 	assert.JSONEq(t, want(false), deploy())
@@ -93,4 +94,53 @@ func TestFrontendsDeploySendsTheCommitOfItsPath(t *testing.T) {
 
 	require.NoError(t, os.Remove(filepath.Join(root, "apps", "web", "public", "logo.svg")))
 	assert.JSONEq(t, want(true), deploy(), "a deleted file")
+}
+
+// A frontend in a subdirectory, deployed from inside it, reports where it sits
+// in the repository; a change elsewhere in the repository leaves it clean.
+func TestFrontendsDeploySendsTheRootOfASubdirectory(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	root := t.TempDir()
+	write := func(path, content string) {
+		require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(root, path)), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(content), 0o644))
+	}
+	write(".gitignore", "node_modules/\n.next/\n")
+	write("api/main.go", "package main\n")
+	write("site/package.json", `{"name":"site","dependencies":{"next":"15.5.9"}}`)
+	write("site/app/page.tsx", "export default function Page() { return null; }\n")
+	sha := deploycommittest.Repository(t, root, "git@github.com:acme/web.git")
+	t.Chdir(filepath.Join(root, "site", "app"))
+
+	var commit string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/projects/"+frontendProjectID+"/frontends" {
+			require.NoError(t, r.ParseMultipartForm(4*1024*1024))
+			commit = r.FormValue("commit")
+			writeFrontendCommandJSON(t, w, http.StatusCreated, frontendCommandPayload(frontendID, "site"))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+	deploy := func() string {
+		t.Helper()
+		commit = ""
+		_, err := executeFrontendsCommand(t, New(deps), "deploy", "--name", "site", "--path", "..")
+		require.NoError(t, err)
+		return commit
+	}
+	want := func(dirty bool) string {
+		return fmt.Sprintf(`{"repository":"acme/web","sha":%q,"dirty":%t,"root":"site"}`, sha, dirty)
+	}
+
+	assert.JSONEq(t, want(false), deploy())
+
+	write("api/main.go", "package main // edited\n")
+	assert.JSONEq(t, want(false), deploy(), "an edit outside the frontend")
+
+	write("site/app/page.tsx", "export default function Page() { return 1; }\n")
+	assert.JSONEq(t, want(true), deploy(), "an edit inside it")
 }

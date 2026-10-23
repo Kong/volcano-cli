@@ -6,18 +6,22 @@ import (
 	"mime/multipart"
 )
 
-// DeployCommit is the commit an upload's source came from: the GitHub
-// repository as owner/name, the full commit ID, and whether the working tree
-// had uncommitted changes. A nil commit sends nothing.
+// DeployCommit is the commit a frontend upload's source came from: the
+// GitHub repository as owner/name, the full commit ID, whether the uploaded
+// files differ from that commit, and where the uploaded directory sits in the
+// repository. A nil commit sends nothing.
 type DeployCommit struct {
 	Repository string `json:"repository"`
 	SHA        string `json:"sha"`
 	Dirty      bool   `json:"dirty"`
+	// Root is the uploaded directory's slash-separated path from the
+	// repository root, "" for the root itself. Each archive entry is the
+	// file at Root/<entry> in the commit.
+	Root string `json:"root"`
 }
 
-// writeCommitField adds the commit as the JSON-encoded string the single
-// function, durable function and frontend uploads take. The batch upload
-// nests it in its manifest instead.
+// writeCommitField adds the commit as the JSON-encoded string the frontend
+// upload takes.
 func writeCommitField(writer *multipart.Writer, commit *DeployCommit) error {
 	if commit == nil {
 		return nil

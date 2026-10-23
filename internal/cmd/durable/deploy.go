@@ -14,7 +14,6 @@ import (
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/archive"
 	"github.com/Kong/volcano-cli/internal/cmd/cmdutil"
-	"github.com/Kong/volcano-cli/internal/deploycommit"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifunction "github.com/Kong/volcano-cli/internal/function"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -152,13 +151,12 @@ func deploy(ctx context.Context, opts *deployOptions) ([]apiclient.DurableFuncti
 			sources[0].Name, manifest.Name, cliruntime.CommandPath(opts.deps, "functions deploy -f "+sources[0].Name))
 	}
 
-	checkout := deploycommit.Detect(ctx, opts.deps, baseDir)
 	var newPrivate, unreported []string
 	started := make([]apiclient.DurableFunction, 0, len(sources))
 	for i, source := range sources {
 		fmt.Fprintf(opts.out, "\n[%d/%d] Deploying %s...\n", i+1, len(sources), source.Name)
 		deployed, created, err := deployOne(
-			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations, checkout,
+			ctx, opts.out, service, baseDir, source, visibility, manifest.Declarations,
 		)
 		if err != nil {
 			return started, err
@@ -205,7 +203,6 @@ func deployOne(
 	source clifunction.SourceInfo,
 	visibility *apiclient.FunctionVisibility,
 	declarations map[string]projectconfig.FunctionVariableDeclaration,
-	checkout *deploycommit.Source,
 ) (deployed *apiclient.DurableFunction, created bool, err error) {
 	fmt.Fprintf(out, "  Runtime: %s\n", source.Runtime.Name)
 	fmt.Fprintf(out, "  Function code: %s\n", source.Path)
@@ -217,7 +214,6 @@ func deployOne(
 		pkg.VariableScope = declaration.VariableScope
 		pkg.Variables = declaration.Variables
 	}
-	pkg.Commit = checkout.Commit(ctx, pkg.Files, pkg.Reads)
 	fmt.Fprintf(out, "  Archive size: %s\n", archive.FormatSize(pkg.Size))
 
 	deployed, created, err = service.Deploy(ctx, *pkg, visibility)

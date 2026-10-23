@@ -93,7 +93,6 @@ func (s Service) Deploy(
 		Visibility:    visibility,
 		VariableScope: pkg.VariableScope,
 		Variables:     pkg.Variables,
-		Commit:        pkg.Commit,
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to deploy durable function %q: %w", pkg.Name, err)

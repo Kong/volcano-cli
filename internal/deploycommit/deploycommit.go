@@ -1,11 +1,12 @@
-// Package deploycommit reports which commit a cloud deploy's source came from,
-// so Volcano can tie the deployment to its repository and LavaFlow can open
-// fix pull requests against the code that actually runs.
+// Package deploycommit reports which commit a frontend deploy's source came
+// from, so Volcano can tie the deployment to its repository and LavaFlow can
+// open fix pull requests against the code that actually runs.
 //
-// It sends only the GitHub repository as owner/name, the commit ID, and
-// whether the uploaded files differ from that commit: never a remote URL, a
-// path, a branch, or a diff. When any part is missing or would not pass the
-// server's check, it reports nothing at all. The server refuses a malformed
+// It sends only the GitHub repository as owner/name, the commit ID, whether
+// the uploaded files differ from that commit, and the uploaded directory's
+// path in the repository: never a remote URL, a local path, a branch, or a
+// diff. When any part is missing or would not pass the server's check, it
+// reports nothing at all. The server refuses a malformed
 // commit with a 400 before anything deploys, so sending a doubtful one would
 // fail the customer's deploy over a field they never asked for.
 package deploycommit
@@ -50,7 +51,7 @@ const (
 )
 
 // Source is the commit checked out where a deploy reads its files. Detect
-// reads it once per deploy; Commit then reports it for each upload.
+// reads it; Commit then reports it for the upload.
 type Source struct {
 	repository string
 	sha        string
@@ -129,37 +130,44 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 	}
 }
 
-// Commit reports the commit for one upload. files are the files the upload
-// holds; reads are the files and directories packaging read from. The upload
-// is clean only when each file is in the commit at its own path, with the
-// content the commit gives it and, where the archive keeps one, the same
-// executable bit, and no file the commit holds under reads is missing.
-// Anything else marks it dirty: an untracked or ignored file, an edit git's
-// own status would not show, or a deleted file. It returns nil when s is nil
+// Commit reports the commit for an upload of the directory root, whose
+// archive holds files at their paths under it. The upload is clean only when
+// each file is in the commit at its own path, with the content the commit
+// gives it and, where the archive keeps one, the same executable bit, and no
+// file the commit holds under root is missing. Anything else marks it dirty:
+// an untracked or ignored file, an edit git's own status would not show, or a
+// deleted file. It returns nil when s is nil, root is outside the repository,
 // or git cannot be asked.
 //
 // Content is compared without running git: a clean or smudge filter is a
 // program the repository's configuration names. Line endings git converts
 // and Git LFS pointers are compared here instead; content another filter
 // changes reads as changed.
-func (s *Source) Commit(ctx context.Context, files []File, reads []string) *api.DeployCommit {
+func (s *Source) Commit(ctx context.Context, root string, files []File) *api.DeployCommit {
 	if s == nil {
 		return nil
 	}
-	dirty, err := s.differs(ctx, files, reads)
+	dir, ok := s.repoPath(root)
+	if !ok {
+		return nil
+	}
+	dirty, err := s.differs(ctx, dir, files)
 	if err != nil {
 		return nil
 	}
-	return &api.DeployCommit{Repository: s.repository, SHA: s.sha, Dirty: dirty}
+	if dir == "." {
+		dir = ""
+	}
+	return &api.DeployCommit{Repository: s.repository, SHA: s.sha, Dirty: dirty, Root: dir}
 }
 
-func (s *Source) differs(ctx context.Context, files []File, reads []string) (bool, error) {
+func (s *Source) differs(ctx context.Context, dir string, files []File) (bool, error) {
 	// crlf are files that match the commit once CRLF line endings become LF,
 	// which is what the commit holds if git converts them.
 	var crlf []string
 	for _, file := range files {
 		path, ok := s.repoPath(file.Path)
-		if !ok {
+		if !ok || !within(dir, path) {
 			return true, nil
 		}
 		entry, ok := s.tree[path]
@@ -184,27 +192,27 @@ func (s *Source) differs(ctx context.Context, files []File, reads []string) (boo
 	if !converts {
 		return true, nil
 	}
-	return s.missing(reads), nil
+	return s.missing(dir), nil
 }
 
-// missing reports whether a file the commit holds at or under one of reads
-// is gone from the working tree, so the upload lacks it.
-func (s *Source) missing(reads []string) bool {
-	for _, read := range reads {
-		prefix, ok := s.repoPath(read)
-		if !ok {
+// missing reports whether a file the commit holds under dir is gone from the
+// working tree, so the upload lacks it.
+func (s *Source) missing(dir string) bool {
+	for path := range s.tree {
+		if !within(dir, path) {
 			continue
 		}
-		for path := range s.tree {
-			if prefix != "." && path != prefix && !strings.HasPrefix(path, prefix+"/") {
-				continue
-			}
-			if _, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path))); err != nil {
-				return true
-			}
+		if _, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path))); err != nil {
+			return true
 		}
 	}
 	return false
+}
+
+// within reports whether the repository path is at or under dir, "." being
+// the repository root.
+func within(dir, path string) bool {
+	return dir == "." || path == dir || strings.HasPrefix(path, dir+"/")
 }
 
 // repoPath is file's slash-separated path in the repository, false when it is
