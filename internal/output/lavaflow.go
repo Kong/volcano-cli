@@ -93,8 +93,10 @@ func lavaFlowRepositoryPaused(details LavaFlowStatusDetails) string {
 	}
 	previous := theme.StripControl(settings.EnabledRepository.FullName)
 	if details.Repository == "" && !details.RepositoryUnknown {
-		return fmt.Sprintf("paused: %s is no longer connected. Connect a repository with '%s', then run %s.",
-			previous, details.GitConnectCommand, enable)
+		// LavaFlow diagnoses without a repository, so turning it on again
+		// with none is a choice, not a mistake.
+		return fmt.Sprintf("paused: %s is no longer connected. Run %s to continue without a repository, "+
+			"or connect one first with '%s'.", previous, enable, details.GitConnectCommand)
 	}
 	return fmt.Sprintf("paused: the repository changed from %s. Run %s to use the new repository.", previous, enable)
 }

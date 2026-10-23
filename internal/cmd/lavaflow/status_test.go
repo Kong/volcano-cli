@@ -186,8 +186,8 @@ func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
 		"none any more": {
 			map[string]any{"id": 7, "full_name": "acme/old"},
 			false,
-			"paused: acme/old is no longer connected. Connect a repository with 'volcano git connect', " +
-				"then run 'volcano cloud lavaflow enable'.",
+			"paused: acme/old is no longer connected. Run 'volcano cloud lavaflow enable' to continue " +
+				"without a repository, or connect one first with 'volcano git connect'.",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
