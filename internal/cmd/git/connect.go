@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/gitconnect"
 	"github.com/Kong/volcano-cli/internal/localgit"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -109,8 +110,10 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// below still reports what went wrong, so it is not worth failing over.
 	webURL, _ := service.WebURL()
 
-	if err := validateRootDirectory(opts); err != nil {
-		return err
+	if opts.rootDirectorySet {
+		if err := validateRootDirectory("--root-directory", opts.rootDirectory); err != nil {
+			return err
+		}
 	}
 
 	repository, selected, err := resolveRepository(ctx, opts)
@@ -164,6 +167,12 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	// binding the CLI has not established it can make.
 	target, err := service.Resolve(ctx, repository)
 	if err != nil {
+		// Resolving reads the account's GitHub connections, which a project
+		// access token may not. The root directory alone has a route it may use.
+		if errors.Is(err, config.ErrAccountTokenRequired) && opts.rootDirectorySet && existing != nil {
+			return fmt.Errorf("%w\n\nTo change only the root directory of the connected repository with this token, run:\n  %s",
+				err, rootDirectoryCommand(opts.deps, opts.rootDirectory))
+		}
 		return resolveError(opts.deps, webURL, existing, repository, err)
 	}
 
@@ -204,7 +213,14 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		}
 	}
 
-	connection, err := service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
+	// Only the root directory differs on the repository already bound, so the
+	// narrower write makes the change: it cannot touch the repository.
+	var connection *apiclient.ProjectGitConnection
+	if sameRepositoryBinding(existing, target) {
+		connection, err = service.SetRootDirectory(ctx, opts.rootDirectory, existing)
+	} else {
+		connection, err = service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
+	}
 	if err != nil {
 		return guide(opts.deps, webURL, err)
 	}
@@ -232,22 +248,23 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	return nil
 }
 
-// validateRootDirectory refuses what the flag cannot mean. The platform builds
-// from this path inside the repository, so an absolute path or one climbing out
-// of it deploys nothing — and the CLI is what reports success, so it should not
-// report it for a value that cannot work.
-func validateRootDirectory(opts connectOptions) error {
-	if !opts.rootDirectorySet || opts.rootDirectory == "" {
+// validateRootDirectory refuses a root directory, named by what in the command
+// gave it, that cannot mean anything. The platform builds from this path inside
+// the repository, so an absolute path or one climbing out of it deploys nothing
+// — and the CLI is what reports success, so it should not report it for a value
+// that cannot work. Empty is the repository root.
+func validateRootDirectory(name, rootDirectory string) error {
+	if rootDirectory == "" {
 		return nil
 	}
 
-	root := filepath.ToSlash(opts.rootDirectory)
-	if strings.HasPrefix(root, "/") || filepath.IsAbs(opts.rootDirectory) {
-		return fmt.Errorf("--root-directory must be a path inside the repository, not an absolute path: %s", root)
+	root := filepath.ToSlash(rootDirectory)
+	if strings.HasPrefix(root, "/") || filepath.IsAbs(rootDirectory) {
+		return fmt.Errorf("%s must be a path inside the repository, not an absolute path: %s", name, root)
 	}
 	for segment := range strings.SplitSeq(root, "/") {
 		if segment == ".." {
-			return fmt.Errorf("--root-directory must stay inside the repository, so it cannot contain %q: %s", "..", root)
+			return fmt.Errorf("%s must stay inside the repository, so it cannot contain %q: %s", name, "..", root)
 		}
 	}
 	return nil
@@ -334,9 +351,20 @@ func currentConnection(ctx context.Context, service gitconnect.Service) (*apicli
 // there is nothing to send. The name has to match as well as the id: an id match
 // under a stale cached name means the repository was renamed, and rebinding is
 // what refreshes that name. A root directory the user named explicitly counts
-// too — keying only on the repository would drop --root-directory in silence,
-// and this bind is the only way to edit it.
+// too — keying only on the repository would drop --root-directory in silence.
 func unchanged(existing *apiclient.ProjectGitConnection, target *gitconnect.Target, opts connectOptions) bool {
+	if !sameRepositoryBinding(existing, target) {
+		return false
+	}
+	if !opts.rootDirectorySet {
+		return true
+	}
+	return opts.rootDirectory == strings.TrimSpace(existing.RootDirectory)
+}
+
+// sameRepositoryBinding reports whether the project is bound to target exactly,
+// apart from the root directory.
+func sameRepositoryBinding(existing *apiclient.ProjectGitConnection, target *gitconnect.Target) bool {
 	if existing == nil || existing.RepoId != target.Repository.Id {
 		return false
 	}
@@ -354,13 +382,16 @@ func unchanged(existing *apiclient.ProjectGitConnection, target *gitconnect.Targ
 	// The bind re-resolves the production branch from GitHub's live default, so
 	// a repository whose default moved has a stale one recorded — and that run
 	// is exactly the one an operator needs told, not reported as unchanged.
-	if existing.ProductionBranch != target.Repository.DefaultBranch {
-		return false
+	return existing.ProductionBranch == target.Repository.DefaultBranch
+}
+
+// rootDirectoryCommand is the root-directory command that sets rootDirectory,
+// ready to paste.
+func rootDirectoryCommand(deps cliruntime.Deps, rootDirectory string) string {
+	if rootDirectory == "" {
+		return cliruntime.CommandPath(deps, "git root-directory --reset")
 	}
-	if !opts.rootDirectorySet {
-		return true
-	}
-	return opts.rootDirectory == strings.TrimSpace(existing.RootDirectory)
+	return cliruntime.CommandPath(deps, "git root-directory "+cliruntime.ShellQuote(rootDirectory))
 }
 
 // rootDirectoryFor decides what the full-replace bind carries. An omitted flag

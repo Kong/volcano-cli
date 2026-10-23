@@ -368,8 +368,9 @@ func TestConnectAsksOnceWhenReplacingAnExplicitRepository(t *testing.T) {
 	assert.Contains(t, out, "Connected octo/storefront")
 }
 
-// --root-directory is the only way to set or change the subdirectory a project
-// builds from, so an already-connected repository must not short-circuit it.
+// An already-connected repository must not short-circuit --root-directory.
+// Only the root directory changes, so it goes through the route that changes
+// nothing else, not a rebind of the repository.
 func TestConnectUpdatesTheRootDirectoryOnAConnectedRepository(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
@@ -379,8 +380,8 @@ func TestConnectUpdatesTheRootDirectoryOnAConnectedRepository(t *testing.T) {
 		"", "connect", "--root-directory", "apps/api")
 	require.NoError(t, err)
 
-	require.NotNil(t, api.sentConnectBody(), "a root-directory change must be sent")
-	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+	assert.Equal(t, map[string]any{"root_directory": "apps/api"}, api.sentRootBody())
+	assert.Nil(t, api.sentConnectBody(), "the repository is not rebound")
 	assert.Contains(t, out, "Root directory: apps/api")
 	// Nothing was replaced: it is the same repository.
 	assert.NotContains(t, out, "Replacing the existing connection")
@@ -395,8 +396,47 @@ func TestConnectClearsTheRootDirectoryWhenExplicitlyEmptied(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
 		"", "connect", "--root-directory", "")
 	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"root_directory": ""}, api.sentRootBody())
+	assert.Nil(t, api.sentConnectBody())
+}
+
+// A rename or a moved default branch needs the full bind to refresh what was
+// recorded, so a root directory asked for alongside it rides on that bind.
+func TestConnectRebindsWhenMoreThanTheRootDirectoryChanged(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedBranch = "master"
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/api")
+	require.NoError(t, err)
 	require.NotNil(t, api.sentConnectBody())
-	assert.NotContains(t, api.sentConnectBody(), "root_directory")
+	assert.Equal(t, "apps/api", api.sentConnectBody()["root_directory"])
+	assert.Nil(t, api.sentRootBody())
+}
+
+// A project access token cannot resolve a repository, which needs the
+// account's GitHub connection, but it can change the root directory: connect
+// says how.
+func TestConnectWithAProjectTokenPointsAtTheRootDirectoryCommand(t *testing.T) {
+	setGitCommandTestHome(t)
+	setGitCommandTestToken(t, cliconfig.ProjectTokenPrefix+"token")
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	for root, command := range map[string]string{
+		"apps/api":  "volcano git root-directory apps/api",
+		"apps/my x": "volcano git root-directory 'apps/my x'",
+		"":          "volcano git root-directory --reset",
+	} {
+		_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+			"", "connect", "--root-directory", root)
+		require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
+		assert.Contains(t, err.Error(), "To change only the root directory of the connected repository with this token, run:\n  "+command)
+	}
+	assert.Nil(t, api.sentConnectBody())
+	assert.Nil(t, api.sentRootBody())
 }
 
 func TestConnectLeavesAnUnmentionedRootDirectoryAlone(t *testing.T) {
@@ -863,6 +903,7 @@ func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 
 	assert.Contains(t, err.Error(), "changed while this command was running")
 	assert.Nil(t, api.sentConnectBody(), "apps/new must not be overwritten")
+	assert.Nil(t, api.sentRootBody(), "apps/new must not be overwritten")
 }
 
 // Nothing is written when the binding already matches, so a concurrent edit

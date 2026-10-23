@@ -3142,6 +3142,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/git-connection/root-directory:
+    put:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Set the directory a project builds from
+      description: |
+        Changes only the root directory, leaving the repository and production
+        branch alone. Unlike PUT /projects/{id}/git-connection, this accepts a
+        project access token, so CI or an agent can move a project within its
+        repository without being able to change the repository.
+
+        The directory is a path relative to the repository root. An empty
+        string, `.` or `/` means the repository root. The response carries it in
+        the form a deploy reads it: `./apps/web/` comes back as `apps/web`.
+      operationId: setProjectGitRootDirectory
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProjectGitRootDirectoryRequest'
+      responses:
+        '200':
+          description: The project's repo connection, with the new root directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectGitConnection'
+        '400':
+          description: |
+            Malformed request body, or a root_directory that is absolute or
+            leaves the repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project not found, or it has no repository connected. The root
+            directory is part of the connection, so there is nothing to set it
+            on until one exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A Git source transition is pending or complete, so the recorded
+            root cannot be changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to set the root directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/git-connection:
     get:
       tags:
@@ -3199,10 +3276,16 @@ paths:
         accessible through installation_id via connection_id's stored GitHub
         user token, then persists repository metadata only from that validated
         GitHub response.
+
+        Project access tokens are refused. Which repository a project deploys
+        from is a person's decision, made with a platform token or in the
+        dashboard. A project access token can still change the root directory
+        and production branch through PUT
+        /projects/{id}/git-connection/root-directory and PUT
+        /projects/{id}/git-connection/production-branch.
       operationId: connectProjectGit
       security:
         - UserToken: []
-        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -3238,8 +3321,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            Project not owned by the caller, or the selected repository is not
-            accessible through installation_id
+            Project not owned by the caller, the selected repository is not
+            accessible through installation_id, or the request used a project
+            access token. A full-scope token gets `project access tokens cannot
+            change a project's repository; a person changes it in the dashboard
+            or with a platform token`, and a read-only token gets `project
+            access token is read-only`.
           content:
             application/json:
               schema:
@@ -20261,6 +20348,15 @@ components:
           description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
       required:
         - production_branch
+    SetProjectGitRootDirectoryRequest:
+      type: object
+      properties:
+        root_directory:
+          type: string
+          maxLength: 1024
+          description: Monorepo subdirectory the project builds from, relative to the repository root. An empty string means the repository root.
+      required:
+        - root_directory
     ConnectProjectGitRequest:
       type: object
       properties:
