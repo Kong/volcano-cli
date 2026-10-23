@@ -68,6 +68,22 @@ func GitNotConnected(w io.Writer, project, connectCommand string) {
 	fmt.Fprintf(w, "\n%s%s\n", theme.Dim("Connect one with ", on), theme.Command(connectCommand, on))
 }
 
+// GitRootDirectorySet renders a root directory that was just set, followed by
+// what a push to the production branch deploys. Nothing is redeployed by it,
+// which is worth saying: the change only shows on the next deploy, and only
+// the deploy settings say whether a push makes one.
+func GitRootDirectorySet(w io.Writer, binding GitBinding) {
+	connection := binding.Connection
+	if root := strings.TrimSpace(connection.RootDirectory); root != "" {
+		Success(w, "Root directory set to %s", root)
+	} else {
+		Success(w, "Root directory reset to the repository root")
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	Note(w, "Nothing was redeployed. The next deploy from the repository builds from this directory.")
+	gitDeploySettings(w, binding)
+}
+
 // GitDisconnected renders a removed binding. The repository is untouched, which
 // is worth saying: "disconnect" reads as destructive and is not.
 func GitDisconnected(w io.Writer, repoFullName string) {
