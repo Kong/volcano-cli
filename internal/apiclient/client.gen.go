@@ -2007,21 +2007,36 @@ func (e LavaFlowRunStatus) Valid() bool {
 	}
 }
 
-// Defines values for LavaFlowRunTrigger.
+// Defines values for LavaFlowRunTriggerReason.
 const (
-	LavaFlowRunTriggerManual     LavaFlowRunTrigger = "manual"
-	LavaFlowRunTriggerNewIssue   LavaFlowRunTrigger = "new_issue"
-	LavaFlowRunTriggerRegression LavaFlowRunTrigger = "regression"
+	LavaFlowRunTriggerReasonManual     LavaFlowRunTriggerReason = "manual"
+	LavaFlowRunTriggerReasonNewIssue   LavaFlowRunTriggerReason = "new_issue"
+	LavaFlowRunTriggerReasonRegression LavaFlowRunTriggerReason = "regression"
 )
 
-// Valid indicates whether the value is a known member of the LavaFlowRunTrigger enum.
-func (e LavaFlowRunTrigger) Valid() bool {
+// Valid indicates whether the value is a known member of the LavaFlowRunTriggerReason enum.
+func (e LavaFlowRunTriggerReason) Valid() bool {
 	switch e {
-	case LavaFlowRunTriggerManual:
+	case LavaFlowRunTriggerReasonManual:
 		return true
-	case LavaFlowRunTriggerNewIssue:
+	case LavaFlowRunTriggerReasonNewIssue:
 		return true
-	case LavaFlowRunTriggerRegression:
+	case LavaFlowRunTriggerReasonRegression:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowRunTriggerType.
+const (
+	LavaFlowRunTriggerTypeIssue LavaFlowRunTriggerType = "issue"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowRunTriggerType enum.
+func (e LavaFlowRunTriggerType) Valid() bool {
+	switch e {
+	case LavaFlowRunTriggerTypeIssue:
 		return true
 	default:
 		return false
@@ -7863,21 +7878,17 @@ type LavaFlowRun struct {
 	CreatedAt   time.Time          `json:"created_at"`
 	Diagnosis   *LavaFlowDiagnosis `json:"diagnosis,omitempty"`
 
-	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waits with `feature_paused` while Volcano pauses LavaFlow runs. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
+	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waits with `feature_paused` while Volcano pauses LavaFlow runs, and resumes when they restart. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
 	FailureCode    *string            `json:"failure_code,omitempty"`
 	FailureMessage *string            `json:"failure_message,omitempty"`
 	Id             openapi_types.UUID `json:"id"`
-	IssueId        openapi_types.UUID `json:"issue_id"`
-
-	// IssueTitle The issue's title.
-	IssueTitle *string `json:"issue_title,omitempty"`
 
 	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
 	MaxStage LavaFlowStage `json:"max_stage"`
 
 	// Patch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
-	Patch     *LavaFlowPatch     `json:"patch,omitempty"`
-	ProjectId openapi_types.UUID `json:"project_id"`
+	Patch     *LavaFlowPatch      `json:"patch,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
 
 	// PullRequest The draft pull request the run opened on the connected repository.
 	PullRequest *LavaFlowPullRequest `json:"pull_request,omitempty"`
@@ -7892,15 +7903,30 @@ type LavaFlowRun struct {
 	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
 	Status LavaFlowRunStatus `json:"status"`
 
-	// Trigger What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+	// Trigger What the run works on and what started it. Clients must tolerate `type` values they do not know.
 	Trigger LavaFlowRunTrigger `json:"trigger"`
 }
 
 // LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
 type LavaFlowRunStatus string
 
-// LavaFlowRunTrigger What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
-type LavaFlowRunTrigger string
+// LavaFlowRunTrigger What the run works on and what started it. Clients must tolerate `type` values they do not know.
+type LavaFlowRunTrigger struct {
+	// Issue The issue an `issue` run diagnoses.
+	Issue *LavaFlowTriggerIssue `json:"issue,omitempty"`
+
+	// Reason What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+	Reason *LavaFlowRunTriggerReason `json:"reason,omitempty"`
+
+	// Type What the run works on. `issue` is the only value today; more may be added.
+	Type LavaFlowRunTriggerType `json:"type"`
+}
+
+// LavaFlowRunTriggerReason What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+type LavaFlowRunTriggerReason string
+
+// LavaFlowRunTriggerType What the run works on. `issue` is the only value today; more may be added.
+type LavaFlowRunTriggerType string
 
 // LavaFlowSettings defines model for LavaFlowSettings.
 type LavaFlowSettings struct {
@@ -7914,8 +7940,7 @@ type LavaFlowSettings struct {
 	MaxStage LavaFlowStage `json:"max_stage"`
 
 	// PlanAllowsLavaflow Whether the owner's plan includes LavaFlow. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
-	PlanAllowsLavaflow *bool              `json:"plan_allows_lavaflow,omitempty"`
-	ProjectId          openapi_types.UUID `json:"project_id"`
+	PlanAllowsLavaflow *bool `json:"plan_allows_lavaflow,omitempty"`
 
 	// UpdatedAt When the settings were last saved. Absent until the first save.
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
@@ -7923,6 +7948,12 @@ type LavaFlowSettings struct {
 
 // LavaFlowStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
 type LavaFlowStage string
+
+// LavaFlowTriggerIssue The issue an `issue` run diagnoses.
+type LavaFlowTriggerIssue struct {
+	Id    openapi_types.UUID `json:"id"`
+	Title string             `json:"title"`
+}
 
 // LiveLogLevel Canonical lowercase function runtime log level.
 type LiveLogLevel string
@@ -8944,7 +8975,7 @@ type ProjectConfig struct {
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
 
-	// Lavaflow LavaFlow settings. Omitted fields keep their current value.
+	// Lavaflow AI diagnosis and fix settings. Omitted fields keep their current value.
 	Lavaflow *ProjectConfigLavaFlow `json:"lavaflow,omitempty"`
 
 	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
@@ -9461,7 +9492,7 @@ type ProjectConfigHostedPages struct {
 	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
 }
 
-// ProjectConfigLavaFlow LavaFlow settings. Omitted fields keep their current value.
+// ProjectConfigLavaFlow AI diagnosis and fix settings. Omitted fields keep their current value.
 type ProjectConfigLavaFlow struct {
 	AutoTrigger *bool `json:"auto_trigger,omitempty"`
 	Enabled     *bool `json:"enabled,omitempty"`
@@ -33201,7 +33232,7 @@ func NewStartLavaFlowRunRequest(server string, id ProjectId, issueId IssueId) (*
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/projects/%s/issues/%s/lavaflow/runs", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s/lavaflow-runs", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -33316,7 +33347,7 @@ func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlo
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/projects/%s/lavaflow/runs", pathParam0)
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -33420,7 +33451,7 @@ func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/projects/%s/lavaflow/runs/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}

@@ -6691,7 +6691,6 @@ paths:
         refused, but no run starts until the plan includes LavaFlow again. Other
         saves need no plan.
 
-
         Where LavaFlow is not available, a project with saved settings can
         still change them with `enabled: false`. Turning LavaFlow on answers
         `404` with code `feature_unavailable`.
@@ -6743,7 +6742,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/issues/{issueId}/lavaflow/runs:
+  /projects/{id}/issues/{issueId}/lavaflow-runs:
     post:
       tags:
         - LavaFlow
@@ -6759,8 +6758,8 @@ paths:
         running run, a project runs one at a time, and a project starts at most
         25 runs, manual and automatic, in any 24 hours.
 
-        Project access tokens are refused. A run spends model tokens, so a person starts it with a platform token or in
-        the dashboard.
+        Project access tokens are refused. A run spends model tokens, so a
+        person starts it with a platform token or in the dashboard.
       operationId: startLavaFlowRun
       security:
         - UserToken: []
@@ -6816,7 +6815,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/runs:
+  /projects/{id}/lavaflow-runs:
     get:
       tags:
         - LavaFlow
@@ -6872,11 +6871,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /projects/{id}/lavaflow/runs/{runId}:
+  /projects/{id}/lavaflow-runs/{runId}:
     get:
       tags:
         - LavaFlow
-      summary: Get an LavaFlow run
+      summary: Get a LavaFlow run
       description: |
         Returns one run: its status, the diagnosis once it succeeds, why it
         failed or was canceled, and the model tokens it used. Runs stay readable
@@ -23381,9 +23380,6 @@ components:
       type: object
       additionalProperties: false
       properties:
-        project_id:
-          type: string
-          format: uuid
         enabled:
           type: boolean
           description: Whether Volcano diagnoses the project's issues with AI.
@@ -23400,7 +23396,6 @@ components:
           format: date-time
           description: When the settings were last saved. Absent until the first save.
       required:
-        - project_id
         - enabled
         - max_stage
         - auto_trigger
@@ -23442,16 +23437,49 @@ components:
         - LavaFlowRunStatusCanceled
       description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
     LavaFlowRunTrigger:
+      type: object
+      additionalProperties: false
+      description: What the run works on and what started it. Clients must tolerate `type` values they do not know.
+      properties:
+        type:
+          $ref: '#/components/schemas/LavaFlowRunTriggerType'
+        reason:
+          $ref: '#/components/schemas/LavaFlowRunTriggerReason'
+        issue:
+          $ref: '#/components/schemas/LavaFlowTriggerIssue'
+      required:
+        - type
+    LavaFlowRunTriggerType:
+      type: string
+      enum:
+        - issue
+      x-enum-varnames:
+        - LavaFlowRunTriggerTypeIssue
+      description: What the run works on. `issue` is the only value today; more may be added.
+    LavaFlowRunTriggerReason:
       type: string
       enum:
         - manual
         - new_issue
         - regression
       x-enum-varnames:
-        - LavaFlowRunTriggerManual
-        - LavaFlowRunTriggerNewIssue
-        - LavaFlowRunTriggerRegression
+        - LavaFlowRunTriggerReasonManual
+        - LavaFlowRunTriggerReasonNewIssue
+        - LavaFlowRunTriggerReasonRegression
       description: What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+    LavaFlowTriggerIssue:
+      type: object
+      additionalProperties: false
+      description: The issue an `issue` run diagnoses.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+      required:
+        - id
+        - title
     LavaFlowEvidence:
       type: object
       additionalProperties: false
@@ -23614,12 +23642,6 @@ components:
         project_id:
           type: string
           format: uuid
-        issue_id:
-          type: string
-          format: uuid
-        issue_title:
-          type: string
-          description: The issue's title.
         trigger:
           $ref: '#/components/schemas/LavaFlowRunTrigger'
         status:
@@ -23641,7 +23663,7 @@ components:
           description: The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
         failure_code:
           type: string
-          description: Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waits with `feature_paused` while Volcano pauses LavaFlow runs. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
+          description: Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waits with `feature_paused` while Volcano pauses LavaFlow runs, and resumes when they restart. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
         failure_message:
           type: string
         created_at:
@@ -23655,8 +23677,6 @@ components:
           format: date-time
       required:
         - id
-        - project_id
-        - issue_id
         - trigger
         - status
         - max_stage
@@ -24834,7 +24854,7 @@ components:
     ProjectConfigLavaFlow:
       type: object
       additionalProperties: false
-      description: LavaFlow settings. Omitted fields keep their current value.
+      description: AI diagnosis and fix settings. Omitted fields keep their current value.
       properties:
         enabled:
           type: boolean
