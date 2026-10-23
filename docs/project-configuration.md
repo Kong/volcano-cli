@@ -51,8 +51,6 @@ notifications:
     notify_on: consecutive_failures   # or first_failure
     threshold: 3
     notify_on_recovery: true
-lavaflow:
-  enabled: true                # cloud only
 functions:
   - name: hello
     visibility: public         # private, authenticated, or public; omit to keep the current level

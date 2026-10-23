@@ -107,6 +107,17 @@ func TestStatusPlanThatDoesNotAllowLavaFlow(t *testing.T) {
 	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
 }
 
+// The plan refuses turning LavaFlow on, so the hint waits for the upgrade.
+func TestStatusOffOnAPlanThatDoesNotAllowLavaFlow(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) { s.settings["plan_allows_lavaflow"] = false })
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "After upgrading, turn it on: volcano cloud lavaflow enable")
+	assert.NotContains(t, out, "\nTurn it on")
+}
+
 func TestStatusJSON(t *testing.T) {
 	_, deps := newLavaflowServer(t)
 

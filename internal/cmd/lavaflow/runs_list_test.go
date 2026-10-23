@@ -3,6 +3,7 @@ package lavaflow
 import (
 	"encoding/json"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -119,14 +120,15 @@ func TestRunsListSaysRetryingOnlyForQueuedRuns(t *testing.T) {
 	failed["id"] = "77777777-7777-4777-8777-777777777777"
 	failed["status"] = "failed"
 	failed["failure_code"] = "model_unavailable"
-	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{retrying} })
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{retrying, failed} })
 
-	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
 	require.NoError(t, err)
-	assert.Contains(t, out, "Reason: LavaFlow was busy; retrying")
+	assert.Regexp(t, lavaflowRunID+`.*retrying: LavaFlow was`, out)
+	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*failed +LavaFlow was busy`, out)
+	assert.Equal(t, 1, strings.Count(out, "retrying"))
 
-	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
-	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", "77777777-7777-4777-8777-777777777777")
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Reason: LavaFlow was busy\n")
+	assert.Contains(t, out, "Reason: retrying: LavaFlow was busy")
 }

@@ -76,6 +76,7 @@ func TestEnablePassesOtherRefusalsThrough(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	fake.set(func(s *lavaflowServer) {
 		s.refuse = http.StatusNotFound
+		s.refuseMethod = http.MethodPut
 		s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
 	})
 

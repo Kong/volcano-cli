@@ -86,8 +86,8 @@ When no repository is connected, the status says so and names
 `volcano git connect`. When the project configuration narrows LavaFlow, with
 `max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
 that too, and the status says it while LavaFlow is off, because those settings
-apply when it is turned on. With `--json`, `repository_state` is `connected`, `not_connected`, or
-`unknown` when the connection could not be read.
+apply when it is turned on. With `--json`, `repository_state` is `connected`,
+`not_connected`, or `unknown` when the connection could not be read.
 
 ## Follow the runs
 
@@ -107,7 +107,7 @@ ID                                    Issue                                 Trig
 fix, the evidence it found, and the pull request it opened. When it opened
 none, it says why, such as a code change not fixing the issue or
 `max_stage: diagnose`. Add `--json` for
-the full run, including the proposed edits.
+the run as JSON, including the proposed edits.
 
 ```bash
 volcano cloud lavaflow runs get 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
@@ -142,4 +142,6 @@ does. `max_stage: diagnose` stops each run at the diagnosis and opens no pull
 request; the default, `pull_request`, opens one. `auto_trigger: false` starts
 runs only with `runs start`; the default, `true`, starts one for every new or
 reopened issue. An omitted field keeps its current value. `enable` and
-`disable` change only `enabled`, so they keep what the manifest set.
+`disable` change only `enabled`, so they keep what the manifest set. The one
+exception is a `disable` that cannot read the current settings: it resets
+`max_stage` and `auto_trigger` to their defaults and says so.

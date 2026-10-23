@@ -66,7 +66,12 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	}
 	fmt.Fprintln(w, theme.Dim(details.CostNote, on))
 	if !settings.Enabled {
-		fmt.Fprintf(w, "%s%s\n", theme.Dim("Turn it on: ", on), theme.Command(details.EnableCommand, on))
+		// The plan refuses turning it on, so the hint follows the upgrade.
+		label := "Turn it on: "
+		if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
+			label = "After upgrading, turn it on: "
+		}
+		fmt.Fprintf(w, "%s%s\n", theme.Dim(label, on), theme.Command(details.EnableCommand, on))
 	}
 }
 
@@ -261,7 +266,8 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 
 // lavaFlowFailureText says why a run stopped, or why a queued run waits, in
 // LavaFlow's words. A queued run with any other code is retrying its last
-// attempt, which lavaFlowFailure adds. The API's failure_message is not
+// attempt, which lavaFlowFailure puts first, like "waiting:", so the runs
+// list's narrow Result column keeps it. The API's failure_message is not
 // printed: --json carries it for anyone who needs the raw detail.
 var lavaFlowFailureText = map[string]string{
 	"feature_unavailable":    "waiting: LavaFlow is unavailable here; the run resumes when it returns",
@@ -294,7 +300,7 @@ func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
 		text = theme.StripControl(code)
 	}
 	if run.Status == apiclient.LavaFlowRunStatusQueued {
-		return text + "; retrying"
+		return "retrying: " + text
 	}
 	return text
 }
