@@ -1,0 +1,95 @@
+package lavaflow
+
+import (
+	"encoding/json"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/api"
+	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
+)
+
+func TestStatusOffSaysHowToTurnItOn(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow: off")
+	assert.Contains(t, out, "Plan: allows LavaFlow")
+	assert.Contains(t, out, "Repository: "+lavaflowRepo)
+	assert.Contains(t, out, clilavaflow.CostNote)
+	assert.Contains(t, out, "Turn it on: volcano cloud lavaflow enable")
+	assertLavaFlowWording(t, out)
+}
+
+func TestStatusOnWithoutRepositoryAsksForOne(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.repoConnected = false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow: on")
+	assert.Contains(t, out, "Repository: not connected")
+	assert.Contains(t, out, "Connect a repository so LavaFlow can open fix pull requests: volcano git connect")
+	assert.NotContains(t, out, "Turn it on")
+}
+
+func TestStatusNamesWhatTheProjectConfigurationNarrowed(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.settings["max_stage"] = "diagnose"
+		s.settings["auto_trigger"] = false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
+	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
+}
+
+func TestStatusPlanThatDoesNotAllowLavaFlow(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.settings["plan_allows_lavaflow"] = false
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Plan: does not allow LavaFlow; it needs a paid plan")
+	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
+}
+
+func TestStatusJSON(t *testing.T) {
+	_, deps := newLavaflowServer(t)
+
+	out, err := executeLavaflowCommand(t, New(deps), "status", "--json")
+	require.NoError(t, err)
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &status))
+	assert.Equal(t, lavaflowRepo, status["repository"])
+	settings, _ := status["settings"].(map[string]any)
+	assert.Equal(t, false, settings["enabled"])
+}
+
+// A server in local mode refuses LavaFlow with 501, and the reason reaches the
+// user with the refusal's status for the exit code.
+func TestStatusReportsTheLocalModeRefusal(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse = http.StatusNotImplemented
+		s.refusal = map[string]any{"error": "LavaFlow is not available in local mode"}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "status")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "LavaFlow is not available in local mode")
+	assert.Equal(t, http.StatusNotImplemented, api.Status(err))
+}
