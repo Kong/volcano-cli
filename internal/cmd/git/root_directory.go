@@ -37,8 +37,9 @@ This works with a project access token, so CI or an agent can move a project
 within its repository. Connecting a different repository needs a person's
 account token: see '%s'.
 
-Nothing is redeployed. The next push to the production branch builds from the
-new directory.`, cliruntime.CommandPath(deps, "git connect")),
+Nothing is redeployed. The next deploy from the repository builds from the new
+directory, and the command says what a push to the production branch deploys.`,
+			cliruntime.CommandPath(deps, "git connect")),
 		Example: "  volcano git root-directory apps/web\n  volcano git root-directory --reset",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,6 +104,14 @@ func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 		return guide(opts.deps, webURL, err)
 	}
 
-	output.GitRootDirectorySet(opts.out, output.GitBinding{Connection: connection, Project: project.Label()})
+	// Read afterwards, like connect: the directory is set either way, and
+	// only these say whether a push deploys anything from it.
+	settings, settingsErr := service.DeploySettings(ctx)
+	output.GitRootDirectorySet(opts.out, output.GitBinding{
+		Connection:  connection,
+		Settings:    settings,
+		SettingsErr: settingsErr,
+		Project:     project.Label(),
+	})
 	return nil
 }

@@ -23,7 +23,35 @@ func TestRootDirectorySetsOnlyTheRootDirectory(t *testing.T) {
 	assert.Zero(t, api.accountRouteReads(), "nothing is resolved on GitHub")
 	assert.Contains(t, out, "Root directory set to apps/web")
 	assert.Contains(t, out, "Repository: octo/storefront")
-	assert.Contains(t, out, "Nothing was redeployed. The next push to main builds from this directory.")
+	assert.Contains(t, out, "Nothing was redeployed. The next deploy from the repository builds from this directory.")
+	assert.Contains(t, out, "A push to main deploys: functions")
+}
+
+// A push deploys nothing while auto-deploy is off, so the command says that
+// rather than implying the next push builds.
+func TestRootDirectorySaysWhenAPushDeploysNothing(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.autoDeploy = false
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "root-directory", "apps/web")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Auto-deploy is off, so a push to main will not deploy anything.")
+}
+
+// The directory is set even when the deploy settings cannot be read
+// afterwards, which is said rather than read as "nothing deploys".
+func TestRootDirectorySucceedsWhenTheDeploySettingsCannotBeRead(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.deploySettingsStatus = http.StatusInternalServerError
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "root-directory", "apps/web")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Root directory set to apps/web")
+	assert.Contains(t, out, "its deploy settings could not be read")
 }
 
 func TestRootDirectoryResetsToTheRepositoryRoot(t *testing.T) {

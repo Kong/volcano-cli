@@ -166,8 +166,9 @@ project within its repository. Connecting a different repository needs a
 person's account token. With a project access token, `volcano git connect
 --root-directory` points to this command instead.
 
-Nothing is redeployed. The next push to the production branch builds from the
-new directory.
+Nothing is redeployed. The next deploy from the repository builds from the new
+directory. Like `connect`, the command then says what a push to the production
+branch deploys, which is nothing while auto-deploy is off.
 
 A project with no repository connected has no root directory to change, so the
 command says so and exits non-zero.
