@@ -439,6 +439,29 @@ func TestConnectWithAProjectTokenPointsAtTheRootDirectoryCommand(t *testing.T) {
 	assert.Nil(t, api.sentRootBody())
 }
 
+// The root-directory command only changes the repository already connected, so
+// it is no answer for a project token asking to connect a different one.
+func TestConnectWithAProjectTokenOffersNoRootDirectoryCommandForAnotherRepository(t *testing.T) {
+	setGitCommandTestHome(t)
+	setGitCommandTestToken(t, cliconfig.ProjectTokenPrefix+"token")
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	for name, args := range map[string][]string{
+		"checkout":     {"connect", "--root-directory", "apps/api"},
+		"explicit URL": {"connect", "https://github.com/octo/warehouse.git", "--root-directory", "apps/api"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			stdout := strings.ReplaceAll(originRemoteOutput, "storefront", "warehouse")
+			_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: stdout}, "", args...)
+			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired)
+			assert.NotContains(t, err.Error(), "root-directory")
+		})
+	}
+	assert.Nil(t, api.sentConnectBody())
+	assert.Nil(t, api.sentRootBody())
+}
+
 func TestConnectLeavesAnUnmentionedRootDirectoryAlone(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)

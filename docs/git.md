@@ -164,7 +164,8 @@ out with `..`, is refused. Volcano stores it in the form a deploy reads it, so
 This works with a project access token, so a CI job or an agent can move a
 project within its repository. Connecting a different repository needs a
 person's account token. With a project access token, `volcano git connect
---root-directory` points to this command instead.
+--root-directory` for the repository already connected points to this command
+instead.
 
 Nothing is redeployed. The next deploy from the repository builds from the new
 directory. Like `connect`, the command then says what a push to the production

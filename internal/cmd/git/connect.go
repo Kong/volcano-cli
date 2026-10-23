@@ -168,8 +168,13 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	target, err := service.Resolve(ctx, repository)
 	if err != nil {
 		// Resolving reads the account's GitHub connections, which a project
-		// access token may not. The root directory alone has a route it may use.
-		if errors.Is(err, config.ErrAccountTokenRequired) && opts.rootDirectorySet && existing != nil {
+		// access token may not. The root directory alone has a route it may use,
+		// but only on the repository already connected, so it is offered only
+		// when that is the one asked for. Without a resolve the name is all there
+		// is to tell by; a repository renamed since it was connected misses the
+		// offer rather than risk pointing it at another one.
+		if errors.Is(err, config.ErrAccountTokenRequired) && opts.rootDirectorySet &&
+			existing != nil && strings.EqualFold(existing.RepoFullName, repository.FullName()) {
 			return fmt.Errorf("%w\n\nTo change only the root directory of the connected repository with this token, run:\n  %s",
 				err, rootDirectoryCommand(opts.deps, opts.rootDirectory))
 		}
