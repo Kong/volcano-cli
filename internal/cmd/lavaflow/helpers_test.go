@@ -40,6 +40,7 @@ type lavaflowServer struct {
 	listQueries   []url.Values
 	started       []string
 	repoConnected bool
+	repoFailure   int
 	refuse        int
 	refuseMethod  string
 	refusal       map[string]any
@@ -82,6 +83,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	project := "/projects/" + lavaflowProjectID
 	if r.URL.Path == project+"/git-connection" {
+		if s.repoFailure != 0 {
+			s.write(w, s.repoFailure, map[string]any{"error": "git connection unavailable"})
+			return
+		}
 		if !s.repoConnected {
 			s.write(w, http.StatusNotFound, map[string]any{"error": "no repository connected"})
 			return

@@ -15,6 +15,7 @@ type disableOptions struct {
 	deps       cliruntime.Deps
 	jsonOutput bool
 	out        io.Writer
+	errOut     io.Writer
 }
 
 func newDisable(deps cliruntime.Deps) *cobra.Command {
@@ -28,6 +29,7 @@ finished is canceled. Past runs and their pull requests stay as they are.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
 			opts.out = cmd.OutOrStdout()
+			opts.errOut = cmd.ErrOrStderr()
 			return runDisable(cmd.Context(), opts)
 		},
 	}
@@ -36,12 +38,16 @@ finished is canceled. Past runs and their pull requests stay as they are.`,
 }
 
 func runDisable(ctx context.Context, opts disableOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, false)
+	result, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, false)
 	if err != nil {
 		return err
 	}
+	if result.Reset {
+		output.Warning(opts.errOut, "The saved settings could not be read, so max_stage and auto_trigger went back "+
+			"to their defaults. Deploy the project configuration again to restore them.")
+	}
 	if opts.jsonOutput {
-		return writeJSON(opts.out, settings)
+		return writeJSON(opts.out, result.Settings)
 	}
 	output.Success(opts.out, "LavaFlow is off")
 	return nil

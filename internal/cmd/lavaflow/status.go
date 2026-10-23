@@ -50,7 +50,7 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 	output.LavaFlowStatus(opts.out, output.LavaFlowStatusDetails{
 		Settings:          status.Settings,
 		Repository:        status.Repository,
-		RepositoryUnknown: status.RepositoryUnknown,
+		RepositoryUnknown: status.RepositoryState == clilavaflow.RepositoryUnknown,
 		CostNote:          clilavaflow.CostNote,
 		EnableCommand:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
 		GitConnectCommand: gitConnectCommand,

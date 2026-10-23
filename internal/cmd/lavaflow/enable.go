@@ -42,15 +42,13 @@ can open fix pull requests; without one it diagnoses issues only.`,
 }
 
 func runEnable(ctx context.Context, opts enableOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, true)
+	result, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, true)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
-		return writeJSON(opts.out, settings)
+		return writeJSON(opts.out, result.Settings)
 	}
-	output.Success(opts.out, "LavaFlow is on")
-	output.Note(opts.out, "%s", clilavaflow.OnDescription)
-	output.Note(opts.out, "%s", clilavaflow.CostNote)
+	output.LavaFlowEnabled(opts.out, result.Settings, clilavaflow.OnDescription, clilavaflow.CostNote)
 	return nil
 }

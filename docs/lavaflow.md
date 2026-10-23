@@ -45,7 +45,8 @@ See [LavaFlow](/platform/guides/lavaflow) for how runs work and their limits.
 | Diagnose an issue again | `volcano cloud lavaflow runs start --issue <issue-id> [--json]` |
 
 Turning LavaFlow on or off and starting a run need your login: a project access
-token is refused. A project access token can read the status and runs.
+token is refused, and so is a `config deploy` with one that changes the
+`lavaflow` section. A project access token can read the status and runs.
 
 ## Turn it on
 
@@ -63,6 +64,9 @@ Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull reque
 A project whose plan does not allow LavaFlow is refused, and the command exits
 non-zero. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
+Turning LavaFlow off works even when the project's plan cannot be checked; then
+`max_stage` and `auto_trigger` go back to their defaults, and the command says
+so.
 
 ## Check the status
 
@@ -80,7 +84,9 @@ LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Pr
 
 When no repository is connected, the status says so and names
 `volcano git connect`. When the project configuration narrows LavaFlow, with
-`max_stage: diagnose` or `auto_trigger: false`, the status says that too.
+`max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
+that too. With `--json`, `repository_state` is `connected`, `not_connected`, or
+`unknown` when the connection could not be read.
 
 ## Follow the runs
 
@@ -109,7 +115,8 @@ A queued run can wait. The status says `waiting` when Volcano has paused
 LavaFlow runs; the run resumes on its own.
 
 To diagnose an issue again, for example after a run failed, start a run with
-the issue ID from `runs list --json`:
+the issue ID from an earlier run in `runs list --json`, or from the
+[Issues API](/platform/guides/issues):
 
 ```bash
 volcano cloud lavaflow runs start --issue 3f5a8b1c-2d4e-4f6a-8b9c-0d1e2f3a4b5c

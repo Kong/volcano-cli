@@ -46,12 +46,35 @@ func TestStatusNamesWhatTheProjectConfigurationNarrowed(t *testing.T) {
 		s.settings["enabled"] = true
 		s.settings["max_stage"] = "diagnose"
 		s.settings["auto_trigger"] = false
+		s.repoConnected = false
 	})
 
 	out, err := executeLavaflowCommand(t, New(deps), "status")
 	require.NoError(t, err)
 	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
 	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
+	assert.NotContains(t, out, "Connect a repository", "diagnosing needs no repository")
+}
+
+// A connection that could not be read is reported as unknown, never as none.
+func TestStatusRepositoryUnknown(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.settings["enabled"] = true
+		s.repoFailure = http.StatusInternalServerError
+	})
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Repository: unknown")
+	assert.NotContains(t, out, "Connect a repository")
+
+	out, err = executeLavaflowCommand(t, New(deps), "status", "--json")
+	require.NoError(t, err)
+	var status map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &status))
+	assert.Equal(t, "unknown", status["repository_state"])
+	assert.NotContains(t, status, "repository")
 }
 
 func TestStatusPlanThatDoesNotAllowLavaFlow(t *testing.T) {
@@ -75,6 +98,7 @@ func TestStatusJSON(t *testing.T) {
 	var status map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &status))
 	assert.Equal(t, lavaflowRepo, status["repository"])
+	assert.Equal(t, "connected", status["repository_state"])
 	settings, _ := status["settings"].(map[string]any)
 	assert.Equal(t, false, settings["enabled"])
 }

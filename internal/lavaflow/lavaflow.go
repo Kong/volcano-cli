@@ -33,16 +33,23 @@ const codePlanRequired = "plan_required"
 // MaxRunsLimit is the largest page of runs the API returns.
 const MaxRunsLimit = 100
 
+// Whether a repository is connected for LavaFlow's fix pull requests.
+const (
+	RepositoryConnected    = "connected"
+	RepositoryNotConnected = "not_connected"
+	// RepositoryUnknown means the connection could not be read, so the status
+	// says nothing about it rather than claim none is connected.
+	RepositoryUnknown = "unknown"
+)
+
 // Status is a project's LavaFlow settings and whether a repository is
 // connected for its fix pull requests.
 type Status struct {
-	Settings *apiclient.LavaFlowSettings `json:"settings"`
-	// Repository is the connected repository's full name, or "" when none is
-	// connected.
-	Repository string `json:"repository"`
-	// RepositoryUnknown is set when the connection could not be read, so the
-	// status says nothing about it rather than claim none is connected.
-	RepositoryUnknown bool `json:"-"`
+	Settings        *apiclient.LavaFlowSettings `json:"settings"`
+	RepositoryState string                      `json:"repository_state"`
+	// Repository is the connected repository's full name, set only when
+	// RepositoryState is RepositoryConnected.
+	Repository string `json:"repository,omitempty"`
 }
 
 // Service performs LavaFlow workflows against the current project.
@@ -66,44 +73,58 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get LavaFlow settings: %w", err)
 	}
-	status := &Status{Settings: settings}
+	status := &Status{Settings: settings, RepositoryState: RepositoryUnknown}
 	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
 	switch {
 	case err == nil:
+		status.RepositoryState = RepositoryConnected
 		status.Repository = connection.RepoFullName
-	case api.Status(err) != http.StatusNotFound:
+	case api.Status(err) == http.StatusNotFound:
 		// The settings read already proved the project exists, so a 404 means
 		// no repository; anything else leaves the connection unknown.
-		status.RepositoryUnknown = true
+		status.RepositoryState = RepositoryNotConnected
 	}
 	return status, nil
+}
+
+// SetEnabledResult is the saved settings, and whether the stage and trigger
+// went back to their defaults because the saved ones could not be read.
+type SetEnabledResult struct {
+	Settings *apiclient.LavaFlowSettings
+	Reset    bool
 }
 
 // SetEnabled turns LavaFlow on or off for the current project. The API
 // replaces the whole settings object, so the other saved fields are sent back
 // unchanged: a manifest's max_stage and auto_trigger survive.
-func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaFlowSettings, error) {
+//
+// Reading the settings needs the owner's plan, and turning LavaFlow off does
+// not, so an outage of the plan service must not keep it on: when the read
+// answers 503, disabling saves enabled false alone and reports the reset.
+func (s Service) SetEnabled(ctx context.Context, enabled bool) (*SetEnabledResult, error) {
+	verb := "turn LavaFlow off"
+	if enabled {
+		verb = "turn LavaFlow on"
+	}
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return nil, err
 	}
+	update := apiclient.UpdateLavaFlowSettingsRequest{Enabled: enabled}
 	current, err := authenticated.API.GetLavaFlowSettings(ctx, authenticated.ProjectID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get LavaFlow settings: %w", err)
+	switch {
+	case err == nil:
+		update.MaxStage = &current.MaxStage
+		update.AutoTrigger = &current.AutoTrigger
+	case !enabled && api.Status(err) == http.StatusServiceUnavailable:
+	default:
+		return nil, fmt.Errorf("failed to %s: reading the current settings: %w", verb, err)
 	}
-	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID, apiclient.UpdateLavaFlowSettingsRequest{
-		Enabled:     enabled,
-		MaxStage:    &current.MaxStage,
-		AutoTrigger: &current.AutoTrigger,
-	})
+	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID, update)
 	if err != nil {
-		verb := "turn LavaFlow off"
-		if enabled {
-			verb = "turn LavaFlow on"
-		}
 		return nil, refusal(fmt.Errorf("failed to %s: %w", verb, err))
 	}
-	return settings, nil
+	return &SetEnabledResult{Settings: settings, Reset: update.MaxStage == nil}, nil
 }
 
 // ListRuns returns one page of the current project's runs, newest first.

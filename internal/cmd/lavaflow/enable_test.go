@@ -32,9 +32,28 @@ func TestEnableKeepsTheSavedStageAndTrigger(t *testing.T) {
 		s.settings["auto_trigger"] = false
 	})
 
-	_, err := executeLavaflowCommand(t, New(deps), "enable")
+	out, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true, "max_stage": "diagnose", "auto_trigger": false}, fake.lastUpdate(t))
+	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
+	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
+	assert.NotContains(t, out, clilavaflow.OnDescription, "the output describes the settings it kept")
+}
+
+// Turning LavaFlow on needs the plan, so a read that could not resolve it
+// stops the command rather than guess.
+func TestEnableStopsWhenTheSettingsCannotBeRead(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.refuse = http.StatusServiceUnavailable
+		s.refuseMethod = http.MethodGet
+		s.refusal = map[string]any{"error": "subscription pricing temporarily unavailable"}
+	})
+
+	_, err := executeLavaflowCommand(t, New(deps), "enable")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to turn LavaFlow on: reading the current settings")
+	fake.set(func(s *lavaflowServer) { assert.Empty(t, s.updates) })
 }
 
 func TestEnableExplainsAPlanRefusal(t *testing.T) {

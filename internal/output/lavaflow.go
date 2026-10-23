@@ -52,7 +52,8 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	for _, limit := range lavaFlowLimits(settings) {
 		Note(w, "%s", limit)
 	}
-	if settings.Enabled && details.Repository == "" && !details.RepositoryUnknown {
+	opensPullRequests := settings.MaxStage == apiclient.LavaFlowStagePullRequest
+	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown {
 		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
 			theme.Command(details.GitConnectCommand, on))
 	}
@@ -63,6 +64,21 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	if !settings.Enabled {
 		fmt.Fprintf(w, "%s%s\n", theme.Dim("Turn it on: ", on), theme.Command(details.EnableCommand, on))
 	}
+}
+
+// LavaFlowEnabled renders LavaFlow turned on: what it now does, which is
+// onDescription unless the project configuration narrowed it, and what it
+// costs.
+func LavaFlowEnabled(w io.Writer, settings *apiclient.LavaFlowSettings, onDescription, costNote string) {
+	Success(w, "LavaFlow is on")
+	limits := lavaFlowLimits(settings)
+	if len(limits) == 0 {
+		limits = []string{onDescription}
+	}
+	for _, limit := range limits {
+		Note(w, "%s", limit)
+	}
+	Note(w, "%s", costNote)
 }
 
 // lavaFlowLimits names the settings a project configuration file narrowed.

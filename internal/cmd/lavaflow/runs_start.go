@@ -26,7 +26,8 @@ func newRunsStart(deps cliruntime.Deps) *cobra.Command {
 		Use:   "start --issue <issue-id>",
 		Short: "Diagnose an issue again",
 		Long: fmt.Sprintf(`Queue a LavaFlow run for an issue, such as one whose last run failed. Take the
-issue ID from '%s'.
+issue ID from an earlier run in '%s', or from the Issues API
+(GET /projects/{id}/issues).
 
 LavaFlow must be on. An issue has at most one queued or running run, and a
 project starts at most 25 runs, on their own or by hand, in any 24 hours.
