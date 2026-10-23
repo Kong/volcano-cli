@@ -106,7 +106,91 @@ func TestConnectRebindsWhenTheDefaultBranchMoved(t *testing.T) {
 	assert.Contains(t, out, "✓ Connected octo/storefront")
 	assert.NotContains(t, out, "already connected")
 	assert.NotNil(t, api.sentConnectBody())
-	assert.Contains(t, out, "Production branch: main")
+	assert.Contains(t, out, "Production branch: main (follows the default)")
+}
+
+// A branch the project pinned is its own choice, not a stale default, so it is
+// left alone — including one that happens to be the default today.
+func TestConnectLeavesAPinnedBranchAlone(t *testing.T) {
+	for _, branch := range []string{"release", "main"} {
+		setGitCommandTestHome(t)
+		api := newGitAPI(t)
+		api.connected = "octo/storefront"
+		api.connectedBranch, api.connectedPinned = branch, true
+
+		out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+		require.NoError(t, err, branch)
+
+		assert.Contains(t, out, "octo/storefront is already connected to this project.", branch)
+		assert.Contains(t, out, "Production branch: "+branch+" (pinned)", branch)
+		assert.Nil(t, api.sentConnectBody(), branch)
+	}
+}
+
+// Leaving the branch out of a bind follows the default and discards a pin, so
+// binding the same repository again sends a pinned branch back.
+func TestConnectRebindingTheSameRepositoryKeepsAPinnedBranch(t *testing.T) {
+	for _, branch := range []string{"release", "main"} {
+		setGitCommandTestHome(t)
+		api := newGitAPI(t)
+		api.connected = "octo/storefront"
+		api.connectedInstallation = 999999
+		api.connectedBranch, api.connectedPinned = branch, true
+
+		out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+		require.NoError(t, err, branch)
+
+		require.NotNil(t, api.sentConnectBody(), branch)
+		assert.Equal(t, branch, api.sentConnectBody()["production_branch"], branch)
+		assert.Contains(t, out, "Production branch: "+branch+" (pinned)", branch)
+	}
+}
+
+func TestConnectRebindingTheSameRepositoryKeepsFollowingTheDefault(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedInstallation = 999999
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.NoError(t, err)
+
+	require.NotNil(t, api.sentConnectBody())
+	assert.NotContains(t, api.sentConnectBody(), "production_branch")
+	assert.Contains(t, out, "Production branch: main (follows the default)")
+}
+
+// A pin was chosen for the repository being left, so a different one starts
+// from its own default.
+func TestConnectToAnotherRepositoryDoesNotCarryThePin(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "acme/old-store"
+	api.connectedBranch, api.connectedPinned = "release", true
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect", "--yes")
+	require.NoError(t, err)
+
+	require.NotNil(t, api.sentConnectBody())
+	assert.NotContains(t, api.sentConnectBody(), "production_branch")
+	assert.Contains(t, out, "Production branch: main (follows the default)")
+}
+
+// Changing only the root directory of a project with a pinned branch takes
+// the narrower write, which leaves the branch alone.
+func TestConnectChangingTheRootDirectoryKeepsAPinnedBranch(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedBranch, api.connectedPinned = "release", true
+
+	out, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/api")
+	require.NoError(t, err)
+
+	assert.Nil(t, api.sentConnectBody())
+	assert.Equal(t, map[string]any{"root_directory": "apps/api"}, api.sentRootBody())
+	assert.Contains(t, out, "Production branch: release (pinned)")
 }
 
 // GitHub preserves the case an owner typed but does not treat it as
@@ -927,6 +1011,24 @@ func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 	assert.Contains(t, err.Error(), "changed while this command was running")
 	assert.Nil(t, api.sentConnectBody(), "apps/new must not be overwritten")
 	assert.Nil(t, api.sentRootBody(), "apps/new must not be overwritten")
+}
+
+// A rebind sends a pinned branch back, so someone making the project follow
+// the default meanwhile — the branch name unchanged — must stop it, or the
+// rebind would pin it again.
+func TestConnectRefusesWhenOnlyThePinMovedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedInstallation = 999999
+	api.connectedBranch, api.connectedPinned = "main", true
+	api.followAfterRead = true
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput}, "", "connect")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Nil(t, api.sentConnectBody(), "following the default must not be reverted")
 }
 
 // Nothing is written when the binding already matches, so a concurrent edit

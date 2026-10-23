@@ -24,10 +24,26 @@ func TestProductionBranchSetsOnlyTheProductionBranch(t *testing.T) {
 	assert.Zero(t, api.accountRouteReads(), "nothing is resolved on GitHub")
 	assert.Contains(t, out, "Production branch set to release")
 	assert.Contains(t, out, "Repository: octo/storefront")
-	assert.Contains(t, out, "Production branch: release")
+	assert.Contains(t, out, "Production branch: release (pinned)")
 	assert.Contains(t, out,
 		"Nothing was redeployed. release stays the production branch if the repository's default branch changes.")
 	assert.Contains(t, out, "A push to release deploys: functions")
+}
+
+// Naming the branch that is the default today still pins it: it stays when
+// the default changes.
+func TestProductionBranchPinsTheDefaultBranchByName(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "production-branch", "main")
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]any{"production_branch": "main"}, api.sentBranchBody())
+	assert.Contains(t, out, "Production branch set to main")
+	assert.Contains(t, out, "Production branch: main (pinned)")
+	assert.Contains(t, out, "main stays the production branch if the repository's default branch changes.")
 }
 
 // Following the default sends an empty branch, and the default comes back from
@@ -36,14 +52,14 @@ func TestProductionBranchResetFollowsTheDefaultBranch(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)
 	api.connected = "octo/storefront"
-	api.connectedBranch = "release"
+	api.connectedBranch, api.connectedPinned = "release", true
 
 	out, err := executeGitCommand(t, api.serve(), nil, "", "production-branch", "--reset")
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]any{"production_branch": ""}, api.sentBranchBody())
 	assert.Contains(t, out, "Production branch now follows the repository's default branch (main).")
-	assert.Contains(t, out, "Production branch: main")
+	assert.Contains(t, out, "Production branch: main (follows the default)")
 	assert.NotContains(t, out, "stays the production branch")
 	assert.Contains(t, out, "A push to main deploys: functions")
 }

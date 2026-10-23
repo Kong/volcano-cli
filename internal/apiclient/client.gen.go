@@ -9383,7 +9383,10 @@ type ProjectFrontendCustomDomainVerificationStatus string
 type ProjectGitConnection struct {
 	// ProductionBranch The branch a push must land on to deploy. Follows the repository's GitHub default branch unless the project set its own, which a default-branch rename on GitHub then leaves alone.
 	ProductionBranch string `json:"production_branch"`
-	RepoFullName     string `json:"repo_full_name"`
+
+	// ProductionBranchFollowsDefault True when `production_branch` follows the repository's default branch and moves with a default-branch rename on GitHub. False when the project pinned a branch, even one that matches the current default. Pin a branch with `PUT /projects/{id}/git-connection/production-branch`; send an empty `production_branch` there to follow the default again.
+	ProductionBranchFollowsDefault bool   `json:"production_branch_follows_default"`
+	RepoFullName                   string `json:"repo_full_name"`
 
 	// RepoId Stable GitHub repository id (repository.id), the authoritative binding.
 	RepoId             int64     `json:"repo_id"`
