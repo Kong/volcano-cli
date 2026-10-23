@@ -1,6 +1,6 @@
 // Package lavaflow performs the LavaFlow workflows behind the volcano cloud
 // lavaflow subcommands. LavaFlow reads a project's runtime errors, diagnoses
-// the issues they group into, and opens draft pull requests that fix them.
+// the issues they group into, and opens pull requests that fix them.
 package lavaflow
 
 import (
@@ -22,10 +22,11 @@ import (
 const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. " +
 	"Prices are announced before billing starts."
 
-// OnDescription says what turning LavaFlow on does: runs start without a
-// request, so the user is told before and after.
-const OnDescription = "LavaFlow diagnoses new and reopened issues on its own and opens draft pull " +
-	"requests that fix them in the project's connected repository."
+// OnDescription says what LavaFlow does once it is on, in the dashboard's
+// words. Runs start without a request, so the user is told before and after.
+// It changes when LavaFlow merges its fixes.
+const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
+	"and opens fix pull requests in your connected repository."
 
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"

@@ -136,7 +136,9 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 	}
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", run.Id.String())
-	kv(w, on, "Issue", "%s", lavaFlowIssueDetail(run))
+	if issue := lavaFlowRunIssue(run); issue != nil {
+		kv(w, on, "Issue", "%s (%s)", theme.StripControl(issue.Title), issue.Id)
+	}
 	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run.Trigger))
 	kv(w, on, "Status", "%s", theme.Status(string(run.Status), on))
 	if reason := lavaFlowFailure(run); reason != "" {
@@ -189,26 +191,37 @@ func lavaFlowDiagnosis(w io.Writer, on bool, diagnosis *apiclient.LavaFlowDiagno
 	}
 }
 
-func lavaFlowIssue(run *apiclient.LavaFlowRun) string {
-	if run.IssueTitle != nil && *run.IssueTitle != "" {
-		return theme.StripControl(*run.IssueTitle)
+// lavaFlowRunIssue is the issue a run works on, or nil for a trigger type
+// this CLI does not know, which renders as "other" without an issue.
+func lavaFlowRunIssue(run *apiclient.LavaFlowRun) *apiclient.LavaFlowTriggerIssue {
+	if run.Trigger.Type != apiclient.LavaFlowRunTriggerTypeIssue {
+		return nil
 	}
-	return run.IssueId.String()
+	return run.Trigger.Issue
 }
 
-func lavaFlowIssueDetail(run *apiclient.LavaFlowRun) string {
-	if run.IssueTitle != nil && *run.IssueTitle != "" {
-		return fmt.Sprintf("%s (%s)", theme.StripControl(*run.IssueTitle), run.IssueId)
+func lavaFlowIssue(run *apiclient.LavaFlowRun) string {
+	issue := lavaFlowRunIssue(run)
+	switch {
+	case issue == nil:
+		return "-"
+	case issue.Title != "":
+		return theme.StripControl(issue.Title)
+	default:
+		return issue.Id.String()
 	}
-	return run.IssueId.String()
 }
 
 func lavaFlowTrigger(trigger apiclient.LavaFlowRunTrigger) string {
-	switch trigger {
-	case apiclient.LavaFlowRunTriggerNewIssue:
+	switch {
+	case trigger.Type != apiclient.LavaFlowRunTriggerTypeIssue:
+		return "other"
+	case trigger.Reason == nil:
+		return "-"
+	case *trigger.Reason == apiclient.LavaFlowRunTriggerReasonNewIssue:
 		return "new issue"
 	default:
-		return string(trigger)
+		return theme.StripControl(string(*trigger.Reason))
 	}
 }
 

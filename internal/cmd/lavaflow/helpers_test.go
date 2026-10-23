@@ -67,7 +67,6 @@ func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
 // saved settings: off, and set to run on its own up to a pull request once on.
 func defaultLavaflowSettings() map[string]any {
 	return map[string]any{
-		"project_id":           lavaflowProjectID,
 		"enabled":              false,
 		"max_stage":            "pull_request",
 		"auto_trigger":         true,
@@ -115,15 +114,15 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		maps.Copy(saved, update)
 		s.settings = saved
 		s.write(w, http.StatusOK, s.settings)
-	case r.Method == http.MethodGet && r.URL.Path == project+"/lavaflow/runs":
+	case r.Method == http.MethodGet && r.URL.Path == project+"/lavaflow-runs":
 		s.listQueries = append(s.listQueries, r.URL.Query())
 		page := map[string]any{"data": s.runs, "limit": 20, "has_more": s.nextCursor != ""}
 		if s.nextCursor != "" {
 			page["next_cursor"] = s.nextCursor
 		}
 		s.write(w, http.StatusOK, page)
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, project+"/lavaflow/runs/"):
-		id := strings.TrimPrefix(r.URL.Path, project+"/lavaflow/runs/")
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, project+"/lavaflow-runs/"):
+		id := strings.TrimPrefix(r.URL.Path, project+"/lavaflow-runs/")
 		for _, run := range s.runs {
 			if run["id"] == id {
 				s.write(w, http.StatusOK, run)
@@ -132,11 +131,11 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		s.write(w, http.StatusNotFound, map[string]any{"error": "run not found"})
 	case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, project+"/issues/") &&
-		strings.HasSuffix(r.URL.Path, "/lavaflow/runs"):
-		issue := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, project+"/issues/"), "/lavaflow/runs")
+		strings.HasSuffix(r.URL.Path, "/lavaflow-runs"):
+		issue := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, project+"/issues/"), "/lavaflow-runs")
 		s.started = append(s.started, issue)
 		run := queuedRun()
-		run["issue_id"] = issue
+		run["trigger"] = issueTrigger("manual", issue, "TypeError: cart is undefined")
 		s.write(w, http.StatusAccepted, run)
 	default:
 		http.NotFound(w, r)
@@ -168,17 +167,22 @@ func (s *lavaflowServer) set(change func(*lavaflowServer)) {
 
 func queuedRun() map[string]any {
 	return map[string]any{
-		"id": lavaflowRunID, "project_id": lavaflowProjectID, "issue_id": lavaflowIssueID,
-		"issue_title": "TypeError: cart is undefined", "trigger": "manual", "status": "queued",
-		"max_stage": "pull_request", "created_at": "2026-10-23T09:00:00Z",
+		"id": lavaflowRunID, "project_id": lavaflowProjectID,
+		"trigger": issueTrigger("manual", lavaflowIssueID, "TypeError: cart is undefined"),
+		"status":  "queued", "max_stage": "pull_request", "created_at": "2026-10-23T09:00:00Z",
 	}
+}
+
+func issueTrigger(reason, issueID, title string) map[string]any {
+	return map[string]any{"type": "issue", "reason": reason, "issue": map[string]any{"id": issueID, "title": title}}
 }
 
 // fixedRun is a run that diagnosed its issue and opened a pull request.
 func fixedRun() map[string]any {
 	run := queuedRun()
 	maps.Copy(run, map[string]any{
-		"trigger": "new_issue", "status": "succeeded", "stage_reached": "pull_request",
+		"trigger": issueTrigger("new_issue", lavaflowIssueID, "TypeError: cart is undefined"),
+		"status":  "succeeded", "stage_reached": "pull_request",
 		"started_at": "2026-10-23T09:00:05Z", "completed_at": "2026-10-23T09:03:00Z",
 		"commit_sha": "0123abcd",
 		"diagnosis": map[string]any{

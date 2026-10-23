@@ -15,9 +15,7 @@ import (
 
 const groupShort = "Diagnose and fix the project's runtime errors"
 
-var groupLong = `LavaFlow reads the current project's runtime errors, groups them into issues,
-diagnoses each one, and opens a draft pull request with a fix in the project's
-connected repository. Turning it on is the whole setup.
+var groupLong = clilavaflow.OnDescription + ` Turning it on is the whole setup.
 
 ` + clilavaflow.CostNote
 

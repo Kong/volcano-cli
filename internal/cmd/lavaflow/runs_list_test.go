@@ -13,11 +13,11 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	paused := queuedRun()
 	paused["id"] = "66666666-6666-4666-8666-666666666666"
-	paused["issue_title"] = "Timeout calling payments"
+	paused["trigger"] = issueTrigger("manual", lavaflowIssueID, "Timeout calling payments")
 	paused["failure_code"] = "feature_paused"
 	failed := queuedRun()
 	failed["id"] = "77777777-7777-4777-8777-777777777777"
-	delete(failed, "issue_title")
+	failed["trigger"] = issueTrigger("regression", lavaflowIssueID, "")
 	failed["status"] = "failed"
 	failed["failure_code"] = "model_unavailable"
 	failed["failure_message"] = "The model provider was unavailable."
@@ -31,6 +31,7 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	assert.Contains(t, out, "PR #42 open")
 	assert.Contains(t, out, "waiting: Volcano paused")
 	assert.Contains(t, out, lavaflowIssueID, "a run without a title shows its issue ID")
+	assert.Contains(t, out, "regression")
 	assertLavaFlowWording(t, out)
 }
 
@@ -76,4 +77,22 @@ func TestRunsListEmptyAndJSON(t *testing.T) {
 	var page map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &page))
 	assert.Equal(t, false, page["has_more"])
+}
+
+// A trigger type this CLI does not know renders as "other", without an issue.
+func TestRunsListRendersAnUnknownTriggerAsOther(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := queuedRun()
+	run["trigger"] = map[string]any{"type": "pull_request", "pull_request": map[string]any{"number": 7}}
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "other")
+	assert.NotContains(t, out, lavaflowIssueID)
+
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Trigger: other")
+	assert.NotContains(t, out, "Issue:")
 }

@@ -38,7 +38,7 @@ func TestRunsGetShowsTheDiagnosisAndPullRequest(t *testing.T) {
 func TestRunsGetStripsControlCharacters(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	run := fixedRun()
-	run["issue_title"] = "boom\x1b[2J"
+	run["trigger"] = issueTrigger("manual", lavaflowIssueID, "boom\x1b[2J")
 	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
 
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)

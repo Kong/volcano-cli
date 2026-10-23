@@ -1,18 +1,16 @@
 ---
 title: "LavaFlow"
-description: "Turn LavaFlow on from the CLI so Volcano diagnoses your project's runtime errors and opens draft pull requests that fix them."
+description: "Turn LavaFlow on from the CLI so Volcano diagnoses your project's runtime errors and opens pull requests that fix them."
 ---
 
 ## What it is
 
-LavaFlow reads your project's runtime errors, groups them into issues,
-diagnoses each one, and opens a draft pull request with a fix in the project's
-connected repository. Turning it on is the whole setup: there is nothing to
-choose and no key to bring.
+LavaFlow watches this project's errors, diagnoses new issues automatically,
+and opens fix pull requests in your connected repository. Turning it on is the
+whole setup: there is nothing to choose and no key to bring.
 
-Once it is on, LavaFlow diagnoses new and reopened issues on its own and opens
-draft fix pull requests without a request. You review and merge them like any
-other pull request.
+Runs start without a request once LavaFlow is on. You review and merge its
+pull requests like any other.
 
 LavaFlow is in preview and needs a paid plan. LavaFlow is a usage-billed
 add-on, priced per issue and per fix pull request. Prices are announced before
@@ -57,7 +55,7 @@ volcano cloud lavaflow enable
 
 ```text
 ✓ LavaFlow is on
-Note: LavaFlow diagnoses new and reopened issues on its own and opens draft pull requests that fix them in the project's connected repository.
+Note: LavaFlow watches this project's errors, diagnoses new issues automatically, and opens fix pull requests in your connected repository.
 Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
@@ -115,7 +113,8 @@ A queued run can wait. The status says `waiting` when Volcano has paused
 LavaFlow runs; the run resumes on its own.
 
 To diagnose an issue again, for example after a run failed, start a run with
-the issue ID from an earlier run in `runs list --json`, or from the
+the issue ID (`trigger.issue.id`) from an earlier run in `runs list --json`, or
+from the
 [Issues API](/platform/guides/issues):
 
 ```bash

@@ -3,11 +3,16 @@ package api
 import "testing"
 
 // TestAPIE2ECloudLavaFlow turns LavaFlow on and off for a fresh project the way
-// a user does, and checks the plan gate refuses it first. A new project has no
-// issues, so no run starts; Kong/volcano-hosting's cloud E2E covers runs.
+// a user does, and checks the plan gate refuses it first. The project has no
+// issues and no connected repository, so no run starts and nothing can open or
+// merge a pull request; Kong/volcano-hosting's cloud E2E covers runs.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
+	env.runCLI(t, "git", "status").requireSuccess(t, "No repository is connected")
+	// Registered after the project's own cleanup, so it runs first: LavaFlow is
+	// off before the project is deleted, even when an assertion below fails.
+	t.Cleanup(func() { env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off") })
 
 	env.runCloudCLI(t, "lavaflow", "enable").requireFailure(t,
 		"failed to turn LavaFlow on",
