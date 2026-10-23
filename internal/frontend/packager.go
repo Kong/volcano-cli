@@ -254,12 +254,7 @@ func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) (dep
 	if err != nil {
 		return deploycommit.File{}, err
 	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return deploycommit.File{}, err
-	}
 	header.Name = relPath
-	header.Size = int64(len(content))
 	header.Uname = ""
 	header.Gname = ""
 	header.Uid = 0
@@ -268,11 +263,16 @@ func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) (dep
 	if err := tw.WriteHeader(header); err != nil {
 		return deploycommit.File{}, err
 	}
-	if _, err := tw.Write(content); err != nil {
+	f, err := os.Open(path)
+	if err != nil {
 		return deploycommit.File{}, err
 	}
 	executable := header.Mode&0o111 != 0
-	return deploycommit.NewFile(path, content, &executable), nil
+	file, copyErr := deploycommit.Copy(tw, f, header.Size, path, &executable)
+	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
+		return deploycommit.File{}, fmt.Errorf("close %s: %w", path, closeErr)
+	}
+	return file, copyErr
 }
 
 // checkAppPathMarkerCollision returns an error when the user's own tree

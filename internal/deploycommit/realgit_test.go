@@ -220,10 +220,19 @@ func TestCommitComparesLineEndingsAsGitStoresThem(t *testing.T) {
 			writeFile(t, root, ".gitattributes", "* text=auto\n")
 		}, false},
 		"no conversion": {func(*testing.T, string) {}, true},
+		"an eol attribute": {func(t *testing.T, root string) {
+			t.Helper()
+			writeFile(t, root, ".gitattributes", "*.js eol=lf\n")
+		}, false},
 		"a -text attribute despite core.autocrlf": {func(t *testing.T, root string) {
 			t.Helper()
 			deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
 			writeFile(t, root, ".gitattributes", "*.js -text\n")
+		}, true},
+		"a legacy -crlf attribute despite core.autocrlf": {func(t *testing.T, root string) {
+			t.Helper()
+			deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
+			writeFile(t, root, ".gitattributes", "*.js -crlf\n")
 		}, true},
 	}
 	for name, tc := range cases {
@@ -233,6 +242,45 @@ func TestCommitComparesLineEndingsAsGitStoresThem(t *testing.T) {
 			writeFile(t, root, helloPath, "exports.handler = 1\r\n")
 			assert.Equal(t, tc.dirty, commitOf(t, root, read(t, root, helloPath)).Dirty)
 		})
+	}
+}
+
+// text=auto, and core.autocrlf, leave a file git judges binary as it is, so
+// only a text attribute makes its line endings count as the same.
+func TestCommitComparesBinaryLineEndingsAsGitStoresThem(t *testing.T) {
+	root, _ := newRepository(t)
+	writeFile(t, root, "web/app/data.bin", "A\x00\n")
+	deploycommittest.Git(t, root, "add", ".")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "data")
+	deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
+	writeFile(t, root, "web/app/data.bin", "A\x00\r\n")
+
+	assert.True(t, commitOf(t, root, read(t, root, "web/app/data.bin")).Dirty)
+
+	writeFile(t, root, ".gitattributes", "*.bin text\n")
+	assert.False(t, commitOf(t, root, read(t, root, "web/app/data.bin")).Dirty)
+}
+
+// Whether bytes are binary is git's own judgement: git hash-object stores
+// them as they are when it judges them binary, and with LF when not.
+func TestBinaryMatchesGit(t *testing.T) {
+	root, _ := newRepository(t)
+	deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
+	deploycommittest.Git(t, root, "config", "core.safecrlf", "false")
+	for name, content := range map[string]string{
+		"text":                             "a\r\nb\r\n",
+		"a NUL":                            "A\x00\r\n",
+		"a lone CR":                        "a\rb\r\n",
+		"control bytes":                    "\x01\x02\x03\r\n",
+		"a final ^Z":                       "text\r\n\x1a",
+		"2 control bytes, 253 printable":   strings.Repeat("a", 253) + "\r\n\x01\x02",
+		"2 control bytes, 256 printable":   strings.Repeat("a", 256) + "\r\n\x01\x02",
+		"tabs, backspace, escape and feed": "a\tb\bc\033d\f\r\n",
+	} {
+		writeFile(t, root, "sample.txt", content)
+		stored := deploycommittest.Git(t, root, "hash-object", "sample.txt")
+		file := NewFile("sample.txt", []byte(content), nil)
+		assert.Equal(t, stored == file.raw, file.binary, name)
 	}
 }
 
@@ -258,10 +306,13 @@ func TestCommitChecksManyFilesInBatches(t *testing.T) {
 	assert.True(t, commitOf(t, root, read(t, root, paths...)).Dirty)
 }
 
-// A file Git LFS stores is committed as a pointer to its content.
+// A file Git LFS stores is committed as a pointer to its content. Without
+// the filter attribute that names Git LFS, git checks the pointer out as it
+// is, so content matching it is a change.
 func TestCommitMatchesAGitLFSPointer(t *testing.T) {
 	root, _ := newRepository(t)
 	logo := []byte("\x89PNG not really\n")
+	writeFile(t, root, ".gitattributes", "*.png filter=lfs diff=lfs merge=lfs -text\n")
 	writeFile(t, root, "public/logo.png", string(lfsPointer(logo)))
 	deploycommittest.Git(t, root, "add", ".")
 	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "logo")
@@ -271,6 +322,10 @@ func TestCommitMatchesAGitLFSPointer(t *testing.T) {
 
 	writeFile(t, root, "public/logo.png", "\x89PNG another\n")
 	assert.True(t, commitOf(t, root, read(t, root, "public/logo.png")).Dirty)
+
+	writeFile(t, root, "public/logo.png", string(logo))
+	writeFile(t, root, ".gitattributes", "")
+	assert.True(t, commitOf(t, root, read(t, root, "public/logo.png")).Dirty, "no filter attribute")
 }
 
 // Reading the commit and comparing an upload never runs a filter the
@@ -285,6 +340,37 @@ func TestCommitRunsNoGitFilter(t *testing.T) {
 
 	assert.True(t, commitOf(t, root, read(t, root, helloPath)).Dirty)
 	assert.NoFileExists(t, ran)
+}
+
+// The archive never holds a symlink, so a commit with one in the uploaded
+// directory differs from the upload; one elsewhere does not count.
+func TestCommitIsDirtyForACommittedSymlinkInTheUpload(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("making a symlink on Windows needs a privilege")
+	}
+	root, _ := newRepository(t)
+	require.NoError(t, os.Symlink("hello.js", filepath.Join(root, "web", "app", "alias.js")))
+	deploycommittest.Git(t, root, "add", ".")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "alias")
+	source := Detect(context.Background(), cliruntime.Deps{}, root)
+
+	assert.True(t, source.Commit(context.Background(), filepath.Join(root, "web"), read(t, root, helloPath, utilPath)).Dirty)
+	assert.False(t, source.Commit(context.Background(), filepath.Join(root, "web", "lib"), read(t, root, utilPath)).Dirty)
+}
+
+// A replacement ref has git read another commit in place of the one HEAD
+// names; the tree compared is still the reported commit's own.
+func TestCommitComparesTheReportedCommitNotItsReplacement(t *testing.T) {
+	root, first := newRepository(t)
+	writeFile(t, root, helloPath, "exports.handler = 2\n")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-am", "second")
+	second := deploycommittest.Git(t, root, "rev-parse", "HEAD")
+	deploycommittest.Git(t, root, "replace", first, second)
+	deploycommittest.Git(t, root, "checkout", "--quiet", "--detach", first)
+
+	got := commitOf(t, root, read(t, root, helloPath))
+	assert.Equal(t, first, got.SHA)
+	assert.True(t, got.Dirty)
 }
 
 // A workflow can check out a ref other than the one that triggered it; the

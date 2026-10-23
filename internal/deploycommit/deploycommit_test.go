@@ -1,8 +1,10 @@
 package deploycommit
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -24,10 +26,10 @@ type fakeGit struct {
 }
 
 func (f *fakeGit) Run(_ context.Context, name string, args ...string) ([]byte, error) {
-	if name != "git" || len(args) < 3 || args[0] != "-C" {
+	if name != "git" || len(args) < 4 || args[0] != "--no-replace-objects" || args[1] != "-C" {
 		return nil, errors.New("unexpected command: " + name + " " + strings.Join(args, " "))
 	}
-	call := strings.Join(args[2:], " ")
+	call := strings.Join(args[3:], " ")
 	f.calls = append(f.calls, call)
 	switch call {
 	case "remote get-url origin":
@@ -158,6 +160,65 @@ func TestNewFileRecordsWhatTheBytesCouldBeStoredAs(t *testing.T) {
 		string(lfsPointer([]byte("one\r\ntwo\r\n"))))
 
 	assert.Empty(t, NewFile("b.txt", []byte("one\n"), nil).lf, "no CRLF, nothing to convert")
+}
+
+// oneByteAtATime reads a byte per call, so a CRLF can straddle two reads.
+type oneByteAtATime struct{ r *bytes.Reader }
+
+func (o oneByteAtATime) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	return o.r.Read(p[:1])
+}
+
+func (o oneByteAtATime) Seek(offset int64, whence int) (int64, error) {
+	return o.r.Seek(offset, whence)
+}
+
+// Copy writes the bytes it records, read in any pieces.
+func TestCopyRecordsWhatItWrites(t *testing.T) {
+	for _, content := range []string{"", "no line endings", "a\r\nb\r\n", "a\r", "\r\n\r\n", "a\rb\r\n", "\r\r\n"} {
+		var out bytes.Buffer
+		file, err := Copy(&out, oneByteAtATime{bytes.NewReader([]byte(content))}, int64(len(content)), "f", nil)
+		require.NoError(t, err)
+		assert.Equal(t, content, out.String())
+		assert.Equal(t, NewFile("f", []byte(content), nil), file, "%q", content)
+		assert.Equal(t, blobID([]byte(content)), file.raw, "%q", content)
+		assert.Equal(t, blobID(lfsPointer([]byte(content))), file.lfs, "%q", content)
+		var lf string
+		if strings.Contains(content, "\r\n") {
+			lf = blobID([]byte(strings.ReplaceAll(content, "\r\n", "\n")))
+		}
+		assert.Equal(t, lf, file.lf, "%q", content)
+	}
+}
+
+// changing holds one content, then another once it is read again.
+type changing struct {
+	*bytes.Reader
+	next []byte
+}
+
+func (c *changing) Seek(int64, int) (int64, error) {
+	c.Reader = bytes.NewReader(c.next)
+	return 0, nil
+}
+
+// Bytes that change before Copy reads them again are recorded only as they
+// were written.
+func TestCopyRecordsOnlyWhatItWroteWhenTheFileChanges(t *testing.T) {
+	file, err := Copy(io.Discard, &changing{Reader: bytes.NewReader([]byte("a\r\n")), next: []byte("b\r\n")}, 3, "f", nil)
+	require.NoError(t, err)
+	assert.Equal(t, blobID([]byte("a\r\n")), file.raw)
+	assert.Empty(t, file.lf)
+}
+
+func TestCopyFailsWhenTheFileIsNotTheSizeGiven(t *testing.T) {
+	_, err := Copy(io.Discard, bytes.NewReader([]byte("abc")), 2, "f", nil)
+	require.Error(t, err)
+	_, err = Copy(io.Discard, bytes.NewReader([]byte("abc")), 4, "f", nil)
+	require.Error(t, err)
 }
 
 func TestParseTreeKeepsBlobsWithTheirModes(t *testing.T) {

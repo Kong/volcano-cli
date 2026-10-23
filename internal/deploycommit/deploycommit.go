@@ -135,14 +135,14 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 // each file is in the commit at its own path, with the content the commit
 // gives it and, where the archive keeps one, the same executable bit, and no
 // file the commit holds under root is missing. Anything else marks it dirty:
-// an untracked or ignored file, an edit git's own status would not show, or a
-// deleted file. It returns nil when s is nil, root is outside the repository,
-// or git cannot be asked.
+// an untracked or ignored file, an edit git's own status would not show, a
+// deleted file, or a symlink, which the archive never holds. It returns nil
+// when s is nil, root is outside the repository, or git cannot be asked.
 //
 // Content is compared without running git: a clean or smudge filter is a
-// program the repository's configuration names. Line endings git converts
-// and Git LFS pointers are compared here instead; content another filter
-// changes reads as changed.
+// program the repository's configuration names. Line endings git converts,
+// and Git LFS pointers where the filter attribute names Git LFS, are compared
+// here instead; content another filter changes reads as changed.
 func (s *Source) Commit(ctx context.Context, root string, files []File) *api.DeployCommit {
 	if s == nil {
 		return nil
@@ -162,45 +162,60 @@ func (s *Source) Commit(ctx context.Context, root string, files []File) *api.Dep
 }
 
 func (s *Source) differs(ctx context.Context, dir string, files []File) (bool, error) {
-	// crlf are files that match the commit once CRLF line endings become LF,
-	// which is what the commit holds if git converts them.
-	var crlf []string
+	// matches are files whose content matches the commit only if git
+	// converts their line endings or Git LFS stores them, which their
+	// attributes say.
+	var matches []match
 	for _, file := range files {
 		path, ok := s.repoPath(file.Path)
 		if !ok || !within(dir, path) {
 			return true, nil
 		}
 		entry, ok := s.tree[path]
-		if !ok {
+		if !ok || entry.mode == modeSymlink {
 			return true, nil
 		}
-		if file.Executable != nil && s.fileMode && entry.mode != modeSymlink && (entry.mode == modeExecutable) != *file.Executable {
+		if file.Executable != nil && s.fileMode && (entry.mode == modeExecutable) != *file.Executable {
 			return true, nil
 		}
 		switch entry.blob {
-		case file.raw, file.lfs:
+		case file.raw:
 		case file.lf:
-			crlf = append(crlf, path)
+			matches = append(matches, match{path: path, binary: file.binary})
+		case file.lfs:
+			matches = append(matches, match{path: path, lfs: true})
 		default:
 			return true, nil
 		}
 	}
-	converts, err := s.convertsLineEndings(ctx, crlf)
+	ok, err := s.attributesAllow(ctx, matches)
 	if err != nil {
 		return false, err
 	}
-	if !converts {
+	if !ok {
 		return true, nil
 	}
 	return s.missing(dir), nil
 }
 
+// match is a file whose content matches the commit with its line endings
+// converted, or as a Git LFS pointer.
+type match struct {
+	path string
+	// binary is whether git's text=auto leaves the file as it is.
+	binary bool
+	lfs    bool
+}
+
 // missing reports whether a file the commit holds under dir is gone from the
-// working tree, so the upload lacks it.
+// working tree, or is a symlink, so the upload lacks it.
 func (s *Source) missing(dir string) bool {
-	for path := range s.tree {
+	for path, entry := range s.tree {
 		if !within(dir, path) {
 			continue
+		}
+		if entry.mode == modeSymlink {
+			return true
 		}
 		if _, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path))); err != nil {
 			return true
@@ -237,34 +252,90 @@ func (s *Source) repoPath(file string) (string, bool) {
 	return filepath.ToSlash(rel), true
 }
 
-// convertsLineEndings reports whether git stores each path's CRLF line
-// endings as LF, from its text and eol attributes or, when they say
-// nothing, core.autocrlf. Reading attributes runs nothing they name.
-func (s *Source) convertsLineEndings(ctx context.Context, paths []string) (bool, error) {
-	for len(paths) > 0 {
-		args, size := []string{"check-attr", "-z", "text", "eol", "--"}, 0
-		for len(paths) > 0 && (size == 0 || size+len(paths[0]) < maxPathArgs) {
-			args = append(args, paths[0])
-			size += len(paths[0]) + 1
-			paths = paths[1:]
+// attributesAllow reports whether git stores each match as the commit holds
+// it: with its CRLF line endings as LF, from its text, crlf and eol
+// attributes or, when they say nothing, core.autocrlf; or as a Git LFS
+// pointer, from its filter attribute. Reading attributes runs nothing they
+// name.
+func (s *Source) attributesAllow(ctx context.Context, matches []match) (bool, error) {
+	for len(matches) > 0 {
+		args, size := []string{"check-attr", "-z", "text", "eol", "crlf", "filter", "--"}, 0
+		batch := matches
+		for len(matches) > 0 && (size == 0 || size+len(matches[0].path) < maxPathArgs) {
+			args = append(args, matches[0].path)
+			size += len(matches[0].path) + 1
+			matches = matches[1:]
 		}
+		batch = batch[:len(batch)-len(matches)]
 		out, err := run(ctx, s.git, s.root, args...)
 		if err != nil {
 			return false, err
 		}
 		attrs := attributes(out)
-		for _, path := range args[5:] {
-			text, eol := attrs[path]["text"], attrs[path]["eol"]
-			switch {
-			case text == "unset":
-				return false, nil
-			case text == "set" || text == "auto" || eol == "lf" || eol == "crlf":
-			case !s.autocrlf:
+		for _, m := range batch {
+			if m.lfs {
+				if attrs[m.path]["filter"] != "lfs" {
+					return false, nil
+				}
+				continue
+			}
+			switch lineEndings(attrs[m.path], s.autocrlf) {
+			case convertText:
+			case convertAuto:
+				if m.binary {
+					return false, nil
+				}
+			default:
 				return false, nil
 			}
 		}
 	}
 	return true, nil
+}
+
+// lineEnding is how git treats a file's line endings when it stores it.
+type lineEnding int
+
+const (
+	convertUnset lineEnding = iota
+	// convertNone leaves them as they are.
+	convertNone
+	// convertText turns CRLF into LF.
+	convertText
+	// convertAuto turns CRLF into LF in a file git does not judge binary.
+	convertAuto
+)
+
+// lineEndings is what git does with a file's line endings, from its text,
+// legacy crlf and eol attributes and core.autocrlf, as git's convert.c
+// decides it.
+func lineEndings(attrs map[string]string, autocrlf bool) lineEnding {
+	action := lineEndingAttribute(attrs["text"])
+	if action == convertUnset {
+		action = lineEndingAttribute(attrs["crlf"])
+	}
+	if eol := attrs["eol"]; action == convertUnset && (eol == "lf" || eol == "crlf") {
+		action = convertText
+	}
+	if action == convertUnset && autocrlf {
+		action = convertAuto
+	}
+	if action == convertUnset {
+		action = convertNone
+	}
+	return action
+}
+
+func lineEndingAttribute(value string) lineEnding {
+	switch value {
+	case "set", "input":
+		return convertText
+	case "unset":
+		return convertNone
+	case "auto":
+		return convertAuto
+	}
+	return convertUnset
 }
 
 // attributes reads `git check-attr -z` output: "<path>\0<attribute>\0<value>\0"
@@ -331,7 +402,9 @@ func valid(repository, sha string) bool {
 func run(ctx context.Context, git cliruntime.CommandRunner, dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, gitTimeout)
 	defer cancel()
-	out, err := git.Run(ctx, "git", append([]string{"-C", dir}, args...)...)
+	// Replacement refs would have git read another commit's objects in place
+	// of the ones the reported commit ID names.
+	out, err := git.Run(ctx, "git", append([]string{"--no-replace-objects", "-C", dir}, args...)...)
 	return string(out), err
 }
 

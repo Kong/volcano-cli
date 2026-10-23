@@ -207,9 +207,11 @@ repository, or any part is missing. Local deploys never send it.
 The upload matches the commit when each file in it is in the commit at the
 same path with the same content and executable bit, and no file the commit
 holds in the uploaded directory is missing. Line endings count as the same
-where git converts them, with `core.autocrlf` or a `text` attribute, and a
-file Git LFS stores matches its pointer. The CLI runs no other git filter, so
-a file another filter changes counts as changed. Anything else counts as
+where git converts them, as `core.autocrlf` and the `text`, `eol`, and `crlf`
+attributes decide, and a file whose `filter=lfs` attribute has Git LFS store
+it matches its pointer. The CLI runs no other git filter, so a file another
+filter changes counts as changed. The upload never holds a symlink, so a
+commit with one in the uploaded directory doesn't match. Anything else counts as
 changed: an edited, moved, or deleted file, or a file the commit doesn't have
 that the upload includes, such as an untracked file. The upload skips what the
 `.gitignore` at the root of the uploaded directory lists, not what a
