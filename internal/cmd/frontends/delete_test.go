@@ -110,3 +110,16 @@ func TestFrontendsDeleteKeepsTheRefusalWhenNoMountIsFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, `failed to delete frontend "`+docsFrontendID+`": HTTP 409: `+server.deleteRefusal, err.Error())
 }
+
+// A prefix that the shell would split or expand is quoted in the hint.
+func TestFrontendsDeleteQuotesTheRoutesToRemove(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := newMountServer(t)
+	server.mounts = []map[string]any{mountPayload(mountID, docsFrontendID, "/docs v2;$(id)")}
+	server.deleteRefusal = "Frontend routes on web mount this Frontend. Remove those routes before deleting it."
+
+	_, err := server.run("delete", "docs", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "\n  volcano cloud frontends routes delete web '/docs v2;$(id)'")
+}

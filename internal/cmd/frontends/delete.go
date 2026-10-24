@@ -77,7 +77,8 @@ func runDelete(ctx context.Context, opts deleteOptions) error {
 }
 
 // withMountedHint adds the commands that remove the Frontend routes mounting a
-// frontend to the 409 the server answers its delete with. The server's message
+// frontend to the 409 the server answers its delete with, quoted so they paste
+// as is. The server's message
 // already names the mounting frontends, so a failed lookup leaves it as is.
 func withMountedHint(ctx context.Context, deps cliruntime.Deps, service clifrontend.Service, frontendID uuid.UUID, err error) error {
 	if api.Status(err) != http.StatusConflict {
@@ -89,7 +90,7 @@ func withMountedHint(ctx context.Context, deps cliruntime.Deps, service clifront
 	}
 	commands := make([]string, 0, len(mounts))
 	for _, mount := range mounts {
-		commands = append(commands, "  "+cliruntime.CommandPath(deps, fmt.Sprintf("frontends routes delete %s %s", mount.Frontend, mount.PathPrefix)))
+		commands = append(commands, "  "+cliruntime.CommandPath(deps, fmt.Sprintf("frontends routes delete %s %s", cliruntime.ShellQuote(mount.Frontend), cliruntime.ShellQuote(mount.PathPrefix))))
 	}
 	return fmt.Errorf("%w\nremove the routes that mount it first:\n%s", err, strings.Join(commands, "\n"))
 }
