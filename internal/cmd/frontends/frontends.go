@@ -17,7 +17,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "frontends",
 		Short: "Manage frontends",
-		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage frontend custom domains, redirects, and function and Frontend routes.",
+		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage frontend custom domains, redirects, function and Frontend routes, and previews.",
 	}
 	cmd.AddCommand(newDeploy(deps))
 	cmd.AddCommand(newList(deps))
@@ -28,6 +28,9 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newDomain(deps))
 	cmd.AddCommand(newDomains(deps))
 	cmd.AddCommand(newRoutes(deps))
+	cmd.AddCommand(newPreview(deps))
+	cmd.AddCommand(newServing(deps))
+	cmd.AddCommand(newRollback(deps))
 	return cmd
 }
 
