@@ -188,6 +188,54 @@ the domain of an entry without `custom_domain`. Deploying a manifest written by
 `volcano config pull` keeps every domain on either server, and the dry run
 lists any domain it would delete.
 
+## Source commit
+
+A cloud frontend deploy reports the commit its source came from, so Volcano
+can tie the deployment to your repository. The CLI sends four things: the
+GitHub repository as `owner/name`, the commit ID, whether the uploaded files
+differ from that commit, and the uploaded directory's path in the repository,
+which is empty when it's the repository's top level. It never sends the
+remote URL or any credentials in it, local paths, branch names, or diffs.
+Function and durable function deploys don't report a commit for now.
+
+The CLI reads the commit checked out in the directory `--path` names: the
+`origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
+sends nothing, and the deploy goes ahead, when git isn't available, the
+repository isn't on github.com, the uploaded directory is outside the
+repository, or any part is missing. Local deploys never send it.
+
+The upload matches the commit when each file in it is in the commit at the
+same path with the same content and executable bit, and no file the commit
+holds in the uploaded directory is missing. Line endings count as the same
+where git converts them, as `core.autocrlf` and the `text`, `eol`, and `crlf`
+attributes decide, and a file whose `filter=lfs` attribute has Git LFS store
+it matches its pointer. The CLI runs no other git filter, so a file another
+filter changes counts as changed. The upload never holds a symlink, so a
+commit with one in the uploaded directory doesn't match. Anything else counts as
+changed: an edited, moved, or deleted file, or a file the commit doesn't have
+that the upload includes, such as an untracked file. The upload skips what the
+`.gitignore` at the root of the uploaded directory lists, not what a
+`.gitignore` in a subdirectory or outside it lists, so a file only those
+ignore is uploaded and counts as changed. Windows has no executable bit, so a
+frontend deployed from Windows doesn't match a commit that holds an
+executable file.
+
+Volcano verifies the commit against the project's connected repository: a
+commit on its production branch is verified. LavaFlow reads source and opens
+fix pull requests only for a deployment whose commit is verified and whose
+upload matched it, so commit your changes before you deploy. Of the deploys
+the CLI runs, only frontend deploys can get LavaFlow fix pull requests for
+now. A workflow run for a pull request deploys GitHub's merge commit, which is
+on no branch, so that deployment is recorded unverified.
+`frontends deploy --from` and a redeploy keep the commit of the build they
+publish.
+
+To send nothing, set:
+
+```bash
+export VOLCANO_DEPLOY_COMMIT=off
+```
+
 ## Cloud projects that deploy from Git
 
 When a cloud project's code deploys from its connected repository, functions

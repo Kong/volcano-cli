@@ -6296,6 +6296,21 @@ type DatabaseUpdateRequest struct {
 	Values map[string]interface{} `json:"values"`
 }
 
+// DeploymentCommit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+type DeploymentCommit struct {
+	// Dirty `true` when the working tree had uncommitted changes, so the deployed code may differ from the commit.
+	Dirty bool `json:"dirty"`
+
+	// Repository GitHub repository as `owner/name`, normalized from what the client sent.
+	Repository string `json:"repository"`
+
+	// Sha Full commit ID.
+	Sha string `json:"sha"`
+
+	// Verified `true` when Volcano confirmed, through the project's GitHub connection, that `repository` is the project's connected repository and `sha` is on its production branch. A commit from another branch, repository, or a project without a connection is recorded unverified. Autofix reads source and opens pull requests only for a verified commit with `dirty: false`.
+	Verified bool `json:"verified"`
+}
+
 // DeploymentPhase Timing and outcome for one normalized deployment pipeline phase.
 type DeploymentPhase struct {
 	CompletedAt     *time.Time            `json:"completed_at,omitempty"`
@@ -7117,8 +7132,11 @@ type FrontendDeployment struct {
 	BuildDurationRecordedAt *time.Time `json:"build_duration_recorded_at,omitempty"`
 
 	// BuildDurationSeconds Total build time recorded for this deployment, in seconds.
-	BuildDurationSeconds *int64    `json:"build_duration_seconds,omitempty"`
-	CreatedAt            time.Time `json:"created_at"`
+	BuildDurationSeconds *int64 `json:"build_duration_seconds,omitempty"`
+
+	// Commit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+	Commit    *DeploymentCommit `json:"commit,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
 
 	// DeploySource What initiated this deployment.
 	DeploySource FrontendDeploymentDeploySource `json:"deploy_source"`
@@ -7303,9 +7321,12 @@ type FunctionDeployment struct {
 	BuildDurationRecordedAt *time.Time `json:"build_duration_recorded_at,omitempty"`
 
 	// BuildDurationSeconds Total build time recorded for this deployment, in seconds.
-	BuildDurationSeconds *int64     `json:"build_duration_seconds,omitempty"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
+	BuildDurationSeconds *int64 `json:"build_duration_seconds,omitempty"`
+
+	// Commit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+	Commit      *DeploymentCommit `json:"commit,omitempty"`
+	CompletedAt *time.Time        `json:"completed_at,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
 
 	// DeploySource What initiated this deployment.
 	DeploySource FunctionDeploymentDeploySource `json:"deploy_source"`
@@ -12089,6 +12110,9 @@ type CreateDurableFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles.
 	Code openapi_types.File `json:"code"`
 
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	Commit *string `json:"commit,omitempty"`
+
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
 	Handler *string `json:"handler,omitempty"`
 
@@ -12264,6 +12288,9 @@ type CreateFrontendMultipartBody struct {
 	// Archive ZIP or tar.gz archive of the frontend project directory or monorepo workspace root. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz archive.
 	Archive openapi_types.File `json:"archive"`
 
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	Commit *string `json:"commit,omitempty"`
+
 	// Framework Next.js frontend. Supported Next.js majors are 15.x and 16.x.
 	Framework *CreateFrontendMultipartBodyFramework `json:"framework,omitempty"`
 
@@ -12344,6 +12371,9 @@ type CreateFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz source archive.
 	Code openapi_types.File `json:"code"`
 
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	Commit *string `json:"commit,omitempty"`
+
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
 	// Your code must export/define a function with this name:
 	// - Node.js: exports.handler (in index.js)
@@ -12403,6 +12433,8 @@ type CreateFunctionsBatchMultipartBody struct {
 	// Functions JSON array of functions with `name`, `runtime`, optional `handler`, and `file_field`. Each `file_field` must name a multipart file field containing that function's ZIP or tar.gz source bundle.
 	//
 	// Each entry may also declare `variable_scope` (`all` or `scoped`) and `variables` (an array of project variable names). Omitting them leaves the function's stored declaration unchanged. Volcano detects direct environment references in the uploaded source code and keeps them separate from the declared names: detected names are not written back to the declaration and do not appear in a config export. A scoped function receives its declared names plus the detected ones the project defines; a detected name the project does not define is ignored, since such a reference is often optional. Detection reads code only, so a name appearing solely in a comment or in an unrelated string is not a reference. Declare a name when the function reads it through a computed key, or when it must not deploy without the variable. The request is rejected with 400 before anything is deployed if a scoped function declares a variable the project does not define, or if the resulting environment exceeds 4096 bytes.
+	//
+	// Each entry may also carry `commit`, the commit its source came from, as an object: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. It takes the same values as the `commit` field of a single function upload, and the request is rejected with 400 before anything is deployed if an entry's commit is malformed or names a repository not on GitHub.
 	Functions string `json:"functions"`
 }
 

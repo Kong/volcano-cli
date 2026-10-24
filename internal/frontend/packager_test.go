@@ -126,6 +126,18 @@ func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {
 	assert.Contains(t, entries, "apps/web/page.tsx")
 	assert.Contains(t, entries, "packages/shared/index.ts")
 	assert.Contains(t, entries, frontendAppPathMarker)
+
+	// The CLI writes the marker; it is not a project file.
+	var paths []string
+	for _, file := range pkg.Files {
+		paths = append(paths, file.Path)
+		require.NotNil(t, file.Executable, "the archive keeps the executable bit")
+		assert.False(t, *file.Executable)
+	}
+	assert.Contains(t, paths, filepath.Join(appDir, "page.tsx"))
+	assert.Contains(t, paths, filepath.Join(sharedDir, "index.ts"))
+	assert.NotContains(t, paths, filepath.Join(root, filepath.FromSlash(frontendAppPathMarker)))
+	assert.Len(t, paths, len(entries)-1)
 }
 
 func TestPackageDirectoryStandaloneAppWithoutWorkspaceProtocol(t *testing.T) {
