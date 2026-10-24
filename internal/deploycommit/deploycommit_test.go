@@ -101,14 +101,19 @@ func TestDetectSendsNothingInLocalModeOrWhenTurnedOff(t *testing.T) {
 // would refuse, or anything partial, is dropped rather than sent.
 func TestDetectDropsWhatTheServerWouldRefuse(t *testing.T) {
 	cases := map[string]func(*fakeGit){
-		"no origin":         func(g *fakeGit) { g.remote = "" },
-		"not GitHub":        func(g *fakeGit) { g.remote = "https://gitlab.com/acme/app.git" },
-		"no commit yet":     func(g *fakeGit) { g.head = "" },
-		"short SHA":         func(g *fakeGit) { g.head = "0123456" },
-		"SHA-256 repo":      func(g *fakeGit) { g.head = strings.Repeat("ab", 32) },
-		"no top level":      func(g *fakeGit) { g.root = "" },
-		"invalid owner":     func(g *fakeGit) { g.remote = "https://github.com/ac_me/app.git" },
-		"local path origin": func(g *fakeGit) { g.remote = "/srv/git/app.git" },
+		"no origin":  func(g *fakeGit) { g.remote = "" },
+		"not GitHub": func(g *fakeGit) { g.remote = "https://gitlab.com/acme/app.git" },
+		// An SSH host alias can point at any host, so it names no repository the
+		// CLI can vouch for.
+		"SSH host alias":     func(g *fakeGit) { g.remote = "git@github.com-work:acme/app.git" },
+		"SSH URL host alias": func(g *fakeGit) { g.remote = "ssh://git@github.com-work/acme/app.git" },
+		"bare host alias":    func(g *fakeGit) { g.remote = "work:acme/app.git" },
+		"no commit yet":      func(g *fakeGit) { g.head = "" },
+		"short SHA":          func(g *fakeGit) { g.head = "0123456" },
+		"SHA-256 repo":       func(g *fakeGit) { g.head = strings.Repeat("ab", 32) },
+		"no top level":       func(g *fakeGit) { g.root = "" },
+		"invalid owner":      func(g *fakeGit) { g.remote = "https://github.com/ac_me/app.git" },
+		"local path origin":  func(g *fakeGit) { g.remote = "/srv/git/app.git" },
 	}
 	t.Setenv(OptOutEnv, "")
 	for name, change := range cases {
