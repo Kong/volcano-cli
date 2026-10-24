@@ -74,7 +74,7 @@ scaffold files with the current templates.`,
 }
 
 func run(opts options) error {
-	starter, err := resolveStarter(opts.starter, opts.example)
+	starter, err := ResolveStarter(opts.starter, opts.example)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,9 @@ func run(opts options) error {
 	return nil
 }
 
-func resolveStarter(raw, example string) (string, error) {
+// ResolveStarter turns a template name or alias, and an optional example, into
+// the starter name projectinit takes. Empty means the base scaffold only.
+func ResolveStarter(raw, example string) (string, error) {
 	value := strings.ToLower(strings.TrimSpace(raw))
 	example = normalizeStarterName(example)
 	if value == "" {

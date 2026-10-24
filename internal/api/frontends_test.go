@@ -95,6 +95,60 @@ func TestRedeployFrontendAcceptsEmptyBody(t *testing.T) {
 	assert.Equal(t, frontendID, redeployed.Id)
 }
 
+// TestCreateFrontendDeploymentAcceptsEmptyBody: the deployment was accepted,
+// and reporting it as failed invites a retry that replaces it.
+func TestCreateFrontendDeploymentAcceptsEmptyBody(t *testing.T) {
+	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	frontendID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+
+	for name, contentType := range map[string]string{
+		"no content type":   "",
+		"JSON content type": "application/json",
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				expectedPath := "/projects/" + projectID.String() + "/frontends/" + frontendID.String() + "/deployments"
+				if r.Method != http.MethodPost || r.URL.Path != expectedPath {
+					http.NotFound(w, r)
+					return
+				}
+				if contentType != "" {
+					w.Header().Set("Content-Type", contentType)
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+			require.NoError(t, err)
+
+			deployed, err := client.CreateFrontendDeployment(context.Background(), projectID, frontendID, uuid.New())
+			require.NoError(t, err)
+			require.NotNil(t, deployed)
+			assert.Equal(t, frontendID, deployed.Id)
+		})
+	}
+}
+
+func TestCreateFrontendDeploymentReportsRefusals(t *testing.T) {
+	projectID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	frontendID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"build variables differ from the source build: NEXT_PUBLIC_API_URL","code":"build_variables_differ"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.CreateFrontendDeployment(context.Background(), projectID, frontendID, uuid.New())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "NEXT_PUBLIC_API_URL")
+}
+
 func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	projectIDText := "11111111-1111-4111-8111-111111111111"
 	frontendIDText := "22222222-2222-4222-8222-222222222222"
@@ -174,13 +228,14 @@ func TestFrontendDomainAndLogsMethodsUseGeneratedRoutes(t *testing.T) {
 	assert.InEpsilon(t, 75, logSearchBodies[1]["limit"], 0)
 	assert.Equal(t, "dep-next", logSearchBodies[1]["cursor"])
 
-	createdDomain, err := client.CreateFrontendCustomDomain(context.Background(), projectID, frontendID, FrontendCustomDomainInput{
+	createdDomain, created, err := client.CreateFrontendCustomDomain(context.Background(), projectID, frontendID, FrontendCustomDomainInput{
 		Domain:              " app.example.com ",
 		CertificatePEM:      " cert ",
 		PrivateKeyPEM:       " key ",
 		CertificateChainPEM: " chain ",
 	})
 	require.NoError(t, err)
+	assert.True(t, created)
 	assert.Equal(t, "app.example.com", createdDomain.Domain)
 	tlsConfig, ok := createBody["tls"].(map[string]any)
 	require.True(t, ok)
@@ -303,6 +358,46 @@ func TestFrontendFunctionRouteMethodsUseGeneratedRoutes(t *testing.T) {
 		"PUT " + routesPath + "/" + routeIDText,
 		"DELETE " + routesPath + "/" + routeIDText,
 	}, requests)
+}
+
+func TestCreateFrontendCustomDomainManagedSendsNoCertificate(t *testing.T) {
+	var createBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&createBody))
+		response := frontendCustomDomainResponse("app.example.com", "active")
+		response["tls_mode"] = "managed"
+		response["serving_certificate"] = "uploaded"
+		writeAPIJSON(t, w, http.StatusOK, response)
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	domain, created, err := client.CreateFrontendCustomDomain(context.Background(), uuid.New(), uuid.New(), FrontendCustomDomainInput{
+		Domain:  "app.example.com",
+		TLSMode: apiclient.FrontendCustomDomainTLSConfigModeManaged,
+	})
+	require.NoError(t, err)
+	assert.False(t, created, "a 200 answers for a domain the frontend already had")
+	require.NotNil(t, domain.ServingCertificate)
+	assert.Equal(t, apiclient.FrontendCustomDomainResponseServingCertificateUploaded, *domain.ServingCertificate)
+	assert.Equal(t, map[string]any{"domain": "app.example.com", "tls": map[string]any{"mode": "managed"}}, createBody)
+}
+
+func TestGetFrontendCustomDomainReportsNoDomainAsNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("null\n"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	domain, err := client.GetFrontendCustomDomain(context.Background(), uuid.New(), uuid.New())
+	require.ErrorIs(t, err, ErrNotFound)
+	assert.Nil(t, domain)
 }
 
 // The server's refusal says what to fix, so it has to reach the user as sent.

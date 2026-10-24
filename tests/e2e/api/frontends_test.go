@@ -22,8 +22,12 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	})
 
 	frontend := "cli-e2e-" + apiE2ESuffix(t)
+	copied := frontend + "-copy"
 	writeAPIE2EFrontend(t, env.projectDir)
 	env.runCloudCLI(t, "frontends", "deploy", "--name", frontend, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
+	// --from deploys to a frontend that exists, so the copy gets one build of
+	// its own first; it builds while the first frontend does.
+	env.runCloudCLI(t, "frontends", "deploy", "--name", copied, "--path", filepath.Join(env.projectDir, "web")).requireSuccess(t, "deployment started")
 	env.runCloudCLI(t, "frontends", "list").requireSuccess(t, frontend)
 	first := env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", frontend)
 	writeAPIE2EFrontendVersion(t, env.projectDir, "v2")
@@ -35,6 +39,8 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 	waitForAPIE2EFrontendContent(t, siteURL, "Volcano CLI E2E v3")
 
 	requireAPIE2EFrontendRoutes(t, env, frontend, siteURL)
+	requireAPIE2EFrontendManagedDomain(t, env, frontend)
+	requireAPIE2EFrontendBuildReuse(t, env, frontend, copied)
 
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
 	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No frontends deployed", "frontends", "list")
@@ -95,7 +101,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2").
 		requireFailure(t, "specify at least one of --path, --function, or --strip-prefix")
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/echo", "--yes").
-		requireFailure(t, fmt.Sprintf("frontend %q has no route %q", frontend, "/api/echo"))
+		requireFailure(t, fmt.Sprintf("route %q not found for frontend %q", "/api/echo", frontend))
 
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/v2", "--yes").
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
@@ -104,6 +110,52 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
+}
+
+// requireAPIE2EFrontendManagedDomain attaches a managed TLS domain and removes
+// it. This suite cannot publish DNS, so the domain stays pending verification:
+// the check is that the CLI sends a managed request and prints the record that
+// starts issuance. Kong/volcano-hosting's cloud E2E issues a certificate and
+// switches TLS modes through real DNS.
+func requireAPIE2EFrontendManagedDomain(t *testing.T, env *apiE2E, frontend string) {
+	t.Helper()
+	domain := "cli-e2e-" + apiE2ESuffix(t) + ".example.com"
+	env.runCloudCLI(t, "frontends", "domain", "get", frontend).
+		requireFailure(t, fmt.Sprintf("frontend %q has no custom domain", frontend))
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed", "--cert", "cert.pem").
+		requireFailure(t, "--cert, --key, and --chain apply only to --tls byoc")
+
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed").
+		requireSuccess(t,
+			fmt.Sprintf("Custom domain '%s' created for frontend '%s'", domain, frontend),
+			"TLS mode: managed",
+			"Domain status: pending_verification",
+			"TXT _volcano.example.com -> volcano-domain-verification=")
+	env.runCloudCLI(t, "frontends", "domain", "create", frontend, "--domain", domain, "--tls", "managed").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' already uses managed TLS on frontend '%s'", domain, frontend))
+	env.runCloudCLI(t, "frontends", "domain", "list").requireSuccess(t, frontend, domain)
+
+	env.runCloudCLI(t, "frontends", "domain", "delete", frontend, "--yes").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' deletion started", domain))
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout, "No custom domains configured", "frontends", "domain", "list")
+}
+
+// requireAPIE2EFrontendBuildReuse deploys the v3 build source serves to
+// target, which last built the first version, and checks target serves v3.
+// Only an uploaded v3 could change that otherwise, and none is.
+func requireAPIE2EFrontendBuildReuse(t *testing.T, env *apiE2E, source, target string) {
+	t.Helper()
+	before := env.waitForCloudCLIContains(t, apiE2EFrontendDeploymentTimeout, "Status: active", "frontends", "get", target)
+	waitForAPIE2EFrontendContent(t, cliOutputField(before.output, "Site URL:"), "Volcano CLI E2E")
+
+	env.runCloudCLI(t, "frontends", "deploy", target, "--from", source).
+		requireSuccess(t, fmt.Sprintf("Frontend '%s' deployment started with the build of '%s'", target, source), "Source deployment:")
+	active := env.waitForFrontendDeployment(t, target, cliOutputField(before.output, "Current Deployment:"))
+	waitForAPIE2EFrontendContent(t, cliOutputField(active.output, "Site URL:"), "Volcano CLI E2E v3")
+
+	env.runCloudCLI(t, "frontends", "deploy", target, "--from", target).
+		requireFailure(t, "source deployment belongs to the target frontend; redeploy the frontend instead")
+	env.runCloudCLI(t, "frontends", "delete", target, "--yes").requireSuccess(t, "deletion started")
 }
 
 // writeAPIE2ERoutedFunction writes an HTTP-mode function that answers with the

@@ -31,6 +31,8 @@ tags:
       a start returns is an execution to poll and stop, not a result. Durable
       work is metered on its own allowances: executions, and the operations each
       execution performs while it runs.
+  - name: Notifications
+    description: Where a project's alerts go, by email and by a signed webhook, and when a failing function scheduler is announced.
   - name: Frontends
     description: Frontend deployment and management. Supports Next.js 15.x and 16.x with Node.js 22.x or 24.x inferred from package.json engines.node when the selected Node.js family satisfies the installed Next.js package engines.node constraint.
   - name: Tokens
@@ -5511,6 +5513,192 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get notification settings
+      description: |
+        Returns where the project's alerts go and when a failing scheduler is
+        announced. A project that never saved settings returns the defaults:
+        email to the project owner, no webhook, and an alert after 3 failed
+        runs in a row, followed by one when the scheduler recovers.
+
+        The webhook signing secret is never returned here; `secret_configured`
+        shows whether one is set. A read-only project access token is refused
+        with `403`, because the webhook URL can carry the receiver's token.
+      operationId: getNotificationSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Notification settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Notifications
+      summary: Update notification settings
+      description: |
+        Changes the project's notification settings. Omitted fields keep their
+        current values, so `{"email": {"enabled": false}}` only turns email off.
+
+        Alert emails go only to the project owner's verified account email
+        address. `email.recipients` may be empty or name that address; any
+        other list is refused with `400`, and so is any non-empty list while
+        the owner has no verified address. `email.status` in the response
+        says whether alerts are being emailed.
+
+        Setting `webhook.url` on a project without a webhook generates its
+        signing secret, returned in `webhook.secret` in this response only.
+        Changing the URL keeps the secret. An empty `webhook.url` removes the
+        webhook and its secret.
+
+        Outside local mode the webhook must be reachable on the public
+        internet; a URL naming a private or loopback address is refused, and
+        so is a delivery to a host name that resolves to one.
+      operationId: updateNotificationSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationSettingsRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '400':
+          description: The request body is invalid, for example a recipient other than the project owner's verified account email address.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications/webhook-secret:
+    post:
+      tags:
+        - Notifications
+      summary: Rotate the webhook signing secret
+      description: |
+        Replaces the webhook signing secret and returns the settings with the
+        new one in `webhook.secret`, this once. Every delivery from now on is
+        signed with the new secret, including retries of earlier alerts.
+      operationId: rotateNotificationWebhookSecret
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: No webhook is configured. Set `webhook.url` first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/notifications/test:
+    post:
+      tags:
+        - Notifications
+      summary: Send a test notification
+      description: |
+        Sends a `notification.test` event on every channel that delivers
+        right away and reports how each delivery went. A webhook delivery is
+        signed like an alert. Enabled email is reported undelivered, without
+        sending, while the project owner has no verified account email
+        address. One test per project per minute.
+      operationId: sendTestNotification
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: The test was attempted. Each delivery reports whether it arrived; a failed one is not retried.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTestResult'
+        '403':
+          description: The request used a `read_only` project access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: No webhook is configured, and email is disabled or the project owner has no verified account email address, so there is nowhere to send.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: A test was sent less than a minute ago.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/functions/{functionId}/schedulers:
     get:
       tags:
@@ -7528,6 +7716,10 @@ paths:
       tags:
         - Frontends
       summary: Get frontend custom domain status
+      description: |
+        Deprecated: use `GET /projects/{id}/frontends/{frontendId}/domains`.
+        Returns the frontend's oldest domain that serves it rather than redirecting.
+      deprecated: true
       operationId: getFrontendCustomDomain
       security:
         - UserToken: []
@@ -7580,13 +7772,17 @@ paths:
       tags:
         - Frontends
       summary: Configure frontend custom domain
+      deprecated: true
       description: |
-        Configures one custom domain for a frontend.
+        Deprecated: use `POST /projects/{id}/frontends/{frontendId}/domains`, which adds a domain beside the frontend's others.
+        Configures one custom domain for a frontend. When the frontend already has a domain, a request for another hostname returns `409`.
         The default Volcano-generated frontend URL remains active.
         Wildcard Volcano frontend TLS remains valid and isolated from custom-domain certificate changes.
         The account must own the hostname: it must have verified the hostname or a domain above it (see `POST /user/domains`). A certificate does not prove ownership.
         When the account owns no domain covering the hostname, Volcano asks for a TXT record at `_volcano.<registrable domain>`, such as `_volcano.example.com`. Publishing it verifies the whole domain, so later subdomains need no record. A managed TLS request reserves the hostname and returns that record in `verification_records`; the reservation expires after 72 hours unless the record is published. A BYOC request gets `409` with `code: ownership_verification_required` and the record in `required_record`; publish it and send the same request again.
         Managed TLS then returns the CNAME that authorizes certificate issuance and renewal.
+        To move an active BYOC domain to managed TLS without downtime, send `tls.mode: managed` for the same hostname. The response is `200` with the CNAME to publish; the uploaded certificate keeps serving until Volcano issues the managed one, and `serving_certificate` changes from `uploaded` to `managed`.
+        To move an active managed domain to BYOC without downtime, send `tls.mode: byoc` with the certificate for the same hostname. The response is `200`; the uploaded certificate replaces the managed one at once, and Volcano stops renewing the managed certificate.
         An unverified reservation does not block an account that proves ownership. When another account holds one, a request gets `409` with `code: ownership_verification_required` and the caller's own `required_record`; after publishing it, the same request takes over the reservation. When another account verified the domain, the same `409` names the record that moves the domain to the caller once the other account's record is no longer published. A hostname below a domain another account owns otherwise returns `409` without `code`.
       operationId: createFrontendCustomDomain
       security:
@@ -7603,7 +7799,7 @@ paths:
               $ref: '#/components/schemas/CreateFrontendCustomDomainRequest'
       responses:
         '200':
-          description: Custom domain already configured with same hostname
+          description: "Custom domain already configured with the same hostname. A request with the other TLS mode for the frontend's active domain switches it in place. To managed TLS, the uploaded certificate keeps serving, with `serving_certificate: uploaded`, until Volcano issues the managed certificate. To BYOC, the uploaded certificate replaces the managed one at once."
           content:
             application/json:
               schema:
@@ -7627,7 +7823,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden - the plan does not include custom domains, or a managed TLS request would exceed the account's managed TLS certificate limit
+          description: Forbidden - the plan does not include custom domains, the frontend has as many custom domains as the plan allows, or a managed TLS request would exceed the account's managed TLS certificate limit
           content:
             application/json:
               schema:
@@ -7665,6 +7861,10 @@ paths:
       tags:
         - Frontends
       summary: Delete frontend custom domain
+      description: |
+        Deprecated: use `DELETE /projects/{id}/frontends/{frontendId}/domains/{domain}`.
+        Deletes the frontend's oldest domain that serves it rather than redirecting.
+      deprecated: true
       operationId: deleteFrontendCustomDomain
       security:
         - UserToken: []
@@ -7701,6 +7901,291 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/domains:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+    get:
+      tags:
+        - Frontends
+      summary: List a frontend's custom domains
+      description: |
+        Lists the frontend's custom domains, oldest first. Each domain either
+        serves the frontend or, with `redirect` set, redirects every request to
+        another domain of the frontend.
+      operationId: listFrontendDomains
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: The frontend's custom domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list custom domains
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Add a custom domain to a frontend
+      description: |
+        Adds a custom domain beside the frontend's others, up to the plan's
+        custom domains per frontend. The domain serves the frontend, or, with
+        `redirect`, redirects every request to `redirect.to`, another active
+        domain of the same frontend that serves it, keeping the path and query
+        string.
+        A redirecting domain still needs TLS, so it takes `tls` like any other.
+
+        Ownership, verification records, TLS mode switches, and the `409` codes
+        work as on `POST /projects/{id}/frontends/{frontendId}/domain`. A
+        request for a hostname the frontend already has returns it with `200`,
+        or switches its TLS mode in place. When the request's redirect differs
+        from the domain's, it returns `409`; change a redirect with `PATCH`.
+      operationId: createFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendDomainRequest'
+      responses:
+        '200':
+          description: The frontend already has this hostname, or its TLS mode was switched in place
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '201':
+          description: Custom domain provisioning started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '400':
+          description: Invalid domain, TLS, or redirect, such as a redirect to a hostname the frontend does not serve or that is not active yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The plan does not include custom domains, the frontend has as many as the plan allows, or a managed TLS request would exceed the managed TLS certificate limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Ownership not verified, the hostname is owned, reserved, or used elsewhere, the frontend already has the hostname with a different redirect, or a removed domain is still releasing it (`code: custom_domain_releasing` with `Retry-After`).'
+          headers:
+            Retry-After:
+              description: Seconds to wait before sending the same request again. Sent only with code `custom_domain_releasing`.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainConflictError'
+        '500':
+          description: Failed to add the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Custom domain provisioning is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/domains/{domain}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+      - $ref: '#/components/parameters/FrontendCustomDomainHostname'
+    get:
+      tags:
+        - Frontends
+      summary: Get a frontend custom domain
+      operationId: getFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: The custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to get the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Frontends
+      summary: Set or clear a custom domain's redirect
+      description: |
+        `{"redirect": {"to": "www.example.com", "status": 308}}` makes the
+        domain redirect to another active domain of the frontend that serves it.
+        `{"redirect": null}` makes it serve the frontend again. A domain other
+        domains redirect to cannot become a redirect itself. `status` defaults
+        to `308`. Proxies apply the change within seconds.
+      operationId: updateFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFrontendCustomDomainRequest'
+      responses:
+        '200':
+          description: The updated custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCustomDomainResponse'
+        '400':
+          description: 'Invalid redirect: the target is this domain, is not an active domain of the frontend, or redirects itself'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Other domains of the frontend redirect to this one; the message names them
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to update the custom domain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Frontends
+      summary: Remove a custom domain from a frontend
+      description: |
+        Detaches the domain. A domain other domains redirect to cannot be
+        removed until those redirects are removed or retargeted.
+      operationId: deleteFrontendDomain
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Custom domain detach scheduled
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or custom domain not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Other domains of the frontend redirect to this one, and the message names them, or the domain switched TLS mode while the request ran
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to remove the custom domain
           content:
             application/json:
               schema:
@@ -7752,6 +8237,100 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Deploy an existing build to a frontend
+      description: |
+        Deploys the build of another frontend's deployment in the same project to this frontend, without
+        compiling it again. Use it to serve one build from several frontends, such as one per region or
+        brand. This frontend gets its own copy of the source archive and the build, so later changes to the
+        source frontend do not reach it, and a later redeploy of this frontend compiles that copied source.
+
+        The build-time variables this frontend would build with must equal those the source build read,
+        compared by name and value. Volcano records a salted hash of each value with every build and never
+        stores the values. A mismatch returns `409` with `code: build_variables_differ` and the differing
+        names in `error`. The source deployment must be `active` or `degraded`, and both frontends must use
+        the same framework and app root.
+
+        Admission is the redeploy's: the deployment starts with `status: provisioning`, or, while another
+        deployment is in progress, is exposed through `pending_deployment_id` and supersedes any older
+        queued deployment. Nothing is compiled: the deployment's build minutes cover publishing the build
+        alone.
+      operationId: createFrontendDeployment
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendDeploymentRequest'
+      responses:
+        '200':
+          description: Deployment started or queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Frontend'
+        '400':
+          description: 'Bad request - invalid identifier or body, or `code: source_deployment_same_frontend` when the source deployment belongs to this frontend; redeploy the frontend instead.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 'Frontend not found, or `code: source_deployment_not_found` when the source deployment is not in this project.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: build_variables_differ` names the build-time variables whose values differ. `code: source_deployment_not_active` refuses a deployment that is not `active` or `degraded`. `code: source_build_unavailable` refuses a deployment made before Volcano kept builds, or whose build is no longer kept; redeploy the source frontend once and deploy from that deployment. `code: frontend_incompatible` refuses a different framework or app root. Without a code, the frontend''s deletion is queued or running.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Monthly build-minutes allowance exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: '`code: build_reuse_unavailable` - this server cannot deploy an existing build. Local mode answers this; deploy the frontend from source instead.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - frontend workflow configuration missing
           content:
             application/json:
               schema:
@@ -16339,6 +16918,15 @@ components:
         type: string
         format: uuid
       description: Frontend Function route ID
+    FrontendCustomDomainHostname:
+      name: domain
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 253
+      description: The custom domain's hostname, such as `www.example.com`
     FunctionId:
       name: functionId
       in: path
@@ -18306,6 +18894,22 @@ components:
           example: app.example.com
         tls:
           $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
+      required:
+        - domain
+        - tls
+    CreateFrontendDomainRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        domain:
+          type: string
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
+          example: www.example.com
+        tls:
+          $ref: '#/components/schemas/FrontendCustomDomainTLSConfig'
+        redirect:
+          $ref: '#/components/schemas/FrontendCustomDomainRedirectRequest'
       required:
         - domain
         - tls
@@ -20560,6 +21164,17 @@ components:
       required:
         - function_id
         - path_prefix
+    CreateFrontendDeploymentRequest:
+      type: object
+      additionalProperties: false
+      description: Deploys the build of an existing deployment instead of compiling the frontend's source.
+      properties:
+        source_deployment_id:
+          type: string
+          format: uuid
+          description: An `active` or `degraded` deployment of another frontend in the same project. Its build is copied to this frontend and published without compiling it again.
+      required:
+        - source_deployment_id
     FrontendCustomDomainTLSConfig:
       type: object
       description: 'TLS for a new custom domain. With `mode: managed`, Volcano issues and renews the certificate; omit every PEM field. With `mode: byoc`, send both `certificate_pem` and `private_key_pem`, plus an optional `certificate_chain_pem`.'
@@ -20642,9 +21257,15 @@ components:
             - verified
             - failed
           description: '`verified`: the domain is served by a validated certificate. `pending`: it is not served yet, is being re-validated after its certificate material was withdrawn, or Volcano is retrying after a failure. `failed`: a failure left the domain unserved, alongside `domain_status: failed`; managed domains report the cause in `failure_reason`.'
+        serving_certificate:
+          type: string
+          enum:
+            - uploaded
+            - managed
+          description: 'Certificate the domain serves, present only while it is active. `uploaded`: the BYOC certificate, including after the domain switched to managed TLS and until Volcano issues the managed one; `failure_reason` then reports an issuance failure. `managed`: a certificate Volcano issued.'
         failure_reason:
           type: string
-          description: Failure category, present only when managed TLS setup has failed. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
+          description: Failure category, present when managed TLS setup has failed, or when issuance is failing for a domain that switched to managed TLS and still serves its uploaded certificate. Current values are provider, certificate, ownership, and internal; ownership means another account has already claimed the hostname through ownership verification. Treat unrecognized values as internal.
         verification_records:
           type: array
           description: DNS records to publish now. For a managed domain whose hostname the account already owns, the create response names the `_acme-challenge` CNAME that authorizes certificate issuance and renewal. Otherwise it names the `_volcano` TXT record that proves ownership of the hostname's registrable domain, and reads return the CNAME once Volcano sees that record. Usually empty for BYOC.
@@ -20662,6 +21283,11 @@ components:
           type: array
           items:
             type: string
+        redirect:
+          allOf:
+            - $ref: '#/components/schemas/FrontendCustomDomainRedirect'
+          nullable: true
+          description: Where the domain redirects every request, or null when it serves the frontend.
         created_at:
           type: string
           format: date-time
@@ -20674,8 +21300,67 @@ components:
         - domain_status
         - verification_status
         - effective_urls
+        - redirect
         - created_at
         - updated_at
+    FrontendCustomDomainList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrontendCustomDomainResponse'
+      required:
+        - data
+    FrontendCustomDomainRedirect:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Hostname the domain redirects to.
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+      required:
+        - to
+        - status
+    FrontendCustomDomainRedirectRequest:
+      type: object
+      additionalProperties: false
+      description: Redirects every request for the domain to `to`, another active domain of the same frontend that serves it, keeping the path and query string.
+      properties:
+        to:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Hostname of an active domain of the same frontend that serves it.
+          example: www.example.com
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+          default: 308
+          description: Redirect status. 301 and 308 are permanent, 302 and 307 temporary; 307 and 308 keep the request method and body.
+      required:
+        - to
+    UpdateFrontendCustomDomainRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        redirect:
+          allOf:
+            - $ref: '#/components/schemas/FrontendCustomDomainRedirectRequest'
+          nullable: true
+          description: The redirect to set, or null to make the domain serve the frontend.
+      required:
+        - redirect
     FrontendDeployment:
       type: object
       properties:
@@ -20722,6 +21407,10 @@ components:
         initiated_by:
           type: string
           description: Platform user that triggered a request-initiated deployment; absent for git and system deployments.
+        source_deployment_id:
+          type: string
+          format: uuid
+          description: The deployment whose build this deployment published instead of compiling its own source. Absent when the deployment compiled.
         site_url:
           type: string
         build_duration_seconds:
@@ -21995,12 +22684,207 @@ components:
           type: integer
           format: int64
           description: Total number of times this scheduler has executed. 0 for a scheduler that has never run.
+        health:
+          type: string
+          enum:
+            - healthy
+            - failing
+          description: '`failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.'
+        consecutive_failures:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many runs in a row have failed, in the region where the current streak is longest. Resets to 0 when a run succeeds.
+        last_run_status:
+          type: string
+          enum:
+            - succeeded
+            - failed
+          description: Outcome of the most recent finished run. Absent before the first.
+        last_success_at:
+          type: string
+          format: date-time
+          description: When the most recent successful run finished.
+        last_failure_at:
+          type: string
+          format: date-time
+          description: When the most recent failed run finished.
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+    NotificationSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        email:
+          $ref: '#/components/schemas/NotificationEmailSettings'
+        webhook:
+          $ref: '#/components/schemas/NotificationWebhookSettings'
+        scheduler_failures:
+          $ref: '#/components/schemas/SchedulerFailureAlertPolicy'
+        updated_at:
+          type: string
+          format: date-time
+          description: When the settings were last saved. Absent until the first save.
+      required:
+        - project_id
+        - email
+        - webhook
+        - scheduler_failures
+    NotificationEmailStatus:
+      type: string
+      enum:
+        - delivering
+        - disabled
+        - owner_email_unverified
+      description: Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+    NotificationEmailSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+          description: Whether alerts are emailed.
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+          description: Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
+        status:
+          $ref: '#/components/schemas/NotificationEmailStatus'
+      required:
+        - enabled
+        - recipients
+        - status
+    NotificationWebhookSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          description: Where alerts are posted. Absent when no webhook is configured.
+        secret_configured:
+          type: boolean
+          description: Whether a signing secret is set. The secret itself is returned only once.
+        secret:
+          type: string
+          description: 'The signing secret, starting with `whsec_`. Present only in the response that generated it: the update that first set `url`, or a rotation. Store it then; it cannot be read again.'
+      required:
+        - secret_configured
+    SchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: How many runs in a row have to fail before a `consecutive_failures` alert. Ignored for `first_failure`.
+        notify_on_recovery:
+          type: boolean
+          description: Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
+      required:
+        - notify_on
+        - threshold
+        - notify_on_recovery
+    SchedulerFailureNotifyOn:
+      type: string
+      enum:
+        - first_failure
+        - consecutive_failures
+      x-enum-varnames:
+        - SchedulerFailureNotifyOnFirstFailure
+        - SchedulerFailureNotifyOnConsecutiveFailures
+      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.'
+    UpdateNotificationSettingsRequest:
+      type: object
+      additionalProperties: false
+      description: Omitted fields keep their current values.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
+    UpdateNotificationEmail:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+            maxLength: 254
+          description: Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
+    UpdateNotificationWebhook:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          pattern: ^\s*(|[hH][tT][tT][pP][sS]?://.+)\s*$
+          description: An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
+    UpdateSchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+        notify_on_recovery:
+          type: boolean
+    NotificationTestResult:
+      type: object
+      additionalProperties: false
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTestDelivery'
+      required:
+        - deliveries
+    NotificationTestDelivery:
+      type: object
+      additionalProperties: false
+      properties:
+        channel:
+          type: string
+          enum:
+            - email
+            - webhook
+          x-enum-varnames:
+            - NotificationChannelEmail
+            - NotificationChannelWebhook
+        delivered:
+          type: boolean
+        status_code:
+          type: integer
+          description: The webhook's response status. Absent for email, and when no response arrived.
+        error:
+          type: string
+          description: Why the delivery failed. Absent when it arrived.
+      required:
+        - channel
+        - delivered
     FunctionSchedulerListResponse:
       type: object
       properties:
@@ -23230,6 +24114,8 @@ components:
             $ref: '#/components/schemas/ProjectConfigBucket'
         realtime:
           $ref: '#/components/schemas/ProjectConfigRealtime'
+        notifications:
+          $ref: '#/components/schemas/ProjectConfigNotifications'
         auth:
           $ref: '#/components/schemas/ProjectConfigAuth'
         functions:
@@ -23628,8 +24514,9 @@ components:
         domain, omitting `tls` or sending only `tls.mode` keeps the stored
         certificate; new BYOC material for the same domain rotates the
         certificate in place (zero downtime). Changing `tls.mode` for the same
-        hostname, or the hostname of a managed domain, requires deleting the
-        domain first. BYOC TLS material is write-only; exports render only
+        hostname switches an active domain in place (zero downtime); a domain
+        that is not yet active, or a managed domain changing hostname, must be
+        deleted first. BYOC TLS material is write-only; exports render only
         `tls.mode`.
       properties:
         domain:
@@ -23640,6 +24527,43 @@ components:
           $ref: '#/components/schemas/ProjectConfigFrontendCustomDomainTLSConfig'
       required:
         - domain
+    ProjectConfigFrontendCustomDomain:
+      type: object
+      additionalProperties: false
+      description: |
+        One of the frontend's custom domains. `domain` and `tls` behave as in
+        `custom_domain`. With `redirect`, the domain redirects every request to
+        another listed domain that serves the frontend.
+      properties:
+        domain:
+          type: string
+          maxLength: 253
+          description: 'Fully-qualified domain name (hostname only, no scheme/path). Managed TLS (`tls.mode: managed`) accepts at most 219 characters; BYOC accepts 253.'
+        tls:
+          $ref: '#/components/schemas/ProjectConfigFrontendCustomDomainTLSConfig'
+        redirect:
+          $ref: '#/components/schemas/ProjectConfigCustomDomainRedirect'
+      required:
+        - domain
+    ProjectConfigCustomDomainRedirect:
+      type: object
+      additionalProperties: false
+      properties:
+        to:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Another domain in the same `custom_domains` list, without `redirect`.
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+          default: 308
+      required:
+        - to
     ProjectConfigDatabase:
       type: object
       additionalProperties: false
@@ -23718,8 +24642,7 @@ components:
       additionalProperties: false
       description: |
         Configuration for an existing (deployed) frontend. Frontends are never
-        created or deleted through the manifest. A declared frontend entry
-        without `custom_domain` deletes an existing custom domain.
+        created or deleted through the manifest.
       properties:
         variable_scope:
           type: string
@@ -23739,7 +24662,26 @@ components:
           type: string
           minLength: 1
         custom_domain:
-          $ref: '#/components/schemas/ProjectConfigCustomDomain'
+          allOf:
+            - $ref: '#/components/schemas/ProjectConfigCustomDomain'
+          nullable: true
+          x-go-type: nullable.Nullable[ProjectConfigCustomDomain]
+          x-go-type-skip-optional-pointer: true
+          description: |
+            The frontend's custom domain. Omission leaves an existing domain
+            untouched; null deletes it. For a frontend with more than one
+            domain, or a redirect, use `custom_domains`; an entry may not set
+            both.
+        custom_domains:
+          type: array
+          maxItems: 100
+          description: |
+            Complete set of the frontend's custom domains when declared.
+            Domains not listed are deleted; an empty list deletes all of them.
+            Omission leaves existing domains untouched. More than one domain
+            needs a plan that allows it.
+          items:
+            $ref: '#/components/schemas/ProjectConfigFrontendCustomDomain'
         function_routes:
           type: array
           maxItems: 64
@@ -23944,6 +24886,23 @@ components:
           items:
             type: string
           description: Region subset (bare region names). Requires `all_regions=false`.
+    ProjectConfigNotifications:
+      type: object
+      additionalProperties: false
+      description: >-
+        Where the project's alerts go and when a failing scheduler is
+        announced. Omitted fields keep their current value. The webhook
+        signing secret is never part of the manifest: setting `webhook.url`
+        on a project without a webhook generates one that is never shown.
+        Rotate it with `POST /projects/{id}/notifications/webhook-secret` to
+        get a secret you can use.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
     ProjectConfigRealtime:
       type: object
       additionalProperties: false

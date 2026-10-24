@@ -15,6 +15,7 @@ import (
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // statusAll is the --status value that lists approvals in every status. The
@@ -79,7 +80,8 @@ func runList(ctx context.Context, opts listOptions) error {
 	if opts.execution != "" {
 		executionID, err := uuid.Parse(strings.TrimSpace(opts.execution))
 		if err != nil {
-			return fmt.Errorf("invalid execution ID %q: %w", opts.execution, err)
+			// The value may be an execution name, which can hold application data.
+			return fmt.Errorf("invalid execution ID %w", sensitive.Wrap(fmt.Errorf("%q: %w", opts.execution, err)))
 		}
 		input.ExecutionID = &executionID
 	}

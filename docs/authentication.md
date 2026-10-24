@@ -3,6 +3,15 @@ title: "Authentication"
 description: "Sign up, log in, and manage your Volcano credentials from the CLI."
 ---
 
+To sign in, create a project, and set up a directory for it in one step, use
+`volcano connect`. See [connect.md](connect.md).
+
+Local development needs no account: `volcano init`, `volcano start`, and the
+local deploy commands work without signing in. A command that needs an
+account, such as a `volcano cloud` command, fails with exit code `2` until you
+run `volcano login`, or `volcano signup` for a new account. See
+[scripting.md](scripting.md).
+
 New to Volcano? Create an account from the CLI:
 
 ```bash
@@ -25,6 +34,9 @@ volcano login
 # Token-based login (for CI/CD)
 volcano login --token pk-xxxxxxxxxx
 
+# With the code in the dashboard's prompt
+volcano login --device-code <code>
+
 # Or skip login entirely with an environment variable
 export VOLCANO_TOKEN=pk-xxxxxxxxxx
 ```
@@ -38,18 +50,30 @@ The CLI accepts two kinds of credential:
 | Account token (`pk-`) | Every project you own | `volcano login` |
 | Project access token (`pt-`) | One project | `volcano cloud access-tokens create` |
 
-Both work with `volcano login --token` and with `VOLCANO_TOKEN`. A project
-access token is the one to give CI: it is scoped to a single project, carries
+Both work with `volcano login --token` and with `VOLCANO_TOKEN`.
+
+The prompt on the dashboard's Projects page holds a device code instead of a
+token. It works with `--device-code` on `volcano login` or `volcano connect`:
+it can be used once, within 10 minutes, and the CLI saves the account token it
+signs in with. It saves that token before any other check, so a failure after
+sign-in, such as a wrong `--project`, leaves you signed in. See
+[Device codes from the dashboard](connect.md#device-codes-from-the-dashboard).
+
+A project access token is the one to give CI: it is scoped to a single project, carries
 `full` or `read_only` access, and can be revoked on its own. Because it cannot
 list projects, tell the CLI which project it belongs to, by ID:
 
 ```bash
 volcano login --token pt-xxxxxxxxxx --project <project-id>
 
-# Or, without logging in
+# Or keep the token in VOLCANO_TOKEN and save only the project
 export VOLCANO_TOKEN=pt-xxxxxxxxxx
-export VOLCANO_PROJECT_ID=<project-id>
+volcano use <project-id>
 ```
+
+`VOLCANO_PROJECT_ID` still selects the project, but it is deprecated and will
+be removed in a future release. A command that uses it prints a warning on
+stderr.
 
 `--project` also selects the project for an account token, and there it takes a
 name as well as an ID, the same as `volcano use`:
@@ -57,6 +81,13 @@ name as well as an ID, the same as `volcano use`:
 ```bash
 volcano login --token pk-xxxxxxxxxx --project my-app
 ```
+
+Inside a [linked directory](connect.md#linked-directories), `--project` updates
+the link, the same as `volcano use`. For a project access token, login also
+saves the project to `~/.volcano/config.json`. If the link named another project, login
+warns and prints the command that links it back. If the deprecated
+`VOLCANO_PROJECT_ID` names a different project there, login fails and leaves
+the link as it was.
 
 Commands that reach past one project — `volcano projects list`, `volcano
 projects create`, `volcano projects rename`, `volcano projects delete`,
@@ -70,5 +101,6 @@ Log out at any time:
 volcano logout
 ```
 
-This deletes local credentials but does not revoke the token. Revoke it in the
-Volcano dashboard to fully cut off access.
+This removes local credentials, the selected project, and function aliases,
+but does not revoke the token. Revoke it in the Volcano dashboard to fully cut
+off access.

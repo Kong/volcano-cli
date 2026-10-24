@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -35,6 +36,25 @@ func TestPollDeviceTokenUnexpectedStatusReturnsError(t *testing.T) {
 	require.ErrorAs(t, err, &apiErr, "got error %T: %v", err, err)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
 	assert.Equal(t, http.StatusText(http.StatusInternalServerError), apiErr.Message)
+}
+
+// A 403 without an OAuth error, such as a gateway's, is a failure: read as a
+// poll result it would look like a pending login until the code expired.
+func TestPollDeviceTokenTreatsANonOAuth403AsAnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"blocked by gateway"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	status, err := client.PollDeviceToken(context.Background(), "device-client", "device-code")
+	require.Nil(t, status)
+	assert.Equal(t, http.StatusForbidden, Status(err))
+	assert.Equal(t, "blocked by gateway", Message(err))
 }
 
 func TestStartDeviceAuthorizationNormalizesOAuthError(t *testing.T) {
@@ -705,6 +725,26 @@ func TestInvokeFunctionErrorsNormalize(t *testing.T) {
 
 	_, err = client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{})
 	require.ErrorContains(t, err, "HTTP 429: rate limited")
+}
+
+// A function's own error body passes through, so it is shown but marked
+// sensitive and never sent in usage telemetry.
+func TestInvokeFunctionMarksFunctionErrorsSensitive(t *testing.T) {
+	functionID := mustProjectID(t, "22222222-2222-4222-8222-222222222222")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("order 4411 for alice@example.com failed"))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.InvokeFunction(context.Background(), functionID, FunctionInvokeInput{})
+	require.ErrorContains(t, err, "HTTP 500: order 4411 for alice@example.com failed")
+	assert.Contains(t, sensitive.Text(err), "alice@example.com")
+	assert.Equal(t, http.StatusInternalServerError, Status(err))
 }
 
 func mustProjectID(t *testing.T, value string) uuid.UUID {

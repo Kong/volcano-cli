@@ -201,7 +201,7 @@ func TestVariablesDeployRequiresProject(t *testing.T) {
 		{"delete", "API_KEY", "--yes"},
 	} {
 		_, err := executeVariableCommand(t, New(cliruntime.Deps{}), args...)
-		require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID", "%v", args)
+		require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>'", "%v", args)
 	}
 }
 

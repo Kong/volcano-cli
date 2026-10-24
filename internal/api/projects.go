@@ -73,6 +73,24 @@ func (c *Client) ListAnonKeys(ctx context.Context, projectID uuid.UUID) ([]apicl
 	return *result.Data, nil
 }
 
+// ListAnonKeysPage lists one page of a project's anon keys and reports
+// whether another page follows.
+func (c *Client) ListAnonKeysPage(ctx context.Context, projectID uuid.UUID, page, limit int) ([]apiclient.AnonKey, bool, error) {
+	resp, err := c.client.ListAnonKeysWithResponse(ctx, projectID, &apiclient.ListAnonKeysParams{Page: &page, Limit: &limit})
+	if err != nil {
+		return nil, false, err
+	}
+	result, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+	if err != nil {
+		return nil, false, err
+	}
+	var keys []apiclient.AnonKey
+	if result.Data != nil {
+		keys = *result.Data
+	}
+	return keys, result.HasMore != nil && *result.HasMore, nil
+}
+
 // CreateAnonKey creates a publishable key with the server's auth-only default.
 func (c *Client) CreateAnonKey(ctx context.Context, projectID uuid.UUID, name string) (*apiclient.AnonKey, error) {
 	resp, err := c.client.CreateAnonKeyWithResponse(ctx, projectID, apiclient.CreateAnonKeyJSONRequestBody{Name: name})

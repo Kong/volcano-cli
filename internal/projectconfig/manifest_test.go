@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func noEnv(string) (string, bool) { return "", false }
@@ -765,4 +767,46 @@ func TestDefaultPullPath(t *testing.T) {
 			assert.Equal(t, "volcano-config.yaml", DefaultPullPath())
 		})
 	})
+}
+
+// A pulled manifest carries the server's notifications section, so deploying it
+// back has to parse; the signing secret is never part of it.
+func TestManifestNotificationsSection(t *testing.T) {
+	manifest, err := Parse([]byte(`version: 1
+notifications:
+  email:
+    enabled: true
+    recipients: []
+  webhook:
+    url: https://example.com/hooks/volcano
+  scheduler_failures:
+    notify_on: consecutive_failures
+    threshold: 5
+    notify_on_recovery: false
+`), noEnv)
+	require.NoError(t, err)
+	require.NotNil(t, manifest.Notifications)
+	assert.Equal(t, 5, *manifest.Notifications.SchedulerFailures.Threshold)
+
+	encoded, err := manifest.uploadBody()
+	require.NoError(t, err)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &body))
+	assert.Equal(t, map[string]any{
+		"email":   map[string]any{"enabled": true, "recipients": []any{}},
+		"webhook": map[string]any{"url": "https://example.com/hooks/volcano"},
+		"scheduler_failures": map[string]any{
+			"notify_on": "consecutive_failures", "threshold": float64(5), "notify_on_recovery": false,
+		},
+	}, body["notifications"], "an empty recipient list uploads as [], which emails the owner")
+
+	var wire apiclient.ProjectConfig
+	require.NoError(t, json.Unmarshal(encoded, &wire))
+	require.NotNil(t, wire.Notifications, "the API contract has to carry the section the manifest uploads")
+	require.NotNil(t, wire.Notifications.SchedulerFailures)
+	assert.Equal(t, 5, *wire.Notifications.SchedulerFailures.Threshold)
+
+	_, err = Parse([]byte("version: 1\nnotifications:\n  webhook:\n    url: https://example.com/hook\n    secret: whsec_x\n"), noEnv)
+	require.Error(t, err, "the signing secret cannot be declared")
+	assert.Contains(t, err.Error(), "secret")
 }

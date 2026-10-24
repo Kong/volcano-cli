@@ -345,6 +345,42 @@ func TestDeployHintsAtAServerWithoutVisibilityLevels(t *testing.T) {
 	}
 }
 
+func TestDeployHintsAtAServerWithoutSeveralCustomDomains(t *testing.T) {
+	const hint = "if this server predates several custom domains per frontend, it refuses custom_domains this way: " +
+		"declare a frontend's one domain with custom_domain instead"
+	for name, tc := range map[string]struct {
+		manifest string
+		hint     bool
+	}{
+		"custom_domains": {manifest: "version: 1\nfrontends:\n  - name: web\n    custom_domains: []\n", hint: true},
+		"custom_domain": {
+			manifest: "version: 1\nfrontends:\n  - name: web\n    custom_domain:\n      domain: app.example.com\n      tls:\n        mode: managed\n",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if tc.hint {
+				assert.Contains(t, err.Error(), "\n"+hint)
+			} else {
+				assert.NotContains(t, err.Error(), "custom_domains")
+			}
+		})
+	}
+}
+
 // public: false reads as "not public" but now admits signed-in users, so every
 // deploy that reads it, the dry run included, warns. The warning goes to
 // stderr so it cannot break output a script parses.
@@ -494,7 +530,8 @@ func TestPullHelpDescribesNamesOnlyExport(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "Variable values are omitted")
 	assert.Contains(t, out, "shared_variables contains shared")
-	assert.Contains(t, out, "Any variable values a server does return are removed")
+	assert.Contains(t, out, "The notification webhook, whose URL can carry the receiver's")
+	assert.Contains(t, out, "Any variable values or webhook a server does return are")
 	assert.NotContains(t, out, "Variable values are included")
 }
 
@@ -536,6 +573,28 @@ func TestPullStripsVariableValuesFromOlderServer(t *testing.T) {
 	assert.NotContains(t, saved, "variables")
 	assert.Equal(t, []any{"LOG_LEVEL"}, saved["shared_variables"])
 	assert.Equal(t, 1, saved["version"])
+}
+
+func TestPullStripsNotificationsWebhookFromServer(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml")
+		_, _ = w.Write([]byte("version: 1\nnotifications:\n  email:\n    enabled: true\n  webhook:\n    url: https://hooks.example.com/volcano?token=receiver-token\n"))
+	}))
+	defer server.Close()
+
+	out, err := executeConfigCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "pull")
+	require.NoError(t, err)
+	assert.Contains(t, out, "the server returned notifications.webhook")
+	assert.NotContains(t, out, "the server returned a variables section")
+
+	written, err := os.ReadFile(filepath.Join(dir, "volcano-config.yaml"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(written), "receiver-token")
+	assert.Contains(t, string(written), "notifications:\n  email:\n    enabled: true\n")
 }
 
 // TestPullRejectsUnparseableManifest fails closed: bytes the CLI could not

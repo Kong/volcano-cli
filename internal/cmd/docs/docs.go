@@ -80,10 +80,11 @@ func (f *flags) service(deps cliruntime.Deps) (*docs.Service, error) {
 
 // loadConfig returns the persisted config, propagating read/parse errors so a
 // user's configured docs source is never silently replaced by the compiled
-// default. config.Load already returns an empty default (no error) for a
-// genuinely absent config file.
+// default. config.LoadWithoutLink already returns an empty default (no error)
+// for a genuinely absent config file. Docs never use a project, so a project
+// link that can't be read must not stop them.
 func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
-	load := config.Load
+	load := config.LoadWithoutLink
 	if deps.ConfigLoader != nil {
 		load = deps.ConfigLoader
 	}

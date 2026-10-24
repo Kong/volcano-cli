@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -101,6 +102,52 @@ func TestProjectsListSubcommandFetchesRequestedPage(t *testing.T) {
 	assert.Equal(t, []string{"page=3&limit=10"}, queries)
 	assert.Contains(t, out, "Beta")
 	assert.Contains(t, out, "Showing 1 of 21 project(s) (page 3, limit 10)")
+}
+
+func TestProjectsListAndGetEmitJSON(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects":
+			writeProjectCommandJSON(t, w, http.StatusOK, map[string]any{
+				"data":     []any{projectCommandPayload(projectBetaID, "Beta", "active", nil)},
+				"has_more": false,
+				"page":     1,
+				"limit":    100,
+				"total":    1,
+			})
+		case "/projects/" + projectBetaID:
+			writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectBetaID, "Beta", "active", nil))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	out, err := executeProjectCommand(t, NewProjects(deps), "list", "--json")
+	require.NoError(t, err)
+	var page struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"data"`
+		Total int `json:"total"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &page), out)
+	require.Len(t, page.Data, 1)
+	assert.Equal(t, projectBetaID, page.Data[0].ID)
+	assert.Equal(t, 1, page.Total)
+
+	out, err = executeProjectCommand(t, NewProjects(deps), "get", projectBetaID, "--json")
+	require.NoError(t, err)
+	var project struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &project), out)
+	assert.Equal(t, "Beta", project.Name)
 }
 
 func TestUseByNameAndProjectCreateRenameGetDelete(t *testing.T) {
@@ -270,6 +317,66 @@ func TestProjectsDeleteAndRenameRejectAProjectToken(t *testing.T) {
 				"the refusal must come before the confirmation prompt")
 		})
 	}
+}
+
+func TestUseInALinkedDirectoryReportsTheCloudEnv(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status int
+		want   []string
+	}{
+		"updated": {status: http.StatusOK, want: []string{"Updated the anon key in "}},
+		"failed": {status: http.StatusInternalServerError, want: []string{
+			"Warning: Could not update the anon key in ", "Run `volcano connect .` in the linked directory",
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setProjectCommandTestHome(t)
+			saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+			dir := t.TempDir()
+			_, err := cliconfig.WriteLink(dir, cliconfig.ProjectConfig{ID: projectAlphaID, Name: "Alpha"})
+			require.NoError(t, err)
+			envPath := filepath.Join(dir, "volcano", "cloud.env")
+			require.NoError(t, os.MkdirAll(filepath.Dir(envPath), 0o755))
+			require.NoError(t, os.WriteFile(envPath, []byte("VOLCANO_ANON_KEY=ak-alpha\n"), 0o600))
+			t.Chdir(dir)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/projects/" + projectBetaID:
+					writeProjectCommandJSON(t, w, http.StatusOK, projectCommandPayload(projectBetaID, "Beta", "active", nil))
+				case "/projects/" + projectBetaID + "/anon-keys":
+					writeProjectCommandJSON(t, w, tc.status, map[string]any{
+						"data": []any{map[string]any{"id": "44444444-4444-4444-8444-444444444444", "name": "default", "key_value": "ak-beta", "is_default": true}},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			out, err := executeProjectCommand(t, NewUse(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), projectBetaID)
+			require.NoError(t, err)
+			assert.Contains(t, out, "Now using project: Beta")
+			assert.Contains(t, out, envPath)
+			for _, want := range tc.want {
+				assert.Contains(t, out, want)
+			}
+		})
+	}
+}
+
+// Project commands don't get past a link that can't be used: they fail and
+// name the file.
+func TestUseFailsOnABadProjectLink(t *testing.T) {
+	setProjectCommandTestHome(t)
+	saveProjectCommandTestConfig(t, &cliconfig.Config{UserToken: "token"})
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".volcano", "project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("{}"), 0o644))
+	t.Chdir(dir)
+
+	_, err := executeProjectCommand(t, NewUse(cliruntime.Deps{APIBaseURL: "http://127.0.0.1:1"}), projectBetaID)
+	require.ErrorContains(t, err, "failed to load config: project link "+path+" has no project_id")
 }
 
 func executeProjectCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error) {

@@ -177,6 +177,6 @@ func TestDatabaseCommandsRequireProject(t *testing.T) {
 		{"delete", "app", "--yes"},
 	} {
 		_, err := executeDatabaseCommand(t, New(cliruntime.Deps{}), args...)
-		require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>' or set VOLCANO_PROJECT_ID", "%v", args)
+		require.ErrorContains(t, err, "no project selected. Run 'volcano use <project-name>'", "%v", args)
 	}
 }

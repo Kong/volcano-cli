@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/version"
 )
 
@@ -328,3 +329,109 @@ func TestVersionProtocolDoer_CLIInstructionAndDeviceInstructionTrackIndependentl
 type doerFunc func(*http.Request) (*http.Response, error)
 
 func (f doerFunc) Do(req *http.Request) (*http.Response, error) { return f(req) }
+
+func stubDetectAgent(t *testing.T, a agent.Result) {
+	t.Helper()
+	old := detectAgent
+	detectAgent = func() agent.Result { return a }
+	SetAgentReporting(true)
+	t.Cleanup(func() {
+		detectAgent = old
+		SetAgentReporting(false)
+	})
+}
+
+func TestVersionProtocolDoer_SetsAgentHeaders(t *testing.T) {
+	resetInstructions(t)
+	stubDetectAgent(t, agent.Result{
+		Name:    "claude-code",
+		Raw:     "claude-code_2-1-299_agent",
+		Source:  agent.SourceAIAgent,
+		Markers: []string{"claude-code", "cursor"},
+	})
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.Equal(t, "claude-code", got.Get(headerAgent))
+	assert.Equal(t, "ai_agent", got.Get(headerAgentSource))
+	assert.Equal(t, "claude-code_2-1-299_agent", got.Get(headerAgentRaw))
+	assert.Equal(t, "claude-code,cursor", got.Get(headerAgentMarkers))
+}
+
+func TestVersionProtocolDoer_OmitsRawWhenSameAsNameAndEmptyMarkers(t *testing.T) {
+	resetInstructions(t)
+	stubDetectAgent(t, agent.Result{Name: "goose", Raw: "goose", Source: agent.SourceAgent})
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.Equal(t, "goose", got.Get(headerAgent))
+	assert.Equal(t, "agent", got.Get(headerAgentSource))
+	assert.NotContains(t, got, headerAgentRaw)
+	assert.NotContains(t, got, headerAgentMarkers)
+}
+
+func TestVersionProtocolDoer_NoAgentSendsNoAgentHeaders(t *testing.T) {
+	resetInstructions(t)
+	stubDetectAgent(t, agent.Result{})
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	for _, h := range []string{headerAgent, headerAgentSource, headerAgentRaw, headerAgentMarkers} {
+		assert.NotContains(t, got, h)
+	}
+}
+
+func TestVersionProtocolDoer_SendsNoAgentHeadersUntilReportingIsOn(t *testing.T) {
+	resetInstructions(t)
+	old := detectAgent
+	detectAgent = func() agent.Result {
+		return agent.Result{Name: "codex", Source: agent.SourceMarker, Markers: []string{"codex"}}
+	}
+	t.Cleanup(func() { detectAgent = old })
+	require.False(t, agentReportingOn.Load(), "agent reporting starts off")
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.NotContains(t, got, headerAgent)
+}
+
+func TestVersionProtocolDoer_AgentReportingOffSendsNoAgentHeaders(t *testing.T) {
+	resetInstructions(t)
+	stubDetectAgent(t, agent.Result{Name: "codex", Source: agent.SourceMarker, Markers: []string{"codex"}})
+	SetAgentReporting(false)
+
+	var got http.Header
+	inner := doerFunc(func(req *http.Request) (*http.Response, error) {
+		got = req.Header.Clone()
+		return httptest.NewRecorder().Result(), nil
+	})
+	_, err := versionProtocolDoer{next: inner}.Do(httptest.NewRequest(http.MethodGet, "/projects", http.NoBody))
+	require.NoError(t, err)
+
+	assert.NotContains(t, got, headerAgent)
+	assert.NotEmpty(t, got.Get(headerCLIVersion), "the version protocol itself is not telemetry")
+}

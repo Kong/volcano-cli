@@ -114,7 +114,9 @@ func Status(s string, on bool) string {
 	case "pending", "queued", "provisioning", "creating", "deploying", "building", "updating",
 		"deleting", "detaching", "restoring", "pending_verification", "degraded":
 		return warnStyle.Render(s)
-	case "failed", "error", "errored", "exhausted", "unhealthy", "timed_out", "denied":
+	case "failed", "error", "errored", "exhausted", "unhealthy", "timed_out", "denied",
+		// A scheduler whose last run failed.
+		"failing":
 		return failStyle.Render(s)
 	default: // deleted, superseded, cancelled, disabled, inactive, unknown, "-", no, private, ...
 		return dimStyle.Render(s)

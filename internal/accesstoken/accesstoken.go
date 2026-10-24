@@ -259,7 +259,7 @@ func (s Service) accountSession() (*clisession.ProjectSession, error) {
 func resolve(ctx context.Context, authenticated *clisession.ProjectSession, identifier string, maxPages int) (*apiclient.ProjectAccessToken, error) {
 	token, err := resolveToken(ctx, authenticated, identifier, maxPages)
 	if errors.Is(err, api.ErrNotFound) {
-		return nil, fmt.Errorf("access token %q not found", identifier)
+		return nil, fmt.Errorf("access token %q %w", identifier, api.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve access token %q: %w", identifier, err)

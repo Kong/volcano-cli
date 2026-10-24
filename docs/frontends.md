@@ -12,9 +12,10 @@ optionally reachable at your own custom domain.
 
 - Belongs to a **project**.
 - Consumes **variables** at build/runtime.
-- Can have one **custom domain** (BYOC) attached, at or below a domain your
-  account has [verified](domains.md). A second, different domain is rejected
-  with `409`; serve another hostname from a separate frontend.
+- Can have several **custom domains**, as many as the plan allows, each at or
+  below a domain your account has [verified](domains.md), with a certificate
+  Volcano manages or your own (BYOC). Each one serves the frontend or redirects
+  to another of its domains.
 - Can forward paths to public [functions](functions.md) through
   **function routes**.
 - Frontend custom domains and function routes can also be declared in the
@@ -32,11 +33,12 @@ Custom domains are a cloud command.
 |---|---|---|
 | Deploy | `volcano frontends deploy …` | `volcano cloud frontends deploy …` |
 | Redeploy | `volcano frontends redeploy …` | `volcano cloud frontends redeploy …` |
+| Deploy another frontend's build | — | `volcano cloud frontends deploy <name> --from <frontend>[@<deployment-id>]` |
 | List | `volcano frontends list` | `volcano cloud frontends list` |
 | Get | `volcano frontends get <name>` | `volcano cloud frontends get <name>` |
 | Delete | `volcano frontends delete <name>` | `volcano cloud frontends delete <name>` |
 | Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
-| Custom domains | — | `volcano cloud frontends domain create\|list\|get\|delete …` |
+| Custom domains | — | `volcano cloud frontends domains list\|get\|add\|update\|remove …` |
 | Function routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
@@ -89,17 +91,159 @@ volcano cloud frontends list
 volcano cloud frontends logs my-site
 
 # Attach and check a custom domain
-volcano cloud frontends domain create my-site --domain app.example.com \
-  --cert ./fullchain-leaf.pem --key ./privkey.pem
-volcano cloud frontends domain get my-site
+volcano cloud frontends domains add my-site app.example.com
+volcano cloud frontends domains get my-site app.example.com
 ```
 
-Attaching a custom domain needs a [verified domain](domains.md) above it. When
-none exists, the command fails and prints the TXT record to publish.
+## Custom domains
 
-The domain command shows a DNS routing target hostname. Configure a CNAME only if
-your DNS provider confirms that your domain is not a zone apex. At an apex, use
-a provider-supported ALIAS, ANAME, or CNAME-flattening record with that target.
+```bash
+# Serve the frontend on www, with a certificate Volcano issues
+volcano cloud frontends domains add my-site www.example.com
+
+# Once www is active, send the apex to it, keeping the path and query string
+volcano cloud frontends domains add my-site example.com --redirect-to www.example.com
+
+# Or serve your own certificate
+volcano cloud frontends domains add my-site app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem
+
+volcano cloud frontends domains list my-site
+volcano cloud frontends domains get my-site example.com
+```
+
+```text
+Domain                                            TLS       Status                  Created          Redirects to
+--------------------------------------------------------------------------------------------------------------------------------
+www.example.com                                   managed   active                  2m ago           -
+example.com                                       managed   active                  1m ago           www.example.com (308)
+
+Total: 2 custom domain(s)
+```
+
+Without `--cert` and `--key`, Volcano issues and renews the certificate once you
+publish the DNS records that `add` and `get` print. A BYOC domain needs a
+[verified domain](domains.md) above it first; when none exists, `add` fails and
+prints the TXT record to publish.
+
+Running `add` again in the same TLS mode leaves the domain as it is, so it does
+not replace a BYOC certificate. To rotate one, put the new PEM fields in the
+domain's `tls` in the [declarative config](project-configuration.md) and run
+`volcano cloud config deploy`. The new certificate replaces the old one without
+downtime. Use the domain's `custom_domains` entry, keeping the frontend's other
+entries in the list, or `custom_domain` when the frontend has one domain and no
+redirect.
+
+`get` shows the DNS routing target hostname. Point every domain of the frontend
+at it, including the ones that redirect: the browser connects over HTTPS before
+it reads the redirect. Configure a CNAME only if your DNS provider confirms that
+your domain is not a zone apex. At an apex, use a provider-supported ALIAS,
+ANAME, or CNAME-flattening record with that target.
+
+### Redirects
+
+`--redirect-status` takes 301, 302, 307, or 308. `add` defaults to 308;
+`update` keeps the domain's current status, or uses 308 for a domain that
+served the frontend. 301 and 308 are permanent and browsers cache them; use 302
+while you test. A redirect
+must point at an `active` domain of the same frontend that serves it, not at
+another redirect or a domain still waiting for DNS or its certificate. If the
+target stops serving, the redirect domain serves the frontend until the target
+is active again.
+
+```bash
+# Change the status, or make the domain serve the frontend again
+volcano cloud frontends domains update my-site example.com --redirect-to www.example.com --redirect-status 302
+volcano cloud frontends domains update my-site example.com --no-redirect
+
+volcano cloud frontends domains remove my-site example.com
+```
+
+A domain that others redirect to cannot be removed or become a redirect itself;
+Volcano refuses with `409` and names them. Retarget or remove those first. To
+swap which domain serves in one step, declare both in `custom_domains` in the
+[declarative config](project-configuration.md) and run
+`volcano cloud config deploy`.
+
+Adding a domain past the plan's limit per frontend fails with `403`. On HOBBY,
+managed certificates are also limited to one per account, so a second managed
+domain fails with `403` on any frontend. See
+[Plans and limits](/platform/guides/plans-and-limits#frontends).
+
+### Switch TLS modes
+
+Run `add` for an active domain in the other mode to switch it in place, without
+downtime. A domain that redirects keeps its redirect:
+
+```bash
+# BYOC to managed: your certificate serves until Volcano issues its own
+volcano cloud frontends domains add my-site app.example.com
+
+# Managed to BYOC: your certificate replaces the managed one at once
+volcano cloud frontends domains add my-site app.example.com \
+  --cert ./fullchain-leaf.pem --key ./privkey.pem
+```
+
+On a server without the `domains` commands, use
+`volcano cloud frontends domain create my-site --domain app.example.com` with
+`--tls managed` or `--cert` and `--key` instead.
+
+Moving to managed TLS prints the `_acme-challenge` CNAME to publish.
+`Serving certificate` reads `uploaded` until the managed certificate serves,
+then `managed`. If issuance fails, `Failure reason` names the cause while your
+certificate keeps serving. The switch needs a free managed certificate in your
+[plan](/platform/guides/plans-and-limits#frontends). A domain that is not yet
+active has no certificate to keep serving. Wait until it is active, or delete
+it and attach it again in the other mode.
+
+If the frontend's entry in `volcano-config.yaml` declares the domain's `tls`,
+in `custom_domain` or its `custom_domains` entry, set it to the new mode too. Otherwise the next `volcano cloud config deploy` or
+`volcano deploy` switches the domain back. `mode: byoc` without PEM fields
+keeps the certificate you uploaded.
+
+Several domains per frontend are rolling out. Until they reach your project, a
+frontend holds one domain: `domains add` refuses a second one with `403` and
+`domain create` with `409`, and an older server answers the `domains` commands
+with `404`. The `volcano cloud frontends domain
+create|list|get|delete` commands work on every server and act on the
+frontend's oldest domain that serves it.
+
+## Deploy one build to several frontends
+
+`--from` deploys the build another frontend of the project already serves,
+without uploading or compiling again. Both frontends must exist:
+
+```bash
+# Deploy the build web serves to web-eu
+volcano cloud frontends deploy web-eu --from web
+
+# Deploy one particular deployment of web
+volcano cloud frontends deploy web-eu --from web@3f6c2a1e-9b0d-4c51-8a39-0c6f2f1e8d42
+```
+
+```text
+✓ Frontend 'web-eu' deployment started with the build of 'web'
+Source deployment: 3f6c2a1e-9b0d-4c51-8a39-0c6f2f1e8d42
+Deployment: 8d0e4b7a-1c2f-4e6d-9a3b-5f1e0c2b7a64
+```
+
+Without `@`, the CLI picks the newest `active` or `degraded` deployment of the
+source frontend. `--from` takes no `--path`, `--name`, `--framework`,
+`--app-root`, or variable flags: the target keeps its own settings, and the
+build must match them. The deploy is refused when a build-time variable would have a different
+value on the target, naming the variables:
+
+```text
+build variables differ from the source build: NEXT_PUBLIC_API_URL
+```
+
+Redeploy the source if those variables changed since its build, or give the
+target the same variable selection. A deployment from before Volcano kept
+builds is refused until the source is redeployed once. Local development
+builds each frontend from its own source, so `volcano frontends deploy --from`
+fails and names the command to run instead. See
+[Deploy one build to several frontends](/platform/frontends/deploy#deploy-one-build-to-several-frontends)
+for what the target serves and what it costs.
 
 ## Function routes
 

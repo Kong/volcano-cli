@@ -21,6 +21,7 @@ import (
 
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 const (
@@ -681,4 +682,13 @@ func executionPayload(status string) map[string]any {
 func withFields(payload, fields map[string]any) map[string]any {
 	maps.Copy(payload, fields)
 	return payload
+}
+
+// An execution name passed where the ID belongs is shown, but marked sensitive
+// so usage telemetry never sends it.
+func TestParseExecutionIDMarksTheValueSensitive(t *testing.T) {
+	_, err := parseExecutionID("order-4417")
+
+	require.ErrorContains(t, err, `invalid execution ID "order-4417"`)
+	assert.Contains(t, sensitive.Text(err), "order-4417")
 }

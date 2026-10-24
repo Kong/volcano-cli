@@ -100,6 +100,16 @@ func NewClient(apiURL, token string, opts ...Option) (*Client, error) {
 	}, nil
 }
 
+// WrapDoer returns doer with the behavior every API request shares, for a
+// request made outside the generated client: the CLI version protocol
+// (version and agent headers, and the response's instruction headers recorded
+// for LastInstructions, such as a reauth or upgrade notice), --debug tracing,
+// refusal recording, and the message naming apiURL when the server cannot be
+// reached.
+func WrapDoer(apiURL string, doer apiclient.HttpRequestDoer) apiclient.HttpRequestDoer {
+	return wrapDoer(strings.TrimRight(strings.TrimSpace(apiURL), "/"), doer)
+}
+
 // wrapDoer applies the behavior every API request shares to one transport.
 func wrapDoer(apiURL string, doer apiclient.HttpRequestDoer) apiclient.HttpRequestDoer {
 	// Wrap with the VOL-180 version protocol: every request (including

@@ -14,6 +14,19 @@ import (
 // Callers branch on it with errors.Is(err, api.ErrNotFound).
 var ErrNotFound = errors.New("not found")
 
+// WithCause returns an error that reads as err and also matches cause with
+// errors.Is and errors.As. A service that rewrites an API refusal into its own
+// words keeps the refusal this way, so the exit code still reports it.
+func WithCause(err, cause error) error {
+	return &causeError{err: err, cause: cause}
+}
+
+type causeError struct{ err, cause error }
+
+func (e *causeError) Error() string { return e.err.Error() }
+
+func (e *causeError) Unwrap() []error { return []error{e.err, e.cause} }
+
 // Error is a normalized error returned for non-successful API responses.
 type Error struct {
 	StatusCode int
@@ -22,11 +35,15 @@ type Error struct {
 	Code string
 }
 
-// Status returns the HTTP status code carried by an *Error wrapped in err, or
-// 0 if err is nil or does not wrap an *Error.
+// Status returns the HTTP status code carried by an *Error wrapped in err, 422
+// for a wrapped *ProjectConfigValidationError, or 0 if err is nil or wraps
+// neither.
 func Status(err error) int {
 	if apiErr, ok := errors.AsType[*Error](err); ok {
 		return apiErr.StatusCode
+	}
+	if _, ok := errors.AsType[*ProjectConfigValidationError](err); ok {
+		return http.StatusUnprocessableEntity
 	}
 	return 0
 }
@@ -122,6 +139,32 @@ func apiResultWithoutBody[T any](statusCode int, result *T, generatedErrors ...*
 	return apiResult(statusCode, nil, result, generatedErrors...)
 }
 
+// errorFieldsOnly keeps the error fields of a JSON body and drops the rest,
+// for an endpoint whose success body can carry a secret but whose refusals
+// still need their message, including a status the API does not declare. A
+// body that is not a JSON object, or has no error field, becomes nil.
+func errorFieldsOnly(body []byte) []byte {
+	var payload errorFields
+	if json.Unmarshal(body, &payload) != nil ||
+		payload.Error == "" && payload.ErrorDescription == "" && payload.Message == "" {
+		return nil
+	}
+	kept, err := json.Marshal(payload)
+	if err != nil {
+		return nil
+	}
+	return kept
+}
+
+type errorFields struct {
+	Error            string `json:"error,omitempty"`
+	ErrorDescription string `json:"error_description,omitempty"`
+	Message          string `json:"message,omitempty"`
+	// Code is kept only when it is a string: some proxies send a number,
+	// which must not discard the message.
+	Code json.RawMessage `json:"code,omitempty"`
+}
+
 func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	if statusCode >= 200 && statusCode < 300 {
 		return nil
@@ -142,20 +185,29 @@ func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ..
 	return apiError(statusCode, body)
 }
 
+// ResponseError returns the *Error for a failed response with statusCode and
+// body, for requests made outside the generated client. It reads the message
+// from the API's JSON error body, or uses a short plain-text body.
+func ResponseError(statusCode int, body []byte) error {
+	return apiError(statusCode, body)
+}
+
 func apiError(statusCode int, body []byte) error {
-	var payload struct {
-		Error            string `json:"error"`
-		ErrorDescription string `json:"error_description"`
-		Message          string `json:"message"`
-	}
+	var payload errorFields
 	if len(body) > 0 && json.Unmarshal(body, &payload) == nil {
+		var message string
 		switch {
 		case payload.ErrorDescription != "":
-			return apiErrorWithMessage(statusCode, payload.ErrorDescription)
+			message = payload.ErrorDescription
 		case payload.Error != "":
-			return apiErrorWithMessage(statusCode, payload.Error)
+			message = payload.Error
 		case payload.Message != "":
-			return apiErrorWithMessage(statusCode, payload.Message)
+			message = payload.Message
+		}
+		if message != "" {
+			var code string
+			_ = json.Unmarshal(payload.Code, &code)
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code)}
 		}
 	}
 	message := cleanBody(body)

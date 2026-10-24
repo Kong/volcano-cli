@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.50.0](https://github.com/Kong/volcano-cli/compare/v0.49.0...v0.50.0) (2026-10-21)
+
+
+### Features
+
+* **frontends:** attach and switch custom domains with managed TLS ([#332](https://github.com/Kong/volcano-cli/issues/332)) ([0dd0603](https://github.com/Kong/volcano-cli/commit/0dd06032e535a851ee8b047754125445137b0e20))
+
+## [0.49.0](https://github.com/Kong/volcano-cli/compare/v0.48.0...v0.49.0) (2026-10-20)
+
+
+### Features
+
+* CLI usage telemetry with coding agent detection ([#318](https://github.com/Kong/volcano-cli/issues/318)) ([ec8e731](https://github.com/Kong/volcano-cli/commit/ec8e73186bbd9a9e5ad0234dfa231ad480525033))
+
+## [0.48.0](https://github.com/Kong/volcano-cli/compare/v0.47.0...v0.48.0) (2026-10-20)
+
+
+### Features
+
+* **connect:** add volcano connect for one-step onboarding ([#317](https://github.com/Kong/volcano-cli/issues/317)) ([9af9590](https://github.com/Kong/volcano-cli/commit/9af9590be6f604225b583242b22c70b0cb4eff8d))
+
+## [0.47.0](https://github.com/Kong/volcano-cli/compare/v0.46.3...v0.47.0) (2026-10-19)
+
+
+### Features
+
+* **durable:** add durable messages commands ([#302](https://github.com/Kong/volcano-cli/issues/302)) ([4317633](https://github.com/Kong/volcano-cli/commit/43176332196a20681263657feb4637928c97ee3f))
+
 ## [0.46.3](https://github.com/Kong/volcano-cli/compare/v0.46.2...v0.46.3) (2026-10-15)
 
 

@@ -97,6 +97,10 @@ jobs:
       - run: go build ./...
       - run: make build FIRST_PARTY_DEVICE_CLIENT_ID=volcano-cli
       - name: Smoke-test binary
+        env:
+          # CI smoke runs are not usage; keep them out of telemetry, which also
+          # turns feedback and its first-run notice off.
+          VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           ./volcano --help
           ./volcano --version

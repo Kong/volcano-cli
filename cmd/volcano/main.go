@@ -9,19 +9,45 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/agent"
 	"github.com/Kong/volcano-cli/internal/api"
+	feedbackcmd "github.com/Kong/volcano-cli/internal/cmd/feedback"
 	rootcmd "github.com/Kong/volcano-cli/internal/cmd/root"
 	sandboxcmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	upgradecmd "github.com/Kong/volcano-cli/internal/cmd/upgrade"
 	"github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/confirm"
+	"github.com/Kong/volcano-cli/internal/output"
+	cliproject "github.com/Kong/volcano-cli/internal/project"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/telemetry"
 	"github.com/Kong/volcano-cli/internal/theme"
 )
 
+// Exit codes. Scripts and agents can branch on these without parsing the error
+// text. Anything else that fails exits 1, and `volcano sandboxes exec` passes
+// the remote command's own exit code through instead.
+const (
+	exitFailure          = 1
+	exitNotAuthenticated = 2
+	exitNoProject        = 3
+	exitNotFound         = 4
+	exitPermissionDenied = 5
+)
+
 func main() {
+	// One recorder per process: it reads the telemetry setting once, and both
+	// the agent headers and the usage event follow that read. Agent headers
+	// count as usage data: none before the first-run notice.
+	recorder := &telemetry.Recorder{}
+	api.SetAgentReporting(recorder.Reporting())
+	feedbackcmd.SetRecorder(recorder)
+	feedbackHint = feedbackHintFor(recorder.FeedbackOn() && recorder.LoggedIn(), agent.Detect(os.LookupEnv))
+	recordTelemetry = recorder.Record
 	deps := cliruntime.Deps{}
 	os.Exit(run(rootcmd.New(deps), deps))
 }
@@ -33,10 +59,85 @@ func main() {
 // (defaults to os.Stderr, same as before this extraction) so tests can
 // redirect it via root.SetErr.
 func run(root *cobra.Command, deps cliruntime.Deps) int {
-	err := root.Execute()
+	start := time.Now()
+	cmd, err := root.ExecuteC()
+	code := finish(root, deps, err)
+	if code != 0 && feedbackHint && wantsFeedbackHint(cmd, err) {
+		printFeedbackHint(root.ErrOrStderr(), deps)
+	}
+	recordTelemetry(telemetry.Invocation{
+		Command:  cmd,
+		Err:      err,
+		ExitCode: code,
+		Start:    start,
+		Stderr:   root.ErrOrStderr(),
+		StdinTTY: confirm.CanPrompt(os.Stdin),
+		Args:     os.Args[1:],
+	})
+	return code
+}
+
+// recordTelemetry records the invocation (see package telemetry). main sets
+// it; tests replace it so they never write the config or start a flush
+// process.
+var recordTelemetry = func(telemetry.Invocation) {}
+
+// feedbackHint is whether a failed command ends with a pointer to `volcano
+// feedback`: only when a coding agent ran the CLI and feedback can be sent. A
+// host-only signal, such as Cursor's integrated terminal, is also set when a
+// person types there, so it does not count.
+// main sets it; tests leave it off unless they cover the hint.
+var feedbackHint bool
+
+// feedbackHintFor decides feedbackHint from whether feedback can be sent and
+// the detected agent.
+func feedbackHintFor(on bool, detected agent.Result) bool {
+	return on && detected.Name != "" && detected.Source != agent.SourceHost
+}
+
+// wantsFeedbackHint reports whether a failure could be a Volcano problem worth
+// a hint. A sandbox command's own exit status is the user's command failing,
+// a usage error such as an unknown flag is what `volcano feedback --help` says
+// not to report, a 401 or 426 already says how to fix it, and a failed
+// `volcano feedback` would point at itself.
+func wantsFeedbackHint(cmd *cobra.Command, err error) bool {
+	if _, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
+		return false
+	}
+	if telemetry.IsUsageError(err) {
+		return false
+	}
+	// A 401 or 426 is answered by the login or upgrade line printed above it,
+	// and `volcano feedback` would fail the same way.
+	if status := api.Status(err); status == http.StatusUnauthorized || status == http.StatusUpgradeRequired {
+		return false
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "feedback" && c.HasParent() && !c.Parent().HasParent() {
+			return false
+		}
+	}
+	return true
+}
+
+// printFeedbackHint tells the coding agent how to report the failure if it is
+// a problem with Volcano. The volcano-feedback skill says what is worth
+// reporting.
+func printFeedbackHint(w io.Writer, deps cliruntime.Deps) {
+	fmt.Fprintf(w, "Coding agents: if this is a problem with Volcano itself, report it after your task with `%s`. See `%s`.\n",
+		cliruntime.CommandPath(deps, "feedback"), cliruntime.CommandPath(deps, "feedback --help"))
+}
+
+// finish prints the command's error and any pending API notices, and returns
+// the exit code.
+func finish(root *cobra.Command, deps cliruntime.Deps, err error) int {
 	stderr := root.ErrOrStderr()
+	// Read before printError: its 403 hint looks up the selected project, which
+	// would record a use of VOLCANO_PROJECT_ID the command never made.
+	projectEnvUsed := config.ConsumeProjectEnvUse()
 	if commandExit, ok := errors.AsType[*sandboxcmd.ExitError](err); ok {
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return commandExit.ExitCode()
 	}
 
@@ -46,6 +147,7 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// target when the API provided one, and stop — printing the
 		// suggestion/deprecation notice below too would repeat ourselves.
 		printDeprecationError(stderr, err, deps)
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
 		return 1
 	}
 
@@ -58,7 +160,8 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 		// unrelated error ended the command (see api's recordInstructions).
 		printError(stderr, err, deps)
 		upgradecmd.PrintAPIInstructionNotices(root, deps)
-		return 1
+		printProjectEnvDeprecation(stderr, projectEnvUsed)
+		return exitCode(err)
 	}
 
 	// Success: covers the non-blocking suggestion, and a deprecated CLI
@@ -67,7 +170,34 @@ func run(root *cobra.Command, deps cliruntime.Deps) int {
 	// through. Reads only in-process state (api.LastInstructions); adds no
 	// network call.
 	upgradecmd.PrintAPIInstructionNotices(root, deps)
+	printProjectEnvDeprecation(stderr, projectEnvUsed)
 	return 0
+}
+
+// printProjectEnvDeprecation warns, once per run, that the deprecated
+// VOLCANO_PROJECT_ID chose the project, when used says it did. It goes to
+// stderr so --json output on stdout stays valid.
+func printProjectEnvDeprecation(w io.Writer, used bool) {
+	if used {
+		output.Warning(w, "%s", config.ProjectEnvDeprecation)
+	}
+}
+
+// exitCode maps a command error to one of the documented exit codes.
+func exitCode(err error) int {
+	status := api.Status(err)
+	switch {
+	case errors.Is(err, config.ErrNotAuthenticated), status == http.StatusUnauthorized:
+		return exitNotAuthenticated
+	case errors.Is(err, config.ErrNoProjectSelected), errors.Is(err, config.ErrNoProjectSelectedForProjectToken):
+		return exitNoProject
+	case errors.Is(err, cliproject.ErrNotFound), errors.Is(err, api.ErrNotFound), status == http.StatusNotFound:
+		return exitNotFound
+	case errors.Is(err, config.ErrAccountTokenRequired), status == http.StatusForbidden:
+		return exitPermissionDenied
+	default:
+		return exitFailure
+	}
 }
 
 // printDeprecationError renders a require_version_upgrade 426 error together with
@@ -87,6 +217,16 @@ func printError(w io.Writer, err error, deps cliruntime.Deps) {
 		fmt.Fprintf(w, "Run `%s` to re-authenticate.\n", cliruntime.CommandPath(deps, "login"))
 	}
 	printProjectTokenMismatchHint(w, err, deps)
+}
+
+// loadConfig loads the configuration through the runtime's loader, so a
+// command tree with its own configuration is answered from that rather than
+// from the user's cloud config.
+func loadConfig(deps cliruntime.Deps) (*config.Config, error) {
+	if deps.ConfigLoader != nil {
+		return deps.ConfigLoader()
+	}
+	return config.Load()
 }
 
 // wrongProjectRefusal is how the platform names a project access token used
@@ -137,11 +277,7 @@ func printProjectTokenMismatchHint(w io.Writer, err error, deps cliruntime.Deps)
 // the runtime's loader so a command tree with its own configuration is answered
 // from that rather than from the user's cloud config.
 func selectedProjectID(deps cliruntime.Deps) string {
-	loadConfig := config.Load
-	if deps.ConfigLoader != nil {
-		loadConfig = deps.ConfigLoader
-	}
-	cfg, err := loadConfig()
+	cfg, err := loadConfig(deps)
 	if err != nil {
 		return ""
 	}

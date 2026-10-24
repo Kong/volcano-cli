@@ -38,9 +38,9 @@ frontends:
 // A pulled export has to deploy again, and the manifest decodes strictly, so
 // both fields must be known here or every project using them fails to parse.
 func TestManifestRoundTripsVisibilityAndFunctionRoutes(t *testing.T) {
-	pulled, stripped, err := sanitizePulledManifest([]byte(serverExport))
+	pulled, removed, err := sanitizePulledManifest([]byte(serverExport))
 	require.NoError(t, err)
-	assert.False(t, stripped)
+	assert.Empty(t, removed)
 
 	manifest, err := Parse(pulled, noEnv)
 	require.NoError(t, err)

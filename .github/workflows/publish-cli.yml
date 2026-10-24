@@ -159,6 +159,10 @@ jobs:
 
       - name: Smoke-test Linux binary
         if: matrix.target.id == 'linux-amd64'
+        env:
+          # Release checks are not usage; keep them out of telemetry, which also
+          # turns feedback and its first-run notice off.
+          VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --help
           dist/${{ matrix.target.id }}/volcano-${{ matrix.target.id }} --version
@@ -256,6 +260,10 @@ jobs:
         run: scripts/ci/publish-github-release.sh "$RELEASE_TAG" "$RELEASE_TITLE" dist/release-assets
 
       - name: Verify uploaded Linux binary
+        env:
+          # Release checks are not usage; keep them out of telemetry, which also
+          # turns feedback and its first-run notice off.
+          VOLCANO_TELEMETRY_DISABLED: "1"
         run: |
           set -euo pipefail
           TMP_DIR="$(mktemp -d)"
