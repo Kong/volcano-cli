@@ -27,8 +27,8 @@ func IsCommitChanged(err error) bool {
 // PreviewDeployLink returns what deploying a link would create. The route is
 // public, so the request carries no credential, but the call still needs a
 // signed-in account so a command that cannot go on to create a project stops
-// before it reaches the network.
-func (s Service) PreviewDeployLink(ctx context.Context, linkID string) (*apiclient.DeployLinkPreview, error) {
+// before it reaches the network. fresh asks for the branch's head as it is now.
+func (s Service) PreviewDeployLink(ctx context.Context, linkID string, fresh bool) (*apiclient.DeployLinkPreview, error) {
 	authenticated, err := s.sessions.AccountScoped()
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (s Service) PreviewDeployLink(ctx context.Context, linkID string) (*apiclie
 	if err != nil {
 		return nil, err
 	}
-	preview, err := anonymous.GetDeployLinkPreview(ctx, linkID)
+	preview, err := anonymous.GetDeployLinkPreview(ctx, linkID, fresh)
 	if err != nil {
 		return nil, deployLinkError("preview the deploy link", err)
 	}

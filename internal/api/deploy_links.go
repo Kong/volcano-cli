@@ -78,9 +78,14 @@ func (c *Client) GetDeployLinkStats(
 
 // GetDeployLinkPreview returns what deploying a link would create, with the
 // exact commit it is pinned to. The route is public, so the client may carry no
-// credential.
-func (c *Client) GetDeployLinkPreview(ctx context.Context, linkID string) (*apiclient.DeployLinkPreview, error) {
-	resp, err := c.client.GetDeployLinkPreviewWithResponse(ctx, linkID)
+// credential. fresh reads the branch's head again instead of answering from a cache
+// that may be a minute old, which is what a retry after commit_changed needs.
+func (c *Client) GetDeployLinkPreview(ctx context.Context, linkID string, fresh bool) (*apiclient.DeployLinkPreview, error) {
+	params := &apiclient.GetDeployLinkPreviewParams{}
+	if fresh {
+		params.Fresh = &fresh
+	}
+	resp, err := c.client.GetDeployLinkPreviewWithResponse(ctx, linkID, params)
 	if err != nil {
 		return nil, err
 	}

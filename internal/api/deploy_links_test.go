@@ -170,10 +170,33 @@ func TestGetDeployLinkPreviewSendsNoCredentialWithoutAToken(t *testing.T) {
 	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
 	require.NoError(t, err)
 
-	preview, err := client.GetDeployLinkPreview(context.Background(), "k3Vn8TqPz0aX")
+	preview, err := client.GetDeployLinkPreview(context.Background(), "k3Vn8TqPz0aX", false)
 	require.NoError(t, err)
 	assert.Empty(t, auth)
 	assert.Equal(t, "acme/notes-app", preview.Repository.FullName)
+}
+
+func TestGetDeployLinkPreviewAsksForAFreshHeadOnlyWhenToldTo(t *testing.T) {
+	var queries []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries = append(queries, r.URL.RawQuery)
+		writeAPIJSON(t, w, http.StatusOK, map[string]any{
+			"id": "k3Vn8TqPz0aX", "branch": "main", "path": "", "suggested_name": "",
+			"commit_sha": "0123456789abcdef0123456789abcdef01234567",
+			"repository": map[string]any{"full_name": "acme/notes-app", "owner": "acme", "name": "notes-app", "url": "https://github.com/acme/notes-app"},
+			"frontends":  []string{"web"}, "functions": []string{},
+		})
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	_, err = client.GetDeployLinkPreview(context.Background(), "k3Vn8TqPz0aX", false)
+	require.NoError(t, err)
+	_, err = client.GetDeployLinkPreview(context.Background(), "k3Vn8TqPz0aX", true)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"", "fresh=true"}, queries)
 }
 
 func TestCreateProjectFromDeployLinkSendsTheSourceAndKeepsTheConflictCode(t *testing.T) {

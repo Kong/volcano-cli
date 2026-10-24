@@ -67,7 +67,7 @@ func runCreateFrom(ctx context.Context, opts createFromOptions) error {
 	}
 
 	projects := cliproject.NewService(opts.deps)
-	preview, err := projects.PreviewDeployLink(ctx, linkID)
+	preview, err := projects.PreviewDeployLink(ctx, linkID, false)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func confirmAndCreate(
 
 		// The refusal creates nothing, so showing the new commit is safe either way.
 		fmt.Fprintf(opts.out, "\n%s\n", theme.Warn("The repository changed since the preview. Here is what the link deploys now.", theme.On(opts.out)))
-		preview, err = projects.PreviewDeployLink(ctx, linkID)
+		preview, err = projects.PreviewDeployLink(ctx, linkID, true)
 		if err != nil {
 			return nil, err
 		}
