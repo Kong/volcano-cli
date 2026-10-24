@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -297,4 +298,19 @@ func TestRollbackNamesTheRevisionAndCanReturnToProduction(t *testing.T) {
 	_, err = runPreview(t, server, "rollback", "web")
 	require.NoError(t, err)
 	assert.NotContains(t, p.rolled, "to_production", "a plain rollback does not ask for production")
+}
+
+func TestPreviewCommandsRunOnTheLocalServerAndInTheCloud(t *testing.T) {
+	for name, cmd := range map[string]*cobra.Command{
+		"cloud": New(cliruntime.Deps{}),
+		"local": NewLocal(cliruntime.Deps{LocalMode: true}),
+	} {
+		found := map[string]bool{}
+		for _, sub := range cmd.Commands() {
+			found[sub.Name()] = true
+		}
+		for _, want := range []string{"preview", "serving", "rollback"} {
+			assert.True(t, found[want], "%s frontends has %q", name, want)
+		}
+	}
 }

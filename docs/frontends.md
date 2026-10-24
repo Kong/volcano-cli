@@ -42,9 +42,9 @@ Custom domains are a cloud command.
 | Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
 | Custom domains | — | `volcano cloud frontends domains list\|get\|add\|update\|remove …` |
 | Function and Frontend routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
-| Previews | — | `volcano cloud frontends preview create\|list\|get\|deploy\|delete\|promote …` |
-| What a frontend serves | — | `volcano cloud frontends serving <name>` |
-| Roll back a promotion | — | `volcano cloud frontends rollback <name> [--to-production]` |
+| Previews | `volcano frontends preview create\|list\|get\|deploy\|delete\|promote …` | `volcano cloud frontends preview create\|list\|get\|deploy\|delete\|promote …` |
+| What a frontend serves | `volcano frontends serving <name>` | `volcano cloud frontends serving <name>` |
+| Roll back a promotion | `volcano frontends rollback <name> [--to-production]` | `volcano cloud frontends rollback <name> [--to-production]` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
@@ -254,10 +254,12 @@ for what the target serves and what it costs.
 
 A preview is a copy of a frontend deployed to its own URL, so you can check a
 change with the frontend's real variables before it replaces what the frontend
-serves. Previews are a cloud command; local development has none.
+serves. Previews work on the local development server and in the cloud: use
+`volcano frontends …` locally and `volcano cloud frontends …` in the cloud.
 
 ```bash
-# Deploy a preview of web from a local directory, then read its URL when ready
+# Deploy a preview of web from a local directory, then read its URL when ready.
+# The same commands run on the local development server without "cloud".
 volcano cloud frontends preview create web --name redesign --path ./web --ttl 72h
 volcano cloud frontends preview get web redesign
 volcano cloud frontends preview list web

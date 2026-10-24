@@ -40,7 +40,7 @@ func NewLocal(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "frontends",
 		Short: "Manage frontends",
-		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage function and Frontend routes of frontends on the local development server.",
+		Long:  "Deploy, list, inspect, redeploy, delete, view logs, and manage function and Frontend routes and previews of frontends on the local development server.",
 	}
 	cmd.AddCommand(newDeploy(deps))
 	cmd.AddCommand(newList(deps))
@@ -49,6 +49,9 @@ func NewLocal(deps cliruntime.Deps) *cobra.Command {
 	cmd.AddCommand(newRedeploy(deps))
 	cmd.AddCommand(newLogs(deps))
 	cmd.AddCommand(newRoutes(deps))
+	cmd.AddCommand(newPreview(deps))
+	cmd.AddCommand(newServing(deps))
+	cmd.AddCommand(newRollback(deps))
 	cmd.AddCommand(newDomainCloudOnly("domain"))
 	cmd.AddCommand(newDomainCloudOnly("domains"))
 	return cmd
