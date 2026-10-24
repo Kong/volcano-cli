@@ -81,3 +81,45 @@ func TestFrontendsDeletePromptAndYes(t *testing.T) {
 		assert.Contains(t, out, "Status will be \"deleting\"")
 	})
 }
+
+// The server refuses to delete a mounted frontend and names the mounting
+// frontends; the CLI keeps that message and adds the commands that unblock it.
+func TestFrontendsDeleteOfAMountedFrontendNamesTheRoutesToRemove(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := newMountServer(t)
+	server.deleteRefusal = "Frontend routes on web mount this Frontend. Remove those routes before deleting it."
+
+	_, err := server.run("delete", "docs", "--yes")
+	require.Error(t, err)
+	assert.Equal(t, `failed to delete frontend "`+docsFrontendID+`": HTTP 409: `+server.deleteRefusal+"\n"+
+		"remove the routes that mount it first:\n"+
+		"  volcano cloud frontends routes delete web /docs", err.Error())
+}
+
+// When the lookup finds no mounting route, such as one removed meanwhile, the
+// server's message stands alone.
+func TestFrontendsDeleteKeepsTheRefusalWhenNoMountIsFound(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := newMountServer(t)
+	server.mounts = nil
+	server.deleteRefusal = "Frontend routes on web mount this Frontend. Remove those routes before deleting it."
+
+	_, err := server.run("delete", "docs", "--yes")
+	require.Error(t, err)
+	assert.Equal(t, `failed to delete frontend "`+docsFrontendID+`": HTTP 409: `+server.deleteRefusal, err.Error())
+}
+
+// A prefix that the shell would split or expand is quoted in the hint.
+func TestFrontendsDeleteQuotesTheRoutesToRemove(t *testing.T) {
+	setFrontendCommandTestHome(t)
+	saveFrontendCommandTestConfig(t)
+	server := newMountServer(t)
+	server.mounts = []map[string]any{mountPayload(mountID, docsFrontendID, "/docs v2;$(id)")}
+	server.deleteRefusal = "Frontend routes on web mount this Frontend. Remove those routes before deleting it."
+
+	_, err := server.run("delete", "docs", "--yes")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "\n  volcano cloud frontends routes delete web '/docs v2;$(id)'")
+}

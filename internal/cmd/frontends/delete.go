@@ -5,10 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -65,10 +68,29 @@ func runDelete(ctx context.Context, opts deleteOptions) error {
 	}
 
 	if err := service.DeleteByID(ctx, frontend.Id); err != nil {
-		return err
+		return withMountedHint(ctx, opts.deps, service, frontend.Id, err)
 	}
 
 	output.Success(opts.out, "Frontend '%s' deletion started", frontend.Name)
 	fmt.Fprintln(opts.out, `Status will be "deleting" until cleanup finishes; afterwards the frontend will no longer appear in list/get responses.`)
 	return nil
+}
+
+// withMountedHint adds the commands that remove the Frontend routes mounting a
+// frontend to the 409 the server answers its delete with, quoted so they paste
+// as is. The server's message
+// already names the mounting frontends, so a failed lookup leaves it as is.
+func withMountedHint(ctx context.Context, deps cliruntime.Deps, service clifrontend.Service, frontendID uuid.UUID, err error) error {
+	if api.Status(err) != http.StatusConflict {
+		return err
+	}
+	mounts, lookupErr := service.MountedBy(ctx, frontendID)
+	if lookupErr != nil || len(mounts) == 0 {
+		return err
+	}
+	commands := make([]string, 0, len(mounts))
+	for _, mount := range mounts {
+		commands = append(commands, "  "+cliruntime.CommandPath(deps, fmt.Sprintf("frontends routes delete %s %s", cliruntime.ShellQuote(mount.Frontend), cliruntime.ShellQuote(mount.PathPrefix))))
+	}
+	return fmt.Errorf("%w\nremove the routes that mount it first:\n%s", err, strings.Join(commands, "\n"))
 }
