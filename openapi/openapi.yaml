@@ -8987,6 +8987,10 @@ paths:
         Starts deleting the Candidate: its regional runtime, images, edge state and stored source are
         removed once any running deployment finishes. Asking again for a Candidate that is already being
         deleted is the same request. The Candidate answers `404` once it is gone.
+
+        A Candidate the frontend serves cannot be deleted: roll back first. A Candidate the frontend only
+        keeps as the runtime a rollback returns to can be deleted, and doing so gives up that rollback;
+        rolling back to the frontend's own runtime stays possible.
       operationId: deleteFrontendCandidate
       security:
         - UserToken: []
@@ -9018,6 +9022,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Frontend or Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict - the frontend serves this Candidate
           content:
             application/json:
               schema:
@@ -9090,7 +9100,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Conflict - a deployment is already running, or the Candidate is being deleted
+          description: Conflict - a deployment is already running, the Candidate is being deleted or is not ready to deploy to, or the frontend serves it or keeps it for a rollback
           content:
             application/json:
               schema:

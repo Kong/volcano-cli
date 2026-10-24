@@ -64,7 +64,7 @@ func (c *Client) DeleteFrontendCandidate(ctx context.Context, projectID, fronten
 	if err != nil {
 		return err
 	}
-	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
 // RedeployFrontendCandidate uploads a new archive to an existing Candidate and

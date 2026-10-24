@@ -34,6 +34,7 @@ type previewServer struct {
 	promoted map[string]any
 	rolled   map[string]any
 	conflict bool
+	inUse    bool
 	deleted  bool
 }
 
@@ -80,6 +81,10 @@ func (p *previewServer) handle(w http.ResponseWriter, r *http.Request) {
 			"created_at": "2026-10-23T10:00:00Z",
 		})
 	case r.Method == http.MethodDelete && r.URL.Path == previewBasePath+"/candidates/"+previewID:
+		if p.inUse {
+			writeFrontendCommandJSON(p.t, w, http.StatusConflict, map[string]any{"error": "the frontend serves this candidate"})
+			return
+		}
 		p.deleted = true
 		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodGet && r.URL.Path == previewBasePath+"/serving":
@@ -224,6 +229,17 @@ func TestPreviewDeleteDeletesTheNamedPreview(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, p.deleted)
 	assert.Contains(t, out, "Preview 'redesign' is being deleted")
+}
+
+func TestPreviewDeleteReportsThatTheFrontendServesIt(t *testing.T) {
+	p, server := newPreviewServer(t)
+	p.inUse = true
+
+	_, err := runPreview(t, server, "preview", "delete", "web", "redesign")
+
+	require.ErrorContains(t, err, "failed to delete candidate")
+	require.ErrorContains(t, err, "the frontend serves this candidate")
+	assert.False(t, p.deleted)
 }
 
 func TestPreviewPromoteNamesTheRevisionItJustRead(t *testing.T) {
