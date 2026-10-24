@@ -21,6 +21,10 @@ tags:
     description: Project management operations
   - name: Logs
     description: Project-scoped log search and activity APIs
+  - name: Issues
+    description: 'Preview, not generally available: runtime errors grouped into issues. Where issues are not available, every endpoint answers `404` with code `feature_unavailable`.'
+  - name: Autofix
+    description: 'Preview, not generally available: AI diagnosis of a project''s issues and draft pull requests that fix them. Where autofix is not available, turning it on, or any request for a project that never saved settings, answers `404` with code `feature_unavailable`. Autofix is not available in local mode.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -119,6 +123,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -149,6 +154,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -190,6 +196,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -224,6 +231,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -264,6 +272,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -296,6 +305,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -362,6 +372,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -399,6 +410,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -440,6 +452,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -499,6 +512,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -541,6 +555,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -571,6 +586,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -612,6 +628,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: id
           in: path
@@ -653,6 +670,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
         - AuthUserAccessToken: []
       parameters:
         - name: sessionId
@@ -682,6 +700,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: sessionId
           in: path
@@ -711,6 +730,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: sessionId
           in: path
@@ -740,6 +760,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
       parameters:
         - name: sessionId
           in: path
@@ -769,6 +790,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
         - AuthUserAccessToken: []
       parameters:
         - name: sessionId
@@ -811,6 +833,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
         - AuthUserAccessToken: []
       parameters:
         - name: sessionId
@@ -847,6 +870,7 @@ paths:
       security:
         - UserToken: []
         - ServiceRoleKey: []
+        - ProjectAccessToken: []
         - AuthUserAccessToken: []
       parameters:
         - name: sessionId
@@ -2088,7 +2112,9 @@ paths:
       summary: Create a new project
       description: |
         Creates a project for the authenticated user.
-        Each user can create up to 1,000 projects. Requests over this cap return 403.
+        Projects have no plan limit; usage allowances apply across all of a user's projects.
+        Accounts on an older paid pricing revision keep the project cap that revision set, and
+        requests over it return 403.
       operationId: createProject
       security:
         - UserToken: []
@@ -2112,7 +2138,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Project limit exceeded for the user
+          description: Forbidden. The user reached a project cap (only on older paid pricing revisions that set one), the plan does not allow the requested region subset, or a template's frontend limit was reached
           content:
             application/json:
               schema:
@@ -2230,7 +2256,8 @@ paths:
         Returns a fast control-plane health snapshot for the project and its
         deployed resources. The endpoint does not run live provider probes.
         A successful request returns 200 even when the project status is
-        `unhealthy`; transport and authorization failures use HTTP errors.
+        `degraded` or `critical`; transport and authorization failures use HTTP
+        errors.
       operationId: getProjectHealth
       security:
         - UserToken: []
@@ -2793,7 +2820,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectConfigApplyResult'
         '400':
-          description: Malformed request body
+          description: Malformed request body, or, with code `feature_unavailable`, the manifest creates or changes something whose capability is unavailable in this environment, such as `frontends[].frontend_routes` while `frontend_routes` is unavailable in `GET /capabilities`. Nothing was applied.
           content:
             application/json:
               schema:
@@ -3142,6 +3169,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/git-connection/root-directory:
+    put:
+      tags:
+        - Projects
+        - Git Connections
+      summary: Set the directory a project builds from
+      description: |
+        Changes only the root directory, leaving the repository and production
+        branch alone. Unlike PUT /projects/{id}/git-connection, this accepts a
+        project access token, so CI or an agent can move a project within its
+        repository without being able to change the repository.
+
+        The directory is a path relative to the repository root. An empty
+        string, `.` or `/` means the repository root. The response carries it in
+        the form a deploy reads it: `./apps/web/` comes back as `apps/web`.
+      operationId: setProjectGitRootDirectory
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetProjectGitRootDirectoryRequest'
+      responses:
+        '200':
+          description: The project's repo connection, with the new root directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectGitConnection'
+        '400':
+          description: |
+            Malformed request body, or a root_directory that is absolute or
+            leaves the repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project not found, or it has no repository connected. The root
+            directory is part of the connection, so there is nothing to set it
+            on until one exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            A Git source transition is pending or complete, so the recorded
+            root cannot be changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to set the root directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/git-connection:
     get:
       tags:
@@ -3199,10 +3303,16 @@ paths:
         accessible through installation_id via connection_id's stored GitHub
         user token, then persists repository metadata only from that validated
         GitHub response.
+
+        Project access tokens are refused. Which repository a project deploys
+        from is a person's decision, made with a platform token or in the
+        dashboard. A project access token can still change the root directory
+        and production branch through PUT
+        /projects/{id}/git-connection/root-directory and PUT
+        /projects/{id}/git-connection/production-branch.
       operationId: connectProjectGit
       security:
         - UserToken: []
-        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -3238,8 +3348,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            Project not owned by the caller, or the selected repository is not
-            accessible through installation_id
+            Project not owned by the caller, the selected repository is not
+            accessible through installation_id, or the request used a project
+            access token. A full-scope token gets `project access tokens cannot
+            change a project's repository; a person changes it in the dashboard
+            or with a platform token`, and a read-only token gets `project
+            access token is read-only`.
           content:
             application/json:
               schema:
@@ -4166,6 +4280,12 @@ paths:
         - Function must have `visibility: public`
         - Function receives payload only (no `__volcano_auth`)
 
+        **Reserved payload keys:** the top-level `__volcano_auth` and
+        `__volcano_http` keys are reserved. Volcano removes caller-supplied
+        values for both before the function runs; only an auth user token adds
+        a server-built `__volcano_auth`, and only HTTP-mode ingress sets
+        `__volcano_http: true`.
+
         **Transport and CORS:**
         - This operation is the authenticated direct RPC endpoint and always uses the
           POST `{payload: ...}` contract, including for functions whose DNS ingress is
@@ -4440,7 +4560,9 @@ paths:
           description: |
             Function is not deployed yet, or has no deployed region. Also
             returned when two starts under the same execution name raced and
-            both released it, which is retryable as it stands.
+            both released it, which is retryable as it stands, and with `code`
+            `execution_name_held` when an unfinished start this caller may not
+            resume holds the execution name, which needs a name of its own.
           content:
             application/json:
               schema:
@@ -4500,8 +4622,8 @@ paths:
         Any other execution answers `404`, as a missing one does.
 
         Send `Idempotency-Key` to make a retry safe: a repeat with a key the
-        execution has seen returns the first message with `200` and sends
-        nothing.
+        same sender has used on the execution returns the first message with
+        `200` and sends nothing.
       operationId: sendDurableMessageFromApplication
       security:
         - AnonKey: []
@@ -4528,7 +4650,8 @@ paths:
         '201':
           description: |
             Message sent. `status` is `delivered` when a wait took it at once,
-            and `queued` when it is kept for the next wait.
+            `delivering` when a wait took it and the handover is still being
+            confirmed, and `queued` when it is kept for the next wait.
           content:
             application/json:
               schema:
@@ -4547,9 +4670,10 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            The function is `authenticated` and the request carries an anon
-            key, or the request's origin is refused by the project's CORS
-            policy.
+            The anon key lacks `functions.invoke`, the service key is scoped
+            without it, or the function is `authenticated` and the request
+            carries an anon key. Also returned when the request's origin is
+            refused by the project's CORS policy.
           content:
             application/json:
               schema:
@@ -4581,7 +4705,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many messages sent to this execution
+          description: |
+            Too many messages sent to this execution, the function's or the
+            project's function rate limit, which sends share with invocations
+            and starts, or the project is over its bandwidth cap.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The plan terms for the request could not be read. Retry with backoff.
           content:
             application/json:
               schema:
@@ -4631,9 +4764,10 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            The function is `authenticated` and the request carries an anon
-            key, or the request's origin is refused by the project's CORS
-            policy.
+            The anon key lacks `functions.invoke`, the service key is scoped
+            without it, or the function is `authenticated` and the request
+            carries an anon key. Also returned when the request's origin is
+            refused by the project's CORS policy.
           content:
             application/json:
               schema:
@@ -4642,6 +4776,21 @@ paths:
           description: |
             Durable function or execution not found, or the credential cannot
             reach the execution.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: |
+            The function's or the project's function rate limit, which lists
+            share with invocations and starts, or the project is over its
+            bandwidth cap.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The plan terms for the request could not be read. Retry with backoff.
           content:
             application/json:
               schema:
@@ -5451,6 +5600,7 @@ paths:
       operationId: listDurableFunctions
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/Page'
@@ -5497,6 +5647,7 @@ paths:
       operationId: createDurableFunction
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
       requestBody:
@@ -5635,6 +5786,7 @@ paths:
       operationId: getDurableFunction
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5668,6 +5820,7 @@ paths:
       operationId: deleteDurableFunction
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5691,6 +5844,7 @@ paths:
       operationId: listDurableFunctionDeployments
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5722,6 +5876,7 @@ paths:
       operationId: listDurableFunctionSchedulers
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5753,6 +5908,7 @@ paths:
       operationId: createDurableFunctionScheduler
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5800,6 +5956,7 @@ paths:
       operationId: getDurableFunctionScheduler
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5824,6 +5981,7 @@ paths:
       operationId: updateDurableFunctionScheduler
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5862,6 +6020,7 @@ paths:
       operationId: deleteDurableFunctionScheduler
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5900,6 +6059,7 @@ paths:
       operationId: startDurableExecution
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -5987,6 +6147,7 @@ paths:
       operationId: listDurableExecutions
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -6028,6 +6189,7 @@ paths:
       operationId: getDurableExecution
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -6077,6 +6239,7 @@ paths:
       operationId: listDurableExecutionOperations
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -6129,6 +6292,7 @@ paths:
       operationId: stopDurableExecution
       security:
         - UserToken: []
+        - ProjectAccessToken: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/DurableFunctionId'
@@ -6200,13 +6364,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/DurableMessage'
         '201':
-          description: Message sent
+          description: |
+            Message sent. `status` is `delivered`, `delivering`, or `queued`,
+            as on the application route.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DurableMessage'
         '400':
           description: The name, data or idempotency key is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The request used a `read_only` project access token
           content:
             application/json:
               schema:
@@ -6364,8 +6536,9 @@ paths:
 
             - `callback_not_ready`: the workflow has not finished opening the
               wait yet. Retry with a short backoff; the SDK does.
-            - `callback_closed`: the workflow is no longer waiting on it, or
-              it is an approval's.
+            - `callback_closed`: the workflow is no longer waiting on it.
+            - `callback_taken`: the callback is already registered as an
+              approval or a messages session.
             - `execution_ended`: the execution has finished.
             - `too_many_message_waits`: the execution already has the maximum
               number of open waits.
@@ -6380,7 +6553,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many requests from this execution or address
+          description: Too many requests from this execution
           content:
             application/json:
               schema:
@@ -6445,8 +6618,9 @@ paths:
         '409':
           description: |
             The session cannot be opened now. `code` is `callback_not_ready`,
-            `callback_closed`, `execution_ended`, or
-            `too_many_message_sessions`.
+            `callback_closed`, `callback_taken` (the callback is already
+            registered as an approval or a message wait), `execution_ended`,
+            or `too_many_message_sessions`.
           content:
             application/json:
               schema:
@@ -6458,7 +6632,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: Too many requests from this execution or address
+          description: Too many requests from this execution
           content:
             application/json:
               schema:
@@ -6486,7 +6660,9 @@ paths:
 
         The SDK sends an `Idempotency-Key` that a rerun of the publishing step
         repeats, so a step that runs again returns the first message with
-        `200` and publishes nothing.
+        `200` and stores nothing new. That message is delivered live again,
+        and counts again, because the first run may have stopped before
+        subscribers got it. The SDKs deliver it to a subscriber once.
       operationId: publishDurableMessage
       security: []
       parameters:
@@ -6519,13 +6695,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/DurableMessage'
         '400':
-          description: The name, data or idempotency key is invalid
+          description: The session token header is missing, or the name, data or idempotency key is invalid
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: The session token is missing or not valid
+          description: The session token is not valid
           content:
             application/json:
               schema:
@@ -6602,6 +6778,8 @@ paths:
             - `approval_not_ready`: the workflow has not finished opening the
               approval yet. Retry with a short backoff; the SDK does.
             - `approval_closed`: the workflow is no longer waiting on it.
+            - `callback_taken`: the callback is already registered as a
+              message wait or a messages session.
             - `execution_ended`: the execution has finished.
             - `too_many_pending_approvals`: the execution already has the
               maximum number of pending approvals.
@@ -6625,6 +6803,410 @@ paths:
           description: |
             The approval could not be confirmed with the workflow right now.
             Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues:
+    get:
+      tags:
+        - Issues
+      summary: List issues
+      description: |
+        Lists the project's issues, most recently seen first. An issue groups
+        the runtime errors one function or frontend raised with the same error
+        type and stack, or the same message when there is no stack.
+
+        Project access tokens can list issues, including read-only ones.
+      operationId: listIssues
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueCursor'
+        - name: status
+          in: query
+          required: false
+          description: Return only issues in this status.
+          schema:
+            $ref: '#/components/schemas/IssueStatus'
+        - name: resource_id
+          in: query
+          required: false
+          description: Return only issues raised by this function or frontend.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIssues'
+        '400':
+          description: A filter or the cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues/{issueId}:
+    get:
+      tags:
+        - Issues
+      summary: Get an issue
+      description: |
+        Returns one issue: the resource that raised it, how often and when it
+        was seen, and its status.
+
+        Project access tokens can read issues, including read-only ones.
+      operationId: getIssue
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '404':
+          description: Issue not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Issues
+      summary: Update an issue
+      description: |
+        Sets an issue's status. A resolved issue that is seen again after it
+        was resolved reopens, and `regressed_at` records when. An ignored issue
+        stays ignored while it keeps being counted.
+
+        Setting the status an issue already has is safe to repeat.
+      operationId: updateIssue
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIssueRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          description: The request body is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Issue not found. Code `feature_unavailable` means issues are not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/autofix:
+    get:
+      tags:
+        - Autofix
+      summary: Get autofix settings
+      description: |
+        Returns whether Volcano diagnoses the project's issues with AI and how
+        far a run may go. A project that never saved settings returns the
+        defaults, with autofix off.
+
+        Where autofix is not available, saved settings stay readable. A project
+        that never saved any answers `404` with code `feature_unavailable`.
+      operationId: getAutofixSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutofixSettings'
+        '404':
+          description: Project not found. Code `feature_unavailable` means autofix is not available in this environment and the project never saved settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Autofix is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The owner's plan could not be resolved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Autofix
+      summary: Save autofix settings
+      description: |
+        Saves the project's autofix settings. An omitted `max_stage` or
+        `auto_trigger` keeps its saved value, or takes its default when the
+        project has no saved settings, so `{"enabled": true}` on a new project
+        diagnoses every new or regressed issue and opens a draft pull request
+        with each fix. Set `max_stage` and `auto_trigger` to stop at a diagnosis
+        or to start runs only on request. Volcano picks the models a run uses.
+
+        Project access tokens are refused. Autofix opens pull requests in the
+        project's repository, so a person turns it on with a platform token.
+
+        During the preview, turning autofix on needs the SUPERAGENT plan, and
+        nothing is charged yet. Settings that are already on stay stored after
+        a downgrade, and saving them again is not refused, but no run starts
+        until the plan allows autofix again. Other saves need no plan.
+
+        Where autofix is not available, a project with saved settings can
+        still change them with `enabled: false`. Saving `enabled: true`
+        answers `404` with code `feature_unavailable`.
+      operationId: updateAutofixSettings
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAutofixSettingsRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutofixSettings'
+        '400':
+          description: The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The owner's plan does not allow autofix (during the preview it needs the SUPERAGENT plan), or the request used a project access token. Only a person changes autofix settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means autofix is not available in this environment, which refuses turning it on and a project's first save.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Autofix is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Turning autofix on needs the owner's plan, which could not be resolved. Nothing was saved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues/{issueId}/autofix-runs:
+    post:
+      tags:
+        - Autofix
+      summary: Diagnose an issue
+      description: |
+        Queues a run that diagnoses the issue with AI. The run reads the
+        issue's runtime logs and, when a push to the project's connected
+        repository built the deployment that was live when the issue was
+        last seen, its source at that commit. Poll the run until its status is
+        `succeeded`, `failed`, or `canceled`.
+
+        Autofix must be on for the project. An issue has at most one queued or
+        running run, a project runs one at a time, and a project starts at most
+        25 runs, manual and automatic, in any 24 hours.
+
+        Project access tokens are refused. A run can open a pull request in
+        the project's repository, so a person starts it with a platform token
+        or in the dashboard.
+      operationId: startAutofixRun
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutofixRun'
+        '400':
+          description: The request is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The owner's plan does not include autofix, or the request used a project access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or issue not found. Code `feature_unavailable` means autofix is not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Autofix is off for the project, or the issue already has a queued or running run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: The project started its limit of runs in the last 24 hours.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Autofix is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The owner's plan could not be resolved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/autofix-runs:
+    get:
+      tags:
+        - Autofix
+      summary: List autofix runs
+      description: |
+        Lists the project's autofix runs, newest first. Runs stay readable after
+        autofix is turned off, and where autofix is not available.
+
+        Project access tokens can list runs, including read-only ones.
+      operationId: listAutofixRuns
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueCursor'
+        - name: issue_id
+          in: query
+          required: false
+          description: Return only runs for this issue.
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          description: Return only runs in this status.
+          schema:
+            $ref: '#/components/schemas/AutofixRunStatus'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAutofixRuns'
+        '400':
+          description: A filter or the cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Autofix is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/autofix-runs/{runId}:
+    get:
+      tags:
+        - Autofix
+      summary: Get an autofix run
+      description: |
+        Returns one run: its status, the diagnosis once it succeeds, and why it
+        failed or was canceled. Runs stay readable where autofix is not
+        available.
+
+        Project access tokens can read runs, including read-only ones.
+      operationId: getAutofixRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/AutofixRunId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutofixRun'
+        '404':
+          description: Project or run not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Autofix is not available in local mode.
           content:
             application/json:
               schema:
@@ -6984,11 +7566,11 @@ paths:
         22.x or 24.x. The Node.js runtime is inferred from
         `package.json` `engines.node`; if omitted, Volcano uses Node.js 22.x.
         The selected Node.js family must also satisfy the installed Next.js package's
-        `engines.node` constraint. Volcano tests Next 15.5.27 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.4.0 (`>=20.9.0`).
+        `engines.node` constraint. Volcano tests Next 15.5.28 (`^18.18.0 || ^19.8.0 || >=20.0.0`) and Next 16.4.2 (`>=20.9.0`).
         Source archive size is enforced by the API with `SOURCE_ARCHIVE_SIZE_LIMIT_MB`; the CLI
         does not apply its own source archive size limit. After the final container images are
         built, the publish build enforces `LAMBDA_TARGET_CONTAINER_SIZE_LIMIT_MB` before pushing.
-        This operation is limited by plan-based frontend deployment quotas (`FREE_FRONTEND_DEPLOYMENTS`, `PRO_FRONTEND_DEPLOYMENTS`).
+        Plans do not limit how many frontends a project has; usage allowances apply across all of a user's frontends.
         Each project can contain up to 10,000 frontends regardless of plan.
       operationId: createFrontend
       security:
@@ -7064,7 +7646,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Frontend deployment limit exceeded for the current plan or project hard cap
+          description: Project frontend hard cap exceeded
           content:
             application/json:
               schema:
@@ -7181,6 +7763,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Another Frontend's route mounts this Frontend. Remove those routes first; the error names the mounting Frontends.
           content:
             application/json:
               schema:
@@ -7354,7 +7942,7 @@ paths:
               $ref: '#/components/schemas/CreateFrontendCustomDomainRequest'
       responses:
         '200':
-          description: "Custom domain already configured with the same hostname. A request with the other TLS mode for the frontend's active domain switches it in place. To managed TLS, the uploaded certificate keeps serving, with `serving_certificate: uploaded`, until Volcano issues the managed certificate. To BYOC, the uploaded certificate replaces the managed one at once."
+          description: 'Custom domain already configured with the same hostname. A request with the other TLS mode for the frontend''s active domain switches it in place. To managed TLS, the uploaded certificate keeps serving, with `serving_certificate: uploaded`, until Volcano issues the managed certificate. To BYOC, the uploaded certificate replaces the managed one at once.'
           content:
             application/json:
               schema:
@@ -7454,6 +8042,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: The custom domain switched TLS mode while the request ran, so send it again, or another domain of the frontend redirects to it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -7512,12 +8106,13 @@ paths:
         - Frontends
       summary: Add a custom domain to a frontend
       description: |
-        Adds a custom domain beside the frontend's others, up to the plan's
-        custom domains per frontend. The domain serves the frontend, or, with
-        `redirect`, redirects every request to `redirect.to`, another active
-        domain of the same frontend that serves it, keeping the path and query
-        string.
-        A redirecting domain still needs TLS, so it takes `tls` like any other.
+        Adds a custom domain to the frontend, up to the plan's custom domains
+        per frontend, which is one on every plan for now. With `redirect`, the
+        domain redirects every request to `redirect.to`, another active domain
+        of the same frontend that serves it, keeping the path and query string.
+        While a frontend can hold one domain, a request with `redirect` fails:
+        `403` when the frontend already has its domain, and `400` when it has
+        none to redirect to.
 
         Ownership, verification records, TLS mode switches, and the `409` codes
         work as on `POST /projects/{id}/frontends/{frontendId}/domain`. A
@@ -7560,7 +8155,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: The plan does not include custom domains, the frontend has as many as the plan allows, or a managed TLS request would exceed the managed TLS certificate limit
+          description: The plan does not include custom domains, the frontend already has as many as the plan allows (one for now), or a managed TLS request would exceed the managed TLS certificate limit
           content:
             application/json:
               schema:
@@ -7572,7 +8167,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: 'Ownership not verified, the hostname is owned, reserved, or used elsewhere, the frontend already has the hostname with a different redirect, or a removed domain is still releasing it (`code: custom_domain_releasing` with `Retry-After`).'
+          description: 'Ownership not verified, the hostname is owned, reserved, or used elsewhere, the frontend already has the hostname with a different redirect, or a removed domain of this or another frontend is still releasing (`code: custom_domain_releasing` with `Retry-After`).'
           headers:
             Retry-After:
               description: Seconds to wait before sending the same request again. Sent only with code `custom_domain_releasing`.
@@ -7645,7 +8240,9 @@ paths:
       description: |
         `{"redirect": {"to": "www.example.com", "status": 308}}` makes the
         domain redirect to another active domain of the frontend that serves it.
-        `{"redirect": null}` makes it serve the frontend again. A domain other
+        `{"redirect": null}` makes it serve the frontend again. While a frontend
+        holds one domain, only `{"redirect": null}` succeeds; any other redirect
+        returns `400`. A domain other
         domains redirect to cannot become a redirect itself. `status` defaults
         to `308`. Proxies apply the change within seconds.
       operationId: updateFrontendDomain
@@ -7684,7 +8281,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Frontend or custom domain not found
+          description: 'Frontend or custom domain not found, or the domain is being removed (`domain_status: detaching`)'
           content:
             application/json:
               schema:
@@ -7807,15 +8404,16 @@ paths:
         source frontend do not reach it, and a later redeploy of this frontend compiles that copied source.
 
         The build-time variables this frontend would build with must equal those the source build read,
-        compared by name and value. Volcano records a salted hash of each value with every build and never
-        stores the values. A mismatch returns `409` with `code: build_variables_differ` and the differing
+        compared by name and value. Volcano records a keyed digest of each value, unique to the build, and
+        never stores the values. A mismatch returns `409` with `code: build_variables_differ` and the differing
         names in `error`. The source deployment must be `active` or `degraded`, and both frontends must use
         the same framework and app root.
 
         Admission is the redeploy's: the deployment starts with `status: provisioning`, or, while another
         deployment is in progress, is exposed through `pending_deployment_id` and supersedes any older
         queued deployment. Nothing is compiled: the deployment's build minutes cover publishing the build
-        alone.
+        alone. The checks run again when a queued deployment starts. A refusal then fails the deployment
+        without a retry, its `error_message` starting with the refusal's code.
       operationId: createFrontendDeployment
       security:
         - UserToken: []
@@ -7861,7 +8459,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: 'Conflict. `code: build_variables_differ` names the build-time variables whose values differ. `code: source_deployment_not_active` refuses a deployment that is not `active` or `degraded`. `code: source_build_unavailable` refuses a deployment made before Volcano kept builds, or whose build is no longer kept; redeploy the source frontend once and deploy from that deployment. `code: frontend_incompatible` refuses a different framework or app root. Without a code, the frontend''s deletion is queued or running.'
+          description: 'Conflict. `code: build_variables_differ` names the build-time variables whose values differ. `code: source_deployment_not_active` refuses a deployment that is not `active` or `degraded`. `code: source_build_unavailable` refuses a deployment made before Volcano kept builds, or whose build is no longer kept; redeploy the source frontend once and deploy from that deployment. `code: frontend_incompatible` refuses a different framework or app root. Without a code, the frontend''s deletion is queued or running, or the project''s source is managed by Git, where deploys come from a push to the production branch.'
           content:
             application/json:
               schema:
@@ -7885,7 +8483,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Service unavailable - frontend workflow configuration missing
+          description: Service unavailable - frontend workflow configuration missing, or the build-minutes check is temporarily unavailable; retry later.
           content:
             application/json:
               schema:
@@ -8153,6 +8751,208 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Failed to delete Function route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/frontend-routes:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+    get:
+      tags:
+        - Frontends
+      summary: List a Frontend's Frontend routes
+      operationId: listFrontendRoutes
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: Frontend routes ordered from most to least specific
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRouteList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list Frontend routes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Mount another Frontend at a path
+      operationId: createFrontendRoute
+      description: |
+        Serves `path_prefix` and everything under it on this Frontend's hostnames from another
+        Frontend in the same Project. The path is forwarded unchanged, so the mounted Frontend must
+        serve its pages under the prefix (page directories or a matching `basePath`). Its root
+        `/_next/static` files and `/_next/image` requests are sent to it too. A Frontend may be
+        mounted at several prefixes. Function and Frontend routes share one path namespace and the
+        64-route limit; the most specific prefix wins. A mounted Frontend's own routes do not apply
+        to requests it receives through a route. The route applies to every hostname that resolves
+        to this Frontend, including generated, custom-domain, and local hostnames. While the mounted
+        Frontend has no active deployment, its paths answer 502, as its own hostname does.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendRouteRequest'
+      responses:
+        '201':
+          description: Frontend route created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRoute'
+        '400':
+          description: Invalid path, or the Frontend would mount itself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or mounted Frontend not found in the Project, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Path is already routed, the Frontend has reached its 64-route limit, or this Frontend or the mounted Frontend is being deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create Frontend route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/frontend-routes/{routeId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+      - $ref: '#/components/parameters/FrontendRouteId'
+    put:
+      tags:
+        - Frontends
+      summary: Replace a Frontend route
+      description: Replaces the route's mounted Frontend and path. The new values must meet the same rules as on create.
+      operationId: updateFrontendRoute
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendRouteRequest'
+      responses:
+        '200':
+          description: Frontend route replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRoute'
+        '400':
+          description: Invalid path, or the Frontend would mount itself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend route, Frontend, or mounted Frontend not found, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Path is already routed, or this Frontend or the mounted Frontend is being deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to replace Frontend route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Frontends
+      summary: Delete a Frontend route
+      operationId: deleteFrontendRoute
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Frontend route deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend route not found on the Frontend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete Frontend route
           content:
             application/json:
               schema:
@@ -9411,8 +10211,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: |
-            The owner's plan does not include backups or point-in-time restore.
-            Both are available only on SUPERAGENT.
+            The owner's plan does not include backups or point-in-time restore
+            (code `plan_required`). Both are available only on SUPERAGENT. Also
+            answers 403 without a code, with `restore history is not available
+            yet for the requested time`, when the plan includes restore history
+            but the database has not built any up yet; waiting fixes it, not
+            upgrading.
           content:
             application/json:
               schema:
@@ -9585,12 +10389,38 @@ paths:
                 $ref: '#/components/schemas/Database'
         '400':
           description: Invalid database type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access denied or the requested size exceeds the plan allowance (code plan_required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: |
             The database is not active — being provisioned, deleted, or
             restored. Compute can only be changed while it is active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:
@@ -10621,6 +11451,9 @@ paths:
       operationId: authGetPasswordPolicy
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       responses:
         '200':
           description: Effective password policy
@@ -10629,7 +11462,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthPasswordPolicy'
         '401':
-          description: Invalid, missing, or revoked anon key
+          description: Invalid, missing, or revoked anon key; or invalid auth proxy metadata
           content:
             application/json:
               schema:
@@ -10661,6 +11494,9 @@ paths:
       operationId: authSignup
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: true
         content:
@@ -10695,7 +11531,9 @@ paths:
           description: Invalid input (bad email/password format)
         '401':
           description: |
-            Unauthorized - Invalid, tampered, revoked, or wrong-project anon key
+            Unauthorized - Invalid, tampered, revoked, or wrong-project anon key.
+            Also returned for invalid, repeated, or under-scoped auth proxy metadata
+            (`invalid auth proxy metadata`).
         '403':
           description: |
             Forbidden - Signups disabled, anon key lacks signup permission, or the
@@ -10727,6 +11565,9 @@ paths:
       operationId: authSignin
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: true
         content:
@@ -10757,7 +11598,7 @@ paths:
         '401':
           description: |
             Unauthorized - Invalid credentials, invalid/tampered/revoked anon key,
-            or account banned/deleted
+            or account banned/deleted; or invalid auth proxy metadata
         '403':
           description: |
             Forbidden - Anon key lacks signin permission, or the email domain is
@@ -10783,6 +11624,9 @@ paths:
       operationId: authRefresh
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: false
         content:
@@ -10804,7 +11648,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
         '401':
-          description: Invalid or expired refresh token
+          description: Invalid or expired refresh token; or invalid auth proxy metadata
           content:
             application/json:
               schema:
@@ -10838,6 +11682,9 @@ paths:
       operationId: authLogout
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: false
         content:
@@ -10854,6 +11701,12 @@ paths:
       responses:
         '204':
           description: Logged out successfully
+        '401':
+          description: Missing, invalid, or revoked anon key; or invalid, repeated, or under-scoped auth proxy metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /auth/forgot-password:
     post:
       tags:
@@ -10866,6 +11719,9 @@ paths:
       operationId: authForgotPassword
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: true
         content:
@@ -10889,6 +11745,12 @@ paths:
                   message:
                     type: string
                     example: If the email exists, a password reset link has been sent
+        '401':
+          description: Missing, invalid, or revoked anon key; or invalid, repeated, or under-scoped auth proxy metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Password reset is disabled for this project
           content:
@@ -10912,6 +11774,9 @@ paths:
       operationId: authResetPassword
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: true
         content:
@@ -10943,7 +11808,7 @@ paths:
         '400':
           description: Password doesn't meet requirements
         '401':
-          description: Invalid or expired token
+          description: Invalid or expired token; or invalid auth proxy metadata
         '503':
           description: Compromised-password screening is temporarily unavailable
           content:
@@ -11054,6 +11919,9 @@ paths:
       operationId: authSignupAnonymous
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         description: Optional user metadata
         content:
@@ -11075,6 +11943,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          description: Missing, invalid, or revoked anon key; or invalid, repeated, or under-scoped auth proxy metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Anonymous signins disabled
   /auth/user/convert-anonymous:
@@ -12237,7 +13111,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmailTemplate'
         '400':
-          description: Invalid template type
+          description: Invalid template type or subject containing a literal interior carriage return or newline
           content:
             application/json:
               schema:
@@ -12322,6 +13196,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EmailTemplate'
+        '400':
+          description: Subject contains a literal interior carriage return or newline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: Custom email templates require the SUPERAGENT plan
           content:
@@ -12383,7 +13263,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/EmailTemplate'
+                      $ref: '#/components/schemas/DefaultEmailTemplate'
   /email-templates/defaults/{type}:
     get:
       tags:
@@ -12407,9 +13287,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmailTemplate'
+                $ref: '#/components/schemas/DefaultEmailTemplate'
         '404':
           description: Template type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/auth/config:
     get:
       tags:
@@ -12453,6 +13337,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthConfig'
+        '400':
+          description: Invalid auth configuration, including a subject with a literal interior carriage return or newline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
           description: |
             The update would turn on, widen, or otherwise edit the email domain
@@ -12484,6 +13374,9 @@ paths:
         subject or a blank message. Also rejects with 400 if
         `email_enabled=false`, `smtp_host` is empty, or the saved
         `smtp_password` can't be read and must be set again.
+        Sender values with interior line breaks return 400 before SMTP delivery.
+        Rendered override subjects containing a line break have outer whitespace
+        trimmed; any remaining interior line break returns 400 before delivery.
       operationId: testEmailConfig
       security:
         - UserToken: []
@@ -12504,7 +13397,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TestEmailResponse'
         '400':
-          description: Invalid request or email delivery not configured
+          description: Invalid request, unsafe email headers, or email delivery not configured
         '401':
           description: Unauthorized
         '403':
@@ -13509,6 +14402,9 @@ paths:
       operationId: authOAuthExchange
       security:
         - AnonKey: []
+      parameters:
+        - $ref: '#/components/parameters/AuthProxyAuthorization'
+        - $ref: '#/components/parameters/AuthProxyClientIP'
       requestBody:
         required: true
         content:
@@ -13534,7 +14430,7 @@ paths:
         '400':
           description: Invalid, expired, consumed, or redirect-mismatched code
         '401':
-          description: Missing or invalid project anon key
+          description: Missing or invalid project anon key; or invalid auth proxy metadata
         '403':
           description: |
             Email confirmation is now required, or the account's email domain is not
@@ -14789,7 +15685,9 @@ paths:
                     for backward compatibility. Provide an explicit list (e.g.
                     ["functions.invoke", "locks.manage"]) to restrict the key; "*"
                     grants everything. Scope enforcement applies to function invocation,
-                    storage object operations, and project locks.
+                    storage object operations, project locks, and server-side auth proxy
+                    metadata (auth.signin, auth.signup, auth.refresh, auth.logout,
+                    auth.password_reset).
                   example:
                     - functions.invoke
                     - locks.manage
@@ -15063,6 +15961,12 @@ paths:
       responses:
         '200':
           description: Policy deleted
+        '404':
+          description: Project, bucket, or policy not found. Also returned when the policy ID is malformed or belongs to another bucket.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/storage/objects:
     get:
       tags:
@@ -15883,6 +16787,8 @@ paths:
           description: Access denied by storage policy
         '404':
           description: Object or session not found, or session not owned by this credential
+        '416':
+          $ref: '#/components/responses/StorageRangeNotSatisfiable'
         '429':
           $ref: '#/components/responses/BandwidthCapExceeded'
     delete:
@@ -16024,6 +16930,8 @@ paths:
           description: Partial content (range request)
         '404':
           description: Not found (file doesn't exist or is not public)
+        '416':
+          $ref: '#/components/responses/StorageRangeNotSatisfiable'
         '429':
           $ref: '#/components/responses/BandwidthCapExceeded'
   /health:
@@ -16055,6 +16963,10 @@ paths:
         | `sandboxes` | The Sandbox API: presets, templates, sessions, and executions |
         | `sandboxes.sessions` | Starting and resuming sessions, and one-shot executions |
         | `sandboxes.custom_templates` | Deploying a custom template; its validation waits while `sandboxes.sessions` is unavailable |
+        | `issues` | The Issues API: listing, reading, and updating grouped runtime errors |
+        | `autofix` | The Autofix API: a project's AI diagnosis and fix settings |
+        | `functions.response_streaming` | Streaming an HTTP-mode function's response on its own URL as the function writes it |
+        | `frontend_routes` | Creating and changing Frontend routes; listing, deleting, and serving existing ones work either way |
 
         A capability missing from the list is unavailable, and a capability under
         another, such as `sandboxes.sessions`, is unavailable whenever its parent is.
@@ -16063,6 +16975,11 @@ paths:
         that code. Reading, deleting, and terminating what already exists keep
         working unless the whole feature is absent from the environment. Every caller
         in an environment gets the same answer.
+
+        `functions.response_streaming` refuses nothing: while it is unavailable, a
+        function's own URL still answers and sends a streamed response whole, once
+        the function finishes, up to 6 MiB with headers; a larger one fails the
+        invocation. Frontend Function routes stream either way.
       operationId: listCapabilities
       security: []
       responses:
@@ -16080,6 +16997,14 @@ paths:
                     status: available
                   - id: sandboxes.custom_templates
                     status: unavailable
+                  - id: issues
+                    status: available
+                  - id: autofix
+                    status: available
+                  - id: functions.response_streaming
+                    status: available
+                  - id: frontend_routes
+                    status: available
   /openapi.json:
     get:
       tags:
@@ -16375,6 +17300,32 @@ components:
         project access token cannot create, list, read, or revoke project
         access tokens.
   parameters:
+    AuthProxyAuthorization:
+      name: X-Volcano-Proxy-Authorization
+      in: header
+      required: false
+      description: |
+        Trusted server-side auth proxy credential in `Bearer SERVICE_KEY`
+        form. When supplied, `X-Volcano-Client-IP` is also required. The service
+        key must belong to the anon key's project and hold this operation's scope:
+        `auth.signup` for signup and anonymous signup, `auth.signin` for signin
+        and OAuth code exchange, `auth.refresh` for refresh, `auth.logout` for
+        logout, and `auth.password_reset` for forgot-password and reset-password.
+        The password policy accepts any service key for the project. Never expose
+        a service key to browser code.
+      schema:
+        type: string
+    AuthProxyClientIP:
+      name: X-Volcano-Client-IP
+      in: header
+      required: false
+      description: |
+        Original browser IPv4 or IPv6 address supplied by a trusted server-side
+        auth proxy. The proxy must derive this value from its platform-verified
+        request metadata, never from a browser-supplied header. Requires a valid
+        `X-Volcano-Proxy-Authorization` header.
+      schema:
+        type: string
     BackupName:
       name: backupName
       in: path
@@ -16473,6 +17424,14 @@ components:
         type: string
         format: uuid
       description: Frontend Function route ID
+    FrontendRouteId:
+      name: routeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Frontend route ID
     FrontendCustomDomainHostname:
       name: domain
       in: path
@@ -16513,6 +17472,31 @@ components:
         type: string
         format: uuid
       description: Durable approval ID
+    IssueId:
+      name: issueId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Issue ID
+    IssueCursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: |
+        Opaque cursor from a previous response's `next_cursor`. Pages forward;
+        keep the same filters while paging.
+    AutofixRunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Autofix run ID
     DurableApprovalFunctionFilter:
       name: function
       in: query
@@ -16530,13 +17514,15 @@ components:
       in: header
       required: false
       description: |
-        Makes a send safe to retry. A repeat with a key the execution has
-        already seen returns the first message and sends nothing. Up to 255
+        Makes a send safe to retry. A repeat with a key the same sender has
+        used on the execution returns the first message and sends nothing.
+        Keys of different senders never collide. Up to 255 printable ASCII
         characters.
       schema:
         type: string
         minLength: 1
         maxLength: 255
+        pattern: ^[ -~]+$
     DurableClientToken:
       name: X-Volcano-Client-Token
       in: header
@@ -16785,6 +17771,18 @@ components:
         type: string
       example: '"9f2c1e0b5a"'
   responses:
+    StorageRangeNotSatisfiable:
+      description: The requested byte range does not overlap the file content.
+      headers:
+        Content-Range:
+          description: Current file size as `bytes */size`, when available.
+          schema:
+            type: string
+            pattern: ^bytes \*/\d+$
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     OpenAPISpecThrottled:
       description: |
         Too many requests for the specification from one address. The document
@@ -17339,7 +18337,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, or `sandboxes.custom_templates`. New IDs may appear at any time.
+          description: Stable capability ID, such as `sandboxes`, `sandboxes.sessions`, `sandboxes.custom_templates`, `issues`, or `autofix`. New IDs may appear at any time.
           example: sandboxes.sessions
         status:
           $ref: '#/components/schemas/CapabilityStatus'
@@ -17609,8 +18607,10 @@ components:
           default: false
         email_from_address:
           type: string
+          description: Sender email address. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is trimmed in responses and exports, and ignored when sending.
         email_from_name:
           type: string
+          description: Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is trimmed in responses and exports, and ignored when sending.
         smtp_host:
           type: string
         smtp_port:
@@ -18413,7 +19413,7 @@ components:
           description: Type of email template
         subject:
           type: string
-          description: Email subject line
+          description: Subject template. After Go template whitespace trimming, literal interior carriage returns or newlines return 400. Outer whitespace and trailing block-scalar newlines are allowed.
           example: Confirm your email
         html_body:
           type: string
@@ -19437,6 +20437,35 @@ components:
         - verification_uri_complete
         - expires_in
         - interval
+    DefaultEmailTemplate:
+      type: object
+      description: Built-in email template used when no custom template applies.
+      properties:
+        type:
+          type: string
+          enum:
+            - welcome
+            - confirmation
+            - password_reset
+            - password_changed
+          x-enum-varnames:
+            - DefaultEmailTemplateWelcome
+            - DefaultEmailTemplateConfirmation
+            - DefaultEmailTemplatePasswordReset
+            - DefaultEmailTemplatePasswordChanged
+        subject:
+          type: string
+        html_body:
+          type: string
+          description: HTML template with placeholders
+        text_body:
+          type: string
+          description: Plain text template with placeholders
+      required:
+        - type
+        - subject
+        - html_body
+        - text_body
     EmailTemplate:
       type: object
       description: Custom email template
@@ -19481,7 +20510,7 @@ components:
           type: string
         code:
           type: string
-          description: Stable machine-readable error code when a specific recovery path is available.
+          description: 'Stable machine-readable error code when a specific recovery path is available. `plan_required` (403) means the project owner''s plan does not include the requested feature or option; upgrading the plan unlocks it. A 403 without a code leaves the reason unspecified: it can be an access refusal, a reached limit, or a plan check that could not read the owner''s plan. Match on the code, not the message text.'
       required:
         - error
     ImportProvider:
@@ -20049,6 +21078,7 @@ components:
         updated_at:
           type: string
           format: date-time
+          description: 'When the connection last changed: its repository, root directory or production branch. Naming the branch it already uses, and other changes to the project, leave it alone. A connection that has not changed since Volcano began tracking this reports the project''s last change before then.'
       required:
         - repo_installation_id
         - repo_id
@@ -20075,6 +21105,7 @@ components:
         updated_at:
           type: string
           format: date-time
+          description: When the settings were last saved, or last changed by connecting a repository. Other changes to the project leave it alone. Settings a connection turned on before Volcano began tracking this report the project's last change before then; settings never saved or changed report when the project was created.
       required:
         - auto_deploy_enabled
         - deploy_functions
@@ -20261,6 +21292,15 @@ components:
           description: The branch a push must land on to deploy. Validated as a Git branch name only — it does not have to exist yet.
       required:
         - production_branch
+    SetProjectGitRootDirectoryRequest:
+      type: object
+      properties:
+        root_directory:
+          type: string
+          maxLength: 1024
+          description: Monorepo subdirectory the project builds from, relative to the repository root. An empty string means the repository root.
+      required:
+        - root_directory
     ConnectProjectGitRequest:
       type: object
       properties:
@@ -20380,6 +21420,15 @@ components:
             Paths on this frontend that forward to a public function, ordered
             from most to least specific. Anyone who can load the frontend can
             reach the target function at these paths without a credential.
+        frontend_routes:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/FrontendRoute'
+          description: |
+            Paths on this frontend served by another frontend in the project,
+            ordered from most to least specific. Function and Frontend routes
+            share one path namespace and the 64-route limit.
         last_deployed_at:
           type: string
           format: date-time
@@ -20401,6 +21450,7 @@ components:
         - status
         - deployed_regions
         - function_routes
+        - frontend_routes
         - created_at
         - updated_at
     FrontendFunctionRoute:
@@ -20468,6 +21518,73 @@ components:
           default: false
       required:
         - function_id
+        - path_prefix
+    FrontendRoute:
+      type: object
+      additionalProperties: false
+      description: |
+        A path prefix on this Frontend's hostnames served by another Frontend in the Project, the
+        mounted Frontend. Paths are forwarded unchanged, so the mounted Frontend serves its prefix
+        as real pages (page directories or a matching `basePath`).
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        frontend_id:
+          type: string
+          format: uuid
+          description: The Frontend whose hostnames serve the route
+        target_frontend_id:
+          type: string
+          format: uuid
+          description: The mounted Frontend
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - frontend_id
+        - target_frontend_id
+        - path_prefix
+        - created_at
+        - updated_at
+    FrontendRouteList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrontendRoute'
+      required:
+        - data
+    CreateFrontendRouteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        target_frontend_id:
+          type: string
+          format: uuid
+          description: The Frontend to mount. It must be another Frontend in the Project.
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+      required:
+        - target_frontend_id
         - path_prefix
     CreateFrontendDeploymentRequest:
       type: object
@@ -21327,8 +22444,8 @@ components:
           type: string
           description: |
             Lets a browser read and send the execution's messages. Returned only
-            by the start that created the execution, never by a repeat under the
-            same name or by a read. Send it as `X-Volcano-Client-Token`.
+            by the start whose input the execution runs, never by a repeat under
+            the same name or by a read. Send it as `X-Volcano-Client-Token`.
       required:
         - id
         - function_id
@@ -21689,6 +22806,9 @@ components:
               }
             }
             ```
+
+            The top-level `__volcano_auth` and `__volcano_http` keys are reserved;
+            Volcano removes caller-supplied values for both.
     FunctionInvocationResponse:
       type: object
       description: Raw function response body returned by the invoked function.
@@ -21994,12 +23114,12 @@ components:
           enum:
             - healthy
             - failing
-          description: '`failing` while the last finished run in any region the scheduler runs in failed; `healthy` otherwise, including before its first run. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.'
+          description: '`failing` while `consecutive_failures` is above 0; `healthy` otherwise, including before its first run in the region the scheduler runs in now. A run from a region it moved away from does not count. For a durable function a run finishes when its execution does, so a run that starts but then fails counts as failed.'
         consecutive_failures:
           type: integer
           format: int64
           minimum: 0
-          description: How many runs in a row have failed, in the region where the current streak is longest. Resets to 0 when a run succeeds.
+          description: How many runs in a row have failed in the region the scheduler runs in now. Resets to 0 when a run succeeds, and starts at 0 in a region it moves to.
         last_run_status:
           type: string
           enum:
@@ -22020,176 +23140,6 @@ components:
         updated_at:
           type: string
           format: date-time
-    NotificationSettings:
-      type: object
-      additionalProperties: false
-      properties:
-        project_id:
-          type: string
-          format: uuid
-        email:
-          $ref: '#/components/schemas/NotificationEmailSettings'
-        webhook:
-          $ref: '#/components/schemas/NotificationWebhookSettings'
-        scheduler_failures:
-          $ref: '#/components/schemas/SchedulerFailureAlertPolicy'
-        updated_at:
-          type: string
-          format: date-time
-          description: When the settings were last saved. Absent until the first save.
-      required:
-        - project_id
-        - email
-        - webhook
-        - scheduler_failures
-    NotificationEmailStatus:
-      type: string
-      enum:
-        - delivering
-        - disabled
-        - owner_email_unverified
-      description: Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
-    NotificationEmailSettings:
-      type: object
-      additionalProperties: false
-      properties:
-        enabled:
-          type: boolean
-          description: Whether alerts are emailed.
-        recipients:
-          type: array
-          maxItems: 10
-          items:
-            type: string
-            format: email
-          description: Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
-        status:
-          $ref: '#/components/schemas/NotificationEmailStatus'
-      required:
-        - enabled
-        - recipients
-        - status
-    NotificationWebhookSettings:
-      type: object
-      additionalProperties: false
-      properties:
-        url:
-          type: string
-          description: Where alerts are posted. Absent when no webhook is configured.
-        secret_configured:
-          type: boolean
-          description: Whether a signing secret is set. The secret itself is returned only once.
-        secret:
-          type: string
-          description: 'The signing secret, starting with `whsec_`. Present only in the response that generated it: the update that first set `url`, or a rotation. Store it then; it cannot be read again.'
-      required:
-        - secret_configured
-    SchedulerFailureAlertPolicy:
-      type: object
-      additionalProperties: false
-      properties:
-        notify_on:
-          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
-        threshold:
-          type: integer
-          minimum: 1
-          maximum: 100
-          description: How many runs in a row have to fail before a `consecutive_failures` alert. Ignored for `first_failure`.
-        notify_on_recovery:
-          type: boolean
-          description: Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
-      required:
-        - notify_on
-        - threshold
-        - notify_on_recovery
-    SchedulerFailureNotifyOn:
-      type: string
-      enum:
-        - first_failure
-        - consecutive_failures
-      x-enum-varnames:
-        - SchedulerFailureNotifyOnFirstFailure
-        - SchedulerFailureNotifyOnConsecutiveFailures
-      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.'
-    UpdateNotificationSettingsRequest:
-      type: object
-      additionalProperties: false
-      description: Omitted fields keep their current values.
-      properties:
-        email:
-          $ref: '#/components/schemas/UpdateNotificationEmail'
-        webhook:
-          $ref: '#/components/schemas/UpdateNotificationWebhook'
-        scheduler_failures:
-          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
-    UpdateNotificationEmail:
-      type: object
-      additionalProperties: false
-      properties:
-        enabled:
-          type: boolean
-        recipients:
-          type: array
-          maxItems: 10
-          items:
-            type: string
-            format: email
-            maxLength: 254
-          description: Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
-    UpdateNotificationWebhook:
-      type: object
-      additionalProperties: false
-      properties:
-        url:
-          type: string
-          maxLength: 2048
-          pattern: ^\s*(|[hH][tT][tT][pP][sS]?://.+)\s*$
-          description: An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
-    UpdateSchedulerFailureAlertPolicy:
-      type: object
-      additionalProperties: false
-      properties:
-        notify_on:
-          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
-        threshold:
-          type: integer
-          minimum: 1
-          maximum: 100
-        notify_on_recovery:
-          type: boolean
-    NotificationTestResult:
-      type: object
-      additionalProperties: false
-      properties:
-        deliveries:
-          type: array
-          items:
-            $ref: '#/components/schemas/NotificationTestDelivery'
-      required:
-        - deliveries
-    NotificationTestDelivery:
-      type: object
-      additionalProperties: false
-      properties:
-        channel:
-          type: string
-          enum:
-            - email
-            - webhook
-          x-enum-varnames:
-            - NotificationChannelEmail
-            - NotificationChannelWebhook
-        delivered:
-          type: boolean
-        status_code:
-          type: integer
-          description: The webhook's response status. Absent for email, and when no response arrived.
-        error:
-          type: string
-          description: Why the delivery failed. Absent when it arrived.
-      required:
-        - channel
-        - delivered
     FunctionSchedulerListResponse:
       type: object
       properties:
@@ -22878,6 +23828,9 @@ components:
       enum:
         - in
         - out
+      x-enum-varnames:
+        - DurableMessageDirectionIn
+        - DurableMessageDirectionOut
       description: |
         `in` is a message sent to the execution. `out` is one the execution
         published.
@@ -23072,6 +24025,461 @@ components:
       required:
         - name
       additionalProperties: false
+    Issue:
+      type: object
+      description: Runtime errors from one function or frontend, grouped by error type and stack.
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        resource:
+          $ref: '#/components/schemas/ResourceReference'
+        title:
+          type: string
+          description: |
+            The error type and message, with values such as IDs, numbers, and
+            URLs replaced by placeholders like `<uuid>` and `<n>`.
+        error_type:
+          type: string
+          description: The exception class, such as `TypeError`. Omitted when the error has none.
+        culprit:
+          type: string
+          description: The innermost frame of your code in the stack, as `function (file)`. Omitted without a stack.
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+        event_count:
+          type: integer
+          format: int64
+          description: Errors counted in this issue. A retried delivery can count an error twice.
+        first_seen_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        last_region:
+          type: string
+          description: The region that served the latest error, such as `us-east-1`.
+        sample_event_id:
+          type: string
+          description: The ID of the latest error's log event, while logs retain it.
+        sample_event_at:
+          type: string
+          format: date-time
+          description: When the latest error's log event was written.
+        resolved_at:
+          type: string
+          format: date-time
+          description: When the issue was resolved. Present only while it is resolved.
+        regressed_at:
+          type: string
+          format: date-time
+          description: When a resolved issue was last seen again and reopened.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - resource
+        - title
+        - status
+        - event_count
+        - first_seen_at
+        - last_seen_at
+        - created_at
+        - updated_at
+    IssueStatus:
+      type: string
+      enum:
+        - open
+        - resolved
+        - ignored
+      description: |
+        `open` until someone resolves or ignores the issue. A resolved issue
+        seen again reopens.
+    PaginatedIssues:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true)
+      required:
+        - data
+        - limit
+        - has_more
+    UpdateIssueRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          $ref: '#/components/schemas/IssueStatus'
+      required:
+        - status
+    NotificationSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        email:
+          $ref: '#/components/schemas/NotificationEmailSettings'
+        webhook:
+          $ref: '#/components/schemas/NotificationWebhookSettings'
+        scheduler_failures:
+          $ref: '#/components/schemas/SchedulerFailureAlertPolicy'
+        updated_at:
+          type: string
+          format: date-time
+          description: When the settings were last saved. Absent until the first save.
+      required:
+        - project_id
+        - email
+        - webhook
+        - scheduler_failures
+    UpdateNotificationSettingsRequest:
+      type: object
+      additionalProperties: false
+      description: Omitted fields keep their current values.
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
+    NotificationTestResult:
+      type: object
+      additionalProperties: false
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTestDelivery'
+      required:
+        - deliveries
+    AutofixSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        enabled:
+          type: boolean
+          description: Whether Volcano diagnoses the project's issues with AI.
+        max_stage:
+          allOf:
+            - $ref: '#/components/schemas/AutofixStage'
+          description: How far a run goes. Defaults to `pull_request`.
+        auto_trigger:
+          type: boolean
+          description: Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
+        plan_includes_autofix:
+          type: boolean
+          description: Whether the owner's plan includes autofix. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the settings were last saved. Absent until the first save.
+      required:
+        - project_id
+        - enabled
+        - max_stage
+        - auto_trigger
+    AutofixStage:
+      type: string
+      enum:
+        - diagnose
+        - pull_request
+      x-enum-varnames:
+        - AutofixStageDiagnose
+        - AutofixStagePullRequest
+      description: How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+    UpdateAutofixSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        max_stage:
+          allOf:
+            - $ref: '#/components/schemas/AutofixStage'
+          description: How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
+        auto_trigger:
+          type: boolean
+          description: Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+      required:
+        - enabled
+    AutofixRunStatus:
+      type: string
+      enum:
+        - queued
+        - running
+        - succeeded
+        - failed
+        - canceled
+      x-enum-varnames:
+        - AutofixRunStatusQueued
+        - AutofixRunStatusRunning
+        - AutofixRunStatusSucceeded
+        - AutofixRunStatusFailed
+        - AutofixRunStatusCanceled
+      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+    AutofixRunTrigger:
+      type: string
+      enum:
+        - manual
+        - new_issue
+        - regression
+      x-enum-varnames:
+        - AutofixRunTriggerManual
+        - AutofixRunTriggerNewIssue
+        - AutofixRunTriggerRegression
+      description: What started the run. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+    AutofixEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - log
+            - code
+            - other
+          x-enum-varnames:
+            - AutofixEvidenceKindLog
+            - AutofixEvidenceKindCode
+            - AutofixEvidenceKindOther
+        detail:
+          type: string
+        location:
+          type: string
+          description: A file and line, or a log timestamp. Absent when the evidence has none.
+      required:
+        - kind
+        - detail
+    AutofixDiagnosis:
+      type: object
+      additionalProperties: false
+      properties:
+        summary:
+          type: string
+          description: One or two sentences on what goes wrong.
+        root_cause:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutofixEvidence'
+        suggested_fix:
+          type: string
+        confidence:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          x-enum-varnames:
+            - AutofixConfidenceLow
+            - AutofixConfidenceMedium
+            - AutofixConfidenceHigh
+        fixable:
+          type: boolean
+          description: Whether a change to the project's code would fix the issue.
+        files:
+          type: array
+          description: Repository paths a fix would change.
+          items:
+            type: string
+      required:
+        - summary
+        - root_cause
+        - evidence
+        - suggested_fix
+        - confidence
+        - fixable
+        - files
+    AutofixEdit:
+      type: object
+      additionalProperties: false
+      description: One exact text replacement. An empty `old_text` creates the file.
+      properties:
+        path:
+          type: string
+        old_text:
+          type: string
+        new_text:
+          type: string
+      required:
+        - path
+        - old_text
+        - new_text
+    AutofixPatch:
+      type: object
+      additionalProperties: false
+      description: The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
+      properties:
+        title:
+          type: string
+        edits:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutofixEdit'
+      required:
+        - title
+        - edits
+    AutofixPullRequestState:
+      type: string
+      enum:
+        - open
+        - merged
+        - closed
+      x-enum-varnames:
+        - AutofixPullRequestStateOpen
+        - AutofixPullRequestStateMerged
+        - AutofixPullRequestStateClosed
+    AutofixPullRequest:
+      type: object
+      additionalProperties: false
+      description: The draft pull request the run opened on the connected repository.
+      properties:
+        number:
+          type: integer
+          format: int64
+        url:
+          type: string
+          format: uri
+        branch:
+          type: string
+          description: The branch the fix is on, `volcano/autofix/<run id>`.
+        state:
+          $ref: '#/components/schemas/AutofixPullRequestState'
+        closed_at:
+          type: string
+          format: date-time
+          description: When the pull request was merged or closed.
+        deployed_at:
+          type: string
+          format: date-time
+          description: When a deployment that includes the merged fix went live. The issue resolves then, unless it occurred again since. When more than 20 deployments went live after the merge before Volcano checked, it is the merge time instead.
+      required:
+        - number
+        - url
+        - branch
+        - state
+    AutofixPullRequestSkipped:
+      type: string
+      enum:
+        - source_unavailable
+        - pull_request_open
+        - not_fixable
+        - low_confidence
+        - no_patch
+        - permission_missing
+        - repository_changed
+        - publish_failed
+      x-enum-varnames:
+        - AutofixPullRequestSkippedSourceUnavailable
+        - AutofixPullRequestSkippedPullRequestOpen
+        - AutofixPullRequestSkippedNotFixable
+        - AutofixPullRequestSkippedLowConfidence
+        - AutofixPullRequestSkippedNoPatch
+        - AutofixPullRequestSkippedPermissionMissing
+        - AutofixPullRequestSkippedRepositoryChanged
+        - AutofixPullRequestSkippedPublishFailed
+      description: Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
+    AutofixRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        issue_id:
+          type: string
+          format: uuid
+        trigger:
+          $ref: '#/components/schemas/AutofixRunTrigger'
+        status:
+          $ref: '#/components/schemas/AutofixRunStatus'
+        max_stage:
+          $ref: '#/components/schemas/AutofixStage'
+        stage_reached:
+          $ref: '#/components/schemas/AutofixStage'
+        diagnosis:
+          $ref: '#/components/schemas/AutofixDiagnosis'
+        patch:
+          $ref: '#/components/schemas/AutofixPatch'
+        pull_request:
+          $ref: '#/components/schemas/AutofixPullRequest'
+        pull_request_skipped:
+          $ref: '#/components/schemas/AutofixPullRequestSkipped'
+        commit_sha:
+          type: string
+          description: The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
+        failure_code:
+          type: string
+          description: Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while Autofix is unavailable reports `feature_unavailable`; it resumes without spending an attempt when Autofix returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `autofix_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Runs that ended before Volcano picked the models for every run may also report `api_key_rejected`, `settings_changed`, or `managed_models_unavailable`; no new run reports them.
+        failure_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - issue_id
+        - trigger
+        - status
+        - max_stage
+        - created_at
+    PaginatedAutofixRuns:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutofixRun'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true)
+      required:
+        - data
+        - limit
+        - has_more
     PaginatedProjectCustomDomains:
       type: object
       properties:
@@ -23419,6 +24827,8 @@ components:
             $ref: '#/components/schemas/ProjectConfigBucket'
         realtime:
           $ref: '#/components/schemas/ProjectConfigRealtime'
+        autofix:
+          $ref: '#/components/schemas/ProjectConfigAutofix'
         notifications:
           $ref: '#/components/schemas/ProjectConfigNotifications'
         auth:
@@ -23582,8 +24992,10 @@ components:
       properties:
         address:
           type: string
+          description: Sender email address. New or changed values containing carriage returns or newlines return 422. Unchanged exported values are preserved.
         name:
           type: string
+          description: Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 422. Unchanged exported values are preserved.
     ProjectConfigAuthEmailPasswordProvider:
       type: object
       additionalProperties: false
@@ -23838,7 +25250,8 @@ components:
       description: |
         One of the frontend's custom domains. `domain` and `tls` behave as in
         `custom_domain`. With `redirect`, the domain redirects every request to
-        another listed domain that serves the frontend.
+        another listed domain that serves the frontend. While the list holds one
+        domain, `redirect` has no domain to point at.
       properties:
         domain:
           type: string
@@ -23917,6 +25330,7 @@ components:
       properties:
         subject:
           type: string
+          description: Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 422. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
         html_body:
           type: string
           maxLength: 262144
@@ -23983,8 +25397,8 @@ components:
           description: |
             Complete set of the frontend's custom domains when declared.
             Domains not listed are deleted; an empty list deletes all of them.
-            Omission leaves existing domains untouched. More than one domain
-            needs a plan that allows it.
+            Omission leaves existing domains untouched. Holds one domain per
+            frontend for now.
           items:
             $ref: '#/components/schemas/ProjectConfigFrontendCustomDomain'
         function_routes:
@@ -23993,6 +25407,15 @@ components:
           description: Complete set of same-origin Function path mappings when declared. Omission preserves existing mappings; an empty list deletes all mappings.
           items:
             $ref: '#/components/schemas/ProjectConfigFrontendFunctionRoute'
+        frontend_routes:
+          type: array
+          maxItems: 64
+          description: |
+            Complete set of paths this frontend serves from another frontend in the project when
+            declared. Omission preserves existing routes; an empty list deletes all of them.
+            Function and Frontend routes share one path namespace and the 64-route limit.
+          items:
+            $ref: '#/components/schemas/ProjectConfigFrontendRoute'
       required:
         - name
     ProjectConfigFunction:
@@ -24191,23 +25614,6 @@ components:
           items:
             type: string
           description: Region subset (bare region names). Requires `all_regions=false`.
-    ProjectConfigNotifications:
-      type: object
-      additionalProperties: false
-      description: >-
-        Where the project's alerts go and when a failing scheduler is
-        announced. Omitted fields keep their current value. The webhook
-        signing secret is never part of the manifest: setting `webhook.url`
-        on a project without a webhook generates one that is never shown.
-        Rotate it with `POST /projects/{id}/notifications/webhook-secret` to
-        get a secret you can use.
-      properties:
-        email:
-          $ref: '#/components/schemas/UpdateNotificationEmail'
-        webhook:
-          $ref: '#/components/schemas/UpdateNotificationWebhook'
-        scheduler_failures:
-          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
     ProjectConfigRealtime:
       type: object
       additionalProperties: false
@@ -24219,6 +25625,17 @@ components:
         presence_enabled:
           type: boolean
         postgres_changes_enabled:
+          type: boolean
+    ProjectConfigAutofix:
+      type: object
+      additionalProperties: false
+      description: 'AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.'
+      properties:
+        enabled:
+          type: boolean
+        max_stage:
+          $ref: '#/components/schemas/AutofixStage'
+        auto_trigger:
           type: boolean
     ProjectConfigScheduler:
       type: object
@@ -24311,6 +25728,7 @@ components:
             - function
             - frontend
             - database
+            - database_branch
         id:
           type: string
           format: uuid
@@ -24399,8 +25817,11 @@ components:
         - findings
     ProjectHealthStatus:
       type: string
+      description: empty means no functions, frontends, databases, storage, Volcano Auth users, or Sandbox resources are listed. needs_attention means an operation needs review without confirmed service impairment, or a serving frontend whose edge recovery gave up needs a redeploy. degraded means a resource is only partly available or is unavailable for an expected, temporary reason, such as a frontend whose edge synchronization did not complete or a database being restored; critical means use is blocked. A failed workflow or deployment record alone does not establish an outage. Findings remain available for empty projects.
       enum:
+        - empty
         - healthy
+        - needs_attention
         - degraded
         - critical
         - unknown
@@ -25362,8 +26783,10 @@ components:
           description: Enable transactional email sending. Cannot be false while require_email_confirmation is true.
         email_from_address:
           type: string
+          description: Sender email address. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is ignored when sending.
         email_from_name:
           type: string
+          description: Sender display name; supports punctuation and Unicode. New or changed values containing carriage returns or newlines return 400. Unchanged stored or exported values are preserved. Leading and trailing whitespace in previously saved settings is ignored when sending.
         smtp_host:
           type: string
         smtp_port:
@@ -25380,10 +26803,13 @@ components:
           type: boolean
         email_confirmation_subject:
           type: string
+          description: Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
         email_password_reset_subject:
           type: string
+          description: Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
         email_password_changed_subject:
           type: string
+          description: Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
         managed_auth_enabled:
           type: boolean
           description: Enable or disable managed auth hosted pages for the project.
@@ -25454,6 +26880,7 @@ components:
       properties:
         subject:
           type: string
+          description: Subject template. For new or changed values, literal interior carriage returns or newlines after Go template whitespace trimming return 400. Outer whitespace and trailing block-scalar newlines are allowed. Unchanged stored subjects are preserved.
         html_body:
           type: string
         text_body:
@@ -25769,6 +27196,7 @@ components:
         updated_at:
           type: string
           format: date-time
+          description: 'When the connection last changed: its repository, root directory or production branch. Naming the branch it already uses, and other changes to the project, leave it alone. A connection that has not changed since Volcano began tracking this reports the project''s last change before then.'
       required:
         - repo_installation_id
         - repo_id
@@ -25795,6 +27223,61 @@ components:
         step, and is invoked asynchronously through its own executions
         collection. A function's kind is fixed when it is created and cannot be
         changed afterwards. Omitting this field means `standard`.
+    UpdateNotificationEmail:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+            maxLength: 254
+          description: Only the project owner's verified account email address is supported. An empty list, or one naming only that address, emails the owner and is saved as an empty list. Any other list is refused as invalid.
+    UpdateNotificationWebhook:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          pattern: ^\s*(|[hH][tT][tT][pP][sS]?://.+)\s*$
+          description: An `http` or `https` URL. Surrounding whitespace is trimmed. An empty string removes the webhook and its secret.
+    SchedulerFailureNotifyOn:
+      type: string
+      enum:
+        - first_failure
+        - consecutive_failures
+      x-enum-varnames:
+        - SchedulerFailureNotifyOnFirstFailure
+        - SchedulerFailureNotifyOnConsecutiveFailures
+      description: 'When a failing scheduler is announced: on its first failed run, or once `threshold` runs in a row have failed. Either way a streak is announced once, and a scheduler is announced failing at most once an hour.'
+    UpdateSchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+        notify_on_recovery:
+          type: boolean
+    ProjectConfigNotifications:
+      type: object
+      additionalProperties: false
+      description: 'Where the project''s alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.'
+      properties:
+        email:
+          $ref: '#/components/schemas/UpdateNotificationEmail'
+        webhook:
+          $ref: '#/components/schemas/UpdateNotificationWebhook'
+        scheduler_failures:
+          $ref: '#/components/schemas/UpdateSchedulerFailureAlertPolicy'
     AuthPageThemeColors:
       type: object
       additionalProperties: false
@@ -25918,6 +27401,22 @@ components:
           default: false
       required:
         - function
+        - path_prefix
+    ProjectConfigFrontendRoute:
+      type: object
+      additionalProperties: false
+      properties:
+        frontend:
+          type: string
+          minLength: 1
+          description: Name of another existing frontend in the project to mount. Paths are forwarded unchanged.
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+      required:
+        - frontend
         - path_prefix
     ProjectConfigSandbox:
       type: object
@@ -26244,6 +27743,89 @@ components:
           description: Deployment stage that produced the log event, when available.
       required:
         - id
+    NotificationEmailStatus:
+      type: string
+      enum:
+        - delivering
+        - disabled
+        - owner_email_unverified
+      description: Whether alerts are being emailed. `owner_email_unverified` means email is enabled but the project owner has no active account with a verified email address, so no alert is emailed, and email does not count as a channel when deciding whether to announce a failing scheduler, until the owner verifies it. Changing the account email address needs a new verification.
+    NotificationEmailSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+          description: Whether alerts are emailed.
+        recipients:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            format: email
+          description: Empty. Alerts are emailed to the project owner's verified account email address, the only recipient supported.
+        status:
+          $ref: '#/components/schemas/NotificationEmailStatus'
+      required:
+        - enabled
+        - recipients
+        - status
+    NotificationWebhookSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          description: Where alerts are posted. Absent when no webhook is configured.
+        secret_configured:
+          type: boolean
+          description: Whether a signing secret is set. The secret itself is returned only once.
+        secret:
+          type: string
+          description: 'The signing secret, starting with `whsec_`. Present only in the response that generated it: the update that first set `url`, or a rotation. Store it then; it cannot be read again.'
+      required:
+        - secret_configured
+    SchedulerFailureAlertPolicy:
+      type: object
+      additionalProperties: false
+      properties:
+        notify_on:
+          $ref: '#/components/schemas/SchedulerFailureNotifyOn'
+        threshold:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: How many runs in a row have to fail before a `consecutive_failures` alert. Ignored for `first_failure`.
+        notify_on_recovery:
+          type: boolean
+          description: Whether a successful run after an alerted failure streak sends a `scheduler.recovered` alert.
+      required:
+        - notify_on
+        - threshold
+        - notify_on_recovery
+    NotificationTestDelivery:
+      type: object
+      additionalProperties: false
+      properties:
+        channel:
+          type: string
+          enum:
+            - email
+            - webhook
+          x-enum-varnames:
+            - NotificationChannelEmail
+            - NotificationChannelWebhook
+        delivered:
+          type: boolean
+        status_code:
+          type: integer
+          description: The webhook's response status. Absent for email, and when no response arrived.
+        error:
+          type: string
+          description: Why the delivery failed. Absent when it arrived.
+      required:
+        - channel
+        - delivered
     DurableMessageWaitStatus:
       type: string
       enum:
