@@ -8214,7 +8214,7 @@ paths:
         64-route limit; the most specific prefix wins. A mounted Frontend's own routes do not apply
         to requests it receives through a route. The route applies to every hostname that resolves
         to this Frontend, including generated, custom-domain, and local hostnames. While the mounted
-        Frontend has no active deployment, its paths answer 503.
+        Frontend has no active deployment, its paths answer 502, as its own hostname does.
       security:
         - UserToken: []
         - ProjectAccessToken: []
@@ -8250,13 +8250,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Frontend or mounted Frontend not found in the Project
+          description: 'Frontend or mounted Frontend not found in the Project, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Path is already routed, the Frontend has reached its 64-route limit, or the mounted Frontend is being deleted
+          description: Path is already routed, the Frontend has reached its 64-route limit, or this Frontend or the mounted Frontend is being deleted
           content:
             application/json:
               schema:
@@ -8313,13 +8313,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: Frontend route, Frontend, or mounted Frontend not found
+          description: 'Frontend route, Frontend, or mounted Frontend not found, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Path is already routed, or the mounted Frontend is being deleted
+          description: Path is already routed, or this Frontend or the mounted Frontend is being deleted
           content:
             application/json:
               schema:
