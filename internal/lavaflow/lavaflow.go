@@ -29,13 +29,18 @@ const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fi
 const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
 	"and opens fix pull requests in your connected repository."
 
-// ErrUnavailable reports an API with no LavaFlow routes at all: a platform
-// release older than this CLI. Said in place of the bare 404 such a server
-// answers, which reads as a missing project or run.
-var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API yet")
+// ErrUnavailable reports an API where LavaFlow is not on: a platform release
+// older than LavaFlow, which has none of its routes, or one where Volcano has
+// not turned it on or has switched it off. Said in place of the 404 either
+// answers, which otherwise reads as a missing project or run.
+var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
 
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"
+
+// codeFeatureUnavailable is the code of a refusal for LavaFlow being off on
+// this API.
+const codeFeatureUnavailable = "feature_unavailable"
 
 // MaxRunsLimit is the largest page of runs the API returns.
 const MaxRunsLimit = 100
@@ -178,10 +183,10 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	return run, nil
 }
 
-// unavailable replaces a missing route's bare 404 with ErrUnavailable, keeping
-// the 404 so the exit code still reports it.
+// unavailable replaces a refusal that says LavaFlow is not on with
+// ErrUnavailable, keeping the refusal so the exit code still reports it.
 func unavailable(err error) error {
-	if api.RouteMissing(err) {
+	if api.RouteMissing(err) || api.Code(err) == codeFeatureUnavailable {
 		return api.WithCause(ErrUnavailable, err)
 	}
 	return err

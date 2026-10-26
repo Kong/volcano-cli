@@ -61,14 +61,15 @@ func TestEnablePassesOtherRefusalsThrough(t *testing.T) {
 	fake.set(func(s *lavaflowServer) {
 		s.refuse = http.StatusNotFound
 		s.refuseMethod = http.MethodPatch
-		s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
+		s.refusal = map[string]any{"error": "Project not found.", "code": "project_not_found"}
 	})
 
 	_, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "LavaFlow is not available")
+	assert.Contains(t, err.Error(), "Project not found.")
 	assert.NotContains(t, err.Error(), "paid plan")
-	assert.Equal(t, "feature_unavailable", api.Code(err))
+	assert.NotContains(t, err.Error(), "isn't available")
+	assert.Equal(t, "project_not_found", api.Code(err))
 }
 
 // Settings already on stay on after a downgrade, and saving them again

@@ -16,9 +16,9 @@ its pull requests like any other.
 
 LavaFlow is in preview and needs a paid plan. LavaFlow is a usage-billed
 add-on, priced per issue and per fix pull request. Prices are announced before
-billing starts. Where the Volcano API you use doesn't offer LavaFlow yet, every
+billing starts. Where LavaFlow isn't on for the Volcano API you use, every
 `volcano cloud lavaflow` command says "LavaFlow isn't available on this Volcano
-API yet" and exits with code 4.
+API" and exits with code 4.
 
 ## How it relates
 
