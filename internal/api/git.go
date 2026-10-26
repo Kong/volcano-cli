@@ -91,7 +91,7 @@ func (c *Client) SetProjectGitProductionBranch(ctx context.Context, projectID uu
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON500)
 }
 
 // DisconnectProjectGit removes a project's repo connection. The repository

@@ -200,9 +200,12 @@ default branch is renamed or changed on GitHub, and re-running
 `volcano git connect` for the same repository keeps it. Naming the branch that
 is the default today pins it too. With `--reset`, the project follows the
 default branch again, including later renames, and the command prints which
-branch that is. `volcano git status` shows which of the two applies. Volcano reads the default branch from GitHub through the project
-owner's GitHub connection: if that connection needs reconnecting, or has lost
-access to the repository, the command says so and nothing changes. A repository
+branch that is. `volcano git status` shows which of the two applies.
+
+Volcano reads the default branch from GitHub through the project owner's GitHub
+connection. If that connection needs reconnecting, or has lost access to the
+repository, the command says so and nothing changes. If GitHub rate-limits the
+read, the command says to try again shortly, and nothing changes. A repository
 with no commits has no default branch yet, so name a branch instead.
 
 This works with a project access token, so a CI job or an agent can change it.

@@ -3111,8 +3111,10 @@ paths:
         '400':
           description: |
             Malformed request body, a production_branch that is not a valid
-            Git branch name, or an empty one for a repository with no default
-            branch yet
+            Git branch name, or an empty one for a repository with no commits
+            yet. Code `feature_unavailable` means this Volcano deployment has
+            no GitHub integration, so an empty production_branch cannot read
+            the default branch.
           content:
             application/json:
               schema:
@@ -3144,6 +3146,12 @@ paths:
             could not read the default branch because the project owner's
             GitHub connection needs reconnecting or lost access to the
             repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: GitHub rate limited reading the default branch for an empty production_branch. Try again shortly.
           content:
             application/json:
               schema:

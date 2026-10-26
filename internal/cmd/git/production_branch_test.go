@@ -134,7 +134,12 @@ func TestProductionBranchShowsTheServersRefusal(t *testing.T) {
 		{
 			[]string{"--reset"},
 			http.StatusBadRequest,
-			"The repository has no default branch. Name a production branch, or add an initial commit and try again.",
+			"The repository has no commits yet, so there is no default branch to follow. Push a first commit, then try again.",
+		},
+		{
+			[]string{"--reset"},
+			http.StatusTooManyRequests,
+			"GitHub rate limited reading the repository's default branch. Try again shortly.",
 		},
 		{
 			[]string{"--reset"},

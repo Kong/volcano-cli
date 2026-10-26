@@ -46777,6 +46777,7 @@ type SetProjectGitProductionBranchClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON429      *Error
 	JSON500      *Error
 }
 
@@ -64150,6 +64151,13 @@ func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetP
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
