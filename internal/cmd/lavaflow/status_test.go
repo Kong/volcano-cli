@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,6 +57,40 @@ func TestStatusNamesWhatTheProjectConfigurationNarrowed(t *testing.T) {
 	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
 	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
 	assert.NotContains(t, out, "Connect a repository", "diagnosing needs no repository")
+}
+
+// The first row says the whole state, so it reads at a glance.
+func TestStatusSaysTheStateAtAGlance(t *testing.T) {
+	for _, tc := range []struct {
+		change func(*lavaflowServer)
+		want   string
+	}{
+		{func(*lavaflowServer) {}, "LavaFlow: off\n"},
+		{func(s *lavaflowServer) { s.settings["enabled"] = true }, "LavaFlow: on, opening fix pull requests in " + lavaflowRepo + "\n"},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.repoConnected = true, false },
+			"LavaFlow: on, diagnosing only until a repository is connected\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.settings["max_stage"] = true, "diagnose" },
+			"LavaFlow: on, diagnosing only (max_stage: diagnose)\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.settings["plan_allows_lavaflow"] = true, false },
+			"LavaFlow: on, but no run starts until the plan allows it\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.repoFailure = true, http.StatusInternalServerError },
+			"LavaFlow: on\n",
+		},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(tc.change)
+
+		out, err := executeLavaflowCommand(t, New(deps), "status")
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(out, tc.want), "got %q, want it to start with %q", out, tc.want)
+	}
 }
 
 // The saved settings apply the next time LavaFlow is turned on, so the status

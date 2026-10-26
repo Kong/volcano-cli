@@ -2,6 +2,7 @@ package lavaflow
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,10 +18,40 @@ func TestEnableTurnsLavaFlowOnAndSaysWhatThatMeans(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
-	assert.Contains(t, out, "LavaFlow is on")
-	assert.Contains(t, out, clilavaflow.OnDescription)
+	assert.Contains(t, out, "LavaFlow is on\n")
+	assert.Contains(t, out, "LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in "+lavaflowRepo+".\n")
 	assert.Contains(t, out, clilavaflow.CostNote)
 	assertLavaFlowWording(t, out)
+}
+
+// What happens next depends on the repository LavaFlow's pull requests go
+// to, so enable names it, says LavaFlow only diagnoses without one, and stays
+// general when the connection cannot be read.
+func TestEnableSaysWhereTheFixPullRequestGoes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		repo func(*lavaflowServer)
+		want string
+	}{
+		{
+			"no repository",
+			func(s *lavaflowServer) { s.repoConnected = false },
+			"LavaFlow diagnoses the next new or regressed issue. It only diagnoses until a repository is connected: volcano git connect\n",
+		},
+		{
+			"unreadable connection",
+			func(s *lavaflowServer) { s.repoFailure = http.StatusInternalServerError },
+			"LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in your connected repository.\n",
+		},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(tc.repo)
+
+		out, err := executeLavaflowCommand(t, New(deps), "enable")
+		require.NoError(t, err, tc.name)
+		assert.Contains(t, out, tc.want, tc.name)
+		assert.Equal(t, 1, strings.Count(out, "LavaFlow diagnoses"), tc.name)
+	}
 }
 
 // The update changes only what it sends, so enable sends enabled alone and
@@ -35,9 +66,9 @@ func TestEnableKeepsTheSavedStageAndTrigger(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
-	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
-	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
-	assert.NotContains(t, out, clilavaflow.OnDescription, "the output describes the settings it kept")
+	assert.Contains(t, out, "LavaFlow diagnoses each issue you start a run for (auto_trigger: false in the project configuration) "+
+		"and opens no pull request (max_stage: diagnose in the project configuration).\n")
+	assert.NotContains(t, out, lavaflowRepo, "a diagnose-only run opens no pull request anywhere")
 }
 
 func TestEnableExplainsAPlanRefusal(t *testing.T) {
@@ -82,5 +113,5 @@ func TestEnableOnAPlanThatNoLongerAllowsLavaFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow is on")
 	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
-	assert.NotContains(t, out, clilavaflow.OnDescription)
+	assert.NotContains(t, out, "LavaFlow diagnoses")
 }

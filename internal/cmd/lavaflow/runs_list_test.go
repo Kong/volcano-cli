@@ -32,7 +32,8 @@ func TestRunsListShowsEachRunsOutcome(t *testing.T) {
 	assert.Contains(t, out, "{<str>:<str>,<str>:<num>}")
 	assert.Contains(t, out, "new issue")
 	assert.Contains(t, out, "PR #42 open")
-	assert.Contains(t, out, "paused: LavaFlow is pau")
+	assert.Contains(t, out, "paused: LavaFlow paused")
+	assert.Contains(t, out, "failed      AI unreachable")
 	assert.Contains(t, out, lavaflowIssueID, "a run without a title shows its issue ID")
 	assert.Contains(t, out, "regression")
 	assertLavaFlowWording(t, out)
@@ -126,8 +127,8 @@ func TestRunsListSaysRetryingOnlyForQueuedRuns(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
 	require.NoError(t, err)
-	assert.Regexp(t, lavaflowRunID+`.*retrying: LavaFlow coul`, out)
-	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*failed +LavaFlow couldn't reach`, out)
+	assert.Regexp(t, lavaflowRunID+`.*retrying: AI unreachable`, out)
+	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*failed +AI unreachable`, out)
 	assert.Equal(t, 1, strings.Count(out, "retrying"))
 
 	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
@@ -148,7 +149,8 @@ func TestRunsListShowsAnUnprintableTitleByID(t *testing.T) {
 }
 
 // Volcano adds failure codes over time. One this CLI does not know shows its
-// failure_message, or the code itself, and never leaves the result blank.
+// failure_message, or says the run is retrying, and never leaves the result
+// blank or shows the code alone.
 func TestRunsListShowsFailureCodesItDoesNotKnow(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	withMessage := queuedRun()
@@ -163,5 +165,34 @@ func TestRunsListShowsFailureCodesItDoesNotKnow(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
 	require.NoError(t, err)
 	assert.Regexp(t, lavaflowRunID+`.*failed +Commit the code first`, out)
-	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*retrying: brand new code`, out)
+	assert.Regexp(t, `77777777-7777-4777-8777-777777777777.*queued +retrying +`, out)
+	assert.NotContains(t, out, "brand")
+}
+
+// A run that ended without the fix it could have opened says why in its
+// Result, and the list points to runs get for what to do. Runs that carry on
+// by themselves, or did what they were set to do, need no pointer.
+func TestRunsListPointsToWhatToDoForARunThatEndedWithoutAFix(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	lowConfidence := fixedRun()
+	delete(lowConfidence, "pull_request")
+	lowConfidence["pull_request_skipped"] = "low_confidence"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{lowConfidence} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "succeeded   no PR: low confidence")
+	assert.Contains(t, out, "\nSee why a run stopped and what to do: volcano cloud lavaflow runs get <run-id>\n")
+
+	paused := queuedRun()
+	paused["failure_code"] = "feature_paused"
+	diagnoseOnly := fixedRun()
+	delete(diagnoseOnly, "pull_request")
+	diagnoseOnly["max_stage"] = "diagnose"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{fixedRun(), paused, diagnoseOnly} })
+
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "list")
+	require.NoError(t, err)
+	assert.Contains(t, out, "no PR: diagnose only")
+	assert.NotContains(t, out, "See why")
 }

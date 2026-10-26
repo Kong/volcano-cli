@@ -24,8 +24,8 @@ const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fi
 	"Prices are announced before billing starts."
 
 // OnDescription says what LavaFlow does once it is on, in the dashboard's
-// words. Runs start without a request, so the user is told before and after.
-// It changes when LavaFlow merges its fixes.
+// words. Runs start without a request, so the help says so before turning it
+// on.
 const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
 	"and opens fix pull requests in your connected repository."
 
@@ -90,22 +90,41 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	if err != nil {
 		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
 	}
-	status := &Status{Settings: settings, RepositoryState: RepositoryUnknown}
+	status := &Status{Settings: settings}
+	status.RepositoryState, status.Repository, err = repository(ctx, authenticated)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+// Repository says which repository LavaFlow's fix pull requests go to, for a
+// project whose LavaFlow settings were just read or saved: its state, and its
+// full name when it is connected. Only a cancel or deadline is an error.
+func (s Service) Repository(ctx context.Context) (state, name string, err error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return "", "", err
+	}
+	return repository(ctx, authenticated)
+}
+
+func repository(ctx context.Context, authenticated *clisession.ProjectSession) (state, name string, err error) {
 	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
 	switch {
 	case err == nil:
-		status.RepositoryState = RepositoryConnected
-		status.Repository = connection.RepoFullName
+		return RepositoryConnected, connection.RepoFullName, nil
 	case ctx.Err() != nil:
 		// The repository is optional detail, but a cancel or deadline still
 		// ends the command.
-		return nil, ctx.Err()
+		return "", "", ctx.Err()
 	case api.Status(err) == http.StatusNotFound:
-		// The settings read already proved the project exists, so a 404 means
-		// no repository; anything else leaves the connection unknown.
-		status.RepositoryState = RepositoryNotConnected
+		// The LavaFlow read or write before it proved the project exists, so a
+		// 404 means no repository; anything else leaves the connection unknown.
+		return RepositoryNotConnected, "", nil
+	default:
+		return RepositoryUnknown, "", nil
 	}
-	return status, nil
 }
 
 // SetEnabled turns LavaFlow on or off for the current project. The update

@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
@@ -28,11 +29,7 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		return
 	}
 	on := theme.On(w)
-	state := "off"
-	if settings.Enabled {
-		state = "on"
-	}
-	kv(w, on, "LavaFlow", "%s", state)
+	kv(w, on, "LavaFlow", "%s", lavaFlowState(details))
 	if plan := settings.PlanAllowsLavaflow; plan != nil {
 		if *plan {
 			kv(w, on, "Plan", "allows LavaFlow")
@@ -75,26 +72,72 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	}
 }
 
-// LavaFlowEnabled renders LavaFlow turned on: what it now does, which is
-// onDescription unless the project configuration narrowed it, and what it
-// costs. Settings already on stay on after the plan stops allowing LavaFlow,
-// and saving them again succeeds, so that case says no run starts instead.
-func LavaFlowEnabled(w io.Writer, settings *apiclient.LavaFlowSettings, onDescription, costNote string) {
+// LavaFlowEnabledDetails is what lavaflow enable renders.
+type LavaFlowEnabledDetails struct {
+	Settings          *apiclient.LavaFlowSettings
+	Repository        string
+	RepositoryUnknown bool
+	CostNote          string
+	GitConnectCommand string
+}
+
+// LavaFlowEnabled renders LavaFlow turned on: what it does next, in one line,
+// and what it costs. Settings already on stay on after the plan stops
+// allowing LavaFlow, and saving them again succeeds, so that case says no run
+// starts instead.
+func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
+	settings := details.Settings
 	Success(w, "LavaFlow is on")
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
 		Warning(w, "No run starts until the project's plan allows LavaFlow. LavaFlow needs a paid plan: "+
 			"upgrade the plan in the dashboard.")
-		Note(w, "%s", costNote)
+		Note(w, "%s", details.CostNote)
 		return
 	}
-	limits := lavaFlowLimits(settings)
-	if len(limits) == 0 {
-		limits = []string{onDescription}
+	Note(w, "%s", lavaFlowWhatHappensNext(details, theme.On(w)))
+	Note(w, "%s", details.CostNote)
+}
+
+// lavaFlowWhatHappensNext says what LavaFlow does with the next issue: which
+// issues it diagnoses, and where its fix pull request goes. Phase 1 opens
+// pull requests for a person to review; nothing here may promise more.
+func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
+	settings := details.Settings
+	issue := "the next new or regressed issue"
+	if !settings.AutoTrigger {
+		issue = "each issue you start a run for (auto_trigger: false in the project configuration)"
 	}
-	for _, limit := range limits {
-		Note(w, "%s", limit)
+	switch {
+	case settings.MaxStage == apiclient.LavaFlowStageDiagnose:
+		return fmt.Sprintf("LavaFlow diagnoses %s and opens no pull request (max_stage: diagnose in the project configuration).", issue)
+	case details.RepositoryUnknown:
+		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in your connected repository.", issue)
+	case details.Repository == "":
+		return fmt.Sprintf("LavaFlow diagnoses %s. It only diagnoses until a repository is connected: %s",
+			issue, theme.Command(details.GitConnectCommand, on))
+	default:
+		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
 	}
-	Note(w, "%s", costNote)
+}
+
+// lavaFlowState is the status's first row: off, or on and what LavaFlow does
+// with an issue, so the state reads at a glance.
+func lavaFlowState(details LavaFlowStatusDetails) string {
+	settings := details.Settings
+	switch {
+	case !settings.Enabled:
+		return "off"
+	case settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow:
+		return "on, but no run starts until the plan allows it"
+	case settings.MaxStage == apiclient.LavaFlowStageDiagnose:
+		return "on, diagnosing only (max_stage: diagnose)"
+	case details.RepositoryUnknown:
+		return "on"
+	case details.Repository == "":
+		return "on, diagnosing only until a repository is connected"
+	default:
+		return "on, opening fix pull requests in " + theme.StripControl(details.Repository)
+	}
 }
 
 // lavaFlowLimits names the settings a project configuration file narrowed.
@@ -114,8 +157,9 @@ func lavaFlowLimits(settings *apiclient.LavaFlowSettings) []string {
 }
 
 // LavaFlowRuns renders one page of runs. nextCommand is the list command
-// with its flags, so the next-page hint pages the same set.
-func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextCommand string) {
+// with its flags, so the next-page hint pages the same set. When a run on the
+// page ended without a fix, it points to getCommand, which says what to do.
+func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextCommand, getCommand string) {
 	if page == nil {
 		page = &apiclient.PaginatedLavaFlowRuns{}
 	}
@@ -137,21 +181,36 @@ func LavaFlowRuns(w io.Writer, page *apiclient.PaginatedLavaFlowRuns, nextComman
 			FormatTimeAgo(run.CreatedAt),
 		)
 	}
+	if slices.ContainsFunc(page.Data, lavaFlowEndedWithoutAFix) {
+		fmt.Fprintf(w, "\n%s%s\n", theme.Dim("See why a run stopped and what to do: ", on),
+			theme.Command(getCommand+" <run-id>", on))
+	}
 	if page.HasMore && page.NextCursor != nil {
 		nextPage(w, on, fmt.Sprintf("%s --cursor %s", nextCommand, cliruntime.ShellQuote(*page.NextCursor)))
 	}
 }
 
+// LavaFlowCommands are the commands a run's next step can name, with the
+// cloud prefix where it applies.
+type LavaFlowCommands struct {
+	Enable     string
+	GitConnect string
+	// RunsStart is followed by --issue and the run's issue ID.
+	RunsStart string
+}
+
 // LavaFlowRun renders one run: where it is, what it found, and the pull
-// request it opened. The diagnosis is the run's own text, so it is printed
-// without control characters.
-func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
+// request it opened. A run that stopped or opened no pull request says why,
+// and ends with what to do about it. The diagnosis is the run's own text, so
+// it is printed without control characters.
+func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun, commands LavaFlowCommands) {
 	if run == nil {
 		return
 	}
 	on := theme.On(w)
 	kv(w, on, "ID", "%s", run.Id.String())
-	if issue := lavaFlowRunIssue(run); issue != nil {
+	issue := lavaFlowRunIssue(run)
+	if issue != nil {
 		if title := lavaFlowIssueTitle(issue); title != "" {
 			kv(w, on, "Issue", "%s (%s)", title, issue.Id)
 		} else {
@@ -160,8 +219,9 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 	}
 	kv(w, on, "Trigger", "%s", lavaFlowTrigger(run))
 	kv(w, on, "Status", "%s", theme.Status(theme.StripControl(string(run.Status)), on))
-	if reason := lavaFlowFailure(run); reason != "" {
-		kv(w, on, "Reason", "%s", reason)
+	failure, failed := lavaFlowFailure(run)
+	if failed {
+		kv(w, on, "Reason", "%s", failure.why)
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(run.CreatedAt))
 	if run.StartedAt != nil {
@@ -170,18 +230,30 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun) {
 	if run.CompletedAt != nil {
 		kv(w, on, "Completed", "%s", FormatTimestamp(*run.CompletedAt))
 	}
+	skip, skipped := lavaFlowSkip(run)
 	if pr := run.PullRequest; pr != nil {
 		kv(w, on, "Pull request", "%s (%s)", theme.StripControl(pr.Url), lavaFlowPullRequestState(pr))
-	} else if run.PullRequestSkipped != nil {
-		kv(w, on, "Pull request", "none: %s", lavaFlowSkipped(*run.PullRequestSkipped))
-	} else if run.MaxStage == apiclient.LavaFlowStageDiagnose && run.Status == apiclient.LavaFlowRunStatusSucceeded {
-		kv(w, on, "Pull request", "none: the run only diagnoses (max_stage: diagnose)")
+	} else if skipped {
+		kv(w, on, "Pull request", "none: %s", skip.why)
 	}
 	if run.CommitSha != nil {
 		kv(w, on, "Commit", "%s", theme.StripControl(*run.CommitSha))
 	}
 	if diagnosis := run.Diagnosis; diagnosis != nil {
 		lavaFlowDiagnosis(w, on, diagnosis)
+	}
+
+	stop := failure
+	if !failed {
+		stop = skip
+	}
+	if failed || skipped {
+		next := lavaFlowNextCommands{enable: theme.Command(commands.Enable, on), gitConnect: theme.Command(commands.GitConnect, on)}
+		if issue != nil {
+			next.start = theme.Command(commands.RunsStart+" --issue "+issue.Id.String(), on)
+		}
+		fmt.Fprintln(w)
+		kv(w, on, "Next", "%s", stop.next(next))
 	}
 }
 
@@ -283,18 +355,32 @@ func lavaFlowTrigger(run *apiclient.LavaFlowRun) string {
 }
 
 // lavaFlowResult is a run's outcome in a few words: the pull request it
-// opened, what it found, or why it stopped.
+// opened, or why it stopped or opened none.
 func lavaFlowResult(run *apiclient.LavaFlowRun) string {
-	switch {
-	case run.PullRequest != nil:
+	if run.PullRequest != nil {
 		return fmt.Sprintf("PR #%d %s", run.PullRequest.Number, lavaFlowPullRequestState(run.PullRequest))
-	case run.Status == apiclient.LavaFlowRunStatusSucceeded && run.Diagnosis != nil:
-		return "diagnosed"
+	}
+	if failure, ok := lavaFlowFailure(run); ok {
+		return failure.short
+	}
+	if skip, ok := lavaFlowSkip(run); ok {
+		return skip.short
+	}
+	return "-"
+}
+
+// lavaFlowEndedWithoutAFix is whether a run is done without the pull request
+// it could have opened, so its next step is worth looking up. A paused or
+// retrying run carries on by itself, and a diagnose-only run did what it was
+// set to do.
+func lavaFlowEndedWithoutAFix(run apiclient.LavaFlowRun) bool {
+	switch run.Status {
+	case apiclient.LavaFlowRunStatusFailed, apiclient.LavaFlowRunStatusCanceled:
+		return true
+	case apiclient.LavaFlowRunStatusSucceeded:
+		return run.PullRequest == nil && run.MaxStage != apiclient.LavaFlowStageDiagnose
 	default:
-		if reason := lavaFlowFailure(run); reason != "" {
-			return reason
-		}
-		return "-"
+		return false
 	}
 }
 
@@ -305,29 +391,93 @@ func lavaFlowPullRequestState(pr *apiclient.LavaFlowPullRequest) string {
 	return theme.StripControl(string(pr.State))
 }
 
-// lavaFlowFailureText says why a run stopped, or why a queued run is paused,
-// in LavaFlow's words. "Paused" matches the dashboard; "waiting" is kept for
-// a run that waits on a person. A queued run with any other code is retrying
-// its last attempt, which lavaFlowFailure puts first, like "paused:", so the
-// runs list's narrow Result column keeps it. Volcano adds codes over time, so a
-// code missing here shows the API's failure_message, or the code as words.
-var lavaFlowFailureText = map[string]string{
-	"feature_unavailable":    "paused: LavaFlow is unavailable here; the run resumes when it returns",
-	"feature_paused":         "paused: LavaFlow is paused. This run will start when LavaFlow resumes",
-	"model_request_rejected": "LavaFlow's AI service rejected the request",
-	"model_unavailable":      "LavaFlow couldn't reach its AI service",
-	"model_refused":          "LavaFlow declined to diagnose this issue",
-	"no_diagnosis":           "LavaFlow finished without a diagnosis",
-	"budget_exhausted":       "LavaFlow reached this run's limit before finding a diagnosis",
-	"timed_out":              "the run did not finish in time",
-	"attempts_exhausted":     "the run did not finish within its attempts",
-	"lavaflow_disabled":      "LavaFlow was turned off before the run finished",
-	"plan_required":          "the project's plan no longer allows LavaFlow",
-	"issue_not_found":        "the issue no longer exists",
-	"internal_error":         "LavaFlow could not run the diagnosis",
+// lavaFlowStop is what the CLI says about a run that stopped, is waiting, or
+// opened no pull request: short fits the runs list's Result column, why is
+// the whole reason in plain words, and next is what to do about it. A code
+// is never the only explanation.
+type lavaFlowStop struct {
+	short, why string
+	next       lavaFlowNext
 }
 
-func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
+// lavaFlowNext says what to do about a stopped run, naming the commands it
+// needs.
+type lavaFlowNext func(lavaFlowNextCommands) string
+
+// lavaFlowNextCommands are the commands a next step can name, ready to print.
+// start is empty for a run that is not about an issue.
+type lavaFlowNextCommands struct {
+	start, enable, gitConnect string
+}
+
+func say(text string) lavaFlowNext {
+	return func(lavaFlowNextCommands) string { return text }
+}
+
+func nothingToDo(why string) lavaFlowNext {
+	return say("Nothing to do: " + why)
+}
+
+func startAgain(c lavaFlowNextCommands) string {
+	return withCommand("Start a new run", c.start)
+}
+
+func tryLater(c lavaFlowNextCommands) string {
+	return withCommand("Try again later", c.start)
+}
+
+func startAfterItRecurs(c lavaFlowNextCommands) string {
+	return withCommand("Start a new run after the issue occurs again", c.start)
+}
+
+func turnOnAndStartAgain(c lavaFlowNextCommands) string {
+	return fmt.Sprintf("Turn LavaFlow on (%s), then start a new run.", c.enable)
+}
+
+// connectAndPush names what LavaFlow can fix today. It grows when LavaFlow
+// fixes more than a push deployed, and docs/lavaflow.md says the same.
+func connectAndPush(c lavaFlowNextCommands) string {
+	return fmt.Sprintf("Connect the repository (%s) and deploy by pushing to it. "+
+		"LavaFlow fixes code that a push to the connected repository deployed.", c.gitConnect)
+}
+
+func withCommand(step, command string) string {
+	if command == "" {
+		return step + "."
+	}
+	return step + ": " + command
+}
+
+// lavaFlowFailures says why a run stopped, or why a queued run is paused, in
+// LavaFlow's words. "Paused" matches the dashboard. A queued run with any
+// other code is retrying its last attempt, which lavaFlowFailure puts first,
+// like "paused:", so the runs list's narrow Result column keeps it.
+var lavaFlowFailures = map[string]lavaFlowStop{
+	"feature_unavailable": {"paused: not available", "paused: LavaFlow is unavailable here",
+		nothingToDo("the run resumes when LavaFlow is available again.")},
+	"feature_paused": {"paused: LavaFlow paused", "paused: LavaFlow is paused",
+		nothingToDo("the run starts when LavaFlow resumes.")},
+	"model_request_rejected": {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
+	"model_unavailable":      {"AI unreachable", "LavaFlow couldn't reach its AI service", tryLater},
+	"model_refused": {"declined to diagnose", "LavaFlow declined to diagnose this issue",
+		say("Look into this issue yourself. A new run would likely decline it too.")},
+	"no_diagnosis":       {"no diagnosis", "LavaFlow finished without a diagnosis", startAfterItRecurs},
+	"budget_exhausted":   {"hit run limit", "LavaFlow reached this run's limit before finding a diagnosis", startAgain},
+	"timed_out":          {"timed out", "the run did not finish in time", startAgain},
+	"attempts_exhausted": {"out of attempts", "the run did not finish within its attempts", startAgain},
+	"lavaflow_disabled":  {"LavaFlow turned off", "LavaFlow was turned off before the run finished", turnOnAndStartAgain},
+	"plan_required": {"plan doesn't allow it", "the project's plan no longer allows LavaFlow",
+		say("Upgrade the project's plan in the dashboard, then start a new run.")},
+	"issue_not_found": {"issue deleted", "the issue no longer exists", say("Nothing to do.")},
+	"internal_error":  {"LavaFlow error", "LavaFlow could not run the diagnosis", startAgain},
+}
+
+// lavaFlowFailure says why a queued run is waiting, or why a run failed or
+// was canceled. A running or finished run's code belongs to an attempt it
+// has since moved past. Volcano adds codes over time, so a code missing here
+// shows the API's failure_message, or says the run stopped and names the
+// code.
+func lavaFlowFailure(run *apiclient.LavaFlowRun) (lavaFlowStop, bool) {
 	code, message := "", ""
 	if run.FailureCode != nil {
 		code = theme.StripControl(strings.TrimSpace(*run.FailureCode))
@@ -335,49 +485,88 @@ func lavaFlowFailure(run *apiclient.LavaFlowRun) string {
 	if run.FailureMessage != nil {
 		message = theme.StripControl(strings.TrimSpace(*run.FailureMessage))
 	}
-	text, ok := lavaFlowFailureText[code]
+	queued := run.Status == apiclient.LavaFlowRunStatusQueued
+	switch run.Status {
+	case apiclient.LavaFlowRunStatusQueued:
+		if code == "" && message == "" {
+			return lavaFlowStop{}, false
+		}
+	case apiclient.LavaFlowRunStatusFailed, apiclient.LavaFlowRunStatusCanceled:
+	default:
+		return lavaFlowStop{}, false
+	}
+
+	stop, ok := lavaFlowFailures[code]
 	switch {
-	case ok && strings.HasPrefix(text, "paused:"):
-		return text
+	case ok && strings.HasPrefix(stop.why, "paused:"):
+		return stop, true
 	case ok:
 	case message != "":
-		text = message
+		stop = lavaFlowStop{short: message, why: message, next: startAgain}
+	case code != "" && queued:
+		stop = lavaFlowStop{short: "", why: fmt.Sprintf("the last attempt failed (code: %s)", code)}
+	case code != "" && run.Status == apiclient.LavaFlowRunStatusCanceled:
+		stop = lavaFlowStop{short: "canceled", why: fmt.Sprintf("the run was canceled (code: %s)", code), next: startAgain}
 	case code != "":
-		text = codeWords(code)
+		stop = lavaFlowStop{short: "stopped", why: fmt.Sprintf("the run stopped (code: %s)", code), next: startAgain}
+	case run.Status == apiclient.LavaFlowRunStatusCanceled:
+		stop = lavaFlowStop{short: "canceled", why: "the run was canceled", next: startAgain}
 	default:
-		return ""
+		stop = lavaFlowStop{short: "failed", why: "the run failed", next: startAgain}
 	}
-	if run.Status == apiclient.LavaFlowRunStatusQueued {
-		return "retrying: " + text
+	if queued {
+		stop.short = strings.TrimSuffix("retrying: "+stop.short, ": ")
+		stop.why = "retrying: " + stop.why
+		stop.next = nothingToDo("LavaFlow tries again on its own.")
 	}
-	return text
+	return stop, true
 }
 
-var lavaFlowSkippedText = map[apiclient.LavaFlowPullRequestSkipped]string{
-	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: "LavaFlow couldn't read the deployed source",
-	apiclient.LavaFlowPullRequestSkippedPullRequestOpen:   "a LavaFlow pull request for this issue is already open",
-	apiclient.LavaFlowPullRequestSkippedNotFixable:        "a code change would not fix it",
-	apiclient.LavaFlowPullRequestSkippedLowConfidence:     "the diagnosis is not confident enough",
-	apiclient.LavaFlowPullRequestSkippedNoPatch:           "LavaFlow found no fix",
-	apiclient.LavaFlowPullRequestSkippedPermissionMissing: "the Volcano GitHub App cannot open pull requests in the repository",
-	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: "the connected repository changed during the run",
-	apiclient.LavaFlowPullRequestSkippedPublishFailed:     "the pull request could not be opened",
+// lavaFlowSkips says why a run opened no pull request.
+var lavaFlowSkips = map[apiclient.LavaFlowPullRequestSkipped]lavaFlowStop{
+	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: {"no PR: source unreadable",
+		"LavaFlow couldn't read the deployed source", connectAndPush},
+	apiclient.LavaFlowPullRequestSkippedPullRequestOpen: {"no PR: one already open",
+		"a LavaFlow pull request for this issue is already open", say("Review the pull request that is already open.")},
+	apiclient.LavaFlowPullRequestSkippedNotFixable: {"no PR: not a code fix",
+		"a code change would not fix it", say("Act on the diagnosis above; the fix is outside the code.")},
+	apiclient.LavaFlowPullRequestSkippedLowConfidence: {"no PR: low confidence",
+		"the diagnosis is not confident enough", say("Check the diagnosis above, and fix the issue by hand if it holds.")},
+	apiclient.LavaFlowPullRequestSkippedNoPatch: {"no PR: no fix found",
+		"LavaFlow found no fix", say("Use the suggested fix above as a starting point.")},
+	apiclient.LavaFlowPullRequestSkippedPermissionMissing: {"no PR: app lacks access",
+		"the Volcano GitHub App cannot open pull requests in the repository",
+		say("Check the Volcano GitHub App's access to the repository in the dashboard's Git settings, then start a new run.")},
+	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {"no PR: repository changed",
+		"the connected repository changed during the run", startAgain},
+	apiclient.LavaFlowPullRequestSkippedPublishFailed: {"no PR: couldn't open it",
+		"the pull request could not be opened", startAgain},
 }
 
-// lavaFlowSkipped says why a run opened no pull request. Volcano adds
-// reasons over time, so one missing here is shown as words.
-func lavaFlowSkipped(reason apiclient.LavaFlowPullRequestSkipped) string {
-	if text, ok := lavaFlowSkippedText[reason]; ok {
-		return text
-	}
-	if words := codeWords(theme.StripControl(strings.TrimSpace(string(reason)))); words != "" {
-		return words
-	}
-	return "LavaFlow did not open one"
-}
+// lavaFlowDiagnoseOnly is a finished run whose project configuration stops
+// runs at the diagnosis.
+var lavaFlowDiagnoseOnly = lavaFlowStop{"no PR: diagnose only", "the run only diagnoses (max_stage: diagnose)",
+	say("For fix pull requests, set max_stage: pull_request in the project configuration.")}
 
-// codeWords shows an API code this CLI has no text for, such as
-// source_not_committed, as words.
-func codeWords(code string) string {
-	return strings.ReplaceAll(code, "_", " ")
+// lavaFlowSkip says why a finished run opened no pull request. Volcano adds
+// reasons over time, so one missing here says LavaFlow did not open one and
+// names the reason.
+func lavaFlowSkip(run *apiclient.LavaFlowRun) (lavaFlowStop, bool) {
+	if run.PullRequest != nil || run.Status != apiclient.LavaFlowRunStatusSucceeded {
+		return lavaFlowStop{}, false
+	}
+	if run.PullRequestSkipped == nil {
+		if run.MaxStage == apiclient.LavaFlowStageDiagnose {
+			return lavaFlowDiagnoseOnly, true
+		}
+		return lavaFlowStop{"no PR", "LavaFlow did not open one", say("Act on the diagnosis above.")}, true
+	}
+	if stop, ok := lavaFlowSkips[*run.PullRequestSkipped]; ok {
+		return stop, true
+	}
+	why := "LavaFlow did not open one"
+	if reason := theme.StripControl(strings.TrimSpace(string(*run.PullRequestSkipped))); reason != "" {
+		why += fmt.Sprintf(" (reason: %s)", reason)
+	}
+	return lavaFlowStop{"no PR", why, say("Act on the diagnosis above.")}, true
 }

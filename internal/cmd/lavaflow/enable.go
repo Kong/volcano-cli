@@ -44,13 +44,23 @@ can open fix pull requests; without one it diagnoses issues only.`,
 }
 
 func runEnable(ctx context.Context, opts enableOptions) error {
-	settings, err := clilavaflow.NewService(opts.deps).SetEnabled(ctx, true)
+	service := clilavaflow.NewService(opts.deps)
+	settings, err := service.SetEnabled(ctx, true)
 	if err != nil {
 		return err
 	}
 	if opts.jsonOutput {
 		return writeJSON(opts.out, settings)
 	}
-	output.LavaFlowEnabled(opts.out, settings, clilavaflow.OnDescription, clilavaflow.CostNote)
+	// LavaFlow is on by now, so a cancel during the repository read leaves
+	// the line about it general rather than fail a change that was made.
+	state, repository, _ := service.Repository(ctx)
+	output.LavaFlowEnabled(opts.out, output.LavaFlowEnabledDetails{
+		Settings:          settings,
+		Repository:        repository,
+		RepositoryUnknown: state != clilavaflow.RepositoryConnected && state != clilavaflow.RepositoryNotConnected,
+		CostNote:          clilavaflow.CostNote,
+		GitConnectCommand: gitConnectCommand,
+	})
 	return nil
 }

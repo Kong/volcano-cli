@@ -62,17 +62,21 @@ volcano cloud lavaflow enable
 
 ```text
 ✓ LavaFlow is on
-Note: LavaFlow watches this project's errors, diagnoses new issues automatically, and opens fix pull requests in your connected repository.
+Note: LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in acme/shop.
 Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
+
+`enable` says in one line what LavaFlow does next, and names the repository
+its fix pull request goes to. With no repository connected, it says LavaFlow
+only diagnoses until one is connected, and names `volcano git connect`.
 
 A project whose plan does not allow LavaFlow is refused, and the command exits
 non-zero. A project that had LavaFlow on before its plan changed stays on;
 `enable` then succeeds and says no run starts until the plan allows LavaFlow
 again. Turn it off again with `volcano cloud lavaflow disable`. Runs that
 have not finished are canceled; past runs and their pull requests stay.
-Where LavaFlow is not available, turning it on fails with `LavaFlow is not
-available`. Turning it off still works for a project that has saved LavaFlow
+Where LavaFlow is not available, turning it on fails with "LavaFlow isn't
+available on this Volcano API". Turning it off still works for a project that has saved LavaFlow
 settings. A project that never saved them already has LavaFlow off, and
 `disable` fails the same way.
 
@@ -83,14 +87,16 @@ volcano cloud lavaflow status
 ```
 
 ```text
-LavaFlow: on
+LavaFlow: on, opening fix pull requests in acme/shop
 Plan: allows LavaFlow
 Repository: acme/shop
 
 LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
-The status says when no repository is connected. When LavaFlow is on and set
+The first row says the state at a glance: `off`, or what LavaFlow does while
+it is on, such as `on, diagnosing only until a repository is connected`. The
+status says when no repository is connected. When LavaFlow is on and set
 to open pull requests, it also names `volcano git connect`. When the project configuration narrows LavaFlow, with
 `max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
 that too, and the status says it while LavaFlow is off, because those settings
@@ -115,10 +121,16 @@ An issue's title is a template of its error message, with values replaced by
 placeholders such as `<str>`. The list shortens long titles; `runs get` shows
 the whole title.
 
+The result says why a run stopped or opened no pull request, such as
+`no PR: low confidence` or `timed out`. When a run on the page ended without a
+fix, the list ends with the `runs get` command that says what to do about it.
+
 `runs get` shows a run's diagnosis: a summary, the root cause, the suggested
 fix, the evidence it found, and the pull request it opened. When it opened
 none, it says why, such as a code change not fixing the issue, LavaFlow not
-being able to read the deployed source, or `max_stage: diagnose`. Add `--json`
+being able to read the deployed source, or `max_stage: diagnose`. A run that
+stopped or opened no pull request ends with `Next:` and what to do about it,
+such as the `runs start` command that diagnoses the issue again. Add `--json`
 for the run as JSON, including the proposed edits.
 
 ```bash
