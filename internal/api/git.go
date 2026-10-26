@@ -69,6 +69,18 @@ func (c *Client) ConnectProjectGit(ctx context.Context, projectID uuid.UUID, bod
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
 }
 
+// SetProjectGitRootDirectory changes only the directory a connected project
+// builds from, leaving the repository and production branch alone. Unlike
+// ConnectProjectGit it accepts a project access token.
+func (c *Client) SetProjectGitRootDirectory(ctx context.Context, projectID uuid.UUID, rootDirectory string) (*apiclient.ProjectGitConnection, error) {
+	resp, err := c.client.SetProjectGitRootDirectoryWithResponse(ctx, projectID,
+		apiclient.SetProjectGitRootDirectoryJSONRequestBody{RootDirectory: rootDirectory})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
 // DisconnectProjectGit removes a project's repo connection. The repository
 // itself is untouched.
 func (c *Client) DisconnectProjectGit(ctx context.Context, projectID uuid.UUID) error {
