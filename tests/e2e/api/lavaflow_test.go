@@ -1,15 +1,36 @@
 package api
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+// lavaflowUnavailable is what every LavaFlow command says where Volcano has
+// LavaFlow off.
+const lavaflowUnavailable = "LavaFlow isn't available on this Volcano API"
 
 // TestAPIE2ECloudLavaFlow turns LavaFlow on and off for a fresh project the way
 // a user does, and checks the plan gate refuses it first. The project has no
 // issues and no connected repository, so no run starts and nothing can open or
 // merge a pull request; Kong/volcano-hosting's cloud E2E covers runs.
+//
+// Volcano turns LavaFlow on per environment, and where it is off every command
+// says so: then that is all there is to check, as hosting's own LavaFlow
+// settings scenario does in the same environments.
 func TestAPIE2ECloudLavaFlow(t *testing.T) {
 	env := setupAPIE2E(t, "cloud-lavaflow")
 	env.loginAndUse(t)
 	env.runCLI(t, "git", "status").requireSuccess(t, "No repository is connected")
+
+	if probe := env.runCloudCLI(t, "lavaflow", "status"); strings.Contains(probe.output, lavaflowUnavailable) {
+		probe.requireFailure(t, lavaflowUnavailable)
+		for _, command := range [][]string{{"lavaflow", "enable"}, {"lavaflow", "runs", "list"}} {
+			env.runCloudCLI(t, command...).requireFailure(t, lavaflowUnavailable)
+		}
+		t.Log("LavaFlow is off in this environment, so only its off response is checked")
+		return
+	}
+
 	// Registered after the project's own cleanup, so it runs first: LavaFlow is
 	// off before the project is deleted, even when an assertion below fails.
 	t.Cleanup(func() { env.runCloudCLI(t, "lavaflow", "disable").requireSuccess(t, "LavaFlow is off") })
