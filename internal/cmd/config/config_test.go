@@ -381,6 +381,48 @@ func TestDeployHintsAtAServerWithoutSeveralCustomDomains(t *testing.T) {
 	}
 }
 
+func TestDeployHintsAtAServerWithoutFrontendRoutes(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manifest  string
+		localMode bool
+		hint      string
+	}{
+		"cloud": {
+			manifest: "version: 1\nfrontends:\n  - name: site\n    frontend_routes: []\n",
+			hint:     "if this server predates Frontend routes, it refuses frontend_routes this way: remove them",
+		},
+		"local": {
+			manifest:  "version: 1\nfrontends:\n  - name: site\n    frontend_routes: []\n",
+			localMode: true,
+			hint: "if this server predates Frontend routes, it refuses frontend_routes this way: " +
+				"upgrade your local-mode server image, or remove them",
+		},
+		"omitted": {manifest: "version: 1\nfrontends:\n  - name: site\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := chdirToTemp(t)
+			setConfigCommandTestHome(t)
+			saveConfigCommandTestConfig(t)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "volcano-config.yaml"), []byte(tc.manifest), 0o644))
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				writeConfigCommandJSON(t, w, http.StatusBadRequest, map[string]any{"error": "invalid request"})
+			}))
+			defer server.Close()
+
+			deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL, LocalMode: tc.localMode}
+			_, err := executeConfigCommand(t, New(deps), "deploy")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 400: invalid request")
+			if tc.hint == "" {
+				assert.NotContains(t, err.Error(), "frontend_routes")
+				return
+			}
+			assert.Contains(t, err.Error(), "\n"+tc.hint)
+		})
+	}
+}
+
 // public: false reads as "not public" but now admits signed-in users, so every
 // deploy that reads it, the dry run included, warns. The warning goes to
 // stderr so it cannot break output a script parses.
@@ -827,4 +869,60 @@ func TestFrontendSharedVariablesPullDeployRoundTrip(t *testing.T) {
 			assert.Equal(t, uploads[0], uploads[1])
 		})
 	}
+}
+
+// A project with Frontend routes exports them, and that export has to deploy
+// back unchanged: the strict manifest decode would otherwise refuse the key.
+func TestFrontendRoutesPullDeployRoundTrip(t *testing.T) {
+	dir := chdirToTemp(t)
+	setConfigCommandTestHome(t)
+	saveConfigCommandTestConfig(t)
+	const exported = `version: 1
+frontends:
+  - name: site
+    function_routes:
+      - function: session
+        path_prefix: /api/session
+        strip_prefix: true
+    frontend_routes:
+      - frontend: docs
+        path_prefix: /docs
+  - name: docs
+`
+	var uploads []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, projectConfigURL, r.URL.Path)
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/yaml")
+			_, _ = w.Write([]byte(exported))
+			return
+		}
+		require.Equal(t, http.MethodPut, r.Method)
+		var uploaded map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&uploaded))
+		uploads = append(uploads, uploaded)
+		writeConfigCommandJSON(t, w, http.StatusOK, applyResultResponse())
+	}))
+	defer server.Close()
+	deps := cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+
+	_, err := executeConfigCommand(t, New(deps), "pull")
+	require.NoError(t, err)
+	saved, err := os.ReadFile(filepath.Join(dir, "volcano-config.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, exported, string(saved))
+
+	_, err = executeConfigCommand(t, New(deps), "deploy")
+	require.NoError(t, err)
+	require.Len(t, uploads, 1)
+	assert.Equal(t, []any{
+		map[string]any{
+			"name": "site",
+			"function_routes": []any{
+				map[string]any{"function": "session", "path_prefix": "/api/session", "strip_prefix": true},
+			},
+			"frontend_routes": []any{map[string]any{"frontend": "docs", "path_prefix": "/docs"}},
+		},
+		map[string]any{"name": "docs"},
+	}, uploads[0]["frontends"])
 }

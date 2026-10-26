@@ -55,7 +55,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "echo")
 	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 
 	// A route reaches its function with no credential, so the function has to
 	// be public first.
@@ -99,14 +99,14 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 		requireSuccess(t, "Strip prefix: no")
 	waitForAPIE2ERoutedPath(t, frontendPathURL(siteURL, "/api/v2/ping"), "/api/v2/ping")
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2").
-		requireFailure(t, "specify at least one of --path, --function, or --strip-prefix")
+		requireFailure(t, "specify at least one of --path, --function, --frontend, or --strip-prefix")
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/echo", "--yes").
 		requireFailure(t, fmt.Sprintf("route %q not found for frontend %q", "/api/echo", frontend))
 
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/v2", "--yes").
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
