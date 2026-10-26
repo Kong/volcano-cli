@@ -16,9 +16,16 @@ its pull requests like any other.
 
 LavaFlow is in preview and needs a paid plan. LavaFlow is a usage-billed
 add-on, priced per issue and per fix pull request. Prices are announced before
-billing starts. Where LavaFlow isn't on for the Volcano API you use, every
-`volcano cloud lavaflow` command says "LavaFlow isn't available on this Volcano
-API" and exits with code 4.
+billing starts.
+
+Where LavaFlow isn't available, a `volcano cloud lavaflow` command that needs
+it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
+
+- On a Volcano API that has no LavaFlow, every command says so.
+- Where Volcano has LavaFlow off, `enable` and `runs start` say so. A project
+  that saved LavaFlow settings can still read its status and turn LavaFlow
+  off; for a project that never saved them, `status` and `disable` say so
+  too. `runs list` and `runs get` still show past runs.
 
 ## How it relates
 
