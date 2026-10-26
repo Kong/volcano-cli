@@ -1551,3 +1551,37 @@ func assertGitIgnored(t *testing.T, dir string, paths ...string) {
 		assert.NoError(t, err, "%s is not gitignored: %s", path, out)
 	}
 }
+
+// A home the process can't write to would lose the new login, so connect says
+// so before it issues a device or signup code.
+func TestConnectRefusesAnUnwritableHomeBeforeAnyCodeIsIssued(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	for _, args := range [][]string{
+		{"--signup", "--email", "new@example.com"},
+		{"--device-code", connectDeviceCode},
+		{},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			for _, key := range []string{"VOLCANO_TOKEN", "VOLCANO_PROJECT_ID", "VOLCANO_API_URL", "VOLCANO_WEB_URL"} {
+				t.Setenv(key, "")
+			}
+			require.NoError(t, os.Chmod(home, 0o500))
+			t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+
+			_, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"), args...)
+			require.ErrorContains(t, err, "cannot be saved")
+			require.ErrorContains(t, err, "sandbox")
+			require.ErrorContains(t, err, "outside the sandbox")
+			assert.False(t, fake.deviceAuthorize, "no code is issued")
+			assert.Zero(t, fake.polls)
+			assert.Zero(t, fake.creates)
+		})
+	}
+}

@@ -240,6 +240,40 @@ func (c *Config) save() error {
 	return nil
 }
 
+// CheckWritable reports whether ~/.volcano can be created and written, which
+// saving a login needs. A sandboxed agent with no write access to the home
+// directory fails here. It leaves nothing behind: a config directory it had
+// to create is removed again, and so is its probe file.
+func CheckWritable() error {
+	configPath, err := Path()
+	if err != nil {
+		return err
+	}
+	configDir := filepath.Dir(configPath)
+	_, statErr := os.Stat(configDir)
+	existed := statErr == nil
+	if err := os.MkdirAll(configDir, defaultConfigDirMode); err != nil {
+		return fmt.Errorf("cannot create %s: %w", configDir, err)
+	}
+	if !existed {
+		// Only an empty directory goes: a config saved meanwhile stays.
+		defer func() { _ = os.Remove(configDir) }()
+	}
+	probe, err := os.CreateTemp(configDir, ".write-check-*")
+	if err != nil {
+		return fmt.Errorf("cannot write to %s: %w", configDir, err)
+	}
+	name := probe.Name()
+	closeErr := probe.Close()
+	if err := os.Remove(name); err != nil {
+		return fmt.Errorf("cannot write to %s: %w", configDir, err)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("cannot write to %s: %w", configDir, closeErr)
+	}
+	return nil
+}
+
 // Update locks, reloads, and conditionally saves the config.
 func Update(mutate func(*Config) (bool, error)) error {
 	return withLock(func() error {

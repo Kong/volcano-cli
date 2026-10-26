@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -488,4 +489,39 @@ func TestIsProjectToken(t *testing.T) {
 			assert.Equal(t, want, IsProjectToken(token))
 		})
 	}
+}
+
+func TestCheckWritableLeavesNothingBehind(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, CheckWritable())
+	_, err := os.Stat(filepath.Join(home, defaultConfigDirName))
+	assert.True(t, os.IsNotExist(err), "the config directory it created is removed: %v", err)
+
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.Mkdir(dir, defaultConfigDirMode))
+	require.NoError(t, CheckWritable())
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "the probe file is removed and an existing directory kept")
+}
+
+func TestCheckWritableFailsInAReadOnlyHome(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	require.NoError(t, os.Chmod(home, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+
+	err := CheckWritable()
+	require.ErrorContains(t, err, "cannot create")
+
+	require.NoError(t, os.Chmod(home, 0o700))
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.Mkdir(dir, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	require.ErrorContains(t, CheckWritable(), "cannot write to")
 }
