@@ -6769,13 +6769,12 @@ paths:
         Changes the fields the request names. An omitted field keeps its saved
         value, or takes its default when the project has no saved settings, so
         `{"enabled": true}` on a new project diagnoses every new or regressed
-        issue and opens a draft pull request with each fix. The dashboard and
-        CLI set only `enabled`; `max_stage` and `auto_trigger` remain for finer
-        control. Volcano picks the models a run uses.
+        issue and opens a draft pull request with each fix. Set `max_stage` and
+        `auto_trigger` to stop at a diagnosis or to start runs only on request.
+        Volcano picks the models a run uses.
 
         Project access tokens are refused. LavaFlow opens pull requests in the
-        project's repository, so a person turns it on with a platform token or
-        in the dashboard.
+        project's repository, so a person turns it on with a platform token.
 
         During the preview, turning LavaFlow on needs the SUPERAGENT plan, and
         nothing is charged yet. Settings that are already on stay stored after
@@ -6811,7 +6810,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: The owner's plan does not allow LavaFlow (during the preview it needs the SUPERAGENT plan), or the request used a project access token. Only a person changes LavaFlow settings.
+          description: The owner's plan does not allow LavaFlow (code `plan_required`; during the preview it needs the SUPERAGENT plan), or the request used a project access token. Only a person changes LavaFlow settings.
           content:
             application/json:
               schema:
@@ -6829,7 +6828,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: Turning LavaFlow on needs the owner's plan, which could not be resolved. Nothing was saved. Retry later.
+          description: A change that leaves LavaFlow on needs the owner's plan, which could not be resolved. Nothing was saved. Retry later.
           content:
             application/json:
               schema:
@@ -6873,7 +6872,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: The owner's plan does not include LavaFlow, or the request used a project access token.
+          description: The owner's plan does not include LavaFlow (code `plan_required`), or the request used a project access token.
           content:
             application/json:
               schema:
@@ -24003,7 +24002,7 @@ components:
           format: uri
         branch:
           type: string
-          description: The branch the fix is on, `volcano/lavaflow/<run id>`.
+          description: The branch the fix is on, `volcano/lavaflow/<run id>`. Runs that opened their pull request before LavaFlow was renamed report `volcano/autofix/<run id>`.
         state:
           $ref: '#/components/schemas/LavaFlowPullRequestState'
         closed_at:
@@ -24072,7 +24071,7 @@ components:
           description: The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
         failure_code:
           type: string
-          description: Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run held while Volcano pauses LavaFlow platform-wide reports `feature_paused` ("LavaFlow is paused. This run will start when LavaFlow resumes.") and starts without spending an attempt when it resumes. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`.
+          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
         failure_message:
           type: string
         created_at:
