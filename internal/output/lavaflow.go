@@ -453,21 +453,29 @@ func withCommand(step, command string) string {
 // other code is retrying its last attempt, which lavaFlowFailure puts first,
 // like "paused:", so the runs list's narrow Result column keeps it.
 var lavaFlowFailures = map[string]lavaFlowStop{
-	"feature_unavailable": {"paused: not available", "paused: LavaFlow is unavailable here",
-		nothingToDo("the run resumes when LavaFlow is available again.")},
-	"feature_paused": {"paused: LavaFlow paused", "paused: LavaFlow is paused",
-		nothingToDo("the run starts when LavaFlow resumes.")},
+	"feature_unavailable": {
+		"paused: not available", "paused: LavaFlow is unavailable here",
+		nothingToDo("the run resumes when LavaFlow is available again."),
+	},
+	"feature_paused": {
+		"paused: LavaFlow paused", "paused: LavaFlow is paused",
+		nothingToDo("the run starts when LavaFlow resumes."),
+	},
 	"model_request_rejected": {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
 	"model_unavailable":      {"AI unreachable", "LavaFlow couldn't reach its AI service", tryLater},
-	"model_refused": {"declined to diagnose", "LavaFlow declined to diagnose this issue",
-		say("Look into this issue yourself. A new run would likely decline it too.")},
+	"model_refused": {
+		"declined to diagnose", "LavaFlow declined to diagnose this issue",
+		say("Look into this issue yourself. A new run would likely decline it too."),
+	},
 	"no_diagnosis":       {"no diagnosis", "LavaFlow finished without a diagnosis", startAfterItRecurs},
 	"budget_exhausted":   {"hit run limit", "LavaFlow reached this run's limit before finding a diagnosis", startAgain},
 	"timed_out":          {"timed out", "the run did not finish in time", startAgain},
 	"attempts_exhausted": {"out of attempts", "the run did not finish within its attempts", startAgain},
 	"lavaflow_disabled":  {"LavaFlow turned off", "LavaFlow was turned off before the run finished", turnOnAndStartAgain},
-	"plan_required": {"plan doesn't allow it", "the project's plan no longer allows LavaFlow",
-		say("Upgrade the project's plan in the dashboard, then start a new run.")},
+	"plan_required": {
+		"plan doesn't allow it", "the project's plan no longer allows LavaFlow",
+		say("Upgrade the project's plan in the dashboard, then start a new run."),
+	},
 	"issue_not_found": {"issue deleted", "the issue no longer exists", say("Nothing to do.")},
 	"internal_error":  {"LavaFlow error", "LavaFlow could not run the diagnosis", startAgain},
 }
@@ -524,29 +532,47 @@ func lavaFlowFailure(run *apiclient.LavaFlowRun) (lavaFlowStop, bool) {
 
 // lavaFlowSkips says why a run opened no pull request.
 var lavaFlowSkips = map[apiclient.LavaFlowPullRequestSkipped]lavaFlowStop{
-	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: {"no PR: source unreadable",
-		"LavaFlow couldn't read the deployed source", connectAndPush},
-	apiclient.LavaFlowPullRequestSkippedPullRequestOpen: {"no PR: one already open",
-		"a LavaFlow pull request for this issue is already open", say("Review the pull request that is already open.")},
-	apiclient.LavaFlowPullRequestSkippedNotFixable: {"no PR: not a code fix",
-		"a code change would not fix it", say("Act on the diagnosis above; the fix is outside the code.")},
-	apiclient.LavaFlowPullRequestSkippedLowConfidence: {"no PR: low confidence",
-		"the diagnosis is not confident enough", say("Check the diagnosis above, and fix the issue by hand if it holds.")},
-	apiclient.LavaFlowPullRequestSkippedNoPatch: {"no PR: no fix found",
-		"LavaFlow found no fix", say("Use the suggested fix above as a starting point.")},
-	apiclient.LavaFlowPullRequestSkippedPermissionMissing: {"no PR: app lacks access",
+	apiclient.LavaFlowPullRequestSkippedSourceUnavailable: {
+		"no PR: source unreadable",
+		"LavaFlow couldn't read the deployed source", connectAndPush,
+	},
+	apiclient.LavaFlowPullRequestSkippedPullRequestOpen: {
+		"no PR: one already open",
+		"a LavaFlow pull request for this issue is already open", say("Review the pull request that is already open."),
+	},
+	apiclient.LavaFlowPullRequestSkippedNotFixable: {
+		"no PR: not a code fix",
+		"a code change would not fix it", say("Act on the diagnosis above; the fix is outside the code."),
+	},
+	apiclient.LavaFlowPullRequestSkippedLowConfidence: {
+		"no PR: low confidence",
+		"the diagnosis is not confident enough", say("Check the diagnosis above, and fix the issue by hand if it holds."),
+	},
+	apiclient.LavaFlowPullRequestSkippedNoPatch: {
+		"no PR: no fix found",
+		"LavaFlow found no fix", say("Use the suggested fix above as a starting point."),
+	},
+	apiclient.LavaFlowPullRequestSkippedPermissionMissing: {
+		"no PR: app lacks access",
 		"the Volcano GitHub App cannot open pull requests in the repository",
-		say("Check the Volcano GitHub App's access to the repository in the dashboard's Git settings, then start a new run.")},
-	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {"no PR: repository changed",
-		"the connected repository changed during the run", startAgain},
-	apiclient.LavaFlowPullRequestSkippedPublishFailed: {"no PR: couldn't open it",
-		"the pull request could not be opened", startAgain},
+		say("Check the Volcano GitHub App's access to the repository in the dashboard's Git settings, then start a new run."),
+	},
+	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {
+		"no PR: repository changed",
+		"the connected repository changed during the run", startAgain,
+	},
+	apiclient.LavaFlowPullRequestSkippedPublishFailed: {
+		"no PR: couldn't open it",
+		"the pull request could not be opened", startAgain,
+	},
 }
 
 // lavaFlowDiagnoseOnly is a finished run whose project configuration stops
 // runs at the diagnosis.
-var lavaFlowDiagnoseOnly = lavaFlowStop{"no PR: diagnose only", "the run only diagnoses (max_stage: diagnose)",
-	say("For fix pull requests, set max_stage: pull_request in the project configuration.")}
+var lavaFlowDiagnoseOnly = lavaFlowStop{
+	"no PR: diagnose only", "the run only diagnoses (max_stage: diagnose)",
+	say("For fix pull requests, set max_stage: pull_request in the project configuration."),
+}
 
 // lavaFlowSkip says why a finished run opened no pull request. Volcano adds
 // reasons over time, so one missing here says LavaFlow did not open one and

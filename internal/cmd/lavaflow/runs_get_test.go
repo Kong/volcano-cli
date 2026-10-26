@@ -171,21 +171,21 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 	unavailable["failure_code"] = "feature_unavailable"
 
 	for _, tc := range []struct {
-		run  map[string]any
-		want string
+		run          map[string]any
+		reason, next string
 	}{
-		{canceled, "Reason: LavaFlow was turned off before the run finished\n" +
-			"Created: 2026-10-23T05:00:00-04:00\nStarted: 2026-10-23T05:00:05-04:00\n\n" +
-			"Next: Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.\n"},
-		{paused, "Reason: paused: LavaFlow is paused\nCreated: 2026-10-23T05:00:00-04:00\n\n" +
-			"Next: Nothing to do: the run starts when LavaFlow resumes.\n"},
-		{unavailable, "Reason: paused: LavaFlow is unavailable here\nCreated: 2026-10-23T05:00:00-04:00\n\n" +
-			"Next: Nothing to do: the run resumes when LavaFlow is available again.\n"},
+		{
+			canceled, "LavaFlow was turned off before the run finished",
+			"Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
+		},
+		{paused, "paused: LavaFlow is paused", "Nothing to do: the run starts when LavaFlow resumes."},
+		{unavailable, "paused: LavaFlow is unavailable here", "Nothing to do: the run resumes when LavaFlow is available again."},
 	} {
 		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })
 		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 		require.NoError(t, err)
-		assert.Contains(t, out, tc.want)
+		assert.Contains(t, out, "\nReason: "+tc.reason+"\n")
+		assert.True(t, strings.HasSuffix(out, "\n\nNext: "+tc.next+"\n"), "the next step comes last: %q", out)
 	}
 }
 
