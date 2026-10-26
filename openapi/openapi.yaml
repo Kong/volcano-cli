@@ -22,7 +22,7 @@ tags:
   - name: Logs
     description: Project-scoped log search and activity APIs
   - name: LavaFlow
-    description: 'Preview, not generally available: AI diagnosis of a project''s issues and draft pull requests that fix them. Where LavaFlow is not available, turning it on, or any request for a project that never saved settings, answers `404` with code `feature_unavailable`. LavaFlow is not available in local mode.'
+    description: 'Preview, not generally available: AI diagnosis of a project''s issues and draft pull requests that fix them. Where LavaFlow is not available, turning it on and starting a run answer `404` with code `feature_unavailable`, and so do reading or saving settings for a project that never saved any. Saved settings stay readable and can still turn LavaFlow off, and runs stay readable. LavaFlow is not available in local mode.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
