@@ -22,9 +22,10 @@ func newEnable(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "enable",
 		Short: "Turn LavaFlow on",
-		Long: `Turn LavaFlow on for the current project. ` + clilavaflow.OnDescription + `
+		Long: clilavaflow.OnDescription + `
 
-By default, runs start without a request; a project configuration with
+This turns LavaFlow on for the current project. By default, runs start
+without a request; a project configuration with
 auto_trigger: false keeps them to '` + cliruntime.CommandPath(deps, "lavaflow runs start") + `'.
 Each run counts toward the project's usage.
 ` + clilavaflow.CostNote + `
@@ -59,6 +60,7 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 		Settings:          settings,
 		Repository:        repository,
 		RepositoryUnknown: state != clilavaflow.RepositoryConnected && state != clilavaflow.RepositoryNotConnected,
+		Description:       clilavaflow.OnDescription,
 		CostNote:          clilavaflow.CostNote,
 		GitConnectCommand: gitConnectCommand,
 	})

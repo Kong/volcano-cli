@@ -77,17 +77,20 @@ type LavaFlowEnabledDetails struct {
 	Settings          *apiclient.LavaFlowSettings
 	Repository        string
 	RepositoryUnknown bool
+	// Description says what LavaFlow does, and that it uses AI.
+	Description       string
 	CostNote          string
 	GitConnectCommand string
 }
 
-// LavaFlowEnabled renders LavaFlow turned on: what it does next, in one line,
-// and what it costs. Settings already on stay on after the plan stops
+// LavaFlowEnabled renders LavaFlow turned on: what it does, what it does
+// next, in one line, and what it costs. Settings already on stay on after the plan stops
 // allowing LavaFlow, and saving them again succeeds, so that case says no run
 // starts instead.
 func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
 	settings := details.Settings
 	Success(w, "LavaFlow is on")
+	Note(w, "%s", details.Description)
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
 		Warning(w, "No run starts until the project's plan allows LavaFlow. LavaFlow needs a paid plan: "+
 			"upgrade the plan in the dashboard.")

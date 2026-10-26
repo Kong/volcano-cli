@@ -2,12 +2,14 @@ package lavaflow
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Kong/volcano-cli/internal/api"
+	clilavaflow "github.com/Kong/volcano-cli/internal/lavaflow"
 )
 
 func TestCloudOnlyStandInRefusesWithTheReason(t *testing.T) {
@@ -22,6 +24,21 @@ func TestCloudOnlyStandInRefusesWithTheReason(t *testing.T) {
 	out, err := executeLavaflowCommand(t, NewCloudOnly(), "--help")
 	require.NoError(t, err)
 	assert.Contains(t, out, "this command is cloud-only")
+}
+
+// The description is the approved AI disclosure, word for word, and opens the
+// help of the command group and of enable.
+func TestTheHelpOpensWithTheAIDisclosure(t *testing.T) {
+	assert.Equal(t, "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, "+
+		"and opens fix pull requests in your connected repository.", clilavaflow.OnDescription)
+
+	_, deps := newLavaflowServer(t)
+	for _, args := range [][]string{{"--help"}, {"enable", "--help"}} {
+		out, err := executeLavaflowCommand(t, New(deps), args...)
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(out, clilavaflow.OnDescription), "%q opens with %q", args, out)
+		assertLavaFlowWording(t, out)
+	}
 }
 
 // An API where LavaFlow is not on answers with a 404: a bare one from a

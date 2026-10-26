@@ -18,7 +18,7 @@ func TestEnableTurnsLavaFlowOnAndSaysWhatThatMeans(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
-	assert.Contains(t, out, "LavaFlow is on\n")
+	assert.Contains(t, out, "LavaFlow is on\nNote: "+clilavaflow.OnDescription+"\n")
 	assert.Contains(t, out, "LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in "+lavaflowRepo+".\n")
 	assert.Contains(t, out, clilavaflow.CostNote)
 	assertLavaFlowWording(t, out)
@@ -113,5 +113,6 @@ func TestEnableOnAPlanThatNoLongerAllowsLavaFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow is on")
 	assert.Contains(t, out, "No run starts until the project's plan allows LavaFlow")
+	assert.Contains(t, out, clilavaflow.OnDescription, "the AI disclosure is said whatever the plan")
 	assert.NotContains(t, out, "LavaFlow diagnoses")
 }

@@ -23,10 +23,10 @@ import (
 const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. " +
 	"Prices are announced before billing starts."
 
-// OnDescription says what LavaFlow does once it is on, in the dashboard's
-// words. Runs start without a request, so the help says so before turning it
-// on.
-const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
+// OnDescription says what LavaFlow does, and that it uses AI to do it, in
+// the wording approved for that disclosure. Keep it verbatim: it opens the
+// help, enable's output and the docs.
+const OnDescription = "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, " +
 	"and opens fix pull requests in your connected repository."
 
 // ErrUnavailable reports an API where LavaFlow is not on: a platform release

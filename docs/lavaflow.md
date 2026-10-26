@@ -5,9 +5,10 @@ description: "Turn LavaFlow on from the CLI so Volcano diagnoses your project's 
 
 ## What it is
 
-LavaFlow watches this project's errors, diagnoses new issues automatically,
-and opens fix pull requests in your connected repository. Turning it on is the
-whole setup: there is nothing to choose and no key to bring.
+LavaFlow uses AI to diagnose this project's errors from their logs and
+deployed source, and opens fix pull requests in your connected repository.
+Turning it on is the whole setup: there is nothing to choose and no key to
+bring.
 
 By default, runs start without a request once LavaFlow is on. A project
 configuration with `auto_trigger: false` keeps them to `runs start` instead
@@ -69,13 +70,15 @@ volcano cloud lavaflow enable
 
 ```text
 ✓ LavaFlow is on
+Note: LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
 Note: LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in acme/shop.
 Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
-`enable` says in one line what LavaFlow does next, and names the repository
-its fix pull request goes to. With no repository connected, it says LavaFlow
-only diagnoses until one is connected, and names `volcano git connect`.
+`enable` says what LavaFlow does, then in one line what it does next, naming
+the repository its fix pull request goes to. With no repository connected, it
+says LavaFlow only diagnoses until one is connected, and names
+`volcano git connect`.
 
 A project whose plan does not allow LavaFlow is refused, and the command exits
 non-zero. A project that had LavaFlow on before its plan changed stays on;
