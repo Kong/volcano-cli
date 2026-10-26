@@ -33,6 +33,9 @@ type Error struct {
 	Message    string
 	// Code is the API's machine-readable code, when the response declares one.
 	Code string
+	// fromAPI says the body was the API's own JSON error, which every route it
+	// serves answers with.
+	fromAPI bool
 }
 
 // Status returns the HTTP status code carried by an *Error wrapped in err, 422
@@ -46,6 +49,15 @@ func Status(err error) int {
 		return http.StatusUnprocessableEntity
 	}
 	return 0
+}
+
+// RouteMissing reports a 404 that the API itself did not send: every route it
+// serves answers a 404 with its JSON error body, so a bare one, such as Go's
+// "404 page not found", means the server has no such route. That is what a
+// platform release older than this CLI answers for a feature it does not have.
+func RouteMissing(err error) bool {
+	apiErr, ok := errors.AsType[*Error](err)
+	return ok && apiErr.StatusCode == http.StatusNotFound && !apiErr.fromAPI
 }
 
 // Message returns the API's own message for the *Error wrapped in err, or ""
@@ -175,7 +187,7 @@ func apiOK(statusCode int, body []byte, generatedErrors ...*apiclient.Error) err
 func apiErrorFromGeneratedErrors(statusCode int, body []byte, generatedErrors ...*apiclient.Error) error {
 	for _, generatedError := range generatedErrors {
 		if generatedError != nil {
-			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(generatedError.Error)}
+			apiErr := &Error{StatusCode: statusCode, Message: strings.TrimSpace(generatedError.Error), fromAPI: true}
 			if generatedError.Code != nil {
 				apiErr.Code = *generatedError.Code
 			}
@@ -207,7 +219,7 @@ func apiError(statusCode int, body []byte) error {
 		if message != "" {
 			var code string
 			_ = json.Unmarshal(payload.Code, &code)
-			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code)}
+			return &Error{StatusCode: statusCode, Message: strings.TrimSpace(message), Code: strings.TrimSpace(code), fromAPI: true}
 		}
 	}
 	message := cleanBody(body)

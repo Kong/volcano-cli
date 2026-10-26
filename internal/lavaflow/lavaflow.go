@@ -29,6 +29,11 @@ const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fi
 const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
 	"and opens fix pull requests in your connected repository."
 
+// ErrUnavailable reports an API with no LavaFlow routes at all: a platform
+// release older than this CLI. Said in place of the bare 404 such a server
+// answers, which reads as a missing project or run.
+var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API yet")
+
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"
 
@@ -78,7 +83,7 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	}
 	settings, err := authenticated.API.GetLavaFlowSettings(ctx, authenticated.ProjectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LavaFlow settings: %w", err)
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
 	}
 	status := &Status{Settings: settings, RepositoryState: RepositoryUnknown}
 	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
@@ -113,7 +118,7 @@ func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaF
 	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
 		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
 	if err != nil {
-		return nil, refusal(fmt.Errorf("failed to %s: %w", verb, err))
+		return nil, unavailable(refusal(fmt.Errorf("failed to %s: %w", verb, err)))
 	}
 	return settings, nil
 }
@@ -134,7 +139,7 @@ func (s Service) ListRuns(ctx context.Context, limit int, cursor string) (*apicl
 	}
 	page, err := authenticated.API.ListLavaFlowRuns(ctx, authenticated.ProjectID, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list LavaFlow runs: %w", err)
+		return nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
 	}
 	return page, nil
 }
@@ -151,7 +156,7 @@ func (s Service) GetRun(ctx context.Context, rawID string) (*apiclient.LavaFlowR
 	}
 	run, err := authenticated.API.GetLavaFlowRun(ctx, authenticated.ProjectID, runID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err)
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
 	return run, nil
 }
@@ -168,9 +173,18 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	}
 	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
 	if err != nil {
-		return nil, retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now())
+		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
 	}
 	return run, nil
+}
+
+// unavailable replaces a missing route's bare 404 with ErrUnavailable, keeping
+// the 404 so the exit code still reports it.
+func unavailable(err error) error {
+	if api.RouteMissing(err) {
+		return api.WithCause(ErrUnavailable, err)
+	}
+	return err
 }
 
 // refusal adds what to do about a plan refusal, keeping the refusal so the
