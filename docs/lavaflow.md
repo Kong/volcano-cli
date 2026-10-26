@@ -71,7 +71,7 @@ volcano cloud lavaflow enable
 ```text
 ✓ LavaFlow is on
 Note: LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
-Note: LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in acme/shop.
+Note: LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in acme/shop.
 Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
 ```
 
@@ -187,6 +187,7 @@ lavaflow:
 `enabled` is all most projects need. Two more fields narrow what LavaFlow
 does. `max_stage: diagnose` stops each run at the diagnosis and opens no pull
 request; the default, `pull_request`, opens one. `auto_trigger: false` starts
-runs only with `runs start`; the default, `true`, starts one for every new or
-reopened issue. An omitted field keeps its current value. `enable` and
+runs only with `runs start`; the default, `true`, starts one when an issue
+happens a second time or comes back after you resolve it, within LavaFlow's run
+limits. An omitted field keeps its current value. `enable` and
 `disable` change only `enabled`, so they keep what the manifest set.

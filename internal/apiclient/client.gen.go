@@ -7969,7 +7969,7 @@ type LavaFlowRunTrigger struct {
 
 // LavaFlowSettings LavaFlow settings. The path names what they belong to, so the object carries no project fields.
 type LavaFlowSettings struct {
-	// AutoTrigger Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
+	// AutoTrigger Whether an issue starts a run on its own when it happens a second time or regresses. Defaults to true. When false, runs start only on request.
 	AutoTrigger bool `json:"auto_trigger"`
 
 	// Enabled Whether Volcano diagnoses the project's issues with AI.
@@ -11021,7 +11021,7 @@ type UpdateFunctionSchedulerRequest struct {
 
 // UpdateLavaFlowSettingsRequest The fields to change. An omitted field keeps its saved value, or takes its default when the project has no saved settings.
 type UpdateLavaFlowSettingsRequest struct {
-	// AutoTrigger Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+	// AutoTrigger Whether an issue starts a run on its own when it happens a second time or regresses. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
 	AutoTrigger *bool `json:"auto_trigger,omitempty"`
 	Enabled     *bool `json:"enabled,omitempty"`
 

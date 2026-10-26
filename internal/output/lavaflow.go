@@ -106,7 +106,7 @@ func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
 // pull requests for a person to review; nothing here may promise more.
 func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
 	settings := details.Settings
-	issue := "the next new or regressed issue"
+	issue := "the next issue that happens a second time or comes back after you resolve it"
 	if !settings.AutoTrigger {
 		issue = "each issue you start a run for (auto_trigger: false in the project configuration)"
 	}

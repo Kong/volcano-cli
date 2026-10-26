@@ -6768,8 +6768,9 @@ paths:
       description: |
         Changes the fields the request names. An omitted field keeps its saved
         value, or takes its default when the project has no saved settings, so
-        `{"enabled": true}` on a new project diagnoses every new or regressed
-        issue and opens a draft pull request with each fix. Set `max_stage` and
+        `{"enabled": true}` on a new project diagnoses each issue that happens a
+        second time or regresses, within the run limits, and opens a draft pull
+        request with each fix. Set `max_stage` and
         `auto_trigger` to stop at a diagnosis or to start runs only on request.
         Volcano picks the models a run uses.
 
@@ -6846,8 +6847,9 @@ paths:
         `succeeded`, `failed`, or `canceled`.
 
         LavaFlow must be on for the project. An issue has at most one queued or
-        running run, a project runs one at a time, and a project starts at most
-        25 runs, manual and automatic, in any 24 hours.
+        running run, and a project runs one at a time. In any 24 hours, an
+        issue starts at most 5 runs and a project at most 200, manual and
+        automatic together.
 
         Project access tokens are refused. A run can open a pull request in
         the project's repository, so a person starts it with a platform token
@@ -6890,7 +6892,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: The project started its limit of runs in the last 24 hours.
+          description: 'The issue or the project reached its run limit for the last 24 hours. `code` names which: `issue_run_limit` or `project_run_limit`.'
+          headers:
+            Retry-After:
+              description: Seconds until a run can start.
+              required: true
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -23784,7 +23792,7 @@ components:
           description: How far a run goes. Defaults to `pull_request`.
         auto_trigger:
           type: boolean
-          description: Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Defaults to true. When false, runs start only on request.
         plan_allows_lavaflow:
           type: boolean
           readOnly: true
@@ -23820,7 +23828,7 @@ components:
           description: How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
         auto_trigger:
           type: boolean
-          description: Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
     LavaFlowRunStatus:
       type: string
       enum:
