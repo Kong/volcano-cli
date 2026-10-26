@@ -462,7 +462,7 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	},
 	"feature_paused": {
 		"paused: LavaFlow paused", "paused: LavaFlow is paused",
-		nothingToDo("the run starts when LavaFlow resumes."),
+		nothingToDo("the run carries on when LavaFlow resumes."),
 	},
 	"model_request_rejected": {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
 	"model_unavailable":      {"AI unreachable", "LavaFlow couldn't reach its AI service", tryLater},

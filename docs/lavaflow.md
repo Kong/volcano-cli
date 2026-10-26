@@ -157,8 +157,10 @@ Pull request: https://github.com/acme/shop/pull/42 (open)
 ```
 
 A queued run can be paused. Its result says `paused` while LavaFlow is
-unavailable, and the run resumes on its own when LavaFlow is available again. A
-queued run whose last attempt failed says `retrying`.
+unavailable or Volcano has paused LavaFlow's runs, and the run carries on by
+itself when LavaFlow resumes, without using an attempt. A run paused after it
+wrote a fix keeps its diagnosis and opens its pull request then. A queued run
+whose last attempt failed says `retrying`.
 
 To diagnose an issue again, for example after a run failed, start a run with
 the issue ID (`trigger.issue.id`) from an earlier run in `runs list --json`, or

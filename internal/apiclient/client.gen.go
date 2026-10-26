@@ -7928,7 +7928,7 @@ type LavaFlowRun struct {
 	CreatedAt   time.Time          `json:"created_at"`
 	Diagnosis   *LavaFlowDiagnosis `json:"diagnosis,omitempty"`
 
-	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.
+	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow's runs are paused reports `feature_paused`; it resumes without spending an attempt when they resume. A run paused after it wrote a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.
 	FailureCode    *string            `json:"failure_code,omitempty"`
 	FailureMessage *string            `json:"failure_message,omitempty"`
 	Id             openapi_types.UUID `json:"id"`
@@ -7952,14 +7952,14 @@ type LavaFlowRun struct {
 	StageReached *LavaFlowStage `json:"stage_reached,omitempty"`
 	StartedAt    *time.Time     `json:"started_at,omitempty"`
 
-	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
 	Status LavaFlowRunStatus `json:"status"`
 
 	// Trigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
 	Trigger LavaFlowRunTrigger `json:"trigger"`
 }
 
-// LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+// LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
 type LavaFlowRunStatus string
 
 // LavaFlowRunTrigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
