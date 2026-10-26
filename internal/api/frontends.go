@@ -103,7 +103,8 @@ func (c *Client) DeleteFrontend(ctx context.Context, projectID, frontendID uuid.
 	if err != nil {
 		return err
 	}
-	return apiOK(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500, resp.JSON503)
+	return apiOK(resp.StatusCode(), resp.Body,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500, resp.JSON503)
 }
 
 // RedeployFrontend starts a new deployment using the last uploaded archive.
@@ -420,6 +421,52 @@ func (c *Client) UpdateFrontendFunctionRoute(
 // DeleteFrontendFunctionRoute stops forwarding one route's path prefix.
 func (c *Client) DeleteFrontendFunctionRoute(ctx context.Context, projectID, frontendID, routeID uuid.UUID) error {
 	resp, err := c.client.DeleteFrontendFunctionRouteWithResponse(ctx, projectID, frontendID, routeID)
+	if err != nil {
+		return err
+	}
+	return apiOK(resp.StatusCode(), resp.Body, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
+}
+
+// ListFrontendRoutes lists the paths a frontend serves from other frontends.
+func (c *Client) ListFrontendRoutes(ctx context.Context, projectID, frontendID uuid.UUID) ([]apiclient.FrontendRoute, error) {
+	resp, err := c.client.ListFrontendRoutesWithResponse(ctx, projectID, frontendID)
+	if err != nil {
+		return nil, err
+	}
+	list, err := apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON500)
+	if err != nil {
+		return nil, err
+	}
+	return list.Data, nil
+}
+
+// CreateFrontendRoute mounts another frontend at a path prefix of a frontend.
+func (c *Client) CreateFrontendRoute(
+	ctx context.Context, projectID, frontendID uuid.UUID, route apiclient.CreateFrontendRouteRequest,
+) (*apiclient.FrontendRoute, error) {
+	resp, err := c.client.CreateFrontendRouteWithResponse(ctx, projectID, frontendID, route)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+// UpdateFrontendRoute replaces one Frontend route's prefix and mounted frontend.
+func (c *Client) UpdateFrontendRoute(
+	ctx context.Context, projectID, frontendID, routeID uuid.UUID, route apiclient.CreateFrontendRouteRequest,
+) (*apiclient.FrontendRoute, error) {
+	resp, err := c.client.UpdateFrontendRouteWithResponse(ctx, projectID, frontendID, routeID, route)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+// DeleteFrontendRoute stops serving one Frontend route's path prefix.
+func (c *Client) DeleteFrontendRoute(ctx context.Context, projectID, frontendID, routeID uuid.UUID) error {
+	resp, err := c.client.DeleteFrontendRouteWithResponse(ctx, projectID, frontendID, routeID)
 	if err != nil {
 		return err
 	}

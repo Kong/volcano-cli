@@ -442,6 +442,12 @@ func (m *Manifest) DeclaresCustomDomains() bool {
 	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.CustomDomains != nil })
 }
 
+// DeclaresFrontendRoutes reports whether a frontend entry lists
+// frontend_routes, which only a server with Frontend routes accepts.
+func (m *Manifest) DeclaresFrontendRoutes() bool {
+	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FrontendRoutes != nil })
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name
@@ -481,6 +487,9 @@ type FrontendManifest struct {
 	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
 	// removes them.
 	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
+	// FrontendRoutes replaces the paths this frontend serves from other
+	// frontends; nil preserves them and [] removes them.
+	FrontendRoutes *[]FrontendRouteManifest `yaml:"frontend_routes,omitempty" json:"frontend_routes,omitempty"`
 }
 
 // FunctionRouteManifest sends requests under PathPrefix on a frontend to a
@@ -489,6 +498,14 @@ type FunctionRouteManifest struct {
 	Function    string `yaml:"function" json:"function"`
 	PathPrefix  string `yaml:"path_prefix" json:"path_prefix"`
 	StripPrefix *bool  `yaml:"strip_prefix,omitempty" json:"strip_prefix,omitempty"`
+}
+
+// FrontendRouteManifest serves requests under PathPrefix on a frontend from
+// another frontend of the project, named by Frontend. Paths are forwarded
+// unchanged.
+type FrontendRouteManifest struct {
+	Frontend   string `yaml:"frontend" json:"frontend"`
+	PathPrefix string `yaml:"path_prefix" json:"path_prefix"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.

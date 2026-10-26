@@ -5688,6 +5688,14 @@ type CreateFrontendFunctionRouteRequest struct {
 	StripPrefix *bool              `json:"strip_prefix,omitempty"`
 }
 
+// CreateFrontendRouteRequest defines model for CreateFrontendRouteRequest.
+type CreateFrontendRouteRequest struct {
+	PathPrefix string `json:"path_prefix"`
+
+	// TargetFrontendId The Frontend to mount. It must be another Frontend in the Project.
+	TargetFrontendId openapi_types.UUID `json:"target_frontend_id"`
+}
+
 // CreateFunctionSchedulerRequest defines model for CreateFunctionSchedulerRequest.
 type CreateFunctionSchedulerRequest struct {
 	Enabled *bool                   `json:"enabled,omitempty"`
@@ -7137,6 +7145,11 @@ type Frontend struct {
 	DeployedRegions   []string          `json:"deployed_regions"`
 	Framework         FrontendFramework `json:"framework"`
 
+	// FrontendRoutes Paths on this frontend served by another frontend in the project,
+	// ordered from most to least specific. Function and Frontend routes
+	// share one path namespace and the 64-route limit.
+	FrontendRoutes []FrontendRoute `json:"frontend_routes"`
+
 	// FunctionRoutes Paths on this frontend that forward to a public function, ordered
 	// from most to least specific. Anyone who can load the frontend can
 	// reach the target function at these paths without a credential.
@@ -7368,6 +7381,28 @@ type FrontendFunctionRoute struct {
 // FrontendFunctionRouteList defines model for FrontendFunctionRouteList.
 type FrontendFunctionRouteList struct {
 	Data []FrontendFunctionRoute `json:"data"`
+}
+
+// FrontendRoute A path prefix on this Frontend's hostnames served by another Frontend in the Project, the
+// mounted Frontend. Paths are forwarded unchanged, so the mounted Frontend serves its prefix
+// as real pages (page directories or a matching `basePath`).
+type FrontendRoute struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// FrontendId The Frontend whose hostnames serve the route
+	FrontendId openapi_types.UUID `json:"frontend_id"`
+	Id         openapi_types.UUID `json:"id"`
+	PathPrefix string             `json:"path_prefix"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+
+	// TargetFrontendId The mounted Frontend
+	TargetFrontendId openapi_types.UUID `json:"target_frontend_id"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+}
+
+// FrontendRouteList defines model for FrontendRouteList.
+type FrontendRouteList struct {
+	Data []FrontendRoute `json:"data"`
 }
 
 // FrontendUsageDailyEntry One day of request and error counts for a single frontend.
@@ -9370,6 +9405,11 @@ type ProjectConfigFrontend struct {
 	// needs a plan that allows it.
 	CustomDomains *[]ProjectConfigFrontendCustomDomain `json:"custom_domains,omitempty"`
 
+	// FrontendRoutes Complete set of paths this frontend serves from another frontend in the project when
+	// declared. Omission preserves existing routes; an empty list deletes all of them.
+	// Function and Frontend routes share one path namespace and the 64-route limit.
+	FrontendRoutes *[]ProjectConfigFrontendRoute `json:"frontend_routes,omitempty"`
+
 	// FunctionRoutes Complete set of same-origin Function path mappings when declared. Omission preserves existing mappings; an empty list deletes all mappings.
 	FunctionRoutes *[]ProjectConfigFrontendFunctionRoute `json:"function_routes,omitempty"`
 	Name           string                                `json:"name"`
@@ -9407,6 +9447,13 @@ type ProjectConfigFrontendFunctionRoute struct {
 	Function    string `json:"function"`
 	PathPrefix  string `json:"path_prefix"`
 	StripPrefix *bool  `json:"strip_prefix,omitempty"`
+}
+
+// ProjectConfigFrontendRoute defines model for ProjectConfigFrontendRoute.
+type ProjectConfigFrontendRoute struct {
+	// Frontend Name of another existing frontend in the project to mount. Paths are forwarded unchanged.
+	Frontend   string `json:"frontend"`
+	PathPrefix string `json:"path_prefix"`
 }
 
 // ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
@@ -11284,6 +11331,9 @@ type FrontendFunctionRouteId = openapi_types.UUID
 
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
+
+// FrontendRouteId defines model for FrontendRouteId.
+type FrontendRouteId = openapi_types.UUID
 
 // FunctionId defines model for FunctionId.
 type FunctionId = openapi_types.UUID
@@ -13469,6 +13519,12 @@ type CreateFrontendDomainJSONRequestBody = CreateFrontendDomainRequest
 
 // UpdateFrontendDomainJSONRequestBody defines body for UpdateFrontendDomain for application/json ContentType.
 type UpdateFrontendDomainJSONRequestBody = UpdateFrontendCustomDomainRequest
+
+// CreateFrontendRouteJSONRequestBody defines body for CreateFrontendRoute for application/json ContentType.
+type CreateFrontendRouteJSONRequestBody = CreateFrontendRouteRequest
+
+// UpdateFrontendRouteJSONRequestBody defines body for UpdateFrontendRoute for application/json ContentType.
+type UpdateFrontendRouteJSONRequestBody = CreateFrontendRouteRequest
 
 // CreateFrontendFunctionRouteJSONRequestBody defines body for CreateFrontendFunctionRoute for application/json ContentType.
 type CreateFrontendFunctionRouteJSONRequestBody = CreateFrontendFunctionRouteRequest
@@ -15724,6 +15780,22 @@ type ClientInterface interface {
 	UpdateFrontendDomainWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFrontendRoutes request
+	ListFrontendRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFrontendRouteWithBody request with any body
+	CreateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFrontendRoute request
+	DeleteFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateFrontendRouteWithBody request with any body
+	UpdateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFrontendFunctionRoutes request
 	ListFrontendFunctionRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -19401,6 +19473,78 @@ func (c *Client) UpdateFrontendDomainWithBody(ctx context.Context, id ProjectId,
 
 func (c *Client) UpdateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateFrontendDomainRequest(c.Server, id, frontendId, domain, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFrontendRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFrontendRoutesRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendRouteRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendRouteRequest(c.Server, id, frontendId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFrontendRouteRequest(c.Server, id, frontendId, routeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendRouteRequestWithBody(c.Server, id, frontendId, routeId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendRouteRequest(c.Server, id, frontendId, routeId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -32024,6 +32168,210 @@ func NewUpdateFrontendDomainRequestWithBody(server string, id ProjectId, fronten
 	return req, nil
 }
 
+// NewListFrontendRoutesRequest generates requests for ListFrontendRoutes
+func NewListFrontendRoutesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFrontendRouteRequest calls the generic CreateFrontendRoute builder with application/json body
+func NewCreateFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFrontendRouteRequestWithBody(server, id, frontendId, "application/json", bodyReader)
+}
+
+// NewCreateFrontendRouteRequestWithBody generates requests for CreateFrontendRoute with any type of body
+func NewCreateFrontendRouteRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFrontendRouteRequest generates requests for DeleteFrontendRoute
+func NewDeleteFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "routeId", routeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateFrontendRouteRequest calls the generic UpdateFrontendRoute builder with application/json body
+func NewUpdateFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateFrontendRouteRequestWithBody(server, id, frontendId, routeId, "application/json", bodyReader)
+}
+
+// NewUpdateFrontendRouteRequestWithBody generates requests for UpdateFrontendRoute with any type of body
+func NewUpdateFrontendRouteRequestWithBody(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "routeId", routeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFrontendFunctionRoutesRequest generates requests for ListFrontendFunctionRoutes
 func NewListFrontendFunctionRoutesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
 	var err error
@@ -39236,6 +39584,22 @@ type ClientWithResponsesInterface interface {
 
 	UpdateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error)
 
+	// ListFrontendRoutesWithResponse request
+	ListFrontendRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendRoutesClientResponse, error)
+
+	// CreateFrontendRouteWithBodyWithResponse request with any body
+	CreateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error)
+
+	CreateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error)
+
+	// DeleteFrontendRouteWithResponse request
+	DeleteFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*DeleteFrontendRouteClientResponse, error)
+
+	// UpdateFrontendRouteWithBodyWithResponse request with any body
+	UpdateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error)
+
+	UpdateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error)
+
 	// ListFrontendFunctionRoutesWithResponse request
 	ListFrontendFunctionRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendFunctionRoutesClientResponse, error)
 
@@ -45877,6 +46241,7 @@ type DeleteFrontendClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -46291,6 +46656,144 @@ func (r UpdateFrontendDomainClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFrontendRoutesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendRouteList
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFrontendRoutesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFrontendRoutesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFrontendRoutesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FrontendRoute
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFrontendRouteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFrontendRouteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendRoute
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateFrontendRouteClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -52691,6 +53194,58 @@ func (c *ClientWithResponses) UpdateFrontendDomainWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseUpdateFrontendDomainClientResponse(rsp)
+}
+
+// ListFrontendRoutesWithResponse request returning *ListFrontendRoutesClientResponse
+func (c *ClientWithResponses) ListFrontendRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendRoutesClientResponse, error) {
+	rsp, err := c.ListFrontendRoutes(ctx, id, frontendId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFrontendRoutesClientResponse(rsp)
+}
+
+// CreateFrontendRouteWithBodyWithResponse request with arbitrary body returning *CreateFrontendRouteClientResponse
+func (c *ClientWithResponses) CreateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error) {
+	rsp, err := c.CreateFrontendRouteWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendRouteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error) {
+	rsp, err := c.CreateFrontendRoute(ctx, id, frontendId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendRouteClientResponse(rsp)
+}
+
+// DeleteFrontendRouteWithResponse request returning *DeleteFrontendRouteClientResponse
+func (c *ClientWithResponses) DeleteFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*DeleteFrontendRouteClientResponse, error) {
+	rsp, err := c.DeleteFrontendRoute(ctx, id, frontendId, routeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFrontendRouteClientResponse(rsp)
+}
+
+// UpdateFrontendRouteWithBodyWithResponse request with arbitrary body returning *UpdateFrontendRouteClientResponse
+func (c *ClientWithResponses) UpdateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error) {
+	rsp, err := c.UpdateFrontendRouteWithBody(ctx, id, frontendId, routeId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendRouteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error) {
+	rsp, err := c.UpdateFrontendRoute(ctx, id, frontendId, routeId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendRouteClientResponse(rsp)
 }
 
 // ListFrontendFunctionRoutesWithResponse request returning *ListFrontendFunctionRoutesClientResponse
@@ -62424,6 +62979,13 @@ func ParseDeleteFrontendClientResponse(rsp *http.Response) (*DeleteFrontendClien
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -63111,6 +63673,236 @@ func ParseUpdateFrontendDomainClientResponse(rsp *http.Response) (*UpdateFronten
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFrontendRoutesClientResponse parses an HTTP response from a ListFrontendRoutesWithResponse call
+func ParseListFrontendRoutesClientResponse(rsp *http.Response) (*ListFrontendRoutesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFrontendRoutesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendRouteList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFrontendRouteClientResponse parses an HTTP response from a CreateFrontendRouteWithResponse call
+func ParseCreateFrontendRouteClientResponse(rsp *http.Response) (*CreateFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FrontendRoute
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFrontendRouteClientResponse parses an HTTP response from a DeleteFrontendRouteWithResponse call
+func ParseDeleteFrontendRouteClientResponse(rsp *http.Response) (*DeleteFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateFrontendRouteClientResponse parses an HTTP response from a UpdateFrontendRouteWithResponse call
+func ParseUpdateFrontendRouteClientResponse(rsp *http.Response) (*UpdateFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendRoute
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -109,7 +109,7 @@ functions:
 	waitForVolcanoLocalModeE2EContains(t, binary, env, dir, "Status: active", "functions", "get", "route-echo")
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "list", "web"),
-		`No function routes on frontend "web"`)
+		`No routes on frontend "web"`)
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
 		"frontends", "routes", "create", "web", "--path", "/api/echo", "--function", "route-echo", "--strip-prefix"),
 		"Route /api/echo on frontend 'web' now forwards to function 'route-echo'")
@@ -121,7 +121,7 @@ functions:
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "delete", "web", "/api/echo", "--yes"),
 		"Route /api/echo deleted from frontend 'web'")
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "routes", "list", "web"),
-		`No function routes on frontend "web"`)
+		`No routes on frontend "web"`)
 
 	runVolcanoLocalModeE2E(t, binary, env, dir, "functions", "delete", "route-echo", "--yes")
 	removeLocalModeE2EFile(t, dir, filepath.Join("volcano", "volcano-config.yaml"))
