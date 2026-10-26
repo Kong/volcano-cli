@@ -118,6 +118,7 @@ func TestEveryStopIsExplainedWithWhatToDo(t *testing.T) {
 		"feature_unavailable", "feature_paused", "model_request_rejected", "model_unavailable", "model_refused",
 		"no_diagnosis", "budget_exhausted", "timed_out", "attempts_exhausted", "lavaflow_disabled", "plan_required",
 		"issue_not_found", "internal_error",
+		"autofix_disabled", "api_key_rejected", "settings_changed", "managed_models_unavailable",
 	} {
 		run := queuedRun()
 		run["status"] = "failed"

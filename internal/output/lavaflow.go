@@ -478,6 +478,14 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	},
 	"issue_not_found": {"issue deleted", "the issue no longer exists", say("Nothing to do.")},
 	"internal_error":  {"LavaFlow error", "LavaFlow could not run the diagnosis", startAgain},
+
+	// Older runs keep codes from before LavaFlow was renamed and before
+	// Volcano picked the AI service for every run. No new run reports them,
+	// and their names are never shown.
+	"autofix_disabled":           {"LavaFlow turned off", "LavaFlow was turned off before the run finished", turnOnAndStartAgain},
+	"api_key_rejected":           {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
+	"settings_changed":           {"settings changed", "LavaFlow's settings changed before the run finished", startAgain},
+	"managed_models_unavailable": {"AI unreachable", "LavaFlow couldn't reach its AI service", startAgain},
 }
 
 // lavaFlowFailure says why a queued run is waiting, or why a run failed or
