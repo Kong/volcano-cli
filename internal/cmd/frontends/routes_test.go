@@ -111,7 +111,7 @@ func TestFrontendsRoutesList(t *testing.T) {
 	server.routes = nil
 	out, err = server.run("routes", "list", "web")
 	require.NoError(t, err)
-	assert.Contains(t, out, `No function routes on frontend "web"`)
+	assert.Contains(t, out, `No routes on frontend "web"`)
 }
 
 func TestFrontendsRoutesCreateResolvesTheFunctionByName(t *testing.T) {
@@ -136,7 +136,7 @@ func TestFrontendsRoutesCreateRefusals(t *testing.T) {
 		server := newRouteServer(t)
 
 		_, err := server.run("routes", "create", "web", "--path", "/api")
-		require.ErrorContains(t, err, `required flag(s) "function" not set`)
+		require.ErrorContains(t, err, "at least one of the flags in the group [function frontend] is required")
 		assert.Empty(t, server.requests)
 	})
 	t.Run("unknown function", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestFrontendsRoutesUpdateRefusals(t *testing.T) {
 	server := newRouteServer(t)
 
 	_, err := server.run("routes", "update", "web", "/api/session")
-	require.ErrorContains(t, err, "specify at least one of --path, --function, or --strip-prefix")
+	require.ErrorContains(t, err, "specify at least one of --path, --function, --frontend, or --strip-prefix")
 	assert.Empty(t, server.requests)
 
 	_, err = server.run("routes", "update", "web", "/missing", "--path", "/x")

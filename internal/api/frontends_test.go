@@ -360,6 +360,106 @@ func TestFrontendFunctionRouteMethodsUseGeneratedRoutes(t *testing.T) {
 	}, requests)
 }
 
+func TestFrontendRouteMethodsUseGeneratedRoutes(t *testing.T) {
+	projectIDText := "11111111-1111-4111-8111-111111111111"
+	frontendIDText := "22222222-2222-4222-8222-222222222222"
+	routeIDText := "33333333-3333-4333-8333-333333333333"
+	targetIDText := "55555555-5555-4555-8555-555555555555"
+	routesPath := "/projects/" + projectIDText + "/frontends/" + frontendIDText + "/frontend-routes"
+	var requests []string
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == routesPath:
+			writeAPIJSON(t, w, http.StatusOK, map[string]any{
+				"data": []any{mountRouteResponse(routeIDText, projectIDText, frontendIDText, targetIDText, "/docs")},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == routesPath:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			bodies = append(bodies, body)
+			writeAPIJSON(t, w, http.StatusCreated, mountRouteResponse(routeIDText, projectIDText, frontendIDText, targetIDText, "/docs"))
+		case r.Method == http.MethodPut && r.URL.Path == routesPath+"/"+routeIDText:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			bodies = append(bodies, body)
+			writeAPIJSON(t, w, http.StatusOK, mountRouteResponse(routeIDText, projectIDText, frontendIDText, targetIDText, "/guides"))
+		case r.Method == http.MethodDelete && r.URL.Path == routesPath+"/"+routeIDText:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+	projectID := uuid.MustParse(projectIDText)
+	frontendID := uuid.MustParse(frontendIDText)
+	routeID := uuid.MustParse(routeIDText)
+	targetID := uuid.MustParse(targetIDText)
+
+	routes, err := client.ListFrontendRoutes(context.Background(), projectID, frontendID)
+	require.NoError(t, err)
+	require.Len(t, routes, 1)
+	assert.Equal(t, "/docs", routes[0].PathPrefix)
+	assert.Equal(t, targetID, routes[0].TargetFrontendId)
+
+	created, err := client.CreateFrontendRoute(context.Background(), projectID, frontendID,
+		apiclient.CreateFrontendRouteRequest{PathPrefix: "/docs", TargetFrontendId: targetID})
+	require.NoError(t, err)
+	assert.Equal(t, routeID, created.Id)
+
+	updated, err := client.UpdateFrontendRoute(context.Background(), projectID, frontendID, routeID,
+		apiclient.CreateFrontendRouteRequest{PathPrefix: "/guides", TargetFrontendId: targetID})
+	require.NoError(t, err)
+	assert.Equal(t, "/guides", updated.PathPrefix)
+
+	require.NoError(t, client.DeleteFrontendRoute(context.Background(), projectID, frontendID, routeID))
+
+	assert.Equal(t, []map[string]any{
+		{"path_prefix": "/docs", "target_frontend_id": targetIDText},
+		{"path_prefix": "/guides", "target_frontend_id": targetIDText},
+	}, bodies)
+	assert.Equal(t, []string{
+		"GET " + routesPath,
+		"POST " + routesPath,
+		"PUT " + routesPath + "/" + routeIDText,
+		"DELETE " + routesPath + "/" + routeIDText,
+	}, requests)
+}
+
+// A frontend another frontend mounts cannot be deleted, and the refusal names
+// the mounting frontends, so it has to reach the user as sent.
+func TestDeleteFrontendSurfacesTheMountedRefusal(t *testing.T) {
+	const refusal = "Frontend routes on site mount this Frontend. Remove those routes before deleting it."
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeAPIJSON(t, w, http.StatusConflict, map[string]any{"error": refusal})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "token", WithHTTPClient(server.Client()))
+	require.NoError(t, err)
+
+	err = client.DeleteFrontend(context.Background(), uuid.New(), uuid.New())
+	require.Error(t, err)
+	assert.Equal(t, http.StatusConflict, Status(err))
+	assert.Equal(t, refusal, Message(err))
+}
+
+func mountRouteResponse(id, projectID, frontendID, targetID, pathPrefix string) map[string]any {
+	return map[string]any{
+		"id":                 id,
+		"project_id":         projectID,
+		"frontend_id":        frontendID,
+		"target_frontend_id": targetID,
+		"path_prefix":        pathPrefix,
+		"created_at":         "2026-10-23T12:00:00Z",
+		"updated_at":         "2026-10-23T12:00:00Z",
+	}
+}
+
 func TestCreateFrontendCustomDomainManagedSendsNoCertificate(t *testing.T) {
 	var createBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

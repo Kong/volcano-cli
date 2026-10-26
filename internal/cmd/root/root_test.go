@@ -103,8 +103,8 @@ func TestLocalFrontendsLeaveDomainsToTheCloud(t *testing.T) {
 	assert.NotContains(t, out, "domain")
 }
 
-// The local server serves function routes like the cloud does, so the local
-// tree manages them against it.
+// The local server serves function and Frontend routes like the cloud does, so
+// the local tree manages them against it.
 func TestLocalFrontendRoutesTargetTheLocalServer(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -120,7 +120,8 @@ func TestLocalFrontendRoutesTargetTheLocalServer(t *testing.T) {
 				"limit":    100,
 				"page":     1,
 			})
-		case "/projects/22222222-2222-4222-8222-222222222222/frontends/" + frontendID + "/function-routes":
+		case "/projects/22222222-2222-4222-8222-222222222222/frontends/" + frontendID + "/function-routes",
+			"/projects/22222222-2222-4222-8222-222222222222/frontends/" + frontendID + "/frontend-routes":
 			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{"data": []any{}})
 		case "/projects/22222222-2222-4222-8222-222222222222/functions":
 			writeRootCommandJSON(t, w, http.StatusOK, map[string]any{
@@ -142,7 +143,7 @@ func TestLocalFrontendRoutesTargetTheLocalServer(t *testing.T) {
 
 	out, err := executeRootCommandWithDeps(t, deps, "frontends", "routes", "list", "web")
 	require.NoError(t, err)
-	assert.Contains(t, out, `No function routes on frontend "web"`)
+	assert.Contains(t, out, `No routes on frontend "web"`)
 
 	out, err = executeRootCommand(t, "frontends", "routes", "create", "--help")
 	require.NoError(t, err)
@@ -483,6 +484,7 @@ func rootFrontendPayload(name string) map[string]any {
 		"deployed_regions": []string{"local"},
 		"framework":        "nextjs",
 		"function_routes":  []any{},
+		"frontend_routes":  []any{},
 		"id":               "33333333-3333-4333-8333-333333333333",
 		"name":             name,
 		"project_id":       "22222222-2222-4222-8222-222222222222",

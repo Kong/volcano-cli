@@ -7272,6 +7272,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Another Frontend's route mounts this Frontend. Remove those routes first; the error names the mounting Frontends.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -8240,6 +8246,208 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Failed to delete Function route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/frontend-routes:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+    get:
+      tags:
+        - Frontends
+      summary: List a Frontend's Frontend routes
+      operationId: listFrontendRoutes
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '200':
+          description: Frontend routes ordered from most to least specific
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRouteList'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to list Frontend routes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Mount another Frontend at a path
+      operationId: createFrontendRoute
+      description: |
+        Serves `path_prefix` and everything under it on this Frontend's hostnames from another
+        Frontend in the same Project. The path is forwarded unchanged, so the mounted Frontend must
+        serve its pages under the prefix (page directories or a matching `basePath`). Its root
+        `/_next/static` files and `/_next/image` requests are sent to it too. A Frontend may be
+        mounted at several prefixes. Function and Frontend routes share one path namespace and the
+        64-route limit; the most specific prefix wins. A mounted Frontend's own routes do not apply
+        to requests it receives through a route. The route applies to every hostname that resolves
+        to this Frontend, including generated, custom-domain, and local hostnames. While the mounted
+        Frontend has no active deployment, its paths answer 502, as its own hostname does.
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendRouteRequest'
+      responses:
+        '201':
+          description: Frontend route created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRoute'
+        '400':
+          description: Invalid path, or the Frontend would mount itself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 'Frontend or mounted Frontend not found in the Project, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Path is already routed, the Frontend has reached its 64-route limit, or this Frontend or the mounted Frontend is being deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create Frontend route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/frontend-routes/{routeId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/FrontendId'
+      - $ref: '#/components/parameters/FrontendRouteId'
+    put:
+      tags:
+        - Frontends
+      summary: Replace a Frontend route
+      description: Replaces the route's mounted Frontend and path. The new values must meet the same rules as on create.
+      operationId: updateFrontendRoute
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFrontendRouteRequest'
+      responses:
+        '200':
+          description: Frontend route replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendRoute'
+        '400':
+          description: Invalid path, or the Frontend would mount itself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 'Frontend route, Frontend, or mounted Frontend not found, or, with code `feature_unavailable`, Frontend routes are not available in this environment (see `GET /capabilities`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Path is already routed, or this Frontend or the mounted Frontend is being deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to replace Frontend route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Frontends
+      summary: Delete a Frontend route
+      operationId: deleteFrontendRoute
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      responses:
+        '204':
+          description: Frontend route deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Project not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend route not found on the Frontend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to delete Frontend route
           content:
             application/json:
               schema:
@@ -16560,6 +16768,14 @@ components:
         type: string
         format: uuid
       description: Frontend Function route ID
+    FrontendRouteId:
+      name: routeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Frontend route ID
     FrontendCustomDomainHostname:
       name: domain
       in: path
@@ -20476,6 +20692,15 @@ components:
             Paths on this frontend that forward to a public function, ordered
             from most to least specific. Anyone who can load the frontend can
             reach the target function at these paths without a credential.
+        frontend_routes:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/FrontendRoute'
+          description: |
+            Paths on this frontend served by another frontend in the project,
+            ordered from most to least specific. Function and Frontend routes
+            share one path namespace and the 64-route limit.
         last_deployed_at:
           type: string
           format: date-time
@@ -20497,6 +20722,7 @@ components:
         - status
         - deployed_regions
         - function_routes
+        - frontend_routes
         - created_at
         - updated_at
     FrontendFunctionRoute:
@@ -20564,6 +20790,73 @@ components:
           default: false
       required:
         - function_id
+        - path_prefix
+    FrontendRoute:
+      type: object
+      additionalProperties: false
+      description: |
+        A path prefix on this Frontend's hostnames served by another Frontend in the Project, the
+        mounted Frontend. Paths are forwarded unchanged, so the mounted Frontend serves its prefix
+        as real pages (page directories or a matching `basePath`).
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        frontend_id:
+          type: string
+          format: uuid
+          description: The Frontend whose hostnames serve the route
+        target_frontend_id:
+          type: string
+          format: uuid
+          description: The mounted Frontend
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - project_id
+        - frontend_id
+        - target_frontend_id
+        - path_prefix
+        - created_at
+        - updated_at
+    FrontendRouteList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrontendRoute'
+      required:
+        - data
+    CreateFrontendRouteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        target_frontend_id:
+          type: string
+          format: uuid
+          description: The Frontend to mount. It must be another Frontend in the Project.
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+      required:
+        - target_frontend_id
         - path_prefix
     CreateFrontendDeploymentRequest:
       type: object
@@ -24089,6 +24382,15 @@ components:
           description: Complete set of same-origin Function path mappings when declared. Omission preserves existing mappings; an empty list deletes all mappings.
           items:
             $ref: '#/components/schemas/ProjectConfigFrontendFunctionRoute'
+        frontend_routes:
+          type: array
+          maxItems: 64
+          description: |
+            Complete set of paths this frontend serves from another frontend in the project when
+            declared. Omission preserves existing routes; an empty list deletes all of them.
+            Function and Frontend routes share one path namespace and the 64-route limit.
+          items:
+            $ref: '#/components/schemas/ProjectConfigFrontendRoute'
       required:
         - name
     ProjectConfigFunction:
@@ -26014,6 +26316,22 @@ components:
           default: false
       required:
         - function
+        - path_prefix
+    ProjectConfigFrontendRoute:
+      type: object
+      additionalProperties: false
+      properties:
+        frontend:
+          type: string
+          minLength: 1
+          description: Name of another existing frontend in the project to mount. Paths are forwarded unchanged.
+        path_prefix:
+          type: string
+          minLength: 2
+          maxLength: 512
+          pattern: ^/[^?#\\]*[^/?#\\]$
+      required:
+        - frontend
         - path_prefix
     ProjectConfigSandbox:
       type: object
