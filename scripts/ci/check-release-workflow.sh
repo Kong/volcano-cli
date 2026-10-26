@@ -28,6 +28,8 @@ for required in \
   'any(.[]; .state == "fail")' \
   '(length > 0 and all(.[]; .state == "pass"))' \
   '.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"' \
+  "curl -fsS -o /dev/null --max-time 10 \"https://cla-assistant.io/check/\${GH_REPO}?pullRequest=\$1\"" \
+  "request_cla_check \"\$number\"" \
   "gh pr merge \"\$number\" --admin --squash --match-head-commit \"\$head_oid\""; do
   grep -Fq -- "$required" "$workflow" || {
     echo "release workflow is missing: $required" >&2
