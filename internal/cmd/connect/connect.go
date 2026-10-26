@@ -420,7 +420,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 			email = cliauth.GitEmail(ctx, opts.deps)
 		}
 		if email == "" {
-			return errors.New("--signup needs an email address: pass --email, or set git config --global user.email")
+			return errors.New("--signup needs an email address: pass --email, or set git config --global user.email to an address that is not a GitHub noreply one")
 		}
 		credentials, err = auth.Signup(ctx, cfg, email, opts.log)
 	} else {

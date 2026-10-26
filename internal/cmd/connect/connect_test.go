@@ -1585,3 +1585,31 @@ func TestConnectRefusesAnUnwritableHomeBeforeAnyCodeIsIssued(t *testing.T) {
 		})
 	}
 }
+
+// A GitHub noreply address can't receive the signup mail, so --signup doesn't
+// prefill it and asks for --email instead.
+func TestConnectSignupIgnoresAGitHubNoreplyGitEmail(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, key := range []string{"VOLCANO_TOKEN", "VOLCANO_PROJECT_ID", "VOLCANO_API_URL", "VOLCANO_WEB_URL"} {
+		t.Setenv(key, "")
+	}
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	cmd := New(cliruntime.Deps{
+		HTTPClient: server.Client(),
+		APIBaseURL: server.URL,
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("12345+ted@users.noreply.github.com\n"), nil
+		}),
+	})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{filepath.Join(t.TempDir(), "shop"), "--skip-skills", "--signup"})
+
+	err := cmd.Execute()
+	require.ErrorContains(t, err, "--signup needs an email address: pass --email")
+	require.ErrorContains(t, err, "GitHub noreply")
+	assert.False(t, fake.deviceAuthorize, "no signup is started")
+}

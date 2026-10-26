@@ -934,3 +934,29 @@ func writeAuthJSON(t *testing.T, w http.ResponseWriter, status int, value any) {
 	w.WriteHeader(status)
 	require.NoError(t, json.NewEncoder(w).Encode(value))
 }
+
+func TestGitEmailIgnoresGitHubNoreplyAddresses(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		err  error
+		want string
+	}{
+		{name: "regular address", out: "ted@example.com\n", want: "ted@example.com"},
+		{name: "unset", out: "", want: ""},
+		{name: "git fails", err: errors.New("exit status 1"), want: ""},
+		{name: "noreply with id", out: "12345+ted@users.noreply.github.com\n", want: ""},
+		{name: "noreply without id", out: "ted@users.noreply.github.com\n", want: ""},
+		{name: "noreply in other case", out: "12345+Ted@Users.NoReply.GitHub.com\n", want: ""},
+		{name: "address that only mentions github", out: "ted@github.com\n", want: "ted@github.com"},
+		{name: "lookalike domain", out: "ted@users.noreply.github.com.example.org\n", want: "ted@users.noreply.github.com.example.org"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deps := cliruntime.Deps{GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+				return []byte(tt.out), tt.err
+			})}
+			assert.Equal(t, tt.want, GitEmail(context.Background(), deps))
+		})
+	}
+}
