@@ -102,6 +102,16 @@ func TestRun_AutodetectInstallsDetected(t *testing.T) {
 			t.Errorf("%s: status = %q, want skipped", h, got)
 		}
 	}
+	// Each file-drop result says where its skills went.
+	for h, dir := range map[string]string{
+		"cursor":   filepath.Join(home, ".cursor", "skills"),
+		"pi":       filepath.Join(home, ".pi", "agent", "skills"),
+		"opencode": filepath.Join(home, ".config", "opencode", "skills"),
+	} {
+		if got := resultOf(report, h); got.Dir != dir || got.Plugin != "" {
+			t.Errorf("%s: dir=%q plugin=%q, want dir %q and no plugin", h, got.Dir, got.Plugin, dir)
+		}
+	}
 	// A dropped skill and (for opencode) AGENTS.md must exist on disk.
 	assertFile(t, filepath.Join(home, ".cursor", "skills", "volcano-platform", "SKILL.md"), "Volcano skill content")
 	assertFile(t, filepath.Join(home, ".pi", "agent", "skills", "install-volcano", "SKILL.md"), "Volcano skill content")
@@ -254,6 +264,9 @@ func TestRun_MarketplaceHarnessShellsOut(t *testing.T) {
 	if got := statusOf(report, "claude-code"); got != StatusInstalled {
 		t.Fatalf("claude-code status = %q, want installed", got)
 	}
+	if got := resultOf(report, "claude-code"); got.Plugin != pluginRef || got.Dir != "" {
+		t.Errorf("claude-code: plugin=%q dir=%q, want plugin %q and no dir", got.Plugin, got.Dir, pluginRef)
+	}
 	wantClaude := []string{
 		"claude plugin marketplace add " + marketplaceRepo,
 		"claude plugin marketplace update " + marketplaceName,
@@ -401,6 +414,9 @@ func TestRun_ManualFlagForcesManual(t *testing.T) {
 	}
 	if len(report.Results) != 1 || statusOf(report, "manual") != StatusInstalled {
 		t.Fatalf("expected single installed manual result, got %+v", report.Results)
+	}
+	if got, want := resultOf(report, "manual").Dir, filepath.Join(home, ".volcano", "skills"); got != want {
+		t.Errorf("manual dir = %q, want %q", got, want)
 	}
 	// An explicit --manual is a request, not a no-detection fallback.
 	if report.ManualFallback {
@@ -944,4 +960,13 @@ func TestRenderReportAligns(t *testing.T) {
 		t.Errorf("harness columns misaligned: [installed] row=%d, [failed] row=%d\n%s",
 			col(installedAt), col(failedAt), out)
 	}
+}
+
+func resultOf(r Report, harness string) Result {
+	for _, res := range r.Results {
+		if res.Harness == harness {
+			return res
+		}
+	}
+	return Result{}
 }

@@ -66,14 +66,30 @@ type options struct {
 
 // result is what connect did, printed as JSON under --json.
 type result struct {
-	Project      projectRef `json:"project"`
-	Created      bool       `json:"created"`
-	Directory    string     `json:"directory"`
-	LinkFile     string     `json:"link_file"`
-	EnvFile      string     `json:"env_file"`
-	AgentsFile   string     `json:"agents_file"`
-	Skills       []string   `json:"skills,omitempty"`
-	DashboardURL string     `json:"dashboard_url"`
+	Project    projectRef `json:"project"`
+	Created    bool       `json:"created"`
+	Directory  string     `json:"directory"`
+	LinkFile   string     `json:"link_file"`
+	EnvFile    string     `json:"env_file"`
+	AgentsFile string     `json:"agents_file"`
+	Skills     []string   `json:"skills,omitempty"`
+	// SkillLocations says where each harness has the skills, so an agent that
+	// started before they were installed can read them.
+	SkillLocations []skillLocation `json:"skill_locations,omitempty"`
+	// SkillsNote is the line to follow when the skills are not loaded in the
+	// running session.
+	SkillsNote   string `json:"skills_note,omitempty"`
+	DashboardURL string `json:"dashboard_url"`
+}
+
+// skillLocation is where one harness has the Volcano skills: a directory of
+// <name>/SKILL.md folders for a file-drop harness, or a plugin that needs an
+// agent restart to load.
+type skillLocation struct {
+	Harness         string `json:"harness"`
+	Path            string `json:"path,omitempty"`
+	Plugin          string `json:"plugin,omitempty"`
+	RestartRequired bool   `json:"restart_required,omitempty"`
 }
 
 type projectRef struct {
@@ -320,7 +336,7 @@ func run(ctx context.Context, opts options) error {
 	}
 	output.Success(opts.log, "Updated the Volcano section in %s", agentsFileName)
 
-	skills := installSkills(ctx, opts)
+	skills, locations := installSkills(ctx, opts)
 
 	res := result{
 		Project:      projectRef{ID: project.Id.String(), Name: project.Name},
@@ -331,6 +347,9 @@ func run(ctx context.Context, opts options) error {
 		AgentsFile:   agentsPath,
 		Skills:       skills,
 		DashboardURL: dashboardURL,
+
+		SkillLocations: locations,
+		SkillsNote:     skillsNote(locations),
 	}
 	if opts.jsonOutput {
 		return output.JSON(opts.out, res)
@@ -340,6 +359,14 @@ func run(ctx context.Context, opts options) error {
 	fmt.Fprintf(opts.out, "Project:   %s\n", project.Name)
 	fmt.Fprintf(opts.out, "Directory: %s\n", shown)
 	fmt.Fprintf(opts.out, "Dashboard: %s\n", dashboardURL)
+	if len(locations) > 0 {
+		fmt.Fprintln(opts.out)
+		fmt.Fprintln(opts.out, "Skills:")
+		for _, l := range locations {
+			fmt.Fprintf(opts.out, "  %s: %s\n", l.Harness, l.describe())
+		}
+		fmt.Fprintln(opts.out, res.SkillsNote)
+	}
 	fmt.Fprintln(opts.out)
 	if shown == "." {
 		fmt.Fprintln(opts.out, "Next: read AGENTS.md and use the Volcano skills to build.")
@@ -1018,24 +1045,62 @@ func knownTarget(opts options, wd string) string {
 // this machine, as `volcano setup --yes` does, and returns the agents it
 // installed for. A failed install is a warning: connect has already done its
 // job.
-func installSkills(ctx context.Context, opts options) []string {
+func installSkills(ctx context.Context, opts options) ([]string, []skillLocation) {
 	if opts.skipSkills {
-		return nil
+		return nil, nil
 	}
 	report, err := setup.Run(ctx, setup.Options{HTTPDoer: opts.deps.HTTPClient})
 	if err != nil {
 		output.Warning(opts.log, "Could not install the Volcano skills: %v. Run `volcano setup` to retry.", err)
-		return nil
+		return nil, nil
 	}
 	setup.RenderReport(opts.log, report)
+	return installedFrom(report)
+}
+
+// installedFrom is the harnesses a setup report installed for, and where each
+// has the skills.
+func installedFrom(report setup.Report) ([]string, []skillLocation) {
 	var installed []string
+	var locations []skillLocation
 	for _, r := range report.Results {
 		switch r.Status {
 		case setup.StatusInstalled, setup.StatusUpdated, setup.StatusUpToDate:
 			installed = append(installed, r.Harness)
+			if r.Dir != "" || r.Plugin != "" {
+				locations = append(locations, skillLocation{Harness: r.Harness, Path: r.Dir, Plugin: r.Plugin, RestartRequired: r.Plugin != ""})
+			}
 		}
 	}
-	return installed
+	return installed, locations
+}
+
+// describe is the location as one line of the closing output.
+func (l skillLocation) describe() string {
+	if l.Path != "" {
+		return l.Path
+	}
+	return "plugin " + l.Plugin + ", loaded after your agent restarts"
+}
+
+// skillsNote is the one line telling an agent what to do when the skills it
+// just had installed are not loaded in its running session, which started
+// before they existed.
+func skillsNote(locations []skillLocation) string {
+	hasPath, hasPlugin := false, false
+	for _, l := range locations {
+		hasPath = hasPath || l.Path != ""
+		hasPlugin = hasPlugin || l.Plugin != ""
+	}
+	switch {
+	case hasPath && hasPlugin:
+		return "If the Volcano skills are not loaded in your running session, read the SKILL.md files under the paths above, or restart your agent for the plugin."
+	case hasPath:
+		return "If the Volcano skills are not loaded in your running session, read the SKILL.md files under the paths above."
+	case hasPlugin:
+		return "If the Volcano skills are not loaded in your running session, restart your agent, or run `volcano setup --manual` and read the SKILL.md files under ~/.volcano/skills."
+	}
+	return ""
 }
 
 // displayDir is dir as the user would type it from wd: "." for wd itself,

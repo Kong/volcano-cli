@@ -23,6 +23,7 @@ import (
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/setup"
 )
 
 const (
@@ -1612,4 +1613,62 @@ func TestConnectSignupIgnoresAGitHubNoreplyGitEmail(t *testing.T) {
 	require.ErrorContains(t, err, "--signup needs an email address: pass --email")
 	require.ErrorContains(t, err, "GitHub noreply")
 	assert.False(t, fake.deviceAuthorize, "no signup is started")
+}
+
+func TestInstalledFromReportsWhereTheSkillsLive(t *testing.T) {
+	report := setup.Report{Results: []setup.Result{
+		{Harness: "claude-code", Status: setup.StatusInstalled, Plugin: "volcano@volcano-agentic-plugins"},
+		{Harness: "cursor", Status: setup.StatusUpdated, Dir: "/home/me/.cursor/skills"},
+		{Harness: "pi", Status: setup.StatusSkipped, Detail: "not detected"},
+		{Harness: "opencode", Status: setup.StatusFailed, Dir: "/home/me/.config/opencode/skills"},
+	}}
+
+	installed, locations := installedFrom(report)
+
+	assert.Equal(t, []string{"claude-code", "cursor"}, installed)
+	assert.Equal(t, []skillLocation{
+		{Harness: "claude-code", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true},
+		{Harness: "cursor", Path: "/home/me/.cursor/skills"},
+	}, locations)
+}
+
+func TestSkillsNoteAndDescribe(t *testing.T) {
+	files := skillLocation{Harness: "cursor", Path: "/home/me/.cursor/skills"}
+	plugin := skillLocation{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true}
+	tests := []struct {
+		name      string
+		locations []skillLocation
+		want      []string
+	}{
+		{name: "none", locations: nil, want: nil},
+		{name: "files", locations: []skillLocation{files}, want: []string{"not loaded in your running session", "SKILL.md files under the paths above"}},
+		{name: "plugin", locations: []skillLocation{plugin}, want: []string{"not loaded in your running session", "restart your agent"}},
+		{name: "both", locations: []skillLocation{files, plugin}, want: []string{"SKILL.md files under the paths above", "restart your agent"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			note := skillsNote(tt.locations)
+			if tt.want == nil {
+				assert.Empty(t, note)
+			}
+			for _, want := range tt.want {
+				assert.Contains(t, note, want)
+			}
+		})
+	}
+	assert.Equal(t, "/home/me/.cursor/skills", files.describe())
+	assert.Equal(t, "plugin volcano@volcano-agentic-plugins, loaded after your agent restarts", plugin.describe())
+}
+
+// Without skills installed, the JSON result has no skill location fields.
+func TestConnectJSONOmitsSkillLocationsWhenSkillsAreSkipped(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	out, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"), "--json")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "skill_locations")
+	assert.NotContains(t, out, "skills_note")
 }

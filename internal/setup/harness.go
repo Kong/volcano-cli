@@ -76,6 +76,8 @@ type installResult struct {
 	detail  string
 	n       int
 	changed int
+	// dir is the skills directory of a file-drop install.
+	dir string
 }
 
 // order matters: marketplace harnesses first, then skills-drop harnesses. This
@@ -344,7 +346,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 		if err != nil {
 			return installResult{}, err
 		}
-		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed}, nil
+		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed, dir: dir}, nil
 	}
 }
 
