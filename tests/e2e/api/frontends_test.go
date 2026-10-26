@@ -337,11 +337,15 @@ func requireAPIE2EFrontendDomains(t *testing.T, env *apiE2E, frontend string) {
 	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex).
 		requireFailure(t, "HTTP 403", "managed TLS certificate limit exceeded for your plan (1)")
 
+	// Polled rather than asserted once: a plan change reaches the API through a
+	// cache invalidation, so the flip is quick but not synchronous with the
+	// write.
 	env.setUserPlan(t, "SUPERAGENT")
-	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex, "--redirect-to", www).
+	added := fmt.Sprintf("Custom domain '%s' added to frontend '%s'", apex, frontend)
+	env.waitForCloudCLIContains(t, 5*time.Minute, added, "frontends", "domains", "add", frontend, apex).
+		requireSuccess(t, added)
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, "shop."+apex, "--redirect-to", www).
 		requireFailure(t, "HTTP 400", "redirect.to must name an active domain")
-	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex).
-		requireSuccess(t, fmt.Sprintf("Custom domain '%s' added to frontend '%s'", apex, frontend))
 	env.runCloudCLI(t, "frontends", "domains", "list", frontend).
 		requireSuccess(t, www, apex, "Total: 2 custom domain(s)")
 	env.runCloudCLI(t, "frontends", "domains", "update", frontend, apex, "--redirect-to", www).
