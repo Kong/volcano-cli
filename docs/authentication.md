@@ -19,7 +19,8 @@ volcano signup
 ```
 
 `volcano signup` prefills your email from `git config --global user.email`
-when available (press Enter to accept, or type a different address), then
+when available, except a GitHub noreply address, which can't receive mail
+(press Enter to accept, or type a different address), then
 opens Volcano's web signup flow in your browser. Once you finish in the
 browser, the CLI completes the device-authorization handshake and saves your
 credentials to `~/.volcano/config.json`, so a single command signs you up
