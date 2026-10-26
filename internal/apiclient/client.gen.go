@@ -10626,6 +10626,12 @@ type SetProjectGitProductionBranchRequest struct {
 	ProductionBranch string `json:"production_branch"`
 }
 
+// SetProjectGitRootDirectoryRequest defines model for SetProjectGitRootDirectoryRequest.
+type SetProjectGitRootDirectoryRequest struct {
+	// RootDirectory Monorepo subdirectory the project builds from, relative to the repository root. An empty string means the repository root.
+	RootDirectory string `json:"root_directory"`
+}
+
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
 type StorageBucket struct {
@@ -13553,6 +13559,9 @@ type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
 // SetProjectGitProductionBranchJSONRequestBody defines body for SetProjectGitProductionBranch for application/json ContentType.
 type SetProjectGitProductionBranchJSONRequestBody = SetProjectGitProductionBranchRequest
 
+// SetProjectGitRootDirectoryJSONRequestBody defines body for SetProjectGitRootDirectory for application/json ContentType.
+type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryRequest
+
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
 
@@ -15876,6 +15885,11 @@ type ClientInterface interface {
 	SetProjectGitProductionBranchWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectGitRootDirectoryWithBody request with any body
+	SetProjectGitRootDirectoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectGitRootDirectory(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectGitDeploySettings request
 	GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -19893,6 +19907,30 @@ func (c *Client) SetProjectGitProductionBranchWithBody(ctx context.Context, id P
 
 func (c *Client) SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetProjectGitProductionBranchRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitRootDirectoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitRootDirectoryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitRootDirectory(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitRootDirectoryRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -33508,6 +33546,53 @@ func NewSetProjectGitProductionBranchRequestWithBody(server string, id ProjectId
 	return req, nil
 }
 
+// NewSetProjectGitRootDirectoryRequest calls the generic SetProjectGitRootDirectory builder with application/json body
+func NewSetProjectGitRootDirectoryRequest(server string, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectGitRootDirectoryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectGitRootDirectoryRequestWithBody generates requests for SetProjectGitRootDirectory with any type of body
+func NewSetProjectGitRootDirectoryRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/root-directory", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectGitDeploySettingsRequest generates requests for GetProjectGitDeploySettings
 func NewGetProjectGitDeploySettingsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -39679,6 +39764,11 @@ type ClientWithResponsesInterface interface {
 	SetProjectGitProductionBranchWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
 
 	SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
+
+	// SetProjectGitRootDirectoryWithBodyWithResponse request with any body
+	SetProjectGitRootDirectoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error)
+
+	SetProjectGitRootDirectoryWithResponse(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error)
 
 	// GetProjectGitDeploySettingsWithResponse request
 	GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error)
@@ -47537,6 +47627,42 @@ func (r SetProjectGitProductionBranchClientResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectGitRootDirectoryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectGitRootDirectoryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectGitRootDirectoryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectGitRootDirectoryClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectGitDeploySettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -53500,6 +53626,23 @@ func (c *ClientWithResponses) SetProjectGitProductionBranchWithResponse(ctx cont
 		return nil, err
 	}
 	return ParseSetProjectGitProductionBranchClientResponse(rsp)
+}
+
+// SetProjectGitRootDirectoryWithBodyWithResponse request with arbitrary body returning *SetProjectGitRootDirectoryClientResponse
+func (c *ClientWithResponses) SetProjectGitRootDirectoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error) {
+	rsp, err := c.SetProjectGitRootDirectoryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitRootDirectoryClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectGitRootDirectoryWithResponse(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error) {
+	rsp, err := c.SetProjectGitRootDirectory(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitRootDirectoryClientResponse(rsp)
 }
 
 // GetProjectGitDeploySettingsWithResponse request returning *GetProjectGitDeploySettingsClientResponse
@@ -65007,6 +65150,74 @@ func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetP
 	}
 
 	response := &SetProjectGitProductionBranchClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetProjectGitRootDirectoryClientResponse parses an HTTP response from a SetProjectGitRootDirectoryWithResponse call
+func ParseSetProjectGitRootDirectoryClientResponse(rsp *http.Response) (*SetProjectGitRootDirectoryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectGitRootDirectoryClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

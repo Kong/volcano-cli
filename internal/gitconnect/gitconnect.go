@@ -323,6 +323,57 @@ func (s Service) Connect(
 	return connection, nil
 }
 
+// SetRootDirectory changes only the directory the project builds from, leaving
+// the repository bound alone. It is the one change to a binding a project
+// access token may make, so CI and agents can move a project within the
+// repository a person chose.
+//
+// When expected is not nil, the binding must still be the one it describes, as
+// for Connect: a command that read the binding before resolving the repository
+// must not overwrite a root directory someone changed in the meantime. A nil
+// expected skips that read, for a caller that read nothing first.
+func (s Service) SetRootDirectory(
+	ctx context.Context, rootDirectory string, expected *apiclient.ProjectGitConnection,
+) (*apiclient.ProjectGitConnection, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	if expected != nil {
+		if err := s.confirmUnchanged(ctx, expected); err != nil {
+			return nil, err
+		}
+	}
+
+	connection, err := authenticated.API.SetProjectGitRootDirectory(ctx, authenticated.ProjectID, rootDirectory)
+	if err != nil {
+		// The route answers 404 both for a project with no repository and for
+		// a project that does not exist, like the binding read.
+		if api.Status(err) == http.StatusNotFound {
+			return nil, s.explainNotFound(ctx)
+		}
+		return nil, classify(err, "failed to set the root directory")
+	}
+	return connection, nil
+}
+
+// CanConnect reports ErrProviderNotConfigured when this API has no GitHub App,
+// so no repository can be connected through it at all. That is the case in
+// local mode, and it is a better answer than "connect one" for a project with
+// nothing connected. It answers nil whenever it cannot tell, including for a
+// project access token, which may not read the account's GitHub connections.
+func (s Service) CanConnect(ctx context.Context) error {
+	authenticated, err := s.current()
+	if err != nil || authenticated.Config.RequireAccountToken() != nil {
+		return nil //nolint:nilerr // unknown is not a refusal
+	}
+	if _, err := authenticated.API.ListGitConnections(ctx); api.Status(err) == http.StatusServiceUnavailable {
+		return ErrProviderNotConfigured
+	}
+	return nil
+}
+
 // Disconnect removes the project's repository binding, provided it is still the
 // one in expected. The repository itself is untouched.
 //
