@@ -233,7 +233,7 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 			if !strings.HasSuffix(message, ".") {
 				message += "."
 			}
-			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'.", message, s.enableCommand), err) //nolint:staticcheck // two sentences, the second ending the message
+			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'", message, s.enableCommand), err)
 		}
 		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
 	}

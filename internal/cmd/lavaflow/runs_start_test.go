@@ -80,7 +80,7 @@ func TestRunsStartReportsARunLimitAndWhenToRetry(t *testing.T) {
 // The server's message already says which repository changed, so it is shown
 // as given, then the command that resumes LavaFlow as a sentence of its own.
 func TestRunsStartShowsWhyTheRepositoryChangeStopsIt(t *testing.T) {
-	const resume = " Resume it with 'volcano cloud lavaflow enable'."
+	const resume = " Resume it with 'volcano cloud lavaflow enable'"
 	for message, want := range map[string]string{
 		"The project's repository changed from acme/old since LavaFlow was turned on. " +
 			"Turn LavaFlow on again to use the new repository.": "The project's repository changed from acme/old since " +
