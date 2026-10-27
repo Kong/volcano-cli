@@ -112,14 +112,14 @@ func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
 	}
 	switch {
 	case settings.MaxStage == apiclient.LavaFlowStageDiagnose:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens no pull request (max_stage: diagnose in the project configuration).", issue)
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens no pull request (max_stage: diagnose in the project configuration).", issue)
 	case details.RepositoryUnknown:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in your connected repository.", issue)
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in your connected repository.", issue)
 	case details.Repository == "":
 		return fmt.Sprintf("LavaFlow diagnoses %s. It only diagnoses until a repository is connected: %s",
 			issue, theme.Command(details.GitConnectCommand, on))
 	default:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
 	}
 }
 
