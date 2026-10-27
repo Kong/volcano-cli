@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/Kong/volcano-cli/compare/v0.51.0...v0.52.0) (2026-10-27)
+
+
+### Features
+
+* **lavaflow:** manage LavaFlow from the CLI ([#338](https://github.com/Kong/volcano-cli/issues/338)) ([e1fcc70](https://github.com/Kong/volcano-cli/commit/e1fcc705d45d24c0e70fb3236189a79ddeb11153))
+
 ## [0.51.0](https://github.com/Kong/volcano-cli/compare/v0.50.0...v0.51.0) (2026-10-26)
 
 
