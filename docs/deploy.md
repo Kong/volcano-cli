@@ -205,21 +205,29 @@ repository isn't on github.com, the uploaded directory is outside the
 repository, or any part is missing. Local deploys never send it.
 
 The upload matches the commit when each file in it is in the commit at the
-same path with the same content and executable bit, and no file the commit
-holds in the uploaded directory is missing. Line endings count as the same
-where git converts them, as `core.autocrlf` and the `text`, `eol`, and `crlf`
-attributes decide, and a file whose `filter=lfs` attribute has Git LFS store
-it matches its pointer. The CLI runs no other git filter, so a file another
-filter changes counts as changed. The upload never holds a symlink, so a
-commit with one in the uploaded directory doesn't match. Anything else counts as
-changed: an edited, moved, or deleted file, or a file the commit doesn't have
-that the upload includes, such as an untracked file. So does a committed file
-the upload lacks, such as one replaced by a symlink or a directory, or the env
-file that `volcano deploy` deploys as variables instead of uploading. The upload skips what the
-`.gitignore` at the root of the uploaded directory lists, not what a
-`.gitignore` in a subdirectory or outside it lists, so a file only those
-ignore is uploaded and counts as changed. Windows has no executable bit, so a
-frontend deployed from Windows doesn't match a commit that holds an
+same path with the same content and executable bit, and it holds every file
+the commit has in the uploaded directory. Files every upload leaves out, such
+as `node_modules`, `dist`, `build`, `.vscode`, `.gitignore`, and `*.log`, don't
+count. Line endings count as the same where git converts them, as
+`core.autocrlf` and the `text`, `eol`, and `crlf` attributes decide, and a file
+whose `filter=lfs` attribute has Git LFS store it matches its pointer. The CLI
+runs no other git filter, so a file another filter changes counts as changed.
+
+Anything else counts as changed:
+
+- An edited, moved, or deleted file.
+- A file the commit doesn't have that the upload includes, such as an untracked
+  file.
+- A committed file the upload lacks, such as one replaced by a symlink or a
+  directory, one in a directory a symlink replaced, one the root `.gitignore`
+  lists, or the env file that `volcano deploy` deploys as variables instead of
+  uploading. The upload never holds a symlink, so a committed symlink counts
+  too.
+
+The upload skips what the `.gitignore` at the root of the uploaded directory
+lists, not what a `.gitignore` in a subdirectory or outside it lists, so a file
+only those ignore is uploaded and counts as changed. Windows has no executable
+bit, so a frontend deployed from Windows doesn't match a commit that holds an
 executable file.
 
 Volcano verifies the commit against the project's connected repository: a

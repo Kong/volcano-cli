@@ -93,7 +93,29 @@ func TestPackageDirectoryLeavesOutExcludedFiles(t *testing.T) {
 	assert.NotContains(t, entries, "cloud.env")
 	assert.Contains(t, entries, "web/cloud.env")
 	assert.Contains(t, entries, "package.json")
-	assert.Equal(t, []string{filepath.Join(root, "cloud.env")}, pkg.Excluded)
+}
+
+// The built-in rules, not the root .gitignore, decide what every upload
+// leaves out.
+func TestPackageLeftOutByRule(t *testing.T) {
+	root := t.TempDir()
+	writePackageJSON(t, root, map[string]any{"name": "web"})
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".gitignore"), []byte("secret.txt\n"), 0o644))
+
+	pkg, err := PackageDirectory(root, PackageOptions{})
+	require.NoError(t, err)
+	for rel, want := range map[string]bool{
+		".gitignore":                     true,
+		"node_modules/left-pad/index.js": true,
+		"apps/web/dist/main.js":          true,
+		"logs/app.log":                   true,
+		"volcano/volcano.env":            true,
+		"secret.txt":                     false,
+		".env.production":                false,
+		"src/page.tsx":                   false,
+	} {
+		assert.Equal(t, want, pkg.LeftOutByRule(rel), rel)
+	}
 }
 
 func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {

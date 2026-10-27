@@ -131,21 +131,23 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 }
 
 // Commit reports the commit for an upload of the directory root, whose
-// archive holds files at their paths under it and leaves out the files in
-// excluded. The upload is clean only when each file is in the commit at its
-// own path, with the content the commit gives it and, where the archive keeps
-// one, the same executable bit, and no file the commit holds under root is
-// missing. Anything else marks it dirty: an untracked or ignored file, an edit
-// git's own status would not show, a deleted or excluded file, or a symlink or
-// directory where the commit has a file, which the archive never holds. It
-// returns nil when s is nil, root is outside the repository, or git cannot be
-// asked.
+// archive holds files at their paths under it. leftOut reports whether a
+// slash-separated path under root is one the deploy client leaves out of
+// every upload, such as node_modules; nil names none. The upload is clean only
+// when each file is in the commit at its own path, with the content the commit
+// gives it and, where the archive keeps one, the same executable bit, and it
+// holds every file the commit has under root that leftOut does not name.
+// Anything else marks it dirty: an untracked or ignored file, an edit git's
+// own status would not show, or a committed file the upload lacks, such as a
+// deleted or excluded file, one under a symlinked directory, or a symlink,
+// which the archive never holds. It returns nil when s is nil, root is outside
+// the repository, or git cannot be asked.
 //
 // Content is compared without running git: a clean or smudge filter is a
 // program the repository's configuration names. Line endings git converts,
 // and Git LFS pointers where the filter attribute names Git LFS, are compared
 // here instead; content another filter changes reads as changed.
-func (s *Source) Commit(ctx context.Context, root string, files []File, excluded []string) *api.DeployCommit {
+func (s *Source) Commit(ctx context.Context, root string, files []File, leftOut func(string) bool) *api.DeployCommit {
 	if s == nil {
 		return nil
 	}
@@ -153,7 +155,7 @@ func (s *Source) Commit(ctx context.Context, root string, files []File, excluded
 	if !ok {
 		return nil
 	}
-	dirty, err := s.differs(ctx, dir, files, excluded)
+	dirty, err := s.differs(ctx, dir, files, leftOut)
 	if err != nil {
 		return nil
 	}
@@ -163,16 +165,18 @@ func (s *Source) Commit(ctx context.Context, root string, files []File, excluded
 	return &api.DeployCommit{Repository: s.repository, SHA: s.sha, Dirty: dirty, Root: dir}
 }
 
-func (s *Source) differs(ctx context.Context, dir string, files []File, excluded []string) (bool, error) {
+func (s *Source) differs(ctx context.Context, dir string, files []File, leftOut func(string) bool) (bool, error) {
 	// matches are files whose content matches the commit only if git
 	// converts their line endings or Git LFS stores them, which their
 	// attributes say.
 	var matches []match
+	uploaded := make(map[string]bool, len(files))
 	for _, file := range files {
 		path, ok := s.repoPath(file.Path)
 		if !ok || !within(dir, path) {
 			return true, nil
 		}
+		uploaded[path] = true
 		entry, ok := s.tree[path]
 		if !ok || entry.mode == modeSymlink {
 			return true, nil
@@ -197,7 +201,7 @@ func (s *Source) differs(ctx context.Context, dir string, files []File, excluded
 	if !ok {
 		return true, nil
 	}
-	return s.missing(dir, excluded), nil
+	return s.lacks(dir, uploaded, leftOut), nil
 }
 
 // match is a file whose content matches the commit with its line endings
@@ -209,29 +213,28 @@ type match struct {
 	lfs    bool
 }
 
-// missing reports whether the upload lacks a file the commit holds under dir:
-// the commit's file is a symlink, or the working tree has no regular file at
-// its path, or the file is excluded. The archive holds regular files only.
-func (s *Source) missing(dir string, excluded []string) bool {
-	left := make(map[string]bool, len(excluded))
-	for _, file := range excluded {
-		if path, ok := s.repoPath(file); ok {
-			left[path] = true
-		}
-	}
-	for path, entry := range s.tree {
-		if !within(dir, path) {
+// lacks reports whether the upload lacks a file the commit holds under dir
+// that leftOut does not name. Volcano checks an upload against its commit the
+// same way.
+func (s *Source) lacks(dir string, uploaded map[string]bool, leftOut func(string) bool) bool {
+	for path := range s.tree {
+		if !within(dir, path) || uploaded[path] {
 			continue
 		}
-		if entry.mode == modeSymlink || left[path] {
-			return true
+		if leftOut != nil && leftOut(underDir(dir, path)) {
+			continue
 		}
-		info, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path)))
-		if err != nil || !info.Mode().IsRegular() {
-			return true
-		}
+		return true
 	}
 	return false
+}
+
+// underDir is the repository path, which is under dir, relative to dir.
+func underDir(dir, path string) string {
+	if dir == "." {
+		return path
+	}
+	return strings.TrimPrefix(path, dir+"/")
 }
 
 // within reports whether the repository path is at or under dir, "." being

@@ -18,6 +18,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/deploycommit/deploycommittest"
+	"github.com/Kong/volcano-cli/internal/ignore"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
@@ -43,6 +44,22 @@ func writeFile(t *testing.T, root, path, content string) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, path), []byte(content), 0o644))
 }
 
+// upload records the frontend's two files and paths as read does: what an
+// upload of the whole repository holds when nothing else is missing.
+func upload(t *testing.T, root string, paths ...string) []File {
+	t.Helper()
+	return read(t, root, append([]string{helloPath, utilPath}, paths...)...)
+}
+
+// builtIn names what every upload leaves out, .gitignore among it, as the
+// packager's built-in rules do.
+func builtIn(t *testing.T) func(string) bool {
+	t.Helper()
+	matcher, err := ignore.NewProjectMatcher(t.TempDir())
+	require.NoError(t, err)
+	return matcher.MatchesPattern
+}
+
 // read records files under root as a packager does, from their bytes now,
 // in an archive that keeps no executable bit.
 func read(t *testing.T, root string, paths ...string) []File {
@@ -62,7 +79,7 @@ func commitOf(t *testing.T, root string, files []File) *api.DeployCommit {
 	t.Helper()
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
 	require.NotNil(t, source)
-	got := source.Commit(context.Background(), root, files, nil)
+	got := source.Commit(context.Background(), root, files, builtIn(t))
 	require.NotNil(t, got)
 	return got
 }
@@ -78,7 +95,7 @@ func TestCommitIsCleanForAnUnchangedCheckout(t *testing.T) {
 	assert.Equal(t, &api.DeployCommit{Repository: "acme/app", SHA: head, Root: "web"},
 		source.Commit(context.Background(), filepath.Join(root, "web"), files, nil))
 	assert.Equal(t, &api.DeployCommit{Repository: "acme/app", SHA: head, Root: ""},
-		source.Commit(context.Background(), root, files, nil))
+		source.Commit(context.Background(), root, files, builtIn(t)))
 }
 
 func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
@@ -86,36 +103,50 @@ func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
 		"an edited file": func(t *testing.T, root string) []File {
 			t.Helper()
 			writeFile(t, root, helloPath, "exports.handler = 2\n")
-			return read(t, root, helloPath)
+			return upload(t, root)
 		},
 		// git status lists neither of the next two, but both change what deploys.
 		"an ignored file": func(t *testing.T, root string) []File {
 			t.Helper()
 			writeFile(t, root, ".env.production", "API_URL=https://example.com\n")
-			return read(t, root, helloPath, ".env.production")
+			return upload(t, root, ".env.production")
 		},
 		"an assume-unchanged edit": func(t *testing.T, root string) []File {
 			t.Helper()
 			deploycommittest.Git(t, root, "update-index", "--assume-unchanged", helloPath)
 			writeFile(t, root, helloPath, "exports.handler = 2\n")
 			require.Empty(t, deploycommittest.Git(t, root, "status", "--porcelain"))
-			return read(t, root, helloPath)
+			return upload(t, root)
 		},
 		"an untracked file": func(t *testing.T, root string) []File {
 			t.Helper()
 			writeFile(t, root, "web/app/new.js", "exports.handler = 3\n")
-			return read(t, root, helloPath, "web/app/new.js")
+			return upload(t, root, "web/app/new.js")
 		},
 		// Each file's content is somewhere in the commit, but not at its path.
 		"content moved between files": func(t *testing.T, root string) []File {
 			t.Helper()
 			writeFile(t, root, helloPath, "exports.util = 1\n")
-			return read(t, root, helloPath, utilPath)
+			return upload(t, root)
 		},
 		"a deleted file": func(t *testing.T, root string) []File {
 			t.Helper()
 			require.NoError(t, os.Remove(filepath.Join(root, utilPath)))
 			return read(t, root, helloPath)
+		},
+		// A file the deploy leaves out, such as the env file volcano deploy
+		// deploys as variables, is one the upload lacks.
+		"a committed file the upload leaves out": func(t *testing.T, root string) []File {
+			t.Helper()
+			return read(t, root, helloPath)
+		},
+		// The packager skips what the root .gitignore lists, committed or not.
+		"a committed file the root .gitignore lists": func(t *testing.T, root string) []File {
+			t.Helper()
+			writeFile(t, root, ".env.production", "API_URL=https://example.com\n")
+			deploycommittest.Git(t, root, "add", "--force", ".env.production")
+			deploycommittest.Git(t, root, "commit", "--quiet", "-m", "env")
+			return upload(t, root)
 		},
 		// The archive holds regular files only, so it lacks the commit's file.
 		"a file replaced by a symlink": func(t *testing.T, root string) []File {
@@ -133,12 +164,25 @@ func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
 			require.NoError(t, os.Mkdir(filepath.Join(root, utilPath), 0o755))
 			return read(t, root, helloPath)
 		},
+		// The packager follows no symlink, so it uploads nothing under one,
+		// even where the files it points to are the commit's.
+		"a directory replaced by a symlink": func(t *testing.T, root string) []File {
+			t.Helper()
+			if runtime.GOOS == "windows" {
+				t.Skip("making a symlink on Windows needs a privilege")
+			}
+			elsewhere := t.TempDir()
+			writeFile(t, elsewhere, "util.js", "exports.util = 1\n")
+			require.NoError(t, os.RemoveAll(filepath.Join(root, "web", "lib")))
+			require.NoError(t, os.Symlink(elsewhere, filepath.Join(root, "web", "lib")))
+			return read(t, root, helloPath)
+		},
 		"an executable bit the archive keeps": func(t *testing.T, root string) []File {
 			t.Helper()
 			if runtime.GOOS == "windows" {
 				t.Skip("Windows has no executable bit")
 			}
-			files := read(t, root, helloPath)
+			files := upload(t, root)
 			executable := true
 			files[0].Executable = &executable
 			return files
@@ -152,17 +196,17 @@ func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
 	}
 }
 
-// A file the deploy leaves out, such as an env file it reads instead, is one
-// the upload lacks when the commit holds it.
-func TestCommitIsDirtyWhenTheDeployLeavesOutACommittedFile(t *testing.T) {
+// A committed file every upload leaves out, such as an editor's settings,
+// does not count as missing.
+func TestCommitIsCleanWithoutWhatEveryUploadLeavesOut(t *testing.T) {
 	root, _ := newRepository(t)
-	writeFile(t, root, "web/app/cloud.env", "GREETING=hello\n")
-	source := Detect(context.Background(), cliruntime.Deps{}, root)
-	files := read(t, root, helloPath, utilPath)
+	writeFile(t, root, ".vscode/settings.json", "{}\n")
+	deploycommittest.Git(t, root, "add", ".")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "settings")
 
-	assert.False(t, source.Commit(context.Background(), root, files, []string{filepath.Join(root, "web", "app", "cloud.env")}).Dirty,
-		"the commit does not hold the left-out file")
-	assert.True(t, source.Commit(context.Background(), root, read(t, root, helloPath), []string{filepath.Join(root, utilPath)}).Dirty)
+	assert.False(t, commitOf(t, root, upload(t, root)).Dirty)
+	source := Detect(context.Background(), cliruntime.Deps{}, root)
+	assert.True(t, source.Commit(context.Background(), root, upload(t, root), nil).Dirty, "nothing is left out")
 }
 
 // Only the uploaded directory counts: a change elsewhere in the repository
@@ -199,9 +243,9 @@ func TestCommitComparesTheExecutableBitOnlyWhereBothKeepIt(t *testing.T) {
 	}
 	root, _ := newRepository(t)
 	require.NoError(t, os.Chmod(filepath.Join(root, helloPath), 0o755))
-	assert.False(t, commitOf(t, root, read(t, root, helloPath)).Dirty, "the archive keeps no bit")
+	assert.False(t, commitOf(t, root, upload(t, root)).Dirty, "the archive keeps no bit")
 
-	files := read(t, root, helloPath)
+	files := upload(t, root)
 	executable := true
 	files[0].Executable = &executable
 	deploycommittest.Git(t, root, "config", "core.fileMode", "false")
@@ -211,9 +255,9 @@ func TestCommitComparesTheExecutableBitOnlyWhereBothKeepIt(t *testing.T) {
 // The comparison uses the bytes packaging read, not the file as it is later.
 func TestCommitComparesTheBytesPackagingRead(t *testing.T) {
 	root, _ := newRepository(t)
-	clean := read(t, root, helloPath)
+	clean := upload(t, root)
 	writeFile(t, root, helloPath, "exports.handler = 2\n")
-	edited := read(t, root, helloPath)
+	edited := upload(t, root)
 	writeFile(t, root, helloPath, "exports.handler = 1\n")
 
 	assert.False(t, commitOf(t, root, clean).Dirty)
@@ -228,7 +272,7 @@ func TestDetectReadsTheTreeOfTheCommitItReports(t *testing.T) {
 	writeFile(t, root, helloPath, "exports.handler = 2\n")
 	deploycommittest.Git(t, root, "commit", "--quiet", "-am", "second")
 
-	got := source.Commit(context.Background(), root, read(t, root, helloPath), nil)
+	got := source.Commit(context.Background(), root, upload(t, root), builtIn(t))
 	require.NotNil(t, got)
 	assert.Equal(t, first, got.SHA)
 	assert.True(t, got.Dirty)
@@ -269,7 +313,7 @@ func TestCommitComparesLineEndingsAsGitStoresThem(t *testing.T) {
 			root, _ := newRepository(t)
 			tc.configure(t, root)
 			writeFile(t, root, helloPath, "exports.handler = 1\r\n")
-			assert.Equal(t, tc.dirty, commitOf(t, root, read(t, root, helloPath)).Dirty)
+			assert.Equal(t, tc.dirty, commitOf(t, root, upload(t, root)).Dirty)
 		})
 	}
 }
@@ -284,10 +328,10 @@ func TestCommitComparesBinaryLineEndingsAsGitStoresThem(t *testing.T) {
 	deploycommittest.Git(t, root, "config", "core.autocrlf", "true")
 	writeFile(t, root, "web/app/data.bin", "A\x00\r\n")
 
-	assert.True(t, commitOf(t, root, read(t, root, "web/app/data.bin")).Dirty)
+	assert.True(t, commitOf(t, root, upload(t, root, "web/app/data.bin")).Dirty)
 
 	writeFile(t, root, ".gitattributes", "*.bin text\n")
-	assert.False(t, commitOf(t, root, read(t, root, "web/app/data.bin")).Dirty)
+	assert.False(t, commitOf(t, root, upload(t, root, "web/app/data.bin")).Dirty)
 }
 
 // Whether bytes are binary is git's own judgement: git hash-object stores
@@ -338,10 +382,10 @@ func TestCommitChecksManyFilesInBatches(t *testing.T) {
 		writeFile(t, root, path, "exports.n = 1\r\n")
 	}
 
-	assert.False(t, commitOf(t, root, read(t, root, paths...)).Dirty)
+	assert.False(t, commitOf(t, root, upload(t, root, paths...)).Dirty)
 
 	writeFile(t, root, paths[299], "exports.n = 2\r\n")
-	assert.True(t, commitOf(t, root, read(t, root, paths...)).Dirty)
+	assert.True(t, commitOf(t, root, upload(t, root, paths...)).Dirty)
 }
 
 // A file Git LFS stores is committed as a pointer to its content. Without
@@ -356,14 +400,17 @@ func TestCommitMatchesAGitLFSPointer(t *testing.T) {
 	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "logo")
 	writeFile(t, root, "public/logo.png", string(logo))
 
-	assert.False(t, commitOf(t, root, read(t, root, "public/logo.png")).Dirty)
+	assert.False(t, commitOf(t, root, upload(t, root, ".gitattributes", "public/logo.png")).Dirty)
 
 	writeFile(t, root, "public/logo.png", "\x89PNG another\n")
-	assert.True(t, commitOf(t, root, read(t, root, "public/logo.png")).Dirty)
+	assert.True(t, commitOf(t, root, upload(t, root, ".gitattributes", "public/logo.png")).Dirty)
 
+	root, _ = newRepository(t)
+	writeFile(t, root, "public/logo.png", string(lfsPointer(logo)))
+	deploycommittest.Git(t, root, "add", ".")
+	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "logo")
 	writeFile(t, root, "public/logo.png", string(logo))
-	writeFile(t, root, ".gitattributes", "")
-	assert.True(t, commitOf(t, root, read(t, root, "public/logo.png")).Dirty, "no filter attribute")
+	assert.True(t, commitOf(t, root, upload(t, root, "public/logo.png")).Dirty, "no filter attribute")
 }
 
 // Reading the commit and comparing an upload never runs a filter the
@@ -376,7 +423,7 @@ func TestCommitRunsNoGitFilter(t *testing.T) {
 	writeFile(t, root, ".gitattributes", "*.js filter=probe\n")
 	writeFile(t, root, helloPath, "exports.handler = 2\n")
 
-	assert.True(t, commitOf(t, root, read(t, root, helloPath)).Dirty)
+	assert.True(t, commitOf(t, root, upload(t, root)).Dirty)
 	assert.NoFileExists(t, ran)
 }
 
@@ -406,7 +453,7 @@ func TestCommitComparesTheReportedCommitNotItsReplacement(t *testing.T) {
 	deploycommittest.Git(t, root, "replace", first, second)
 	deploycommittest.Git(t, root, "checkout", "--quiet", "--detach", first)
 
-	got := commitOf(t, root, read(t, root, helloPath))
+	got := commitOf(t, root, upload(t, root))
 	assert.Equal(t, first, got.SHA)
 	assert.True(t, got.Dirty)
 }
@@ -419,7 +466,7 @@ func TestCommitReportsTheCheckedOutCommit(t *testing.T) {
 	deploycommittest.Git(t, root, "commit", "--quiet", "-am", "second")
 	deploycommittest.Git(t, root, "checkout", "--quiet", "--detach", first)
 
-	got := commitOf(t, root, read(t, root, helloPath))
+	got := commitOf(t, root, upload(t, root))
 	assert.Equal(t, first, got.SHA)
 	assert.False(t, got.Dirty)
 }

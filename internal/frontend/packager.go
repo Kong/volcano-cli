@@ -56,9 +56,17 @@ type Package struct {
 	// and executable bit it holds. The app-path marker is written by the CLI,
 	// so it is not one of them.
 	Files []deploycommit.File
-	// Excluded are the files the archive leaves out because
-	// PackageOptions.ExcludeFiles names them.
-	Excluded []string
+
+	matcher *ignore.Matcher
+}
+
+// LeftOutByRule reports whether every upload leaves out the file at rel, a
+// slash-separated path under PackagingRoot, by a built-in rule such as
+// node_modules or *.log. The root .gitignore is not one of those rules.
+// Volcano leaves out the same files when it checks an upload against its
+// commit.
+func (p *Package) LeftOutByRule(rel string) bool {
+	return p.matcher.MatchesPattern(rel)
 }
 
 // PackageOptions tunes how PackageDirectory builds the archive.
@@ -116,7 +124,7 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 		AppPath:         appPath,
 		SkippedSymlinks: tree.skippedSymlinks,
 		Files:           tree.files,
-		Excluded:        tree.excluded,
+		matcher:         matcher,
 	}, nil
 }
 
@@ -162,7 +170,7 @@ func archivePaths(root string, files []string) (map[string]bool, error) {
 
 // buildArchive writes the project tree and optional app-path marker into a
 // gzip-compressed tar archive. It returns the raw bytes and what the archive
-// holds and leaves out.
+// holds.
 func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, projectTree, error) {
 	buf := new(bytes.Buffer)
 	gz := gzip.NewWriter(buf)
@@ -189,22 +197,19 @@ func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, exclud
 	return buf.Bytes(), tree, nil
 }
 
-// projectTree is what writeProjectTree wrote and what it left out.
+// projectTree is what writeProjectTree wrote.
 type projectTree struct {
 	// skippedSymlinks are the archive-relative paths of symlinks it dropped.
 	skippedSymlinks []string
 	// files are the project files it wrote.
 	files []deploycommit.File
-	// excluded are the paths of files it left out because excluded names them.
-	excluded []string
 }
 
 // writeProjectTree walks root and writes every regular file that neither
 // matcher nor excluded leaves out into the tar writer. It enforces
 // maxFrontendPackageFiles so a runaway tree (missing .gitignore, stray cache
 // directory) cannot OOM the CLI, and reports any symlinks it had to drop so
-// callers can warn the user, the files it wrote, and the ones excluded left
-// out.
+// callers can warn the user, and the files it wrote.
 func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) (projectTree, error) {
 	fileCount := 0
 	var tree projectTree
@@ -231,7 +236,6 @@ func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excl
 			return nil
 		}
 		if excluded[relPath] {
-			tree.excluded = append(tree.excluded, path)
 			return nil
 		}
 
