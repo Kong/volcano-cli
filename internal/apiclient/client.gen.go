@@ -1881,6 +1881,186 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
+// Defines values for LavaFlowDiagnosisConfidence.
+const (
+	LavaFlowConfidenceHigh   LavaFlowDiagnosisConfidence = "high"
+	LavaFlowConfidenceLow    LavaFlowDiagnosisConfidence = "low"
+	LavaFlowConfidenceMedium LavaFlowDiagnosisConfidence = "medium"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowDiagnosisConfidence enum.
+func (e LavaFlowDiagnosisConfidence) Valid() bool {
+	switch e {
+	case LavaFlowConfidenceHigh:
+		return true
+	case LavaFlowConfidenceLow:
+		return true
+	case LavaFlowConfidenceMedium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowEvidenceKind.
+const (
+	LavaFlowEvidenceKindCode  LavaFlowEvidenceKind = "code"
+	LavaFlowEvidenceKindLog   LavaFlowEvidenceKind = "log"
+	LavaFlowEvidenceKindOther LavaFlowEvidenceKind = "other"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowEvidenceKind enum.
+func (e LavaFlowEvidenceKind) Valid() bool {
+	switch e {
+	case LavaFlowEvidenceKindCode:
+		return true
+	case LavaFlowEvidenceKindLog:
+		return true
+	case LavaFlowEvidenceKindOther:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowIssueTriggerType.
+const (
+	LavaFlowIssueTriggerTypeIssue LavaFlowIssueTriggerType = "issue"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowIssueTriggerType enum.
+func (e LavaFlowIssueTriggerType) Valid() bool {
+	switch e {
+	case LavaFlowIssueTriggerTypeIssue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowIssueTriggerReason.
+const (
+	LavaFlowIssueTriggerReasonManual     LavaFlowIssueTriggerReason = "manual"
+	LavaFlowIssueTriggerReasonNewIssue   LavaFlowIssueTriggerReason = "new_issue"
+	LavaFlowIssueTriggerReasonRegression LavaFlowIssueTriggerReason = "regression"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowIssueTriggerReason enum.
+func (e LavaFlowIssueTriggerReason) Valid() bool {
+	switch e {
+	case LavaFlowIssueTriggerReasonManual:
+		return true
+	case LavaFlowIssueTriggerReasonNewIssue:
+		return true
+	case LavaFlowIssueTriggerReasonRegression:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowPullRequestSkipped.
+const (
+	LavaFlowPullRequestSkippedLowConfidence     LavaFlowPullRequestSkipped = "low_confidence"
+	LavaFlowPullRequestSkippedNoPatch           LavaFlowPullRequestSkipped = "no_patch"
+	LavaFlowPullRequestSkippedNotFixable        LavaFlowPullRequestSkipped = "not_fixable"
+	LavaFlowPullRequestSkippedPermissionMissing LavaFlowPullRequestSkipped = "permission_missing"
+	LavaFlowPullRequestSkippedPublishFailed     LavaFlowPullRequestSkipped = "publish_failed"
+	LavaFlowPullRequestSkippedPullRequestOpen   LavaFlowPullRequestSkipped = "pull_request_open"
+	LavaFlowPullRequestSkippedRepositoryChanged LavaFlowPullRequestSkipped = "repository_changed"
+	LavaFlowPullRequestSkippedSourceUnavailable LavaFlowPullRequestSkipped = "source_unavailable"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowPullRequestSkipped enum.
+func (e LavaFlowPullRequestSkipped) Valid() bool {
+	switch e {
+	case LavaFlowPullRequestSkippedLowConfidence:
+		return true
+	case LavaFlowPullRequestSkippedNoPatch:
+		return true
+	case LavaFlowPullRequestSkippedNotFixable:
+		return true
+	case LavaFlowPullRequestSkippedPermissionMissing:
+		return true
+	case LavaFlowPullRequestSkippedPublishFailed:
+		return true
+	case LavaFlowPullRequestSkippedPullRequestOpen:
+		return true
+	case LavaFlowPullRequestSkippedRepositoryChanged:
+		return true
+	case LavaFlowPullRequestSkippedSourceUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowPullRequestState.
+const (
+	LavaFlowPullRequestStateClosed LavaFlowPullRequestState = "closed"
+	LavaFlowPullRequestStateMerged LavaFlowPullRequestState = "merged"
+	LavaFlowPullRequestStateOpen   LavaFlowPullRequestState = "open"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowPullRequestState enum.
+func (e LavaFlowPullRequestState) Valid() bool {
+	switch e {
+	case LavaFlowPullRequestStateClosed:
+		return true
+	case LavaFlowPullRequestStateMerged:
+		return true
+	case LavaFlowPullRequestStateOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowRunStatus.
+const (
+	LavaFlowRunStatusCanceled  LavaFlowRunStatus = "canceled"
+	LavaFlowRunStatusFailed    LavaFlowRunStatus = "failed"
+	LavaFlowRunStatusQueued    LavaFlowRunStatus = "queued"
+	LavaFlowRunStatusRunning   LavaFlowRunStatus = "running"
+	LavaFlowRunStatusSucceeded LavaFlowRunStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowRunStatus enum.
+func (e LavaFlowRunStatus) Valid() bool {
+	switch e {
+	case LavaFlowRunStatusCanceled:
+		return true
+	case LavaFlowRunStatusFailed:
+		return true
+	case LavaFlowRunStatusQueued:
+		return true
+	case LavaFlowRunStatusRunning:
+		return true
+	case LavaFlowRunStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LavaFlowStage.
+const (
+	LavaFlowStageDiagnose    LavaFlowStage = "diagnose"
+	LavaFlowStagePullRequest LavaFlowStage = "pull_request"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowStage enum.
+func (e LavaFlowStage) Valid() bool {
+	switch e {
+	case LavaFlowStageDiagnose:
+		return true
+	case LavaFlowStagePullRequest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LiveLogLevel.
 const (
 	LiveLogLevelDebug LiveLogLevel = "debug"
@@ -5508,6 +5688,14 @@ type CreateFrontendFunctionRouteRequest struct {
 	StripPrefix *bool              `json:"strip_prefix,omitempty"`
 }
 
+// CreateFrontendRouteRequest defines model for CreateFrontendRouteRequest.
+type CreateFrontendRouteRequest struct {
+	PathPrefix string `json:"path_prefix"`
+
+	// TargetFrontendId The Frontend to mount. It must be another Frontend in the Project.
+	TargetFrontendId openapi_types.UUID `json:"target_frontend_id"`
+}
+
 // CreateFunctionSchedulerRequest defines model for CreateFunctionSchedulerRequest.
 type CreateFunctionSchedulerRequest struct {
 	Enabled *bool                   `json:"enabled,omitempty"`
@@ -6972,6 +7160,11 @@ type Frontend struct {
 	DeployedRegions   []string          `json:"deployed_regions"`
 	Framework         FrontendFramework `json:"framework"`
 
+	// FrontendRoutes Paths on this frontend served by another frontend in the project,
+	// ordered from most to least specific. Function and Frontend routes
+	// share one path namespace and the 64-route limit.
+	FrontendRoutes []FrontendRoute `json:"frontend_routes"`
+
 	// FunctionRoutes Paths on this frontend that forward to a public function, ordered
 	// from most to least specific. Anyone who can load the frontend can
 	// reach the target function at these paths without a credential.
@@ -7206,6 +7399,28 @@ type FrontendFunctionRoute struct {
 // FrontendFunctionRouteList defines model for FrontendFunctionRouteList.
 type FrontendFunctionRouteList struct {
 	Data []FrontendFunctionRoute `json:"data"`
+}
+
+// FrontendRoute A path prefix on this Frontend's hostnames served by another Frontend in the Project, the
+// mounted Frontend. Paths are forwarded unchanged, so the mounted Frontend serves its prefix
+// as real pages (page directories or a matching `basePath`).
+type FrontendRoute struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// FrontendId The Frontend whose hostnames serve the route
+	FrontendId openapi_types.UUID `json:"frontend_id"`
+	Id         openapi_types.UUID `json:"id"`
+	PathPrefix string             `json:"path_prefix"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+
+	// TargetFrontendId The mounted Frontend
+	TargetFrontendId openapi_types.UUID `json:"target_frontend_id"`
+	UpdatedAt        time.Time          `json:"updated_at"`
+}
+
+// FrontendRouteList defines model for FrontendRouteList.
+type FrontendRouteList struct {
+	Data []FrontendRoute `json:"data"`
 }
 
 // FrontendUsageDailyEntry One day of request and error counts for a single frontend.
@@ -7643,6 +7858,163 @@ type ImportSource struct {
 // ImportSourcesResponse defines model for ImportSourcesResponse.
 type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
+}
+
+// LavaFlowDiagnosis defines model for LavaFlowDiagnosis.
+type LavaFlowDiagnosis struct {
+	Confidence LavaFlowDiagnosisConfidence `json:"confidence"`
+	Evidence   []LavaFlowEvidence          `json:"evidence"`
+
+	// Files Repository paths a fix would change.
+	Files []string `json:"files"`
+
+	// Fixable Whether a change to the project's code would fix the issue.
+	Fixable      bool   `json:"fixable"`
+	RootCause    string `json:"root_cause"`
+	SuggestedFix string `json:"suggested_fix"`
+
+	// Summary One or two sentences on what goes wrong.
+	Summary string `json:"summary"`
+}
+
+// LavaFlowDiagnosisConfidence defines model for LavaFlowDiagnosis.Confidence.
+type LavaFlowDiagnosisConfidence string
+
+// LavaFlowEdit One exact text replacement. An empty `old_text` creates the file.
+type LavaFlowEdit struct {
+	NewText string `json:"new_text"`
+	OldText string `json:"old_text"`
+	Path    string `json:"path"`
+}
+
+// LavaFlowEvidence defines model for LavaFlowEvidence.
+type LavaFlowEvidence struct {
+	Detail string               `json:"detail"`
+	Kind   LavaFlowEvidenceKind `json:"kind"`
+
+	// Location A file and line, or a log timestamp. Absent when the evidence has none.
+	Location *string `json:"location,omitempty"`
+}
+
+// LavaFlowEvidenceKind defines model for LavaFlowEvidence.Kind.
+type LavaFlowEvidenceKind string
+
+// LavaFlowIssueTrigger A run for one of the project's issues.
+type LavaFlowIssueTrigger struct {
+	Issue LavaFlowTriggerIssue `json:"issue"`
+
+	// Reason Why the run started. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+	Reason LavaFlowIssueTriggerReason `json:"reason"`
+	Type   LavaFlowIssueTriggerType   `json:"type"`
+}
+
+// LavaFlowIssueTriggerType defines model for LavaFlowIssueTrigger.Type.
+type LavaFlowIssueTriggerType string
+
+// LavaFlowIssueTriggerReason Why the run started. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+type LavaFlowIssueTriggerReason string
+
+// LavaFlowPatch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
+type LavaFlowPatch struct {
+	Edits []LavaFlowEdit `json:"edits"`
+	Title string         `json:"title"`
+}
+
+// LavaFlowPullRequest The draft pull request the run opened on the connected repository.
+type LavaFlowPullRequest struct {
+	// Branch The branch the fix is on, `volcano/lavaflow/<run id>`. Runs that opened their pull request before LavaFlow was renamed report `volcano/autofix/<run id>`.
+	Branch string `json:"branch"`
+
+	// ClosedAt When the pull request was merged or closed.
+	ClosedAt *time.Time `json:"closed_at,omitempty"`
+
+	// DeployedAt When a deployment that includes the merged fix went live. The issue resolves then, unless it occurred again since. When more than 20 deployments went live after the merge before Volcano checked, it is the merge time instead.
+	DeployedAt *time.Time               `json:"deployed_at,omitempty"`
+	Number     int64                    `json:"number"`
+	State      LavaFlowPullRequestState `json:"state"`
+	Url        string                   `json:"url"`
+}
+
+// LavaFlowPullRequestSkipped Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
+type LavaFlowPullRequestSkipped string
+
+// LavaFlowPullRequestState defines model for LavaFlowPullRequestState.
+type LavaFlowPullRequestState string
+
+// LavaFlowRun defines model for LavaFlowRun.
+type LavaFlowRun struct {
+	// CommitSha The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
+	CommitSha   *string            `json:"commit_sha,omitempty"`
+	CompletedAt *time.Time         `json:"completed_at,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Diagnosis   *LavaFlowDiagnosis `json:"diagnosis,omitempty"`
+
+	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.
+	FailureCode    *string            `json:"failure_code,omitempty"`
+	FailureMessage *string            `json:"failure_message,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+
+	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	MaxStage LavaFlowStage `json:"max_stage"`
+
+	// Patch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
+	Patch *LavaFlowPatch `json:"patch,omitempty"`
+
+	// ProjectId The project the run belongs to.
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+
+	// PullRequest The draft pull request the run opened on the connected repository.
+	PullRequest *LavaFlowPullRequest `json:"pull_request,omitempty"`
+
+	// PullRequestSkipped Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
+	PullRequestSkipped *LavaFlowPullRequestSkipped `json:"pull_request_skipped,omitempty"`
+
+	// StageReached How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	StageReached *LavaFlowStage `json:"stage_reached,omitempty"`
+	StartedAt    *time.Time     `json:"started_at,omitempty"`
+
+	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+	Status LavaFlowRunStatus `json:"status"`
+
+	// Trigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
+	Trigger LavaFlowRunTrigger `json:"trigger"`
+}
+
+// LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+type LavaFlowRunStatus string
+
+// LavaFlowRunTrigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
+type LavaFlowRunTrigger struct {
+	union json.RawMessage
+}
+
+// LavaFlowSettings LavaFlow settings. The path names what they belong to, so the object carries no project fields.
+type LavaFlowSettings struct {
+	// AutoTrigger Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
+	AutoTrigger bool `json:"auto_trigger"`
+
+	// Enabled Whether Volcano diagnoses the project's issues with AI.
+	Enabled bool `json:"enabled"`
+
+	// MaxStage How far a run goes. Defaults to `pull_request`.
+	MaxStage LavaFlowStage `json:"max_stage"`
+
+	// PlanAllowsLavaflow Whether the owner's plan allows turning LavaFlow on. LavaFlow is a usage-billed add-on rather than part of a plan; during the preview it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
+	PlanAllowsLavaflow *bool `json:"plan_allows_lavaflow,omitempty"`
+
+	// UpdatedAt When the settings were last saved. Absent until the first save.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// LavaFlowStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+type LavaFlowStage string
+
+// LavaFlowTriggerIssue defines model for LavaFlowTriggerIssue.
+type LavaFlowTriggerIssue struct {
+	Id openapi_types.UUID `json:"id"`
+
+	// Title The issue's title, as the issues API reports it.
+	Title string `json:"title"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -8270,6 +8642,20 @@ type PaginatedFunctions struct {
 	Total int `json:"total"`
 }
 
+// PaginatedLavaFlowRuns defines model for PaginatedLavaFlowRuns.
+type PaginatedLavaFlowRuns struct {
+	Data []LavaFlowRun `json:"data"`
+
+	// HasMore Whether a next page exists
+	HasMore bool `json:"has_more"`
+
+	// Limit Number of items per page
+	Limit int `json:"limit"`
+
+	// NextCursor Opaque cursor for the next page (present if has_more is true)
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
 // PaginatedProjectAccessTokens defines model for PaginatedProjectAccessTokens.
 type PaginatedProjectAccessTokens struct {
 	Data    []ProjectAccessToken `json:"data"`
@@ -8650,6 +9036,9 @@ type ProjectConfig struct {
 	FrontendSharedVariables *[]string                `json:"frontend_shared_variables,omitempty"`
 	Frontends               *[]ProjectConfigFrontend `json:"frontends,omitempty"`
 	Functions               *[]ProjectConfigFunction `json:"functions,omitempty"`
+
+	// Lavaflow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
+	Lavaflow *ProjectConfigLavaFlow `json:"lavaflow,omitempty"`
 
 	// Notifications Where the project's alerts go and when a failing scheduler is announced. Omitted fields keep their current value. The webhook signing secret is never part of the manifest: setting `webhook.url` on a project without a webhook generates one that is never shown. Rotate it with `POST /projects/{id}/notifications/webhook-secret` to get a secret you can use.
 	Notifications *ProjectConfigNotifications `json:"notifications,omitempty"`
@@ -9037,6 +9426,11 @@ type ProjectConfigFrontend struct {
 	// needs a plan that allows it.
 	CustomDomains *[]ProjectConfigFrontendCustomDomain `json:"custom_domains,omitempty"`
 
+	// FrontendRoutes Complete set of paths this frontend serves from another frontend in the project when
+	// declared. Omission preserves existing routes; an empty list deletes all of them.
+	// Function and Frontend routes share one path namespace and the 64-route limit.
+	FrontendRoutes *[]ProjectConfigFrontendRoute `json:"frontend_routes,omitempty"`
+
 	// FunctionRoutes Complete set of same-origin Function path mappings when declared. Omission preserves existing mappings; an empty list deletes all mappings.
 	FunctionRoutes *[]ProjectConfigFrontendFunctionRoute `json:"function_routes,omitempty"`
 	Name           string                                `json:"name"`
@@ -9074,6 +9468,13 @@ type ProjectConfigFrontendFunctionRoute struct {
 	Function    string `json:"function"`
 	PathPrefix  string `json:"path_prefix"`
 	StripPrefix *bool  `json:"strip_prefix,omitempty"`
+}
+
+// ProjectConfigFrontendRoute defines model for ProjectConfigFrontendRoute.
+type ProjectConfigFrontendRoute struct {
+	// Frontend Name of another existing frontend in the project to mount. Paths are forwarded unchanged.
+	Frontend   string `json:"frontend"`
+	PathPrefix string `json:"path_prefix"`
 }
 
 // ProjectConfigFunction Configuration for an existing (deployed) function. Functions are never
@@ -9163,6 +9564,15 @@ type ProjectConfigHostedPages struct {
 	ResetPassword  *ProjectConfigHostedPage `json:"reset_password,omitempty"`
 	Signup         *ProjectConfigHostedPage `json:"signup,omitempty"`
 	VerifyEmail    *ProjectConfigHostedPage `json:"verify_email,omitempty"`
+}
+
+// ProjectConfigLavaFlow AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.
+type ProjectConfigLavaFlow struct {
+	AutoTrigger *bool `json:"auto_trigger,omitempty"`
+	Enabled     *bool `json:"enabled,omitempty"`
+
+	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	MaxStage *LavaFlowStage `json:"max_stage,omitempty"`
 }
 
 // ProjectConfigMissingResource defines model for ProjectConfigMissingResource.
@@ -10237,6 +10647,12 @@ type SetProjectGitProductionBranchRequest struct {
 	ProductionBranch string `json:"production_branch"`
 }
 
+// SetProjectGitRootDirectoryRequest defines model for SetProjectGitRootDirectoryRequest.
+type SetProjectGitRootDirectoryRequest struct {
+	// RootDirectory Monorepo subdirectory the project builds from, relative to the repository root. An empty string means the repository root.
+	RootDirectory string `json:"root_directory"`
+}
+
 // StorageBucket A named container for files within a project.
 // Public access is controlled at the file level via is_public on StorageObject.
 type StorageBucket struct {
@@ -10624,6 +11040,16 @@ type UpdateFunctionSchedulerRequest struct {
 	Schedule *ScheduleRequest        `json:"schedule,omitempty"`
 }
 
+// UpdateLavaFlowSettingsRequest The fields to change. An omitted field keeps its saved value, or takes its default when the project has no saved settings.
+type UpdateLavaFlowSettingsRequest struct {
+	// AutoTrigger Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+	AutoTrigger *bool `json:"auto_trigger,omitempty"`
+	Enabled     *bool `json:"enabled,omitempty"`
+
+	// MaxStage How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
+	MaxStage *LavaFlowStage `json:"max_stage,omitempty"`
+}
+
 // UpdateNotificationEmail defines model for UpdateNotificationEmail.
 type UpdateNotificationEmail struct {
 	Enabled *bool `json:"enabled,omitempty"`
@@ -10933,11 +11359,23 @@ type FrontendFunctionRouteId = openapi_types.UUID
 // FrontendId defines model for FrontendId.
 type FrontendId = openapi_types.UUID
 
+// FrontendRouteId defines model for FrontendRouteId.
+type FrontendRouteId = openapi_types.UUID
+
 // FunctionId defines model for FunctionId.
 type FunctionId = openapi_types.UUID
 
 // IfNoneMatch defines model for IfNoneMatch.
 type IfNoneMatch = string
+
+// IssueCursor defines model for IssueCursor.
+type IssueCursor = string
+
+// IssueId defines model for IssueId.
+type IssueId = openapi_types.UUID
+
+// LavaFlowRunId defines model for LavaFlowRunId.
+type LavaFlowRunId = openapi_types.UUID
 
 // Limit defines model for Limit.
 type Limit = int
@@ -12451,6 +12889,22 @@ type ListFunctionDeploymentsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListLavaFlowRunsParams defines parameters for ListLavaFlowRuns.
+type ListLavaFlowRunsParams struct {
+	// Limit Number of items per page (max 100)
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque cursor from a previous response's `next_cursor`. Pages forward;
+	// keep the same filters while paging.
+	Cursor *IssueCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// IssueId Return only runs for this issue.
+	IssueId *openapi_types.UUID `form:"issue_id,omitempty" json:"issue_id,omitempty"`
+
+	// Status Return only runs in this status.
+	Status *LavaFlowRunStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
 // UploadProjectLogoMultipartBody defines parameters for UploadProjectLogo.
 type UploadProjectLogoMultipartBody struct {
 	// Logo Logo image (PNG, JPEG, GIF, WebP, or SVG; max 2 MB)
@@ -13104,6 +13558,12 @@ type CreateFrontendDomainJSONRequestBody = CreateFrontendDomainRequest
 // UpdateFrontendDomainJSONRequestBody defines body for UpdateFrontendDomain for application/json ContentType.
 type UpdateFrontendDomainJSONRequestBody = UpdateFrontendCustomDomainRequest
 
+// CreateFrontendRouteJSONRequestBody defines body for CreateFrontendRoute for application/json ContentType.
+type CreateFrontendRouteJSONRequestBody = CreateFrontendRouteRequest
+
+// UpdateFrontendRouteJSONRequestBody defines body for UpdateFrontendRoute for application/json ContentType.
+type UpdateFrontendRouteJSONRequestBody = CreateFrontendRouteRequest
+
 // CreateFrontendFunctionRouteJSONRequestBody defines body for CreateFrontendFunctionRoute for application/json ContentType.
 type CreateFrontendFunctionRouteJSONRequestBody = CreateFrontendFunctionRouteRequest
 
@@ -13131,8 +13591,14 @@ type ConnectProjectGitJSONRequestBody = ConnectProjectGitRequest
 // SetProjectGitProductionBranchJSONRequestBody defines body for SetProjectGitProductionBranch for application/json ContentType.
 type SetProjectGitProductionBranchJSONRequestBody = SetProjectGitProductionBranchRequest
 
+// SetProjectGitRootDirectoryJSONRequestBody defines body for SetProjectGitRootDirectory for application/json ContentType.
+type SetProjectGitRootDirectoryJSONRequestBody = SetProjectGitRootDirectoryRequest
+
 // UpdateProjectGitDeploySettingsJSONRequestBody defines body for UpdateProjectGitDeploySettings for application/json ContentType.
 type UpdateProjectGitDeploySettingsJSONRequestBody = UpdateProjectGitDeploySettingsRequest
+
+// UpdateLavaFlowSettingsJSONRequestBody defines body for UpdateLavaFlowSettings for application/json ContentType.
+type UpdateLavaFlowSettingsJSONRequestBody = UpdateLavaFlowSettingsRequest
 
 // UploadProjectLogoMultipartRequestBody defines body for UploadProjectLogo for multipart/form-data ContentType.
 type UploadProjectLogoMultipartRequestBody UploadProjectLogoMultipartBody
@@ -13587,6 +14053,65 @@ func (t DatabaseQueryFilter_Value) MarshalJSON() ([]byte, error) {
 }
 
 func (t *DatabaseQueryFilter_Value) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsLavaFlowIssueTrigger returns the union data inside the LavaFlowRunTrigger as a LavaFlowIssueTrigger
+func (t LavaFlowRunTrigger) AsLavaFlowIssueTrigger() (LavaFlowIssueTrigger, error) {
+	var body LavaFlowIssueTrigger
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLavaFlowIssueTrigger overwrites any union data inside the LavaFlowRunTrigger as the provided LavaFlowIssueTrigger
+func (t *LavaFlowRunTrigger) FromLavaFlowIssueTrigger(v LavaFlowIssueTrigger) error {
+	v.Type = "issue"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLavaFlowIssueTrigger performs a merge with any union data inside the LavaFlowRunTrigger, using the provided LavaFlowIssueTrigger
+func (t *LavaFlowRunTrigger) MergeLavaFlowIssueTrigger(v LavaFlowIssueTrigger) error {
+	v.Type = "issue"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LavaFlowRunTrigger) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t LavaFlowRunTrigger) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "issue":
+		return t.AsLavaFlowIssueTrigger()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t LavaFlowRunTrigger) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LavaFlowRunTrigger) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -15297,6 +15822,22 @@ type ClientInterface interface {
 
 	UpdateFrontendDomain(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFrontendRoutes request
+	ListFrontendRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFrontendRouteWithBody request with any body
+	CreateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFrontendRoute request
+	DeleteFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateFrontendRouteWithBody request with any body
+	UpdateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFrontendFunctionRoutes request
 	ListFrontendFunctionRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -15377,6 +15918,11 @@ type ClientInterface interface {
 
 	SetProjectGitProductionBranch(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetProjectGitRootDirectoryWithBody request with any body
+	SetProjectGitRootDirectoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectGitRootDirectory(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProjectGitDeploySettings request
 	GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -15387,6 +15933,23 @@ type ClientInterface interface {
 
 	// GetProjectHealth request
 	GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartLavaFlowRun request
+	StartLavaFlowRun(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLavaFlowSettings request
+	GetLavaFlowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateLavaFlowSettingsWithBody request with any body
+	UpdateLavaFlowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateLavaFlowSettings(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLavaFlowRuns request
+	ListLavaFlowRuns(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLavaFlowRun request
+	GetLavaFlowRun(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProjectLogo request
 	DeleteProjectLogo(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18966,6 +19529,78 @@ func (c *Client) UpdateFrontendDomain(ctx context.Context, id ProjectId, fronten
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListFrontendRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFrontendRoutesRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendRouteRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendRouteRequest(c.Server, id, frontendId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFrontendRouteRequest(c.Server, id, frontendId, routeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendRouteWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendRouteRequestWithBody(c.Server, id, frontendId, routeId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFrontendRoute(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFrontendRouteRequest(c.Server, id, frontendId, routeId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListFrontendFunctionRoutes(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListFrontendFunctionRoutesRequest(c.Server, id, frontendId)
 	if err != nil {
@@ -19314,6 +19949,30 @@ func (c *Client) SetProjectGitProductionBranch(ctx context.Context, id ProjectId
 	return c.Client.Do(req)
 }
 
+func (c *Client) SetProjectGitRootDirectoryWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitRootDirectoryRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetProjectGitRootDirectory(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectGitRootDirectoryRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetProjectGitDeploySettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectGitDeploySettingsRequest(c.Server, id)
 	if err != nil {
@@ -19352,6 +20011,78 @@ func (c *Client) UpdateProjectGitDeploySettings(ctx context.Context, id ProjectI
 
 func (c *Client) GetProjectHealth(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectHealthRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartLavaFlowRun(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartLavaFlowRunRequest(c.Server, id, issueId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLavaFlowSettings(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaFlowSettingsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaFlowSettingsWithBody(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaFlowSettingsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateLavaFlowSettings(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLavaFlowSettingsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLavaFlowRuns(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLavaFlowRunsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLavaFlowRun(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLavaFlowRunRequest(c.Server, id, runId)
 	if err != nil {
 		return nil, err
 	}
@@ -31507,6 +32238,210 @@ func NewUpdateFrontendDomainRequestWithBody(server string, id ProjectId, fronten
 	return req, nil
 }
 
+// NewListFrontendRoutesRequest generates requests for ListFrontendRoutes
+func NewListFrontendRoutesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFrontendRouteRequest calls the generic CreateFrontendRoute builder with application/json body
+func NewCreateFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFrontendRouteRequestWithBody(server, id, frontendId, "application/json", bodyReader)
+}
+
+// NewCreateFrontendRouteRequestWithBody generates requests for CreateFrontendRoute with any type of body
+func NewCreateFrontendRouteRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFrontendRouteRequest generates requests for DeleteFrontendRoute
+func NewDeleteFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "routeId", routeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateFrontendRouteRequest calls the generic UpdateFrontendRoute builder with application/json body
+func NewUpdateFrontendRouteRequest(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateFrontendRouteRequestWithBody(server, id, frontendId, routeId, "application/json", bodyReader)
+}
+
+// NewUpdateFrontendRouteRequestWithBody generates requests for UpdateFrontendRoute with any type of body
+func NewUpdateFrontendRouteRequestWithBody(server string, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "routeId", routeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/frontend-routes/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFrontendFunctionRoutesRequest generates requests for ListFrontendFunctionRoutes
 func NewListFrontendFunctionRoutesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
 	var err error
@@ -32643,6 +33578,53 @@ func NewSetProjectGitProductionBranchRequestWithBody(server string, id ProjectId
 	return req, nil
 }
 
+// NewSetProjectGitRootDirectoryRequest calls the generic SetProjectGitRootDirectory builder with application/json body
+func NewSetProjectGitRootDirectoryRequest(server string, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectGitRootDirectoryRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetProjectGitRootDirectoryRequestWithBody generates requests for SetProjectGitRootDirectory with any type of body
+func NewSetProjectGitRootDirectoryRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/git-connection/root-directory", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetProjectGitDeploySettingsRequest generates requests for GetProjectGitDeploySettings
 func NewGetProjectGitDeploySettingsRequest(server string, id ProjectId) (*http.Request, error) {
 	var err error
@@ -32741,6 +33723,266 @@ func NewGetProjectHealthRequest(server string, id ProjectId) (*http.Request, err
 	}
 
 	operationPath := fmt.Sprintf("/projects/%s/health", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartLavaFlowRunRequest generates requests for StartLavaFlowRun
+func NewStartLavaFlowRunRequest(server string, id ProjectId, issueId IssueId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "issueId", issueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/issues/%s/lavaflow-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaFlowSettingsRequest generates requests for GetLavaFlowSettings
+func NewGetLavaFlowSettingsRequest(server string, id ProjectId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLavaFlowSettingsRequest calls the generic UpdateLavaFlowSettings builder with application/json body
+func NewUpdateLavaFlowSettingsRequest(server string, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLavaFlowSettingsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateLavaFlowSettingsRequestWithBody generates requests for UpdateLavaFlowSettings with any type of body
+func NewUpdateLavaFlowSettingsRequestWithBody(server string, id ProjectId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLavaFlowRunsRequest generates requests for ListLavaFlowRuns
+func NewListLavaFlowRunsRequest(server string, id ProjectId, params *ListLavaFlowRunsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IssueId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLavaFlowRunRequest generates requests for GetLavaFlowRun
+func NewGetLavaFlowRunRequest(server string, id ProjectId, runId LavaFlowRunId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/lavaflow-runs/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -38459,6 +39701,22 @@ type ClientWithResponsesInterface interface {
 
 	UpdateFrontendDomainWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, domain FrontendCustomDomainHostname, body UpdateFrontendDomainJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendDomainClientResponse, error)
 
+	// ListFrontendRoutesWithResponse request
+	ListFrontendRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendRoutesClientResponse, error)
+
+	// CreateFrontendRouteWithBodyWithResponse request with any body
+	CreateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error)
+
+	CreateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error)
+
+	// DeleteFrontendRouteWithResponse request
+	DeleteFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*DeleteFrontendRouteClientResponse, error)
+
+	// UpdateFrontendRouteWithBodyWithResponse request with any body
+	UpdateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error)
+
+	UpdateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error)
+
 	// ListFrontendFunctionRoutesWithResponse request
 	ListFrontendFunctionRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendFunctionRoutesClientResponse, error)
 
@@ -38539,6 +39797,11 @@ type ClientWithResponsesInterface interface {
 
 	SetProjectGitProductionBranchWithResponse(ctx context.Context, id ProjectId, body SetProjectGitProductionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitProductionBranchClientResponse, error)
 
+	// SetProjectGitRootDirectoryWithBodyWithResponse request with any body
+	SetProjectGitRootDirectoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error)
+
+	SetProjectGitRootDirectoryWithResponse(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error)
+
 	// GetProjectGitDeploySettingsWithResponse request
 	GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error)
 
@@ -38549,6 +39812,23 @@ type ClientWithResponsesInterface interface {
 
 	// GetProjectHealthWithResponse request
 	GetProjectHealthWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectHealthClientResponse, error)
+
+	// StartLavaFlowRunWithResponse request
+	StartLavaFlowRunWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*StartLavaFlowRunClientResponse, error)
+
+	// GetLavaFlowSettingsWithResponse request
+	GetLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaFlowSettingsClientResponse, error)
+
+	// UpdateLavaFlowSettingsWithBodyWithResponse request with any body
+	UpdateLavaFlowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error)
+
+	UpdateLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error)
+
+	// ListLavaFlowRunsWithResponse request
+	ListLavaFlowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaFlowRunsClientResponse, error)
+
+	// GetLavaFlowRunWithResponse request
+	GetLavaFlowRunWithResponse(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*GetLavaFlowRunClientResponse, error)
 
 	// DeleteProjectLogoWithResponse request
 	DeleteProjectLogoWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*DeleteProjectLogoClientResponse, error)
@@ -45083,6 +46363,7 @@ type DeleteFrontendClientResponse struct {
 	JSON401      *Error
 	JSON403      *Error
 	JSON404      *Error
+	JSON409      *Error
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -45497,6 +46778,144 @@ func (r UpdateFrontendDomainClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateFrontendDomainClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListFrontendRoutesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendRouteList
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFrontendRoutesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFrontendRoutesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFrontendRoutesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FrontendRoute
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFrontendRouteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFrontendRouteClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateFrontendRouteClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendRoute
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateFrontendRouteClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateFrontendRouteClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateFrontendRouteClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -46240,6 +47659,42 @@ func (r SetProjectGitProductionBranchClientResponse) ContentType() string {
 	return ""
 }
 
+type SetProjectGitRootDirectoryClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectGitConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetProjectGitRootDirectoryClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetProjectGitRootDirectoryClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetProjectGitRootDirectoryClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetProjectGitDeploySettingsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -46338,6 +47793,176 @@ func (r GetProjectHealthClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetProjectHealthClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartLavaFlowRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *LavaFlowRun
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON429      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartLavaFlowRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartLavaFlowRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartLavaFlowRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLavaFlowSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaFlowSettings
+	JSON404      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaFlowSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaFlowSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaFlowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateLavaFlowSettingsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaFlowSettings
+	JSON400      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON501      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateLavaFlowSettingsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateLavaFlowSettingsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateLavaFlowSettingsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListLavaFlowRunsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PaginatedLavaFlowRuns
+	JSON400      *Error
+	JSON404      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLavaFlowRunsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLavaFlowRunsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListLavaFlowRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetLavaFlowRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LavaFlowRun
+	JSON404      *Error
+	JSON501      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLavaFlowRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLavaFlowRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetLavaFlowRunClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -51729,6 +53354,58 @@ func (c *ClientWithResponses) UpdateFrontendDomainWithResponse(ctx context.Conte
 	return ParseUpdateFrontendDomainClientResponse(rsp)
 }
 
+// ListFrontendRoutesWithResponse request returning *ListFrontendRoutesClientResponse
+func (c *ClientWithResponses) ListFrontendRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendRoutesClientResponse, error) {
+	rsp, err := c.ListFrontendRoutes(ctx, id, frontendId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFrontendRoutesClientResponse(rsp)
+}
+
+// CreateFrontendRouteWithBodyWithResponse request with arbitrary body returning *CreateFrontendRouteClientResponse
+func (c *ClientWithResponses) CreateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error) {
+	rsp, err := c.CreateFrontendRouteWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendRouteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body CreateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFrontendRouteClientResponse, error) {
+	rsp, err := c.CreateFrontendRoute(ctx, id, frontendId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendRouteClientResponse(rsp)
+}
+
+// DeleteFrontendRouteWithResponse request returning *DeleteFrontendRouteClientResponse
+func (c *ClientWithResponses) DeleteFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, reqEditors ...RequestEditorFn) (*DeleteFrontendRouteClientResponse, error) {
+	rsp, err := c.DeleteFrontendRoute(ctx, id, frontendId, routeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFrontendRouteClientResponse(rsp)
+}
+
+// UpdateFrontendRouteWithBodyWithResponse request with arbitrary body returning *UpdateFrontendRouteClientResponse
+func (c *ClientWithResponses) UpdateFrontendRouteWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error) {
+	rsp, err := c.UpdateFrontendRouteWithBody(ctx, id, frontendId, routeId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendRouteClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateFrontendRouteWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, routeId FrontendRouteId, body UpdateFrontendRouteJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFrontendRouteClientResponse, error) {
+	rsp, err := c.UpdateFrontendRoute(ctx, id, frontendId, routeId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFrontendRouteClientResponse(rsp)
+}
+
 // ListFrontendFunctionRoutesWithResponse request returning *ListFrontendFunctionRoutesClientResponse
 func (c *ClientWithResponses) ListFrontendFunctionRoutesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendFunctionRoutesClientResponse, error) {
 	rsp, err := c.ListFrontendFunctionRoutes(ctx, id, frontendId, reqEditors...)
@@ -51983,6 +53660,23 @@ func (c *ClientWithResponses) SetProjectGitProductionBranchWithResponse(ctx cont
 	return ParseSetProjectGitProductionBranchClientResponse(rsp)
 }
 
+// SetProjectGitRootDirectoryWithBodyWithResponse request with arbitrary body returning *SetProjectGitRootDirectoryClientResponse
+func (c *ClientWithResponses) SetProjectGitRootDirectoryWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error) {
+	rsp, err := c.SetProjectGitRootDirectoryWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitRootDirectoryClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectGitRootDirectoryWithResponse(ctx context.Context, id ProjectId, body SetProjectGitRootDirectoryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetProjectGitRootDirectoryClientResponse, error) {
+	rsp, err := c.SetProjectGitRootDirectory(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetProjectGitRootDirectoryClientResponse(rsp)
+}
+
 // GetProjectGitDeploySettingsWithResponse request returning *GetProjectGitDeploySettingsClientResponse
 func (c *ClientWithResponses) GetProjectGitDeploySettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetProjectGitDeploySettingsClientResponse, error) {
 	rsp, err := c.GetProjectGitDeploySettings(ctx, id, reqEditors...)
@@ -52016,6 +53710,59 @@ func (c *ClientWithResponses) GetProjectHealthWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetProjectHealthClientResponse(rsp)
+}
+
+// StartLavaFlowRunWithResponse request returning *StartLavaFlowRunClientResponse
+func (c *ClientWithResponses) StartLavaFlowRunWithResponse(ctx context.Context, id ProjectId, issueId IssueId, reqEditors ...RequestEditorFn) (*StartLavaFlowRunClientResponse, error) {
+	rsp, err := c.StartLavaFlowRun(ctx, id, issueId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartLavaFlowRunClientResponse(rsp)
+}
+
+// GetLavaFlowSettingsWithResponse request returning *GetLavaFlowSettingsClientResponse
+func (c *ClientWithResponses) GetLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, reqEditors ...RequestEditorFn) (*GetLavaFlowSettingsClientResponse, error) {
+	rsp, err := c.GetLavaFlowSettings(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLavaFlowSettingsClientResponse(rsp)
+}
+
+// UpdateLavaFlowSettingsWithBodyWithResponse request with arbitrary body returning *UpdateLavaFlowSettingsClientResponse
+func (c *ClientWithResponses) UpdateLavaFlowSettingsWithBodyWithResponse(ctx context.Context, id ProjectId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error) {
+	rsp, err := c.UpdateLavaFlowSettingsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaFlowSettingsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateLavaFlowSettingsWithResponse(ctx context.Context, id ProjectId, body UpdateLavaFlowSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLavaFlowSettingsClientResponse, error) {
+	rsp, err := c.UpdateLavaFlowSettings(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateLavaFlowSettingsClientResponse(rsp)
+}
+
+// ListLavaFlowRunsWithResponse request returning *ListLavaFlowRunsClientResponse
+func (c *ClientWithResponses) ListLavaFlowRunsWithResponse(ctx context.Context, id ProjectId, params *ListLavaFlowRunsParams, reqEditors ...RequestEditorFn) (*ListLavaFlowRunsClientResponse, error) {
+	rsp, err := c.ListLavaFlowRuns(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLavaFlowRunsClientResponse(rsp)
+}
+
+// GetLavaFlowRunWithResponse request returning *GetLavaFlowRunClientResponse
+func (c *ClientWithResponses) GetLavaFlowRunWithResponse(ctx context.Context, id ProjectId, runId LavaFlowRunId, reqEditors ...RequestEditorFn) (*GetLavaFlowRunClientResponse, error) {
+	rsp, err := c.GetLavaFlowRun(ctx, id, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLavaFlowRunClientResponse(rsp)
 }
 
 // DeleteProjectLogoWithResponse request returning *DeleteProjectLogoClientResponse
@@ -61407,6 +63154,13 @@ func ParseDeleteFrontendClientResponse(rsp *http.Response) (*DeleteFrontendClien
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -62094,6 +63848,236 @@ func ParseUpdateFrontendDomainClientResponse(rsp *http.Response) (*UpdateFronten
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FrontendCustomDomainResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFrontendRoutesClientResponse parses an HTTP response from a ListFrontendRoutesWithResponse call
+func ParseListFrontendRoutesClientResponse(rsp *http.Response) (*ListFrontendRoutesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFrontendRoutesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendRouteList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFrontendRouteClientResponse parses an HTTP response from a CreateFrontendRouteWithResponse call
+func ParseCreateFrontendRouteClientResponse(rsp *http.Response) (*CreateFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FrontendRoute
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFrontendRouteClientResponse parses an HTTP response from a DeleteFrontendRouteWithResponse call
+func ParseDeleteFrontendRouteClientResponse(rsp *http.Response) (*DeleteFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateFrontendRouteClientResponse parses an HTTP response from a UpdateFrontendRouteWithResponse call
+func ParseUpdateFrontendRouteClientResponse(rsp *http.Response) (*UpdateFrontendRouteClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateFrontendRouteClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendRoute
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -63257,6 +65241,74 @@ func ParseSetProjectGitProductionBranchClientResponse(rsp *http.Response) (*SetP
 	return response, nil
 }
 
+// ParseSetProjectGitRootDirectoryClientResponse parses an HTTP response from a SetProjectGitRootDirectoryWithResponse call
+func ParseSetProjectGitRootDirectoryClientResponse(rsp *http.Response) (*SetProjectGitRootDirectoryClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetProjectGitRootDirectoryClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectGitConnection
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetProjectGitDeploySettingsClientResponse parses an HTTP response from a GetProjectGitDeploySettingsWithResponse call
 func ParseGetProjectGitDeploySettingsClientResponse(rsp *http.Response) (*GetProjectGitDeploySettingsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -63427,6 +65479,276 @@ func ParseGetProjectHealthClientResponse(rsp *http.Response) (*GetProjectHealthC
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartLavaFlowRunClientResponse parses an HTTP response from a StartLavaFlowRunWithResponse call
+func ParseStartLavaFlowRunClientResponse(rsp *http.Response) (*StartLavaFlowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartLavaFlowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest LavaFlowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaFlowSettingsClientResponse parses an HTTP response from a GetLavaFlowSettingsWithResponse call
+func ParseGetLavaFlowSettingsClientResponse(rsp *http.Response) (*GetLavaFlowSettingsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaFlowSettingsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaFlowSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateLavaFlowSettingsClientResponse parses an HTTP response from a UpdateLavaFlowSettingsWithResponse call
+func ParseUpdateLavaFlowSettingsClientResponse(rsp *http.Response) (*UpdateLavaFlowSettingsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateLavaFlowSettingsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaFlowSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListLavaFlowRunsClientResponse parses an HTTP response from a ListLavaFlowRunsWithResponse call
+func ParseListLavaFlowRunsClientResponse(rsp *http.Response) (*ListLavaFlowRunsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLavaFlowRunsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PaginatedLavaFlowRuns
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLavaFlowRunClientResponse parses an HTTP response from a GetLavaFlowRunWithResponse call
+func ParseGetLavaFlowRunClientResponse(rsp *http.Response) (*GetLavaFlowRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLavaFlowRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LavaFlowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

@@ -22,35 +22,79 @@ type Route struct {
 	Function *apiclient.Function
 }
 
-// RouteInput is the route a create writes. Function is a name or ID.
+// RouteInput is the route a create writes. Exactly one of Function and
+// Frontend, each a name or ID, names the target: a function route forwards to
+// a function, and a Frontend route mounts another frontend.
 type RouteInput struct {
 	PathPrefix  string
 	Function    string
+	Frontend    string
 	StripPrefix bool
 }
 
-// RouteUpdate changes the fields that are set and keeps the others.
+// RouteUpdate changes the fields that are set and keeps the others. Function
+// and StripPrefix apply to function routes, Frontend to Frontend routes.
 type RouteUpdate struct {
 	PathPrefix  *string
 	Function    *string
+	Frontend    *string
 	StripPrefix *bool
 }
 
-// ListRoutes returns a frontend's function routes in the order they match.
-func (s Service) ListRoutes(ctx context.Context, identifier string) (*apiclient.Frontend, []Route, error) {
+// RouteResult is one route of either kind; exactly one field is set.
+type RouteResult struct {
+	Function *Route
+	Frontend *Mount
+}
+
+// PathPrefix returns the route's path prefix.
+func (r RouteResult) PathPrefix() string {
+	if r.Frontend != nil {
+		return r.Frontend.PathPrefix
+	}
+	if r.Function != nil {
+		return r.Function.PathPrefix
+	}
+	return ""
+}
+
+// Routes are a frontend's function and Frontend routes, each in the order the
+// server returns them, most specific first.
+type Routes struct {
+	Function []Route
+	Frontend []Mount
+}
+
+// ListRoutes returns a frontend's function and Frontend routes.
+func (s Service) ListRoutes(ctx context.Context, identifier string) (*apiclient.Frontend, Routes, error) {
 	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
 	if err != nil {
-		return nil, nil, err
+		return nil, Routes{}, err
 	}
 	routes, err := authenticated.API.ListFrontendFunctionRoutes(ctx, authenticated.ProjectID, frontend.Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list routes for frontend %q: %w", frontend.Name, err)
+		return nil, Routes{}, fmt.Errorf("failed to list routes for frontend %q: %w", frontend.Name, err)
 	}
-	functions, err := listFunctions(ctx, authenticated)
+	mounts, err := listMounts(ctx, authenticated, frontend)
 	if err != nil {
-		return nil, nil, err
+		return nil, Routes{}, err
 	}
-	return frontend, withFunctions(routes, functions), nil
+	var listed Routes
+	if len(routes) > 0 {
+		functions, err := listFunctions(ctx, authenticated)
+		if err != nil {
+			return nil, Routes{}, err
+		}
+		listed.Function = withFunctions(routes, functions)
+	}
+	if len(mounts) > 0 {
+		frontends, err := listFrontends(ctx, authenticated)
+		if err != nil {
+			return nil, Routes{}, err
+		}
+		listed.Frontend = withTargets(mounts, frontends)
+	}
+	return frontend, listed, nil
 }
 
 // RouteTargets pairs routes already read with the functions they forward to.
@@ -69,19 +113,23 @@ func (s Service) RouteTargets(ctx context.Context, routes []apiclient.FrontendFu
 	return withFunctions(routes, functions), nil
 }
 
-// CreateRoute forwards a path prefix on a frontend to a function.
-func (s Service) CreateRoute(ctx context.Context, identifier string, input RouteInput) (*apiclient.Frontend, Route, error) {
+// CreateRoute forwards a path prefix on a frontend to a function, or mounts
+// another frontend there when input names a Frontend.
+func (s Service) CreateRoute(ctx context.Context, identifier string, input RouteInput) (*apiclient.Frontend, RouteResult, error) {
+	if input.Frontend != "" {
+		return s.createMount(ctx, identifier, input)
+	}
 	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
 	if err != nil {
-		return nil, Route{}, err
+		return nil, RouteResult{}, err
 	}
 	functions, err := listFunctions(ctx, authenticated)
 	if err != nil {
-		return nil, Route{}, err
+		return nil, RouteResult{}, err
 	}
 	target, err := routeTarget(ctx, authenticated, functions, input.Function)
 	if err != nil {
-		return nil, Route{}, err
+		return nil, RouteResult{}, err
 	}
 
 	stripPrefix := input.StripPrefix
@@ -92,9 +140,9 @@ func (s Service) CreateRoute(ctx context.Context, identifier string, input Route
 			StripPrefix: &stripPrefix,
 		})
 	if err != nil {
-		return nil, Route{}, fmt.Errorf("failed to create route: %w", refusedTarget(err, target))
+		return nil, RouteResult{}, fmt.Errorf("failed to create route: %w", refusedTarget(err, target))
 	}
-	return frontend, Route{FrontendFunctionRoute: *created, Function: target}, nil
+	return frontend, RouteResult{Function: &Route{FrontendFunctionRoute: *created, Function: target}}, nil
 }
 
 // TargetNotPublicError reports a route refused because the function it
@@ -115,23 +163,25 @@ func refusedTarget(err error, target *apiclient.Function) error {
 	return err
 }
 
-// UpdateRoute changes one route, found by its path prefix or ID.
-func (s Service) UpdateRoute(ctx context.Context, identifier, route string, update RouteUpdate) (*apiclient.Frontend, Route, error) {
-	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
+// UpdateRoute changes one route of either kind, found by its path prefix or
+// ID. A route keeps its kind.
+func (s Service) UpdateRoute(ctx context.Context, identifier, route string, update RouteUpdate) (*apiclient.Frontend, RouteResult, error) {
+	authenticated, frontend, found, err := s.findRoute(ctx, identifier, route)
 	if err != nil {
-		return nil, Route{}, err
+		return nil, RouteResult{}, err
 	}
-	routes, err := authenticated.API.ListFrontendFunctionRoutes(ctx, authenticated.ProjectID, frontend.Id)
-	if err != nil {
-		return nil, Route{}, fmt.Errorf("failed to list routes for frontend %q: %w", frontend.Name, err)
+	if found.Frontend != nil {
+		updated, err := s.updateMount(ctx, authenticated, frontend, *found.Frontend, update)
+		return frontend, updated, err
 	}
-	current, err := findRoute(routes, frontend.Name, route)
-	if err != nil {
-		return nil, Route{}, err
+	current := *found.Function
+	if update.Frontend != nil {
+		return nil, RouteResult{}, fmt.Errorf("route %s on frontend %q forwards to a function, so --frontend does not apply; "+
+			"a route cannot change kind: delete it and create a Frontend route instead", current.PathPrefix, frontend.Name)
 	}
 	functions, err := listFunctions(ctx, authenticated)
 	if err != nil {
-		return nil, Route{}, err
+		return nil, RouteResult{}, err
 	}
 
 	request := apiclient.CreateFrontendFunctionRouteRequest{
@@ -148,46 +198,86 @@ func (s Service) UpdateRoute(ctx context.Context, identifier, route string, upda
 	if update.Function != nil {
 		target, err := routeTarget(ctx, authenticated, functions, *update.Function)
 		if err != nil {
-			return nil, Route{}, err
+			return nil, RouteResult{}, err
 		}
 		request.FunctionId = target.Id
 	}
 
 	updated, err := authenticated.API.UpdateFrontendFunctionRoute(ctx, authenticated.ProjectID, frontend.Id, current.Id, request)
 	if err != nil {
-		return nil, Route{}, fmt.Errorf("failed to update route %s: %w",
+		return nil, RouteResult{}, fmt.Errorf("failed to update route %s: %w",
 			current.PathPrefix, refusedTarget(err, functionByID(functions, request.FunctionId)))
 	}
-	return frontend, withFunctions([]apiclient.FrontendFunctionRoute{*updated}, functions)[0], nil
+	return frontend, RouteResult{Function: &withFunctions([]apiclient.FrontendFunctionRoute{*updated}, functions)[0]}, nil
 }
 
-// ResolveRoute returns one route, found by its path prefix or ID.
-func (s Service) ResolveRoute(ctx context.Context, identifier, route string) (*apiclient.Frontend, apiclient.FrontendFunctionRoute, error) {
-	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
-	if err != nil {
-		return nil, apiclient.FrontendFunctionRoute{}, err
-	}
-	routes, err := authenticated.API.ListFrontendFunctionRoutes(ctx, authenticated.ProjectID, frontend.Id)
-	if err != nil {
-		return nil, apiclient.FrontendFunctionRoute{}, fmt.Errorf("failed to list routes for frontend %q: %w", frontend.Name, err)
-	}
-	found, err := findRoute(routes, frontend.Name, route)
-	if err != nil {
-		return nil, apiclient.FrontendFunctionRoute{}, err
-	}
-	return frontend, found, nil
+// FoundRoute is one route of either kind as the server lists it; exactly one
+// field is set.
+type FoundRoute struct {
+	Function *apiclient.FrontendFunctionRoute
+	Frontend *apiclient.FrontendRoute
 }
 
-// DeleteRouteByID stops forwarding one route's path prefix.
-func (s Service) DeleteRouteByID(ctx context.Context, frontendID, routeID uuid.UUID) error {
+// PathPrefix returns the route's path prefix.
+func (r FoundRoute) PathPrefix() string {
+	if r.Frontend != nil {
+		return r.Frontend.PathPrefix
+	}
+	return r.Function.PathPrefix
+}
+
+// ResolveRoute returns one route of either kind, found by its path prefix or
+// ID.
+func (s Service) ResolveRoute(ctx context.Context, identifier, route string) (*apiclient.Frontend, FoundRoute, error) {
+	_, frontend, found, err := s.findRoute(ctx, identifier, route)
+	return frontend, found, err
+}
+
+// DeleteRoute stops serving one route's path prefix, whichever kind it is.
+func (s Service) DeleteRoute(ctx context.Context, frontendID uuid.UUID, route FoundRoute) error {
 	authenticated, err := s.sessions.CurrentProject()
 	if err != nil {
 		return err
 	}
-	if err := authenticated.API.DeleteFrontendFunctionRoute(ctx, authenticated.ProjectID, frontendID, routeID); err != nil {
+	if route.Frontend != nil {
+		err = authenticated.API.DeleteFrontendRoute(ctx, authenticated.ProjectID, frontendID, route.Frontend.Id)
+	} else {
+		err = authenticated.API.DeleteFrontendFunctionRoute(ctx, authenticated.ProjectID, frontendID, route.Function.Id)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to delete route: %w", err)
 	}
 	return nil
+}
+
+// findRoute finds a route by path prefix or ID among a frontend's function and
+// Frontend routes, which share one set of paths.
+func (s Service) findRoute(
+	ctx context.Context, identifier, route string,
+) (*clisession.ProjectSession, *apiclient.Frontend, FoundRoute, error) {
+	authenticated, frontend, err := s.currentFrontend(ctx, identifier)
+	if err != nil {
+		return nil, nil, FoundRoute{}, err
+	}
+	routes, err := authenticated.API.ListFrontendFunctionRoutes(ctx, authenticated.ProjectID, frontend.Id)
+	if err != nil {
+		return nil, nil, FoundRoute{}, fmt.Errorf("failed to list routes for frontend %q: %w", frontend.Name, err)
+	}
+	for i := range routes {
+		if routeMatches(routes[i].Id, routes[i].PathPrefix, route) {
+			return authenticated, frontend, FoundRoute{Function: &routes[i]}, nil
+		}
+	}
+	mounts, err := listMounts(ctx, authenticated, frontend)
+	if err != nil {
+		return nil, nil, FoundRoute{}, err
+	}
+	for i := range mounts {
+		if routeMatches(mounts[i].Id, mounts[i].PathPrefix, route) {
+			return authenticated, frontend, FoundRoute{Frontend: &mounts[i]}, nil
+		}
+	}
+	return nil, nil, FoundRoute{}, fmt.Errorf("route %q %w for frontend %q", route, api.ErrNotFound, frontend.Name)
 }
 
 func (s Service) currentFrontend(ctx context.Context, identifier string) (*clisession.ProjectSession, *apiclient.Frontend, error) {
@@ -245,14 +335,9 @@ func routeTarget(
 	return nil, fmt.Errorf("function %q %w", identifier, api.ErrNotFound)
 }
 
-func findRoute(routes []apiclient.FrontendFunctionRoute, frontend, identifier string) (apiclient.FrontendFunctionRoute, error) {
+func routeMatches(id uuid.UUID, pathPrefix, identifier string) bool {
 	target := strings.TrimSpace(identifier)
-	for _, route := range routes {
-		if route.Id.String() == target || route.PathPrefix == target || route.PathPrefix == strings.TrimSuffix(target, "/") {
-			return route, nil
-		}
-	}
-	return apiclient.FrontendFunctionRoute{}, fmt.Errorf("route %q %w for frontend %q", identifier, api.ErrNotFound, frontend)
+	return id.String() == target || pathPrefix == target || pathPrefix == strings.TrimSuffix(target, "/")
 }
 
 func functionByID(functions []apiclient.Function, id uuid.UUID) *apiclient.Function {

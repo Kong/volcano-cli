@@ -190,8 +190,14 @@ type gitAPI struct {
 	// commands tolerate without failing the connect.
 	deploySettingsStatus int
 
-	mu              sync.Mutex
-	connectBody     map[string]any
+	// rootStatus and rootMessage make the root-directory route refuse.
+	rootStatus  int
+	rootMessage string
+
+	mu          sync.Mutex
+	connectBody map[string]any
+	// rootBody is what the root-directory route was sent.
+	rootBody        map[string]any
 	deleted         bool
 	connectionReads int
 	// accountReads counts the calls to the caller's own GitHub routes, which
@@ -251,6 +257,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveConnection(w)
 	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveConnect(w, r)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-connection/root-directory"):
+		a.serveRootDirectory(w, r)
 	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/git-connection"):
 		a.serveDisconnect(w)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
@@ -410,6 +418,27 @@ func (a *gitAPI) serveConnect(w http.ResponseWriter, r *http.Request) {
 		connectionPayload(a.connected, a.connectedRoot, a.connectedRepoID, a.currentInstallation()))
 }
 
+// serveRootDirectory changes only the binding's root directory, answering 404
+// for a project with none, as the platform does.
+func (a *gitAPI) serveRootDirectory(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.rootBody))
+
+	if a.rootStatus != 0 {
+		writeGitJSON(a.t, w, a.rootStatus, map[string]any{"error": a.rootMessage})
+		return
+	}
+	if a.connected == "" {
+		writeGitJSON(a.t, w, http.StatusNotFound, map[string]any{"error": "project has no repository connected"})
+		return
+	}
+	a.connectedRoot, _ = a.rootBody["root_directory"].(string)
+	a.connectionUpdated = "2026-08-18T00:00:02Z"
+	writeGitJSON(a.t, w, http.StatusOK,
+		connectionPayload(a.connected, a.connectedRoot, a.currentRepoID(), a.currentInstallation()))
+}
+
 func (a *gitAPI) serveDisconnect(w http.ResponseWriter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -441,6 +470,12 @@ func (a *gitAPI) sentConnectBody() map[string]any {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.connectBody
+}
+
+func (a *gitAPI) sentRootBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.rootBody
 }
 
 func (a *gitAPI) accountRouteReads() int {

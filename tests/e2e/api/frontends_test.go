@@ -40,6 +40,7 @@ func TestAPIE2ECloudFrontends(t *testing.T) {
 
 	requireAPIE2EFrontendRoutes(t, env, frontend, siteURL)
 	requireAPIE2EFrontendManagedDomain(t, env, frontend)
+	requireAPIE2EFrontendDomains(t, env, frontend)
 	requireAPIE2EFrontendBuildReuse(t, env, frontend, copied)
 
 	env.runCloudCLI(t, "frontends", "delete", frontend, "--yes").requireSuccess(t, "deletion started")
@@ -55,7 +56,7 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 	env.waitForCloudCLIContains(t, apiE2EFunctionDeploymentTimeout, "Status: active", "functions", "get", "echo")
 	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 
 	// A route reaches its function with no credential, so the function has to
 	// be public first.
@@ -99,14 +100,14 @@ func requireAPIE2EFrontendRoutes(t *testing.T, env *apiE2E, frontend, siteURL st
 		requireSuccess(t, "Strip prefix: no")
 	waitForAPIE2ERoutedPath(t, frontendPathURL(siteURL, "/api/v2/ping"), "/api/v2/ping")
 	env.runCloudCLI(t, "frontends", "routes", "update", frontend, "/api/v2").
-		requireFailure(t, "specify at least one of --path, --function, or --strip-prefix")
+		requireFailure(t, "specify at least one of --path, --function, --frontend, or --strip-prefix")
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/echo", "--yes").
 		requireFailure(t, fmt.Sprintf("route %q not found for frontend %q", "/api/echo", frontend))
 
 	env.runCloudCLI(t, "frontends", "routes", "delete", frontend, "/api/v2", "--yes").
 		requireSuccess(t, fmt.Sprintf("Route /api/v2 deleted from frontend '%s'", frontend))
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/v2/ping"))
 	env.runCloudCLI(t, "functions", "get", "echo").requireNotContains(t, "Routed from:")
 	env.runCloudCLI(t, "functions", "update", "echo", "--visibility", "private").requireSuccess(t, "visibility set to private")
@@ -316,4 +317,49 @@ func waitForAPIE2EFrontendContent(t *testing.T, siteURL, expected string) {
 		time.Sleep(apiE2EPollInterval)
 	}
 	t.Fatalf("frontend %s did not serve %q before timeout; last: %s", siteURL, expected, last)
+}
+
+// requireAPIE2EFrontendDomains walks the domains commands against a deployed
+// frontend. Nobody owns its hostnames, so no domain becomes active and every
+// redirect is refused; Kong/volcano-hosting's cloud E2E serves one through
+// real DNS.
+func requireAPIE2EFrontendDomains(t *testing.T, env *apiE2E, frontend string) {
+	t.Helper()
+	apex := "cli-e2e-" + apiE2ESuffix(t) + ".example.com"
+	www := "www." + apex
+	env.runCloudCLI(t, "frontends", "domains", "list", frontend).
+		requireSuccess(t, fmt.Sprintf("No custom domains on frontend %q", frontend))
+
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, www).
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' added to frontend '%s'", www, frontend), "TLS mode: managed")
+	// HOBBY's one managed certificate per account binds before its one domain
+	// per frontend does.
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, apex).
+		requireFailure(t, "HTTP 403", "managed TLS certificate limit exceeded for your plan (1)")
+
+	// Polled rather than asserted once: a plan change reaches the API through a
+	// cache invalidation, so the flip is quick but not synchronous with the
+	// write.
+	env.setUserPlan(t, "SUPERAGENT")
+	added := fmt.Sprintf("Custom domain '%s' added to frontend '%s'", apex, frontend)
+	env.waitForCloudCLIContains(t, 5*time.Minute, added, "frontends", "domains", "add", frontend, apex).
+		requireSuccess(t, added)
+	env.runCloudCLI(t, "frontends", "domains", "add", frontend, "shop."+apex, "--redirect-to", www).
+		requireFailure(t, "HTTP 400", "redirect.to must name an active domain")
+	env.runCloudCLI(t, "frontends", "domains", "list", frontend).
+		requireSuccess(t, www, apex, "Total: 2 custom domain(s)")
+	env.runCloudCLI(t, "frontends", "domains", "update", frontend, apex, "--redirect-to", www).
+		requireFailure(t, "HTTP 400", "redirect.to must name an active domain")
+	env.runCloudCLI(t, "frontends", "domains", "update", frontend, apex, "--no-redirect").
+		requireSuccess(t, fmt.Sprintf("Custom domain '%s' now serves frontend '%s'", apex, frontend))
+	got := env.runCloudCLI(t, "frontends", "domains", "get", frontend, apex)
+	got.requireSuccess(t, apex)
+	got.requireNotContains(t, "Redirects to:")
+
+	for _, domain := range []string{apex, www} {
+		env.runCloudCLI(t, "frontends", "domains", "remove", frontend, domain, "--yes").
+			requireSuccess(t, fmt.Sprintf("Custom domain '%s' removal started", domain))
+	}
+	env.waitForCloudCLIContains(t, apiE2EResourceDeleteTimeout,
+		fmt.Sprintf("No custom domains on frontend %q", frontend), "frontends", "domains", "list", frontend)
 }

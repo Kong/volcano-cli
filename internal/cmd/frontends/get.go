@@ -52,6 +52,16 @@ func runGet(ctx context.Context, opts getOptions) error {
 		}
 	}
 
-	output.Frontend(opts.out, frontend, routeEntries(routes))
+	// Likewise the frontend listing only names the mounted frontends.
+	mounts, err := service.MountTargets(ctx, frontend.FrontendRoutes)
+	if err != nil {
+		output.Warning(opts.errOut, "Frontend routes on '%s' show frontend IDs instead of names: %v", frontend.Name, err)
+		mounts = make([]clifrontend.Mount, 0, len(frontend.FrontendRoutes))
+		for _, route := range frontend.FrontendRoutes {
+			mounts = append(mounts, clifrontend.Mount{FrontendRoute: route})
+		}
+	}
+
+	output.Frontend(opts.out, frontend, append(routeEntries(routes), mountEntries(mounts)...))
 	return nil
 }

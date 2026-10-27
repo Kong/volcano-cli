@@ -60,6 +60,8 @@ type Manifest struct {
 	Variables *[]VariableManifest `yaml:"variables,omitempty" json:"variables,omitempty"`
 	Buckets   *[]BucketManifest   `yaml:"buckets,omitempty" json:"buckets,omitempty"`
 	Realtime  *RealtimeManifest   `yaml:"realtime,omitempty" json:"realtime,omitempty"`
+	// LavaFlow has no key, provider, or model: Volcano picks the models.
+	LavaFlow *LavaFlowManifest `yaml:"lavaflow,omitempty" json:"lavaflow,omitempty"`
 	// Notifications never carries the webhook signing secret; the server
 	// generates it and returns it only from the notifications API.
 	Notifications *NotificationsManifest `yaml:"notifications,omitempty" json:"notifications,omitempty"`
@@ -131,6 +133,14 @@ type RealtimeManifest struct {
 	BroadcastEnabled       *bool `yaml:"broadcast_enabled,omitempty" json:"broadcast_enabled,omitempty"`
 	PresenceEnabled        *bool `yaml:"presence_enabled,omitempty" json:"presence_enabled,omitempty"`
 	PostgresChangesEnabled *bool `yaml:"postgres_changes_enabled,omitempty" json:"postgres_changes_enabled,omitempty"`
+}
+
+// LavaFlowManifest declares LavaFlow's settings. Nil fields keep their current
+// values. MaxStage is diagnose or pull_request; the server validates it.
+type LavaFlowManifest struct {
+	Enabled     *bool   `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	MaxStage    *string `yaml:"max_stage,omitempty" json:"max_stage,omitempty"`
+	AutoTrigger *bool   `yaml:"auto_trigger,omitempty" json:"auto_trigger,omitempty"`
 }
 
 // NotificationsManifest declares where project alerts go and when a failing
@@ -432,6 +442,12 @@ func (m *Manifest) DeclaresCustomDomains() bool {
 	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.CustomDomains != nil })
 }
 
+// DeclaresFrontendRoutes reports whether a frontend entry lists
+// frontend_routes, which only a server with Frontend routes accepts.
+func (m *Manifest) DeclaresFrontendRoutes() bool {
+	return m.Frontends != nil && slices.ContainsFunc(*m.Frontends, func(f FrontendManifest) bool { return f.FrontendRoutes != nil })
+}
+
 // StandardFunctionNames returns the functions the manifest declares without a
 // durable kind, in declaration order. The counterpart of DurableFunctionNames:
 // a durable deploy uses it to refuse a name the manifest keeps standard. A name
@@ -471,6 +487,9 @@ type FrontendManifest struct {
 	// FunctionRoutes replaces the frontend's routes; nil preserves them and []
 	// removes them.
 	FunctionRoutes *[]FunctionRouteManifest `yaml:"function_routes,omitempty" json:"function_routes,omitempty"`
+	// FrontendRoutes replaces the paths this frontend serves from other
+	// frontends; nil preserves them and [] removes them.
+	FrontendRoutes *[]FrontendRouteManifest `yaml:"frontend_routes,omitempty" json:"frontend_routes,omitempty"`
 }
 
 // FunctionRouteManifest sends requests under PathPrefix on a frontend to a
@@ -479,6 +498,14 @@ type FunctionRouteManifest struct {
 	Function    string `yaml:"function" json:"function"`
 	PathPrefix  string `yaml:"path_prefix" json:"path_prefix"`
 	StripPrefix *bool  `yaml:"strip_prefix,omitempty" json:"strip_prefix,omitempty"`
+}
+
+// FrontendRouteManifest serves requests under PathPrefix on a frontend from
+// another frontend of the project, named by Frontend. Paths are forwarded
+// unchanged.
+type FrontendRouteManifest struct {
+	Frontend   string `yaml:"frontend" json:"frontend"`
+	PathPrefix string `yaml:"path_prefix" json:"path_prefix"`
 }
 
 // CustomDomainManifest declares a frontend custom domain with BYOC TLS.

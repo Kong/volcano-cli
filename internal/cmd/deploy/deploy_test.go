@@ -738,6 +738,8 @@ frontends:
     variables: [API_URL]
   - name: routes-only
     function_routes: []
+  - name: mounts-only
+    frontend_routes: []
 `), func(string) (string, bool) { return "", false })
 	require.NoError(t, err)
 	b := planBuilder{manifests: []manifestFile{{path: "volcano-config.yaml", manifest: manifest}}}
@@ -755,6 +757,7 @@ frontends:
 		{name: "kept", deferred: true},
 		{name: "list-only", deferred: true},
 		{name: "routes-only"},
+		{name: "mounts-only"},
 		{name: "undeclared"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

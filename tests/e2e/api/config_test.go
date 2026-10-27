@@ -289,7 +289,7 @@ frontends:
 	}
 	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/config/ping"))
 
 	writeManifest("public", route)
@@ -325,7 +325,7 @@ frontends:
 	env.runCloudCLI(t, "config", "deploy").
 		requireSuccess(t, "Configuration deployed", "functions: 1 updated", "frontends.function_routes: 1 deleted")
 	env.runCloudCLI(t, "frontends", "routes", "list", frontend).
-		requireSuccess(t, fmt.Sprintf("No function routes on frontend %q", frontend))
+		requireSuccess(t, fmt.Sprintf("No routes on frontend %q", frontend))
 	env.runCloudCLI(t, "functions", "get", "echo").requireSuccess(t, "Visibility: private")
 	waitForAPIE2EPathNotRouted(t, frontendPathURL(siteURL, "/api/config/ping"))
 }

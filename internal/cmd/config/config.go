@@ -48,8 +48,8 @@ func New(deps cliruntime.Deps) *cobra.Command {
 (volcano-config.yaml): project settings, database assertions, variables,
 buckets and policies, realtime, the complete auth configuration (providers,
 email, templates, managed pages), function visibility and schedulers,
-notification settings, and frontend custom domains, function routes, and
-Sandbox template settings.
+notification settings, LavaFlow settings (cloud only), and frontend custom
+domains, function routes, and Sandbox template settings.
 
 The server owns validation and reconciliation; the CLI uploads and downloads
 the manifest.`,
@@ -181,8 +181,12 @@ func apply(ctx context.Context, opts deployOptions, manifest *projectconfig.Mani
 		if isConfigEndpointMissing(err) {
 			return errors.New("this server does not support declarative config apply; upgrade your local-mode server image and try again")
 		}
-		hints := slices.DeleteFunc([]string{visibilityLevelsHint(opts.deps, manifest, err), customDomainsHint(manifest, err)},
-			func(hint string) bool { return hint == "" })
+		hints := []string{
+			visibilityLevelsHint(opts.deps, manifest, err),
+			customDomainsHint(manifest, err),
+			frontendRoutesHint(opts.deps, manifest, err),
+		}
+		hints = slices.DeleteFunc(hints, func(hint string) bool { return hint == "" })
 		if len(hints) > 0 {
 			return fmt.Errorf("failed to deploy configuration from %s: %w\n%s", manifestPath, err, strings.Join(hints, "\n"))
 		}
@@ -311,6 +315,19 @@ func customDomainsHint(manifest *projectconfig.Manifest, err error) string {
 	}
 	return "if this server predates several custom domains per frontend, it refuses custom_domains this way: " +
 		"declare a frontend's one domain with custom_domain instead"
+}
+
+// frontendRoutesHint explains a 400 that may come from a server that predates
+// Frontend routes, conditional for the reason visibilityLevelsHint gives.
+func frontendRoutesHint(deps cliruntime.Deps, manifest *projectconfig.Manifest, err error) string {
+	if api.Status(err) != http.StatusBadRequest || !manifest.DeclaresFrontendRoutes() {
+		return ""
+	}
+	remedy := "remove them"
+	if deps.LocalMode {
+		remedy = "upgrade your local-mode server image, or remove them"
+	}
+	return "if this server predates Frontend routes, it refuses frontend_routes this way: " + remedy
 }
 
 // isConfigEndpointMissing detects a 404 from a server without the config
