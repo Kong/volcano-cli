@@ -20,7 +20,7 @@ func TestEnableTurnsLavaFlowOnAndSaysWhatThatMeans(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
 	assert.Contains(t, out, "LavaFlow is on\nNote: "+clilavaflow.OnDescription+"\n")
-	assert.Contains(t, out, "LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in "+lavaflowRepo+".\n")
+	assert.Contains(t, out, "LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it, and opens a fix pull request in "+lavaflowRepo+".\n")
 	assert.Contains(t, out, clilavaflow.CostNote)
 	assertLavaFlowWording(t, out)
 }
@@ -42,7 +42,7 @@ func TestEnableSaysWhereTheFixPullRequestGoes(t *testing.T) {
 		{
 			"unreadable connection",
 			func(s *lavaflowServer) { s.repoFailure = http.StatusInternalServerError },
-			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in your connected repository.\n",
+			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it, and opens a fix pull request in your connected repository.\n",
 		},
 	} {
 		fake, deps := newLavaflowServer(t)
@@ -67,7 +67,7 @@ func TestEnableKeepsTheSavedStageAndTrigger(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "enable")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
-	assert.Contains(t, out, "LavaFlow diagnoses each issue you start a run for (auto_trigger: false in the project configuration) "+
+	assert.Contains(t, out, "LavaFlow diagnoses each issue you start a run for (auto_trigger: false in the project configuration), "+
 		"and opens no pull request (max_stage: diagnose in the project configuration).\n")
 	assert.NotContains(t, out, lavaflowRepo, "a diagnose-only run opens no pull request anywhere")
 }
