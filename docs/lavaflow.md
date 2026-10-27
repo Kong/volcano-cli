@@ -69,7 +69,7 @@ volcano cloud lavaflow enable
 ```text
 ✓ LavaFlow is on
 Note: LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
-Note: LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in acme/shop.
+Note: LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it, and opens a fix pull request in acme/shop.
 Note: LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 ```
 
