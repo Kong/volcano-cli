@@ -1881,6 +1881,24 @@ func (e ImportProvider) Valid() bool {
 	}
 }
 
+// Defines values for LavaFlowCommitOrigin.
+const (
+	LavaFlowCommitOriginClientReported LavaFlowCommitOrigin = "client_reported"
+	LavaFlowCommitOriginPush           LavaFlowCommitOrigin = "push"
+)
+
+// Valid indicates whether the value is a known member of the LavaFlowCommitOrigin enum.
+func (e LavaFlowCommitOrigin) Valid() bool {
+	switch e {
+	case LavaFlowCommitOriginClientReported:
+		return true
+	case LavaFlowCommitOriginPush:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LavaFlowDiagnosisConfidence.
 const (
 	LavaFlowConfidenceHigh   LavaFlowDiagnosisConfidence = "high"
@@ -6486,7 +6504,7 @@ type DatabaseUpdateRequest struct {
 
 // DeploymentCommit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
 type DeploymentCommit struct {
-	// Dirty `true` when the working tree had uncommitted changes, so the deployed code may differ from the commit.
+	// Dirty `true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file the commit does not hold, so the deployed code may differ from the commit.
 	Dirty bool `json:"dirty"`
 
 	// Repository GitHub repository as `owner/name`, normalized from what the client sent.
@@ -6495,7 +6513,7 @@ type DeploymentCommit struct {
 	// Sha Full commit ID.
 	Sha string `json:"sha"`
 
-	// Verified `true` when Volcano confirmed, through the project's GitHub connection, that `repository` is the project's connected repository and `sha` is on its production branch. A commit from another branch, repository, or a project without a connection is recorded unverified. Autofix reads source and opens pull requests only for a verified commit with `dirty: false`.
+	// Verified `true` when Volcano confirmed, through the project's GitHub connection, that `repository` is the project's connected repository, `sha` is on its production branch, every uploaded file is the commit's file at its path, and the upload holds the commit's files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment's commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.
 	Verified bool `json:"verified"`
 }
 
@@ -7860,6 +7878,9 @@ type ImportSourcesResponse struct {
 	Sources []ImportSource `json:"sources"`
 }
 
+// LavaFlowCommitOrigin How `commit_sha` reached Volcano. `push` is a commit a push to the connected repository deployed. `client_reported` is a commit the deploy client reported, which Volcano verified against the uploaded files.
+type LavaFlowCommitOrigin string
+
 // LavaFlowDiagnosis defines model for LavaFlowDiagnosis.
 type LavaFlowDiagnosis struct {
 	Confidence LavaFlowDiagnosisConfidence `json:"confidence"`
@@ -7943,7 +7964,10 @@ type LavaFlowPullRequestState string
 
 // LavaFlowRun defines model for LavaFlowRun.
 type LavaFlowRun struct {
-	// CommitSha The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
+	// CommitOrigin How `commit_sha` reached Volcano. `push` is a commit a push to the connected repository deployed. `client_reported` is a commit the deploy client reported, which Volcano verified against the uploaded files.
+	CommitOrigin *LavaFlowCommitOrigin `json:"commit_origin,omitempty"`
+
+	// CommitSha The commit the diagnosis read: the commit a push to the connected repository deployed, or a deployment's verified commit with `dirty: false`. Absent when the run read logs only.
 	CommitSha   *string            `json:"commit_sha,omitempty"`
 	CompletedAt *time.Time         `json:"completed_at,omitempty"`
 	CreatedAt   time.Time          `json:"created_at"`
@@ -12548,7 +12572,7 @@ type CreateDurableFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles.
 	Code openapi_types.File `json:"code"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
 	Commit *string `json:"commit,omitempty"`
 
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.
@@ -12726,7 +12750,7 @@ type CreateFrontendMultipartBody struct {
 	// Archive ZIP or tar.gz archive of the frontend project directory or monorepo workspace root. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz archive.
 	Archive openapi_types.File `json:"archive"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false, "root": "apps/web"}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. `root` is the uploaded directory's path from the repository root, `""` for the root itself. `repository`, `sha`, and `dirty` are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano checks the commit against the project's connected repository and each uploaded file against the commit's file at `root`, and returns the result in the deployment's `commit.verified`; an uploaded file the commit does not hold sets `commit.dirty`. A commit it cannot verify is still recorded and never fails the deploy.
 	Commit *string `json:"commit,omitempty"`
 
 	// Framework Next.js frontend. Supported Next.js majors are 15.x and 16.x.
@@ -12809,7 +12833,7 @@ type CreateFunctionMultipartBody struct {
 	// Code ZIP or tar.gz archive containing function source code plus dependency manifests/lockfiles. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz source archive.
 	Code openapi_types.File `json:"code"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
 	Commit *string `json:"commit,omitempty"`
 
 	// Handler The name of the function to invoke. Defaults to "handler" if not specified.

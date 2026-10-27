@@ -4050,7 +4050,7 @@ paths:
                 commit:
                   type: string
                   description: |
-                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
       responses:
         '200':
           description: Existing function updated; its deployment was started or queued
@@ -5674,7 +5674,7 @@ paths:
                 commit:
                   type: string
                   description: |
-                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
       responses:
         '200':
           description: Existing durable function updated; its deployment was started or queued
@@ -6852,10 +6852,12 @@ paths:
       summary: Diagnose an issue
       description: |
         Queues a run that diagnoses the issue with AI. The run reads the
-        issue's runtime logs and, when a push to the project's connected
-        repository built the deployment that was live when the issue was
-        last seen, its source at that commit. Poll the run until its status is
-        `succeeded`, `failed`, or `canceled`.
+        issue's runtime logs and, when the deployment that was live when the
+        issue was last seen came from the project's connected repository, its
+        source at that commit. That holds when a push to the repository built
+        the deployment, or when the deploy client reported the commit and
+        Volcano verified it with `dirty: false`. Poll the run until its status
+        is `succeeded`, `failed`, or `canceled`.
 
         LavaFlow must be on for the project. An issue has at most one queued or
         running run, a project runs one at a time, and a project starts at most
@@ -7424,7 +7426,7 @@ paths:
                 commit:
                   type: string
                   description: |
-                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the working tree had uncommitted changes. All three fields are required. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano verifies the commit against the project's connected repository and returns the result in the deployment's `commit.verified`; a commit it cannot verify is still recorded and never fails the deploy.
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false, "root": "apps/web"}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. `root` is the uploaded directory's path from the repository root, `""` for the root itself. `repository`, `sha`, and `dirty` are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano checks the commit against the project's connected repository and each uploaded file against the commit's file at `root`, and returns the result in the deployment's `commit.verified`; an uploaded file the commit does not hold sets `commit.dirty`. A commit it cannot verify is still recorded and never fails the deploy.
       responses:
         '200':
           description: Existing frontend updated; its deployment was started or queued
@@ -24088,7 +24090,9 @@ components:
           $ref: '#/components/schemas/LavaFlowPullRequestSkipped'
         commit_sha:
           type: string
-          description: The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
+          description: 'The commit the diagnosis read: the commit a push to the connected repository deployed, or a deployment''s verified commit with `dirty: false`. Absent when the run read logs only.'
+        commit_origin:
+          $ref: '#/components/schemas/LavaFlowCommitOrigin'
         failure_code:
           type: string
           description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
@@ -27353,10 +27357,10 @@ components:
           description: Full commit ID.
         dirty:
           type: boolean
-          description: '`true` when the working tree had uncommitted changes, so the deployed code may differ from the commit.'
+          description: '`true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file the commit does not hold, so the deployed code may differ from the commit.'
         verified:
           type: boolean
-          description: '`true` when Volcano confirmed, through the project''s GitHub connection, that `repository` is the project''s connected repository and `sha` is on its production branch. A commit from another branch, repository, or a project without a connection is recorded unverified. Autofix reads source and opens pull requests only for a verified commit with `dirty: false`.'
+          description: '`true` when Volcano confirmed, through the project''s GitHub connection, that `repository` is the project''s connected repository, `sha` is on its production branch, every uploaded file is the commit''s file at its path, and the upload holds the commit''s files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment''s commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.'
       required:
         - repository
         - sha
@@ -27375,6 +27379,15 @@ components:
         message is handed over, then `delivered`. `expired` means the wait's
         timeout passed first, and `cancelled` that the execution stopped
         waiting.
+    LavaFlowCommitOrigin:
+      type: string
+      enum:
+        - push
+        - client_reported
+      x-enum-varnames:
+        - LavaFlowCommitOriginPush
+        - LavaFlowCommitOriginClientReported
+      description: How `commit_sha` reached Volcano. `push` is a commit a push to the connected repository deployed. `client_reported` is a commit the deploy client reported, which Volcano verified against the uploaded files.
     DurableApprovalFunction:
       type: object
       description: |
