@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,8 +51,20 @@ const codeRepositoryChanged = "repository_changed"
 // Turning it on decides which repository LavaFlow reads and opens pull
 // requests in, so the API leaves it to a person, and the CLI says so before
 // asking.
-var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a project access token can't. " +
-	"Sign in with 'volcano login' and run this again, or turn it on in the dashboard")
+var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a project access token can't")
+
+// personMustTurnOn says how a person turns LavaFlow on instead. A token from
+// the environment outlasts a sign-in, so that case names the variable to
+// unset first. The refusal keeps the exit code of the permission the API
+// refuses.
+func personMustTurnOn(cfg *config.Config) error {
+	how := "Sign in with 'volcano login' and run this again, or turn it on in the dashboard"
+	if cfg.TokenFromEnv() {
+		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again, " +
+			"or turn it on in the dashboard"
+	}
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonMustTurnOn, how), config.ErrAccountTokenRequired)
+}
 
 // MaxRunsLimit is the largest page of runs the API returns.
 const MaxRunsLimit = 100
@@ -154,7 +167,7 @@ func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaF
 		return nil, err
 	}
 	if enabled && config.IsProjectToken(authenticated.Config.Token()) {
-		return nil, ErrPersonMustTurnOn
+		return nil, personMustTurnOn(authenticated.Config)
 	}
 	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
 		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
@@ -216,8 +229,11 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	if err != nil {
 		// The server's message already says which repository changed, so it
 		// is shown as given, with the command that resumes LavaFlow.
-		if api.Code(err) == codeRepositoryChanged && api.Message(err) != "" {
-			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'", api.Message(err), s.enableCommand), err)
+		if message := strings.TrimSpace(api.Message(err)); api.Code(err) == codeRepositoryChanged && message != "" {
+			if !strings.HasSuffix(message, ".") {
+				message += "."
+			}
+			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'.", message, s.enableCommand), err) //nolint:staticcheck // two sentences, the second ending the message
 		}
 		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
 	}

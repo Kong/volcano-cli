@@ -119,13 +119,43 @@ func TestEnableOnAPlanThatNoLongerAllowsLavaFlow(t *testing.T) {
 }
 
 // Turning LavaFlow on decides which repository it works in, so a project
-// access token is refused before anything is sent.
+// access token is refused before anything is sent, as a permission the API
+// refuses. Signing in saves a token, which a token in VOLCANO_TOKEN still
+// overrides, so that case says to unset it first.
 func TestEnableWithAProjectTokenSaysAPersonHasToTurnItOn(t *testing.T) {
-	fake, deps := newLavaflowServer(t)
-	t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+	for name, tc := range map[string]struct {
+		token func(t *testing.T)
+		want  string
+	}{
+		"from the environment": {
+			func(t *testing.T) {
+				t.Helper()
+				t.Setenv("VOLCANO_TOKEN", cliconfig.ProjectTokenPrefix+"secret")
+			},
+			"a person has to turn LavaFlow on: a project access token can't. Unset VOLCANO_TOKEN and sign in " +
+				"with 'volcano login', then run this again, or turn it on in the dashboard",
+		},
+		"saved": {
+			func(t *testing.T) {
+				t.Helper()
+				require.NoError(t, (&cliconfig.Config{
+					UserToken:      cliconfig.ProjectTokenPrefix + "secret",
+					CurrentProject: &cliconfig.ProjectConfig{ID: lavaflowProjectID, Name: "Shop"},
+				}).Save())
+			},
+			"a person has to turn LavaFlow on: a project access token can't. Sign in with 'volcano login' " +
+				"and run this again, or turn it on in the dashboard",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fake, deps := newLavaflowServer(t)
+			tc.token(t)
 
-	_, err := executeLavaflowCommand(t, New(deps), "enable")
-	require.ErrorIs(t, err, clilavaflow.ErrPersonMustTurnOn)
-	assert.Contains(t, err.Error(), "a person has to turn LavaFlow on")
-	assert.Empty(t, fake.updates)
+			_, err := executeLavaflowCommand(t, New(deps), "enable")
+			require.ErrorIs(t, err, clilavaflow.ErrPersonMustTurnOn)
+			require.ErrorIs(t, err, cliconfig.ErrAccountTokenRequired, "the exit code reports a permission refused")
+			assert.Equal(t, tc.want, err.Error())
+			assert.Empty(t, fake.updates)
+		})
+	}
 }

@@ -78,18 +78,24 @@ func TestRunsStartReportsARunLimitAndWhenToRetry(t *testing.T) {
 }
 
 // The server's message already says which repository changed, so it is shown
-// as given, with the command that resumes LavaFlow.
+// as given, then the command that resumes LavaFlow as a sentence of its own.
 func TestRunsStartShowsWhyTheRepositoryChangeStopsIt(t *testing.T) {
-	const message = "The project's repository changed from acme/old since LavaFlow was turned on. " +
-		"Turn LavaFlow on again to use the new repository."
-	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		s.refuse = http.StatusConflict
-		s.refusal = map[string]any{"error": message, "code": "repository_changed"}
-	})
+	const resume = " Resume it with 'volcano cloud lavaflow enable'."
+	for message, want := range map[string]string{
+		"The project's repository changed from acme/old since LavaFlow was turned on. " +
+			"Turn LavaFlow on again to use the new repository.": "The project's repository changed from acme/old since " +
+			"LavaFlow was turned on. Turn LavaFlow on again to use the new repository." + resume,
+		"The project's repository changed": "The project's repository changed." + resume,
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse = http.StatusConflict
+			s.refusal = map[string]any{"error": message, "code": "repository_changed"}
+		})
 
-	_, err := executeLavaflowCommand(t, New(deps), "runs", "start", "--issue", lavaflowIssueID)
-	require.Error(t, err)
-	assert.Equal(t, message+" Resume it with 'volcano cloud lavaflow enable'", err.Error())
-	assert.Equal(t, http.StatusConflict, api.Status(err), "the exit code still reports the refusal")
+		_, err := executeLavaflowCommand(t, New(deps), "runs", "start", "--issue", lavaflowIssueID)
+		require.Error(t, err)
+		assert.Equal(t, want, err.Error())
+		assert.Equal(t, http.StatusConflict, api.Status(err), "the exit code still reports the refusal")
+	}
 }
