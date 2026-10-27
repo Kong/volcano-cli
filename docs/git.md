@@ -20,7 +20,11 @@ Pushing stays your own `git push`, with the credentials already on your machine.
   Volcano GitHub App installed with access to the repository. Both are set up in
   the dashboard, not from the CLI.
 - `connect` reads that account-wide GitHub connection, so it needs an account
-  token (`pk-`) and says so when run with a project access token.
+  token (`pk-`) and says so when run with a project access token. Which
+  repository a project deploys from is a person's choice.
+- `root-directory` changes only the subdirectory the connected repository
+  builds from, and works with a project access token, so a CI job or an agent
+  can use it.
 - What a push actually deploys is governed by the project's Git deploy settings,
   reported after a successful connect.
 
@@ -30,6 +34,7 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 |---|---|
 | Show the connection | `volcano git status` |
 | Connect | `volcano git connect [git-url]` |
+| Change the root directory | `volcano git root-directory <path>` |
 | Disconnect | `volcano git disconnect` |
 
 ## Seeing what is connected
@@ -118,8 +123,7 @@ branch has moved is *not* unchanged, and re-running connect updates the branch a
 push has to land on. A repository renamed on
 GitHub is still the same repository — the binding follows its id, not its name —
 so re-running connect simply refreshes the name. Re-running it with a
-different `--root-directory` edits that, which is the only way to change it
-after the first connect. Pointing it at a *different* repository asks for
+different `--root-directory` edits that, as `volcano git root-directory` does. Pointing it at a *different* repository asks for
 confirmation first, because pushes to the current one stop deploying. `--yes`
 skips the prompts.
 
@@ -142,6 +146,33 @@ If you name a remote instead, name the connected one. In a fork or triangular
 checkout `git push origin` goes to the repository you *fetch* from, which is not
 the one connected and deploys nothing — `volcano git status` reports which
 repository is bound.
+
+## Changing the root directory
+
+For a monorepo, change the subdirectory the project builds from without
+changing which repository is connected:
+
+```bash
+volcano git root-directory apps/web
+volcano git root-directory --reset     # back to the repository root
+```
+
+The path is relative to the repository root. An absolute path, or one climbing
+out with `..`, is refused. Volcano stores it in the form a deploy reads it, so
+`./apps/web/` becomes `apps/web`.
+
+This works with a project access token, so a CI job or an agent can move a
+project within its repository. Connecting a different repository needs a
+person's account token. With a project access token, `volcano git connect
+--root-directory` for the repository already connected points to this command
+instead.
+
+Nothing is redeployed. The next deploy from the repository builds from the new
+directory. Like `connect`, the command then says what a push to the production
+branch deploys, which is nothing while auto-deploy is off.
+
+A project with no repository connected has no root directory to change, so the
+command says so and exits non-zero.
 
 ## Disconnecting
 
@@ -171,3 +202,5 @@ configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
+`volcano git root-directory` reports that the integration is not configured,
+since no repository can be connected there for it to change.

@@ -19,19 +19,28 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
-// CostNote is what LavaFlow costs during the preview, worded as the dashboard
-// and pricing page word it.
-const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. " +
-	"Prices are announced before billing starts."
+// CostNote is what LavaFlow needs during the preview, worded as the dashboard,
+// the pricing page and the public docs word it. It names no billing model.
+const CostNote = "LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan."
 
-// OnDescription says what LavaFlow does once it is on, in the dashboard's
-// words. Runs start without a request, so the user is told before and after.
-// It changes when LavaFlow merges its fixes.
-const OnDescription = "LavaFlow watches this project's errors, diagnoses new issues automatically, " +
+// OnDescription says what LavaFlow does, and that it uses AI to do it, in
+// the wording approved for that disclosure. Keep it verbatim: it opens the
+// help, enable's output and the docs.
+const OnDescription = "LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, " +
 	"and opens fix pull requests in your connected repository."
+
+// ErrUnavailable reports an API where LavaFlow is not on: a platform release
+// older than LavaFlow, which has none of its routes, or one where Volcano has
+// not turned it on or has switched it off. Said in place of the 404 either
+// answers, which otherwise reads as a missing project or run.
+var ErrUnavailable = errors.New("LavaFlow isn't available on this Volcano API")
 
 // codePlanRequired is the code of a refusal the owner's plan causes.
 const codePlanRequired = "plan_required"
+
+// codeFeatureUnavailable is the code of a refusal for LavaFlow being off on
+// this API.
+const codeFeatureUnavailable = "feature_unavailable"
 
 // codeRepositoryChanged is the code of a start refused because the project
 // points at another repository than when LavaFlow was turned on.
@@ -70,6 +79,9 @@ type Status struct {
 type Service struct {
 	sessions clisession.Factory
 	now      func() time.Time
+	// enableCommand turns LavaFlow on, which resumes it after the project's
+	// repository changed.
+	enableCommand string
 }
 
 // NewService returns a LavaFlow service.
@@ -78,7 +90,7 @@ func NewService(deps cliruntime.Deps) Service {
 	if now == nil {
 		now = time.Now
 	}
-	return Service{sessions: clisession.NewFactory(deps), now: now}
+	return Service{sessions: clisession.NewFactory(deps), now: now, enableCommand: cliruntime.CommandPath(deps, "lavaflow enable")}
 }
 
 // Status returns the current project's LavaFlow settings and its repository
@@ -90,24 +102,43 @@ func (s Service) Status(ctx context.Context) (*Status, error) {
 	}
 	settings, err := authenticated.API.GetLavaFlowSettings(ctx, authenticated.ProjectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LavaFlow settings: %w", err)
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow settings: %w", err))
 	}
-	status := &Status{Settings: settings, RepositoryState: RepositoryUnknown}
+	status := &Status{Settings: settings}
+	status.RepositoryState, status.Repository, err = repository(ctx, authenticated)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+// Repository says which repository LavaFlow's fix pull requests go to, for a
+// project whose LavaFlow settings were just read or saved: its state, and its
+// full name when it is connected. Only a cancel or deadline is an error.
+func (s Service) Repository(ctx context.Context) (state, name string, err error) {
+	authenticated, err := s.sessions.CurrentProject()
+	if err != nil {
+		return "", "", err
+	}
+	return repository(ctx, authenticated)
+}
+
+func repository(ctx context.Context, authenticated *clisession.ProjectSession) (state, name string, err error) {
 	connection, err := authenticated.API.GetProjectGitConnection(ctx, authenticated.ProjectID)
 	switch {
 	case err == nil:
-		status.RepositoryState = RepositoryConnected
-		status.Repository = connection.RepoFullName
+		return RepositoryConnected, connection.RepoFullName, nil
 	case ctx.Err() != nil:
 		// The repository is optional detail, but a cancel or deadline still
 		// ends the command.
-		return nil, ctx.Err()
+		return "", "", ctx.Err()
 	case api.Status(err) == http.StatusNotFound:
-		// The settings read already proved the project exists, so a 404 means
-		// no repository; anything else leaves the connection unknown.
-		status.RepositoryState = RepositoryNotConnected
+		// The LavaFlow read or write before it proved the project exists, so a
+		// 404 means no repository; anything else leaves the connection unknown.
+		return RepositoryNotConnected, "", nil
+	default:
+		return RepositoryUnknown, "", nil
 	}
-	return status, nil
 }
 
 // SetEnabled turns LavaFlow on or off for the current project. The update
@@ -128,7 +159,7 @@ func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaF
 	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
 		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
 	if err != nil {
-		return nil, refusal(fmt.Errorf("failed to %s: %w", verb, err))
+		return nil, unavailable(refusal(fmt.Errorf("failed to %s: %w", verb, err)))
 	}
 	return settings, nil
 }
@@ -149,7 +180,7 @@ func (s Service) ListRuns(ctx context.Context, limit int, cursor string) (*apicl
 	}
 	page, err := authenticated.API.ListLavaFlowRuns(ctx, authenticated.ProjectID, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list LavaFlow runs: %w", err)
+		return nil, unavailable(fmt.Errorf("failed to list LavaFlow runs: %w", err))
 	}
 	return page, nil
 }
@@ -166,7 +197,7 @@ func (s Service) GetRun(ctx context.Context, rawID string) (*apiclient.LavaFlowR
 	}
 	run, err := authenticated.API.GetLavaFlowRun(ctx, authenticated.ProjectID, runID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err)
+		return nil, unavailable(fmt.Errorf("failed to get LavaFlow run %s: %w", runID, err))
 	}
 	return run, nil
 }
@@ -183,14 +214,23 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	}
 	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
 	if err != nil {
-		// The server's message already says which repository changed and what
-		// to do, so it is shown as given.
+		// The server's message already says which repository changed, so it
+		// is shown as given, with the command that resumes LavaFlow.
 		if api.Code(err) == codeRepositoryChanged && api.Message(err) != "" {
-			return nil, api.WithCause(errors.New(api.Message(err)), err)
+			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'", api.Message(err), s.enableCommand), err)
 		}
-		return nil, retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now())
+		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
 	}
 	return run, nil
+}
+
+// unavailable replaces a refusal that says LavaFlow is not on with
+// ErrUnavailable, keeping the refusal so the exit code still reports it.
+func unavailable(err error) error {
+	if api.RouteMissing(err) || api.Code(err) == codeFeatureUnavailable {
+		return api.WithCause(ErrUnavailable, err)
+	}
+	return err
 }
 
 // refusal adds what to do about a plan refusal, keeping the refusal so the

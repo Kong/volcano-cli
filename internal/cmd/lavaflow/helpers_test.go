@@ -53,6 +53,9 @@ type lavaflowServer struct {
 	refusal      map[string]any
 	// refusalHeader is sent with the refusal, such as a Retry-After.
 	refusalHeader http.Header
+	// routesMissing answers every LavaFlow route with the router's bare 404,
+	// as a platform release older than LavaFlow does.
+	routesMissing bool
 }
 
 func newLavaflowServer(t *testing.T) (*lavaflowServer, cliruntime.Deps) {
@@ -112,6 +115,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"repo_full_name": lavaflowRepo, "repo_id": 1, "repo_installation_id": 2,
 			"production_branch": "main", "root_directory": "", "updated_at": "2026-10-20T10:00:00Z",
 		})
+		return
+	}
+	if s.routesMissing {
+		http.NotFound(w, r)
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {

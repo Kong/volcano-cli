@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.52.1](https://github.com/Kong/volcano-cli/compare/v0.52.0...v0.52.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lavaflow:** say LavaFlow is in preview and needs SUPERAGENT ([#350](https://github.com/Kong/volcano-cli/issues/350)) ([c5a7dde](https://github.com/Kong/volcano-cli/commit/c5a7dde1ae6ca99febaf97f30b7993f55ea66e53))
+
+## [0.52.0](https://github.com/Kong/volcano-cli/compare/v0.51.0...v0.52.0) (2026-10-27)
+
+
+### Features
+
+* **lavaflow:** manage LavaFlow from the CLI ([#338](https://github.com/Kong/volcano-cli/issues/338)) ([e1fcc70](https://github.com/Kong/volcano-cli/commit/e1fcc705d45d24c0e70fb3236189a79ddeb11153))
+
+## [0.51.0](https://github.com/Kong/volcano-cli/compare/v0.50.0...v0.51.0) (2026-10-26)
+
+
+### Features
+
+* **feedback:** add volcano feedback command for agent-reported issues ([#319](https://github.com/Kong/volcano-cli/issues/319)) ([cd3d4cb](https://github.com/Kong/volcano-cli/commit/cd3d4cb1213991a0e55754eff72f26aba99646eb))
+* **frontends:** deploy another frontend's build with --from ([#321](https://github.com/Kong/volcano-cli/issues/321)) ([9107a67](https://github.com/Kong/volcano-cli/commit/9107a670137c9ab9f7488877e6433f0a14ae8ca1))
+* **frontends:** manage frontend routes and accept frontend_routes in config ([#340](https://github.com/Kong/volcano-cli/issues/340)) ([89f6d10](https://github.com/Kong/volcano-cli/commit/89f6d108d4727caa63b68cbc0d47f84810762131))
+* **frontends:** manage several custom domains and redirects per frontend ([#323](https://github.com/Kong/volcano-cli/issues/323)) ([4a15e48](https://github.com/Kong/volcano-cli/commit/4a15e487a6f7529b24544216844f3d32801d1069))
+* **git:** change a connected repository's root directory ([#341](https://github.com/Kong/volcano-cli/issues/341)) ([8843a83](https://github.com/Kong/volcano-cli/commit/8843a836db05adebdb1d38332fd891cac57c7fa1))
+* **notifications:** manage scheduler failure alerts ([#324](https://github.com/Kong/volcano-cli/issues/324)) ([a76344f](https://github.com/Kong/volcano-cli/commit/a76344f376d04c3da4740bc5d460e22819b9df86))
+
 ## [0.50.0](https://github.com/Kong/volcano-cli/compare/v0.49.0...v0.50.0) (2026-10-21)
 
 

@@ -3,6 +3,7 @@ package lavaflow
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,11 +77,23 @@ func TestRunsGetShowsAnUntitledIssueByID(t *testing.T) {
 	assert.Contains(t, out, "Issue: "+lavaflowIssueID+"\n")
 }
 
-func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
+func TestRunsGetSaysWhyNoPullRequestOpenedAndWhatToDo(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
-	for reason, want := range map[string]string{
-		"not_fixable":        "Pull request: none: a code change would not fix it",
-		"source_unavailable": "Pull request: none: LavaFlow couldn't read the deployed source",
+	for reason, want := range map[string][]string{
+		"not_fixable": {
+			"Pull request: none: a code change would not fix it\n",
+			"\nNext: Act on the diagnosis above; the fix is outside the code.\n",
+		},
+		"source_unavailable": {
+			"Pull request: none: LavaFlow couldn't read the deployed source\n",
+			"\nNext: Connect the repository (volcano git connect) and deploy by pushing to it. " +
+				"LavaFlow fixes code that a push to the connected repository deployed.\n",
+		},
+		"repository_changed": {
+			"Pull request: none: the project's repository changed since LavaFlow was turned on\n",
+			"\nNext: Turn LavaFlow on again (volcano cloud lavaflow enable) to use the project's repository now, " +
+				"then start a new run.\n",
+		},
 	} {
 		run := fixedRun()
 		delete(run, "pull_request")
@@ -89,7 +102,60 @@ func TestRunsGetSaysWhyNoPullRequestOpened(t *testing.T) {
 
 		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 		require.NoError(t, err)
-		assert.Contains(t, out, want)
+		for _, w := range want {
+			assert.Contains(t, out, w, reason)
+		}
+		assert.True(t, strings.HasSuffix(out, want[1]), "%s: the next step comes last, after the diagnosis", reason)
+	}
+}
+
+// Every reason the API documents for a run that stopped or opened no pull
+// request is explained in words, with what to do, and never by its code. The
+// runs list fits it in its Result column.
+func TestEveryStopIsExplainedWithWhatToDo(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	var runs []map[string]any
+	for _, code := range []string{
+		"feature_unavailable", "feature_paused", "model_request_rejected", "model_unavailable", "model_refused",
+		"no_diagnosis", "budget_exhausted", "timed_out", "attempts_exhausted", "lavaflow_disabled", "plan_required",
+		"issue_not_found", "internal_error",
+		"autofix_disabled", "api_key_rejected", "settings_changed", "managed_models_unavailable",
+	} {
+		run := queuedRun()
+		run["status"] = "failed"
+		if strings.HasPrefix(code, "feature_") {
+			run["status"] = "queued"
+		}
+		run["failure_code"] = code
+		run["code"] = code
+		runs = append(runs, run)
+	}
+	for _, reason := range []string{
+		"source_unavailable", "pull_request_open", "not_fixable", "low_confidence", "no_patch",
+		"permission_missing", "repository_changed", "publish_failed",
+	} {
+		run := fixedRun()
+		delete(run, "pull_request")
+		run["pull_request_skipped"] = reason
+		run["code"] = reason
+		runs = append(runs, run)
+	}
+
+	for _, run := range runs {
+		code := run["code"].(string)
+		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+		require.NoError(t, err, code)
+		assert.Regexp(t, `\n(Reason|Pull request): (none: )?[A-Za-z]`, out, code)
+		assert.Regexp(t, `\n\nNext: [A-Z][^\n]+\n$`, out, code)
+		assert.NotContains(t, out, code)
+		assertLavaFlowWording(t, out)
+
+		out, err = executeLavaflowCommand(t, New(deps), "runs", "list")
+		require.NoError(t, err, code)
+		assert.NotRegexp(t, `(queued|failed|succeeded) +[^\n]*\.\.\.`, out, "%s: the result fits its column", code)
+		assertLavaFlowWording(t, out)
 	}
 }
 
@@ -107,17 +173,21 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 	unavailable["failure_code"] = "feature_unavailable"
 
 	for _, tc := range []struct {
-		run  map[string]any
-		want string
+		run          map[string]any
+		reason, next string
 	}{
-		{canceled, "Reason: LavaFlow was turned off before the run finished"},
-		{paused, "Reason: paused: LavaFlow is paused. This run will start when LavaFlow resumes"},
-		{unavailable, "Reason: paused: LavaFlow is unavailable here; the run resumes when it returns"},
+		{
+			canceled, "LavaFlow was turned off before the run finished",
+			"Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
+		},
+		{paused, "paused: LavaFlow is paused", "Nothing to do: the run carries on when LavaFlow resumes."},
+		{unavailable, "paused: LavaFlow is unavailable here", "Nothing to do: the run resumes when LavaFlow is available again."},
 	} {
 		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })
 		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 		require.NoError(t, err)
-		assert.Contains(t, out, tc.want)
+		assert.Contains(t, out, "\nReason: "+tc.reason+"\n")
+		assert.True(t, strings.HasSuffix(out, "\n\nNext: "+tc.next+"\n"), "the next step comes last: %q", out)
 	}
 }
 
@@ -133,6 +203,7 @@ func TestRunsGetSaysADiagnoseOnlyRunOpensNoPullRequest(t *testing.T) {
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Pull request: none: the run only diagnoses (max_stage: diagnose)")
+	assert.Contains(t, out, "\nNext: For fix pull requests, set max_stage: pull_request in the project configuration.\n")
 }
 
 func TestRunsGetJSONKeepsTheRawRun(t *testing.T) {
@@ -160,7 +231,8 @@ func TestRunsGetRefusesAnInvalidIDAndReportsAMissingRun(t *testing.T) {
 }
 
 // Volcano adds failure codes and skipped reasons over time. One this CLI does
-// not know is still explained, never left blank.
+// not know is still explained in words, never by its code alone, and still
+// says what to do.
 func TestRunsGetExplainsValuesItDoesNotKnow(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	run := fixedRun()
@@ -170,7 +242,8 @@ func TestRunsGetExplainsValuesItDoesNotKnow(t *testing.T) {
 
 	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Pull request: none: source not committed")
+	assert.Contains(t, out, "Pull request: none: LavaFlow did not open one (reason: source_not_committed)\n")
+	assert.Contains(t, out, "\nNext: Act on the diagnosis above.\n")
 
 	failed := queuedRun()
 	failed["status"] = "failed"
@@ -180,11 +253,43 @@ func TestRunsGetExplainsValuesItDoesNotKnow(t *testing.T) {
 	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Reason: Something new")
+	assert.Contains(t, out, "\nNext: Start a new run: volcano cloud lavaflow runs start --issue "+lavaflowIssueID+"\n")
 	assert.NotContains(t, out, "\x1b")
 
 	delete(failed, "failure_message")
 	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
 	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Reason: brand new code")
+	assert.Contains(t, out, "Reason: the run stopped (code: brand_new_code)\n")
+	assert.Contains(t, out, "\nNext: Start a new run: volcano cloud lavaflow runs start --issue "+lavaflowIssueID+"\n")
+
+	failed["status"] = "canceled"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: the run was canceled (code: brand_new_code)\n")
+
+	failed["status"] = "queued"
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{failed} })
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Reason: retrying: the last attempt failed (code: brand_new_code)\n")
+	assert.Contains(t, out, "\nNext: Nothing to do: LavaFlow tries again on its own.\n")
+}
+
+// A running run's failure code is from an attempt it has moved past, and a
+// run with a pull request has nothing left to do.
+func TestRunsGetSaysNothingAboutAnAttemptTheRunMovedPast(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	running := queuedRun()
+	running["status"] = "running"
+	running["failure_code"] = "timed_out"
+	for _, run := range []map[string]any{running, fixedRun()} {
+		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+		out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+		require.NoError(t, err)
+		assert.NotContains(t, out, "Reason:")
+		assert.NotContains(t, out, "Next:")
+	}
 }

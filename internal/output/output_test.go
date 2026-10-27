@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -306,5 +307,47 @@ func TestFrontendListsItsFunctionRoutes(t *testing.T) {
 
 	var empty bytes.Buffer
 	FrontendRoutes(&empty, "web", nil)
-	assert.Equal(t, "No function routes on frontend \"web\"\n", empty.String())
+	assert.Equal(t, "No routes on frontend \"web\"\n", empty.String())
+}
+
+func TestFrontendListsItsFrontendRoutes(t *testing.T) {
+	fe := apiclient.Frontend{Name: "site", Status: apiclient.FrontendStatusActive}
+	routes := []FrontendRouteEntry{
+		{ID: "r1", PathPrefix: "/api", Function: "session", Visibility: "public"},
+		{ID: "r2", PathPrefix: "/docs", Frontend: "docs"},
+		{ID: "r3", PathPrefix: "/docs/api", Function: "search", Visibility: "public"},
+	}
+
+	var detail bytes.Buffer
+	Frontend(&detail, &fe, routes)
+	assert.Contains(t, detail.String(), "Function routes:\n  /api -> session (public)\n  /docs/api -> search (public)\n")
+	assert.Contains(t, detail.String(), "Frontend routes:\n  /docs -> frontend docs\n")
+
+	var onlyMounts bytes.Buffer
+	Frontend(&onlyMounts, &fe, routes[1:2])
+	assert.NotContains(t, onlyMounts.String(), "Function routes")
+	assert.Contains(t, onlyMounts.String(), "Frontend routes:")
+
+	var table bytes.Buffer
+	FrontendRoutes(&table, "site", routes)
+	assert.Contains(t, table.String(), "Kind")
+	assert.Contains(t, table.String(), "Target")
+	assert.Contains(t, table.String(), "Total: 3 route(s)")
+	var rows []string
+	for line := range strings.SplitSeq(table.String(), "\n") {
+		if strings.HasPrefix(line, "/") {
+			rows = append(rows, strings.Join(strings.Fields(line), " "))
+		}
+	}
+	assert.Equal(t, []string{
+		"/docs/api function search public no r3",
+		"/docs frontend docs - - r2",
+		"/api function session public no r1",
+	}, rows)
+
+	var single bytes.Buffer
+	FrontendRoute(&single, routes[1])
+	assert.Contains(t, single.String(), "Frontend: docs")
+	assert.NotContains(t, single.String(), "Function")
+	assert.NotContains(t, single.String(), "Strip prefix")
 }

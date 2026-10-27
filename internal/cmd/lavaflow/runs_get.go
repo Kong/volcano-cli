@@ -45,6 +45,10 @@ func runRunsGet(ctx context.Context, opts runsGetOptions) error {
 	if opts.jsonOutput {
 		return writeJSON(opts.out, run)
 	}
-	output.LavaFlowRun(opts.out, run)
+	output.LavaFlowRun(opts.out, run, output.LavaFlowCommands{
+		Enable:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
+		GitConnect: gitConnectCommand,
+		RunsStart:  cliruntime.CommandPath(opts.deps, "lavaflow runs start"),
+	})
 	return nil
 }

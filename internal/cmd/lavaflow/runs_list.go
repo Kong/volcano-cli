@@ -51,6 +51,6 @@ func runRunsList(ctx context.Context, opts runsListOptions) error {
 		return writeJSON(opts.out, page)
 	}
 	next := cliruntime.CommandPath(opts.deps, fmt.Sprintf("lavaflow runs list --limit %d", opts.limit))
-	output.LavaFlowRuns(opts.out, page, next)
+	output.LavaFlowRuns(opts.out, page, next, cliruntime.CommandPath(opts.deps, "lavaflow runs get"))
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,6 +57,40 @@ func TestStatusNamesWhatTheProjectConfigurationNarrowed(t *testing.T) {
 	assert.Contains(t, out, "opens no pull requests (max_stage: diagnose")
 	assert.Contains(t, out, "runs only when a run is started by hand (auto_trigger: false")
 	assert.NotContains(t, out, "Connect a repository", "diagnosing needs no repository")
+}
+
+// The first row says the whole state, so it reads at a glance.
+func TestStatusSaysTheStateAtAGlance(t *testing.T) {
+	for _, tc := range []struct {
+		change func(*lavaflowServer)
+		want   string
+	}{
+		{func(*lavaflowServer) {}, "LavaFlow: off\n"},
+		{func(s *lavaflowServer) { s.settings["enabled"] = true }, "LavaFlow: on, opening fix pull requests in " + lavaflowRepo + "\n"},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.repoConnected = true, false },
+			"LavaFlow: on, diagnosing only until a repository is connected\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.settings["max_stage"] = true, "diagnose" },
+			"LavaFlow: on, diagnosing only (max_stage: diagnose)\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.settings["plan_allows_lavaflow"] = true, false },
+			"LavaFlow: on, but no run starts until the plan allows it\n",
+		},
+		{
+			func(s *lavaflowServer) { s.settings["enabled"], s.repoFailure = true, http.StatusInternalServerError },
+			"LavaFlow: on\n",
+		},
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(tc.change)
+
+		out, err := executeLavaflowCommand(t, New(deps), "status")
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(out, tc.want), "got %q, want it to start with %q", out, tc.want)
+	}
 }
 
 // The saved settings apply the next time LavaFlow is turned on, so the status
@@ -167,7 +202,8 @@ func TestStatusReportsTheLocalModeRefusal(t *testing.T) {
 }
 
 // LavaFlow works only in the repository it was turned on for. Status says
-// which changed and how to resume, in each of the shapes the settings take.
+// which changed, that no run starts, and how to resume, in each of the shapes
+// the settings take.
 func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
 	for name, tc := range map[string]struct {
 		enabledRepository map[string]any
@@ -177,17 +213,26 @@ func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
 		"another repository": {
 			map[string]any{"id": 7, "full_name": "acme/old"},
 			true,
-			"paused: the repository changed from acme/old. Run 'volcano cloud lavaflow enable' to use the new repository.",
+			"Warning: The project's repository changed from acme/old since LavaFlow was turned on, " +
+				"so no run starts until someone turns LavaFlow on again.\n" +
+				"LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.\n" +
+				"Resume LavaFlow with " + lavaflowRepo + ": volcano cloud lavaflow enable\n",
 		},
 		"one connected after it was turned on with none": {
 			nil, true,
-			"paused: a repository was connected after LavaFlow was turned on. Run 'volcano cloud lavaflow enable' to use it.",
+			"Warning: A repository was connected after LavaFlow was turned on, " +
+				"so no run starts until someone turns LavaFlow on again.\n" +
+				"LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.\n" +
+				"Resume LavaFlow with " + lavaflowRepo + ": volcano cloud lavaflow enable\n",
 		},
 		"none any more": {
 			map[string]any{"id": 7, "full_name": "acme/old"},
 			false,
-			"paused: acme/old is no longer connected. Run 'volcano cloud lavaflow enable' to continue " +
-				"without a repository, or connect one first with 'volcano git connect'.",
+			"Warning: acme/old is no longer connected to the project, " +
+				"so no run starts until someone turns LavaFlow on again.\n" +
+				"LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.\n" +
+				"Resume LavaFlow without a repository: volcano cloud lavaflow enable\n" +
+				"Or connect a repository first: volcano git connect\n",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -203,8 +248,8 @@ func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
 
 			out, err := executeLavaflowCommand(t, New(deps), "status")
 			require.NoError(t, err)
-			assert.Contains(t, out, "LavaFlow: on")
-			assert.Contains(t, out, tc.want)
+			assert.Contains(t, out, "LavaFlow: on, but paused until it is turned on again\n")
+			assert.True(t, strings.HasSuffix(out, tc.want), out)
 			assert.NotContains(t, out, "Connect a repository so LavaFlow can open fix pull requests",
 				"the paused line already says what to do")
 			assertLavaFlowWording(t, out)
