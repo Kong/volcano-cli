@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.1](https://github.com/Kong/volcano-cli/compare/v0.52.0...v0.52.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lavaflow:** say LavaFlow is in preview and needs SUPERAGENT ([#350](https://github.com/Kong/volcano-cli/issues/350)) ([c5a7dde](https://github.com/Kong/volcano-cli/commit/c5a7dde1ae6ca99febaf97f30b7993f55ea66e53))
+
 ## [0.52.0](https://github.com/Kong/volcano-cli/compare/v0.51.0...v0.52.0) (2026-10-27)
 
 
