@@ -62,7 +62,7 @@ func commitOf(t *testing.T, root string, files []File) *api.DeployCommit {
 	t.Helper()
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
 	require.NotNil(t, source)
-	got := source.Commit(context.Background(), root, files)
+	got := source.Commit(context.Background(), root, files, nil)
 	require.NotNil(t, got)
 	return got
 }
@@ -76,9 +76,9 @@ func TestCommitIsCleanForAnUnchangedCheckout(t *testing.T) {
 	files := read(t, root, helloPath, utilPath)
 
 	assert.Equal(t, &api.DeployCommit{Repository: "acme/app", SHA: head, Root: "web"},
-		source.Commit(context.Background(), filepath.Join(root, "web"), files))
+		source.Commit(context.Background(), filepath.Join(root, "web"), files, nil))
 	assert.Equal(t, &api.DeployCommit{Repository: "acme/app", SHA: head, Root: ""},
-		source.Commit(context.Background(), root, files))
+		source.Commit(context.Background(), root, files, nil))
 }
 
 func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
@@ -117,6 +117,22 @@ func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
 			require.NoError(t, os.Remove(filepath.Join(root, utilPath)))
 			return read(t, root, helloPath)
 		},
+		// The archive holds regular files only, so it lacks the commit's file.
+		"a file replaced by a symlink": func(t *testing.T, root string) []File {
+			t.Helper()
+			if runtime.GOOS == "windows" {
+				t.Skip("making a symlink on Windows needs a privilege")
+			}
+			require.NoError(t, os.Remove(filepath.Join(root, utilPath)))
+			require.NoError(t, os.Symlink(filepath.Join("..", "app", "hello.js"), filepath.Join(root, utilPath)))
+			return read(t, root, helloPath)
+		},
+		"a file replaced by a directory": func(t *testing.T, root string) []File {
+			t.Helper()
+			require.NoError(t, os.Remove(filepath.Join(root, utilPath)))
+			require.NoError(t, os.Mkdir(filepath.Join(root, utilPath), 0o755))
+			return read(t, root, helloPath)
+		},
 		"an executable bit the archive keeps": func(t *testing.T, root string) []File {
 			t.Helper()
 			if runtime.GOOS == "windows" {
@@ -136,6 +152,19 @@ func TestCommitIsDirtyWhenTheUploadDiffersFromTheCommit(t *testing.T) {
 	}
 }
 
+// A file the deploy leaves out, such as an env file it reads instead, is one
+// the upload lacks when the commit holds it.
+func TestCommitIsDirtyWhenTheDeployLeavesOutACommittedFile(t *testing.T) {
+	root, _ := newRepository(t)
+	writeFile(t, root, "web/app/cloud.env", "GREETING=hello\n")
+	source := Detect(context.Background(), cliruntime.Deps{}, root)
+	files := read(t, root, helloPath, utilPath)
+
+	assert.False(t, source.Commit(context.Background(), root, files, []string{filepath.Join(root, "web", "app", "cloud.env")}).Dirty,
+		"the commit does not hold the left-out file")
+	assert.True(t, source.Commit(context.Background(), root, read(t, root, helloPath), []string{filepath.Join(root, utilPath)}).Dirty)
+}
+
 // Only the uploaded directory counts: a change elsewhere in the repository
 // leaves it clean.
 func TestCommitIgnoresChangesOutsideTheUpload(t *testing.T) {
@@ -145,7 +174,7 @@ func TestCommitIgnoresChangesOutsideTheUpload(t *testing.T) {
 	require.NoError(t, os.Remove(filepath.Join(root, ".gitignore")))
 
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
-	assert.False(t, source.Commit(context.Background(), filepath.Join(root, "web", "app"), files).Dirty)
+	assert.False(t, source.Commit(context.Background(), filepath.Join(root, "web", "app"), files, nil).Dirty)
 }
 
 // The server compares each archive entry at its path under root, so a file
@@ -153,13 +182,13 @@ func TestCommitIgnoresChangesOutsideTheUpload(t *testing.T) {
 func TestCommitIsDirtyForAFileOutsideTheUploadedDirectory(t *testing.T) {
 	root, _ := newRepository(t)
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
-	assert.True(t, source.Commit(context.Background(), filepath.Join(root, "web", "app"), read(t, root, helloPath, utilPath)).Dirty)
+	assert.True(t, source.Commit(context.Background(), filepath.Join(root, "web", "app"), read(t, root, helloPath, utilPath), nil).Dirty)
 }
 
 func TestCommitSendsNothingForADirectoryOutsideTheRepository(t *testing.T) {
 	root, _ := newRepository(t)
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
-	assert.Nil(t, source.Commit(context.Background(), t.TempDir(), nil))
+	assert.Nil(t, source.Commit(context.Background(), t.TempDir(), nil, nil))
 }
 
 // An archive that keeps no executable bit deploys the same either way, and
@@ -199,7 +228,7 @@ func TestDetectReadsTheTreeOfTheCommitItReports(t *testing.T) {
 	writeFile(t, root, helloPath, "exports.handler = 2\n")
 	deploycommittest.Git(t, root, "commit", "--quiet", "-am", "second")
 
-	got := source.Commit(context.Background(), root, read(t, root, helloPath))
+	got := source.Commit(context.Background(), root, read(t, root, helloPath), nil)
 	require.NotNil(t, got)
 	assert.Equal(t, first, got.SHA)
 	assert.True(t, got.Dirty)
@@ -363,8 +392,8 @@ func TestCommitIsDirtyForACommittedSymlinkInTheUpload(t *testing.T) {
 	deploycommittest.Git(t, root, "commit", "--quiet", "-m", "alias")
 	source := Detect(context.Background(), cliruntime.Deps{}, root)
 
-	assert.True(t, source.Commit(context.Background(), filepath.Join(root, "web"), read(t, root, helloPath, utilPath)).Dirty)
-	assert.False(t, source.Commit(context.Background(), filepath.Join(root, "web", "lib"), read(t, root, utilPath)).Dirty)
+	assert.True(t, source.Commit(context.Background(), filepath.Join(root, "web"), read(t, root, helloPath, utilPath), nil).Dirty)
+	assert.False(t, source.Commit(context.Background(), filepath.Join(root, "web", "lib"), read(t, root, utilPath), nil).Dirty)
 }
 
 // A replacement ref has git read another commit in place of the one HEAD

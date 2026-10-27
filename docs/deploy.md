@@ -213,7 +213,9 @@ it matches its pointer. The CLI runs no other git filter, so a file another
 filter changes counts as changed. The upload never holds a symlink, so a
 commit with one in the uploaded directory doesn't match. Anything else counts as
 changed: an edited, moved, or deleted file, or a file the commit doesn't have
-that the upload includes, such as an untracked file. The upload skips what the
+that the upload includes, such as an untracked file. So does a committed file
+the upload lacks, such as one replaced by a symlink or a directory, or the env
+file that `volcano deploy` deploys as variables instead of uploading. The upload skips what the
 `.gitignore` at the root of the uploaded directory lists, not what a
 `.gitignore` in a subdirectory or outside it lists, so a file only those
 ignore is uploaded and counts as changed. Windows has no executable bit, so a

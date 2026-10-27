@@ -93,6 +93,7 @@ func TestPackageDirectoryLeavesOutExcludedFiles(t *testing.T) {
 	assert.NotContains(t, entries, "cloud.env")
 	assert.Contains(t, entries, "web/cloud.env")
 	assert.Contains(t, entries, "package.json")
+	assert.Equal(t, []string{filepath.Join(root, "cloud.env")}, pkg.Excluded)
 }
 
 func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {

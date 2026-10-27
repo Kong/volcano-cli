@@ -237,7 +237,7 @@ func deploy(ctx context.Context, opts deployOptions) (*apiclient.Frontend, error
 		VariableScope: variableScope,
 		Variables:     opts.variables,
 		Archive:       pkg.Archive,
-		Commit:        deploycommit.Detect(ctx, opts.deps, absPath).Commit(ctx, pkg.PackagingRoot, pkg.Files),
+		Commit:        deploycommit.Detect(ctx, opts.deps, absPath).Commit(ctx, pkg.PackagingRoot, pkg.Files, pkg.Excluded),
 	})
 	if err != nil {
 		return nil, err

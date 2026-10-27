@@ -62,7 +62,7 @@ func detect(t *testing.T, git *fakeGit, deps cliruntime.Deps) *api.DeployCommit 
 	t.Helper()
 	t.Setenv(OptOutEnv, "")
 	deps.GitCommandRunner = git
-	return Detect(context.Background(), deps, git.root).Commit(context.Background(), git.root, nil)
+	return Detect(context.Background(), deps, git.root).Commit(context.Background(), git.root, nil, nil)
 }
 
 // A remote can carry a token; only owner/name ever leaves the machine.
@@ -135,7 +135,7 @@ func TestDetectSendsNothingWithoutGit(t *testing.T) {
 
 func TestCommitOnNoSourceSendsNothing(t *testing.T) {
 	var source *Source
-	assert.Nil(t, source.Commit(context.Background(), ".", []File{NewFile("index.js", nil, nil)}))
+	assert.Nil(t, source.Commit(context.Background(), ".", []File{NewFile("index.js", nil, nil)}, nil))
 }
 
 // blobID must match git's own object IDs, or every deploy reads as dirty.

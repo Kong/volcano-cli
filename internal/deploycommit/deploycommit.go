@@ -131,19 +131,21 @@ func Detect(ctx context.Context, deps cliruntime.Deps, dir string) *Source {
 }
 
 // Commit reports the commit for an upload of the directory root, whose
-// archive holds files at their paths under it. The upload is clean only when
-// each file is in the commit at its own path, with the content the commit
-// gives it and, where the archive keeps one, the same executable bit, and no
-// file the commit holds under root is missing. Anything else marks it dirty:
-// an untracked or ignored file, an edit git's own status would not show, a
-// deleted file, or a symlink, which the archive never holds. It returns nil
-// when s is nil, root is outside the repository, or git cannot be asked.
+// archive holds files at their paths under it and leaves out the files in
+// excluded. The upload is clean only when each file is in the commit at its
+// own path, with the content the commit gives it and, where the archive keeps
+// one, the same executable bit, and no file the commit holds under root is
+// missing. Anything else marks it dirty: an untracked or ignored file, an edit
+// git's own status would not show, a deleted or excluded file, or a symlink or
+// directory where the commit has a file, which the archive never holds. It
+// returns nil when s is nil, root is outside the repository, or git cannot be
+// asked.
 //
 // Content is compared without running git: a clean or smudge filter is a
 // program the repository's configuration names. Line endings git converts,
 // and Git LFS pointers where the filter attribute names Git LFS, are compared
 // here instead; content another filter changes reads as changed.
-func (s *Source) Commit(ctx context.Context, root string, files []File) *api.DeployCommit {
+func (s *Source) Commit(ctx context.Context, root string, files []File, excluded []string) *api.DeployCommit {
 	if s == nil {
 		return nil
 	}
@@ -151,7 +153,7 @@ func (s *Source) Commit(ctx context.Context, root string, files []File) *api.Dep
 	if !ok {
 		return nil
 	}
-	dirty, err := s.differs(ctx, dir, files)
+	dirty, err := s.differs(ctx, dir, files, excluded)
 	if err != nil {
 		return nil
 	}
@@ -161,7 +163,7 @@ func (s *Source) Commit(ctx context.Context, root string, files []File) *api.Dep
 	return &api.DeployCommit{Repository: s.repository, SHA: s.sha, Dirty: dirty, Root: dir}
 }
 
-func (s *Source) differs(ctx context.Context, dir string, files []File) (bool, error) {
+func (s *Source) differs(ctx context.Context, dir string, files []File, excluded []string) (bool, error) {
 	// matches are files whose content matches the commit only if git
 	// converts their line endings or Git LFS stores them, which their
 	// attributes say.
@@ -195,7 +197,7 @@ func (s *Source) differs(ctx context.Context, dir string, files []File) (bool, e
 	if !ok {
 		return true, nil
 	}
-	return s.missing(dir), nil
+	return s.missing(dir, excluded), nil
 }
 
 // match is a file whose content matches the commit with its line endings
@@ -207,17 +209,25 @@ type match struct {
 	lfs    bool
 }
 
-// missing reports whether a file the commit holds under dir is gone from the
-// working tree, or is a symlink, so the upload lacks it.
-func (s *Source) missing(dir string) bool {
+// missing reports whether the upload lacks a file the commit holds under dir:
+// the commit's file is a symlink, or the working tree has no regular file at
+// its path, or the file is excluded. The archive holds regular files only.
+func (s *Source) missing(dir string, excluded []string) bool {
+	left := make(map[string]bool, len(excluded))
+	for _, file := range excluded {
+		if path, ok := s.repoPath(file); ok {
+			left[path] = true
+		}
+	}
 	for path, entry := range s.tree {
 		if !within(dir, path) {
 			continue
 		}
-		if entry.mode == modeSymlink {
+		if entry.mode == modeSymlink || left[path] {
 			return true
 		}
-		if _, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path))); err != nil {
+		info, err := os.Lstat(filepath.Join(s.root, filepath.FromSlash(path)))
+		if err != nil || !info.Mode().IsRegular() {
 			return true
 		}
 	}
