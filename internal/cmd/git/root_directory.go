@@ -95,13 +95,7 @@ func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 	// changes nothing when the directory is already the one asked for.
 	connection, err := service.SetRootDirectory(ctx, opts.rootDirectory, nil)
 	if err != nil {
-		// "Connect one" is only advice where a repository can be connected.
-		if errors.Is(err, gitconnect.ErrNotConnected) {
-			if cannot := service.CanConnect(ctx); cannot != nil {
-				err = cannot
-			}
-		}
-		return guide(opts.deps, webURL, err)
+		return guideBindingEdit(ctx, opts.deps, service, webURL, err)
 	}
 
 	// Read afterwards, like connect: the directory is set either way, and

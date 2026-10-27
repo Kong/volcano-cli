@@ -384,8 +384,13 @@ func sameRepositoryBinding(existing *apiclient.ProjectGitConnection, target *git
 	if !strings.EqualFold(existing.RepoFullName, target.Repository.FullName) {
 		return false
 	}
-	// The bind re-resolves the production branch from GitHub's live default, so
-	// a repository whose default moved has a stale one recorded — and that run
+	// A branch the project pinned is its own choice, kept on purpose whatever
+	// the default is now.
+	if !existing.ProductionBranchFollowsDefault {
+		return true
+	}
+	// The bind re-resolves a followed branch from GitHub's live default, so a
+	// repository whose default moved has a stale one recorded — and that run
 	// is exactly the one an operator needs told, not reported as unchanged.
 	return existing.ProductionBranch == target.Repository.DefaultBranch
 }

@@ -84,6 +84,25 @@ func GitRootDirectorySet(w io.Writer, binding GitBinding) {
 	gitDeploySettings(w, binding)
 }
 
+// GitProductionBranchSet renders a production branch that was just set,
+// followed by what a push to it deploys.
+func GitProductionBranchSet(w io.Writer, binding GitBinding) {
+	branch := binding.Connection.ProductionBranch
+	followsDefault := binding.Connection.ProductionBranchFollowsDefault
+	if followsDefault {
+		Success(w, "Production branch now follows the repository's default branch (%s).", branch)
+	} else {
+		Success(w, "Production branch set to %s", branch)
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	if followsDefault {
+		Note(w, "Nothing was redeployed.")
+	} else {
+		Note(w, "Nothing was redeployed. %s stays the production branch if the repository's default branch changes.", branch)
+	}
+	gitDeploySettings(w, binding)
+}
+
 // GitDisconnected renders a removed binding. The repository is untouched, which
 // is worth saying: "disconnect" reads as destructive and is not.
 func GitDisconnected(w io.Writer, repoFullName string) {
@@ -97,7 +116,11 @@ func gitBindingDetail(w io.Writer, on bool, binding GitBinding) {
 		kv(w, on, "Project", "%s", binding.Project)
 	}
 	kv(w, on, "Repository", "%s", connection.RepoFullName)
-	kv(w, on, "Production branch", "%s", connection.ProductionBranch)
+	if connection.ProductionBranchFollowsDefault {
+		kv(w, on, "Production branch", "%s (follows the default)", connection.ProductionBranch)
+	} else {
+		kv(w, on, "Production branch", "%s (pinned)", connection.ProductionBranch)
+	}
 	if root := strings.TrimSpace(connection.RootDirectory); root != "" {
 		kv(w, on, "Root directory", "%s", root)
 	}

@@ -81,6 +81,19 @@ func (c *Client) SetProjectGitRootDirectory(ctx context.Context, projectID uuid.
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
+// SetProjectGitProductionBranch changes only the branch a connected project
+// deploys from. An empty branch makes the project follow the repository's
+// default branch again; the connection returned names that default. Like
+// SetProjectGitRootDirectory it accepts a project access token.
+func (c *Client) SetProjectGitProductionBranch(ctx context.Context, projectID uuid.UUID, branch string) (*apiclient.ProjectGitConnection, error) {
+	resp, err := c.client.SetProjectGitProductionBranchWithResponse(ctx, projectID,
+		apiclient.SetProjectGitProductionBranchJSONRequestBody{ProductionBranch: branch})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON429, resp.JSON500)
+}
+
 // DisconnectProjectGit removes a project's repo connection. The repository
 // itself is untouched.
 func (c *Client) DisconnectProjectGit(ctx context.Context, projectID uuid.UUID) error {
