@@ -15,9 +15,7 @@ configuration with `auto_trigger: false` keeps them to `runs start` instead
 (see "Declare it in the project configuration" below). You review and merge
 its pull requests like any other.
 
-LavaFlow is in preview and needs a paid plan. LavaFlow is a usage-billed
-add-on, priced per issue and per fix pull request. Prices are announced before
-billing starts.
+LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 
 Where LavaFlow isn't available, a `volcano cloud lavaflow` command that needs
 it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
@@ -72,7 +70,7 @@ volcano cloud lavaflow enable
 ✓ LavaFlow is on
 Note: LavaFlow uses AI to diagnose this project's errors from their logs and deployed source, and opens fix pull requests in your connected repository.
 Note: LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in acme/shop.
-Note: LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
+Note: LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 ```
 
 `enable` says what LavaFlow does, then in one line what it does next, naming
@@ -101,7 +99,7 @@ LavaFlow: on, opening fix pull requests in acme/shop
 Plan: allows LavaFlow
 Repository: acme/shop
 
-LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. Prices are announced before billing starts.
+LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 ```
 
 The first row says the state at a glance: `off`, or what LavaFlow does while

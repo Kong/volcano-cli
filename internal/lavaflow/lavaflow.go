@@ -18,10 +18,9 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
-// CostNote is what LavaFlow costs during the preview, worded as the dashboard
-// and pricing page word it.
-const CostNote = "LavaFlow is a usage-billed add-on, priced per issue and per fix pull request. " +
-	"Prices are announced before billing starts."
+// CostNote is what LavaFlow needs during the preview, worded as the dashboard,
+// the pricing page and the public docs word it. It names no billing model.
+const CostNote = "LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan."
 
 // OnDescription says what LavaFlow does, and that it uses AI to do it, in
 // the wording approved for that disclosure. Keep it verbatim: it opens the
