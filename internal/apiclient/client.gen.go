@@ -6504,7 +6504,7 @@ type DatabaseUpdateRequest struct {
 
 // DeploymentCommit The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
 type DeploymentCommit struct {
-	// Dirty `true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file the commit does not hold, so the deployed code may differ from the commit.
+	// Dirty `true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file in the project's root directory that the commit does not hold, so the deployed code may differ from the commit.
 	Dirty bool `json:"dirty"`
 
 	// Repository GitHub repository as `owner/name`, normalized from what the client sent.
@@ -12750,7 +12750,7 @@ type CreateFrontendMultipartBody struct {
 	// Archive ZIP or tar.gz archive of the frontend project directory or monorepo workspace root. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz archive.
 	Archive openapi_types.File `json:"archive"`
 
-	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false, "root": "apps/web"}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. `root` is the uploaded directory's path from the repository root, `""` for the root itself. `repository`, `sha`, and `dirty` are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano checks the commit against the project's connected repository and each uploaded file against the commit's file at `root`, and returns the result in the deployment's `commit.verified`; an uploaded file the commit does not hold sets `commit.dirty`. A commit it cannot verify is still recorded and never fails the deploy.
+	// Commit JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false, "root": "apps/web"}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. `root` is the uploaded directory's path from the repository root, `""` for the root itself. `repository`, `sha`, and `dirty` are required, and fields Volcano does not know are ignored. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano checks the commit against the project's connected repository and each uploaded file against the commit's file at `root`, and returns the result in the deployment's `commit.verified`; an uploaded file in the project's root directory that the commit does not hold sets `commit.dirty`, and one outside it leaves the commit unverified. A commit it cannot verify is still recorded and never fails the deploy.
 	Commit *string `json:"commit,omitempty"`
 
 	// Framework Next.js frontend. Supported Next.js majors are 15.x and 16.x.
