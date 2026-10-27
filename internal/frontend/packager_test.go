@@ -9,10 +9,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/deploycommit/deploycommittest"
 )
 
 func TestPackageDirectoryStandaloneApp(t *testing.T) {
@@ -138,6 +142,44 @@ func TestPackageDirectoryPromotesToWorkspaceRoot(t *testing.T) {
 	assert.Contains(t, paths, filepath.Join(sharedDir, "index.ts"))
 	assert.NotContains(t, paths, filepath.Join(root, filepath.FromSlash(frontendAppPathMarker)))
 	assert.Len(t, paths, len(entries)-1)
+}
+
+// Each file's executable bit is the one git records for it, so a mode git
+// calls unchanged stays clean.
+func TestPackageDirectoryRecordsTheExecutableBitAsGitDoes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no executable bit")
+	}
+	root := t.TempDir()
+	writePackageJSON(t, root, map[string]any{"name": "web"})
+	for name, mode := range map[string]os.FileMode{
+		"owner.sh":    0o744,
+		"group.sh":    0o654,
+		"other.sh":    0o645,
+		"no-owner.sh": 0o655,
+		"plain.txt":   0o644,
+	} {
+		path := filepath.Join(root, name)
+		require.NoError(t, os.WriteFile(path, []byte(name), 0o644))
+		require.NoError(t, os.Chmod(path, mode))
+	}
+	deploycommittest.Repository(t, root, "https://github.com/acme/app.git")
+	executableInGit := map[string]bool{}
+	for line := range strings.SplitSeq(deploycommittest.Git(t, root, "ls-files", "--stage"), "\n") {
+		mode, rest, _ := strings.Cut(line, " ")
+		_, path, _ := strings.Cut(rest, "\t")
+		executableInGit[path] = mode == "100755"
+	}
+	require.True(t, executableInGit["owner.sh"])
+
+	pkg, err := PackageDirectory(root, PackageOptions{})
+	require.NoError(t, err)
+	require.Len(t, pkg.Files, len(executableInGit))
+	for _, file := range pkg.Files {
+		name := filepath.Base(file.Path)
+		require.NotNil(t, file.Executable, name)
+		assert.Equal(t, executableInGit[name], *file.Executable, name)
+	}
 }
 
 func TestPackageDirectoryStandaloneAppWithoutWorkspaceProtocol(t *testing.T) {

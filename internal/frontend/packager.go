@@ -267,7 +267,8 @@ func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) (dep
 	if err != nil {
 		return deploycommit.File{}, err
 	}
-	executable := header.Mode&0o111 != 0
+	// git records a file as executable from its owner's execute bit alone.
+	executable := header.Mode&0o100 != 0
 	file, copyErr := deploycommit.Copy(tw, f, header.Size, path, &executable)
 	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
 		return deploycommit.File{}, fmt.Errorf("close %s: %w", path, closeErr)
