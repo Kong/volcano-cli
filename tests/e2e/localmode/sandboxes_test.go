@@ -1,7 +1,6 @@
 package localmode
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -116,12 +114,7 @@ func requireLocalModeCustomSandbox(t *testing.T, binary string, env []string, di
 	}
 	require.NoError(t, json.Unmarshal([]byte(run("templates", "deploy", "local-custom", "--path", contextDir, "--template", template, "--ports", "8080", "--json")), &result))
 	require.NotEmpty(t, result.Deployment.ID)
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
-	defer cancel()
-	require.NoError(t, waitForLocalSandboxDeployment(ctx, 2*time.Second, func(ctx context.Context) (string, error) {
-		return captureLocalModeCommand(ctx, binary, env, dir,
-			"sandboxes", "deployments", "get", template, result.Deployment.ID, "--json").stdoutResult()
-	}))
+	requireLocalSandboxDeployment(t, binary, env, dir, template, result.Deployment.ID)
 	require.Contains(t, run("deployments", "list", template), result.Deployment.ID)
 	require.Contains(t, run("exec", "--template", template, "--", "cat", "/image-version"), "custom-image")
 	requireLocalSandboxDeploymentArtifacts(t, run, template, result.Deployment.ID)

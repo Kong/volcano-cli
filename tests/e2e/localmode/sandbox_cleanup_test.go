@@ -1,14 +1,12 @@
 package localmode
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -60,11 +58,7 @@ func testStopCleanSandboxes(t *testing.T, binary string, interrupted bool) {
 		} `json:"deployment"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(run("sandboxes", "templates", "deploy", "cleanup-test", "--path", contextDir, "--template", template, "--json")), &deployed))
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
-	defer cancel()
-	require.NoError(t, waitForLocalSandboxDeployment(ctx, 2*time.Second, func(ctx context.Context) (string, error) {
-		return captureLocalModeCommand(ctx, binary, env, dir, "sandboxes", "deployments", "get", template, deployed.Deployment.ID, "--json").stdoutResult()
-	}))
+	requireLocalSandboxDeployment(t, binary, env, dir, template, deployed.Deployment.ID)
 	var session struct {
 		ID string `json:"id"`
 	}
