@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.2](https://github.com/Kong/volcano-cli/compare/v0.52.1...v0.52.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lavaflow:** separate the enable note's two clauses with a comma ([#352](https://github.com/Kong/volcano-cli/issues/352)) ([80c4f87](https://github.com/Kong/volcano-cli/commit/80c4f87cfffef97e71ffe2ea3c8aa9bf6fa86ac7))
+
 ## [0.52.1](https://github.com/Kong/volcano-cli/compare/v0.52.0...v0.52.1) (2026-10-27)
 
 
