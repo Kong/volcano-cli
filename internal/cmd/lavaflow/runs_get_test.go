@@ -179,7 +179,7 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 			canceled, "LavaFlow was turned off before the run finished",
 			"Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
 		},
-		{paused, "paused: LavaFlow is paused", "Nothing to do: the run starts when LavaFlow resumes."},
+		{paused, "paused: LavaFlow is paused", "Nothing to do: the run carries on when LavaFlow resumes."},
 		{unavailable, "paused: LavaFlow is unavailable here", "Nothing to do: the run resumes when LavaFlow is available again."},
 	} {
 		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })

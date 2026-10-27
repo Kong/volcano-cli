@@ -6768,8 +6768,9 @@ paths:
       description: |
         Changes the fields the request names. An omitted field keeps its saved
         value, or takes its default when the project has no saved settings, so
-        `{"enabled": true}` on a new project diagnoses every new or regressed
-        issue and opens a draft pull request with each fix. Set `max_stage` and
+        `{"enabled": true}` on a new project diagnoses each issue that happens a
+        second time or regresses, within the run limits, and opens a draft pull
+        request with each fix. Set `max_stage` and
         `auto_trigger` to stop at a diagnosis or to start runs only on request.
         Volcano picks the models a run uses.
 
@@ -6846,8 +6847,9 @@ paths:
         `succeeded`, `failed`, or `canceled`.
 
         LavaFlow must be on for the project. An issue has at most one queued or
-        running run, a project runs one at a time, and a project starts at most
-        25 runs, manual and automatic, in any 24 hours.
+        running run, and a project runs one at a time. In any 24 hours, an
+        issue starts at most 5 runs and a project at most 200, manual and
+        automatic together.
 
         Project access tokens are refused. A run can open a pull request in
         the project's repository, so a person starts it with a platform token
@@ -6890,7 +6892,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429':
-          description: The project started its limit of runs in the last 24 hours.
+          description: 'The issue or the project reached its run limit for the last 24 hours. `code` names which: `issue_run_limit` or `project_run_limit`.'
+          headers:
+            Retry-After:
+              description: Seconds until a run can start.
+              required: true
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -23784,7 +23792,7 @@ components:
           description: How far a run goes. Defaults to `pull_request`.
         auto_trigger:
           type: boolean
-          description: Whether a new or regressed issue starts a run on its own. Defaults to true. When false, runs start only on request.
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Defaults to true. When false, runs start only on request.
         plan_allows_lavaflow:
           type: boolean
           readOnly: true
@@ -23820,7 +23828,7 @@ components:
           description: How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
         auto_trigger:
           type: boolean
-          description: Whether a new or regressed issue starts a run on its own. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
     LavaFlowRunStatus:
       type: string
       enum:
@@ -23835,7 +23843,7 @@ components:
         - LavaFlowRunStatusSucceeded
         - LavaFlowRunStatusFailed
         - LavaFlowRunStatusCanceled
-      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which.
+      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
     LavaFlowRunTrigger:
       description: What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
       oneOf:
@@ -24057,7 +24065,9 @@ components:
         max_stage:
           $ref: '#/components/schemas/LavaFlowStage'
         stage_reached:
-          $ref: '#/components/schemas/LavaFlowStage'
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: 'The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.'
         diagnosis:
           $ref: '#/components/schemas/LavaFlowDiagnosis'
         patch:
@@ -24071,7 +24081,7 @@ components:
           description: The commit the diagnosis read, when a push to the connected repository deployed the resource. Absent when the run read logs only.
         failure_code:
           type: string
-          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
+          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow''s runs are paused reports `feature_paused`; it resumes without spending an attempt when they resume. A run paused after it wrote a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
         failure_message:
           type: string
         created_at:

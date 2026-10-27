@@ -19,7 +19,7 @@ func TestEnableTurnsLavaFlowOnAndSaysWhatThatMeans(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"enabled": true}, fake.lastUpdate(t))
 	assert.Contains(t, out, "LavaFlow is on\nNote: "+clilavaflow.OnDescription+"\n")
-	assert.Contains(t, out, "LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in "+lavaflowRepo+".\n")
+	assert.Contains(t, out, "LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in "+lavaflowRepo+".\n")
 	assert.Contains(t, out, clilavaflow.CostNote)
 	assertLavaFlowWording(t, out)
 }
@@ -36,12 +36,12 @@ func TestEnableSaysWhereTheFixPullRequestGoes(t *testing.T) {
 		{
 			"no repository",
 			func(s *lavaflowServer) { s.repoConnected = false },
-			"LavaFlow diagnoses the next new or regressed issue. It only diagnoses until a repository is connected: volcano git connect\n",
+			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it. It only diagnoses until a repository is connected: volcano git connect\n",
 		},
 		{
 			"unreadable connection",
 			func(s *lavaflowServer) { s.repoFailure = http.StatusInternalServerError },
-			"LavaFlow diagnoses the next new or regressed issue and opens a fix pull request in your connected repository.\n",
+			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it and opens a fix pull request in your connected repository.\n",
 		},
 	} {
 		fake, deps := newLavaflowServer(t)

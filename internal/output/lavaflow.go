@@ -106,7 +106,7 @@ func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
 // pull requests for a person to review; nothing here may promise more.
 func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
 	settings := details.Settings
-	issue := "the next new or regressed issue"
+	issue := "the next issue that happens a second time or comes back after you resolve it"
 	if !settings.AutoTrigger {
 		issue = "each issue you start a run for (auto_trigger: false in the project configuration)"
 	}
@@ -462,7 +462,7 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	},
 	"feature_paused": {
 		"paused: LavaFlow paused", "paused: LavaFlow is paused",
-		nothingToDo("the run starts when LavaFlow resumes."),
+		nothingToDo("the run carries on when LavaFlow resumes."),
 	},
 	"model_request_rejected": {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
 	"model_unavailable":      {"AI unreachable", "LavaFlow couldn't reach its AI service", tryLater},
