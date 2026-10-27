@@ -76,7 +76,7 @@ func TestEnableExplainsAPlanRefusal(t *testing.T) {
 	fake.set(func(s *lavaflowServer) {
 		s.refuse = http.StatusForbidden
 		s.refuseMethod = http.MethodPatch
-		s.refusal = map[string]any{"error": "a paid plan is required; LavaFlow is a usage-billed add-on", "code": "plan_required"}
+		s.refusal = map[string]any{"error": "a paid plan is required", "code": "plan_required"}
 	})
 
 	_, err := executeLavaflowCommand(t, New(deps), "enable")

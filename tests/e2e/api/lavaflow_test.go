@@ -51,7 +51,7 @@ func TestAPIE2ECloudLavaFlow(t *testing.T) {
 		"Turn it on: volcano cloud lavaflow enable")
 
 	env.runCloudCLI(t, "lavaflow", "enable").requireSuccess(t, "LavaFlow is on",
-		"It only diagnoses until a repository is connected: volcano git connect", "usage-billed add-on")
+		"It only diagnoses until a repository is connected: volcano git connect", "During the preview, it needs the SUPERAGENT plan")
 	on := env.runCloudCLI(t, "lavaflow", "status")
 	on.requireSuccess(t, "LavaFlow: on, diagnosing only until a repository is connected",
 		"Connect a repository so LavaFlow can open fix pull requests")
