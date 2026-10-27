@@ -7948,7 +7948,7 @@ type LavaFlowRun struct {
 	// PullRequestSkipped Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
 	PullRequestSkipped *LavaFlowPullRequestSkipped `json:"pull_request_skipped,omitempty"`
 
-	// StageReached How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	// StageReached The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.
 	StageReached *LavaFlowStage `json:"stage_reached,omitempty"`
 	StartedAt    *time.Time     `json:"started_at,omitempty"`
 

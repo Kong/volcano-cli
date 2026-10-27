@@ -24065,7 +24065,9 @@ components:
         max_stage:
           $ref: '#/components/schemas/LavaFlowStage'
         stage_reached:
-          $ref: '#/components/schemas/LavaFlowStage'
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: 'The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.'
         diagnosis:
           $ref: '#/components/schemas/LavaFlowDiagnosis'
         patch:
