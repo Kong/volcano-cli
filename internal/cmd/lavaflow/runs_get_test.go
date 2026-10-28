@@ -86,13 +86,15 @@ func TestRunsGetSaysWhyNoPullRequestOpenedAndWhatToDo(t *testing.T) {
 		},
 		"source_unavailable": {
 			"Pull request: none: LavaFlow couldn't read the deployed source\n",
-			"\nNext: Connect the repository (volcano git connect) and deploy by pushing to it. " +
+			"\nNext: Connect the repository (volcano git connect), turn LavaFlow on again " +
+				"(volcano cloud lavaflow enable), and deploy by pushing to it. " +
 				"LavaFlow fixes code that a push to the connected repository deployed, " +
 				"or a frontend deployed with the CLI from a clean commit.\n",
 		},
 		"repository_changed": {
-			"Pull request: none: the connected repository changed during the run\n",
-			"\nNext: Start a new run: volcano cloud lavaflow runs start --issue " + lavaflowIssueID + "\n",
+			"Pull request: none: the project's repository changed since LavaFlow was turned on\n",
+			"\nNext: Turn LavaFlow on again (volcano cloud lavaflow enable) to use the project's repository now, " +
+				"then start a new run.\n",
 		},
 	} {
 		run := fixedRun()
@@ -180,7 +182,7 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 			canceled, "LavaFlow was turned off before the run finished",
 			"Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
 		},
-		{paused, "paused: LavaFlow is paused", "Nothing to do: the run starts when LavaFlow resumes."},
+		{paused, "paused: LavaFlow is paused", "Nothing to do: the run carries on when LavaFlow resumes."},
 		{unavailable, "paused: LavaFlow is unavailable here", "Nothing to do: the run resumes when LavaFlow is available again."},
 	} {
 		fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{tc.run} })

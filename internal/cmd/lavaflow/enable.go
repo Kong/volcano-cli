@@ -32,7 +32,8 @@ Each run counts toward the project's usage.
 
 Turning LavaFlow on needs a paid plan and a person's login: a project access
 token is refused. Connect a repository with 'volcano git connect' so LavaFlow
-can open fix pull requests; without one it diagnoses issues only.`,
+can open fix pull requests; without one it diagnoses issues only. Connecting
+one after LavaFlow is on pauses it until you run '` + cliruntime.CommandPath(deps, "lavaflow enable") + `' again.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.deps = deps
@@ -63,6 +64,7 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 		Description:       clilavaflow.OnDescription,
 		CostNote:          clilavaflow.CostNote,
 		GitConnectCommand: gitConnectCommand,
+		EnableCommand:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
 	})
 	return nil
 }

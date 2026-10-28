@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.52.2](https://github.com/Kong/volcano-cli/compare/v0.52.1...v0.52.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lavaflow:** separate the enable note's two clauses with a comma ([#352](https://github.com/Kong/volcano-cli/issues/352)) ([80c4f87](https://github.com/Kong/volcano-cli/commit/80c4f87cfffef97e71ffe2ea3c8aa9bf6fa86ac7))
+
+## [0.52.1](https://github.com/Kong/volcano-cli/compare/v0.52.0...v0.52.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lavaflow:** say LavaFlow is in preview and needs SUPERAGENT ([#350](https://github.com/Kong/volcano-cli/issues/350)) ([c5a7dde](https://github.com/Kong/volcano-cli/commit/c5a7dde1ae6ca99febaf97f30b7993f55ea66e53))
+
+## [0.52.0](https://github.com/Kong/volcano-cli/compare/v0.51.0...v0.52.0) (2026-10-27)
+
+
+### Features
+
+* **lavaflow:** manage LavaFlow from the CLI ([#338](https://github.com/Kong/volcano-cli/issues/338)) ([e1fcc70](https://github.com/Kong/volcano-cli/commit/e1fcc705d45d24c0e70fb3236189a79ddeb11153))
+
 ## [0.51.0](https://github.com/Kong/volcano-cli/compare/v0.50.0...v0.51.0) (2026-10-26)
 
 

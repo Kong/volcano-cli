@@ -45,6 +45,7 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 	default:
 		kv(w, on, "Repository", "not connected")
 	}
+	paused := lavaFlowPaused(settings)
 
 	fmt.Fprintln(w)
 	for _, limit := range lavaFlowLimits(settings) {
@@ -54,9 +55,13 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		Note(w, "%s", limit)
 	}
 	opensPullRequests := settings.MaxStage == apiclient.LavaFlowStagePullRequest
-	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown {
-		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
-			theme.Command(details.GitConnectCommand, on))
+	if paused {
+		Warning(w, "%s", lavaFlowPausedReason(details))
+	}
+	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown && !paused {
+		// Connecting a repository pauses LavaFlow until it is turned on again.
+		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
+			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	}
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
 		Warning(w, "No run starts until the project's plan allows LavaFlow. Upgrade the plan in the dashboard.")
@@ -70,6 +75,50 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		}
 		fmt.Fprintf(w, "%s%s\n", theme.Dim(label, on), theme.Command(details.EnableCommand, on))
 	}
+	if paused {
+		lavaFlowResume(w, details, on)
+	}
+}
+
+// lavaFlowPaused reports whether LavaFlow is on but paused because the
+// project points at another repository than the one it was turned on for, or
+// at none.
+func lavaFlowPaused(settings *apiclient.LavaFlowSettings) bool {
+	return settings.Enabled && settings.RepositoryChanged != nil && *settings.RepositoryChanged
+}
+
+// lavaFlowPausedReason says which repository changed and that no run starts
+// until LavaFlow is turned on again.
+func lavaFlowPausedReason(details LavaFlowStatusDetails) string {
+	const until = "so no run starts until someone turns LavaFlow on again."
+	enabled := details.Settings.EnabledRepository
+	switch {
+	case enabled == nil:
+		return "A repository was connected after LavaFlow was turned on, " + until
+	case details.Repository == "" && !details.RepositoryUnknown:
+		return fmt.Sprintf("%s is no longer connected to the project, %s", theme.StripControl(enabled.FullName), until)
+	default:
+		return fmt.Sprintf("The project's repository changed from %s since LavaFlow was turned on, %s",
+			theme.StripControl(enabled.FullName), until)
+	}
+}
+
+// lavaFlowResume names the command that resumes LavaFlow: turning it on again
+// records the repository the project points at now. With none connected, it
+// resumes without a repository, or after connecting one.
+func lavaFlowResume(w io.Writer, details LavaFlowStatusDetails, on bool) {
+	label := "Resume LavaFlow: "
+	switch {
+	case details.RepositoryUnknown:
+	case details.Repository == "":
+		label = "Resume LavaFlow without a repository: "
+	default:
+		label = fmt.Sprintf("Resume LavaFlow with %s: ", theme.StripControl(details.Repository))
+	}
+	fmt.Fprintf(w, "%s%s\n", theme.Dim(label, on), theme.Command(details.EnableCommand, on))
+	if details.Repository == "" && !details.RepositoryUnknown {
+		fmt.Fprintf(w, "%s%s\n", theme.Dim("Or connect a repository first: ", on), theme.Command(details.GitConnectCommand, on))
+	}
 }
 
 // LavaFlowEnabledDetails is what lavaflow enable renders.
@@ -81,6 +130,7 @@ type LavaFlowEnabledDetails struct {
 	Description       string
 	CostNote          string
 	GitConnectCommand string
+	EnableCommand     string
 }
 
 // LavaFlowEnabled renders LavaFlow turned on: what it does, what it does
@@ -106,20 +156,21 @@ func LavaFlowEnabled(w io.Writer, details LavaFlowEnabledDetails) {
 // pull requests for a person to review; nothing here may promise more.
 func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
 	settings := details.Settings
-	issue := "the next new or regressed issue"
+	issue := "the next issue that happens a second time or comes back after you resolve it"
 	if !settings.AutoTrigger {
 		issue = "each issue you start a run for (auto_trigger: false in the project configuration)"
 	}
 	switch {
 	case settings.MaxStage == apiclient.LavaFlowStageDiagnose:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens no pull request (max_stage: diagnose in the project configuration).", issue)
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens no pull request (max_stage: diagnose in the project configuration).", issue)
 	case details.RepositoryUnknown:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in your connected repository.", issue)
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in your connected repository.", issue)
 	case details.Repository == "":
-		return fmt.Sprintf("LavaFlow diagnoses %s. It only diagnoses until a repository is connected: %s",
-			issue, theme.Command(details.GitConnectCommand, on))
+		return fmt.Sprintf("LavaFlow diagnoses %s. Until you connect a repository, it stops at the diagnosis. "+
+			"Connecting one pauses LavaFlow until you turn it on again: %s, then %s",
+			issue, theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	default:
-		return fmt.Sprintf("LavaFlow diagnoses %s and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
+		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
 	}
 }
 
@@ -132,6 +183,8 @@ func lavaFlowState(details LavaFlowStatusDetails) string {
 		return "off"
 	case settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow:
 		return "on, but no run starts until the plan allows it"
+	case lavaFlowPaused(settings):
+		return "on, but paused until it is turned on again"
 	case settings.MaxStage == apiclient.LavaFlowStageDiagnose:
 		return "on, diagnosing only (max_stage: diagnose)"
 	case details.RepositoryUnknown:
@@ -437,13 +490,22 @@ func turnOnAndStartAgain(c lavaFlowNextCommands) string {
 	return fmt.Sprintf("Turn LavaFlow on (%s), then start a new run.", c.enable)
 }
 
+// turnOnAgainAndStartAgain resumes LavaFlow after the project's repository
+// changed: turning it on again records the repository the project points at
+// now.
+func turnOnAgainAndStartAgain(c lavaFlowNextCommands) string {
+	return fmt.Sprintf("Turn LavaFlow on again (%s) to use the project's repository now, then start a new run.", c.enable)
+}
+
 // connectAndPush names what LavaFlow can fix today: what a push deployed, and
 // a frontend the CLI deployed from a commit Volcano verified with dirty: false.
 // It grows when LavaFlow fixes more, and docs/lavaflow.md says the same.
+// Connecting a repository pauses LavaFlow until it is turned on again, so
+// that step comes before the push.
 func connectAndPush(c lavaFlowNextCommands) string {
-	return fmt.Sprintf("Connect the repository (%s) and deploy by pushing to it. "+
+	return fmt.Sprintf("Connect the repository (%s), turn LavaFlow on again (%s), and deploy by pushing to it. "+
 		"LavaFlow fixes code that a push to the connected repository deployed, "+
-		"or a frontend deployed with the CLI from a clean commit.", c.gitConnect)
+		"or a frontend deployed with the CLI from a clean commit.", c.gitConnect, c.enable)
 }
 
 func withCommand(step, command string) string {
@@ -464,7 +526,7 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	},
 	"feature_paused": {
 		"paused: LavaFlow paused", "paused: LavaFlow is paused",
-		nothingToDo("the run starts when LavaFlow resumes."),
+		nothingToDo("the run carries on when LavaFlow resumes."),
 	},
 	"model_request_rejected": {"request rejected", "LavaFlow's AI service rejected the request", startAgain},
 	"model_unavailable":      {"AI unreachable", "LavaFlow couldn't reach its AI service", tryLater},
@@ -572,7 +634,7 @@ var lavaFlowSkips = map[apiclient.LavaFlowPullRequestSkipped]lavaFlowStop{
 	},
 	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {
 		"no PR: repository changed",
-		"the connected repository changed during the run", startAgain,
+		"the project's repository changed since LavaFlow was turned on", turnOnAgainAndStartAgain,
 	},
 	apiclient.LavaFlowPullRequestSkippedPublishFailed: {
 		"no PR: couldn't open it",

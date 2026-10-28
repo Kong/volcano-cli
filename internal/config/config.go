@@ -332,6 +332,17 @@ func (c *Config) Token() string {
 	return c.UserToken
 }
 
+// TokenEnv is the environment variable whose token Token returns ahead of the
+// saved one.
+const TokenEnv = envToken
+
+// TokenFromEnv reports whether Token returns the TokenEnv variable's token
+// rather than the saved one. Signing in saves a token, which Token then still
+// passes over.
+func (c *Config) TokenFromEnv() bool {
+	return !c.IgnoreEnv && strings.TrimSpace(os.Getenv(envToken)) != ""
+}
+
 // FunctionInvokeToken returns the token used for runtime function invocation.
 // Cloud uses the reserved data-plane service key (via the invoke token
 // provider) or falls back to the configured token. In local mode the session
