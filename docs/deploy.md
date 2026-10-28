@@ -198,11 +198,13 @@ which is empty when it's the repository's top level. It never sends the
 remote URL or any credentials in it, local paths, branch names, or diffs.
 Function and durable function deploys don't report a commit for now.
 
-The CLI reads the commit checked out in the directory `--path` names: the
-`origin` remote and `HEAD`, the same in GitHub Actions as anywhere else. It
-sends nothing, and the deploy goes ahead, when git isn't available, the
-repository isn't on github.com, the uploaded directory is outside the
-repository, or any part is missing. Local deploys never send it.
+The CLI reads the commit checked out in each frontend's directory: its
+`workspace` in `.volcano/source-layout.json`, or `frontends/<name>` when the
+entry has none. For `frontends deploy`, it's the directory `--path` names. The
+CLI reads the `origin` remote and `HEAD` there, the same in GitHub Actions as
+anywhere else. It sends nothing, and the deploy goes ahead, when git isn't
+available, the repository isn't on github.com, the uploaded directory is
+outside the repository, or any part is missing. Local deploys never send it.
 
 The upload matches the commit when each file in it is in the commit at the
 same path with the same content and executable bit, and it holds every file
