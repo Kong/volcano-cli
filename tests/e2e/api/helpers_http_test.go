@@ -73,7 +73,11 @@ func signUpAPIE2EEndUser(t *testing.T, apiURL, anonKey string) string {
 		"email":    "cli-e2e-" + apiE2ESuffix(t) + "@cloud-e2e.invalid",
 		"password": "V0lcano!" + apiE2ESuffix(t) + apiE2ESuffix(t),
 	}
-	apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signup", anonKey, credentials, http.StatusCreated)
+	signupURL := apiURL + "/auth/signup"
+	signup := retryAPIE2ESignup(t, passwordCheckRetryWindow, passwordCheckRetryInterval, func() apiE2EResponse {
+		return apiE2ESendJSON(t, http.MethodPost, signupURL, anonKey, credentials)
+	})
+	decodeAPIE2EResponse(t, http.MethodPost, signupURL, signup, http.StatusCreated)
 	session := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signin", anonKey, credentials, http.StatusOK)
 	token, ok := session["access_token"].(string)
 	if !ok || strings.TrimSpace(token) == "" {
@@ -176,6 +180,19 @@ func deleteAPIE2EResourceOnce(url, token string) (int, string, error) {
 
 func apiE2EJSONRequest(t *testing.T, method, url, token string, body any, expectedStatuses ...int) map[string]any {
 	t.Helper()
+	return decodeAPIE2EResponse(t, method, url, apiE2ESendJSON(t, method, url, token, body), expectedStatuses...)
+}
+
+// apiE2EResponse is one HTTP answer, with its body trimmed.
+type apiE2EResponse struct {
+	status int
+	body   string
+}
+
+// apiE2ESendJSON sends one request and returns the answer whatever its status.
+// A transport failure fails the test.
+func apiE2ESendJSON(t *testing.T, method, url, token string, body any) apiE2EResponse {
+	t.Helper()
 	var reader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -204,15 +221,22 @@ func apiE2EJSONRequest(t *testing.T, method, url, token string, body any, expect
 	}
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
-	if !slices.Contains(expectedStatuses, resp.StatusCode) {
-		t.Fatalf("%s %s returned status %d, want %v: %s", method, url, resp.StatusCode, expectedStatuses, strings.TrimSpace(string(data)))
+	return apiE2EResponse{status: resp.StatusCode, body: strings.TrimSpace(string(data))}
+}
+
+// decodeAPIE2EResponse fails the test unless the answer has one of the
+// expected statuses, then decodes its JSON body.
+func decodeAPIE2EResponse(t *testing.T, method, url string, resp apiE2EResponse, expectedStatuses ...int) map[string]any {
+	t.Helper()
+	if !slices.Contains(expectedStatuses, resp.status) {
+		t.Fatalf("%s %s returned status %d, want %v: %s", method, url, resp.status, expectedStatuses, resp.body)
 	}
-	if strings.TrimSpace(string(data)) == "" {
+	if resp.body == "" {
 		return nil
 	}
 	var decoded map[string]any
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("failed to decode JSON response from %s %s: %v\n%s", method, url, err, string(data))
+	if err := json.Unmarshal([]byte(resp.body), &decoded); err != nil {
+		t.Fatalf("failed to decode JSON response from %s %s: %v\n%s", method, url, err, resp.body)
 	}
 	return decoded
 }
