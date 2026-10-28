@@ -393,7 +393,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	refused := false
 	if deviceCode := strings.TrimSpace(opts.deviceCode); deviceCode != "" {
 		// Before the code is spent on a login that cannot be saved.
-		if err := checkConfigWritable(); err != nil {
+		if err := cliauth.CheckLoginCanBeSaved(); err != nil {
 			return err
 		}
 		// The project is looked up after sign-in, so a wrong --project fails
@@ -439,7 +439,7 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 
 	// A saved login is used without writing, so only a new login needs the
 	// home to be writable. Checked before the browser or signup code is issued.
-	if err := checkConfigWritable(); err != nil {
+	if err := cliauth.CheckLoginCanBeSaved(); err != nil {
 		return err
 	}
 	var credentials cliauth.Credentials
@@ -464,19 +464,6 @@ func ensureSession(ctx context.Context, opts options, sessions clisession.Factor
 	}
 	output.Success(opts.log, "Signed in")
 	return nil
-}
-
-// checkConfigWritable stops connect before it issues a device or signup code
-// when it could not save the login. The usual cause is an agent sandbox with
-// no write access to the home directory.
-func checkConfigWritable() error {
-	err := config.CheckWritable()
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("the Volcano login cannot be saved: %w. "+
-		"This usually means a sandbox that cannot write to your home directory. "+
-		"Run the command again outside the sandbox, or approve the escalation if your agent asks", err)
 }
 
 // maxNameSuffix bounds the -2, -3, ... suffixes tried when the project name

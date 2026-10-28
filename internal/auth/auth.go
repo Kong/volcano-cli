@@ -433,6 +433,19 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
 }
 
+// CheckLoginCanBeSaved stops a sign-in before it issues or spends a code when
+// the login could not be saved afterwards. The usual cause is an agent sandbox
+// with no write access to the home directory.
+func CheckLoginCanBeSaved() error {
+	err := config.CheckWritable()
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("the Volcano login cannot be saved: %w. "+
+		"This usually means a sandbox that cannot write to your home directory. "+
+		"Run the command again outside the sandbox, or approve the escalation if your agent asks", err)
+}
+
 // GitEmail returns `git config --global user.email`, or "" when it is unset,
 // git fails, or it is a GitHub noreply address. Signup offers it as the
 // default email address.

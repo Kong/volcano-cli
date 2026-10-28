@@ -772,3 +772,43 @@ func TestLogoutRemovesUnreadableConfig(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "an unreadable config with a token is removed: %v", err)
 }
+
+// A home the process can't write to would lose the new login, so login and
+// signup stop before any code is issued or spent.
+func TestLoginAndSignupRefuseAnUnwritableHomeBeforeAnyRequest(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	for name, run := range map[string]func(deps cliruntime.Deps) error{
+		"browser login": func(deps cliruntime.Deps) error {
+			_, _, err := executeLoginWithDeps(t, deps)
+			return err
+		},
+		"device code login": func(deps cliruntime.Deps) error {
+			_, _, err := executeLoginWithDeps(t, deps, "--device-code", authDeviceCode)
+			return err
+		},
+		"signup": func(deps cliruntime.Deps) error {
+			_, err := executeAuthCommandWithInput(t, NewSignup(deps), "ted@example.com\n")
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			setAuthTestHome(t)
+			home := os.Getenv("HOME")
+			require.NoError(t, os.Chmod(home, 0o500))
+			t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests++
+				w.WriteHeader(http.StatusInternalServerError)
+			}))
+			defer server.Close()
+
+			err := run(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL})
+			require.ErrorContains(t, err, "cannot be saved")
+			require.ErrorContains(t, err, "outside the sandbox")
+			assert.Zero(t, requests, "no code is issued or spent")
+		})
+	}
+}

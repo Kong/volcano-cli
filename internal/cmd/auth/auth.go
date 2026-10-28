@@ -86,6 +86,11 @@ func runLogin(ctx context.Context, opts loginOptions) error {
 		return err
 	}
 
+	// Before a browser or dashboard code is issued or spent.
+	if err := cliauth.CheckLoginCanBeSaved(); err != nil {
+		return err
+	}
+
 	service := cliauth.NewService(opts.deps)
 	var credentials cliauth.Credentials
 	token := strings.TrimSpace(opts.token)
@@ -226,6 +231,11 @@ the CLI completes authentication and saves your credentials, leaving you logged 
 func runSignup(ctx context.Context, opts signupOptions) error {
 	cfg, err := loadConfig(opts.deps, opts.errOut)
 	if err != nil {
+		return err
+	}
+
+	// Before the signup code is issued.
+	if err := cliauth.CheckLoginCanBeSaved(); err != nil {
 		return err
 	}
 
