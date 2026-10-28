@@ -83,8 +83,8 @@ type result struct {
 }
 
 // skillLocation is where one harness has the Volcano skills: a directory of
-// <name>/SKILL.md folders for a file-drop harness, or a plugin that needs an
-// agent restart to load.
+// <name>/SKILL.md folders for a file-drop harness, or a plugin, which needs an
+// agent restart to load when connect installed or updated it.
 type skillLocation struct {
 	Harness         string `json:"harness"`
 	Path            string `json:"path,omitempty"`
@@ -365,7 +365,9 @@ func run(ctx context.Context, opts options) error {
 		for _, l := range locations {
 			fmt.Fprintf(opts.out, "  %s: %s\n", l.Harness, l.describe())
 		}
-		fmt.Fprintln(opts.out, res.SkillsNote)
+		if res.SkillsNote != "" {
+			fmt.Fprintln(opts.out, res.SkillsNote)
+		}
 	}
 	fmt.Fprintln(opts.out)
 	if shown == "." {
@@ -1068,7 +1070,11 @@ func installedFrom(report setup.Report) ([]string, []skillLocation) {
 		case setup.StatusInstalled, setup.StatusUpdated, setup.StatusUpToDate:
 			installed = append(installed, r.Harness)
 			if r.Dir != "" || r.Plugin != "" {
-				locations = append(locations, skillLocation{Harness: r.Harness, Path: r.Dir, Plugin: r.Plugin, RestartRequired: r.Plugin != ""})
+				// A plugin that was already current is loaded in an agent that
+				// started after it was installed; a new or updated one needs a
+				// restart.
+				restart := r.Plugin != "" && r.Status != setup.StatusUpToDate
+				locations = append(locations, skillLocation{Harness: r.Harness, Path: r.Dir, Plugin: r.Plugin, RestartRequired: restart})
 			}
 		}
 	}
@@ -1080,7 +1086,10 @@ func (l skillLocation) describe() string {
 	if l.Path != "" {
 		return l.Path
 	}
-	return "plugin " + l.Plugin + ", loaded after your agent restarts"
+	if l.RestartRequired {
+		return "plugin " + l.Plugin + ", loaded after your agent restarts"
+	}
+	return "plugin " + l.Plugin + ", already up to date"
 }
 
 // skillsNote is the one line telling an agent what to do when the skills it
@@ -1090,7 +1099,7 @@ func skillsNote(locations []skillLocation) string {
 	hasPath, hasPlugin := false, false
 	for _, l := range locations {
 		hasPath = hasPath || l.Path != ""
-		hasPlugin = hasPlugin || l.Plugin != ""
+		hasPlugin = hasPlugin || l.RestartRequired
 	}
 	switch {
 	case hasPath && hasPlugin:

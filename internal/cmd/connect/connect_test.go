@@ -1621,20 +1621,23 @@ func TestInstalledFromReportsWhereTheSkillsLive(t *testing.T) {
 		{Harness: "cursor", Status: setup.StatusUpdated, Dir: "/home/me/.cursor/skills"},
 		{Harness: "pi", Status: setup.StatusSkipped, Detail: "not detected"},
 		{Harness: "opencode", Status: setup.StatusFailed, Dir: "/home/me/.config/opencode/skills"},
+		{Harness: "codex", Status: setup.StatusUpToDate, Plugin: "volcano@volcano-agentic-plugins"},
 	}}
 
 	installed, locations := installedFrom(report)
 
-	assert.Equal(t, []string{"claude-code", "cursor"}, installed)
+	assert.Equal(t, []string{"claude-code", "cursor", "codex"}, installed)
 	assert.Equal(t, []skillLocation{
 		{Harness: "claude-code", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true},
 		{Harness: "cursor", Path: "/home/me/.cursor/skills"},
-	}, locations)
+		{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins"},
+	}, locations, "a plugin that was already current needs no restart")
 }
 
 func TestSkillsNoteAndDescribe(t *testing.T) {
 	files := skillLocation{Harness: "cursor", Path: "/home/me/.cursor/skills"}
 	plugin := skillLocation{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true}
+	current := skillLocation{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins"}
 	tests := []struct {
 		name      string
 		locations []skillLocation
@@ -1644,6 +1647,7 @@ func TestSkillsNoteAndDescribe(t *testing.T) {
 		{name: "files", locations: []skillLocation{files}, want: []string{"not loaded in your running session", "SKILL.md files under the paths above"}},
 		{name: "plugin", locations: []skillLocation{plugin}, want: []string{"not loaded in your running session", "restart your agent"}},
 		{name: "both", locations: []skillLocation{files, plugin}, want: []string{"SKILL.md files under the paths above", "restart your agent"}},
+		{name: "current plugin", locations: []skillLocation{current}, want: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1658,6 +1662,7 @@ func TestSkillsNoteAndDescribe(t *testing.T) {
 	}
 	assert.Equal(t, "/home/me/.cursor/skills", files.describe())
 	assert.Equal(t, "plugin volcano@volcano-agentic-plugins, loaded after your agent restarts", plugin.describe())
+	assert.Equal(t, "plugin volcano@volcano-agentic-plugins, already up to date", current.describe())
 }
 
 // Without skills installed, the JSON result has no skill location fields.
