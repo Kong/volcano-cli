@@ -59,8 +59,9 @@ func LavaFlowStatus(w io.Writer, details LavaFlowStatusDetails) {
 		Warning(w, "%s", lavaFlowPausedReason(details))
 	}
 	if settings.Enabled && opensPullRequests && details.Repository == "" && !details.RepositoryUnknown && !paused {
-		Warning(w, "Connect a repository so LavaFlow can open fix pull requests: %s",
-			theme.Command(details.GitConnectCommand, on))
+		// Connecting a repository pauses LavaFlow until it is turned on again.
+		Warning(w, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: %s, then %s",
+			theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	}
 	if settings.PlanAllowsLavaflow != nil && !*settings.PlanAllowsLavaflow {
 		Warning(w, "No run starts until the project's plan allows LavaFlow. Upgrade the plan in the dashboard.")
@@ -129,6 +130,7 @@ type LavaFlowEnabledDetails struct {
 	Description       string
 	CostNote          string
 	GitConnectCommand string
+	EnableCommand     string
 }
 
 // LavaFlowEnabled renders LavaFlow turned on: what it does, what it does
@@ -164,8 +166,9 @@ func lavaFlowWhatHappensNext(details LavaFlowEnabledDetails, on bool) string {
 	case details.RepositoryUnknown:
 		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in your connected repository.", issue)
 	case details.Repository == "":
-		return fmt.Sprintf("LavaFlow diagnoses %s. It only diagnoses until a repository is connected: %s",
-			issue, theme.Command(details.GitConnectCommand, on))
+		return fmt.Sprintf("LavaFlow diagnoses %s. Until you connect a repository, it stops at the diagnosis. "+
+			"Connecting one pauses LavaFlow until you turn it on again: %s, then %s",
+			issue, theme.Command(details.GitConnectCommand, on), theme.Command(details.EnableCommand, on))
 	default:
 		return fmt.Sprintf("LavaFlow diagnoses %s, and opens a fix pull request in %s.", issue, theme.StripControl(details.Repository))
 	}

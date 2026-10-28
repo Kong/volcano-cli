@@ -63,6 +63,7 @@ func runEnable(ctx context.Context, opts enableOptions) error {
 		Description:       clilavaflow.OnDescription,
 		CostNote:          clilavaflow.CostNote,
 		GitConnectCommand: gitConnectCommand,
+		EnableCommand:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
 	})
 	return nil
 }

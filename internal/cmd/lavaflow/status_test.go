@@ -39,7 +39,8 @@ func TestStatusOnWithoutRepositoryAsksForOne(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "LavaFlow: on")
 	assert.Contains(t, out, "Repository: not connected")
-	assert.Contains(t, out, "Connect a repository so LavaFlow can open fix pull requests: volcano git connect")
+	assert.Contains(t, out, "Connect a repository, then turn LavaFlow on again so it can open fix pull requests: "+
+		"volcano git connect, then volcano cloud lavaflow enable\n")
 	assert.NotContains(t, out, "Turn it on")
 }
 
@@ -250,7 +251,7 @@ func TestStatusSaysLavaFlowIsPausedWhenTheRepositoryChanged(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, out, "LavaFlow: on, but paused until it is turned on again\n")
 			assert.True(t, strings.HasSuffix(out, tc.want), out)
-			assert.NotContains(t, out, "Connect a repository so LavaFlow can open fix pull requests",
+			assert.NotContains(t, out, "Connect a repository, then turn LavaFlow on again",
 				"the paused line already says what to do")
 			assertLavaFlowWording(t, out)
 		})

@@ -76,8 +76,9 @@ Note: LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 
 `enable` says what LavaFlow does, then in one line what it does next, naming
 the repository its fix pull request goes to. With no repository connected, it
-says LavaFlow only diagnoses until one is connected, and names
-`volcano git connect`.
+says LavaFlow stops at the diagnosis until you connect one, and that
+connecting one pauses LavaFlow until you turn it on again. It names
+`volcano git connect`, then `volcano cloud lavaflow enable`.
 
 A project whose plan does not allow LavaFlow is refused, and the command exits
 non-zero. A project that had LavaFlow on before its plan changed stays on;
@@ -106,7 +107,10 @@ LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan.
 The first row says the state at a glance: `off`, or what LavaFlow does while
 it is on, such as `on, diagnosing only until a repository is connected`. The
 status says when no repository is connected. When LavaFlow is on and set
-to open pull requests, it also names `volcano git connect`. When the project configuration narrows LavaFlow, with
+to open pull requests, it also says to connect a repository and then turn
+LavaFlow on again, naming `volcano git connect`, then
+`volcano cloud lavaflow enable`, because connecting a repository pauses
+LavaFlow until it is turned on again. When the project configuration narrows LavaFlow, with
 `max_stage: diagnose` or `auto_trigger: false`, the status and `enable` say
 that too, and the status says it while LavaFlow is off, because those settings
 apply when it is turned on. With `--json`, `repository_state` is `connected`,

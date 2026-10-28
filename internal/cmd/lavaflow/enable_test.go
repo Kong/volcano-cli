@@ -37,7 +37,9 @@ func TestEnableSaysWhereTheFixPullRequestGoes(t *testing.T) {
 		{
 			"no repository",
 			func(s *lavaflowServer) { s.repoConnected = false },
-			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it. It only diagnoses until a repository is connected: volcano git connect\n",
+			"LavaFlow diagnoses the next issue that happens a second time or comes back after you resolve it. " +
+				"Until you connect a repository, it stops at the diagnosis. Connecting one pauses LavaFlow until you " +
+				"turn it on again: volcano git connect, then volcano cloud lavaflow enable\n",
 		},
 		{
 			"unreadable connection",
