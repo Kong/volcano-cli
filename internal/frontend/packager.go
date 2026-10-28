@@ -6,12 +6,12 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Kong/volcano-cli/internal/deploycommit"
 	"github.com/Kong/volcano-cli/internal/ignore"
 )
 
@@ -52,6 +52,21 @@ type Package struct {
 	// should surface these so users notice missing files (e.g. monorepo
 	// assets symlinked across packages).
 	SkippedSymlinks []string
+	// Files are the project files the archive holds, recorded from the bytes
+	// and executable bit it holds. The app-path marker is written by the CLI,
+	// so it is not one of them.
+	Files []deploycommit.File
+
+	matcher *ignore.Matcher
+}
+
+// LeftOutByRule reports whether every upload leaves out the file at rel, a
+// slash-separated path under PackagingRoot, by a built-in rule such as
+// node_modules or *.log. The root .gitignore is not one of those rules.
+// Volcano leaves out the same files when it checks an upload against its
+// commit.
+func (p *Package) LeftOutByRule(rel string) bool {
+	return p.matcher.MatchesPattern(rel)
 }
 
 // PackageOptions tunes how PackageDirectory builds the archive.
@@ -97,7 +112,7 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, skipped, err := buildArchive(packagingRoot, appPath, matcher, excluded)
+	data, tree, err := buildArchive(packagingRoot, appPath, matcher, excluded)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +122,9 @@ func PackageDirectory(rootDir string, opts PackageOptions) (*Package, error) {
 		Size:            int64(len(data)),
 		PackagingRoot:   packagingRoot,
 		AppPath:         appPath,
-		SkippedSymlinks: skipped,
+		SkippedSymlinks: tree.skippedSymlinks,
+		Files:           tree.files,
+		matcher:         matcher,
 	}, nil
 }
 
@@ -152,42 +169,50 @@ func archivePaths(root string, files []string) (map[string]bool, error) {
 }
 
 // buildArchive writes the project tree and optional app-path marker into a
-// gzip-compressed tar archive. It returns the raw bytes plus any
-// archive-relative paths whose symlinks were dropped.
-func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, []string, error) {
+// gzip-compressed tar archive. It returns the raw bytes and what the archive
+// holds.
+func buildArchive(packagingRoot, appPath string, matcher *ignore.Matcher, excluded map[string]bool) ([]byte, projectTree, error) {
 	buf := new(bytes.Buffer)
 	gz := gzip.NewWriter(buf)
 	tw := tar.NewWriter(gz)
 
-	skipped, err := writeProjectTree(tw, packagingRoot, matcher, excluded)
+	tree, err := writeProjectTree(tw, packagingRoot, matcher, excluded)
 	if err != nil {
 		_ = tw.Close()
 		_ = gz.Close()
-		return nil, nil, err
+		return nil, projectTree{}, err
 	}
 	if err := writeAppPathMarker(tw, appPath); err != nil {
 		_ = tw.Close()
 		_ = gz.Close()
-		return nil, nil, err
+		return nil, projectTree{}, err
 	}
 	if err := tw.Close(); err != nil {
 		_ = gz.Close()
-		return nil, nil, fmt.Errorf("failed to finalize tar archive: %w", err)
+		return nil, projectTree{}, fmt.Errorf("failed to finalize tar archive: %w", err)
 	}
 	if err := gz.Close(); err != nil {
-		return nil, nil, fmt.Errorf("failed to finalize gzip archive: %w", err)
+		return nil, projectTree{}, fmt.Errorf("failed to finalize gzip archive: %w", err)
 	}
-	return buf.Bytes(), skipped, nil
+	return buf.Bytes(), tree, nil
+}
+
+// projectTree is what writeProjectTree wrote.
+type projectTree struct {
+	// skippedSymlinks are the archive-relative paths of symlinks it dropped.
+	skippedSymlinks []string
+	// files are the project files it wrote.
+	files []deploycommit.File
 }
 
 // writeProjectTree walks root and writes every regular file that neither
 // matcher nor excluded leaves out into the tar writer. It enforces
 // maxFrontendPackageFiles so a runaway tree (missing .gitignore, stray cache
 // directory) cannot OOM the CLI, and reports any symlinks it had to drop so
-// callers can warn the user.
-func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) ([]string, error) {
+// callers can warn the user, and the files it wrote.
+func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excluded map[string]bool) (projectTree, error) {
 	fileCount := 0
-	var skippedSymlinks []string
+	var tree projectTree
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -220,7 +245,7 @@ func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excl
 		}
 		if !info.Mode().IsRegular() {
 			if info.Mode()&os.ModeSymlink != 0 {
-				skippedSymlinks = append(skippedSymlinks, relPath)
+				tree.skippedSymlinks = append(tree.skippedSymlinks, relPath)
 			}
 			return nil
 		}
@@ -228,20 +253,25 @@ func writeProjectTree(tw *tar.Writer, root string, matcher *ignore.Matcher, excl
 		if fileCount > maxFrontendPackageFiles {
 			return fmt.Errorf("too many files (limit: %d)", maxFrontendPackageFiles)
 		}
-		return writeFileEntry(tw, path, relPath, info)
+		file, err := writeFileEntry(tw, path, relPath, info)
+		if err != nil {
+			return err
+		}
+		tree.files = append(tree.files, file)
+		return nil
 	})
 	if err != nil {
-		return nil, err
+		return projectTree{}, err
 	}
-	return skippedSymlinks, nil
+	return tree, nil
 }
 
 // writeFileEntry writes one regular file at path under the archive name
-// relPath into the tar writer.
-func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) error {
+// relPath into the tar writer, and records the bytes and mode it wrote.
+func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) (deploycommit.File, error) {
 	header, err := tar.FileInfoHeader(info, "")
 	if err != nil {
-		return err
+		return deploycommit.File{}, err
 	}
 	header.Name = relPath
 	header.Uname = ""
@@ -250,17 +280,19 @@ func writeFileEntry(tw *tar.Writer, path, relPath string, info os.FileInfo) erro
 	header.Gid = 0
 
 	if err := tw.WriteHeader(header); err != nil {
-		return err
+		return deploycommit.File{}, err
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return deploycommit.File{}, err
 	}
-	_, copyErr := io.Copy(tw, f)
+	// git records a file as executable from its owner's execute bit alone.
+	executable := header.Mode&0o100 != 0
+	file, copyErr := deploycommit.Copy(tw, f, header.Size, path, &executable)
 	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
-		return fmt.Errorf("close %s: %w", path, closeErr)
+		return deploycommit.File{}, fmt.Errorf("close %s: %w", path, closeErr)
 	}
-	return copyErr
+	return file, copyErr
 }
 
 // checkAppPathMarkerCollision returns an error when the user's own tree

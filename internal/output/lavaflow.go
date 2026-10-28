@@ -497,13 +497,15 @@ func turnOnAgainAndStartAgain(c lavaFlowNextCommands) string {
 	return fmt.Sprintf("Turn LavaFlow on again (%s) to use the project's repository now, then start a new run.", c.enable)
 }
 
-// connectAndPush names what LavaFlow can fix today. It grows when LavaFlow
-// fixes more than a push deployed, and docs/lavaflow.md says the same.
+// connectAndPush names what LavaFlow can fix today: what a push deployed, and
+// a frontend the CLI deployed from a commit Volcano verified with dirty: false.
+// It grows when LavaFlow fixes more, and docs/lavaflow.md says the same.
 // Connecting a repository pauses LavaFlow until it is turned on again, so
 // that step comes before the push.
 func connectAndPush(c lavaFlowNextCommands) string {
 	return fmt.Sprintf("Connect the repository (%s), turn LavaFlow on again (%s), and deploy by pushing to it. "+
-		"LavaFlow fixes code that a push to the connected repository deployed.", c.gitConnect, c.enable)
+		"LavaFlow fixes code that a push to the connected repository deployed, "+
+		"or a frontend deployed with the CLI from a clean commit.", c.gitConnect, c.enable)
 }
 
 func withCommand(step, command string) string {

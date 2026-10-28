@@ -101,6 +101,12 @@ func (m *Matcher) ShouldIgnoreWith(patternRelPath, projectRelPath string, isDir 
 	return isDir && m.gitIgnore.MatchesPath(cleanPath+"/")
 }
 
+// MatchesPattern reports whether relPath matches a built-in or extra pattern.
+// It leaves the .gitignore out.
+func (m *Matcher) MatchesPattern(relPath string) bool {
+	return m != nil && matchAny(relPath, m.patterns)
+}
+
 // ProjectRelPath returns absPath relative to the matcher root using forward
 // slashes. It is intended for callers that walk files outside the immediate
 // project root and need a path to feed back into ShouldIgnoreWith.

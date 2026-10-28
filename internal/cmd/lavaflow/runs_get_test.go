@@ -88,7 +88,8 @@ func TestRunsGetSaysWhyNoPullRequestOpenedAndWhatToDo(t *testing.T) {
 			"Pull request: none: LavaFlow couldn't read the deployed source\n",
 			"\nNext: Connect the repository (volcano git connect), turn LavaFlow on again " +
 				"(volcano cloud lavaflow enable), and deploy by pushing to it. " +
-				"LavaFlow fixes code that a push to the connected repository deployed.\n",
+				"LavaFlow fixes code that a push to the connected repository deployed, " +
+				"or a frontend deployed with the CLI from a clean commit.\n",
 		},
 		"repository_changed": {
 			"Pull request: none: the project's repository changed since LavaFlow was turned on\n",

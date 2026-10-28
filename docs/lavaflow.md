@@ -35,8 +35,9 @@ it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
   after LavaFlow is on pauses LavaFlow until it is turned on again. See
   [git.md](git.md).
 - Fixes code it can read at the commit that built it: code that a push to the
-  connected repository deployed. For any other deployment, LavaFlow diagnoses
-  the issue and opens no pull request.
+  connected repository deployed, or a frontend deployed with the CLI from a
+  clean commit. See [Source commit](deploy.md#source-commit). For any other
+  deployment, LavaFlow diagnoses the issue and opens no pull request.
 - Declared in the **project configuration** under `lavaflow:`. See
   [project-configuration.md](project-configuration.md).
 - Cloud only. Local development has no GitHub App for LavaFlow to open pull
