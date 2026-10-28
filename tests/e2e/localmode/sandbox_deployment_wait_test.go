@@ -41,7 +41,7 @@ func logLocalSandboxDeploymentFailure(t *testing.T, binary string, env []string,
 	brokers := logSandboxDiagnosticCommand(t, ctx, "docker", env, dir,
 		"container", "ls", "--all", "--quiet", "--filter", "label=com.docker.compose.project=volcano",
 		"--filter", "label=com.docker.compose.service=sandbox-broker")
-	for _, broker := range strings.Fields(brokers.stdout) {
+	for broker := range strings.FieldsSeq(brokers.stdout) {
 		logSandboxDiagnosticCommand(t, ctx, "docker", env, dir, "logs", "--timestamps", "--tail", "200", broker)
 	}
 }
