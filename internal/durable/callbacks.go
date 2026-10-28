@@ -70,8 +70,8 @@ func (s Service) HeartbeatCallback(ctx context.Context, token string) (*apiclien
 	outcome, err := client.HeartbeatDurableCallback(ctx, token)
 	if err != nil {
 		if api.Status(err) == http.StatusServiceUnavailable {
-			return nil, errors.New("the heartbeat could not reach the execution right now; " +
-				"the wait is unchanged, so retry with backoff")
+			return nil, api.WithCause(errors.New("the heartbeat could not reach the execution right now; "+
+				"the wait is unchanged, so retry with backoff"), err)
 		}
 		return nil, callbackError("heartbeat", err)
 	}
@@ -97,18 +97,22 @@ func (s Service) callbackClient(token string) (*api.Client, error) {
 }
 
 // callbackError says what became of the wait when the API refuses an answer,
-// because a holder decides from it whether to retry.
+// because a holder decides from it whether to retry. The API error stays the
+// cause, so the exit code still reflects its status.
 func callbackError(action string, err error) error {
+	var message string
 	switch api.Code(err) {
 	case "callback_not_found":
-		return errors.New("no callback has this token; its execution may be past its retention")
+		message = "no callback has this token; its execution may be past its retention"
 	case "callback_completed":
-		return errors.New("the callback already has an outcome; a token takes one answer, " +
-			"so a retry of an answer that went through ends here too")
+		message = "the callback already has an outcome; a token takes one answer, " +
+			"so a retry of an answer that went through ends here too"
 	case "callback_expired":
-		return errors.New("the callback timed out; nothing will take an answer, so do not retry")
+		message = "the callback timed out; nothing will take an answer, so do not retry"
 	case "execution_ended":
-		return errors.New("the callback's execution has ended; nothing will take an answer, so do not retry")
+		message = "the callback's execution has ended; nothing will take an answer, so do not retry"
+	default:
+		return fmt.Errorf("failed to %s the callback: %w", action, err)
 	}
-	return fmt.Errorf("failed to %s the callback: %w", action, err)
+	return api.WithCause(errors.New(message), err)
 }

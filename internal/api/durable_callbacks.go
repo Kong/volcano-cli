@@ -1,8 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
 )
@@ -15,9 +18,11 @@ import (
 func (c *Client) SucceedDurableCallback(
 	ctx context.Context, token string, result json.RawMessage,
 ) (*apiclient.DurableCallbackOutcome, error) {
-	resp, err := c.client.SucceedDurableCallbackWithResponse(ctx, apiclient.SucceedDurableCallbackJSONRequestBody{
-		Token: token, Result: result,
-	})
+	body, err := callbackBody(apiclient.SucceedDurableCallbackJSONRequestBody{Token: token, Result: result})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.SucceedDurableCallbackWithBodyWithResponse(ctx, "application/json", body)
 	if err != nil {
 		return nil, err
 	}
@@ -37,9 +42,11 @@ func (c *Client) FailDurableCallback(
 	if message != "" {
 		failure.Message = &message
 	}
-	resp, err := c.client.FailDurableCallbackWithResponse(ctx, apiclient.FailDurableCallbackJSONRequestBody{
-		Token: token, Error: failure,
-	})
+	body, err := callbackBody(apiclient.FailDurableCallbackJSONRequestBody{Token: token, Error: failure})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.FailDurableCallbackWithBodyWithResponse(ctx, "application/json", body)
 	if err != nil {
 		return nil, err
 	}
@@ -61,4 +68,17 @@ func (c *Client) HeartbeatDurableCallback(ctx context.Context, token string) (*a
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
 		resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON410, resp.JSON413, resp.JSON429, resp.JSON503)
+}
+
+// callbackBody encodes an answer without HTML escaping. Escaping turns each
+// <, > or & into six bytes, so a result or message well inside its limit could
+// otherwise push the request past the route's body limit.
+func callbackBody(answer any) (io.Reader, error) {
+	var body bytes.Buffer
+	encoder := json.NewEncoder(&body)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(answer); err != nil {
+		return nil, fmt.Errorf("failed to encode the callback answer: %w", err)
+	}
+	return &body, nil
 }

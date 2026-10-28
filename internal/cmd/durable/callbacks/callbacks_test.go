@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -59,6 +60,22 @@ func TestAnswersNeedNoLoginOrProject(t *testing.T) {
 	t.Setenv("VOLCANO_API_URL", "")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/durable-callbacks/heartbeat", r.URL.Path)
+		respondJSON(t, w, http.StatusOK, map[string]any{"status": "waiting"})
+	}))
+	defer server.Close()
+
+	out, err := executeCommand(t, newCallbacksCommand(server), "", "heartbeat", token)
+	require.NoError(t, err)
+	assert.Contains(t, out, "Heartbeat sent; the callback is still waiting")
+}
+
+func TestAnswersIgnoreABrokenProjectLink(t *testing.T) {
+	setCallbacksTestHome(t)
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".volcano"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".volcano", "project.json"), []byte("{not-json"), 0o644))
+	t.Chdir(dir)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		respondJSON(t, w, http.StatusOK, map[string]any{"status": "waiting"})
 	}))
 	defer server.Close()
@@ -283,6 +300,7 @@ func TestExplainsARefusal(t *testing.T) {
 			_, err := executeCommand(t, newCallbacksCommand(server), "", tc.args...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
+			assert.Equal(t, tc.status, api.Status(err), "the exit code and telemetry still see the API status")
 		})
 	}
 }

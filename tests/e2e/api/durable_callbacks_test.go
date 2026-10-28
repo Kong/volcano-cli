@@ -3,6 +3,7 @@ package api
 import (
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,18 +76,16 @@ func TestAPIE2ECloudDurableCallbacks(t *testing.T) {
 	payment := waitForAPIE2ECallbackToken(t, env, "payment")
 	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "heartbeat", payment).
 		requireSuccess(t, "Heartbeat sent; the callback is still waiting")
-	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "succeed", payment,
-		"--result", `{"charge_id":"ch_4417"}`).
-		requireSuccess(t, "Succeeded the callback; the execution resumes with the result")
+	requireAPIE2ECallbackAccepted(t, env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "succeed", payment,
+		"--result", `{"charge_id":"ch_4417"}`, "--json"), "succeeded")
 	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "succeed", payment, "--result", "1").
 		requireFailure(t, "the callback already has an outcome")
 	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "heartbeat", payment).
 		requireFailure(t, "the callback already has an outcome")
 
 	refund := waitForAPIE2ECallbackToken(t, env, "refund")
-	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "fail", refund,
-		"--type", "CardDeclined", "--message", "Insufficient funds", "--json").
-		requireSuccess(t, `"status": "failed"`)
+	requireAPIE2ECallbackAccepted(t, env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "fail", refund,
+		"--type", "CardDeclined", "--message", "Insufficient funds", "--json"), "failed")
 
 	env.waitForCloudCLIContains(t, apiE2EDurableExecutionTimeout, "Status: succeeded",
 		"durable", "executions", "get", "callback-pipeline", executionID)
@@ -97,6 +96,18 @@ func TestAPIE2ECloudDurableCallbacks(t *testing.T) {
 		requireFailure(t, "no callback has this token")
 	env.runCloudCLIWithEnv(t, holder, "durable", "callbacks", "heartbeat", "vcb_not/a/token").
 		requireFailure(t, "invalid callback token")
+}
+
+// requireAPIE2ECallbackAccepted passes an answer the execution has, or one
+// Volcano recorded and is still delivering. The execution's own status is what
+// shows the answer arrived.
+func requireAPIE2ECallbackAccepted(t *testing.T, answer cliResult, status string) {
+	t.Helper()
+	answer.requireSuccess(t)
+	if !strings.Contains(answer.output, `"status": "`+status+`"`) &&
+		!strings.Contains(answer.output, `"status": "delivering"`) {
+		t.Fatalf("the answer was neither %s nor delivering:\n%s", status, redactCredentials(answer.output))
+	}
 }
 
 // waitForAPIE2ECallbackToken polls the runtime logs until the submitter of the

@@ -95,6 +95,52 @@ func TestDurableCallbackWireShape(t *testing.T) {
 	}
 }
 
+// An answer is sent without HTML escaping, which would grow each <, > and & to
+// six bytes and could push an answer inside its limit past the body limit.
+func TestDurableCallbackAnswersAreNotHTMLEscaped(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		answer func(*Client) (*apiclient.DurableCallbackOutcome, error)
+		want   string
+	}{
+		{
+			name: "succeed",
+			answer: func(c *Client) (*apiclient.DurableCallbackOutcome, error) {
+				return c.SucceedDurableCallback(context.Background(), durableTestCallbackToken,
+					json.RawMessage(`{"note":"<b>A & B</b>"}`))
+			},
+			want: `"note":"<b>A & B</b>"`,
+		},
+		{
+			name: "fail",
+			answer: func(c *Client) (*apiclient.DurableCallbackOutcome, error) {
+				return c.FailDurableCallback(context.Background(), durableTestCallbackToken,
+					"Rejected", "<b>A & B</b>")
+			},
+			want: `"message":"<b>A & B</b>"`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var body []byte
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+				var err error
+				body, err = io.ReadAll(r.Body)
+				assert.NoError(t, err)
+				writeAPIJSON(t, w, http.StatusOK, map[string]any{"status": "succeeded"})
+			}))
+			defer server.Close()
+
+			client, err := NewClient(server.URL, "", WithHTTPClient(server.Client()))
+			require.NoError(t, err)
+
+			_, err = tc.answer(client)
+			require.NoError(t, err)
+			assert.Contains(t, string(body), tc.want)
+		})
+	}
+}
+
 // The refusals that share a status are told apart by their code.
 func TestDurableCallbackSurfacesTheRefusalCode(t *testing.T) {
 	for _, tc := range []struct {

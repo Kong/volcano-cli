@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,18 +81,17 @@ functions:
 	payment := waitForLocalModeE2ECallbackToken(t, binary, env, dir, "payment")
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
 		"durable", "callbacks", "heartbeat", payment), "Heartbeat sent; the callback is still waiting")
-	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
-		"durable", "callbacks", "succeed", payment, "--result", `{"charge_id":"ch_4417"}`),
-		"Succeeded the callback; the execution resumes with the result")
+	requireLocalModeE2ECallbackAccepted(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+		"durable", "callbacks", "succeed", payment, "--result", `{"charge_id":"ch_4417"}`, "--json"), "succeeded")
 	answered, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir,
 		"durable", "callbacks", "succeed", payment, "--result", "1")
 	require.Error(t, err, "a token takes one answer\n%s", answered)
 	requireContains(t, answered, "the callback already has an outcome")
 
 	refund := waitForLocalModeE2ECallbackToken(t, binary, env, dir, "refund")
-	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir,
+	requireLocalModeE2ECallbackAccepted(t, runVolcanoLocalModeE2E(t, binary, env, dir,
 		"durable", "callbacks", "fail", refund, "--type", "CardDeclined", "--message", "Insufficient funds", "--json"),
-		`"status": "failed"`)
+		"failed")
 
 	execution := awaitLocalModeE2EDurableExecution(t, binary, env, dir, "callback-pipeline", executionID)
 	requireContains(t, execution, "Status: succeeded")
@@ -102,6 +102,16 @@ functions:
 		"durable", "callbacks", "heartbeat", "vcb_0000000000000000000000000000000000000000000")
 	require.Error(t, err, "a token nobody issued has to be refused\n%s", unknown)
 	requireContains(t, unknown, "no callback has this token")
+}
+
+// requireLocalModeE2ECallbackAccepted passes an answer the execution has, or
+// one Volcano recorded and is still delivering. The execution's own status is
+// what shows the answer arrived.
+func requireLocalModeE2ECallbackAccepted(t *testing.T, answer, status string) {
+	t.Helper()
+	if !strings.Contains(answer, `"status": "`+status+`"`) && !strings.Contains(answer, `"status": "delivering"`) {
+		t.Fatalf("the answer was neither %s nor delivering:\n%s", status, answer)
+	}
 }
 
 // waitForLocalModeE2ECallbackToken polls the runtime logs until the submitter

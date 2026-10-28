@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -35,6 +36,11 @@ which keeps it out of your shell history and the process list.
 
 A token takes one answer. Once it has succeeded or failed, every later answer
 or heartbeat is refused, including a retry of the answer that went through.`,
+	}
+	// Answering needs no project, so a project link that can't be used must not
+	// stop it.
+	if deps.ConfigLoader == nil {
+		deps.ConfigLoader = config.LoadWithoutLink
 	}
 	cmd.AddCommand(newSucceed(deps))
 	cmd.AddCommand(newFail(deps))
