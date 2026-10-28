@@ -234,9 +234,7 @@ func install(ctx context.Context, h harness, env environ, res resolved, dryRun b
 	}
 	out := outcome(h, env, preVer, wasInstalled, ir)
 	out.Dir = ir.dir
-	if h.version != nil {
-		out.Plugin = pluginRef
-	}
+	out.Plugin = ir.plugin
 	return out
 }
 
