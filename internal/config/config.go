@@ -242,8 +242,9 @@ func (c *Config) save() error {
 
 // CheckWritable reports whether ~/.volcano can be created and written, which
 // saving a login needs. A sandboxed agent with no write access to the home
-// directory fails here. It leaves nothing behind: a config directory it had
-// to create is removed again, and so is its probe file.
+// directory fails here, and so does a config left by another user, such as one
+// saved under sudo. It leaves nothing behind: a config directory it had to
+// create is removed again, and so is its probe file.
 func CheckWritable() error {
 	configPath, err := Path()
 	if err != nil {
@@ -258,6 +259,23 @@ func CheckWritable() error {
 	if !existed {
 		// Only an empty directory goes: a config saved meanwhile stays.
 		defer func() { _ = os.Remove(configDir) }()
+	}
+	// Saving chmods the directory and the existing config, which only their
+	// owner may do, and then rewrites the config in place.
+	if err := os.Chmod(configDir, defaultConfigDirMode); err != nil {
+		return fmt.Errorf("cannot write to %s: %w", configDir, err)
+	}
+	if _, err := os.Stat(configPath); err == nil {
+		if err := os.Chmod(configPath, defaultConfigFileMode); err != nil {
+			return fmt.Errorf("cannot write %s: %w", configPath, err)
+		}
+		file, err := os.OpenFile(configPath, os.O_WRONLY, 0)
+		if err != nil {
+			return fmt.Errorf("cannot write %s: %w", configPath, err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("cannot write %s: %w", configPath, err)
+		}
 	}
 	probe, err := os.CreateTemp(configDir, ".write-check-*")
 	if err != nil {
