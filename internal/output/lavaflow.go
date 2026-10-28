@@ -499,9 +499,11 @@ func turnOnAgainAndStartAgain(c lavaFlowNextCommands) string {
 
 // connectAndPush names what LavaFlow can fix today. It grows when LavaFlow
 // fixes more than a push deployed, and docs/lavaflow.md says the same.
+// Connecting a repository pauses LavaFlow until it is turned on again, so
+// that step comes before the push.
 func connectAndPush(c lavaFlowNextCommands) string {
-	return fmt.Sprintf("Connect the repository (%s) and deploy by pushing to it. "+
-		"LavaFlow fixes code that a push to the connected repository deployed.", c.gitConnect)
+	return fmt.Sprintf("Connect the repository (%s), turn LavaFlow on again (%s), and deploy by pushing to it. "+
+		"LavaFlow fixes code that a push to the connected repository deployed.", c.gitConnect, c.enable)
 }
 
 func withCommand(step, command string) string {

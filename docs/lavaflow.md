@@ -31,7 +31,8 @@ it says "LavaFlow isn't available on this Volcano API" and exits with code 4:
 - Belongs to a **project**. It reads the runtime errors of the project's
   functions and frontends.
 - Opens pull requests in the repository the **Git connection** names. Without
-  one, LavaFlow diagnoses issues and opens no pull requests. See
+  one, LavaFlow diagnoses issues and opens no pull requests. Connecting one
+  after LavaFlow is on pauses LavaFlow until it is turned on again. See
   [git.md](git.md).
 - Fixes code it can read at the commit that built it: code that a push to the
   connected repository deployed. For any other deployment, LavaFlow diagnoses
