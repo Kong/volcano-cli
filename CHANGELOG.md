@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/Kong/volcano-cli/compare/v0.54.0...v0.55.0) (2026-10-28)
+
+
+### Features
+
+* **durable:** answer durable callbacks with their token ([#337](https://github.com/Kong/volcano-cli/issues/337)) ([886f5c4](https://github.com/Kong/volcano-cli/commit/886f5c48da80e16078cfceb7dce645bb20afd3f4))
+
 ## [0.54.0](https://github.com/Kong/volcano-cli/compare/v0.53.0...v0.54.0) (2026-10-28)
 
 
