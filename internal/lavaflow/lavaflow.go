@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
@@ -41,6 +43,29 @@ const codePlanRequired = "plan_required"
 // this API.
 const codeFeatureUnavailable = "feature_unavailable"
 
+// codeRepositoryChanged is the code of a start refused because the project
+// points at another repository than when LavaFlow was turned on.
+const codeRepositoryChanged = "repository_changed"
+
+// ErrPersonMustTurnOn refuses turning LavaFlow on with a project access token.
+// Turning it on decides which repository LavaFlow reads and opens pull
+// requests in, so the API leaves it to a person, and the CLI says so before
+// asking.
+var ErrPersonMustTurnOn = errors.New("a person has to turn LavaFlow on: a project access token can't")
+
+// personMustTurnOn says how a person turns LavaFlow on instead. A token from
+// the environment outlasts a sign-in, so that case names the variable to
+// unset first. The refusal keeps the exit code of the permission the API
+// refuses.
+func personMustTurnOn(cfg *config.Config) error {
+	how := "Sign in with 'volcano login' and run this again, or turn it on in the dashboard"
+	if cfg.TokenFromEnv() {
+		how = "Unset " + config.TokenEnv + " and sign in with 'volcano login', then run this again, " +
+			"or turn it on in the dashboard"
+	}
+	return api.WithCause(fmt.Errorf("%w. %s", ErrPersonMustTurnOn, how), config.ErrAccountTokenRequired)
+}
+
 // MaxRunsLimit is the largest page of runs the API returns.
 const MaxRunsLimit = 100
 
@@ -67,6 +92,9 @@ type Status struct {
 type Service struct {
 	sessions clisession.Factory
 	now      func() time.Time
+	// enableCommand turns LavaFlow on, which resumes it after the project's
+	// repository changed.
+	enableCommand string
 }
 
 // NewService returns a LavaFlow service.
@@ -75,7 +103,7 @@ func NewService(deps cliruntime.Deps) Service {
 	if now == nil {
 		now = time.Now
 	}
-	return Service{sessions: clisession.NewFactory(deps), now: now}
+	return Service{sessions: clisession.NewFactory(deps), now: now, enableCommand: cliruntime.CommandPath(deps, "lavaflow enable")}
 }
 
 // Status returns the current project's LavaFlow settings and its repository
@@ -138,6 +166,9 @@ func (s Service) SetEnabled(ctx context.Context, enabled bool) (*apiclient.LavaF
 	if err != nil {
 		return nil, err
 	}
+	if enabled && config.IsProjectToken(authenticated.Config.Token()) {
+		return nil, personMustTurnOn(authenticated.Config)
+	}
 	settings, err := authenticated.API.UpdateLavaFlowSettings(ctx, authenticated.ProjectID,
 		apiclient.UpdateLavaFlowSettingsRequest{Enabled: &enabled})
 	if err != nil {
@@ -196,6 +227,14 @@ func (s Service) StartRun(ctx context.Context, rawIssueID string) (*apiclient.La
 	}
 	run, err := authenticated.API.StartLavaFlowRun(ctx, authenticated.ProjectID, issueID)
 	if err != nil {
+		// The server's message already says which repository changed, so it
+		// is shown as given, with the command that resumes LavaFlow.
+		if message := strings.TrimSpace(api.Message(err)); api.Code(err) == codeRepositoryChanged && message != "" {
+			if !strings.HasSuffix(message, ".") {
+				message += "."
+			}
+			return nil, api.WithCause(fmt.Errorf("%s Resume it with '%s'", message, s.enableCommand), err)
+		}
 		return nil, unavailable(retryHint(refusal(fmt.Errorf("failed to start a LavaFlow run for issue %s: %w", issueID, err)), s.now()))
 	}
 	return run, nil

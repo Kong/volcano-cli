@@ -6728,6 +6728,11 @@ paths:
         far a run may go. A project that never saved settings returns the
         defaults, with LavaFlow off.
 
+        LavaFlow works in the repository a person turned it on for. When the
+        project points at another one, or its repository is disconnected,
+        `repository_changed` is true and no run starts until a person turns
+        LavaFlow on again.
+
         Where LavaFlow is not available, saved settings stay readable. A project
         that never saved any answers `404` with code `feature_unavailable`.
       operationId: getLavaFlowSettings
@@ -6776,6 +6781,10 @@ paths:
 
         Project access tokens are refused. LavaFlow opens pull requests in the
         project's repository, so a person turns it on with a platform token.
+
+        `{"enabled": true}` records the repository the project points at as
+        LavaFlow's, even when LavaFlow is already on. That is how a person
+        resumes LavaFlow after `repository_changed`.
 
         During the preview, turning LavaFlow on needs the SUPERAGENT plan, and
         nothing is charged yet. Settings that are already on stay stored after
@@ -6846,8 +6855,9 @@ paths:
         last seen, its source at that commit. Poll the run until its status is
         `succeeded`, `failed`, or `canceled`.
 
-        LavaFlow must be on for the project. An issue has at most one queued or
-        running run, and a project runs one at a time. In any 24 hours, an
+        LavaFlow must be on for the project, and the project must still point
+        at the repository it was turned on for. An issue has at most one queued
+        or running run, and a project runs one at a time. In any 24 hours, an
         issue starts at most 5 runs and a project at most 200, manual and
         automatic together.
 
@@ -6886,7 +6896,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: LavaFlow is off for the project, or the issue already has a queued or running run.
+          description: LavaFlow is off for the project, or the issue already has a queued or running run. Code `repository_changed` means the project points at a different repository than when LavaFlow was turned on, or its repository is disconnected; turn LavaFlow on again.
           content:
             application/json:
               schema:
@@ -20619,27 +20629,21 @@ components:
       required:
         - installations
     GitRepository:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-          description: Stable GitHub repository id (repository.id), unchanged by renames.
-        full_name:
-          type: string
-        default_branch:
-          type: string
-        private:
-          type: boolean
-        is_empty:
-          type: boolean
-          description: Whether the repository has no commits and can receive an initial source export.
-      required:
-        - id
-        - full_name
-        - default_branch
-        - private
-        - is_empty
+      allOf:
+        - $ref: '#/components/schemas/GitRepositoryReference'
+        - type: object
+          properties:
+            default_branch:
+              type: string
+            private:
+              type: boolean
+            is_empty:
+              type: boolean
+              description: Whether the repository has no commits and can receive an initial source export.
+          required:
+            - default_branch
+            - private
+            - is_empty
     GitRepositoriesResponse:
       type: object
       properties:
@@ -23796,15 +23800,39 @@ components:
         plan_allows_lavaflow:
           type: boolean
           readOnly: true
-          description: Whether the owner's plan allows turning LavaFlow on. LavaFlow is a usage-billed add-on rather than part of a plan; during the preview it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
+          description: Whether the owner's plan allows turning LavaFlow on. LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
         updated_at:
           type: string
           format: date-time
           description: When the settings were last saved. Absent until the first save.
+        enabled_repository:
+          allOf:
+            - $ref: '#/components/schemas/GitRepositoryReference'
+          readOnly: true
+          description: The repository the project was connected to when a person last turned LavaFlow on. LavaFlow reads source from and opens pull requests in this repository only. While the project still points at it, `full_name` is the repository's current name. Absent while LavaFlow is off, or when no repository was connected then.
+        repository_changed:
+          type: boolean
+          readOnly: true
+          description: 'Whether the project now points at a different repository than `enabled_repository`, or has none connected, including a repository connected after LavaFlow was turned on with none. While true, no run starts, and a run already queued reads no source and opens no pull request. A person turning LavaFlow on again (`enabled: true`) records the current repository. A rename or a transfer keeps the repository.'
       required:
         - enabled
         - max_stage
         - auto_trigger
+        - repository_changed
+    GitRepositoryReference:
+      type: object
+      description: A GitHub repository, by its stable id and its name.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: GitHub's repository id. It stays the same through a rename or a transfer.
+        full_name:
+          type: string
+          description: The repository's owner and name, such as `acme/shop`.
+      required:
+        - id
+        - full_name
     LavaFlowStage:
       type: string
       enum:
