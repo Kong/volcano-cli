@@ -42,6 +42,12 @@ volcano login --device-code <code>
 export VOLCANO_TOKEN=pk-xxxxxxxxxx
 ```
 
+`volcano login` and `volcano signup` save the login in `~/.volcano`. Before
+either issues or uses a code, it checks that it can write there. If it can't,
+as in a sandboxed agent with no write access to your home directory, it stops
+with exit code `1`, and the code stays unused. Run the command again outside
+the sandbox.
+
 ## Account tokens and project access tokens
 
 The CLI accepts two kinds of credential:
