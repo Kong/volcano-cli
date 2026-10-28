@@ -73,7 +73,12 @@ func signUpAPIE2EEndUser(t *testing.T, apiURL, anonKey string) string {
 		"email":    "cli-e2e-" + apiE2ESuffix(t) + "@cloud-e2e.invalid",
 		"password": "V0lcano!" + apiE2ESuffix(t) + apiE2ESuffix(t),
 	}
-	apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signup", anonKey, credentials, http.StatusCreated)
+	signup := retryAPIE2ESignup(t, passwordCheckRetryWindow, passwordCheckRetryInterval, func() apiE2EResponse {
+		return apiE2EPost(apiURL+"/auth/signup", anonKey, credentials)
+	})
+	if signup.status != http.StatusCreated {
+		t.Fatalf("POST %s/auth/signup returned status %d, want 201: %s", apiURL, signup.status, signup.body)
+	}
 	session := apiE2EJSONRequest(t, http.MethodPost, apiURL+"/auth/signin", anonKey, credentials, http.StatusOK)
 	token, ok := session["access_token"].(string)
 	if !ok || strings.TrimSpace(token) == "" {
