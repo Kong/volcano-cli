@@ -104,7 +104,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
-| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
+| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages, answer callbacks | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |

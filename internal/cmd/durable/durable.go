@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	approvalscmd "github.com/Kong/volcano-cli/internal/cmd/durable/approvals"
+	callbackscmd "github.com/Kong/volcano-cli/internal/cmd/durable/callbacks"
 	executionscmd "github.com/Kong/volcano-cli/internal/cmd/durable/executions"
 	messagescmd "github.com/Kong/volcano-cli/internal/cmd/durable/messages"
 	schedulerscmd "github.com/Kong/volcano-cli/internal/cmd/durable/schedulers"
@@ -43,5 +44,6 @@ collections never accept each other's names or ids.`,
 	cmd.AddCommand(schedulerscmd.New(deps))
 	cmd.AddCommand(approvalscmd.New(deps))
 	cmd.AddCommand(messagescmd.New(deps))
+	cmd.AddCommand(callbackscmd.New(deps))
 	return cmd
 }
