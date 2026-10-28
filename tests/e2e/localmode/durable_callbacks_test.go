@@ -35,13 +35,9 @@ def handler(event, ctx):
     return {"paid": paid, "declined": declined}
 `
 
-// localModeE2EDurableCallbackRequirements builds volcano-sdk-python from a
-// fixed commit's source archive, which needs no git in the local image: the
-// callbacks change ships to Volcano before the SDK release that has
-// ctx.wait_for_callback. It is the merge commit of Kong/volcano-sdk-python#400
-// on main, and once 0.16 is published it becomes "volcano-sdk-python~=0.16.0".
-const localModeE2EDurableCallbackRequirements = "volcano-sdk-python @ " +
-	"https://github.com/Kong/volcano-sdk-python/archive/b8f343083f4dfb3c498c3639a3c10ae96ca183f8.tar.gz\n"
+// localModeE2EDurableCallbackRequirements pins the first volcano-sdk-python
+// release with ctx.wait_for_callback.
+const localModeE2EDurableCallbackRequirements = "volcano-sdk-python~=0.16.0\n"
 
 // TestLocalModeE2EDurableCallbacks is the cloud callbacks round trip against
 // the local stack: a heartbeat and a success on one token, a failure on the
