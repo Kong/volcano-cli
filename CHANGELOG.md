@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.0](https://github.com/Kong/volcano-cli/compare/v0.53.0...v0.54.0) (2026-10-28)
+
+
+### Features
+
+* **deploy:** report the source commit with cloud deploys ([#339](https://github.com/Kong/volcano-cli/issues/339)) ([2ab4f3a](https://github.com/Kong/volcano-cli/commit/2ab4f3a7699e317db01e427d18762ec8347b9b20))
+
 ## [0.53.0](https://github.com/Kong/volcano-cli/compare/v0.52.2...v0.53.0) (2026-10-28)
 
 
