@@ -21,7 +21,8 @@ for required in \
   'statuses: read' \
   "CHECKS_TOKEN: \${{ github.token }}" \
   "head_oid=\"\$(jq -r '.headRefOid' <<< \"\$metadata\")\"" \
-  'for attempt in {1..50}' \
+  '    timeout-minutes: 35' \
+  'for attempt in {1..150}' \
   "commits/\${head_oid}/check-runs?filter=latest&per_page=100" \
   "commits/\${head_oid}/status" \
   "expected_checks='$expected_checks'" \
