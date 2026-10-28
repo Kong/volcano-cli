@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/Kong/volcano-cli/compare/v0.52.2...v0.53.0) (2026-10-28)
+
+
+### Features
+
+* **lavaflow:** say when LavaFlow is paused because the repository changed ([#342](https://github.com/Kong/volcano-cli/issues/342)) ([d63d8aa](https://github.com/Kong/volcano-cli/commit/d63d8aa5861c32076ccffdfb569e386892bf2541))
+
 ## [0.52.2](https://github.com/Kong/volcano-cli/compare/v0.52.1...v0.52.2) (2026-10-27)
 
 
