@@ -21,6 +21,8 @@ type FrontendDeployInput struct {
 	VariableScope string
 	Variables     []string
 	Archive       []byte
+	// Commit is the commit the source came from, nil to send none.
+	Commit *DeployCommit
 }
 
 // FrontendCustomDomainInput contains one custom domain attach request. An
@@ -498,6 +500,9 @@ func buildFrontendDeployMultipart(fn FrontendDeployInput) (*bytes.Buffer, string
 		if err := writer.WriteField("variables", variable); err != nil {
 			return nil, "", fmt.Errorf("failed to write variables field: %w", err)
 		}
+	}
+	if err := writeCommitField(writer, fn.Commit); err != nil {
+		return nil, "", err
 	}
 	if err := archive.WriteArchivePart(writer, "archive", fn.Name, fn.Archive); err != nil {
 		return nil, "", err

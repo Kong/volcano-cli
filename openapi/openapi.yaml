@@ -21,6 +21,8 @@ tags:
     description: Project management operations
   - name: Logs
     description: Project-scoped log search and activity APIs
+  - name: LavaFlow
+    description: 'Preview, not generally available: AI diagnosis of a project''s issues and draft pull requests that fix them. Where LavaFlow is not available, turning it on and starting a run answer `404` with code `feature_unavailable`, and so do reading or saving settings for a project that never saved any. Saved settings stay readable and can still turn LavaFlow off, and runs stay readable. LavaFlow is not available in local mode.'
   - name: Functions
     description: Function deployment and management
   - name: Durable Functions
@@ -4045,6 +4047,10 @@ paths:
                   type: string
                   description: |
                     JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+                commit:
+                  type: string
+                  description: |
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
       responses:
         '200':
           description: Existing function updated; its deployment was started or queued
@@ -4061,7 +4067,8 @@ paths:
         '400':
           description: |
             Bad request (invalid file, too large, etc.), an unknown
-            `visibility`, or `visibility` and `is_public` disagree
+            `visibility`, `visibility` and `is_public` disagree, or a
+            malformed `commit`
           content:
             application/json:
               schema:
@@ -5059,6 +5066,8 @@ paths:
                     JSON array of functions with `name`, `runtime`, optional `handler`, and `file_field`. Each `file_field` must name a multipart file field containing that function's ZIP or tar.gz source bundle.
 
                     Each entry may also declare `variable_scope` (`all` or `scoped`) and `variables` (an array of project variable names). Omitting them leaves the function's stored declaration unchanged. Volcano detects direct environment references in the uploaded source code and keeps them separate from the declared names: detected names are not written back to the declaration and do not appear in a config export. A scoped function receives its declared names plus the detected ones the project defines; a detected name the project does not define is ignored, since such a reference is often optional. Detection reads code only, so a name appearing solely in a comment or in an unrelated string is not a reference. Declare a name when the function reads it through a computed key, or when it must not deploy without the variable. The request is rejected with 400 before anything is deployed if a scoped function declares a variable the project does not define, or if the resulting environment exceeds 4096 bytes.
+
+                    Each entry may also carry `commit`, the commit its source came from, as an object: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. It takes the same values as the `commit` field of a single function upload; `null` or `""` reports no commit. The request is rejected with 400 before anything is deployed if an entry's commit is malformed or names a repository not on GitHub.
                 code_0:
                   type: string
                   format: binary
@@ -5662,6 +5671,10 @@ paths:
                   type: string
                   description: |
                     JSON-encoded array of project variable names this function requires, on top of the ones detected in its source. A declared name the project does not define is rejected with 400; a detected name it does not define is ignored. Only used when `variable_scope` is `scoped`. Omitting this leaves an existing function's declared names unchanged.
+                commit:
+                  type: string
+                  description: |
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. All three fields are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano records a function's commit with `commit.verified: false`.
       responses:
         '200':
           description: Existing durable function updated; its deployment was started or queued
@@ -5678,8 +5691,9 @@ paths:
         '400':
           description: |
             Bad request (invalid archive, unsupported runtime, invalid name, an
-            unknown `visibility`, `visibility` and `is_public` disagree, or a
-            project region that does not offer durable execution — a durable
+            unknown `visibility`, `visibility` and `is_public` disagree, a
+            malformed `commit`, or a project region that does not offer durable
+            execution — a durable
             function deploys to every region of its project)
           content:
             application/json:
@@ -6631,6 +6645,232 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /durable-callbacks/succeed:
+    post:
+      tags:
+        - Durable Functions
+      summary: Complete a waiting step with a result
+      description: |
+        Resumes the workflow step waiting on the token with `result`. Call it
+        from the system the workflow handed the token to.
+
+        The token is the only credential. A token takes one outcome: once it
+        has succeeded or failed, every later request is refused with
+        `409 callback_completed`, including a retry of the request that
+        succeeded it.
+      operationId: succeedDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SucceedDurableCallbackRequest'
+      responses:
+        '200':
+          description: The workflow has the result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '202':
+          description: |
+            The result is recorded and on its way to the workflow, which takes
+            longer than this request waits. Volcano finishes the delivery; do
+            not send it again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing, or `result` is missing, null, not JSON, or larger than 64 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` says why:
+
+            - `callback_expired`: the step timed out, on its own timeout or
+              its heartbeat timeout.
+            - `execution_ended`: the execution finished or stopped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 72 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-callbacks/fail:
+    post:
+      tags:
+        - Durable Functions
+      summary: Fail a waiting step
+      description: |
+        Resumes the workflow step waiting on the token by raising `error`. The
+        SDKs raise it as `CallbackFailedError`, carrying its `type` and
+        `message`.
+
+        The token is the only credential, and takes one outcome, as for
+        succeeding it.
+      operationId: failDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FailDurableCallbackRequest'
+      responses:
+        '200':
+          description: The workflow has the error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '202':
+          description: |
+            The error is recorded and on its way to the workflow. Volcano
+            finishes the delivery; do not send it again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing, or the error's `type` or `message` is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` is
+            `callback_expired` or `execution_ended`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 200 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /durable-callbacks/heartbeat:
+    post:
+      tags:
+        - Durable Functions
+      summary: Keep a waiting step alive
+      description: |
+        Tells the workflow step waiting on the token that the work is still
+        going on, restarting its heartbeat timeout. A heartbeat never extends
+        the step's own timeout, and a step without a heartbeat timeout needs
+        none.
+      operationId: heartbeatDurableCallback
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatDurableCallbackRequest'
+      responses:
+        '200':
+          description: The step is still waiting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DurableCallbackOutcome'
+        '400':
+          description: The token is missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No callback has this token. `code` is `callback_not_found`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            The token already has an outcome. `code` is `callback_completed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: |
+            The workflow no longer waits on the token. `code` is
+            `callback_expired` or `execution_ended`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 8 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many callback requests for the token or its project. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The heartbeat could not reach the workflow right now. Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /durable-approvals:
     post:
       tags:
@@ -6712,6 +6952,308 @@ paths:
           description: |
             The approval could not be confirmed with the workflow right now.
             Retry with backoff.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow:
+    get:
+      tags:
+        - LavaFlow
+      summary: Get LavaFlow settings
+      description: |
+        Returns whether Volcano diagnoses the project's issues with AI and how
+        far a run may go. A project that never saved settings returns the
+        defaults, with LavaFlow off.
+
+        LavaFlow works in the repository a person turned it on for. When the
+        project points at another one, or its repository is disconnected,
+        `repository_changed` is true and no run starts until a person turns
+        LavaFlow on again.
+
+        Where LavaFlow is not available, saved settings stay readable. A project
+        that never saved any answers `404` with code `feature_unavailable`.
+      operationId: getLavaFlowSettings
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaFlowSettings'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available in this environment and the project never saved settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: LavaFlow is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The owner's plan could not be resolved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - LavaFlow
+      summary: Update LavaFlow settings
+      description: |
+        Changes the fields the request names. An omitted field keeps its saved
+        value, or takes its default when the project has no saved settings, so
+        `{"enabled": true}` on a new project diagnoses each issue that happens a
+        second time or regresses, within the run limits, and opens a draft pull
+        request with each fix. Set `max_stage` and
+        `auto_trigger` to stop at a diagnosis or to start runs only on request.
+        Volcano picks the models a run uses.
+
+        Project access tokens are refused. LavaFlow opens pull requests in the
+        project's repository, so a person turns it on with a platform token.
+
+        `{"enabled": true}` records the repository the project points at as
+        LavaFlow's, even when LavaFlow is already on. That is how a person
+        resumes LavaFlow after `repository_changed`.
+
+        During the preview, turning LavaFlow on needs the SUPERAGENT plan, and
+        nothing is charged yet. Settings that are already on stay stored after
+        a downgrade, and saving them again is not refused, but no run starts
+        until the plan allows LavaFlow again. Other saves need no plan.
+
+        Where LavaFlow is not available, a project with saved settings can
+        still save a change that leaves LavaFlow off, such as
+        `{"enabled": false}`. A change that leaves it on, and a project's
+        first save, answer `404` with code `feature_unavailable`.
+      operationId: updateLavaFlowSettings
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLavaFlowSettingsRequest'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaFlowSettings'
+        '400':
+          description: The request body is invalid or names no field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The owner's plan does not allow LavaFlow (code `plan_required`; during the preview it needs the SUPERAGENT plan), or the request used a project access token. Only a person changes LavaFlow settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found. Code `feature_unavailable` means LavaFlow is not available in this environment, which refuses a change that leaves it on and a project's first save.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: LavaFlow is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: A change that leaves LavaFlow on needs the owner's plan, which could not be resolved. Nothing was saved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/issues/{issueId}/lavaflow-runs:
+    post:
+      tags:
+        - LavaFlow
+      summary: Diagnose an issue
+      description: |
+        Queues a run that diagnoses the issue with AI. The run reads the
+        issue's runtime logs and, when the deployment that was live when the
+        issue was last seen came from the project's connected repository, its
+        source at that commit. That holds when a push to the repository built
+        the deployment, or when the deploy client reported the commit and
+        Volcano verified it with `dirty: false`. Poll the run until its status
+        is `succeeded`, `failed`, or `canceled`.
+
+        LavaFlow must be on for the project, and the project must still point
+        at the repository it was turned on for. An issue has at most one queued
+        or running run, and a project runs one at a time. In any 24 hours, an
+        issue starts at most 5 runs and a project at most 200, manual and
+        automatic together.
+
+        Project access tokens are refused. A run can open a pull request in
+        the project's repository, so a person starts it with a platform token
+        or in the dashboard.
+      operationId: startLavaFlowRun
+      security:
+        - UserToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IssueId'
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaFlowRun'
+        '400':
+          description: The request is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The owner's plan does not include LavaFlow (code `plan_required`), or the request used a project access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project or issue not found. Code `feature_unavailable` means LavaFlow is not available in this environment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: LavaFlow is off for the project, or the issue already has a queued or running run. Code `repository_changed` means the project points at a different repository than when LavaFlow was turned on, or its repository is disconnected; turn LavaFlow on again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'The issue or the project reached its run limit for the last 24 hours. `code` names which: `issue_run_limit` or `project_run_limit`.'
+          headers:
+            Retry-After:
+              description: Seconds until a run can start.
+              required: true
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: LavaFlow is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The owner's plan could not be resolved. Retry later.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow-runs:
+    get:
+      tags:
+        - LavaFlow
+      summary: List LavaFlow runs
+      description: |
+        Lists the project's LavaFlow runs, newest first. Runs stay readable after
+        LavaFlow is turned off, and where LavaFlow is not available.
+
+        Project access tokens can list runs, including read-only ones.
+      operationId: listLavaFlowRuns
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/IssueCursor'
+        - name: issue_id
+          in: query
+          required: false
+          description: Return only runs for this issue.
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          description: Return only runs in this status.
+          schema:
+            $ref: '#/components/schemas/LavaFlowRunStatus'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLavaFlowRuns'
+        '400':
+          description: A filter or the cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: LavaFlow is not available in local mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/lavaflow-runs/{runId}:
+    get:
+      tags:
+        - LavaFlow
+      summary: Get a LavaFlow run
+      description: |
+        Returns one run: its status, the diagnosis once it succeeds, and why it
+        failed or was canceled. Runs stay readable where LavaFlow is not
+        available.
+
+        Project access tokens can read runs, including read-only ones.
+      operationId: getLavaFlowRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/LavaFlowRunId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LavaFlowRun'
+        '404':
+          description: Project or run not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: LavaFlow is not available in local mode.
           content:
             application/json:
               schema:
@@ -7125,6 +7667,10 @@ paths:
                   type: string
                   format: binary
                   description: ZIP or tar.gz archive of the frontend project directory or monorepo workspace root. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB and stores a normalized tar.gz archive.
+                commit:
+                  type: string
+                  description: |
+                    JSON-encoded commit the uploaded source came from: `{"repository": "acme/app", "sha": "<40-character commit ID>", "dirty": false, "root": "apps/web"}`. `repository` is `owner/name` or a github.com remote URL (`https://github.com/acme/app.git`, `git@github.com:acme/app.git`, or `ssh://git@github.com/acme/app.git`); Volcano drops any credentials in the URL and records `owner/name`. `dirty` is `true` when the uploaded files differ from the commit. `root` is the uploaded directory's path from the repository root, `""` for the root itself. `repository`, `sha`, and `dirty` are required, and fields Volcano does not know are ignored. An empty value, `null`, or `""` reports no commit. A malformed commit, or a repository not on GitHub, returns 400 before anything is deployed. Volcano checks the commit against the project's connected repository and each uploaded file against the commit's file at `root`, and returns the result in the deployment's `commit.verified`; an uploaded file in the project's root directory that the commit does not hold sets `commit.dirty`, and one outside it leaves the commit unverified. A commit it cannot verify is still recorded and never fails the deploy.
       responses:
         '200':
           description: Existing frontend updated; its deployment was started or queued
@@ -17373,6 +17919,31 @@ components:
         type: string
         format: uuid
       description: Durable approval ID
+    IssueId:
+      name: issueId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Issue ID
+    IssueCursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: |
+        Opaque cursor from a previous response's `next_cursor`. Pages forward;
+        keep the same filters while paging.
+    LavaFlowRunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: LavaFlow run ID
     DurableApprovalFunctionFilter:
       name: function
       in: query
@@ -20859,27 +21430,21 @@ components:
       required:
         - installations
     GitRepository:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-          description: Stable GitHub repository id (repository.id), unchanged by renames.
-        full_name:
-          type: string
-        default_branch:
-          type: string
-        private:
-          type: boolean
-        is_empty:
-          type: boolean
-          description: Whether the repository has no commits and can receive an initial source export.
-      required:
-        - id
-        - full_name
-        - default_branch
-        - private
-        - is_empty
+      allOf:
+        - $ref: '#/components/schemas/GitRepositoryReference'
+        - type: object
+          properties:
+            default_branch:
+              type: string
+            private:
+              type: boolean
+            is_empty:
+              type: boolean
+              description: Whether the repository has no commits and can receive an initial source export.
+          required:
+            - default_branch
+            - private
+            - is_empty
     GitRepositoriesResponse:
       type: object
       properties:
@@ -21796,6 +22361,8 @@ components:
         initiated_by:
           type: string
           description: Platform user that triggered a request-initiated deployment; absent for git and system deployments.
+        commit:
+          $ref: '#/components/schemas/DeploymentCommit'
         source_deployment_id:
           type: string
           format: uuid
@@ -22719,6 +23286,8 @@ components:
         initiated_by:
           type: string
           description: Platform user that triggered a request-initiated deployment; absent for git and system deployments.
+        commit:
+          $ref: '#/components/schemas/DeploymentCommit'
         build_duration_seconds:
           type: integer
           format: int64
@@ -23743,6 +24312,92 @@ components:
         - limit
         - total
         - has_more
+    SucceedDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+        result:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: |
+            Any JSON value other than null, up to 64 KiB. The waiting step
+            resolves with it. Null is refused because a timeout resolves the
+            step with null.
+      required:
+        - token
+        - result
+      additionalProperties: false
+    FailDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+        error:
+          $ref: '#/components/schemas/DurableCallbackError'
+      required:
+        - token
+        - error
+      additionalProperties: false
+    HeartbeatDurableCallbackRequest:
+      type: object
+      properties:
+        token:
+          $ref: '#/components/schemas/DurableCallbackToken'
+      required:
+        - token
+      additionalProperties: false
+    DurableCallbackOutcome:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/DurableCallbackStatus'
+      required:
+        - status
+    DurableCallbackToken:
+      type: string
+      minLength: 5
+      maxLength: 128
+      pattern: ^vcb_[A-Za-z0-9_-]+$
+      description: |
+        The `vcb_` token the workflow handed out. It is the only credential
+        the callback operations take, so treat it as a secret.
+    DurableCallbackStatus:
+      type: string
+      enum:
+        - waiting
+        - delivering
+        - succeeded
+        - failed
+      description: |
+        `waiting` until the token is succeeded or failed. `delivering` while
+        the outcome is on its way to the workflow; Volcano finishes the
+        delivery on its own. `succeeded` or `failed` once the workflow has the
+        outcome.
+    DurableCallbackError:
+      type: object
+      description: The error the waiting step raises.
+      properties:
+        type:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: ^[^\x00-\x1F\x7F]+$
+          description: |
+            A name workflows can branch on, such as `PaymentDeclined`. Up to
+            256 characters, without control characters.
+        message:
+          type: string
+          maxLength: 32768
+          pattern: ^[^\x00-\x08\x0B-\x1F\x7F]*$
+          description: |
+            A human-readable explanation of up to 32,768 bytes of UTF-8, with
+            tab and newline as its only control characters. A character
+            outside ASCII takes more than one byte, so such text reaches the
+            limit before `maxLength`.
+      required:
+        - type
+      additionalProperties: false
     DurableApproval:
       type: object
       description: An approval a durable workflow requested.
@@ -24156,6 +24811,373 @@ components:
       required:
         - name
       additionalProperties: false
+    LavaFlowSettings:
+      type: object
+      additionalProperties: false
+      description: LavaFlow settings. The path names what they belong to, so the object carries no project fields.
+      properties:
+        enabled:
+          type: boolean
+          description: Whether Volcano diagnoses the project's issues with AI.
+        max_stage:
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: How far a run goes. Defaults to `pull_request`.
+        auto_trigger:
+          type: boolean
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Defaults to true. When false, runs start only on request.
+        plan_allows_lavaflow:
+          type: boolean
+          readOnly: true
+          description: Whether the owner's plan allows turning LavaFlow on. LavaFlow is in preview. During the preview, it needs the SUPERAGENT plan. When false, saved settings stay stored and no run starts. Absent when a save that needed no plan succeeded but the plan could not be resolved.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the settings were last saved. Absent until the first save.
+        enabled_repository:
+          allOf:
+            - $ref: '#/components/schemas/GitRepositoryReference'
+          readOnly: true
+          description: The repository the project was connected to when a person last turned LavaFlow on. LavaFlow reads source from and opens pull requests in this repository only. While the project still points at it, `full_name` is the repository's current name. Absent while LavaFlow is off, or when no repository was connected then.
+        repository_changed:
+          type: boolean
+          readOnly: true
+          description: 'Whether the project now points at a different repository than `enabled_repository`, or has none connected, including a repository connected after LavaFlow was turned on with none. While true, no run starts, and a run already queued reads no source and opens no pull request. A person turning LavaFlow on again (`enabled: true`) records the current repository. A rename or a transfer keeps the repository.'
+      required:
+        - enabled
+        - max_stage
+        - auto_trigger
+        - repository_changed
+    GitRepositoryReference:
+      type: object
+      description: A GitHub repository, by its stable id and its name.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: GitHub's repository id. It stays the same through a rename or a transfer.
+        full_name:
+          type: string
+          description: The repository's owner and name, such as `acme/shop`.
+      required:
+        - id
+        - full_name
+    LavaFlowStage:
+      type: string
+      enum:
+        - diagnose
+        - pull_request
+      x-enum-varnames:
+        - LavaFlowStageDiagnose
+        - LavaFlowStagePullRequest
+      description: How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+    UpdateLavaFlowSettingsRequest:
+      type: object
+      description: The fields to change. An omitted field keeps its saved value, or takes its default when the project has no saved settings.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        enabled:
+          type: boolean
+        max_stage:
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: How far a run goes. Omitted, it keeps the saved value, or is `pull_request` when the project has no saved settings.
+        auto_trigger:
+          type: boolean
+          description: Whether an issue starts a run on its own when it happens a second time or regresses. Omitted, it keeps the saved value, or is `true` when the project has no saved settings.
+    LavaFlowRunStatus:
+      type: string
+      enum:
+        - queued
+        - running
+        - succeeded
+        - failed
+        - canceled
+      x-enum-varnames:
+        - LavaFlowRunStatusQueued
+        - LavaFlowRunStatusRunning
+        - LavaFlowRunStatusSucceeded
+        - LavaFlowRunStatusFailed
+        - LavaFlowRunStatusCanceled
+      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
+    LavaFlowRunTrigger:
+      description: What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
+      oneOf:
+        - $ref: '#/components/schemas/LavaFlowIssueTrigger'
+      discriminator:
+        propertyName: type
+        mapping:
+          issue: '#/components/schemas/LavaFlowIssueTrigger'
+    LavaFlowIssueTrigger:
+      type: object
+      additionalProperties: false
+      description: A run for one of the project's issues.
+      properties:
+        type:
+          type: string
+          enum:
+            - issue
+          x-enum-varnames:
+            - LavaFlowIssueTriggerTypeIssue
+        reason:
+          $ref: '#/components/schemas/LavaFlowIssueTriggerReason'
+        issue:
+          $ref: '#/components/schemas/LavaFlowTriggerIssue'
+      required:
+        - type
+        - reason
+        - issue
+    LavaFlowIssueTriggerReason:
+      type: string
+      enum:
+        - manual
+        - new_issue
+        - regression
+      x-enum-varnames:
+        - LavaFlowIssueTriggerReasonManual
+        - LavaFlowIssueTriggerReasonNewIssue
+        - LavaFlowIssueTriggerReasonRegression
+      description: Why the run started. `manual` is a request; `new_issue` and `regression` are automatic runs for an issue that appeared or reopened.
+    LavaFlowTriggerIssue:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          description: The issue's title, as the issues API reports it.
+      required:
+        - id
+        - title
+    LavaFlowEvidence:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - log
+            - code
+            - other
+          x-enum-varnames:
+            - LavaFlowEvidenceKindLog
+            - LavaFlowEvidenceKindCode
+            - LavaFlowEvidenceKindOther
+        detail:
+          type: string
+        location:
+          type: string
+          description: A file and line, or a log timestamp. Absent when the evidence has none.
+      required:
+        - kind
+        - detail
+    LavaFlowDiagnosis:
+      type: object
+      additionalProperties: false
+      properties:
+        summary:
+          type: string
+          description: One or two sentences on what goes wrong.
+        root_cause:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaFlowEvidence'
+        suggested_fix:
+          type: string
+        confidence:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          x-enum-varnames:
+            - LavaFlowConfidenceLow
+            - LavaFlowConfidenceMedium
+            - LavaFlowConfidenceHigh
+        fixable:
+          type: boolean
+          description: Whether a change to the project's code would fix the issue.
+        files:
+          type: array
+          description: Repository paths a fix would change.
+          items:
+            type: string
+      required:
+        - summary
+        - root_cause
+        - evidence
+        - suggested_fix
+        - confidence
+        - fixable
+        - files
+    LavaFlowEdit:
+      type: object
+      additionalProperties: false
+      description: One exact text replacement. An empty `old_text` creates the file.
+      properties:
+        path:
+          type: string
+        old_text:
+          type: string
+        new_text:
+          type: string
+      required:
+        - path
+        - old_text
+        - new_text
+    LavaFlowPatch:
+      type: object
+      additionalProperties: false
+      description: The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
+      properties:
+        title:
+          type: string
+        edits:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaFlowEdit'
+      required:
+        - title
+        - edits
+    LavaFlowPullRequestState:
+      type: string
+      enum:
+        - open
+        - merged
+        - closed
+      x-enum-varnames:
+        - LavaFlowPullRequestStateOpen
+        - LavaFlowPullRequestStateMerged
+        - LavaFlowPullRequestStateClosed
+    LavaFlowPullRequest:
+      type: object
+      additionalProperties: false
+      description: The draft pull request the run opened on the connected repository.
+      properties:
+        number:
+          type: integer
+          format: int64
+        url:
+          type: string
+          format: uri
+        branch:
+          type: string
+          description: The branch the fix is on, `volcano/lavaflow/<run id>`. Runs that opened their pull request before LavaFlow was renamed report `volcano/autofix/<run id>`.
+        state:
+          $ref: '#/components/schemas/LavaFlowPullRequestState'
+        closed_at:
+          type: string
+          format: date-time
+          description: When the pull request was merged or closed.
+        deployed_at:
+          type: string
+          format: date-time
+          description: When a deployment that includes the merged fix went live. The issue resolves then, unless it occurred again since. When more than 20 deployments went live after the merge before Volcano checked, it is the merge time instead.
+      required:
+        - number
+        - url
+        - branch
+        - state
+    LavaFlowPullRequestSkipped:
+      type: string
+      enum:
+        - source_unavailable
+        - pull_request_open
+        - not_fixable
+        - low_confidence
+        - no_patch
+        - permission_missing
+        - repository_changed
+        - publish_failed
+      x-enum-varnames:
+        - LavaFlowPullRequestSkippedSourceUnavailable
+        - LavaFlowPullRequestSkippedPullRequestOpen
+        - LavaFlowPullRequestSkippedNotFixable
+        - LavaFlowPullRequestSkippedLowConfidence
+        - LavaFlowPullRequestSkippedNoPatch
+        - LavaFlowPullRequestSkippedPermissionMissing
+        - LavaFlowPullRequestSkippedRepositoryChanged
+        - LavaFlowPullRequestSkippedPublishFailed
+      description: Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
+    LavaFlowRun:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          description: The project the run belongs to.
+        trigger:
+          $ref: '#/components/schemas/LavaFlowRunTrigger'
+        status:
+          $ref: '#/components/schemas/LavaFlowRunStatus'
+        max_stage:
+          $ref: '#/components/schemas/LavaFlowStage'
+        stage_reached:
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: 'The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.'
+        diagnosis:
+          $ref: '#/components/schemas/LavaFlowDiagnosis'
+        patch:
+          $ref: '#/components/schemas/LavaFlowPatch'
+        pull_request:
+          $ref: '#/components/schemas/LavaFlowPullRequest'
+        pull_request_skipped:
+          $ref: '#/components/schemas/LavaFlowPullRequestSkipped'
+        commit_sha:
+          type: string
+          description: 'The commit the diagnosis read: the commit a push to the connected repository deployed, or a deployment''s verified commit with `dirty: false`. Absent when the run read logs only.'
+        commit_origin:
+          $ref: '#/components/schemas/LavaFlowCommitOrigin'
+        failure_code:
+          type: string
+          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow''s runs are paused reports `feature_paused`; it resumes without spending an attempt when they resume. A run paused after it wrote a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
+        failure_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - trigger
+        - status
+        - max_stage
+        - created_at
+    PaginatedLavaFlowRuns:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LavaFlowRun'
+        limit:
+          type: integer
+          description: Number of items per page
+        has_more:
+          type: boolean
+          description: Whether a next page exists
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page (present if has_more is true)
+      required:
+        - data
+        - limit
+        - has_more
     PaginatedProjectCustomDomains:
       type: object
       properties:
@@ -24503,6 +25525,8 @@ components:
             $ref: '#/components/schemas/ProjectConfigBucket'
         realtime:
           $ref: '#/components/schemas/ProjectConfigRealtime'
+        lavaflow:
+          $ref: '#/components/schemas/ProjectConfigLavaFlow'
         notifications:
           $ref: '#/components/schemas/ProjectConfigNotifications'
         auth:
@@ -25312,6 +26336,17 @@ components:
         presence_enabled:
           type: boolean
         postgres_changes_enabled:
+          type: boolean
+    ProjectConfigLavaFlow:
+      type: object
+      additionalProperties: false
+      description: 'AI diagnosis and fix settings. Omitted fields keep their current value; a project that never saved settings starts from `max_stage: pull_request` and `auto_trigger: true`.'
+      properties:
+        enabled:
+          type: boolean
+        max_stage:
+          $ref: '#/components/schemas/LavaFlowStage'
+        auto_trigger:
           type: boolean
     ProjectConfigScheduler:
       type: object
@@ -27353,6 +28388,29 @@ components:
           description: Deployment stage that produced the log event, when available.
       required:
         - id
+    DeploymentCommit:
+      type: object
+      description: The commit a deploy client reported for the deployment's source. Absent when the client reported none. A frontend deployment that publishes another deployment's build carries that deployment's commit.
+      properties:
+        repository:
+          type: string
+          description: GitHub repository as `owner/name`, normalized from what the client sent.
+          example: acme/app
+        sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          description: Full commit ID.
+        dirty:
+          type: boolean
+          description: '`true` when the client reported that the uploaded files differ from the commit, or Volcano found an uploaded file in the project''s root directory that the commit does not hold, so the deployed code may differ from the commit.'
+        verified:
+          type: boolean
+          description: '`true` when Volcano confirmed, through the project''s GitHub connection, that `repository` is the project''s connected repository, `sha` is on its production branch, every uploaded file is the commit''s file at its path, and the upload holds the commit''s files under its root but those deploy clients leave out. Only frontend uploads are checked; a function deployment''s commit, one the client reports dirty, and one from another branch, repository, or a project without a connection, is recorded unverified. LavaFlow reads source and opens pull requests only for a verified commit with `dirty: false`.'
+      required:
+        - repository
+        - sha
+        - dirty
+        - verified
     DurableMessageWaitStatus:
       type: string
       enum:
@@ -27366,6 +28424,15 @@ components:
         message is handed over, then `delivered`. `expired` means the wait's
         timeout passed first, and `cancelled` that the execution stopped
         waiting.
+    LavaFlowCommitOrigin:
+      type: string
+      enum:
+        - push
+        - client_reported
+      x-enum-varnames:
+        - LavaFlowCommitOriginPush
+        - LavaFlowCommitOriginClientReported
+      description: How `commit_sha` reached Volcano. `push` is a commit a push to the connected repository deployed. `client_reported` is a commit the deploy client reported, which Volcano verified against the uploaded files.
     DurableApprovalFunction:
       type: object
       description: |

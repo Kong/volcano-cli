@@ -23,7 +23,7 @@ jobs:
   release-please:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
       # Mint a short-lived GitHub App installation token. Release Please must
       # push tags/releases with a non-default token so publish-cli.yml runs:
@@ -107,7 +107,9 @@ jobs:
             echo "Waiting for checks on release PR #${number} (${current_version} -> ${new_version})."
             checks_passed=false
             request_cla_check "$number"
-            for attempt in {1..50}; do
+            # check / localmode-e2e alone takes about 10 minutes, so wait up to about
+            # 27 minutes (150 polls 10 seconds apart) before giving up.
+            for attempt in {1..150}; do
               check_runs="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/check-runs?filter=latest&per_page=100")"
               commit_statuses="$(GH_TOKEN="$CHECKS_TOKEN" gh api "repos/${GH_REPO}/commits/${head_oid}/status")"
               check_results="$(jq -n --argjson runs "$check_runs" --argjson statuses "$commit_statuses" '
@@ -141,7 +143,7 @@ jobs:
                 checks_passed=true
                 break
               fi
-              echo "Checks are pending or not all registered yet (attempt ${attempt}/50)."
+              echo "Checks are pending or not all registered yet (attempt ${attempt}/150)."
               if [ $((attempt % 10)) -eq 0 ] && ! jq -e 'any(.[]; .name == "license/cla")' <<< "$check_results" >/dev/null; then
                 request_cla_check "$number"
               fi

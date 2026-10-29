@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/apiclient"
 )
 
 func TestApiErrorFallsBackToStatusTextForHTMLBody(t *testing.T) {
@@ -55,4 +57,24 @@ func TestAPIErrorKeepsTheMessageWithANumericCode(t *testing.T) {
 	err = apiError(http.StatusConflict, []byte(`{"error":"taken","code":"name_taken"}`))
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, "name_taken", apiErr.Code)
+}
+
+// The API answers a 404 on every route it serves with its JSON error, so only
+// a bare one, such as Go's own, says the route itself is missing.
+func TestRouteMissingOnlyForA404TheAPIDidNotSend(t *testing.T) {
+	notFound := "Project not found."
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"router 404":       {apiError(http.StatusNotFound, []byte("404 page not found\n")), true},
+		"empty 404":        {apiError(http.StatusNotFound, nil), true},
+		"API JSON 404":     {apiError(http.StatusNotFound, []byte(`{"error":"Project not found."}`)), false},
+		"generated 404":    {apiErrorFromGeneratedErrors(http.StatusNotFound, nil, &apiclient.Error{Error: notFound}), false},
+		"plain-text 403":   {apiError(http.StatusForbidden, []byte("forbidden")), false},
+		"wrapped router":   {fmt.Errorf("failed: %w", apiError(http.StatusNotFound, []byte("404 page not found"))), true},
+		"not an API error": {errors.New("404 page not found"), false},
+	} {
+		assert.Equal(t, tc.want, RouteMissing(tc.err), name)
+	}
 }

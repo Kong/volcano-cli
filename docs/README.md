@@ -31,6 +31,7 @@ account (auth)
     ├── git connection ........ push-to-deploy from GitHub     → git.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
+    ├── LavaFlow .............. diagnoses errors, opens fix PRs → lavaflow.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 
@@ -103,11 +104,12 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
-| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
+| Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages, answer callbacks | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |
 | Storage | manage buckets, objects, policies | `storage …` | [storage.md](storage.md) |
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Notifications | alert by email or webhook when schedulers fail, rotate the webhook secret, send a test | `notifications …`, `cloud notifications …` | [notifications.md](notifications.md) |
+| LavaFlow | turn on or off, follow runs and their diagnoses, diagnose an issue again | `cloud lavaflow …` | [lavaflow.md](lavaflow.md) |
 | Frontends | deploy, inspect, custom domains, function and Frontend routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |

@@ -77,11 +77,14 @@ existing function's scope alone.
 | Send a message | `volcano cloud durable messages send <function> <execution-id> <name> [--data … \| --data-file …] [--idempotency-key …]` |
 | List messages | `volcano cloud durable messages list <function> <execution-id> [--direction in\|out] [--name …] [--after …] [--limit 100] [--follow]` |
 | Open message waits | `volcano cloud durable messages waits <function> <execution-id>` |
+| Succeed a callback | `volcano cloud durable callbacks succeed <token> --result … \| --result-file …` |
+| Fail a callback | `volcano cloud durable callbacks fail <token> --type … [--message …]` |
+| Heartbeat a callback | `volcano cloud durable callbacks heartbeat <token>` |
 
 Wherever a command takes a function, it takes the name or the id. `deploy` needs
 exactly one of `--all` and `-f`. `--yes` skips the confirmation prompt the three
-destructive commands and the two approval decisions ask for. Every `approvals`
-and `messages` command takes `--json`. Schedulers require `SUPERAGENT` and are capped at
+destructive commands and the two approval decisions ask for. Every `approvals`,
+`messages`, and `callbacks` command takes `--json`. Schedulers require `SUPERAGENT` and are capped at
 5 per project across standard and durable functions together; a create beyond
 that answers `403`.
 
@@ -314,6 +317,59 @@ project access token. A read-only token can list but not send.
 
 In local mode, drop `cloud`: `volcano durable messages send …` sends to an
 execution running on the local engine.
+
+## Callbacks
+
+A workflow that calls `ctx.waitForCallback` hands a `vcb_` token to another
+system and pauses until that system succeeds or fails the wait. See
+[durable callbacks](/platform/functions/durable-callbacks) for the authoring
+side. The `callbacks` commands are the token holder's side:
+
+```bash
+# Still working: restart the wait's heartbeat timeout
+volcano cloud durable callbacks heartbeat vcb_0000000000000000000000000000000000000000000
+
+# Done: the workflow resumes with the result
+volcano cloud durable callbacks succeed vcb_0000000000000000000000000000000000000000000 \
+  --result '{"charge_id":"ch_1"}'
+
+# Or it failed: the workflow raises CallbackFailedError with this type and message
+volcano cloud durable callbacks fail vcb_0000000000000000000000000000000000000000000 \
+  --type CardDeclined --message "Insufficient funds"
+```
+
+```text
+✓ Succeeded the callback; the execution resumes with the result
+```
+
+The token is the only credential these commands send, so they need no login
+or project. Whoever holds the token can answer the wait, so treat it as a
+secret. Pass `-` in place of the token to read it from stdin, which keeps it
+out of shell history and the process list:
+
+```bash
+printf '%s' "$CALLBACK_TOKEN" | volcano cloud durable callbacks succeed - --result-file charge.json
+```
+
+`--result` or `--result-file` is required: any JSON value other than `null`, up
+to 64 KiB. `null` is refused because a wait that times out resolves with
+`null`. `fail` requires `--type`, a name the workflow can branch on;
+`--message` is optional.
+
+`succeed` and `fail` return once the execution has the outcome. When handing it
+over takes longer, they report that Volcano is still delivering it. Volcano
+finishes the delivery on its own, so do not send it again.
+
+A token takes one answer. A later `succeed`, `fail`, or `heartbeat` fails with
+`the callback already has an outcome`, including a retry of the answer that went
+through, so a holder retrying after a lost response can treat it as done. Once
+the wait times out or its execution ends, every command fails and says so;
+nothing will take an answer, so do not retry. A `heartbeat` that cannot reach
+the execution right now leaves the wait unchanged; retry it with backoff.
+
+In local mode, drop `cloud`: `volcano durable callbacks succeed …` answers a
+callback on the local engine. A callback's timeout and heartbeat timeout run in
+real time locally.
 
 ## Starting is asynchronous
 
