@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/Kong/volcano-cli/compare/v0.55.0...v0.56.0) (2026-10-29)
+
+
+### Features
+
+* **lavaflow:** explain held fixes and word lavaflow_disabled for a deleting project ([#363](https://github.com/Kong/volcano-cli/issues/363)) ([366c9ef](https://github.com/Kong/volcano-cli/commit/366c9efd6777fcdd4b5c0da2f948e2c860a780c9))
+
 ## [0.55.0](https://github.com/Kong/volcano-cli/compare/v0.54.0...v0.55.0) (2026-10-28)
 
 
