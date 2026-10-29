@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
@@ -116,7 +115,7 @@ func setAccountTestHome(t *testing.T, token string) {
 
 func executeAccountCommand(t *testing.T, deps cliruntime.Deps, input string, args ...string) (string, error) {
 	t.Helper()
-	var cmd *cobra.Command = New(deps)
+	cmd := New(deps)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
