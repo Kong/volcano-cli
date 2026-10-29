@@ -32,6 +32,11 @@ type GitBinding struct {
 	// "could not find out" are different states, and only one of them is safe
 	// to read as "no deploy configured".
 	SettingsErr error
+	// FrontendCommand is the command that selects the frontend a push
+	// deploys. When it is set and a push deploys no frontend, the output ends
+	// with how to add one: a repository that deploys only its functions looks
+	// complete, and a site that never deploys gives no clue why.
+	FrontendCommand string
 }
 
 // GitConnected renders a repository binding that was just made, followed by
@@ -81,6 +86,26 @@ func GitRootDirectorySet(w io.Writer, binding GitBinding) {
 	}
 	gitBindingDetail(w, theme.On(w), binding)
 	Note(w, "Nothing was redeployed. The next deploy from the repository builds from this directory.")
+	gitDeploySettings(w, binding)
+}
+
+// GitFrontendSet renders the frontend a push now deploys, or that it deploys
+// none, followed by what a push to the production branch deploys. Like a root
+// directory change, nothing is redeployed by it.
+func GitFrontendSet(w io.Writer, binding GitBinding) {
+	frontend := frontendTarget(binding.Settings)
+	if frontend != "" {
+		Success(w, "Frontend set to %s", frontend)
+	} else {
+		Success(w, "Frontend cleared, so a push deploys no frontend")
+	}
+	gitBindingDetail(w, theme.On(w), binding)
+	if frontend != "" {
+		Note(w, "Nothing was redeployed. The next push to %s deploys this frontend.",
+			binding.Connection.ProductionBranch)
+	} else {
+		Note(w, "Nothing was removed. A frontend already deployed stays up; pushes no longer redeploy it.")
+	}
 	gitDeploySettings(w, binding)
 }
 
@@ -142,12 +167,18 @@ func gitDeploySettings(w io.Writer, binding GitBinding) {
 	targets := deployTargets(settings)
 	if len(targets) == 0 {
 		Warning(w, "Auto-deploy is on, but neither functions nor a frontend is selected, so a push deploys nothing.")
-		return
+	} else {
+		fmt.Fprintf(w, "%s%s\n",
+			theme.Dim(fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch), on),
+			strings.Join(targets, ", "),
+		)
 	}
-	fmt.Fprintf(w, "%s%s\n",
-		theme.Dim(fmt.Sprintf("A push to %s deploys: ", connection.ProductionBranch), on),
-		strings.Join(targets, ", "),
-	)
+	if binding.FrontendCommand != "" && frontendTarget(settings) == "" {
+		fmt.Fprintf(w, "%s%s\n",
+			theme.Dim("To deploy a frontend on push too, run ", on),
+			theme.Command(binding.FrontendCommand+" <name> --root <path>", on),
+		)
+	}
 }
 
 func deployTargets(settings *apiclient.ProjectGitDeploySettings) []string {
@@ -155,12 +186,22 @@ func deployTargets(settings *apiclient.ProjectGitDeploySettings) []string {
 	if settings.DeployFunctions {
 		targets = append(targets, "functions")
 	}
-	if settings.FrontendName != nil && strings.TrimSpace(*settings.FrontendName) != "" {
-		frontend := "frontend " + *settings.FrontendName
-		if settings.FrontendAppRoot != nil && strings.TrimSpace(*settings.FrontendAppRoot) != "" {
-			frontend += " (" + *settings.FrontendAppRoot + ")"
-		}
-		targets = append(targets, frontend)
+	if frontend := frontendTarget(settings); frontend != "" {
+		targets = append(targets, "frontend "+frontend)
 	}
 	return targets
+}
+
+// frontendTarget names the frontend a push deploys and, when it builds from a
+// subdirectory, that directory: "web (apps/web)". It is empty when a push
+// deploys no frontend.
+func frontendTarget(settings *apiclient.ProjectGitDeploySettings) string {
+	if settings == nil || settings.FrontendName == nil || strings.TrimSpace(*settings.FrontendName) == "" {
+		return ""
+	}
+	frontend := *settings.FrontendName
+	if settings.FrontendAppRoot != nil && strings.TrimSpace(*settings.FrontendAppRoot) != "" {
+		frontend += " (" + *settings.FrontendAppRoot + ")"
+	}
+	return frontend
 }

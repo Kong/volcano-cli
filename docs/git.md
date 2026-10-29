@@ -25,8 +25,11 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 - `root-directory` changes only the subdirectory the connected repository
   builds from, and works with a project access token, so a CI job or an agent
   can use it.
+- `frontend` chooses the frontend a push deploys alongside the functions, and
+  also works with a project access token.
 - What a push actually deploys is governed by the project's Git deploy settings,
-  reported after a successful connect.
+  reported after a successful connect. When a push deploys no frontend, the
+  report ends with the command that adds one.
 
 ## CLI operations
 
@@ -35,6 +38,7 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Show the connection | `volcano git status` |
 | Connect | `volcano git connect [git-url]` |
 | Change the root directory | `volcano git root-directory <path>` |
+| Choose the frontend a push deploys | `volcano git frontend <name> [--root <path>]` |
 | Disconnect | `volcano git disconnect` |
 
 ## Seeing what is connected
@@ -44,7 +48,8 @@ volcano git status
 ```
 
 This reports the project's own binding — the repository, the branch a push has
-to land on, the subdirectory it builds from, and what a push deploys. It does
+to land on, the subdirectory it builds from, and what a push deploys, including
+the frontend and the directory it builds from. It does
 not contact GitHub, so it tells you what the platform recorded rather than
 whether that recording still works.
 
@@ -174,6 +179,32 @@ branch deploys, which is nothing while auto-deploy is off.
 A project with no repository connected has no root directory to change, so the
 command says so and exits non-zero.
 
+## Choosing the frontend a push deploys
+
+A connected repository deploys its functions on push. To deploy a frontend from
+it too, name the frontend, and the directory it builds from when that isn't the
+project's root directory:
+
+```bash
+volcano git frontend web --root apps/web
+volcano git frontend --none     # deploy no frontend on push
+```
+
+`--root` is relative to the project's root directory (see `volcano git
+root-directory`), not to the repository root. An absolute path, or one climbing
+out with `..`, is refused. The frontend need not exist yet: the next push
+deploys it under this name.
+
+The other deploy settings, such as whether functions deploy, stay as they were.
+This works with a project access token, so a CI job or an agent can set it.
+
+Nothing is redeployed. The next push to the production branch deploys the
+frontend, and the command says what a push deploys from now on. `--none` stops
+pushes from redeploying a frontend, but a frontend already deployed stays up.
+
+The project needs a connected repository first, so on a project with nothing
+connected the command says so and exits non-zero.
+
 ## Disconnecting
 
 ```bash
@@ -202,5 +233,6 @@ configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
-`volcano git root-directory` reports that the integration is not configured,
-since no repository can be connected there for it to change.
+`volcano git root-directory` and `volcano git frontend` report that the
+integration is not configured, since no repository can be connected there for
+them to change.

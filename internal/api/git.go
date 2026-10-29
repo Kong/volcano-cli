@@ -100,3 +100,17 @@ func (c *Client) GetProjectGitDeploySettings(ctx context.Context, projectID uuid
 	}
 	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON500)
 }
+
+// UpdateProjectGitDeploySettings replaces a project's Git deploy settings:
+// what a push to the connected repo's production branch deploys. It is a full
+// replace, so a caller changing one setting sends the others back as read.
+func (c *Client) UpdateProjectGitDeploySettings(
+	ctx context.Context, projectID uuid.UUID, settings apiclient.UpdateProjectGitDeploySettingsRequest,
+) (*apiclient.ProjectGitDeploySettings, error) {
+	resp, err := c.client.UpdateProjectGitDeploySettingsWithResponse(ctx, projectID, settings)
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200,
+		resp.JSON400, resp.JSON401, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON500)
+}

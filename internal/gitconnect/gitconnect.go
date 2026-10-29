@@ -473,6 +473,51 @@ func (s Service) DeploySettings(ctx context.Context) (*apiclient.ProjectGitDeplo
 	return settings, nil
 }
 
+// SetFrontend selects the frontend a push to the production branch deploys,
+// and the directory it builds from relative to the project's root directory.
+// An empty name deploys no frontend, and an empty appRoot builds from the root
+// directory itself.
+//
+// The settings write is a full replace, so the other settings are read first
+// and sent back as they were. Nothing is asked in between, so a change made
+// elsewhere can only be lost in the time two requests take.
+func (s Service) SetFrontend(ctx context.Context, name, appRoot string) (*apiclient.ProjectGitDeploySettings, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := authenticated.API.GetProjectGitDeploySettings(ctx, authenticated.ProjectID)
+	if err != nil {
+		return nil, settingsError(err, "failed to read the project's deploy settings")
+	}
+	request := apiclient.UpdateProjectGitDeploySettingsRequest{
+		AutoDeployEnabled: current.AutoDeployEnabled,
+		DeployFunctions:   current.DeployFunctions,
+	}
+	if name != "" {
+		request.FrontendName = &name
+		if appRoot != "" {
+			request.FrontendAppRoot = &appRoot
+		}
+	}
+	settings, err := authenticated.API.UpdateProjectGitDeploySettings(ctx, authenticated.ProjectID, request)
+	if err != nil {
+		return nil, settingsError(err, "failed to set the frontend")
+	}
+	return settings, nil
+}
+
+// settingsError classifies a deploy-settings failure. The settings exist for
+// every project, connected or not, so a 404 on them means the project itself
+// is gone.
+func settingsError(err error, action string) error {
+	if api.Status(err) == http.StatusNotFound {
+		return ErrProjectNotFound
+	}
+	return classify(err, action)
+}
+
 // WebURL returns the dashboard URL for the configured API, so callers can point
 // at the page that owns a flow the CLI cannot run itself.
 func (s Service) WebURL() (string, error) {
