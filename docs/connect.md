@@ -29,7 +29,11 @@ characters in single quotes, so you can paste them as they are.
 1. **Signs in.** It signs in with `--device-code` when given.
    Otherwise it reuses a login that still works, or runs browser login.
    Browser login prints a code and a link. Open the link and approve, and the
-   command continues. See
+   command continues. Before it issues or uses a code, `connect` checks that
+   it can write `~/.volcano`, where the login is saved. If it can't, as in a
+   sandboxed agent with no write access to your home directory, it stops with
+   exit code `1`, and the code stays unused. Run it again outside the sandbox,
+   or approve the escalation if your agent asks. See
    [Device codes from the dashboard](#device-codes-from-the-dashboard).
 2. **Creates a project and its directory.** Unless `--project` names one, or
    the directory is already linked, it creates a new project.
@@ -77,12 +81,24 @@ characters in single quotes, so you can paste them as they are.
    it finds on the machine, as `volcano setup --yes` does. See
    [setup.md](setup.md).
 
-It ends with the project's name, its directory, and its dashboard link:
+It ends with the project's name, its directory, and its dashboard link. When
+it installed skills, it also lists where they are: the skills directory for an
+agent that reads skills from files, or the plugin name for an agent that
+loads them from a plugin. A plugin that `connect` installed or updated loads
+after you restart the agent; one that was already up to date is loaded. An
+agent that started before `connect` ran may not have the skills loaded. The
+line under the list tells it to read the `SKILL.md` files in those
+directories instead.
 
 ```text
 Project:   fuji-amber-42
 Directory: ./fuji-amber-42
 Dashboard: https://volcano.dev/dashboard/overview?project=<project-id>
+
+Skills:
+  cursor: /home/me/.cursor/skills
+  claude-code: plugin volcano@volcano-agentic-plugins, loaded after your agent restarts
+If the Volcano skills are not loaded in your running session, read the SKILL.md files under the paths above, or restart your agent for the plugin.
 
 Next: cd ./fuji-amber-42, read AGENTS.md there, and use the Volcano skills to build.
 ```
@@ -106,10 +122,10 @@ volcano connect --json                 # print the result as JSON
 | `--project` | Use the existing project with this ID instead of creating one |
 | `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name. Fails in a linked directory, which keeps its project |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
-| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
+| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`, unless that is a GitHub noreply address (`...@users.noreply.github.com`), which can't receive mail. Fails when `VOLCANO_TOKEN` is set |
 | `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
-| `--json` | Print the result as JSON on stdout. Progress goes to stderr |
+| `--json` | Print the result as JSON on stdout. Progress goes to stderr. When skills were installed, `skill_locations` lists each agent's `path` or `plugin` (with `restart_required` when the plugin was installed or updated), and `skills_note` is the line to follow if the skills aren't loaded |
 
 ## Device codes from the dashboard
 
@@ -138,7 +154,10 @@ refused it fails with exit code `2` instead of running browser login.
 ## New accounts and the project limit
 
 Run `volcano connect --signup` if you don't have an account yet. It opens
-the signup page, and the CLI is signed in when you finish.
+the signup page, and the CLI is signed in when you finish. The signup page is
+prefilled with `--email`, else your global git email. A GitHub noreply address
+is never prefilled. With no other address, `connect` stops and asks you to
+pass `--email`.
 
 When your plan's project limit is reached, `connect` fails and lists your
 projects with the command to set up each one:
@@ -222,5 +241,7 @@ in `--json`) before running other `volcano` commands, and read the
 `AGENTS.md` there.
 
 Browser login waits until you approve in the browser. An agent should show you
-the code and link it prints, then wait for the command to finish. See
+the code and link it prints, then wait for the command to finish. A sandboxed
+agent that can't write to your home directory can't save the login, so
+`connect` stops before it issues or uses a code: rerun it outside the sandbox. See
 [scripting.md](scripting.md) for exit codes.

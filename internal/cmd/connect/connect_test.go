@@ -23,6 +23,7 @@ import (
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/localmode"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
+	"github.com/Kong/volcano-cli/internal/setup"
 )
 
 const (
@@ -1550,4 +1551,129 @@ func assertGitIgnored(t *testing.T, dir string, paths ...string) {
 		out, err := exec.Command("git", "-C", dir, "check-ignore", path).CombinedOutput()
 		assert.NoError(t, err, "%s is not gitignored: %s", path, out)
 	}
+}
+
+// A home the process can't write to would lose the new login, so connect says
+// so before it issues a device or signup code.
+func TestConnectRefusesAnUnwritableHomeBeforeAnyCodeIsIssued(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	for _, args := range [][]string{
+		{"--signup", "--email", "new@example.com"},
+		{"--device-code", connectDeviceCode},
+		{},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			for _, key := range []string{"VOLCANO_TOKEN", "VOLCANO_PROJECT_ID", "VOLCANO_API_URL", "VOLCANO_WEB_URL"} {
+				t.Setenv(key, "")
+			}
+			require.NoError(t, os.Chmod(home, 0o500))
+			t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+			fake := &fakeAPI{t: t}
+			server := httptest.NewServer(fake)
+			defer server.Close()
+
+			_, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"), args...)
+			require.ErrorContains(t, err, "cannot be saved")
+			require.ErrorContains(t, err, "sandbox")
+			require.ErrorContains(t, err, "outside the sandbox")
+			assert.False(t, fake.deviceAuthorize, "no code is issued")
+			assert.Zero(t, fake.polls)
+			assert.Zero(t, fake.creates)
+		})
+	}
+}
+
+// A GitHub noreply address can't receive the signup mail, so --signup doesn't
+// prefill it and asks for --email instead.
+func TestConnectSignupIgnoresAGitHubNoreplyGitEmail(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, key := range []string{"VOLCANO_TOKEN", "VOLCANO_PROJECT_ID", "VOLCANO_API_URL", "VOLCANO_WEB_URL"} {
+		t.Setenv(key, "")
+	}
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+	cmd := New(cliruntime.Deps{
+		HTTPClient: server.Client(),
+		APIBaseURL: server.URL,
+		GitCommandRunner: cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("12345+ted@users.noreply.github.com\n"), nil
+		}),
+	})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{filepath.Join(t.TempDir(), "shop"), "--skip-skills", "--signup"})
+
+	err := cmd.Execute()
+	require.ErrorContains(t, err, "--signup needs an email address: pass --email")
+	require.ErrorContains(t, err, "GitHub noreply")
+	assert.False(t, fake.deviceAuthorize, "no signup is started")
+}
+
+func TestInstalledFromReportsWhereTheSkillsLive(t *testing.T) {
+	report := setup.Report{Results: []setup.Result{
+		{Harness: "claude-code", Status: setup.StatusInstalled, Plugin: "volcano@volcano-agentic-plugins"},
+		{Harness: "cursor", Status: setup.StatusUpdated, Dir: "/home/me/.cursor/skills"},
+		{Harness: "pi", Status: setup.StatusSkipped, Detail: "not detected"},
+		{Harness: "opencode", Status: setup.StatusFailed, Dir: "/home/me/.config/opencode/skills"},
+		{Harness: "codex", Status: setup.StatusUpToDate, Plugin: "volcano@volcano-agentic-plugins"},
+	}}
+
+	installed, locations := installedFrom(report)
+
+	assert.Equal(t, []string{"claude-code", "cursor", "codex"}, installed)
+	assert.Equal(t, []skillLocation{
+		{Harness: "claude-code", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true},
+		{Harness: "cursor", Path: "/home/me/.cursor/skills"},
+		{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins"},
+	}, locations, "a plugin that was already current needs no restart")
+}
+
+func TestSkillsNoteAndDescribe(t *testing.T) {
+	files := skillLocation{Harness: "cursor", Path: "/home/me/.cursor/skills"}
+	plugin := skillLocation{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins", RestartRequired: true}
+	current := skillLocation{Harness: "codex", Plugin: "volcano@volcano-agentic-plugins"}
+	tests := []struct {
+		name      string
+		locations []skillLocation
+		want      []string
+	}{
+		{name: "none", locations: nil, want: nil},
+		{name: "files", locations: []skillLocation{files}, want: []string{"not loaded in your running session", "SKILL.md files under the paths above"}},
+		{name: "plugin", locations: []skillLocation{plugin}, want: []string{"not loaded in your running session", "restart your agent"}},
+		{name: "both", locations: []skillLocation{files, plugin}, want: []string{"SKILL.md files under the paths above", "restart your agent"}},
+		{name: "current plugin", locations: []skillLocation{current}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			note := skillsNote(tt.locations)
+			if tt.want == nil {
+				assert.Empty(t, note)
+			}
+			for _, want := range tt.want {
+				assert.Contains(t, note, want)
+			}
+		})
+	}
+	assert.Equal(t, "/home/me/.cursor/skills", files.describe())
+	assert.Equal(t, "plugin volcano@volcano-agentic-plugins, loaded after your agent restarts", plugin.describe())
+	assert.Equal(t, "plugin volcano@volcano-agentic-plugins, already up to date", current.describe())
+}
+
+// Without skills installed, the JSON result has no skill location fields.
+func TestConnectJSONOmitsSkillLocationsWhenSkillsAreSkipped(t *testing.T) {
+	setConnectTestHome(t)
+	fake := &fakeAPI{t: t}
+	server := httptest.NewServer(fake)
+	defer server.Close()
+
+	out, err := runConnect(t, server, filepath.Join(t.TempDir(), "shop"), "--json")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "skill_locations")
+	assert.NotContains(t, out, "skills_note")
 }

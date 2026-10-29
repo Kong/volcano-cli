@@ -433,8 +433,22 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
 }
 
-// GitEmail returns `git config --global user.email`, or "" when it is unset
-// or git fails. Signup offers it as the default email address.
+// CheckLoginCanBeSaved stops a sign-in before it issues or spends a code when
+// the login could not be saved afterwards. The usual cause is an agent sandbox
+// with no write access to the home directory.
+func CheckLoginCanBeSaved() error {
+	err := config.CheckWritable()
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("the Volcano login cannot be saved: %w. "+
+		"This usually means a sandbox that cannot write to your home directory. "+
+		"Run the command again outside the sandbox, or approve the escalation if your agent asks", err)
+}
+
+// GitEmail returns `git config --global user.email`, or "" when it is unset,
+// git fails, or it is a GitHub noreply address. Signup offers it as the
+// default email address.
 func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	runner := deps.GitCommandRunner
 	if runner == nil {
@@ -446,7 +460,18 @@ func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	email := strings.TrimSpace(string(out))
+	if isGitHubNoreply(email) {
+		return ""
+	}
+	return email
+}
+
+// isGitHubNoreply reports whether email is a GitHub privacy address,
+// <name>@users.noreply.github.com or <id>+<name>@users.noreply.github.com.
+// It receives no mail, so it can't finish a signup.
+func isGitHubNoreply(email string) bool {
+	return strings.HasSuffix(strings.ToLower(email), "@users.noreply.github.com")
 }
 
 // Logout removes the login, the current project, and function aliases from the

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -46,6 +47,13 @@ type Result struct {
 	Harness string
 	Status  Status
 	Detail  string
+	// Dir is where a file-drop harness (or the manual fallback) keeps the
+	// skills: one <name>/SKILL.md folder per skill. Empty for a marketplace
+	// harness and for a harness that was not installed.
+	Dir string
+	// Plugin is the marketplace plugin a plugin harness loads the skills from,
+	// after the agent restarts. Empty for a file-drop harness.
+	Plugin string
 }
 
 // Report is the full setup outcome.
@@ -224,7 +232,10 @@ func install(ctx context.Context, h harness, env environ, res resolved, dryRun b
 	if err != nil {
 		return Result{Harness: h.name, Status: StatusFailed, Detail: err.Error()}
 	}
-	return outcome(h, env, preVer, wasInstalled, ir)
+	out := outcome(h, env, preVer, wasInstalled, ir)
+	out.Dir = ir.dir
+	out.Plugin = ir.plugin
+	return out
 }
 
 // plannedDetail is the dry-run description for a harness, mirroring what a real
@@ -288,7 +299,7 @@ func installManual(ctx context.Context, env environ, res resolved, dryRun bool) 
 	if err != nil {
 		return Result{Harness: manualHarness, Status: StatusFailed, Detail: err.Error()}
 	}
-	return Result{Harness: manualHarness, Status: StatusInstalled, Detail: detail}
+	return Result{Harness: manualHarness, Status: StatusInstalled, Detail: detail, Dir: filepath.Join(env.home, ".volcano", "skills")}
 }
 
 func (o Options) resolve() (resolved, environ, error) {

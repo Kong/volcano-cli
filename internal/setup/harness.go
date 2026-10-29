@@ -76,6 +76,10 @@ type installResult struct {
 	detail  string
 	n       int
 	changed int
+	// dir is the skills directory of a file-drop install.
+	dir string
+	// plugin is the plugin a marketplace install added.
+	plugin string
 }
 
 // order matters: marketplace harnesses first, then skills-drop harnesses. This
@@ -297,7 +301,7 @@ func marketplaceInstall(bin string, cmds [][]string) func(context.Context, envir
 				return installResult{}, fmt.Errorf("%s %s: %w: %s", bin, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 			}
 		}
-		return installResult{detail: "marketplace: " + pluginRef}, nil
+		return installResult{detail: "marketplace: " + pluginRef, plugin: pluginRef}, nil
 	}
 }
 
@@ -344,7 +348,7 @@ func skillsInstall(skillsDir, agentsPath func(environ) string) func(context.Cont
 		if err != nil {
 			return installResult{}, err
 		}
-		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed}, nil
+		return installResult{detail: fmt.Sprintf("%d skills -> %s", n, dir), n: n, changed: changed, dir: dir}, nil
 	}
 }
 

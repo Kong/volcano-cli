@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -488,4 +489,75 @@ func TestIsProjectToken(t *testing.T) {
 			assert.Equal(t, want, IsProjectToken(token))
 		})
 	}
+}
+
+func TestCheckWritableLeavesNothingBehind(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	require.NoError(t, CheckWritable())
+	_, err := os.Stat(filepath.Join(home, defaultConfigDirName))
+	assert.True(t, os.IsNotExist(err), "the config directory it created is removed: %v", err)
+
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.Mkdir(dir, defaultConfigDirMode))
+	require.NoError(t, CheckWritable())
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "the probe file is removed and an existing directory kept")
+}
+
+func TestCheckWritableFailsInAReadOnlyHome(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	require.NoError(t, os.Chmod(home, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(home, 0o700) })
+
+	err := CheckWritable()
+	require.ErrorContains(t, err, "cannot create")
+}
+
+// Saving sets the config directory's mode first, so a read-only directory the
+// user owns can still take a login and passes the check.
+func TestCheckWritableAcceptsAReadOnlyConfigDirTheUserOwns(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs permissions that are enforced")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.Mkdir(dir, 0o500))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+	require.NoError(t, CheckWritable())
+	cfg := &Config{}
+	require.NoError(t, cfg.Save(), "the login the check allowed can be saved")
+}
+
+// Saving rewrites an existing config in place, so a config the CLI can't write
+// fails the check too.
+func TestCheckWritableFailsWhenTheConfigCannotBeWritten(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, defaultConfigFileName), defaultConfigDirMode))
+
+	require.ErrorContains(t, CheckWritable(), "cannot write "+filepath.Join(dir, defaultConfigFileName))
+}
+
+func TestCheckWritableKeepsAWritableConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, defaultConfigDirName)
+	require.NoError(t, os.Mkdir(dir, defaultConfigDirMode))
+	path := filepath.Join(dir, defaultConfigFileName)
+	require.NoError(t, os.WriteFile(path, []byte(`{"token":"t"}`), defaultConfigFileMode))
+
+	require.NoError(t, CheckWritable())
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"token":"t"}`, string(data), "the config is not truncated")
 }

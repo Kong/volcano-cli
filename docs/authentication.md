@@ -19,7 +19,8 @@ volcano signup
 ```
 
 `volcano signup` prefills your email from `git config --global user.email`
-when available (press Enter to accept, or type a different address), then
+when available, except a GitHub noreply address, which can't receive mail
+(press Enter to accept, or type a different address), then
 opens Volcano's web signup flow in your browser. Once you finish in the
 browser, the CLI completes the device-authorization handshake and saves your
 credentials to `~/.volcano/config.json`, so a single command signs you up
@@ -40,6 +41,12 @@ volcano login --device-code <code>
 # Or skip login entirely with an environment variable
 export VOLCANO_TOKEN=pk-xxxxxxxxxx
 ```
+
+`volcano login` and `volcano signup` save the login in `~/.volcano`. Before
+either issues or uses a code, it checks that it can write there. If it can't,
+as in a sandboxed agent with no write access to your home directory, it stops
+with exit code `1`, and the code stays unused. Run the command again outside
+the sandbox.
 
 ## Account tokens and project access tokens
 
