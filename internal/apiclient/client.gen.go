@@ -1326,6 +1326,69 @@ func (e FrontendVariableScope) Valid() bool {
 	}
 }
 
+// Defines values for FrontendCandidateConfigurationStatus.
+const (
+	Changed FrontendCandidateConfigurationStatus = "changed"
+	Current FrontendCandidateConfigurationStatus = "current"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCandidateConfigurationStatus enum.
+func (e FrontendCandidateConfigurationStatus) Valid() bool {
+	switch e {
+	case Changed:
+		return true
+	case Current:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCandidateStatus.
+const (
+	FrontendCandidateStatusCreating FrontendCandidateStatus = "creating"
+	FrontendCandidateStatusDeleting FrontendCandidateStatus = "deleting"
+	FrontendCandidateStatusError    FrontendCandidateStatus = "error"
+	FrontendCandidateStatusReady    FrontendCandidateStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCandidateStatus enum.
+func (e FrontendCandidateStatus) Valid() bool {
+	switch e {
+	case FrontendCandidateStatusCreating:
+		return true
+	case FrontendCandidateStatusDeleting:
+		return true
+	case FrontendCandidateStatusError:
+		return true
+	case FrontendCandidateStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FrontendCandidateDeploymentStatus.
+const (
+	FrontendCandidateDeploymentStatusActive       FrontendCandidateDeploymentStatus = "active"
+	FrontendCandidateDeploymentStatusFailed       FrontendCandidateDeploymentStatus = "failed"
+	FrontendCandidateDeploymentStatusProvisioning FrontendCandidateDeploymentStatus = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the FrontendCandidateDeploymentStatus enum.
+func (e FrontendCandidateDeploymentStatus) Valid() bool {
+	switch e {
+	case FrontendCandidateDeploymentStatusActive:
+		return true
+	case FrontendCandidateDeploymentStatusFailed:
+		return true
+	case FrontendCandidateDeploymentStatusProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FrontendCustomDomainRedirectStatus.
 const (
 	FrontendCustomDomainRedirectStatusN301 FrontendCustomDomainRedirectStatus = 301
@@ -7306,6 +7369,74 @@ type FrontendStatus string
 // FrontendVariableScope All preserves access to all project variables. Shared includes the project frontend shared-variable list. Scoped includes only explicitly declared variables in builds and runtime. Omission preserves the stored selection.
 type FrontendVariableScope string
 
+// FrontendCandidate A copy of a frontend built from an uploaded archive with the frontend's own configuration, so
+// it can be checked before anything is promoted. A Candidate is reachable by anyone who holds its
+// URL and is not indexed or listed; it is never public, and it does not claim to be private.
+type FrontendCandidate struct {
+	// ConfigurationStatus Present while the Candidate serves a deployment. `current` means that deployment was built
+	// with the variables the frontend selects now; `changed` means they differ, or can no longer
+	// be resolved. Promotion refuses a Candidate whose status is `changed`.
+	ConfigurationStatus *FrontendCandidateConfigurationStatus `json:"configuration_status,omitempty"`
+	CreatedAt           time.Time                             `json:"created_at"`
+
+	// CurrentDeploymentId The deployment the Candidate serves. Absent until its first
+	// deployment succeeds. It differs from `deployment` while a redeploy runs or after one failed.
+	CurrentDeploymentId *openapi_types.UUID          `json:"current_deployment_id,omitempty"`
+	Deployment          *FrontendCandidateDeployment `json:"deployment,omitempty"`
+
+	// ExpiresAt When the Candidate is deleted on its own. Absent when it is kept until deleted.
+	ExpiresAt  *time.Time         `json:"expires_at,omitempty"`
+	FrontendId openapi_types.UUID `json:"frontend_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Name       string             `json:"name"`
+
+	// Status `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while
+	// its runtime is removed, and `error` when its deletion gave up and needs an operator.
+	Status    FrontendCandidateStatus `json:"status"`
+	UpdatedAt time.Time               `json:"updated_at"`
+
+	// Url Where the Candidate is served. Absent until its first deployment succeeds.
+	Url *string `json:"url,omitempty"`
+}
+
+// FrontendCandidateConfigurationStatus Present while the Candidate serves a deployment. `current` means that deployment was built
+// with the variables the frontend selects now; `changed` means they differ, or can no longer
+// be resolved. Promotion refuses a Candidate whose status is `changed`.
+type FrontendCandidateConfigurationStatus string
+
+// FrontendCandidateStatus `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while
+// its runtime is removed, and `error` when its deletion gave up and needs an operator.
+type FrontendCandidateStatus string
+
+// FrontendCandidateDeployment defines model for FrontendCandidateDeployment.
+type FrontendCandidateDeployment struct {
+	// CompletedAt Set once the deployment is no longer provisioning.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// ConfigurationDigest Identifies the resolved configuration the deployment was built with. It carries no value.
+	ConfigurationDigest string    `json:"configuration_digest"`
+	CreatedAt           time.Time `json:"created_at"`
+
+	// ErrorMessage Why a failed deployment failed.
+	ErrorMessage *string            `json:"error_message,omitempty"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// Status `provisioning` while the build and deploy run, `active` once the Candidate serves this
+	// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+	// Candidate that already served keeps the previous deployment serving.
+	Status FrontendCandidateDeploymentStatus `json:"status"`
+}
+
+// FrontendCandidateDeploymentStatus `provisioning` while the build and deploy run, `active` once the Candidate serves this
+// deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+// Candidate that already served keeps the previous deployment serving.
+type FrontendCandidateDeploymentStatus string
+
+// FrontendCandidateList defines model for FrontendCandidateList.
+type FrontendCandidateList struct {
+	Data []FrontendCandidate `json:"data"`
+}
+
 // FrontendCustomDomainConflictError defines model for FrontendCustomDomainConflictError.
 type FrontendCustomDomainConflictError struct {
 	// Code Stable machine-readable error code when a specific recovery path is available.
@@ -7511,6 +7642,21 @@ type FrontendRoute struct {
 // FrontendRouteList defines model for FrontendRouteList.
 type FrontendRouteList struct {
 	Data []FrontendRoute `json:"data"`
+}
+
+// FrontendServing What a frontend serves. Until a Candidate is promoted it serves its own runtime and
+// `candidate_id` is null. After a promotion, the frontend's traffic is routed to that
+// Candidate's runtime, nothing is rebuilt or copied, and `previous_candidate_id` is the runtime a
+// rollback returns to (null when that is the frontend's own). A Candidate that serves cannot be
+// deleted and does not expire. One kept only as the runtime a rollback returns to does not
+// expire either, but it can be deleted, which gives up that rollback; the frontend's own
+// runtime stays one `to_production` rollback away.
+type FrontendServing struct {
+	CandidateId         *openapi_types.UUID `json:"candidate_id"`
+	PreviousCandidateId *openapi_types.UUID `json:"previous_candidate_id"`
+
+	// Revision Counts changes to what the frontend serves or can roll back to — promotions, rollbacks, and deleting the Candidate kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` instead of overwriting it; read the serving state again and retry.
+	Revision int64 `json:"revision"`
 }
 
 // FrontendUsageDailyEntry One day of request and error counts for a single frontend.
@@ -11482,6 +11628,9 @@ type DurableMessageNameFilter = DurableMessageName
 // EndingBefore defines model for EndingBefore.
 type EndingBefore = string
 
+// FrontendCandidateId defines model for FrontendCandidateId.
+type FrontendCandidateId = openapi_types.UUID
+
 // FrontendCustomDomainHostname defines model for FrontendCustomDomainHostname.
 type FrontendCustomDomainHostname = string
 
@@ -12880,6 +13029,29 @@ type CreateFrontendMultipartBodyFramework string
 // CreateFrontendMultipartBodyVariableScope defines parameters for CreateFrontend.
 type CreateFrontendMultipartBodyVariableScope string
 
+// CreateFrontendCandidateMultipartBody defines parameters for CreateFrontendCandidate.
+type CreateFrontendCandidateMultipartBody struct {
+	// Archive ZIP or tar.gz archive of the frontend project, as for creating a frontend. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB.
+	Archive openapi_types.File `json:"archive"`
+
+	// Name Names the Candidate within the frontend. Cannot be `production`.
+	Name string `json:"name"`
+
+	// TtlSeconds Deletes the Candidate this many seconds after it is created, at most 30 days. Omit to keep it until deleted.
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
+// RedeployFrontendCandidateMultipartBody defines parameters for RedeployFrontendCandidate.
+type RedeployFrontendCandidateMultipartBody struct {
+	// Archive ZIP or tar.gz archive of the frontend project, as for creating a frontend.
+	Archive openapi_types.File `json:"archive"`
+}
+
+// PromoteFrontendCandidateJSONBody defines parameters for PromoteFrontendCandidate.
+type PromoteFrontendCandidateJSONBody struct {
+	ExpectedRevision int64 `json:"expected_revision"`
+}
+
 // ListFrontendDeploymentsParams defines parameters for ListFrontendDeployments.
 type ListFrontendDeploymentsParams struct {
 	// Page Page number (1-indexed) for offset pagination. Declares no schema
@@ -12891,6 +13063,14 @@ type ListFrontendDeploymentsParams struct {
 
 	// Limit Number of items per page (max 100)
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// RollbackFrontendServingJSONBody defines parameters for RollbackFrontendServing.
+type RollbackFrontendServingJSONBody struct {
+	ExpectedRevision int64 `json:"expected_revision"`
+
+	// ToProduction Return to the frontend's own runtime whatever it served before.
+	ToProduction *bool `json:"to_production,omitempty"`
 }
 
 // GetFrontendUsageHistoryParams defines parameters for GetFrontendUsageHistory.
@@ -13687,6 +13867,15 @@ type ReplaceFrontendSharedVariablesJSONRequestBody ReplaceFrontendSharedVariable
 // CreateFrontendMultipartRequestBody defines body for CreateFrontend for multipart/form-data ContentType.
 type CreateFrontendMultipartRequestBody CreateFrontendMultipartBody
 
+// CreateFrontendCandidateMultipartRequestBody defines body for CreateFrontendCandidate for multipart/form-data ContentType.
+type CreateFrontendCandidateMultipartRequestBody CreateFrontendCandidateMultipartBody
+
+// RedeployFrontendCandidateMultipartRequestBody defines body for RedeployFrontendCandidate for multipart/form-data ContentType.
+type RedeployFrontendCandidateMultipartRequestBody RedeployFrontendCandidateMultipartBody
+
+// PromoteFrontendCandidateJSONRequestBody defines body for PromoteFrontendCandidate for application/json ContentType.
+type PromoteFrontendCandidateJSONRequestBody PromoteFrontendCandidateJSONBody
+
 // CreateFrontendDeploymentJSONRequestBody defines body for CreateFrontendDeployment for application/json ContentType.
 type CreateFrontendDeploymentJSONRequestBody = CreateFrontendDeploymentRequest
 
@@ -13710,6 +13899,9 @@ type CreateFrontendFunctionRouteJSONRequestBody = CreateFrontendFunctionRouteReq
 
 // UpdateFrontendFunctionRouteJSONRequestBody defines body for UpdateFrontendFunctionRoute for application/json ContentType.
 type UpdateFrontendFunctionRouteJSONRequestBody = CreateFrontendFunctionRouteRequest
+
+// RollbackFrontendServingJSONRequestBody defines body for RollbackFrontendServing for application/json ContentType.
+type RollbackFrontendServingJSONRequestBody RollbackFrontendServingJSONBody
 
 // CreateFunctionMultipartRequestBody defines body for CreateFunction for multipart/form-data ContentType.
 type CreateFunctionMultipartRequestBody CreateFunctionMultipartBody
@@ -15940,6 +16132,26 @@ type ClientInterface interface {
 	// GetFrontend request
 	GetFrontend(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFrontendCandidates request
+	ListFrontendCandidates(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateFrontendCandidateWithBody request with any body
+	CreateFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteFrontendCandidate request
+	DeleteFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFrontendCandidate request
+	GetFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RedeployFrontendCandidateWithBody request with any body
+	RedeployFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PromoteFrontendCandidateWithBody request with any body
+	PromoteFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PromoteFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, body PromoteFrontendCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListFrontendDeployments request
 	ListFrontendDeployments(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -16012,6 +16224,14 @@ type ClientInterface interface {
 
 	// RedeployFrontend request
 	RedeployFrontend(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFrontendServing request
+	GetFrontendServing(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RollbackFrontendServingWithBody request with any body
+	RollbackFrontendServingWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RollbackFrontendServing(ctx context.Context, id ProjectId, frontendId FrontendId, body RollbackFrontendServingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetFrontendUsageHistory request
 	GetFrontendUsageHistory(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -19589,6 +19809,90 @@ func (c *Client) GetFrontend(ctx context.Context, id ProjectId, frontendId Front
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListFrontendCandidates(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFrontendCandidatesRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFrontendCandidateRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFrontendCandidateRequest(c.Server, id, frontendId, candidateId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFrontendCandidateRequest(c.Server, id, frontendId, candidateId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RedeployFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRedeployFrontendCandidateRequestWithBody(c.Server, id, frontendId, candidateId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PromoteFrontendCandidateWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteFrontendCandidateRequestWithBody(c.Server, id, frontendId, candidateId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PromoteFrontendCandidate(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, body PromoteFrontendCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPromoteFrontendCandidateRequest(c.Server, id, frontendId, candidateId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListFrontendDeployments(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListFrontendDeploymentsRequest(c.Server, id, frontendId, params)
 	if err != nil {
@@ -19903,6 +20207,42 @@ func (c *Client) UpdateFrontendFunctionRoute(ctx context.Context, id ProjectId, 
 
 func (c *Client) RedeployFrontend(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRedeployFrontendRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFrontendServing(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFrontendServingRequest(c.Server, id, frontendId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RollbackFrontendServingWithBody(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackFrontendServingRequestWithBody(c.Server, id, frontendId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RollbackFrontendServing(ctx context.Context, id ProjectId, frontendId FrontendId, body RollbackFrontendServingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackFrontendServingRequest(c.Server, id, frontendId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -32064,6 +32404,297 @@ func NewGetFrontendRequest(server string, id ProjectId, frontendId FrontendId) (
 	return req, nil
 }
 
+// NewListFrontendCandidatesRequest generates requests for ListFrontendCandidates
+func NewListFrontendCandidatesRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateFrontendCandidateRequestWithBody generates requests for CreateFrontendCandidate with any type of body
+func NewCreateFrontendCandidateRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteFrontendCandidateRequest generates requests for DeleteFrontendCandidate
+func NewDeleteFrontendCandidateRequest(server string, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetFrontendCandidateRequest generates requests for GetFrontendCandidate
+func NewGetFrontendCandidateRequest(server string, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRedeployFrontendCandidateRequestWithBody generates requests for RedeployFrontendCandidate with any type of body
+func NewRedeployFrontendCandidateRequestWithBody(server string, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates/%s/deployments", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPromoteFrontendCandidateRequest calls the generic PromoteFrontendCandidate builder with application/json body
+func NewPromoteFrontendCandidateRequest(server string, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, body PromoteFrontendCandidateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPromoteFrontendCandidateRequestWithBody(server, id, frontendId, candidateId, "application/json", bodyReader)
+}
+
+// NewPromoteFrontendCandidateRequestWithBody generates requests for PromoteFrontendCandidate with any type of body
+func NewPromoteFrontendCandidateRequestWithBody(server string, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "candidateId", candidateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/candidates/%s/promote", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFrontendDeploymentsRequest generates requests for ListFrontendDeployments
 func NewListFrontendDeploymentsRequest(server string, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams) (*http.Request, error) {
 	var err error
@@ -33031,6 +33662,101 @@ func NewRedeployFrontendRequest(server string, id ProjectId, frontendId Frontend
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetFrontendServingRequest generates requests for GetFrontendServing
+func NewGetFrontendServingRequest(server string, id ProjectId, frontendId FrontendId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/serving", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRollbackFrontendServingRequest calls the generic RollbackFrontendServing builder with application/json body
+func NewRollbackFrontendServingRequest(server string, id ProjectId, frontendId FrontendId, body RollbackFrontendServingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRollbackFrontendServingRequestWithBody(server, id, frontendId, "application/json", bodyReader)
+}
+
+// NewRollbackFrontendServingRequestWithBody generates requests for RollbackFrontendServing with any type of body
+func NewRollbackFrontendServingRequestWithBody(server string, id ProjectId, frontendId FrontendId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "frontendId", frontendId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/frontends/%s/serving/rollback", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -40026,6 +40752,26 @@ type ClientWithResponsesInterface interface {
 	// GetFrontendWithResponse request
 	GetFrontendWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*GetFrontendClientResponse, error)
 
+	// ListFrontendCandidatesWithResponse request
+	ListFrontendCandidatesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendCandidatesClientResponse, error)
+
+	// CreateFrontendCandidateWithBodyWithResponse request with any body
+	CreateFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendCandidateClientResponse, error)
+
+	// DeleteFrontendCandidateWithResponse request
+	DeleteFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*DeleteFrontendCandidateClientResponse, error)
+
+	// GetFrontendCandidateWithResponse request
+	GetFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*GetFrontendCandidateClientResponse, error)
+
+	// RedeployFrontendCandidateWithBodyWithResponse request with any body
+	RedeployFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeployFrontendCandidateClientResponse, error)
+
+	// PromoteFrontendCandidateWithBodyWithResponse request with any body
+	PromoteFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteFrontendCandidateClientResponse, error)
+
+	PromoteFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, body PromoteFrontendCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteFrontendCandidateClientResponse, error)
+
 	// ListFrontendDeploymentsWithResponse request
 	ListFrontendDeploymentsWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*ListFrontendDeploymentsClientResponse, error)
 
@@ -40098,6 +40844,14 @@ type ClientWithResponsesInterface interface {
 
 	// RedeployFrontendWithResponse request
 	RedeployFrontendWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*RedeployFrontendClientResponse, error)
+
+	// GetFrontendServingWithResponse request
+	GetFrontendServingWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*GetFrontendServingClientResponse, error)
+
+	// RollbackFrontendServingWithBodyWithResponse request with any body
+	RollbackFrontendServingWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackFrontendServingClientResponse, error)
+
+	RollbackFrontendServingWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body RollbackFrontendServingJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackFrontendServingClientResponse, error)
 
 	// GetFrontendUsageHistoryWithResponse request
 	GetFrontendUsageHistoryWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *GetFrontendUsageHistoryParams, reqEditors ...RequestEditorFn) (*GetFrontendUsageHistoryClientResponse, error)
@@ -46901,6 +47655,226 @@ func (r GetFrontendClientResponse) ContentType() string {
 	return ""
 }
 
+type ListFrontendCandidatesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCandidateList
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFrontendCandidatesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFrontendCandidatesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFrontendCandidatesClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateFrontendCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *FrontendCandidate
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFrontendCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFrontendCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateFrontendCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteFrontendCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteFrontendCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteFrontendCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteFrontendCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFrontendCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendCandidate
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFrontendCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFrontendCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFrontendCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RedeployFrontendCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *FrontendCandidateDeployment
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
+	JSON500      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RedeployFrontendCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RedeployFrontendCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RedeployFrontendCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PromoteFrontendCandidateClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PromoteFrontendCandidateClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PromoteFrontendCandidateClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PromoteFrontendCandidateClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListFrontendDeploymentsClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -47565,6 +48539,78 @@ func (r RedeployFrontendClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RedeployFrontendClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFrontendServingClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFrontendServingClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFrontendServingClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFrontendServingClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RollbackFrontendServingClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FrontendServing
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON413      *Error
+	JSON500      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RollbackFrontendServingClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RollbackFrontendServingClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RollbackFrontendServingClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53757,6 +54803,68 @@ func (c *ClientWithResponses) GetFrontendWithResponse(ctx context.Context, id Pr
 	return ParseGetFrontendClientResponse(rsp)
 }
 
+// ListFrontendCandidatesWithResponse request returning *ListFrontendCandidatesClientResponse
+func (c *ClientWithResponses) ListFrontendCandidatesWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*ListFrontendCandidatesClientResponse, error) {
+	rsp, err := c.ListFrontendCandidates(ctx, id, frontendId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFrontendCandidatesClientResponse(rsp)
+}
+
+// CreateFrontendCandidateWithBodyWithResponse request with arbitrary body returning *CreateFrontendCandidateClientResponse
+func (c *ClientWithResponses) CreateFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFrontendCandidateClientResponse, error) {
+	rsp, err := c.CreateFrontendCandidateWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFrontendCandidateClientResponse(rsp)
+}
+
+// DeleteFrontendCandidateWithResponse request returning *DeleteFrontendCandidateClientResponse
+func (c *ClientWithResponses) DeleteFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*DeleteFrontendCandidateClientResponse, error) {
+	rsp, err := c.DeleteFrontendCandidate(ctx, id, frontendId, candidateId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteFrontendCandidateClientResponse(rsp)
+}
+
+// GetFrontendCandidateWithResponse request returning *GetFrontendCandidateClientResponse
+func (c *ClientWithResponses) GetFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, reqEditors ...RequestEditorFn) (*GetFrontendCandidateClientResponse, error) {
+	rsp, err := c.GetFrontendCandidate(ctx, id, frontendId, candidateId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFrontendCandidateClientResponse(rsp)
+}
+
+// RedeployFrontendCandidateWithBodyWithResponse request with arbitrary body returning *RedeployFrontendCandidateClientResponse
+func (c *ClientWithResponses) RedeployFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RedeployFrontendCandidateClientResponse, error) {
+	rsp, err := c.RedeployFrontendCandidateWithBody(ctx, id, frontendId, candidateId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRedeployFrontendCandidateClientResponse(rsp)
+}
+
+// PromoteFrontendCandidateWithBodyWithResponse request with arbitrary body returning *PromoteFrontendCandidateClientResponse
+func (c *ClientWithResponses) PromoteFrontendCandidateWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PromoteFrontendCandidateClientResponse, error) {
+	rsp, err := c.PromoteFrontendCandidateWithBody(ctx, id, frontendId, candidateId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteFrontendCandidateClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PromoteFrontendCandidateWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, candidateId FrontendCandidateId, body PromoteFrontendCandidateJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteFrontendCandidateClientResponse, error) {
+	rsp, err := c.PromoteFrontendCandidate(ctx, id, frontendId, candidateId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePromoteFrontendCandidateClientResponse(rsp)
+}
+
 // ListFrontendDeploymentsWithResponse request returning *ListFrontendDeploymentsClientResponse
 func (c *ClientWithResponses) ListFrontendDeploymentsWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, params *ListFrontendDeploymentsParams, reqEditors ...RequestEditorFn) (*ListFrontendDeploymentsClientResponse, error) {
 	rsp, err := c.ListFrontendDeployments(ctx, id, frontendId, params, reqEditors...)
@@ -53990,6 +55098,32 @@ func (c *ClientWithResponses) RedeployFrontendWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseRedeployFrontendClientResponse(rsp)
+}
+
+// GetFrontendServingWithResponse request returning *GetFrontendServingClientResponse
+func (c *ClientWithResponses) GetFrontendServingWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, reqEditors ...RequestEditorFn) (*GetFrontendServingClientResponse, error) {
+	rsp, err := c.GetFrontendServing(ctx, id, frontendId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFrontendServingClientResponse(rsp)
+}
+
+// RollbackFrontendServingWithBodyWithResponse request with arbitrary body returning *RollbackFrontendServingClientResponse
+func (c *ClientWithResponses) RollbackFrontendServingWithBodyWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RollbackFrontendServingClientResponse, error) {
+	rsp, err := c.RollbackFrontendServingWithBody(ctx, id, frontendId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackFrontendServingClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RollbackFrontendServingWithResponse(ctx context.Context, id ProjectId, frontendId FrontendId, body RollbackFrontendServingJSONRequestBody, reqEditors ...RequestEditorFn) (*RollbackFrontendServingClientResponse, error) {
+	rsp, err := c.RollbackFrontendServing(ctx, id, frontendId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackFrontendServingClientResponse(rsp)
 }
 
 // GetFrontendUsageHistoryWithResponse request returning *GetFrontendUsageHistoryClientResponse
@@ -63991,6 +65125,442 @@ func ParseGetFrontendClientResponse(rsp *http.Response) (*GetFrontendClientRespo
 	return response, nil
 }
 
+// ParseListFrontendCandidatesClientResponse parses an HTTP response from a ListFrontendCandidatesWithResponse call
+func ParseListFrontendCandidatesClientResponse(rsp *http.Response) (*ListFrontendCandidatesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFrontendCandidatesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCandidateList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateFrontendCandidateClientResponse parses an HTTP response from a CreateFrontendCandidateWithResponse call
+func ParseCreateFrontendCandidateClientResponse(rsp *http.Response) (*CreateFrontendCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFrontendCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest FrontendCandidate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteFrontendCandidateClientResponse parses an HTTP response from a DeleteFrontendCandidateWithResponse call
+func ParseDeleteFrontendCandidateClientResponse(rsp *http.Response) (*DeleteFrontendCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteFrontendCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFrontendCandidateClientResponse parses an HTTP response from a GetFrontendCandidateWithResponse call
+func ParseGetFrontendCandidateClientResponse(rsp *http.Response) (*GetFrontendCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFrontendCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendCandidate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRedeployFrontendCandidateClientResponse parses an HTTP response from a RedeployFrontendCandidateWithResponse call
+func ParseRedeployFrontendCandidateClientResponse(rsp *http.Response) (*RedeployFrontendCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RedeployFrontendCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest FrontendCandidateDeployment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePromoteFrontendCandidateClientResponse parses an HTTP response from a PromoteFrontendCandidateWithResponse call
+func ParsePromoteFrontendCandidateClientResponse(rsp *http.Response) (*PromoteFrontendCandidateClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PromoteFrontendCandidateClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFrontendDeploymentsClientResponse parses an HTTP response from a ListFrontendDeploymentsWithResponse call
 func ParseListFrontendDeploymentsClientResponse(rsp *http.Response) (*ListFrontendDeploymentsClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -65179,6 +66749,142 @@ func ParseRedeployFrontendClientResponse(rsp *http.Response) (*RedeployFrontendC
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFrontendServingClientResponse parses an HTTP response from a GetFrontendServingWithResponse call
+func ParseGetFrontendServingClientResponse(rsp *http.Response) (*GetFrontendServingClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFrontendServingClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRollbackFrontendServingClientResponse parses an HTTP response from a RollbackFrontendServingWithResponse call
+func ParseRollbackFrontendServingClientResponse(rsp *http.Response) (*RollbackFrontendServingClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RollbackFrontendServingClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FrontendServing
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

@@ -42,6 +42,9 @@ Custom domains are a cloud command.
 | Logs | `volcano frontends logs <name>` | `volcano cloud frontends logs <name>` |
 | Custom domains | — | `volcano cloud frontends domains list\|get\|add\|update\|remove …` |
 | Function and Frontend routes | `volcano frontends routes list\|create\|update\|delete …` | `volcano cloud frontends routes list\|create\|update\|delete …` |
+| Previews | `volcano frontends preview create\|list\|get\|deploy\|delete\|promote …` | `volcano cloud frontends preview create\|list\|get\|deploy\|delete\|promote …` |
+| What a frontend serves | `volcano frontends serving <name>` | `volcano cloud frontends serving <name>` |
+| Roll back a promotion | `volcano frontends rollback <name> [--to-production]` | `volcano cloud frontends rollback <name> [--to-production]` |
 
 Cloud frontend deploys and redeploys use latest-wins queueing. A new request replaces
 older queued work while the current deployment finishes. Delete supersedes
@@ -246,6 +249,49 @@ builds each frontend from its own source, so `volcano frontends deploy --from`
 fails and names the command to run instead. See
 [Deploy one build to several frontends](/platform/frontends/deploy#deploy-one-build-to-several-frontends)
 for what the target serves and what it costs.
+
+## Previews
+
+A preview is a copy of a frontend deployed to its own URL, so you can check a
+change with the frontend's real variables before it replaces what the frontend
+serves. Previews work on the local development server and in the cloud: use
+`volcano frontends …` locally and `volcano cloud frontends …` in the cloud.
+
+```bash
+# Deploy a preview of web from a local directory, then read its URL when ready.
+# The same commands run on the local development server without "cloud".
+volcano cloud frontends preview create web --name redesign --path ./web --ttl 72h
+volcano cloud frontends preview get web redesign
+volcano cloud frontends preview list web
+
+# Deploy a newer build to the same preview
+volcano cloud frontends preview deploy web redesign --path ./web
+
+# Make web serve the preview, check what it serves, and undo it
+volcano cloud frontends preview promote web redesign
+volcano cloud frontends serving web
+volcano cloud frontends rollback web
+
+# Remove the preview
+volcano cloud frontends preview delete web redesign
+```
+
+`--name` is required and unique within the frontend; `--ttl` deletes the preview
+after that long, at most 720 hours. A frontend can have 20 live previews.
+Promotion routes the frontend's own host at the preview without rebuilding, and
+is refused when the preview was built with different variables than the
+frontend selects now. `promote` and `rollback` name the revision the CLI just
+read, so one that races another is refused instead of overwriting it.
+`rollback --to-production` returns to the frontend's own build.
+
+While a preview is promoted, deploying the frontend itself is refused: roll
+back first. A preview the frontend serves cannot be deleted; one it only keeps
+for `rollback` can be, which gives up that rollback. Its URL is not
+indexed, but anyone who holds it can open it. Creating, deploying to and
+promoting a preview, and a rollback that would make one serve again, are behind
+a release gate and answer `feature_unavailable` while it is off;
+`rollback --to-production` always works. See
+[Frontend previews](/platform/frontends/previews).
 
 ## Function routes
 

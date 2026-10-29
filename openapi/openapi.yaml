@@ -9324,6 +9324,602 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/candidates:
+    get:
+      tags:
+        - Frontends
+      summary: List a frontend's Candidates
+      description: |
+        Returns the frontend's Candidates, oldest first, each with its latest deployment. A frontend
+        has at most 20 live Candidates. Reading never depends on the `frontends.candidates` capability.
+      operationId: listFrontendCandidates
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      responses:
+        '200':
+          description: The frontend's Candidates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCandidateList'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Frontends
+      summary: Create a frontend Candidate
+      description: |
+        Builds a copy of the frontend from the uploaded archive, with the frontend's own variable
+        selection, and deploys it to one region: the first region the frontend deploys to, or the
+        project's first region by name if it has not deployed yet. The Candidate is served at its own
+        URL, so it can be checked without changing what the frontend serves. The URL is reachable by
+        anyone who holds it and is not indexed; a Candidate is never public and does not claim to be
+        private. The response is `202` while the first deployment runs; read the Candidate for its
+        `status` and `url`.
+
+        Creating a Candidate is available while the `frontends.candidates` capability is. While it is
+        not, this operation, redeploying, promoting and rolling back to a Candidate answer `404` with
+        code `feature_unavailable`; reading and deleting existing Candidates, and rolling back to the
+        frontend's own runtime, keep working.
+
+        A Candidate builds like any deploy and spends the project's build minutes. A frontend has at
+        most 20 live Candidates, and each name is unique within the frontend. Without `ttl_seconds` a
+        Candidate is kept until it is deleted.
+      operationId: createFrontendCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - archive
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Names the Candidate within the frontend. Cannot be `production`.
+                ttl_seconds:
+                  type: integer
+                  minimum: 1
+                  maximum: 2592000
+                  description: Deletes the Candidate this many seconds after it is created, at most 30 days. Omit to keep it until deleted.
+                archive:
+                  type: string
+                  format: binary
+                  description: ZIP or tar.gz archive of the frontend project, as for creating a frontend. The API enforces SOURCE_ARCHIVE_SIZE_LIMIT_MB.
+      responses:
+        '202':
+          description: Candidate created; its first deployment is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCandidate'
+        '400':
+          description: Bad request - invalid name, expiry, identifier or archive, a variable the frontend declares has no value, or the resolved variables are too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found, or the `frontends.candidates` capability is unavailable (code `feature_unavailable`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: candidate_name_taken` - the name is taken. `code: candidate_limit_reached` - the frontend has the maximum Candidates. `code: configuration_changed` - the frontend''s configuration changed during the deploy; retry. `code: frontend_deleting` or `code: project_deleting` - the frontend or project is being deleted.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than the archive limit, SOURCE_ARCHIVE_SIZE_LIMIT_MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests - the project's build minutes for the billing cycle are used up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - frontend deployments are not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/candidates/{candidateId}:
+    get:
+      tags:
+        - Frontends
+      summary: Get a frontend Candidate
+      operationId: getFrontendCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+        - $ref: '#/components/parameters/FrontendCandidateId'
+      responses:
+        '200':
+          description: The Candidate with its latest deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCandidate'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Frontends
+      summary: Delete a frontend Candidate
+      description: |
+        Starts deleting the Candidate: its regional runtime, images, edge state and stored source are
+        removed once any running deployment finishes. Asking again for a Candidate that is already being
+        deleted is the same request. The Candidate answers `404` once it is gone.
+
+        A Candidate the frontend serves cannot be deleted: roll back first. A Candidate the frontend only
+        keeps as the runtime a rollback returns to can be deleted, and doing so gives up that rollback;
+        rolling back to the frontend's own runtime stays possible.
+      operationId: deleteFrontendCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+        - $ref: '#/components/parameters/FrontendCandidateId'
+      responses:
+        '202':
+          description: Deletion started
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or Candidate not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`code: candidate_in_use` - the frontend serves this Candidate.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/candidates/{candidateId}/deployments:
+    post:
+      tags:
+        - Frontends
+      summary: Deploy a new archive to a frontend Candidate
+      description: |
+        Builds the uploaded archive with the frontend's own variable selection and deploys it to the
+        Candidate. The Candidate keeps serving its previous deployment until this one succeeds, and a
+        failed deployment leaves it on the previous one. A Candidate takes one deployment at a time.
+        While the `frontends.candidates` capability is unavailable, it answers `404` with code
+        `feature_unavailable`.
+      operationId: redeployFrontendCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+        - $ref: '#/components/parameters/FrontendCandidateId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - archive
+              properties:
+                archive:
+                  type: string
+                  format: binary
+                  description: ZIP or tar.gz archive of the frontend project, as for creating a frontend.
+      responses:
+        '202':
+          description: The deployment is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendCandidateDeployment'
+        '400':
+          description: Bad request - invalid identifier or archive, a variable the frontend declares has no value, or the resolved variables are too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or Candidate not found, or the `frontends.candidates` capability is unavailable (code `feature_unavailable`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: deployment_in_progress` - a deployment is already running; retry once it finishes. `code: candidate_not_deployable` - the Candidate is being deleted or is not ready to deploy to. `code: candidate_in_use` - the frontend serves it or keeps it for a rollback. `code: configuration_changed` - the frontend''s configuration changed during the deploy; retry. `code: frontend_deleting` or `code: project_deleting` - the frontend or project is being deleted.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than the archive limit, SOURCE_ARCHIVE_SIZE_LIMIT_MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests - the project's build minutes for the billing cycle are used up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - frontend deployments are not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/serving:
+    get:
+      tags:
+        - Frontends
+      summary: Get what a frontend serves
+      description: |
+        Reports whether the frontend serves its own runtime or a promoted Candidate's, and the
+        revision a promotion or rollback must name.
+      operationId: getFrontendServing
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      responses:
+        '200':
+          description: What the frontend serves
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendServing'
+        '400':
+          description: Bad request - invalid identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/serving/rollback:
+    post:
+      tags:
+        - Frontends
+      summary: Roll a frontend back to the runtime it served before
+      description: |
+        Returns the frontend's traffic to the runtime it served before the last activation, or to its
+        own runtime with `to_production`. A rollback is a new activation, so what it leaves becomes the
+        runtime a further rollback returns to, and it can itself be undone. It names the revision the
+        caller read; a competing activation makes it fail with `409`.
+
+        Rolling back to a Candidate promotes it again and is refused with `409` when promoting it would
+        be. Rolling back to the frontend's own runtime is not.
+      operationId: rollbackFrontendServing
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - expected_revision
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                to_production:
+                  type: boolean
+                  default: false
+                  description: Return to the frontend's own runtime whatever it served before.
+      responses:
+        '200':
+          description: The frontend serves the runtime it was rolled back to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendServing'
+        '400':
+          description: Bad request - invalid identifier or body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend not found, or `feature_unavailable` when the release gate is off and the rollback would make a candidate serve again
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: stale_revision` - the revision is stale; read `serving` again. `code: nothing_to_roll_back` - there is no earlier runtime to return to. `code: rollback_unavailable` - the runtime to roll back to is gone. `code: configuration_changed` - the Candidate to roll back to was built with a different configuration. `code: deployment_in_progress` - a deployment of the Candidate or of the frontend itself is still running; retry once it finishes. `code: source_managed_by_git` - the project''s repository is the source of truth; roll back to the frontend''s own runtime.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 4 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/frontends/{frontendId}/candidates/{candidateId}/promote:
+    post:
+      tags:
+        - Frontends
+      summary: Promote a frontend Candidate
+      description: |
+        Makes the Candidate what the frontend serves. Nothing is rebuilt or copied: the frontend's
+        traffic is routed to the Candidate's runtime, its own custom domains and metering are
+        unchanged, and what it served becomes the runtime a rollback returns to.
+
+        The Candidate must be ready and serving an active deployment, and that deployment must have
+        been built with the variables the frontend selects now. A Candidate that serves stops expiring and cannot be deleted. While one
+        serves, deploying the frontend itself answers `409`; roll back to the frontend's own runtime
+        first. Promotion names the revision the caller read from `serving`; a competing activation
+        makes it fail with `409`. Once the project's repository is the source of truth, promotion
+        is refused with `409`, as a direct deploy is, and so is rolling back to a Candidate; rolling
+        back to the frontend's own runtime is not. While the `frontends.candidates` capability is
+        unavailable, promotion and rolling back to a Candidate answer `404` with code
+        `feature_unavailable`; rolling back to the frontend's own runtime does not.
+      operationId: promoteFrontendCandidate
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/FrontendId'
+        - $ref: '#/components/parameters/FrontendCandidateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - expected_revision
+              properties:
+                expected_revision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+      responses:
+        '200':
+          description: The frontend serves the Candidate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendServing'
+        '400':
+          description: Bad request - invalid identifier or body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - project ownership required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Frontend or Candidate not found, or the `frontends.candidates` capability is unavailable (code `feature_unavailable`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict. `code: stale_revision` - the revision is stale; read `serving` again. `code: candidate_not_ready` - the Candidate is not ready. `code: configuration_changed` - it was built with a different configuration; redeploy it. `code: already_serving` - it already serves. `code: deployment_in_progress` - a deployment of the Candidate or of the frontend itself is still running; retry once it finishes. `code: source_managed_by_git` - the project''s repository is the source of truth. `code: frontend_not_deployed` - the frontend has no deployment of its own to roll back to; deploy it first.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The request body is larger than 4 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/databases:
     get:
       tags:
@@ -17306,6 +17902,14 @@ components:
         type: string
         format: uuid
       description: Frontend ID
+    FrontendCandidateId:
+      name: candidateId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Frontend Candidate ID
     FrontendFunctionRouteId:
       name: routeId
       in: path
@@ -21290,6 +21894,146 @@ components:
         - frontend_routes
         - created_at
         - updated_at
+    FrontendCandidate:
+      type: object
+      additionalProperties: false
+      description: |
+        A copy of a frontend built from an uploaded archive with the frontend's own configuration, so
+        it can be checked before anything is promoted. A Candidate is reachable by anyone who holds its
+        URL and is not indexed or listed; it is never public, and it does not claim to be private.
+      properties:
+        id:
+          type: string
+          format: uuid
+        frontend_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 128
+        status:
+          type: string
+          enum:
+            - creating
+            - ready
+            - deleting
+            - error
+          description: |
+            `creating` until its first deployment succeeds, `ready` while it serves, `deleting` while
+            its runtime is removed, and `error` when its deletion gave up and needs an operator.
+        url:
+          type: string
+          format: uri
+          description: Where the Candidate is served. Absent until its first deployment succeeds.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the Candidate is deleted on its own. Absent when it is kept until deleted.
+        current_deployment_id:
+          type: string
+          format: uuid
+          description: |
+            The deployment the Candidate serves. Absent until its first
+            deployment succeeds. It differs from `deployment` while a redeploy runs or after one failed.
+        deployment:
+          $ref: '#/components/schemas/FrontendCandidateDeployment'
+        configuration_status:
+          type: string
+          enum:
+            - current
+            - changed
+          description: |
+            Present while the Candidate serves a deployment. `current` means that deployment was built
+            with the variables the frontend selects now; `changed` means they differ, or can no longer
+            be resolved. Promotion refuses a Candidate whose status is `changed`.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - frontend_id
+        - name
+        - status
+        - created_at
+        - updated_at
+    FrontendCandidateDeployment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - provisioning
+            - active
+            - failed
+          description: |
+            `provisioning` while the build and deploy run, `active` once the Candidate serves this
+            deployment, and `failed` when it could not be built or deployed. A failed deployment of a
+            Candidate that already served keeps the previous deployment serving.
+        configuration_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          description: Identifies the resolved configuration the deployment was built with. It carries no value.
+        error_message:
+          type: string
+          description: Why a failed deployment failed.
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          description: Set once the deployment is no longer provisioning.
+      required:
+        - id
+        - status
+        - configuration_digest
+        - created_at
+    FrontendServing:
+      type: object
+      additionalProperties: false
+      description: |
+        What a frontend serves. Until a Candidate is promoted it serves its own runtime and
+        `candidate_id` is null. After a promotion, the frontend's traffic is routed to that
+        Candidate's runtime, nothing is rebuilt or copied, and `previous_candidate_id` is the runtime a
+        rollback returns to (null when that is the frontend's own). A Candidate that serves cannot be
+        deleted and does not expire. One kept only as the runtime a rollback returns to does not
+        expire either, but it can be deleted, which gives up that rollback; the frontend's own
+        runtime stays one `to_production` rollback away.
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Counts changes to what the frontend serves or can roll back to — promotions, rollbacks, and deleting the Candidate kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` instead of overwriting it; read the serving state again and retry.
+        candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+        previous_candidate_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+        - revision
+        - candidate_id
+        - previous_candidate_id
+    FrontendCandidateList:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrontendCandidate'
+      required:
+        - data
     FrontendFunctionRoute:
       type: object
       additionalProperties: false

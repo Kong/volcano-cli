@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +77,8 @@ func requireLocalModeServesFrontends(t *testing.T, binary string, env []string, 
 	// own output.
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "logs", "web", "--type", "build"),
 		"next build")
+
+	requireLocalModeServesPreviews(t, binary, env, dir, siteURL)
 
 	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "delete", "web", "--yes"),
 		"Frontend 'web' deletion started")
@@ -248,4 +251,86 @@ func fetchLocalModeE2EFrontend(client *http.Client, siteURL string) (string, int
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
 	return string(data), resp.StatusCode
+}
+
+const localModeE2EPreviewMarker = "preview says hello-from-the-preview"
+
+const localModeE2EPreviewPage = `export default function Home() {
+  return <main>{"preview says hello-from-the-preview"}</main>;
+}
+`
+
+var localModeE2EPreviewURLPattern = regexp.MustCompile(`(?m)^URL:\s+(\S+)$`)
+
+// requireLocalModeServesPreviews runs the preview lifecycle on the local tree: a
+// preview is served at its own host while the frontend serves its own build,
+// promoting it makes the frontend's host serve it, a rollback returns the
+// frontend's own build, and the preview can then be deleted.
+func requireLocalModeServesPreviews(t *testing.T, binary string, env []string, dir, siteURL string) {
+	t.Helper()
+	writeLocalModeE2EFile(t, dir, filepath.Join("web-preview", "package.json"), localModeE2EFrontendPackageJSON)
+	writeLocalModeE2EFile(t, dir, filepath.Join("web-preview", "pages", "index.js"), localModeE2EPreviewPage)
+
+	created := runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "create", "web", "--name", "redesign", "--path", "web-preview")
+	requireContains(t, created, "Preview 'redesign' deployment started")
+	previewURL := awaitLocalModeE2EPreviewURL(t, binary, env, dir)
+	awaitLocalModeE2EFrontendServes(t, previewURL, localModeE2EPreviewMarker)
+	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EFrontendMarker)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "list", "web"), "redesign")
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "serving", "web"), "serves its own build")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "promote", "web", "redesign"),
+		"Frontend now serves preview 'redesign'")
+	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EPreviewMarker)
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "serving", "web"), "serves preview 'redesign'")
+	refused, err := runVolcanoLocalModeE2EAllowFailure(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign")
+	if err == nil {
+		t.Fatalf("expected deleting the preview the frontend serves to fail\n%s", refused)
+	}
+	requireContains(t, refused, "serves")
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "rollback", "web"), "Frontend 'web' rolled back")
+	awaitLocalModeE2EFrontendServes(t, siteURL, localModeE2EFrontendMarker)
+
+	requireContains(t, runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "delete", "web", "redesign"),
+		"Preview 'redesign' is being deleted")
+	awaitLocalModeE2EPreviewGone(t, binary, env, dir)
+	removeLocalModeE2EFile(t, dir, filepath.Join("web-preview", "package.json"))
+	removeLocalModeE2EFile(t, dir, filepath.Join("web-preview", "pages", "index.js"))
+}
+
+// awaitLocalModeE2EPreviewURL waits for the preview's first build and returns
+// the URL it is served at.
+func awaitLocalModeE2EPreviewURL(t *testing.T, binary string, env []string, dir string) string {
+	t.Helper()
+	deadline := time.Now().Add(localModeE2EFrontendBuildTimeout)
+	var last string
+	for time.Now().Before(deadline) {
+		last = runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "get", "web", "redesign")
+		if strings.Contains(last, "Status:   error") {
+			t.Fatalf("local preview failed\n%s", last)
+		}
+		if strings.Contains(last, "Status:   ready") {
+			if match := localModeE2EPreviewURLPattern.FindStringSubmatch(last); match != nil {
+				return match[1]
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
+	t.Fatalf("local preview never became ready\n%s", last)
+	return ""
+}
+
+func awaitLocalModeE2EPreviewGone(t *testing.T, binary string, env []string, dir string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Minute)
+	var last string
+	for time.Now().Before(deadline) {
+		last = runVolcanoLocalModeE2E(t, binary, env, dir, "frontends", "preview", "list", "web")
+		if strings.Contains(last, "No previews.") {
+			return
+		}
+		time.Sleep(3 * time.Second)
+	}
+	t.Fatalf("local preview was not deleted\n%s", last)
 }
