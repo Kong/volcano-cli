@@ -92,9 +92,18 @@ func TestRunsGetSaysWhyNoPullRequestOpenedAndWhatToDo(t *testing.T) {
 				"or a frontend deployed with the CLI from a clean commit.\n",
 		},
 		"repository_changed": {
-			"Pull request: none: the project's repository changed since LavaFlow was turned on\n",
+			"Pull request: none: the project's repository changed after LavaFlow was turned on or the run started\n",
 			"\nNext: Turn LavaFlow on again (volcano cloud lavaflow enable) to use the project's repository now, " +
 				"then start a new run.\n",
+		},
+		"possible_credential": {
+			"Pull request: none: the fix appears to add a credential\n",
+			"\nNext: Review the fix in this run. It is the patch in volcano cloud lavaflow runs get " + lavaflowRunID + " --json\n",
+		},
+		"possible_personal_data": {
+			"Pull request: none: the fix adds an email address the repository doesn't contain, " +
+				"and the repository isn't private\n",
+			"\nNext: Review the fix in this run. It is the patch in volcano cloud lavaflow runs get " + lavaflowRunID + " --json\n",
 		},
 	} {
 		run := fixedRun()
@@ -134,7 +143,7 @@ func TestEveryStopIsExplainedWithWhatToDo(t *testing.T) {
 	}
 	for _, reason := range []string{
 		"source_unavailable", "pull_request_open", "not_fixable", "low_confidence", "no_patch",
-		"permission_missing", "repository_changed", "publish_failed",
+		"permission_missing", "repository_changed", "publish_failed", "possible_credential", "possible_personal_data",
 	} {
 		run := fixedRun()
 		delete(run, "pull_request")
@@ -161,8 +170,8 @@ func TestEveryStopIsExplainedWithWhatToDo(t *testing.T) {
 	}
 }
 
-// A canceled run may have started before LavaFlow was turned off, and a
-// paused run starts when LavaFlow resumes.
+// A canceled run may have started before LavaFlow was turned off or the
+// project's deletion began, and a paused run starts when LavaFlow resumes.
 func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
 	canceled := queuedRun()
@@ -179,8 +188,8 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 		reason, next string
 	}{
 		{
-			canceled, "LavaFlow was turned off before the run finished",
-			"Turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
+			canceled, "LavaFlow was turned off, or the project is being deleted, before the run finished",
+			"Unless the project is being deleted, turn LavaFlow on (volcano cloud lavaflow enable), then start a new run.",
 		},
 		{paused, "paused: LavaFlow is paused", "Nothing to do: the run carries on when LavaFlow resumes."},
 		{unavailable, "paused: LavaFlow is unavailable here", "Nothing to do: the run resumes when LavaFlow is available again."},
@@ -191,6 +200,29 @@ func TestRunsGetSaysWhyARunStoppedOrIsPaused(t *testing.T) {
 		assert.Contains(t, out, "\nReason: "+tc.reason+"\n")
 		assert.True(t, strings.HasSuffix(out, "\n\nNext: "+tc.next+"\n"), "the next step comes last: %q", out)
 	}
+}
+
+// A fix LavaFlow kept instead of pushing stays out of the text output, which
+// points to the JSON that holds it.
+func TestRunsGetKeepsAHeldFixOutOfTheText(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	run := fixedRun()
+	delete(run, "pull_request")
+	run["pull_request_skipped"] = "possible_credential"
+	run["patch"] = map[string]any{
+		"title": "Guard the cart",
+		"edits": []any{map[string]any{"path": "functions/checkout.ts", "old_text": "cart.items", "new_text": "held-fix-text"}},
+	}
+	fake.set(func(s *lavaflowServer) { s.runs = []map[string]any{run} })
+
+	out, err := executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID)
+	require.NoError(t, err)
+	assert.Contains(t, out, "runs get "+lavaflowRunID+" --json\n")
+	assert.NotContains(t, out, "held-fix-text")
+
+	out, err = executeLavaflowCommand(t, New(deps), "runs", "get", lavaflowRunID, "--json")
+	require.NoError(t, err)
+	assert.Contains(t, out, "held-fix-text")
 }
 
 // A diagnose-only run has neither a pull request nor a skipped reason.

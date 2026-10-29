@@ -2003,14 +2003,16 @@ func (e LavaFlowIssueTriggerReason) Valid() bool {
 
 // Defines values for LavaFlowPullRequestSkipped.
 const (
-	LavaFlowPullRequestSkippedLowConfidence     LavaFlowPullRequestSkipped = "low_confidence"
-	LavaFlowPullRequestSkippedNoPatch           LavaFlowPullRequestSkipped = "no_patch"
-	LavaFlowPullRequestSkippedNotFixable        LavaFlowPullRequestSkipped = "not_fixable"
-	LavaFlowPullRequestSkippedPermissionMissing LavaFlowPullRequestSkipped = "permission_missing"
-	LavaFlowPullRequestSkippedPublishFailed     LavaFlowPullRequestSkipped = "publish_failed"
-	LavaFlowPullRequestSkippedPullRequestOpen   LavaFlowPullRequestSkipped = "pull_request_open"
-	LavaFlowPullRequestSkippedRepositoryChanged LavaFlowPullRequestSkipped = "repository_changed"
-	LavaFlowPullRequestSkippedSourceUnavailable LavaFlowPullRequestSkipped = "source_unavailable"
+	LavaFlowPullRequestSkippedLowConfidence        LavaFlowPullRequestSkipped = "low_confidence"
+	LavaFlowPullRequestSkippedNoPatch              LavaFlowPullRequestSkipped = "no_patch"
+	LavaFlowPullRequestSkippedNotFixable           LavaFlowPullRequestSkipped = "not_fixable"
+	LavaFlowPullRequestSkippedPermissionMissing    LavaFlowPullRequestSkipped = "permission_missing"
+	LavaFlowPullRequestSkippedPossibleCredential   LavaFlowPullRequestSkipped = "possible_credential"
+	LavaFlowPullRequestSkippedPossiblePersonalData LavaFlowPullRequestSkipped = "possible_personal_data"
+	LavaFlowPullRequestSkippedPublishFailed        LavaFlowPullRequestSkipped = "publish_failed"
+	LavaFlowPullRequestSkippedPullRequestOpen      LavaFlowPullRequestSkipped = "pull_request_open"
+	LavaFlowPullRequestSkippedRepositoryChanged    LavaFlowPullRequestSkipped = "repository_changed"
+	LavaFlowPullRequestSkippedSourceUnavailable    LavaFlowPullRequestSkipped = "source_unavailable"
 )
 
 // Valid indicates whether the value is a known member of the LavaFlowPullRequestSkipped enum.
@@ -2023,6 +2025,10 @@ func (e LavaFlowPullRequestSkipped) Valid() bool {
 	case LavaFlowPullRequestSkippedNotFixable:
 		return true
 	case LavaFlowPullRequestSkippedPermissionMissing:
+		return true
+	case LavaFlowPullRequestSkippedPossibleCredential:
+		return true
+	case LavaFlowPullRequestSkippedPossiblePersonalData:
 		return true
 	case LavaFlowPullRequestSkippedPublishFailed:
 		return true
@@ -8057,12 +8063,12 @@ type LavaFlowRun struct {
 	CreatedAt   time.Time          `json:"created_at"`
 	Diagnosis   *LavaFlowDiagnosis `json:"diagnosis,omitempty"`
 
-	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow's runs are paused reports `feature_paused`; it resumes without spending an attempt when they resume. A run paused after it wrote a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.
+	// FailureCode Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow runs are paused, including one a pause stopped mid-run, reports `feature_paused`; it resumes without spending an attempt when runs resume. A run paused after it saved a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume; one paused before that diagnoses again. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.
 	FailureCode    *string            `json:"failure_code,omitempty"`
 	FailureMessage *string            `json:"failure_message,omitempty"`
 	Id             openapi_types.UUID `json:"id"`
 
-	// MaxStage How far a run may go. `diagnose` stops at a root-cause diagnosis. `pull_request` may also open a draft pull request with a fix in the project's connected repository.
+	// MaxStage How far the run may go. Lowered to `diagnose` when the project lowers its `max_stage` before the run publishes; it never rises.
 	MaxStage LavaFlowStage `json:"max_stage"`
 
 	// Patch The fix the model proposed, applied to the deployed commit. Present whenever the run opened a pull request, and when a valid fix could not be published.
@@ -8077,18 +8083,18 @@ type LavaFlowRun struct {
 	// PullRequestSkipped Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
 	PullRequestSkipped *LavaFlowPullRequestSkipped `json:"pull_request_skipped,omitempty"`
 
-	// StageReached The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.
+	// StageReached The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. An attempt saves its diagnosis before opening the pull request, and when it could not confirm the project's settings and plan after the diagnosis. The run keeps the latest saved diagnosis, and `diagnose`, even if a later attempt fails or the run is canceled; `failure_code` then describes the last attempt. Absent until the run has a diagnosis.
 	StageReached *LavaFlowStage `json:"stage_reached,omitempty"`
 	StartedAt    *time.Time     `json:"started_at,omitempty"`
 
-	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
+	// Status Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. When LavaFlow pauses its runs, an attempt in progress stops at any stage and its run returns to `queued` with `failure_code` `feature_paused`, without spending an attempt. A `running` run waiting to retry a failed attempt keeps its status and waits until runs resume.
 	Status LavaFlowRunStatus `json:"status"`
 
 	// Trigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
 	Trigger LavaFlowRunTrigger `json:"trigger"`
 }
 
-// LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
+// LavaFlowRunStatus Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. When LavaFlow pauses its runs, an attempt in progress stops at any stage and its run returns to `queued` with `failure_code` `feature_paused`, without spending an attempt. A `running` run waiting to retry a failed attempt keeps its status and waits until runs resume.
 type LavaFlowRunStatus string
 
 // LavaFlowRunTrigger What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
