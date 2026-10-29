@@ -7641,13 +7641,15 @@ type FrontendRouteList struct {
 // FrontendServing What a frontend serves. Until a Candidate is promoted it serves its own runtime and
 // `candidate_id` is null. After a promotion, the frontend's traffic is routed to that
 // Candidate's runtime, nothing is rebuilt or copied, and `previous_candidate_id` is the runtime a
-// rollback returns to (null when that is the frontend's own). A Candidate that serves, or is kept
-// for a rollback, cannot be deleted and does not expire.
+// rollback returns to (null when that is the frontend's own). A Candidate that serves cannot be
+// deleted and does not expire. One kept only as the runtime a rollback returns to does not
+// expire either, but it can be deleted, which gives up that rollback; the frontend's own
+// runtime stays one `to_production` rollback away.
 type FrontendServing struct {
 	CandidateId         *openapi_types.UUID `json:"candidate_id"`
 	PreviousCandidateId *openapi_types.UUID `json:"previous_candidate_id"`
 
-	// Revision Counts promotions and rollbacks. A promotion or rollback names the revision it read, so a competing one fails with `409` instead of overwriting it.
+	// Revision Counts changes to what the frontend serves or can roll back to — promotions, rollbacks, and deleting the Candidate kept for a rollback. A promotion or rollback names the revision it read, so one that read before such a change fails with `409` instead of overwriting it; read the serving state again and retry.
 	Revision int64 `json:"revision"`
 }
 
@@ -47691,6 +47693,8 @@ type CreateFrontendCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -47798,6 +47802,8 @@ type RedeployFrontendCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
+	JSON429      *Error
 	JSON500      *Error
 	JSON503      *Error
 }
@@ -47835,6 +47841,7 @@ type PromoteFrontendCandidateClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON500      *Error
 }
 
@@ -48576,6 +48583,7 @@ type RollbackFrontendServingClientResponse struct {
 	JSON403      *Error
 	JSON404      *Error
 	JSON409      *Error
+	JSON413      *Error
 	JSON500      *Error
 }
 
@@ -65228,6 +65236,20 @@ func ParseCreateFrontendCandidateClientResponse(rsp *http.Response) (*CreateFron
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -65425,6 +65447,20 @@ func ParseRedeployFrontendCandidateClientResponse(rsp *http.Response) (*Redeploy
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -65499,6 +65535,13 @@ func ParsePromoteFrontendCandidateClientResponse(rsp *http.Response) (*PromoteFr
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
@@ -66822,6 +66865,13 @@ func ParseRollbackFrontendServingClientResponse(rsp *http.Response) (*RollbackFr
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Error
