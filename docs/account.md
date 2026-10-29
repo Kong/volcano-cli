@@ -1,0 +1,55 @@
+---
+title: "Account sessions"
+description: "List the browser and CLI sessions signed in to your Volcano account, and sign them out from the CLI."
+---
+
+Every place you're signed in to Volcano is a session: the dashboard in each
+browser, and each `volcano login`. The `volcano account sessions` commands list
+them and sign them out, as the dashboard does under Account → Sessions.
+
+They need an account login. A project access token can't reach them, and the
+commands say so before sending anything. They work against the cloud API.
+
+To end the login this CLI uses, run `volcano logout`. It revokes that session
+on the server and removes the login from this machine. See
+[authentication.md](authentication.md).
+
+## Listing sessions
+
+```bash
+volcano account sessions list
+volcano account sessions list --json
+```
+
+Each session shows its ID, whether it is a `CLI` login or a `Browser`
+session, the device, its address, and when it was last active. The session
+this CLI is logged in with is marked `this CLI`. `--page` and `--limit` page
+through a long list, and `--json` prints the sessions as the API returns them,
+with `is_current` marking this CLI's own.
+
+## Signing out one session
+
+```bash
+volcano account sessions revoke <session-id>
+```
+
+The session is signed out at once. If it was a CLI login, that CLI's token
+stops working, wherever it was copied. A browser session is asked to sign in
+again.
+
+The command refuses the session this CLI is logged in with, since that would
+leave a login on this machine the server no longer accepts. Run
+`volcano logout` to end it instead.
+
+## Signing out every other session
+
+```bash
+volcano account sessions revoke --all-others
+```
+
+This signs out every session except this CLI's own: the dashboard in every
+browser, and every other CLI login. It asks before doing so. Pass `--yes` to
+skip the question, which a script has to do, since nothing can answer it there.
+
+Use it when a token or a device may be in the wrong hands. Afterwards, sign in
+to the dashboard again, and run `volcano login` on each machine you still use.

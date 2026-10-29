@@ -101,6 +101,22 @@ Log out at any time:
 volcano logout
 ```
 
-This removes local credentials, the selected project, and function aliases,
-but does not revoke the token. Revoke it in the Volcano dashboard to fully cut
-off access.
+This ends the login on the server, then removes it from this machine. The
+server revokes the saved token and the session it came from, so the token
+stops working everywhere it was copied. The CLI then removes the token, the
+selected project, and function aliases from `~/.volcano/config.json`. Your
+other CLI logins and browser sessions stay signed in.
+
+If the server can't revoke the login, `volcano logout` says so, still removes
+the login from this machine, and exits non-zero. The token then stays valid
+until it expires. End it from another login with `volcano account sessions
+revoke <id>`, or in the dashboard under Account → Sessions. See
+[account.md](account.md).
+
+Two credentials stay valid after `volcano logout`:
+
+- A project access token (`pt-`) is removed from this machine but not revoked.
+  Revoke it with `volcano access-tokens revoke`. See
+  [access-tokens.md](access-tokens.md).
+- A token in `VOLCANO_TOKEN` was never saved, so `volcano logout` neither
+  revokes nor unsets it, and commands keep using it.

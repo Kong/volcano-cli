@@ -1519,6 +1519,161 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /user/tokens/current:
+    delete:
+      tags:
+        - Account
+      summary: Revoke the calling token
+      description: |
+        Revokes the platform token that authenticates this request, and the
+        sign-in session it was created from. The token is refused afterwards.
+      operationId: revokeCurrentAccountToken
+      security:
+        - UserToken: []
+      responses:
+        '204':
+          description: Token and its session revoked
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Only an account platform token can revoke itself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/sessions:
+    get:
+      tags:
+        - Account
+      summary: List the account's sign-in sessions
+      description: |
+        Lists the account's sign-in sessions, browser and CLI alike, as
+        `GET /auth/user/sessions` does. The session the calling token was
+        created from is marked `is_current`.
+      operationId: listAccountSessions
+      security:
+        - UserToken: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of sessions per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of the account's sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuthSession'
+                  total:
+                    type: integer
+                    description: Total number of sessions
+                  page:
+                    type: integer
+                    description: Current page number
+                  limit:
+                    type: integer
+                    description: Number of sessions per page
+                  total_pages:
+                    type: integer
+                    description: Total number of pages
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Only an account platform token can list sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Account
+      summary: Sign out every other session
+      description: |
+        Revokes every session of the account except the one the calling token
+        was created from, browser sessions included, along with their tokens.
+      operationId: revokeOtherAccountSessions
+      security:
+        - UserToken: []
+      responses:
+        '204':
+          description: Every other session revoked
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Only an account platform token can revoke sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/sessions/{sessionId}:
+    delete:
+      tags:
+        - Account
+      summary: Revoke one session
+      description: |
+        Revokes one of the account's sessions and the platform tokens created
+        from it.
+      operationId: revokeAccountSession
+      security:
+        - UserToken: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: The session to revoke
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Only an account platform token can revoke sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No such session on this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /user/git/connect:
     post:
       tags:
