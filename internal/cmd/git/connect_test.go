@@ -37,8 +37,6 @@ func TestConnectBindsTheRepositoryFromTheLocalRemote(t *testing.T) {
 	assert.NotContains(t, body, "root_directory")
 }
 
-// The CLI must never write a credential into .git/config. The strongest local
-// proof is that it only ever runs read commands against the repository.
 // A connected repository that deploys only its functions looks complete, and
 // a site that never deploys gives no clue why, so connect names the command
 // that adds a frontend.
@@ -66,6 +64,8 @@ func TestConnectNamesTheFrontendAPushDeploys(t *testing.T) {
 	assert.NotContains(t, out, "To deploy a frontend")
 }
 
+// The CLI must never write a credential into .git/config. The strongest local
+// proof is that it only ever runs read commands against the repository.
 func TestConnectOnlyReadsTheLocalRepository(t *testing.T) {
 	setGitCommandTestHome(t)
 	api := newGitAPI(t)

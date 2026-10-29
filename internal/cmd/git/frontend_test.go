@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	apierr "github.com/Kong/volcano-cli/internal/api"
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
 )
 
@@ -52,6 +53,8 @@ func TestFrontendKeepsTheOtherDeploySettings(t *testing.T) {
 	}, api.sentSettingsBody())
 	assert.Contains(t, out, "Frontend set to web\n")
 	assert.Contains(t, out, "Auto-deploy is off, so a push to main will not deploy anything.")
+	assert.NotContains(t, out, "The next push to main deploys this frontend.",
+		"no push deploys anything while auto-deploy is off")
 }
 
 func TestFrontendNoneDeploysNoFrontend(t *testing.T) {
@@ -177,5 +180,20 @@ func TestFrontendReportsAMissingProject(t *testing.T) {
 	_, err := executeGitCommand(t, api.serve(), nil, "", "frontend", "web")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "the selected project does not exist")
+	assert.Nil(t, api.sentSettingsBody())
+}
+
+// A project deleted after its binding was read answers 404 on the settings.
+// The API error stays the cause, so the exit code still says "not found".
+func TestFrontendKeepsTheCauseWhenTheProjectGoesAway(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.deploySettingsStatus = http.StatusNotFound
+
+	_, err := executeGitCommand(t, api.serve(), nil, "", "frontend", "web")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "the selected project does not exist")
+	assert.Equal(t, http.StatusNotFound, apierr.Status(err))
 	assert.Nil(t, api.sentSettingsBody())
 }

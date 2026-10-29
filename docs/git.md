@@ -198,8 +198,9 @@ deploys it under this name.
 The other deploy settings, such as whether functions deploy, stay as they were.
 This works with a project access token, so a CI job or an agent can set it.
 
-Nothing is redeployed. The next push to the production branch deploys the
-frontend, and the command says what a push deploys from now on. `--none` stops
+Nothing is redeployed. While auto-deploy is on, the next push to the
+production branch deploys the frontend. The command says what a push deploys
+from now on, which is nothing while auto-deploy is off. `--none` stops
 pushes from redeploying a frontend, but a frontend already deployed stays up.
 
 The project needs a connected repository first, so on a project with nothing

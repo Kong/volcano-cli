@@ -100,11 +100,16 @@ func GitFrontendSet(w io.Writer, binding GitBinding) {
 		Success(w, "Frontend cleared, so a push deploys no frontend")
 	}
 	gitBindingDetail(w, theme.On(w), binding)
-	if frontend != "" {
+	switch {
+	case frontend == "":
+		Note(w, "Nothing was removed. A frontend already deployed stays up; pushes no longer redeploy it.")
+	case binding.Settings.AutoDeployEnabled:
 		Note(w, "Nothing was redeployed. The next push to %s deploys this frontend.",
 			binding.Connection.ProductionBranch)
-	} else {
-		Note(w, "Nothing was removed. A frontend already deployed stays up; pushes no longer redeploy it.")
+	default:
+		// Auto-deploy off: the settings below say no push deploys anything, so
+		// promising this one would contradict them.
+		Note(w, "Nothing was redeployed.")
 	}
 	gitDeploySettings(w, binding)
 }

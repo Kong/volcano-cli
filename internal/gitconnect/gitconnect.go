@@ -489,7 +489,7 @@ func (s Service) SetFrontend(ctx context.Context, name, appRoot string) (*apicli
 
 	current, err := authenticated.API.GetProjectGitDeploySettings(ctx, authenticated.ProjectID)
 	if err != nil {
-		return nil, settingsError(err, "failed to read the project's deploy settings")
+		return nil, settingsError(authenticated.ProjectID, err, "failed to read the project's deploy settings")
 	}
 	request := apiclient.UpdateProjectGitDeploySettingsRequest{
 		AutoDeployEnabled: current.AutoDeployEnabled,
@@ -503,17 +503,18 @@ func (s Service) SetFrontend(ctx context.Context, name, appRoot string) (*apicli
 	}
 	settings, err := authenticated.API.UpdateProjectGitDeploySettings(ctx, authenticated.ProjectID, request)
 	if err != nil {
-		return nil, settingsError(err, "failed to set the frontend")
+		return nil, settingsError(authenticated.ProjectID, err, "failed to set the frontend")
 	}
 	return settings, nil
 }
 
 // settingsError classifies a deploy-settings failure. The settings exist for
 // every project, connected or not, so a 404 on them means the project itself
-// is gone.
-func settingsError(err error, action string) error {
+// is gone. The API error stays the cause, so the exit code still says "not
+// found".
+func settingsError(projectID uuid.UUID, err error, action string) error {
 	if api.Status(err) == http.StatusNotFound {
-		return ErrProjectNotFound
+		return api.WithCause(fmt.Errorf("%w: %s", ErrProjectNotFound, projectID), err)
 	}
 	return classify(err, action)
 }
