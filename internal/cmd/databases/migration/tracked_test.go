@@ -385,6 +385,77 @@ func TestRunsListAndGet(t *testing.T) {
 	require.EqualError(t, err, `run ID "not-a-uuid" is not a UUID`)
 }
 
+// A run that ended while taking its backup may name one that was never
+// created, so the CLI does not claim it was taken.
+func TestApplyDoesNotClaimABackupItMayNotHaveTaken(t *testing.T) {
+	setTrackedMigrationTest(t)
+	writeMigrationFile(t, "001_create_notes.sql", "CREATE TABLE notes (id int);")
+	backup := "before-migration-" + migrationRunID
+	failed := migrationRun("failed", "backup", []string{"001_create_notes.sql:not_run"}, map[string]any{
+		"backup_name": backup,
+		"error":       map[string]any{"code": "backup_failed", "message": "the backup did not finish"},
+	})
+	fake := newFakeMigrationAPI(t)
+	fake.runs = []map[string]any{failed}
+	server := fake.start()
+
+	out, err := executeMigrationCommand(t, New(fake.deps(server)), "apply", "-d", "app")
+	require.Error(t, err)
+	assert.Contains(t, out, "Backup "+backup+" may not exist: the run ended while taking it")
+	assert.NotContains(t, out, "Backup taken first")
+
+	out, err = executeMigrationCommand(t, New(fake.deps(server)), "runs", "get", migrationRunID, "-d", "app")
+	require.NoError(t, err, out)
+	assert.Contains(t, out, "Backup: "+backup+" (may not exist: the run ended while taking it)")
+}
+
+// The API takes only a lowercase .sql name, so the tracked commands refuse
+// another casing before sending anything and say what to rename.
+func TestTrackedCommandsRefuseAnUppercaseExtension(t *testing.T) {
+	for _, args := range [][]string{
+		{"apply", "-d", "app"},
+		{"baseline", "-d", "app", "--all", "--yes"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			setTrackedMigrationTest(t)
+			writeMigrationFile(t, "001_create_notes.SQL", "CREATE TABLE notes (id int);")
+			fake := newFakeMigrationAPI(t)
+			server := fake.start()
+
+			_, err := executeMigrationCommand(t, New(fake.deps(server)), args...)
+			require.EqualError(t, err, "volcano/migrations/001_create_notes.SQL: tracked migration runs take only file names "+
+				"ending in lowercase .sql; rename it to 001_create_notes.sql")
+			assert.Empty(t, fake.recorded())
+			assert.Zero(t, fake.capReads)
+		})
+	}
+}
+
+// With --json, the confirmation goes to stderr so stdout holds only the
+// JSON document.
+func TestBaselineJSONKeepsThePromptOffStdout(t *testing.T) {
+	setTrackedMigrationTest(t)
+	writeMigrationFile(t, "001_create_notes.sql", "CREATE TABLE notes (id int);")
+	fake := newFakeMigrationAPI(t)
+	fake.baselineBody = map[string]any{"recorded": []string{"001_create_notes.sql"}}
+	server := fake.start()
+
+	cmd := New(fake.deps(server))
+	var stdout, stderr bytes.Buffer
+	cmd.SetIn(bytes.NewBufferString("yes\n"))
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"baseline", "-d", "app", "--all", "--json"})
+	require.NoError(t, cmd.Execute(), stderr.String())
+
+	var baseline struct {
+		Recorded []string `json:"recorded"`
+	}
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &baseline), stdout.String())
+	assert.Equal(t, []string{"001_create_notes.sql"}, baseline.Recorded)
+	assert.Contains(t, stderr.String(), "Record 1 file(s) as applied?")
+}
+
 // checksumOf is the checksum the history records for text that is already
 // normalized.
 func checksumOf(text string) string {

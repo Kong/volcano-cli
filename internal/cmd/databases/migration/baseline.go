@@ -59,6 +59,9 @@ Usage:
 			if err != nil {
 				return err
 			}
+			if err := clidatabase.CheckTrackedNames(files); err != nil {
+				return err
+			}
 			if err := clidatabase.NewService(deps).RequireMigrationRuns(cmd.Context()); err != nil {
 				return baselineUnavailable(err)
 			}
@@ -67,7 +70,12 @@ Usage:
 				for i, file := range files {
 					listed[i] = "  - " + file.Name()
 				}
-				confirmed, err := confirm.Action(cmd.InOrStdin(), cmd.OutOrStdout(),
+				// With --json, stdout carries only the JSON document.
+				prompt := cmd.OutOrStdout()
+				if jsonOutput {
+					prompt = cmd.ErrOrStderr()
+				}
+				confirmed, err := confirm.Action(cmd.InOrStdin(), prompt,
 					fmt.Sprintf("A baseline records these files in the migration history of database '%s' as applied, "+
 						"without running them. A file recorded this way never runs.\n%s", name, strings.Join(listed, "\n")),
 					fmt.Sprintf("Record %d file(s) as applied?", len(files)))

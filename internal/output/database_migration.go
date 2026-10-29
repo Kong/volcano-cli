@@ -93,7 +93,15 @@ func DatabaseMigrationRun(w io.Writer, run *apiclient.DatabaseMigrationRun) {
 	kv(w, on, "Phase", "%s", run.Phase)
 	kv(w, on, "Source", "%s", migrationRunSource(run))
 	if run.BackupName != nil && *run.BackupName != "" {
-		kv(w, on, "Backup", "%s", *run.BackupName)
+		backup := *run.BackupName
+		if run.Phase == apiclient.DatabaseMigrationRunPhaseBackup {
+			if run.Status == apiclient.DatabaseMigrationRunStatusFailed {
+				backup += " (may not exist: the run ended while taking it)"
+			} else {
+				backup += " (being taken)"
+			}
+		}
+		kv(w, on, "Backup", "%s", backup)
 	}
 	kv(w, on, "Created", "%s", FormatTimestamp(run.CreatedAt))
 	if run.CompletedAt != nil {

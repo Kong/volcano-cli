@@ -42,6 +42,7 @@ Migrations are SQL files in `volcano/migrations`. With one database, put them in
 `volcano/migrations` itself. With several, put each database's files in
 `volcano/migrations/<database>/`, and put nothing at the top level. Names that
 start with `_` or `.` are skipped, and files run in byte order of their names.
+Tracked runs take only names that end in lowercase `.sql`.
 Git deploy reads the directory the same way, so a layout the CLI refuses is one
 a push would refuse too.
 

@@ -75,6 +75,9 @@ func runApply(ctx context.Context, deps cliruntime.Deps, database string, wait, 
 		fmt.Fprintf(out, "No migration files for database '%s' in %s; nothing to apply\n", database, migrations.Location(database))
 		return nil
 	}
+	if err := clidatabase.CheckTrackedNames(files); err != nil {
+		return err
+	}
 	c := commands{deps: deps, database: database}
 	if err := c.explain(clidatabase.NewService(deps).RequireMigrationRuns(ctx)); err != nil {
 		return err
@@ -168,7 +171,11 @@ func printRunEnd(w io.Writer, run *apiclient.DatabaseMigrationRun) {
 			counts[apiclient.DatabaseMigrationRunFileOutcomeApplied], counts[apiclient.DatabaseMigrationRunFileOutcomeAlreadyApplied])
 	}
 	if run.BackupName != nil && *run.BackupName != "" {
-		fmt.Fprintf(w, "Backup taken first: %s\n", *run.BackupName)
+		if run.Phase == apiclient.DatabaseMigrationRunPhaseApply {
+			fmt.Fprintf(w, "Backup taken first: %s\n", *run.BackupName)
+		} else {
+			fmt.Fprintf(w, "Backup %s may not exist: the run ended while taking it\n", *run.BackupName)
+		}
 	}
 	output.MigrationRunFiles(w, shown)
 	output.MigrationRunWarnings(w, run.Warnings)

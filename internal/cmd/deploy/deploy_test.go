@@ -340,6 +340,15 @@ databases:
 			want: []string{"volcano/migrations mixes top-level files, such as 001_init.sql, with database directories, such as app/"},
 		},
 		{
+			name: "migration with an uppercase extension",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/migrations/001_init.SQL", "select 1;")
+			},
+			args: []string{"--with-migrations", "-d", "app"},
+			want: []string{"volcano/migrations/001_init.SQL: tracked migration runs take only file names ending in lowercase .sql; rename it to 001_init.sql"},
+		},
+		{
 			name: "database without migrations",
 			args: []string{"-d", "app"},
 			want: []string{`--database only picks where migrations go; add --with-migrations to apply them to "app"`},
@@ -786,6 +795,22 @@ func TestDeployWithMigrationsSkipsAProjectWithoutThem(t *testing.T) {
 
 	assert.Contains(t, out, "2. migrations  skipped: no migration files in volcano/migrations")
 	assert.NotContains(t, fake.reads, "capabilities")
+}
+
+// In a per-database layout, -d naming a database without a directory skips
+// the step and names the directory it looked in.
+func TestDeployWithMigrationsNamesTheDirectoryItFoundEmpty(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano.env", "API_URL=https://api.example.test\n")
+	writeDeployProjectFile(t, "volcano/migrations/main_db/001_notes.sql", "create table notes (id int);")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--with-migrations", "-d", "analytics")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, out, "2. migrations  skipped: no migration files in volcano/migrations/analytics")
+	assert.Empty(t, fake.migrationFiles)
 }
 
 func TestDeployStopsAtAFailedMigrationRun(t *testing.T) {

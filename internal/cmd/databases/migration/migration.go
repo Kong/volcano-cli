@@ -177,7 +177,7 @@ func runUp(ctx context.Context, opts upOptions) error {
 		return nil
 	}
 
-	migrationFiles, err := selectMigrationFiles(allMigrations, opts.file, opts.all)
+	migrationFiles, err := selectMigrationFiles(allMigrations, migrations.Location(opts.database), opts.file, opts.all)
 	if err != nil {
 		return err
 	}
@@ -222,14 +222,14 @@ func runUp(ctx context.Context, opts upOptions) error {
 	return nil
 }
 
-func selectMigrationFiles(allMigrations []clidatabase.MigrationFile, target string, all bool) ([]clidatabase.MigrationFile, error) {
+func selectMigrationFiles(allMigrations []clidatabase.MigrationFile, location, target string, all bool) ([]clidatabase.MigrationFile, error) {
 	if all {
 		return allMigrations, nil
 	}
 	if file, ok := findMigrationFile(allMigrations, target); ok {
 		return []clidatabase.MigrationFile{file}, nil
 	}
-	return nil, fmt.Errorf("migration %q not found in volcano/migrations/\navailable migrations: %s", target, formatMigrationNames(allMigrations))
+	return nil, fmt.Errorf("migration %q not found in %s/\navailable migrations: %s", target, location, formatMigrationNames(allMigrations))
 }
 
 // findMigrationFile matches target, a file name with or without .sql or a

@@ -515,7 +515,11 @@ func migrationTargets(opts options, manifests []manifestFile) ([]migrationTarget
 	}
 	targets := make([]migrationTarget, len(databases))
 	for i, database := range databases {
-		targets[i] = migrationTarget{database: database, location: migrations.Location(database), files: migrations.For(database)}
+		files := migrations.For(database)
+		if err := clidatabase.CheckTrackedNames(files); err != nil {
+			return nil, err
+		}
+		targets[i] = migrationTarget{database: database, location: migrations.Location(database), files: files}
 	}
 	return targets, nil
 }
@@ -659,6 +663,9 @@ func (b planBuilder) migrations(enabled bool, targets []migrationTarget) step {
 	if len(apply) == 0 {
 		s.skipped = true
 		s.detail = "no migration files in " + migrationsDir
+		if len(targets) == 1 {
+			s.detail = "no migration files in " + targets[0].location
+		}
 		return s
 	}
 	s.detail = strings.Join(details, ", ")

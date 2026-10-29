@@ -38,6 +38,20 @@ func (f MigrationFile) Checksum() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// CheckTrackedNames refuses a file whose name a tracked run would refuse: the
+// API takes only names ending in a lowercase .sql, while the directory is
+// read case-insensitively so that untracked runs keep taking .SQL files.
+func CheckTrackedNames(files []MigrationFile) error {
+	for _, file := range files {
+		name := file.Name()
+		if !strings.HasSuffix(name, ".sql") {
+			return fmt.Errorf("%s/%s: tracked migration runs take only file names ending in lowercase .sql; rename it to %s",
+				MigrationsDir, file.Path, strings.TrimSuffix(name, path.Ext(name))+".sql")
+		}
+	}
+	return nil
+}
+
 // Migrations are a project's migration files. Either every file sits in
 // MigrationsDir itself, for a project with one database, or every file sits
 // one directory down, in a directory named for its database. Git deploy reads

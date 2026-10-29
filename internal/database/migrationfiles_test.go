@@ -118,3 +118,9 @@ func TestMigrationChecksumIgnoresBOMAndCRLF(t *testing.T) {
 	assert.Equal(t, plain.Checksum(), MigrationFile{SQL: "\uFEFFCREATE TABLE notes (id int);\r\nSELECT 1;\r\n"}.Checksum())
 	assert.NotEqual(t, plain.Checksum(), MigrationFile{SQL: "CREATE TABLE notes (id int);\nSELECT 2;\n"}.Checksum())
 }
+
+func TestCheckTrackedNames(t *testing.T) {
+	require.NoError(t, CheckTrackedNames([]MigrationFile{{Path: "001_init.sql"}, {Path: "app/002_more.sql"}}))
+	require.EqualError(t, CheckTrackedNames([]MigrationFile{{Path: "app/002_more.Sql"}}),
+		"volcano/migrations/app/002_more.Sql: tracked migration runs take only file names ending in lowercase .sql; rename it to 002_more.sql")
+}
