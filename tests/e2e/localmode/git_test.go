@@ -4,10 +4,10 @@ import (
 	"testing"
 )
 
-// requireLocalModeLeavesGitToTheCloud points `volcano git root-directory` at
-// the local stack and checks it says why it cannot work there: the local stack
-// has no GitHub App, so no repository can be connected for a root directory to
-// belong to.
+// requireLocalModeLeavesGitToTheCloud points `volcano git root-directory` and
+// `volcano git frontend` at the local stack and checks they say why they cannot
+// work there: the local stack has no GitHub App, so no repository can be
+// connected for a root directory or a frontend to belong to.
 func requireLocalModeLeavesGitToTheCloud(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 	info := fetchVolcanoLocalModeE2EInfo(t, env)
@@ -24,4 +24,13 @@ func requireLocalModeLeavesGitToTheCloud(t *testing.T, binary string, env []stri
 	requireContains(t, output, "git provider integration is not configured on this API")
 	requireContains(t, output, "If this is local mode, that is expected")
 	requireNotContains(t, output, "Connect one with")
+
+	output, err = runVolcanoLocalModeE2EAllowFailure(t, binary, local, dir, "git", "frontend", "web", "--root", "apps/web")
+	if err == nil {
+		t.Fatalf("expected volcano git frontend to fail against the local stack\n%s", output)
+	}
+	requireContains(t, output, "git provider integration is not configured on this API")
+	requireContains(t, output, "If this is local mode, that is expected")
+	requireNotContains(t, output, "Connect one with")
+	requireNotContains(t, output, "Frontend set to")
 }

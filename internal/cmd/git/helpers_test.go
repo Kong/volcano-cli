@@ -193,11 +193,17 @@ type gitAPI struct {
 	// rootStatus and rootMessage make the root-directory route refuse.
 	rootStatus  int
 	rootMessage string
+	// settingsWriteStatus and settingsWriteMessage make the deploy-settings
+	// write refuse.
+	settingsWriteStatus  int
+	settingsWriteMessage string
 
 	mu          sync.Mutex
 	connectBody map[string]any
 	// rootBody is what the root-directory route was sent.
-	rootBody        map[string]any
+	rootBody map[string]any
+	// settingsBody is what the deploy-settings write was sent.
+	settingsBody    map[string]any
 	deleted         bool
 	connectionReads int
 	// accountReads counts the calls to the caller's own GitHub routes, which
@@ -263,6 +269,8 @@ func (a *gitAPI) handle(w http.ResponseWriter, r *http.Request) {
 		a.serveDisconnect(w)
 	case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
 		a.serveDeploySettings(w)
+	case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/git-deploy-settings"):
+		a.serveUpdateDeploySettings(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -452,6 +460,28 @@ func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
 		writeGitJSON(a.t, w, a.deploySettingsStatus, map[string]any{"error": "settings unavailable"})
 		return
 	}
+	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
+}
+
+// serveUpdateDeploySettings replaces every deploy setting with what it was
+// sent, as the platform does: a field left out is cleared, not kept.
+func (a *gitAPI) serveUpdateDeploySettings(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	require.NoError(a.t, json.NewDecoder(r.Body).Decode(&a.settingsBody))
+
+	if a.settingsWriteStatus != 0 {
+		writeGitJSON(a.t, w, a.settingsWriteStatus, map[string]any{"error": a.settingsWriteMessage})
+		return
+	}
+	a.autoDeploy, _ = a.settingsBody["auto_deploy_enabled"].(bool)
+	a.deployFunctions, _ = a.settingsBody["deploy_functions"].(bool)
+	a.frontend, _ = a.settingsBody["frontend_name"].(string)
+	a.frontendRoot, _ = a.settingsBody["frontend_app_root"].(string)
+	writeGitJSON(a.t, w, http.StatusOK, a.deploySettings())
+}
+
+func (a *gitAPI) deploySettings() map[string]any {
 	settings := map[string]any{
 		"auto_deploy_enabled": a.autoDeploy,
 		"deploy_functions":    a.deployFunctions,
@@ -463,7 +493,13 @@ func (a *gitAPI) serveDeploySettings(w http.ResponseWriter) {
 	if a.frontendRoot != "" {
 		settings["frontend_app_root"] = a.frontendRoot
 	}
-	writeGitJSON(a.t, w, http.StatusOK, settings)
+	return settings
+}
+
+func (a *gitAPI) sentSettingsBody() map[string]any {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.settingsBody
 }
 
 func (a *gitAPI) sentConnectBody() map[string]any {

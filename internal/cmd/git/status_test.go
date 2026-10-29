@@ -138,3 +138,29 @@ func TestStatusDoesNotGuessWhenTheProjectCannotBeConfirmed(t *testing.T) {
 	assert.NotContains(t, err.Error(), "does not exist")
 	assert.NotContains(t, err.Error(), "No repository is connected")
 }
+
+// A repository that deploys only its functions looks complete, so status says
+// how to deploy a frontend too, with the exact command.
+func TestStatusSaysHowToDeployAFrontend(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions\n")
+	assert.Contains(t, out, "To deploy a frontend on push too, run volcano git frontend <name> --root <path>\n")
+}
+
+func TestStatusNamesTheFrontendAndItsRoot(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.frontend = "web"
+	api.frontendRoot = "apps/web"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions, frontend web (apps/web)\n")
+	assert.NotContains(t, out, "To deploy a frontend")
+}

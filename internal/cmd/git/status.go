@@ -22,7 +22,7 @@ func newStatus(deps cliruntime.Deps) *cobra.Command {
 		Use:   "status",
 		Short: "Show the current project's Git connection",
 		Long: `Show which repository the current project is connected to, and what a push
-to it deploys.
+to it deploys, including the frontend and the directory it builds from.
 
 This reads the project's own binding and nothing else: it does not contact
 GitHub, so it reports what the platform has recorded rather than whether that
@@ -59,10 +59,11 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 
 	settings, settingsErr := service.DeploySettings(ctx)
 	output.GitStatus(opts.out, output.GitBinding{
-		Connection:  connection,
-		Settings:    settings,
-		SettingsErr: settingsErr,
-		Project:     project.Label(),
+		Connection:      connection,
+		Settings:        settings,
+		SettingsErr:     settingsErr,
+		Project:         project.Label(),
+		FrontendCommand: cliruntime.CommandPath(opts.deps, "git frontend"),
 	})
 	return nil
 }

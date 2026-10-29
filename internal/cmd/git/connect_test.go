@@ -37,6 +37,33 @@ func TestConnectBindsTheRepositoryFromTheLocalRemote(t *testing.T) {
 	assert.NotContains(t, body, "root_directory")
 }
 
+// A connected repository that deploys only its functions looks complete, and
+// a site that never deploys gives no clue why, so connect names the command
+// that adds a frontend.
+func TestConnectSaysHowToDeployAFrontend(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions\n")
+	assert.Contains(t, out, "To deploy a frontend on push too, run volcano git frontend <name> --root <path>\n")
+}
+
+func TestConnectNamesTheFrontendAPushDeploys(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.frontend = "web"
+	api.frontendRoot = "apps/web"
+	runner := &gitRunner{stdout: originRemoteOutput}
+
+	out, err := executeGitCommand(t, api.serve(), runner, "", "connect")
+	require.NoError(t, err)
+	assert.Contains(t, out, "A push to main deploys: functions, frontend web (apps/web)\n")
+	assert.NotContains(t, out, "To deploy a frontend")
+}
+
 // The CLI must never write a credential into .git/config. The strongest local
 // proof is that it only ever runs read commands against the repository.
 func TestConnectOnlyReadsTheLocalRepository(t *testing.T) {

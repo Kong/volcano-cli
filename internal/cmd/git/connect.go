@@ -193,6 +193,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 			Project:             project.Label(),
 			GitHubAccount:       target.ConnectionLogin,
 			InstallationAccount: target.InstallationAccount,
+			FrontendCommand:     cliruntime.CommandPath(opts.deps, "git frontend"),
 		})
 		return nil
 	}
@@ -249,6 +250,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		Project:             project.Label(),
 		GitHubAccount:       target.ConnectionLogin,
 		InstallationAccount: target.InstallationAccount,
+		FrontendCommand:     cliruntime.CommandPath(opts.deps, "git frontend"),
 	})
 	return nil
 }
