@@ -22,8 +22,9 @@ Run commands from the project root.
 3. Open the `web` URL the deploy prints
 
 `volcano deploy` saves the variables, applies the migrations, deploys the
-function and the frontend, then applies the project configuration. Migrations
-run again on every `--with-migrations` run; these are safe to repeat.
+function and the frontend, then applies the project configuration. Each
+migration runs once: the database records the files it applied, and later
+`--with-migrations` runs apply only new ones.
 
 To edit with hot reload, run `npm install` and `npm run dev`, then open
 [http://localhost:3000](http://localhost:3000).
@@ -32,7 +33,7 @@ The same steps one at a time:
 
 ```bash
 volcano variables deploy
-volcano migrations deploy --all -d app
+volcano databases migration apply -d app
 volcano functions deploy --all
 volcano frontends deploy --name web --path . --app-root web --variable-scope scoped \
   --variable NEXT_PUBLIC_VOLCANO_API_URL --variable NEXT_PUBLIC_VOLCANO_ANON_KEY \

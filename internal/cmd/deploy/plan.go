@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
 	configcmd "github.com/Kong/volcano-cli/internal/cmd/config"
 	migrationcmd "github.com/Kong/volcano-cli/internal/cmd/databases/migration"
@@ -20,6 +21,7 @@ import (
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
 	variablescmd "github.com/Kong/volcano-cli/internal/cmd/variables"
+	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	"github.com/Kong/volcano-cli/internal/envfile"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -32,7 +34,7 @@ import (
 
 const (
 	functionsDir         = "volcano/functions"
-	migrationsDir        = "volcano/migrations"
+	migrationsDir        = clidatabase.MigrationsDir
 	defaultLocalDatabase = "app"
 )
 
@@ -106,7 +108,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	database, err := migrationDatabase(opts, manifests)
+	migrations, err := migrationTargets(opts, manifests)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +117,11 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 	target, err := projects.CurrentTarget(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if hasMigrationFiles(migrations) {
+		if err := requireMigrationRuns(ctx, opts.deps, migrations); err != nil {
+			return nil, err
+		}
 	}
 	deploysCode := hasFunctions || len(durable) > 0 || len(frontends) > 0
 	if !opts.deps.LocalMode && deploysCode {
@@ -138,7 +145,7 @@ func prepare(ctx context.Context, opts options) (*plan, error) {
 		target: target,
 		steps: []step{
 			b.variables(envFile),
-			b.migrations(opts.withMigrations, database),
+			b.migrations(opts.withMigrations, migrations),
 			b.functions(hasFunctions, primaryPath, len(durable) > 0),
 			b.durable(durable, primaryPath),
 			frontendsStep,
@@ -471,16 +478,49 @@ func frontendPath(fe clifrontend.LayoutFrontend) string {
 	return filepath.FromSlash(fe.Dir())
 }
 
-// migrationDatabase picks the database --with-migrations applies to. Local
-// projects have one named app; a cloud project's comes from -d, or from the
-// manifests when they declare exactly one.
-func migrationDatabase(opts options, manifests []manifestFile) (string, error) {
+// migrationTarget is a database --with-migrations applies files to.
+type migrationTarget struct {
+	database string
+	location string
+	files    []clidatabase.MigrationFile
+}
+
+// migrationTargets picks the databases --with-migrations applies to and their
+// files. -d names one. Otherwise, with a directory per database, every
+// directory's database; with the files in volcano/migrations itself, a local
+// project's database named app, or the one database the manifests declare.
+func migrationTargets(opts options, manifests []manifestFile) ([]migrationTarget, error) {
 	if !opts.withMigrations && opts.database != "" {
-		return "", fmt.Errorf("--database only picks where migrations go; add --with-migrations to apply them to %q", opts.database)
+		return nil, fmt.Errorf("--database only picks where migrations go; add --with-migrations to apply them to %q", opts.database)
 	}
-	if !opts.withMigrations || opts.database != "" {
-		return opts.database, nil
+	if !opts.withMigrations {
+		return nil, nil
 	}
+	migrations, err := clidatabase.ReadMigrations(migrationsDir)
+	if err != nil {
+		return nil, err
+	}
+	var databases []string
+	switch {
+	case opts.database != "":
+		databases = []string{opts.database}
+	case migrations.Nested():
+		databases = migrations.Databases()
+	default:
+		database, err := defaultMigrationDatabase(opts, manifests)
+		if err != nil {
+			return nil, err
+		}
+		databases = []string{database}
+	}
+	targets := make([]migrationTarget, len(databases))
+	for i, database := range databases {
+		targets[i] = migrationTarget{database: database, location: migrations.Location(database), files: migrations.For(database)}
+	}
+	return targets, nil
+}
+
+func defaultMigrationDatabase(opts options, manifests []manifestFile) (string, error) {
 	if opts.deps.LocalMode {
 		return defaultLocalDatabase, nil
 	}
@@ -503,6 +543,30 @@ func migrationDatabase(opts options, manifests []manifestFile) (string, error) {
 	default:
 		return "", fmt.Errorf("--with-migrations needs --database: the manifests declare %d databases (%s)", len(declared), strings.Join(declared, ", "))
 	}
+}
+
+// requireMigrationRuns refuses the whole deploy, before anything changes,
+// where the API takes no tracked migration runs, and names the commands that
+// run the files without tracking instead.
+func requireMigrationRuns(ctx context.Context, deps cliruntime.Deps, targets []migrationTarget) error {
+	err := clidatabase.NewService(deps).RequireMigrationRuns(ctx)
+	if !errors.Is(err, clidatabase.ErrMigrationRunsUnavailable) {
+		return err
+	}
+	var untracked []string
+	for _, target := range targets {
+		if len(target.files) > 0 {
+			untracked = append(untracked, cliruntime.CommandPath(deps, "databases migration up --all -d "+cliruntime.ShellQuote(target.database)))
+		}
+	}
+	return api.WithCause(fmt.Errorf("--with-migrations applies migrations in tracked runs, which aren't available on this Volcano API "+
+		"(capability %q). Nothing was deployed.\n"+
+		"To run the files without tracking, which runs every file again, use:\n  %s\nthen deploy without --with-migrations",
+		clidatabase.MigrationsCapability, strings.Join(untracked, "\n  ")), err)
+}
+
+func hasMigrationFiles(targets []migrationTarget) bool {
+	return slices.ContainsFunc(targets, func(t migrationTarget) bool { return len(t.files) > 0 })
 }
 
 func isDir(path string) (bool, error) {
@@ -576,21 +640,41 @@ func (b planBuilder) variables(envFile string) step {
 	return s
 }
 
-func (b planBuilder) migrations(enabled bool, database string) step {
+func (b planBuilder) migrations(enabled bool, targets []migrationTarget) step {
 	s := step{name: stepMigrations}
 	if !enabled {
 		s.skipped = true
 		s.detail = "pass --with-migrations to apply " + migrationsDir
 		return s
 	}
-	s.detail = migrationsDir + " -> database " + database
-	if b.deps.LocalMode {
-		s.manual = []string{b.command("migrations deploy --all -d " + database)}
-	} else {
-		s.manual = []string{b.command("databases migration up --all -d " + database)}
+	var details []string
+	var apply []migrationTarget
+	for _, target := range targets {
+		if len(target.files) > 0 {
+			details = append(details, target.location+" -> database "+target.database)
+			apply = append(apply, target)
+			s.manual = append(s.manual, b.command("databases migration apply -d "+cliruntime.ShellQuote(target.database)))
+		}
 	}
+	if len(apply) == 0 {
+		s.skipped = true
+		s.detail = "no migration files in " + migrationsDir
+		return s
+	}
+	s.detail = strings.Join(details, ", ")
 	s.run = func(ctx context.Context, r *runner) error {
-		return migrationcmd.ApplyAll(ctx, r.opts.deps, database, r.opts.out)
+		for _, target := range apply {
+			if _, err := migrationcmd.Apply(ctx, r.opts.deps, migrationcmd.ApplyOptions{
+				Database: target.database,
+				Files:    target.files,
+				Location: target.location,
+				Wait:     true,
+				Out:      r.opts.out,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	return s
 }

@@ -666,6 +666,213 @@ func (e DatabaseBranchStatus) Valid() bool {
 	}
 }
 
+// Defines values for DatabaseMigrationHistoryEntryStatus.
+const (
+	DatabaseMigrationHistoryEntryStatusApplied   DatabaseMigrationHistoryEntryStatus = "applied"
+	DatabaseMigrationHistoryEntryStatusBaselined DatabaseMigrationHistoryEntryStatus = "baselined"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationHistoryEntryStatus enum.
+func (e DatabaseMigrationHistoryEntryStatus) Valid() bool {
+	switch e {
+	case DatabaseMigrationHistoryEntryStatusApplied:
+		return true
+	case DatabaseMigrationHistoryEntryStatusBaselined:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunPhase.
+const (
+	DatabaseMigrationRunPhaseApply    DatabaseMigrationRunPhase = "apply"
+	DatabaseMigrationRunPhaseBackup   DatabaseMigrationRunPhase = "backup"
+	DatabaseMigrationRunPhasePlan     DatabaseMigrationRunPhase = "plan"
+	DatabaseMigrationRunPhaseRehearse DatabaseMigrationRunPhase = "rehearse"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunPhase enum.
+func (e DatabaseMigrationRunPhase) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunPhaseApply:
+		return true
+	case DatabaseMigrationRunPhaseBackup:
+		return true
+	case DatabaseMigrationRunPhasePlan:
+		return true
+	case DatabaseMigrationRunPhaseRehearse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunSource.
+const (
+	DatabaseMigrationRunSourceApi       DatabaseMigrationRunSource = "api"
+	DatabaseMigrationRunSourceGitDeploy DatabaseMigrationRunSource = "git_deploy"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunSource enum.
+func (e DatabaseMigrationRunSource) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunSourceApi:
+		return true
+	case DatabaseMigrationRunSourceGitDeploy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunStatus.
+const (
+	DatabaseMigrationRunStatusFailed    DatabaseMigrationRunStatus = "failed"
+	DatabaseMigrationRunStatusQueued    DatabaseMigrationRunStatus = "queued"
+	DatabaseMigrationRunStatusRunning   DatabaseMigrationRunStatus = "running"
+	DatabaseMigrationRunStatusSucceeded DatabaseMigrationRunStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunStatus enum.
+func (e DatabaseMigrationRunStatus) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunStatusFailed:
+		return true
+	case DatabaseMigrationRunStatusQueued:
+		return true
+	case DatabaseMigrationRunStatusRunning:
+		return true
+	case DatabaseMigrationRunStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunErrorCode.
+const (
+	AttemptsExhausted    DatabaseMigrationRunErrorCode = "attempts_exhausted"
+	BackupFailed         DatabaseMigrationRunErrorCode = "backup_failed"
+	BranchLimit          DatabaseMigrationRunErrorCode = "branch_limit"
+	ChecksumMismatch     DatabaseMigrationRunErrorCode = "checksum_mismatch"
+	ConnectionFailed     DatabaseMigrationRunErrorCode = "connection_failed"
+	DatabaseUnavailable  DatabaseMigrationRunErrorCode = "database_unavailable"
+	HistoryMissing       DatabaseMigrationRunErrorCode = "history_missing"
+	HistoryTooLarge      DatabaseMigrationRunErrorCode = "history_too_large"
+	InternalError        DatabaseMigrationRunErrorCode = "internal_error"
+	InvalidFile          DatabaseMigrationRunErrorCode = "invalid_file"
+	InvalidLayout        DatabaseMigrationRunErrorCode = "invalid_layout"
+	Locked               DatabaseMigrationRunErrorCode = "locked"
+	MigrationFailed      DatabaseMigrationRunErrorCode = "migration_failed"
+	PlanChanged          DatabaseMigrationRunErrorCode = "plan_changed"
+	RehearsalUnavailable DatabaseMigrationRunErrorCode = "rehearsal_unavailable"
+	RestoreInProgress    DatabaseMigrationRunErrorCode = "restore_in_progress"
+	Timeout              DatabaseMigrationRunErrorCode = "timeout"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunErrorCode enum.
+func (e DatabaseMigrationRunErrorCode) Valid() bool {
+	switch e {
+	case AttemptsExhausted:
+		return true
+	case BackupFailed:
+		return true
+	case BranchLimit:
+		return true
+	case ChecksumMismatch:
+		return true
+	case ConnectionFailed:
+		return true
+	case DatabaseUnavailable:
+		return true
+	case HistoryMissing:
+		return true
+	case HistoryTooLarge:
+		return true
+	case InternalError:
+		return true
+	case InvalidFile:
+		return true
+	case InvalidLayout:
+		return true
+	case Locked:
+		return true
+	case MigrationFailed:
+		return true
+	case PlanChanged:
+		return true
+	case RehearsalUnavailable:
+		return true
+	case RestoreInProgress:
+		return true
+	case Timeout:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationRunFileOutcome.
+const (
+	DatabaseMigrationRunFileOutcomeAlreadyApplied DatabaseMigrationRunFileOutcome = "already_applied"
+	DatabaseMigrationRunFileOutcomeApplied        DatabaseMigrationRunFileOutcome = "applied"
+	DatabaseMigrationRunFileOutcomeFailed         DatabaseMigrationRunFileOutcome = "failed"
+	DatabaseMigrationRunFileOutcomeNotRun         DatabaseMigrationRunFileOutcome = "not_run"
+	DatabaseMigrationRunFileOutcomePending        DatabaseMigrationRunFileOutcome = "pending"
+	DatabaseMigrationRunFileOutcomeUnknown        DatabaseMigrationRunFileOutcome = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationRunFileOutcome enum.
+func (e DatabaseMigrationRunFileOutcome) Valid() bool {
+	switch e {
+	case DatabaseMigrationRunFileOutcomeAlreadyApplied:
+		return true
+	case DatabaseMigrationRunFileOutcomeApplied:
+		return true
+	case DatabaseMigrationRunFileOutcomeFailed:
+		return true
+	case DatabaseMigrationRunFileOutcomeNotRun:
+		return true
+	case DatabaseMigrationRunFileOutcomePending:
+		return true
+	case DatabaseMigrationRunFileOutcomeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseMigrationWarningCode.
+const (
+	BackupPruneFailed DatabaseMigrationWarningCode = "backup_prune_failed"
+	BackupSkipped     DatabaseMigrationWarningCode = "backup_skipped"
+	MissingFile       DatabaseMigrationWarningCode = "missing_file"
+	OutOfOrder        DatabaseMigrationWarningCode = "out_of_order"
+	RehearsalSkipped  DatabaseMigrationWarningCode = "rehearsal_skipped"
+	WarningsTruncated DatabaseMigrationWarningCode = "warnings_truncated"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseMigrationWarningCode enum.
+func (e DatabaseMigrationWarningCode) Valid() bool {
+	switch e {
+	case BackupPruneFailed:
+		return true
+	case BackupSkipped:
+		return true
+	case MissingFile:
+		return true
+	case OutOfOrder:
+		return true
+	case RehearsalSkipped:
+		return true
+	case WarningsTruncated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DatabaseQueryFilterOperator.
 const (
 	DatabaseQueryFilterOperatorEq    DatabaseQueryFilterOperator = "eq"
@@ -3731,28 +3938,28 @@ func (e UploadSessionStatusResponseStatus) Valid() bool {
 
 // Defines values for VariableDeploySource.
 const (
-	VariableDeploySourceApi     VariableDeploySource = "api"
-	VariableDeploySourceCli     VariableDeploySource = "cli"
-	VariableDeploySourceGit     VariableDeploySource = "git"
-	VariableDeploySourceSystem  VariableDeploySource = "system"
-	VariableDeploySourceUnknown VariableDeploySource = "unknown"
-	VariableDeploySourceWeb     VariableDeploySource = "web"
+	Api     VariableDeploySource = "api"
+	Cli     VariableDeploySource = "cli"
+	Git     VariableDeploySource = "git"
+	System  VariableDeploySource = "system"
+	Unknown VariableDeploySource = "unknown"
+	Web     VariableDeploySource = "web"
 )
 
 // Valid indicates whether the value is a known member of the VariableDeploySource enum.
 func (e VariableDeploySource) Valid() bool {
 	switch e {
-	case VariableDeploySourceApi:
+	case Api:
 		return true
-	case VariableDeploySourceCli:
+	case Cli:
 		return true
-	case VariableDeploySourceGit:
+	case Git:
 		return true
-	case VariableDeploySourceSystem:
+	case System:
 		return true
-	case VariableDeploySourceUnknown:
+	case Unknown:
 		return true
-	case VariableDeploySourceWeb:
+	case Web:
 		return true
 	default:
 		return false
@@ -6256,6 +6463,303 @@ type DatabaseInsertRequest struct {
 	// so send them to `json` or `jsonb` columns. For a Postgres array
 	// column, send an array literal string such as `"{a,b}"`.
 	Values map[string]interface{} `json:"values"`
+}
+
+// DatabaseMigrationBaseline defines model for DatabaseMigrationBaseline.
+type DatabaseMigrationBaseline struct {
+	// Recorded The files this request recorded, in name order. Empty when the
+	// history already recorded every file.
+	Recorded []string `json:"recorded"`
+}
+
+// DatabaseMigrationConflictError defines model for DatabaseMigrationConflictError.
+type DatabaseMigrationConflictError struct {
+	// Code Stable machine-readable error code when a specific recovery path is available.
+	Code  *string             `json:"code,omitempty"`
+	Error string              `json:"error"`
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+}
+
+// DatabaseMigrationFile One migration file and its SQL.
+type DatabaseMigrationFile struct {
+	// Name The file's path under `volcano/migrations/`: a file name such as
+	// `001_create_users.sql`, or `<database>/001_create_users.sql` in a
+	// project with more than one database, where `<database>` must be
+	// this database. Every file in a request takes the same form. Files
+	// run in byte order of their file name, which the history records.
+	Name string `json:"name"`
+
+	// Sql The file's SQL, at most 1 MiB. A file may hold several statements
+	// and runs in one transaction. A file cannot commit, roll back, use
+	// savepoints, or `COPY` from the client, and statements that cannot
+	// run in a transaction, such as `CREATE INDEX CONCURRENTLY`, are not
+	// supported yet; such a file fails with `migration_failed`.
+	Sql string `json:"sql"`
+}
+
+// DatabaseMigrationFileError The database's error for a failed file. `message` is the database's own
+// message and can quote values from the file or the data.
+type DatabaseMigrationFileError struct {
+	// Line The line of the file the database reported, when known.
+	Line *int `json:"line,omitempty"`
+
+	// Message At most 8 KiB (8,192 bytes). A longer message is cut and ends with
+	// ` … [truncated]`. Volcano reads each reply the database sends about
+	// the file up to 4 MiB, which leaves room for a reply that quotes the
+	// whole file twice. A larger reply is not read: the file fails, and
+	// this message says so instead.
+	Message string `json:"message"`
+
+	// Sqlstate The Postgres error code, when the database reported one.
+	Sqlstate *string `json:"sqlstate,omitempty"`
+}
+
+// DatabaseMigrationFilesRequest defines model for DatabaseMigrationFilesRequest.
+type DatabaseMigrationFilesRequest struct {
+	Files []DatabaseMigrationFile `json:"files"`
+}
+
+// DatabaseMigrationHistoryEntry One file the database's migration history records.
+type DatabaseMigrationHistoryEntry struct {
+	AppliedAt time.Time `json:"applied_at"`
+
+	// Checksum `sha256:` and the hex digest of the file as recorded, with a leading
+	// byte order mark removed and CRLF line endings converted to LF.
+	Checksum string `json:"checksum"`
+	Name     string `json:"name"`
+
+	// RunId The run that recorded the file. Absent for a baseline.
+	RunId *openapi_types.UUID `json:"run_id,omitempty"`
+
+	// Status `applied`: a run ran the file and it committed. `baselined`: the file
+	// was recorded as applied without running.
+	Status DatabaseMigrationHistoryEntryStatus `json:"status"`
+}
+
+// DatabaseMigrationHistoryEntryStatus `applied`: a run ran the file and it committed. `baselined`: the file
+// was recorded as applied without running.
+type DatabaseMigrationHistoryEntryStatus string
+
+// DatabaseMigrationRun One application of migration files to a database. A run plans the files
+// against the database's history, rehearses the pending ones on a
+// short-lived branch, takes a backup, and applies them.
+type DatabaseMigrationRun struct {
+	// BackupName The backup the run takes before it applies the files, named once
+	// the run starts taking it. It is listed with the database's backups
+	// with `source: migration`. A run that ended in its `backup` phase
+	// may name a backup that was never created.
+	BackupName *string `json:"backup_name,omitempty"`
+
+	// CommitSha The commit whose files the run applies. Present for `git_deploy` runs.
+	CommitSha   *string    `json:"commit_sha,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+
+	// Database Stable reference to a Volcano resource.
+	Database ResourceReference `json:"database"`
+
+	// Error Why the run failed, or why its last attempt did.
+	Error *DatabaseMigrationRunError `json:"error,omitempty"`
+
+	// Files The run's files, in the order they run, with what became of each.
+	// Absent when listing runs.
+	Files *[]DatabaseMigrationRunFile `json:"files,omitempty"`
+	Id    openapi_types.UUID          `json:"id"`
+
+	// Phase The step the run is on, or the one it ended on. `plan` compares the
+	// files with the history. `rehearse` applies the pending files to a
+	// short-lived branch of the database, which is deleted afterwards.
+	// `backup` takes the backup named by `backup_name`. `apply` applies
+	// the files to the database.
+	Phase DatabaseMigrationRunPhase `json:"phase"`
+
+	// Source What started the run.
+	Source DatabaseMigrationRunSource `json:"source"`
+
+	// StartedAt When a worker first picked the run up.
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// Status `queued` and `running` mean the run has not ended; a run waiting
+	// to retry stays `running`. `succeeded`: every pending file was
+	// applied, or none was pending. `failed`: `error` says why.
+	Status    DatabaseMigrationRunStatus `json:"status"`
+	UpdatedAt time.Time                  `json:"updated_at"`
+
+	// Warnings A run keeps at most 100 warnings, keeping those about the run, such
+	// as a skipped backup, ahead of those about files. A run that raised
+	// more ends the list with a `warnings_truncated` warning.
+	Warnings []DatabaseMigrationWarning `json:"warnings"`
+}
+
+// DatabaseMigrationRunPhase The step the run is on, or the one it ended on. `plan` compares the
+// files with the history. `rehearse` applies the pending files to a
+// short-lived branch of the database, which is deleted afterwards.
+// `backup` takes the backup named by `backup_name`. `apply` applies
+// the files to the database.
+type DatabaseMigrationRunPhase string
+
+// DatabaseMigrationRunSource What started the run.
+type DatabaseMigrationRunSource string
+
+// DatabaseMigrationRunStatus `queued` and `running` mean the run has not ended; a run waiting
+// to retry stays `running`. `succeeded`: every pending file was
+// applied, or none was pending. `failed`: `error` says why.
+type DatabaseMigrationRunStatus string
+
+// DatabaseMigrationRunError Why the run failed, or why its last attempt did.
+type DatabaseMigrationRunError struct {
+	// Code Stable machine-readable reason. `migration_failed`: a file's SQL,
+	// or its `COMMIT`, failed; `phase` says whether in the rehearsal,
+	// leaving the database untouched, or in the database, where the files
+	// before it stay applied. `checksum_mismatch`: an applied file changed.
+	// `history_missing`: the database's history table is gone though
+	// migrations ran there; record a baseline of the files already
+	// applied. Dropping the whole `_volcano_migrations` schema is not
+	// supported and not detected: the database reads as new, and the run
+	// applies every file again. `history_too_large`: the history has
+	// more than the 1,000 entries Volcano reads. `invalid_file`: a file
+	// Volcano refuses to run. `invalid_layout`: file paths that do not map
+	// to the database.
+	// `plan_changed`: the history changed after the rehearsal.
+	// `branch_limit`: the rehearsal branch would exceed the plan's branch
+	// allowance. `backup_failed` and `rehearsal_unavailable`: Volcano
+	// could not take the backup or prepare the rehearsal.
+	// `restore_in_progress` and `database_unavailable`: the database could
+	// not take the run. `locked`: another session held the migration lock,
+	// or a file waited too long for a lock. `connection_failed`: the
+	// database could not be reached, or the connection was lost,
+	// including while a file ran. `internal_error`: Volcano failed for a
+	// reason of its own, such as its own statements around a file.
+	// `timeout` and `attempts_exhausted`: the run could not finish.
+	Code DatabaseMigrationRunErrorCode `json:"code"`
+
+	// Message What happened, naming files and Postgres error codes. The
+	// database's own message is on the failed file.
+	Message string `json:"message"`
+}
+
+// DatabaseMigrationRunErrorCode Stable machine-readable reason. `migration_failed`: a file's SQL,
+// or its `COMMIT`, failed; `phase` says whether in the rehearsal,
+// leaving the database untouched, or in the database, where the files
+// before it stay applied. `checksum_mismatch`: an applied file changed.
+// `history_missing`: the database's history table is gone though
+// migrations ran there; record a baseline of the files already
+// applied. Dropping the whole `_volcano_migrations` schema is not
+// supported and not detected: the database reads as new, and the run
+// applies every file again. `history_too_large`: the history has
+// more than the 1,000 entries Volcano reads. `invalid_file`: a file
+// Volcano refuses to run. `invalid_layout`: file paths that do not map
+// to the database.
+// `plan_changed`: the history changed after the rehearsal.
+// `branch_limit`: the rehearsal branch would exceed the plan's branch
+// allowance. `backup_failed` and `rehearsal_unavailable`: Volcano
+// could not take the backup or prepare the rehearsal.
+// `restore_in_progress` and `database_unavailable`: the database could
+// not take the run. `locked`: another session held the migration lock,
+// or a file waited too long for a lock. `connection_failed`: the
+// database could not be reached, or the connection was lost,
+// including while a file ran. `internal_error`: Volcano failed for a
+// reason of its own, such as its own statements around a file.
+// `timeout` and `attempts_exhausted`: the run could not finish.
+type DatabaseMigrationRunErrorCode string
+
+// DatabaseMigrationRunFile defines model for DatabaseMigrationRunFile.
+type DatabaseMigrationRunFile struct {
+	// Error The database's error for a failed file. `message` is the database's own
+	// message and can quote values from the file or the data.
+	Error *DatabaseMigrationFileError `json:"error,omitempty"`
+	Name  string                      `json:"name"`
+
+	// Outcome `pending`: not settled yet, including a file the run will try again
+	// on its next attempt. `already_applied`: the history already recorded
+	// it, so it did not run; a file can also end this way in `apply`, when
+	// another session applied or baselined it after the run planned.
+	// `applied`: this run applied it. `failed`: its own SQL failed and
+	// its transaction rolled back, in the rehearsal or in the database as
+	// the run's `phase` says, including when the run's time limit stopped
+	// it; a file whose `COMMIT` failed is `unknown` instead. `not_run`:
+	// the run ended before the file committed, without its SQL failing:
+	// before `apply`, after an earlier file failed or lost its `COMMIT`,
+	// or after the connection was lost or Volcano's own statements around
+	// the file failed, which rolled it back. `unknown`: the run ended
+	// in `apply` without confirming whether the file ran, for example
+	// because its attempts ran out or its `COMMIT` failed or was cut
+	// short. The file may have committed; the database's history says,
+	// and the next run's plan applies it only if it is not recorded.
+	// While the run is `queued` or `running`, each attempt reads the
+	// history again before it runs a file, and sets every file the run
+	// has not applied from it: `already_applied` if the history holds
+	// it, `pending` otherwise.
+	Outcome DatabaseMigrationRunFileOutcome `json:"outcome"`
+}
+
+// DatabaseMigrationRunFileOutcome `pending`: not settled yet, including a file the run will try again
+// on its next attempt. `already_applied`: the history already recorded
+// it, so it did not run; a file can also end this way in `apply`, when
+// another session applied or baselined it after the run planned.
+// `applied`: this run applied it. `failed`: its own SQL failed and
+// its transaction rolled back, in the rehearsal or in the database as
+// the run's `phase` says, including when the run's time limit stopped
+// it; a file whose `COMMIT` failed is `unknown` instead. `not_run`:
+// the run ended before the file committed, without its SQL failing:
+// before `apply`, after an earlier file failed or lost its `COMMIT`,
+// or after the connection was lost or Volcano's own statements around
+// the file failed, which rolled it back. `unknown`: the run ended
+// in `apply` without confirming whether the file ran, for example
+// because its attempts ran out or its `COMMIT` failed or was cut
+// short. The file may have committed; the database's history says,
+// and the next run's plan applies it only if it is not recorded.
+// While the run is `queued` or `running`, each attempt reads the
+// history again before it runs a file, and sets every file the run
+// has not applied from it: `already_applied` if the history holds
+// it, `pending` otherwise.
+type DatabaseMigrationRunFileOutcome string
+
+// DatabaseMigrationRunList defines model for DatabaseMigrationRunList.
+type DatabaseMigrationRunList struct {
+	Data []DatabaseMigrationRun `json:"data"`
+}
+
+// DatabaseMigrationWarning A condition the run reports that did not stop it.
+type DatabaseMigrationWarning struct {
+	// Code `out_of_order`: a pending file sorts before one the history already
+	// records; it still ran. `missing_file`: the history records a file
+	// the run did not include. `rehearsal_skipped`: the files were not
+	// rehearsed, because branches are not available here or on the plan.
+	// `backup_skipped`: no backup was taken, because backups are not
+	// available here or on the plan. `backup_prune_failed`: Volcano
+	// could not delete older migration backups beyond the 20 it keeps;
+	// the run's outcome is unaffected, and the next run that takes a
+	// backup tries again. `warnings_truncated`: the run raised more than
+	// 100 warnings; it is the last one, and its message says how many
+	// more were not kept.
+	Code DatabaseMigrationWarningCode `json:"code"`
+
+	// File The file the warning is about, when it is about one.
+	File    *string `json:"file,omitempty"`
+	Message string  `json:"message"`
+}
+
+// DatabaseMigrationWarningCode `out_of_order`: a pending file sorts before one the history already
+// records; it still ran. `missing_file`: the history records a file
+// the run did not include. `rehearsal_skipped`: the files were not
+// rehearsed, because branches are not available here or on the plan.
+// `backup_skipped`: no backup was taken, because backups are not
+// available here or on the plan. `backup_prune_failed`: Volcano
+// could not delete older migration backups beyond the 20 it keeps;
+// the run's outcome is unaffected, and the next run that takes a
+// backup tries again. `warnings_truncated`: the run raised more than
+// 100 warnings; it is the last one, and its message says how many
+// more were not kept.
+type DatabaseMigrationWarningCode string
+
+// DatabaseMigrations defines model for DatabaseMigrations.
+type DatabaseMigrations struct {
+	// ActiveRunId The run that is queued or running, if any.
+	ActiveRunId *openapi_types.UUID `json:"active_run_id,omitempty"`
+
+	// History Every file the history records, in name order.
+	History []DatabaseMigrationHistoryEntry `json:"history"`
 }
 
 // DatabaseQueryFilter One WHERE condition. Conditions are combined with AND.
@@ -11521,6 +12025,9 @@ type LockRequestId = openapi_types.UUID
 // LockToken defines model for LockToken.
 type LockToken = openapi_types.UUID
 
+// MigrationRunId defines model for MigrationRunId.
+type MigrationRunId = openapi_types.UUID
+
 // Offset defines model for Offset.
 type Offset = int
 
@@ -12485,6 +12992,14 @@ type ListDatabasesParams struct {
 
 // ListDatabasesParamsStatus defines parameters for ListDatabases.
 type ListDatabasesParamsStatus string
+
+// CreateDatabaseMigrationRunParams defines parameters for CreateDatabaseMigrationRun.
+type CreateDatabaseMigrationRunParams struct {
+	// IdempotencyKey Makes the request safe to retry. A repeat with a key this database
+	// has seen returns the run it started. Reusing a key for different
+	// files answers `409`. Up to 255 printable ASCII characters.
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
 
 // GetProjectDatabaseQueriesParams defines parameters for GetProjectDatabaseQueries.
 type GetProjectDatabaseQueriesParams struct {
@@ -13647,6 +14162,12 @@ type CreateDatabaseBranchJSONRequestBody = CreateDatabaseBranchRequest
 
 // UpdateDatabaseBranchJSONRequestBody defines body for UpdateDatabaseBranch for application/json ContentType.
 type UpdateDatabaseBranchJSONRequestBody = UpdateDatabaseBranchRequest
+
+// CreateDatabaseMigrationRunJSONRequestBody defines body for CreateDatabaseMigrationRun for application/json ContentType.
+type CreateDatabaseMigrationRunJSONRequestBody = DatabaseMigrationFilesRequest
+
+// BaselineDatabaseMigrationsJSONRequestBody defines body for BaselineDatabaseMigrations for application/json ContentType.
+type BaselineDatabaseMigrationsJSONRequestBody = DatabaseMigrationFilesRequest
 
 // CreateDatabaseRestoreJSONRequestBody defines body for CreateDatabaseRestore for application/json ContentType.
 type CreateDatabaseRestoreJSONRequestBody = CreateDatabaseRestoreRequest
@@ -15788,6 +16309,25 @@ type ClientInterface interface {
 
 	// ResetDatabaseBranchPassword request
 	ResetDatabaseBranchPassword(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDatabaseMigrationRuns request
+	ListDatabaseMigrationRuns(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDatabaseMigrationRunWithBody request with any body
+	CreateDatabaseMigrationRunWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseMigrationRun request
+	GetDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDatabaseMigrations request
+	GetDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// BaselineDatabaseMigrationsWithBody request with any body
+	BaselineDatabaseMigrationsWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	BaselineDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectDatabaseQueries request
 	GetProjectDatabaseQueries(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -18931,6 +19471,90 @@ func (c *Client) ResetDatabaseBranch(ctx context.Context, id ProjectId, database
 
 func (c *Client) ResetDatabaseBranchPassword(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewResetDatabaseBranchPasswordRequest(c.Server, id, databaseName, branchName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDatabaseMigrationRuns(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDatabaseMigrationRunsRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseMigrationRunWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseMigrationRunRequestWithBody(c.Server, id, databaseName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDatabaseMigrationRunRequest(c.Server, id, databaseName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseMigrationRun(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseMigrationRunRequest(c.Server, id, databaseName, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDatabaseMigrationsRequest(c.Server, id, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BaselineDatabaseMigrationsWithBody(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBaselineDatabaseMigrationsRequestWithBody(c.Server, id, databaseName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) BaselineDatabaseMigrations(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBaselineDatabaseMigrationsRequest(c.Server, id, databaseName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -29346,6 +29970,259 @@ func NewResetDatabaseBranchPasswordRequest(server string, id ProjectId, database
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListDatabaseMigrationRunsRequest generates requests for ListDatabaseMigrationRuns
+func NewListDatabaseMigrationRunsRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDatabaseMigrationRunRequest calls the generic CreateDatabaseMigrationRun builder with application/json body
+func NewCreateDatabaseMigrationRunRequest(server string, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDatabaseMigrationRunRequestWithBody(server, id, databaseName, params, "application/json", bodyReader)
+}
+
+// NewCreateDatabaseMigrationRunRequestWithBody generates requests for CreateDatabaseMigrationRun with any type of body
+func NewCreateDatabaseMigrationRunRequestWithBody(server string, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetDatabaseMigrationRunRequest generates requests for GetDatabaseMigrationRun
+func NewGetDatabaseMigrationRunRequest(server string, id ProjectId, databaseName DatabaseName, runId MigrationRunId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "runId", runId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migration-runs/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDatabaseMigrationsRequest generates requests for GetDatabaseMigrations
+func NewGetDatabaseMigrationsRequest(server string, id ProjectId, databaseName DatabaseName) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migrations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBaselineDatabaseMigrationsRequest calls the generic BaselineDatabaseMigrations builder with application/json body
+func NewBaselineDatabaseMigrationsRequest(server string, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewBaselineDatabaseMigrationsRequestWithBody(server, id, databaseName, "application/json", bodyReader)
+}
+
+// NewBaselineDatabaseMigrationsRequestWithBody generates requests for BaselineDatabaseMigrations with any type of body
+func NewBaselineDatabaseMigrationsRequestWithBody(server string, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "databaseName", databaseName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/projects/%s/databases/%s/migrations/baseline", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -39875,6 +40752,25 @@ type ClientWithResponsesInterface interface {
 	// ResetDatabaseBranchPasswordWithResponse request
 	ResetDatabaseBranchPasswordWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, branchName BranchName, reqEditors ...RequestEditorFn) (*ResetDatabaseBranchPasswordClientResponse, error)
 
+	// ListDatabaseMigrationRunsWithResponse request
+	ListDatabaseMigrationRunsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseMigrationRunsClientResponse, error)
+
+	// CreateDatabaseMigrationRunWithBodyWithResponse request with any body
+	CreateDatabaseMigrationRunWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error)
+
+	CreateDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error)
+
+	// GetDatabaseMigrationRunWithResponse request
+	GetDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationRunClientResponse, error)
+
+	// GetDatabaseMigrationsWithResponse request
+	GetDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationsClientResponse, error)
+
+	// BaselineDatabaseMigrationsWithBodyWithResponse request with any body
+	BaselineDatabaseMigrationsWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error)
+
+	BaselineDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error)
+
 	// GetProjectDatabaseQueriesWithResponse request
 	GetProjectDatabaseQueriesWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *GetProjectDatabaseQueriesParams, reqEditors ...RequestEditorFn) (*GetProjectDatabaseQueriesClientResponse, error)
 
@@ -45471,6 +46367,171 @@ func (r ResetDatabaseBranchPasswordClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ResetDatabaseBranchPasswordClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDatabaseMigrationRunsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRunList
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDatabaseMigrationRunsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDatabaseMigrationRunsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDatabaseMigrationRunsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateDatabaseMigrationRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRun
+	JSON202      *DatabaseMigrationRun
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *DatabaseMigrationConflictError
+	JSON413      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDatabaseMigrationRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDatabaseMigrationRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateDatabaseMigrationRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseMigrationRunClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationRun
+	JSON404      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseMigrationRunClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseMigrationRunClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseMigrationRunClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDatabaseMigrationsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrations
+	JSON404      *Error
+	JSON409      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDatabaseMigrationsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDatabaseMigrationsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDatabaseMigrationsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BaselineDatabaseMigrationsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatabaseMigrationBaseline
+	JSON400      *Error
+	JSON404      *Error
+	JSON409      *DatabaseMigrationConflictError
+	JSON413      *Error
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r BaselineDatabaseMigrationsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BaselineDatabaseMigrationsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BaselineDatabaseMigrationsClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53280,6 +54341,67 @@ func (c *ClientWithResponses) ResetDatabaseBranchPasswordWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseResetDatabaseBranchPasswordClientResponse(rsp)
+}
+
+// ListDatabaseMigrationRunsWithResponse request returning *ListDatabaseMigrationRunsClientResponse
+func (c *ClientWithResponses) ListDatabaseMigrationRunsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*ListDatabaseMigrationRunsClientResponse, error) {
+	rsp, err := c.ListDatabaseMigrationRuns(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDatabaseMigrationRunsClientResponse(rsp)
+}
+
+// CreateDatabaseMigrationRunWithBodyWithResponse request with arbitrary body returning *CreateDatabaseMigrationRunClientResponse
+func (c *ClientWithResponses) CreateDatabaseMigrationRunWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.CreateDatabaseMigrationRunWithBody(ctx, id, databaseName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseMigrationRunClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, params *CreateDatabaseMigrationRunParams, body CreateDatabaseMigrationRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.CreateDatabaseMigrationRun(ctx, id, databaseName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDatabaseMigrationRunClientResponse(rsp)
+}
+
+// GetDatabaseMigrationRunWithResponse request returning *GetDatabaseMigrationRunClientResponse
+func (c *ClientWithResponses) GetDatabaseMigrationRunWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, runId MigrationRunId, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationRunClientResponse, error) {
+	rsp, err := c.GetDatabaseMigrationRun(ctx, id, databaseName, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseMigrationRunClientResponse(rsp)
+}
+
+// GetDatabaseMigrationsWithResponse request returning *GetDatabaseMigrationsClientResponse
+func (c *ClientWithResponses) GetDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, reqEditors ...RequestEditorFn) (*GetDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.GetDatabaseMigrations(ctx, id, databaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDatabaseMigrationsClientResponse(rsp)
+}
+
+// BaselineDatabaseMigrationsWithBodyWithResponse request with arbitrary body returning *BaselineDatabaseMigrationsClientResponse
+func (c *ClientWithResponses) BaselineDatabaseMigrationsWithBodyWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.BaselineDatabaseMigrationsWithBody(ctx, id, databaseName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBaselineDatabaseMigrationsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) BaselineDatabaseMigrationsWithResponse(ctx context.Context, id ProjectId, databaseName DatabaseName, body BaselineDatabaseMigrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*BaselineDatabaseMigrationsClientResponse, error) {
+	rsp, err := c.BaselineDatabaseMigrations(ctx, id, databaseName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBaselineDatabaseMigrationsClientResponse(rsp)
 }
 
 // GetProjectDatabaseQueriesWithResponse request returning *GetProjectDatabaseQueriesClientResponse
@@ -61994,6 +63116,241 @@ func ParseResetDatabaseBranchPasswordClientResponse(rsp *http.Response) (*ResetD
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDatabaseMigrationRunsClientResponse parses an HTTP response from a ListDatabaseMigrationRunsWithResponse call
+func ParseListDatabaseMigrationRunsClientResponse(rsp *http.Response) (*ListDatabaseMigrationRunsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDatabaseMigrationRunsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRunList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDatabaseMigrationRunClientResponse parses an HTTP response from a CreateDatabaseMigrationRunWithResponse call
+func ParseCreateDatabaseMigrationRunClientResponse(rsp *http.Response) (*CreateDatabaseMigrationRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDatabaseMigrationRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DatabaseMigrationConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseMigrationRunClientResponse parses an HTTP response from a GetDatabaseMigrationRunWithResponse call
+func ParseGetDatabaseMigrationRunClientResponse(rsp *http.Response) (*GetDatabaseMigrationRunClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseMigrationRunClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDatabaseMigrationsClientResponse parses an HTTP response from a GetDatabaseMigrationsWithResponse call
+func ParseGetDatabaseMigrationsClientResponse(rsp *http.Response) (*GetDatabaseMigrationsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDatabaseMigrationsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrations
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBaselineDatabaseMigrationsClientResponse parses an HTTP response from a BaselineDatabaseMigrationsWithResponse call
+func ParseBaselineDatabaseMigrationsClientResponse(rsp *http.Response) (*BaselineDatabaseMigrationsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BaselineDatabaseMigrationsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatabaseMigrationBaseline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DatabaseMigrationConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error

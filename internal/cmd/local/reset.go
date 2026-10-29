@@ -35,7 +35,7 @@ This command:
 4. Keeps containers running
 
 After reset, redeploy your project migrations with:
-  volcano migrations deploy --all -d app`,
+  volcano databases migration apply -d app`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runReset(cmd.Context(), resetOptions{
