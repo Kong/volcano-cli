@@ -1010,6 +1010,26 @@ func TestConnectRefusesWhenOnlyTheRootDirectoryMovedUnderIt(t *testing.T) {
 	assert.Nil(t, api.sentRootBody(), "apps/new must not be overwritten")
 }
 
+// Pinning the branch it already deploys from changes neither the branch name
+// nor, in this fake, updated_at, so only the pin itself tells the reads apart.
+// A write that went ahead on the earlier read could rebind and drop that pin.
+func TestConnectRefusesWhenTheBranchWasPinnedUnderIt(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedRepoID = gitRepositoryID
+	api.connectedRoot = "apps/old"
+	api.pinAfterRead = true
+
+	_, err := executeGitCommand(t, api.serve(), &gitRunner{stdout: originRemoteOutput},
+		"", "connect", "--root-directory", "apps/mine")
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "changed while this command was running")
+	assert.Nil(t, api.sentConnectBody(), "the pin must not be dropped")
+	assert.Nil(t, api.sentRootBody())
+}
+
 // Nothing is written when the binding already matches, so a concurrent edit
 // cannot be reverted on that path at all — it simply is not touched.
 func TestConnectWritesNothingSoCannotRevertAConcurrentEdit(t *testing.T) {

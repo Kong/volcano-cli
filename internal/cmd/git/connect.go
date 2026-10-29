@@ -41,7 +41,7 @@ func newConnect(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect [git-url]",
 		Short: "Connect the current project to a GitHub repository",
-		Long: `Connect the current project to a GitHub repository.
+		Long: fmt.Sprintf(`Connect the current project to a GitHub repository.
 
 With no argument, the repository is read from this directory's Git config:
 wherever "git push" sends this branch, then the only remote, then "origin".
@@ -51,7 +51,9 @@ setting decided it. Pass a repository URL to name one explicitly, or use
 
 Connecting only binds the project. Nothing is created on GitHub, nothing is
 pushed, and no token is written to your Git config. To start deploying, push to
-the repository's default branch yourself.`,
+the production branch yourself: the repository's default branch, unless you
+pin another with '%s'.
+Re-running connect for the same repository keeps a pinned branch.`, cliruntime.CommandPath(deps, "git production-branch")),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gitURL := ""

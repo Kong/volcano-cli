@@ -170,6 +170,9 @@ type gitAPI struct {
 	// rootAfterRead changes only the binding's root directory on the next read,
 	// leaving the repository alone.
 	rootAfterRead string
+	// pinAfterRead pins the binding's current branch on the next read, leaving
+	// the branch name and updated_at alone.
+	pinAfterRead bool
 	// connectionUpdated overrides the binding's updated_at, which the platform
 	// bumps whenever the row really changes.
 	connectionUpdated string
@@ -383,6 +386,8 @@ func (a *gitAPI) serveConnection(w http.ResponseWriter) {
 		case a.rootAfterRead != "":
 			a.connectedRoot, a.rootAfterRead = a.rootAfterRead, ""
 			a.connectionUpdated = "2026-08-18T00:00:01Z"
+		case a.pinAfterRead:
+			a.branchPinned, a.pinAfterRead = true, false
 		}
 	}
 	if a.connected == "" {

@@ -456,6 +456,7 @@ func sameBinding(a, b *apiclient.ProjectGitConnection) bool {
 		a.RepoInstallationId == b.RepoInstallationId &&
 		a.RootDirectory == b.RootDirectory &&
 		a.ProductionBranch == b.ProductionBranch &&
+		a.ProductionBranchFollowsDefault == b.ProductionBranchFollowsDefault &&
 		strings.EqualFold(a.RepoFullName, b.RepoFullName)
 }
 
