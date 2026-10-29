@@ -108,11 +108,11 @@ func runRootDirectory(ctx context.Context, opts rootDirectoryOptions) error {
 	// only these say whether a push deploys anything from it.
 	settings, settingsErr := service.DeploySettings(ctx)
 	output.GitRootDirectorySet(opts.out, output.GitBinding{
-		Connection:      connection,
-		Settings:        settings,
-		SettingsErr:     settingsErr,
-		Project:         project.Label(),
-		FrontendCommand: cliruntime.CommandPath(opts.deps, "git frontend"),
+		Connection:  connection,
+		Settings:    settings,
+		SettingsErr: settingsErr,
+		Project:     project.Label(),
+		GitCommand:  cliruntime.CommandPath(opts.deps, "git"),
 	})
 	return nil
 }

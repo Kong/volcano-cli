@@ -164,3 +164,48 @@ func TestStatusNamesTheFrontendAndItsRoot(t *testing.T) {
 	assert.Contains(t, out, "A push to main deploys: functions, frontend web (apps/web)\n")
 	assert.NotContains(t, out, "To deploy a frontend")
 }
+
+// Status is the one place that shows every deploy setting, each of which a git
+// subcommand changes.
+func TestStatusListsEveryDeploySetting(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.connectedBranch, api.branchPinned = "release", true
+	api.deployFunctions = false
+	api.frontend, api.frontendRoot = "web", "apps/web"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "Production branch: release (pinned)")
+	assert.Contains(t, out, "Auto-deploy: on")
+	assert.Contains(t, out, "Functions: off")
+	assert.Contains(t, out, "Frontend: web (apps/web)")
+	assert.Contains(t, out, "A push to release deploys: frontend web (apps/web)\n")
+}
+
+func TestStatusSaysWhenTheBranchFollowsTheDefault(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Production branch: main (follows the default branch)")
+	assert.Contains(t, out, "Frontend: none")
+}
+
+// While auto-deploy is off, turning it on is the step that matters, so that
+// is the command named.
+func TestStatusSaysHowToTurnAutoDeployOn(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.autoDeploy = false
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Auto-deploy: off")
+	assert.Contains(t, out, "Turn it on with volcano git auto-deploy on\n")
+}

@@ -59,11 +59,11 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 
 	settings, settingsErr := service.DeploySettings(ctx)
 	output.GitStatus(opts.out, output.GitBinding{
-		Connection:      connection,
-		Settings:        settings,
-		SettingsErr:     settingsErr,
-		Project:         project.Label(),
-		FrontendCommand: cliruntime.CommandPath(opts.deps, "git frontend"),
+		Connection:  connection,
+		Settings:    settings,
+		SettingsErr: settingsErr,
+		Project:     project.Label(),
+		GitCommand:  cliruntime.CommandPath(opts.deps, "git"),
 	})
 	return nil
 }
