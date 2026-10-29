@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/Kong/volcano-cli/compare/v0.56.0...v0.57.0) (2026-10-29)
+
+
+### Features
+
+* **frontends:** preview commands with promotion and rollback ([#345](https://github.com/Kong/volcano-cli/issues/345)) ([9103964](https://github.com/Kong/volcano-cli/commit/9103964cd209a5a9e3de821627622df6b25444fc))
+
 ## [0.56.0](https://github.com/Kong/volcano-cli/compare/v0.55.0...v0.56.0) (2026-10-29)
 
 
