@@ -31,7 +31,7 @@ type CandidateDeploy struct {
 // CreateCandidate uploads a source archive and starts the Candidate's first
 // deployment.
 func (s Service) CreateCandidate(ctx context.Context, request CandidateRequest) (*apiclient.FrontendCandidate, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, request.Frontend)
+	authenticated, frontend, err := s.currentFrontend(ctx, request.Frontend)
 	if err != nil {
 		return nil, err
 	}
@@ -39,27 +39,27 @@ func (s Service) CreateCandidate(ctx context.Context, request CandidateRequest) 
 		Name: strings.TrimSpace(request.Name), TTLSeconds: request.TTLSeconds, Archive: request.Archive,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a candidate of frontend %q: %w", frontend.Name, err)
+		return nil, fmt.Errorf("failed to create a preview of frontend %q: %w", frontend.Name, err)
 	}
 	return created, nil
 }
 
 // ListCandidates returns a frontend's Candidates.
 func (s Service) ListCandidates(ctx context.Context, frontendIdentifier string) (*apiclient.Frontend, []apiclient.FrontendCandidate, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, nil, err
 	}
 	candidates, err := authenticated.API.ListFrontendCandidates(ctx, authenticated.ProjectID, frontend.Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list the candidates of frontend %q: %w", frontend.Name, err)
+		return nil, nil, fmt.Errorf("failed to list the previews of frontend %q: %w", frontend.Name, err)
 	}
 	return frontend, candidates, nil
 }
 
 // GetCandidate returns one Candidate of a frontend, named by name or ID.
 func (s Service) GetCandidate(ctx context.Context, frontendIdentifier, candidateIdentifier string) (*apiclient.FrontendCandidate, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (s Service) GetCandidate(ctx context.Context, frontendIdentifier, candidate
 
 // DeployCandidate uploads a new archive to an existing Candidate.
 func (s Service) DeployCandidate(ctx context.Context, request CandidateDeploy) (*apiclient.FrontendCandidate, *apiclient.FrontendCandidateDeployment, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, request.Frontend)
+	authenticated, frontend, err := s.currentFrontend(ctx, request.Frontend)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,14 +79,14 @@ func (s Service) DeployCandidate(ctx context.Context, request CandidateDeploy) (
 	deployment, err := authenticated.API.RedeployFrontendCandidate(ctx, authenticated.ProjectID, frontend.Id, candidate.Id,
 		api.FrontendCandidateInput{Archive: request.Archive})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy to candidate %q: %w", candidate.Name, err)
+		return nil, nil, fmt.Errorf("failed to deploy to preview %q: %w", candidate.Name, err)
 	}
 	return candidate, deployment, nil
 }
 
 // DeleteCandidate starts deleting a Candidate.
 func (s Service) DeleteCandidate(ctx context.Context, frontendIdentifier, candidateIdentifier string) (*apiclient.FrontendCandidate, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, err
 	}
@@ -95,14 +95,14 @@ func (s Service) DeleteCandidate(ctx context.Context, frontendIdentifier, candid
 		return nil, err
 	}
 	if err := authenticated.API.DeleteFrontendCandidate(ctx, authenticated.ProjectID, frontend.Id, candidate.Id); err != nil {
-		return nil, fmt.Errorf("failed to delete candidate %q: %w", candidate.Name, err)
+		return nil, fmt.Errorf("failed to delete preview %q: %w", candidate.Name, err)
 	}
 	return candidate, nil
 }
 
 // Serving reports what a frontend serves.
 func (s Service) Serving(ctx context.Context, frontendIdentifier string) (*apiclient.Frontend, *apiclient.FrontendServing, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -117,7 +117,7 @@ func (s Service) Serving(ctx context.Context, frontendIdentifier string) (*apicl
 // revision it just read, so a promotion or rollback that committed in between
 // makes it fail instead of overwriting it.
 func (s Service) PromoteCandidate(ctx context.Context, frontendIdentifier, candidateIdentifier string) (*apiclient.FrontendCandidate, *apiclient.FrontendServing, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +131,7 @@ func (s Service) PromoteCandidate(ctx context.Context, frontendIdentifier, candi
 	}
 	serving, err := authenticated.API.PromoteFrontendCandidate(ctx, authenticated.ProjectID, frontend.Id, candidate.Id, current.Revision)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to promote candidate %q: %w", candidate.Name, err)
+		return nil, nil, fmt.Errorf("failed to promote preview %q: %w", candidate.Name, err)
 	}
 	return candidate, serving, nil
 }
@@ -139,7 +139,7 @@ func (s Service) PromoteCandidate(ctx context.Context, frontendIdentifier, candi
 // RollbackServing returns a frontend to the runtime it served before, or to
 // its own runtime when toProduction is set.
 func (s Service) RollbackServing(ctx context.Context, frontendIdentifier string, toProduction bool) (*apiclient.Frontend, *apiclient.FrontendServing, error) {
-	authenticated, frontend, err := s.sessionFor(ctx, frontendIdentifier)
+	authenticated, frontend, err := s.currentFrontend(ctx, frontendIdentifier)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -176,30 +176,15 @@ func (s Service) CandidateName(ctx context.Context, frontend *apiclient.Frontend
 	return id.String(), nil
 }
 
-func (s Service) sessionFor(ctx context.Context, frontendIdentifier string) (*clisession.ProjectSession, *apiclient.Frontend, error) {
-	authenticated, err := s.sessions.CurrentProject()
-	if err != nil {
-		return nil, nil, err
-	}
-	frontend, err := resolveFrontend(ctx, authenticated, frontendIdentifier)
-	if errors.Is(err, api.ErrNotFound) {
-		return nil, nil, fmt.Errorf("frontend %q %w", frontendIdentifier, api.ErrNotFound)
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve frontend %q: %w", frontendIdentifier, err)
-	}
-	return authenticated, frontend, nil
-}
-
 // resolveCandidate finds a Candidate of the frontend by ID or by name.
 func resolveCandidate(ctx context.Context, authenticated *clisession.ProjectSession, frontend *apiclient.Frontend, identifier string) (*apiclient.FrontendCandidate, error) {
 	target := strings.TrimSpace(identifier)
 	if target == "" {
-		return nil, errors.New("candidate identifier cannot be empty")
+		return nil, errors.New("preview identifier cannot be empty")
 	}
 	candidates, err := authenticated.API.ListFrontendCandidates(ctx, authenticated.ProjectID, frontend.Id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the candidates of frontend %q: %w", frontend.Name, err)
+		return nil, fmt.Errorf("failed to list the previews of frontend %q: %w", frontend.Name, err)
 	}
 	id, parseErr := uuid.Parse(target)
 	for i := range candidates {
@@ -207,5 +192,5 @@ func resolveCandidate(ctx context.Context, authenticated *clisession.ProjectSess
 			return &candidates[i], nil
 		}
 	}
-	return nil, fmt.Errorf("candidate %q of frontend %q %w", target, frontend.Name, api.ErrNotFound)
+	return nil, fmt.Errorf("preview %q of frontend %q %w", target, frontend.Name, api.ErrNotFound)
 }
