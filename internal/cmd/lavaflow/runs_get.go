@@ -49,6 +49,7 @@ func runRunsGet(ctx context.Context, opts runsGetOptions) error {
 		Enable:     cliruntime.CommandPath(opts.deps, "lavaflow enable"),
 		GitConnect: gitConnectCommand,
 		RunsStart:  cliruntime.CommandPath(opts.deps, "lavaflow runs start"),
+		RunsGet:    cliruntime.CommandPath(opts.deps, "lavaflow runs get"),
 	})
 	return nil
 }

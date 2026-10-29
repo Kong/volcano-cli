@@ -253,6 +253,9 @@ type LavaFlowCommands struct {
 	GitConnect string
 	// RunsStart is followed by --issue and the run's issue ID.
 	RunsStart string
+	// RunsGet is followed by the run's ID and --json, which shows the fix
+	// the run kept.
+	RunsGet string
 }
 
 // LavaFlowRun renders one run: where it is, what it found, and the pull
@@ -307,6 +310,9 @@ func LavaFlowRun(w io.Writer, run *apiclient.LavaFlowRun, commands LavaFlowComma
 		next := lavaFlowNextCommands{enable: theme.Command(commands.Enable, on), gitConnect: theme.Command(commands.GitConnect, on)}
 		if issue != nil {
 			next.start = theme.Command(commands.RunsStart+" --issue "+issue.Id.String(), on)
+		}
+		if commands.RunsGet != "" {
+			next.patch = theme.Command(commands.RunsGet+" "+run.Id.String()+" --json", on)
 		}
 		fmt.Fprintln(w)
 		kv(w, on, "Next", "%s", stop.next(next))
@@ -463,7 +469,7 @@ type lavaFlowNext func(lavaFlowNextCommands) string
 // lavaFlowNextCommands are the commands a next step can name, ready to print.
 // start is empty for a run that is not about an issue.
 type lavaFlowNextCommands struct {
-	start, enable, gitConnect string
+	start, enable, gitConnect, patch string
 }
 
 func say(text string) lavaFlowNext {
@@ -488,6 +494,21 @@ func startAfterItRecurs(c lavaFlowNextCommands) string {
 
 func turnOnAndStartAgain(c lavaFlowNextCommands) string {
 	return fmt.Sprintf("Turn LavaFlow on (%s), then start a new run.", c.enable)
+}
+
+// turnOnUnlessDeletingAndStartAgain follows lavaflow_disabled, which a run
+// also reports when its project is being deleted.
+func turnOnUnlessDeletingAndStartAgain(c lavaFlowNextCommands) string {
+	return fmt.Sprintf("Unless the project is being deleted, turn LavaFlow on (%s), then start a new run.", c.enable)
+}
+
+// reviewTheFix follows a fix LavaFlow kept instead of pushing. The run's
+// JSON holds it as patch; the text output never prints it.
+func reviewTheFix(c lavaFlowNextCommands) string {
+	if c.patch == "" {
+		return "Review the fix in this run."
+	}
+	return "Review the fix in this run. It is the patch in " + c.patch
 }
 
 // turnOnAgainAndStartAgain resumes LavaFlow after the project's repository
@@ -538,7 +559,10 @@ var lavaFlowFailures = map[string]lavaFlowStop{
 	"budget_exhausted":   {"hit run limit", "LavaFlow reached this run's limit before finding a diagnosis", startAgain},
 	"timed_out":          {"timed out", "the run did not finish in time", startAgain},
 	"attempts_exhausted": {"out of attempts", "the run did not finish within its attempts", startAgain},
-	"lavaflow_disabled":  {"LavaFlow turned off", "LavaFlow was turned off before the run finished", turnOnAndStartAgain},
+	"lavaflow_disabled": {
+		"off, or project deleted", "LavaFlow was turned off, or the project is being deleted, before the run finished",
+		turnOnUnlessDeletingAndStartAgain,
+	},
 	"plan_required": {
 		"plan doesn't allow it", "the project's plan no longer allows LavaFlow",
 		say("Upgrade the project's plan in the dashboard, then start a new run."),
@@ -634,11 +658,19 @@ var lavaFlowSkips = map[apiclient.LavaFlowPullRequestSkipped]lavaFlowStop{
 	},
 	apiclient.LavaFlowPullRequestSkippedRepositoryChanged: {
 		"no PR: repository changed",
-		"the project's repository changed since LavaFlow was turned on", turnOnAgainAndStartAgain,
+		"the project's repository changed after LavaFlow was turned on or the run started", turnOnAgainAndStartAgain,
 	},
 	apiclient.LavaFlowPullRequestSkippedPublishFailed: {
 		"no PR: couldn't open it",
 		"the pull request could not be opened", startAgain,
+	},
+	apiclient.LavaFlowPullRequestSkippedPossibleCredential: {
+		"no PR: possible credential",
+		"the fix appears to add a credential", reviewTheFix,
+	},
+	apiclient.LavaFlowPullRequestSkippedPossiblePersonalData: {
+		"no PR: new email address",
+		"the fix adds an email address the repository doesn't contain, and the repository isn't private", reviewTheFix,
 	},
 }
 

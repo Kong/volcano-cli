@@ -24205,7 +24205,7 @@ components:
         - LavaFlowRunStatusSucceeded
         - LavaFlowRunStatusFailed
         - LavaFlowRunStatusCanceled
-      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. A `running` run about to open its pull request returns to `queued` when LavaFlow pauses its runs, with `failure_code` `feature_paused`.
+      description: Where a run is. `canceled` means the project's settings or plan stopped allowing the run before it finished; `failure_code` says which. When LavaFlow pauses its runs, an attempt in progress stops at any stage and its run returns to `queued` with `failure_code` `feature_paused`, without spending an attempt. A `running` run waiting to retry a failed attempt keeps its status and waits until runs resume.
     LavaFlowRunTrigger:
       description: What started the run, named by `type`. Every run today has `type` `issue`. Other types will carry their own fields, so treat a `type` you do not know as another kind of trigger, not as an error.
       oneOf:
@@ -24399,6 +24399,8 @@ components:
         - permission_missing
         - repository_changed
         - publish_failed
+        - possible_credential
+        - possible_personal_data
       x-enum-varnames:
         - LavaFlowPullRequestSkippedSourceUnavailable
         - LavaFlowPullRequestSkippedPullRequestOpen
@@ -24408,6 +24410,8 @@ components:
         - LavaFlowPullRequestSkippedPermissionMissing
         - LavaFlowPullRequestSkippedRepositoryChanged
         - LavaFlowPullRequestSkippedPublishFailed
+        - LavaFlowPullRequestSkippedPossibleCredential
+        - LavaFlowPullRequestSkippedPossiblePersonalData
       description: Why a run whose `max_stage` is `pull_request` opened no pull request. The diagnosis stands either way.
     LavaFlowRun:
       type: object
@@ -24425,11 +24429,13 @@ components:
         status:
           $ref: '#/components/schemas/LavaFlowRunStatus'
         max_stage:
-          $ref: '#/components/schemas/LavaFlowStage'
+          allOf:
+            - $ref: '#/components/schemas/LavaFlowStage'
+          description: How far the run may go. Lowered to `diagnose` when the project lowers its `max_stage` before the run publishes; it never rises.
         stage_reached:
           allOf:
             - $ref: '#/components/schemas/LavaFlowStage'
-          description: 'The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. A run that failed while opening the pull request keeps its diagnosis and `diagnose`. Absent until the run has a diagnosis.'
+          description: 'The furthest stage the run reached: `diagnose` once it has a diagnosis, `pull_request` once it opened a pull request. An attempt saves its diagnosis before opening the pull request, and when it could not confirm the project''s settings and plan after the diagnosis. The run keeps the latest saved diagnosis, and `diagnose`, even if a later attempt fails or the run is canceled; `failure_code` then describes the last attempt. Absent until the run has a diagnosis.'
         diagnosis:
           $ref: '#/components/schemas/LavaFlowDiagnosis'
         patch:
@@ -24445,7 +24451,7 @@ components:
           $ref: '#/components/schemas/LavaFlowCommitOrigin'
         failure_code:
           type: string
-          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow''s runs are paused reports `feature_paused`; it resumes without spending an attempt when they resume. A run paused after it wrote a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
+          description: 'Why the run failed or was canceled, or why its last attempt will be retried. A queued run paused while LavaFlow is unavailable reports `feature_unavailable`; it resumes without spending an attempt when LavaFlow returns. A queued run waiting while LavaFlow runs are paused, including one a pause stopped mid-run, reports `feature_paused`; it resumes without spending an attempt when runs resume. A run paused after it saved a fix keeps its `diagnosis`, `patch`, and `commit_sha`, and opens its pull request on resume; one paused before that diagnoses again. Other values are `model_request_rejected`, `model_unavailable`, `model_refused`, `no_diagnosis`, `budget_exhausted`, `timed_out`, `attempts_exhausted`, `lavaflow_disabled`, `plan_required`, `issue_not_found`, or `internal_error`. Older runs may also report codes no new run does: `autofix_disabled` (now `lavaflow_disabled`), and `api_key_rejected`, `settings_changed`, or `managed_models_unavailable` from before Volcano picked the models for every run.'
         failure_message:
           type: string
         created_at:

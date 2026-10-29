@@ -189,11 +189,22 @@ Status: succeeded
 Pull request: https://github.com/acme/shop/pull/42 (open)
 ```
 
+LavaFlow pushes nothing when the fix appears to add a credential. It also
+pushes nothing when the fix adds an email address the repository doesn't
+already contain, unless the repository is private. The run keeps the fix for
+you to review instead, and `Next:` names the `runs get --json` command whose
+`patch` holds it. The text output never prints the fix.
+
+A run canceled because LavaFlow was turned off gives the same reason as one
+whose project is being deleted, so turn LavaFlow on again only if the project
+is staying.
+
 A queued run can be paused. Its result says `paused` while LavaFlow is
-unavailable or Volcano has paused LavaFlow's runs, and the run carries on by
-itself when LavaFlow resumes, without using an attempt. A run paused after it
-wrote a fix keeps its diagnosis and opens its pull request then. A queued run
-whose last attempt failed says `retrying`.
+unavailable or Volcano has paused LavaFlow's runs, even a run that was partway
+through. The run carries on by itself when LavaFlow resumes, without using an
+attempt. A run paused after it saved a fix keeps it and opens its pull request
+then; one paused before that diagnoses again. A queued run whose last attempt
+failed says `retrying`.
 
 To diagnose an issue again, for example after a run failed, start a run with
 the issue ID (`trigger.issue.id`) from an earlier run in `runs list --json`, or
