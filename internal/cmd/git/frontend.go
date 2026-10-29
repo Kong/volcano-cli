@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/gitconnect"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -97,37 +98,11 @@ func frontendArguments(args []string, root string, rootSet, none bool) (name, fr
 }
 
 func runFrontend(ctx context.Context, opts frontendOptions) error {
-	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
-
-	project, err := service.Project()
-	if err != nil {
-		return err
-	}
-
-	// A connected repository first. The settings could be saved without one,
-	// but saving them makes them the project's own, so connecting afterwards
-	// would no longer turn on auto-deploy and functions for it: the frontend
-	// would be selected and nothing would deploy.
-	connection, err := service.Status(ctx)
-	if err != nil {
-		// "Connect one" is only advice where a repository can be connected.
-		if errors.Is(err, gitconnect.ErrNotConnected) {
-			if cannot := service.CanConnect(ctx); cannot != nil {
-				err = cannot
-			}
-		}
-		return guide(opts.deps, webURL, err)
-	}
-
-	settings, err := service.SetFrontend(ctx, opts.name, opts.root)
-	if err != nil {
-		return guide(opts.deps, webURL, err)
-	}
-	output.GitFrontendSet(opts.out, output.GitBinding{
-		Connection: connection,
-		Settings:   settings,
-		Project:    project.Label(),
+	return runDeploySetting(ctx, opts.deps, opts.out, deploySetting{
+		subcommand: "frontend",
+		change: func(ctx context.Context, service gitconnect.Service) (*apiclient.ProjectGitDeploySettings, error) {
+			return service.SetFrontend(ctx, opts.name, opts.root)
+		},
+		render: output.GitFrontendSet,
 	})
-	return nil
 }

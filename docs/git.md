@@ -25,11 +25,13 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 - `root-directory` changes only the subdirectory the connected repository
   builds from, and works with a project access token, so a CI job or an agent
   can use it.
-- `frontend` chooses the frontend a push deploys alongside the functions, and
-  also works with a project access token.
+- `production-branch`, `auto-deploy`, `functions` and `frontend` each change
+  one thing about what a push deploys, and also work with a project access
+  token.
 - What a push actually deploys is governed by the project's Git deploy settings,
-  reported after a successful connect. When a push deploys no frontend, the
-  report ends with the command that adds one.
+  reported after a successful connect and listed by `volcano git status`. When
+  a push deploys nothing, or no frontend, the report ends with the command that
+  changes that.
 
 ## CLI operations
 
@@ -38,6 +40,9 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Show the connection | `volcano git status` |
 | Connect | `volcano git connect [git-url]` |
 | Change the root directory | `volcano git root-directory <path>` |
+| Change the branch that deploys | `volcano git production-branch <branch>` |
+| Turn deploying on push on or off | `volcano git auto-deploy on\|off` |
+| Choose whether functions deploy | `volcano git functions on\|off` |
 | Choose the frontend a push deploys | `volcano git frontend <name> [--root <path>]` |
 | Disconnect | `volcano git disconnect` |
 
@@ -47,9 +52,11 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 volcano git status
 ```
 
-This reports the project's own binding — the repository, the branch a push has
-to land on, the subdirectory it builds from, and what a push deploys, including
-the frontend and the directory it builds from. It does
+This reports the project's own binding and every Git deploy setting: the
+repository, the branch a push has to land on and whether it follows the
+repository's default branch or is pinned, the subdirectory it builds from,
+whether auto-deploy is on, whether functions deploy, and the frontend with the
+directory it builds from. It ends with what a push deploys. It does
 not contact GitHub, so it tells you what the platform recorded rather than
 whether that recording still works.
 
@@ -179,6 +186,48 @@ branch deploys, which is nothing while auto-deploy is off.
 A project with no repository connected has no root directory to change, so the
 command says so and exits non-zero.
 
+## Changing the branch that deploys
+
+A project deploys from the repository's default branch on GitHub until you name
+another one, and renaming the default branch on GitHub moves the project with
+it. Name a branch to pin the project to it:
+
+```bash
+volcano git production-branch release
+volcano git production-branch --follow-default     # follow the default branch again
+```
+
+A pinned branch stays put when the default branch is renamed, even when you
+pinned the branch that is the default today. `volcano git status` says which
+branch a project deploys from, and whether it follows the default or is
+pinned.
+
+The branch does not have to exist yet, so you can point a project at a branch
+you are about to push. Volcano checks that it is a valid Git branch name and
+nothing more. `--follow-default` reads the current default branch from GitHub,
+so it fails for a repository with no commits yet. Push one first.
+
+Re-running `volcano git connect` for the same repository keeps a pinned branch.
+Connecting a different repository follows that repository's default branch:
+set the branch again afterwards if you need another.
+
+Nothing is deployed. Only pushes to the branch deploy from now on. This works
+with a project access token.
+
+## Turning auto-deploy and functions on or off
+
+```bash
+volcano git auto-deploy off     # pushes deploy nothing
+volcano git auto-deploy on
+volcano git functions off       # pushes stop deploying the repository's functions
+volcano git functions on
+```
+
+While auto-deploy is off, a push deploys nothing, whatever else is selected.
+Turning either setting off removes nothing: what is already deployed stays up.
+The other deploy settings stay as they were, and the command says what a push
+deploys from now on. Both work with a project access token.
+
 ## Choosing the frontend a push deploys
 
 A connected repository deploys its functions on push. To deploy a frontend from
@@ -204,7 +253,8 @@ from now on, which is nothing while auto-deploy is off. `--none` stops
 pushes from redeploying a frontend, but a frontend already deployed stays up.
 
 The project needs a connected repository first, so on a project with nothing
-connected the command says so and exits non-zero.
+connected the command says so and exits non-zero. The same goes for
+`production-branch`, `auto-deploy` and `functions`.
 
 ## Disconnecting
 
@@ -234,6 +284,6 @@ configured. Run these commands against the cloud API.
 
 `volcano git disconnect` reads only the project's own binding, which does not
 touch GitHub, so it reports that the project has nothing connected instead.
-`volcano git root-directory` and `volcano git frontend` report that the
-integration is not configured, since no repository can be connected there for
-them to change.
+`volcano git root-directory`, `production-branch`, `auto-deploy`, `functions`
+and `frontend` report that the integration is not configured, since no
+repository can be connected there for them to change.

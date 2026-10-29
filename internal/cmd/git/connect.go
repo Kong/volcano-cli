@@ -193,7 +193,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 			Project:             project.Label(),
 			GitHubAccount:       target.ConnectionLogin,
 			InstallationAccount: target.InstallationAccount,
-			FrontendCommand:     cliruntime.CommandPath(opts.deps, "git frontend"),
+			GitCommand:          cliruntime.CommandPath(opts.deps, "git"),
 		})
 		return nil
 	}
@@ -250,7 +250,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		Project:             project.Label(),
 		GitHubAccount:       target.ConnectionLogin,
 		InstallationAccount: target.InstallationAccount,
-		FrontendCommand:     cliruntime.CommandPath(opts.deps, "git frontend"),
+		GitCommand:          cliruntime.CommandPath(opts.deps, "git"),
 	})
 	return nil
 }
@@ -385,6 +385,11 @@ func sameRepositoryBinding(existing *apiclient.ProjectGitConnection, target *git
 	// significant, so a differently-cased name is the same name.
 	if !strings.EqualFold(existing.RepoFullName, target.Repository.FullName) {
 		return false
+	}
+	// A branch the project pinned is its own choice, whatever GitHub's default
+	// is now, and rebinding would discard it.
+	if !existing.ProductionBranchFollowsDefault {
+		return true
 	}
 	// The bind re-resolves the production branch from GitHub's live default, so
 	// a repository whose default moved has a stale one recorded — and that run
