@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/Kong/volcano-cli/compare/v0.57.0...v0.58.0) (2026-10-29)
+
+
+### Features
+
+* **git:** choose the frontend a push deploys, and say how when none is ([#366](https://github.com/Kong/volcano-cli/issues/366)) ([0496318](https://github.com/Kong/volcano-cli/commit/049631886761098ce00c6bbc2ea7b7e62f10083b))
+
 ## [0.57.0](https://github.com/Kong/volcano-cli/compare/v0.56.0...v0.57.0) (2026-10-29)
 
 
