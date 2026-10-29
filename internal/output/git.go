@@ -135,10 +135,16 @@ func GitAutoDeploySet(w io.Writer, binding GitBinding) {
 	branch := binding.Connection.ProductionBranch
 	Success(w, "Auto-deploy turned %s", onOff(binding.Settings.AutoDeployEnabled))
 	gitBindingDetail(w, theme.On(w), binding)
-	if binding.Settings.AutoDeployEnabled {
-		Note(w, "Nothing was deployed. Pushes to %s deploy from now on.", branch)
-	} else {
+	switch {
+	case !binding.Settings.AutoDeployEnabled:
 		Note(w, "Nothing was removed. What is already deployed stays up; pushes to %s no longer deploy.", branch)
+	case len(deployTargets(binding.Settings)) == 0:
+		// Nothing selected: the settings below say a push deploys nothing and
+		// name the command that selects something, so promising pushes would
+		// contradict them.
+		Note(w, "Nothing was deployed.")
+	default:
+		Note(w, "Nothing was deployed. Pushes to %s deploy from now on.", branch)
 	}
 	gitDeploySettings(w, binding)
 }

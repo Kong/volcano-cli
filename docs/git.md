@@ -1,13 +1,13 @@
 ---
 title: "Git connection"
-description: "Bind a project to a GitHub repository so that pushing to its default branch deploys."
+description: "Bind a project to a GitHub repository so that pushing to its production branch deploys."
 ---
 
 ## What it is
 
 A binding between a **project** and a GitHub repository. Once connected, a push
-to the repository's default branch deploys the project — no CLI invocation
-needed.
+to the repository's default branch, or to a branch you pin instead, deploys the
+project — no CLI invocation needed.
 
 Connecting only records the binding. Volcano never creates push credentials,
 never pushes on your behalf, and never writes a token into your `.git/config`.
@@ -130,11 +130,14 @@ volcano git connect --root-directory ""     # back to the repository root
 Connecting is idempotent: running it again on a project already bound to the
 same repository reports that nothing changed and writes nothing. "The same" means
 every part of the binding — the repository, the App installation, the root
-directory, and the production branch — so a repository whose GitHub default
-branch has moved is *not* unchanged, and re-running connect updates the branch a
-push has to land on. A repository renamed on
-GitHub is still the same repository — the binding follows its id, not its name —
-so re-running connect simply refreshes the name. Re-running it with a
+directory, and the production branch. For a project that follows the
+repository's default branch, a default branch that has moved on GitHub is *not*
+unchanged, and re-running connect moves the project to the new default. A branch
+pinned with `volcano git production-branch` stays: re-running connect for the
+same repository keeps it, even when it rebinds to refresh the installation or
+the name. A repository renamed on GitHub is still the same repository — the
+binding follows its id, not its name — so re-running connect simply refreshes
+the name. Re-running it with a
 different `--root-directory` edits that, as `volcano git root-directory` does. Pointing it at a *different* repository asks for
 confirmation first, because pushes to the current one stop deploying. `--yes`
 skips the prompts.
@@ -143,8 +146,9 @@ In a script or a CI job there is nobody to prompt, so a command that would ask
 fails and says to pass `--yes` rather than cancelling silently.
 
 After connecting, start deploying by pushing yourself. Only a push to the
-repository's GitHub default branch deploys — `volcano git connect` prints which
-branch that is, as `Production branch`. Pushing any other branch is safe and
+production branch deploys. That is the repository's GitHub default branch
+unless you pin another with `volcano git production-branch`, and `volcano git
+connect` prints it as `Production branch`. Pushing any other branch is safe and
 deploys nothing.
 
 A bare `git push` goes to the repository the binding was read from, since both

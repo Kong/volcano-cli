@@ -50,6 +50,27 @@ func TestAutoDeployTurnsOn(t *testing.T) {
 	assert.Contains(t, out, "To deploy a frontend on push too, run volcano git frontend <name> --root <path>")
 }
 
+// With neither functions nor a frontend selected, turning auto-deploy on
+// still deploys nothing on push, so the command promises no deploys and names
+// the commands that select something.
+func TestAutoDeployOnWithNothingSelectedPromisesNoDeploys(t *testing.T) {
+	setGitCommandTestHome(t)
+	api := newGitAPI(t)
+	api.connected = "octo/storefront"
+	api.autoDeploy, api.deployFunctions = false, false
+
+	out, err := executeGitCommand(t, api.serve(), nil, "", "auto-deploy", "on")
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]any{"auto_deploy_enabled": true, "deploy_functions": false}, api.sentSettingsBody())
+	assert.Contains(t, out, "Auto-deploy turned on")
+	assert.NotContains(t, out, "deploy from now on")
+	assert.Contains(t, out, "Nothing was deployed.\n")
+	assert.Contains(t, out, "Auto-deploy is on, but neither functions nor a frontend is selected, so a push deploys nothing.")
+	assert.Contains(t, out, "Deploy functions with volcano git functions on")
+	assert.Contains(t, out, "To deploy a frontend on push too, run volcano git frontend <name> --root <path>")
+}
+
 // CI and agents hold project access tokens, which this route accepts.
 func TestAutoDeployWorksWithAProjectAccessToken(t *testing.T) {
 	setGitCommandTestHome(t)
