@@ -26,18 +26,94 @@ it using its connection string.
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
-| Apply local migrations | `volcano migrations deploy --all -d <db>` |
-| Apply cloud migrations | `volcano cloud databases migration up --all -d <db>` |
+| Compare migration files with the history | `volcano databases migration status -d <db>` |
+| Apply pending migrations | `volcano databases migration apply -d <db>` |
+| Record files that already ran | `volcano databases migration baseline -d <db> --all` |
+| List or show migration runs | `volcano databases migration runs list -d <db>` |
+| Run migration files without tracking | `volcano databases migration up --all -d <db>` |
 
-Local migrations run from `volcano/migrations` against a local database. Cloud
-migrations use the cloud database command and connect through the managed
-database proxy; the local `migrations deploy` command does not have a cloud
-variant. [`volcano deploy --with-migrations`](deploy.md) runs the same
-migrations as part of a whole-project deploy.
+Every migration command works in both trees: prefix it with `cloud` for a cloud
+project. Local development also keeps `volcano migrations deploy --all -d <db>`,
+the untracked `up`.
 
-Each file runs as a single query, and the database proxy refuses a query with
-more than one statement, so put one SQL statement in each file. Files run in
-name order.
+## Migrations
+
+Migrations are SQL files in `volcano/migrations`. With one database, put them in
+`volcano/migrations` itself. With several, put each database's files in
+`volcano/migrations/<database>/`, and put nothing at the top level. Names that
+start with `_` or `.` are skipped, and files run in byte order of their names.
+Tracked runs take only names that end in lowercase `.sql`.
+Git deploy reads the directory the same way, so a layout the CLI refuses is one
+a push would refuse too.
+
+### Tracked runs
+
+`migration apply` sends a database's files to a tracked migration run. Volcano
+compares them with the database's migration history and applies only the files
+the history does not record, each in its own transaction, then records them. A
+file runs once, however many times you apply.
+
+```bash
+volcano cloud databases migration apply -d app
+```
+
+```text
+Starting a migration run of 3 file(s) from volcano/migrations on database 'app'
+Run 7f3a1c2e-5d4b-4a91-8c6f-2b1e9d0a4c73 queued
+  running: rehearse
+  running: apply
+✓ Migration run 7f3a1c2e-5d4b-4a91-8c6f-2b1e9d0a4c73 succeeded: 1 applied, 2 already applied
+```
+
+Before it changes the database, a cloud run rehearses the pending files on a
+short-lived branch, and takes a backup where the plan includes backups. A file
+that fails in the rehearsal fails the run without touching the database. Local
+development has no branches or backups, so a local run applies directly and
+reports `rehearsal_skipped` and `backup_skipped` warnings.
+
+A file may hold several statements. It cannot `COMMIT`, `ROLLBACK`, use
+savepoints, or run a statement that must run outside a transaction, such as
+`CREATE INDEX CONCURRENTLY`. A run refuses a file whose content changed after
+it was applied (`checksum_mismatch`): put the recorded content back and make the
+change in a new file. One database runs one migration run at a time; a second
+`apply` while one is queued or running names the run to wait for.
+
+`migration apply --no-wait` returns once the run is queued. `migration runs list`
+shows a database's 50 most recent runs, including the ones Git deploys start,
+and `migration runs get <run-id>` shows one run's files and why it failed.
+
+### Adopt a database migrated without tracking
+
+A database migrated with `migration up`, `migrations deploy`, or a
+`--with-migrations` deploy from a CLI before tracked runs already reflects its
+files, but its history records none of them. Record them first, or the first
+run applies them again:
+
+```bash
+volcano cloud databases migration status -d app     # every file is pending
+volcano cloud databases migration baseline -d app --all
+volcano cloud databases migration apply -d app      # applies only new files
+```
+
+`baseline` records files as applied without running them. Use `-f <file>`,
+repeatable, to record only some of them. It asks for confirmation; pass `--yes`
+to skip it.
+
+### Availability
+
+Tracked runs need the `databases.migrations` capability, which the CLI reads
+from the API's `GET /capabilities` before it starts one. Where the API does not
+offer it,
+`migration apply`, `migration baseline`, and `deploy --with-migrations` refuse
+before sending anything and name the untracked command instead. `migration
+status` and `migration runs` keep working, so you can still read what earlier
+runs did. Local development always offers tracked runs.
+
+### Run files without tracking
+
+`migration up` connects through the managed database proxy and runs each file
+as a single query, whether or not it ran before. The proxy refuses a query with
+more than one statement, so put one SQL statement in each file.
 
 ## Branches
 
@@ -201,9 +277,10 @@ volcano databases create app --type volcano-db-s --region us-east-1
 # Show the connection string
 volcano databases get app --show-connection-string
 
-# Apply migration files from volcano/migrations to the "app" database
-volcano migrations deploy --all -d app
+# Apply pending migration files from volcano/migrations to the local "app" database
+volcano databases migration apply -d app
 
-# Apply migration files to the managed cloud database named "app"
-volcano cloud databases migration up --all -d app
+# Apply them to the cloud database named "app", and see what is recorded
+volcano cloud databases migration apply -d app
+volcano cloud databases migration status -d app
 ```

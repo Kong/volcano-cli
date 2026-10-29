@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 	"github.com/Kong/volcano-cli/internal/theme"
@@ -43,7 +43,7 @@ func NewLocal(deps cliruntime.Deps) *cobra.Command {
 
 func newCommand(deps cliruntime.Deps, short string) *cobra.Command {
 	opts := options{}
-	databaseHelp := "Database to apply migrations to (default: the one the manifests declare)"
+	databaseHelp := "Database to apply migrations to (default: each one with a directory in volcano/migrations, else the one the manifests declare)"
 	deployExample := "deploy --env-file volcano/cloud.env"
 	migrateExample := "deploy --env-file volcano/cloud.env --with-migrations -d app"
 	manifestsExample := "deploy --env-file volcano/staging.env -c volcano/volcano-config.yaml -c volcano/auth.yaml"
@@ -53,7 +53,7 @@ volcano/volcano.env holds the local server's values. Name the cloud project's
 env file with --env-file; one holding the local server's keys or a localhost
 VOLCANO_API_URL is refused.`
 	if deps.LocalMode {
-		databaseHelp = "Database to apply migrations to (default: " + defaultLocalDatabase + ")"
+		databaseHelp = "Database to apply migrations to (default: each one with a directory in volcano/migrations, else " + defaultLocalDatabase + ")"
 		deployExample = "deploy"
 		migrateExample = "deploy --with-migrations"
 		manifestsExample = "deploy -c volcano/volcano-config.yaml -c volcano/auth.local.yaml"
@@ -66,7 +66,7 @@ VOLCANO_API_URL is refused.`
 needs:
 
   1. variables   volcano/volcano.env, or the variable sections of the manifests
-  2. migrations  volcano/migrations/*.sql, only with --with-migrations
+  2. migrations  volcano/migrations, only with --with-migrations
   3. functions   the standard functions in volcano/functions
   4. durable     the functions the first manifest declares durable
   5. frontends   the frontends listed in .volcano/source-layout.json
@@ -83,14 +83,24 @@ Variables come from the env file or from a manifest's variables section, never
 both: applying that section deletes every variable it does not list. Pass
 --no-env-file when a manifest holds them.%s
 
-Migrations run without tracking, so every file runs again on each
---with-migrations run. Write them to be safe to re-run.
+--with-migrations applies the migration files in tracked runs, so each
+database records the files it applied and a file runs once. The deploy waits
+for the runs even with --no-wait. With a directory per database in
+volcano/migrations, it migrates every database that has one, unless -d names
+one. Record the files of a database migrated before without tracking first:
+
+  %s
+
+Tracked runs need the %q capability; where the API does
+not offer it, the deploy refuses before anything changes.
 
 Usage:
   %s
   %s
   %s`,
 			envNote,
+			cliruntime.CommandPath(deps, "databases migration baseline -d app --all"),
+			clidatabase.MigrationsCapability,
 			cliruntime.CommandPath(deps, deployExample),
 			cliruntime.CommandPath(deps, migrateExample),
 			cliruntime.CommandPath(deps, manifestsExample)),
@@ -105,7 +115,7 @@ Usage:
 			return runDeploy(cmd.Context(), run)
 		},
 	}
-	cmd.Flags().BoolVar(&opts.withMigrations, "with-migrations", false, "Apply every migration in volcano/migrations")
+	cmd.Flags().BoolVar(&opts.withMigrations, "with-migrations", false, "Apply volcano/migrations in tracked migration runs")
 	cmd.Flags().StringVarP(&opts.database, "database", "d", "", databaseHelp)
 	cmd.Flags().StringVar(&opts.envFile, "env-file", "", "Env file to deploy (default: volcano/volcano.env or ./volcano.env)")
 	cmd.Flags().BoolVar(&opts.noEnvFile, "no-env-file", false, "Deploy no env file, even when volcano/volcano.env exists")
@@ -157,9 +167,6 @@ func resumeHint(done []string, rest []step) string {
 		fmt.Fprintf(&b, "Already deployed: %s.\n", strings.Join(done, ", "))
 	}
 	b.WriteString("Fix the cause and run the command again")
-	if slices.Contains(done, stepMigrations) {
-		b.WriteString(" without --with-migrations and -d, since the migrations already ran")
-	}
 	var manual []string
 	for _, s := range rest {
 		if s.skipped {

@@ -56,8 +56,9 @@ func TestAPIE2ECloudDeploy(t *testing.T) {
 		"2. migrations  volcano/migrations -> database "+database,
 		"4. durable     skipped: volcano/volcano-config.yaml declares no durable functions",
 		"5. frontends   web (.volcano/source-layout.json)",
-		"Applying 001_create_notes.sql... ok",
-		"Applying 015_notes_updated_at_trigger_create.sql... ok",
+		"Migration run ",
+		"succeeded: 15 applied, 0 already applied",
+		"015_notes_updated_at_trigger_create.sql",
 		"✓ notes-summary",
 		"✓ web",
 		"Deployed in")
@@ -127,7 +128,7 @@ frontends:
 		"✓ echo",
 		"✓ order-pipeline",
 		"Deployed in")
-	second.requireNotContains(t, "Applying 001_create_notes.sql", "Deploy them with")
+	second.requireNotContains(t, "Starting a migration run", "Deploy them with")
 	t.Cleanup(func() {
 		_ = env.runCloudCLI(t, "durable", "delete", "order-pipeline", "--yes")
 		_ = env.runCloudCLI(t, "functions", "delete", "echo", "--yes")

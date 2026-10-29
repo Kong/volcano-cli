@@ -40,7 +40,7 @@ The steps run in this order. A step with nothing to deploy is skipped.
 | Step | Reads | Same as |
 |---|---|---|
 | variables | the env file, or the variable sections of the manifests | `variables deploy` |
-| migrations | `volcano/migrations/*.sql`, only with `--with-migrations` | `migrations deploy --all` (cloud: `databases migration up --all`) |
+| migrations | `volcano/migrations`, only with `--with-migrations` | `databases migration apply -d <db>` |
 | functions | the standard functions in `volcano/functions` | `functions deploy --all` |
 | durable | the functions the first manifest declares `kind: durable` | `durable deploy --all` |
 | frontends | the frontends listed in `.volcano/source-layout.json` | `frontends deploy` |
@@ -71,8 +71,8 @@ its status is `provisioning`.
 
 | Flag | Description |
 |---|---|
-| `--with-migrations` | Apply every migration in `volcano/migrations`. |
-| `-d, --database` | Database to migrate. Local mode defaults to `app`. In the cloud, the default is the database the manifests' `databases:` sections declare, if they declare exactly one. |
+| `--with-migrations` | Apply `volcano/migrations` in tracked migration runs. |
+| `-d, --database` | Database to migrate. With a directory per database in `volcano/migrations`, the default is every database that has one. Otherwise local mode defaults to `app`, and the cloud defaults to the database the manifests' `databases:` sections declare, if they declare exactly one. |
 | `--env-file` | Env file to deploy. Default: `volcano/volcano.env` or `./volcano.env`. |
 | `--no-env-file` | Deploy no env file, even when `volcano/volcano.env` exists. Use it when a manifest's `variables` section holds the project's variables. |
 | `-c, --config` | Manifest to apply. Repeat it to apply several, in order. Passing any `-c` replaces the default `volcano/volcano-config.yaml` or `./volcano-config.yaml`. |
@@ -128,11 +128,35 @@ each manifest that has them. The config step applies the full manifests later.
 
 ## Migrations
 
-Migrations run only with `--with-migrations`, and without tracking: every file
-runs again on each run. Write migrations that are safe to re-run, for example
-with `create table if not exists`, and put one SQL statement in each file. When
-a later step fails, run the command again without `--with-migrations` and
-`-d`, since the migrations already ran.
+Migrations run only with `--with-migrations`. The step starts a tracked
+migration run for each database, the same run
+[`databases migration apply`](databases.md#tracked-runs) starts, and waits for
+it to end, even with `--no-wait`. The database's migration history records each
+file it applies, so a file runs once: running the deploy again after a later
+step failed applies nothing new.
+
+```text
+Starting a migration run of 3 file(s) from volcano/migrations on database 'app'
+Run 7f3a1c2e-5d4b-4a91-8c6f-2b1e9d0a4c73 queued
+  running: apply
+✓ Migration run 7f3a1c2e-5d4b-4a91-8c6f-2b1e9d0a4c73 succeeded: 1 applied, 2 already applied
+```
+
+A run that fails stops the deploy before the functions step. With one database,
+put its files in `volcano/migrations`; with several, put each database's files
+in `volcano/migrations/<database>/`, and the step migrates each of them.
+
+A database that an earlier CLI migrated with `--with-migrations` already
+reflects its files, but its history records none of them. Record them once
+before the next deploy, or the run applies them again:
+
+```bash
+volcano cloud databases migration baseline -d app --all
+```
+
+Tracked runs need the `databases.migrations` capability. Where the API does not
+offer it, `--with-migrations` refuses before anything changes and names
+`databases migration up --all`, which runs every file again without tracking.
 
 ## Frontends
 

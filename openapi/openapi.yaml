@@ -47,6 +47,8 @@ tags:
     description: PostgreSQL database provisioning and management
   - name: Database Branches
     description: Short-lived forks of a database for development and testing
+  - name: Database Migrations
+    description: A database's migration history and the runs that apply migration files to it. Where migration runs are not available, starting a run or recording a baseline answers `404` with code `feature_unavailable`; history and runs stay readable.
   - name: Database Queries
     description: REST API for querying databases (SELECT, INSERT, UPDATE, DELETE)
   - name: Authentication
@@ -10320,6 +10322,321 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /projects/{id}/databases/{databaseName}/migrations:
+    get:
+      tags:
+        - Database Migrations
+      summary: Get a database's migration history
+      description: |
+        Returns the migrations the database has recorded, in name order, read
+        from the database's own `_volcano_migrations.history` table. The history
+        is empty until a migration run or a baseline first records a file.
+
+        `active_run_id` is the run that is queued or running, if any.
+
+        If the history table is gone from a database where migrations ran,
+        answers `409` with code `history_missing`, and every run fails with
+        that code, rather than running files again. Record a baseline of the
+        files that were already applied to rebuild it. Dropping the whole
+        `_volcano_migrations` schema is not supported: the database then reads
+        as new, and the next run applies every file again.
+
+        Volcano reads at most 1,000 history entries, as many files as one run
+        may carry. A history with more answers `409` with code
+        `history_too_large`. A baseline is refused with that code, and a run
+        fails with it. Deleting the entries of files no longer among your
+        migrations brings the history back under the bound.
+
+        Available whether or not migration runs are.
+      operationId: getDatabaseMigrations
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DatabaseName'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrations'
+        '404':
+          description: Project or database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Code `history_missing`: the history table is gone from a database
+            where migrations ran; record a baseline of the files that were
+            already applied. Code `history_too_large`: the history has more
+            than 1,000 entries. Without a code: the database is not active, so
+            its history cannot be read.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Volcano could not reach the database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/databases/{databaseName}/migrations/baseline:
+    post:
+      tags:
+        - Database Migrations
+      summary: Record migrations as applied without running them
+      description: |
+        Records each file in the database's migration history as applied,
+        without running it. Use it once for a database whose schema already
+        reflects the files, such as one migrated before Volcano tracked its
+        migrations, so later runs apply only newer files. It is refused while
+        a run is queued or running, and no run starts while it records. It
+        does not queue: while another request is changing the database, or the
+        database holds it up, such as with a lock on the migration history, it
+        answers `409` with code `database_busy`.
+
+        Files the history already records with the same checksum are skipped, so
+        repeating the request changes nothing. A file recorded with a different
+        checksum is refused, and nothing is recorded.
+
+        It also rebuilds a history that was lost (`history_missing`): send
+        exactly the files that were already applied, and later runs apply only
+        the rest.
+
+        Where migration runs are not available, answers `404` with code
+        `feature_unavailable`.
+      operationId: baselineDatabaseMigrations
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DatabaseName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseMigrationFilesRequest'
+      responses:
+        '200':
+          description: The files are recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationBaseline'
+        '400':
+          description: |
+            A file breaks a rule: too many files, a file over 1 MiB, a name that
+            is not a `.sql` file, a name repeated, or a directory other than
+            this database's. Nothing is recorded or queued. Code
+            `invalid_layout`: a path does not map to this database. Code
+            `invalid_file`: a name is repeated or too long. A request the
+            schema refuses carries no code. Without a code, the message
+            starting `storage limit reached`: the database is over its storage
+            allowance, so its writes are blocked, as they are over a
+            connection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project or database not found, or migration runs are not available
+            here (code `feature_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Nothing was recorded. Code `checksum_mismatch`: a file is already
+            recorded with a different checksum. Code
+            `migration_run_in_progress`: a run is queued or running, named by
+            `run_id`. Code `history_too_large`: the history has more than 1,000
+            entries. Code `database_busy`: another request is changing the
+            database, or the database held the baseline up, such as with a lock
+            on its migration history; try again. Without a code: the database is not active or changed
+            while the request ran, or another session holds its migration
+            lock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationConflictError'
+        '413':
+          description: The request body is larger than 4 MiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Volcano could not reach the database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/databases/{databaseName}/migration-runs:
+    get:
+      tags:
+        - Database Migrations
+      summary: List a database's migration runs
+      description: |
+        Returns the database's 50 most recent migration runs, newest first,
+        without their files; get a run for its files. There is no pagination.
+
+        Available whether or not migration runs are.
+      operationId: listDatabaseMigrationRuns
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DatabaseName'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationRunList'
+        '404':
+          description: Project or database not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Database Migrations
+      summary: Apply migrations to a database
+      description: |
+        Starts a migration run: Volcano compares the files with the database's
+        history, rehearses the pending ones on a short-lived branch of the
+        database, takes a backup, and applies them in name order. Files the
+        history already records with the same checksum are skipped.
+
+        Asynchronous: the response is `202` with the run `queued`. Poll the run
+        until its `status` is `succeeded` or `failed`.
+
+        Send `Idempotency-Key` to make a retry safe: a repeat with a key this
+        database has seen returns that run with `200` and starts nothing. A
+        database runs one migration run at a time.
+
+        Where migration runs are not available, answers `404` with code
+        `feature_unavailable`.
+      operationId: createDatabaseMigrationRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DatabaseName'
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: |
+            Makes the request safe to retry. A repeat with a key this database
+            has seen returns the run it started. Reusing a key for different
+            files answers `409`. Up to 255 printable ASCII characters.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+            pattern: ^[!-~]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseMigrationFilesRequest'
+      responses:
+        '200':
+          description: A run with this `Idempotency-Key` already exists; it is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationRun'
+        '202':
+          description: Run accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationRun'
+        '400':
+          description: |
+            A file breaks a rule: too many files, a file over 1 MiB, a name that
+            is not a `.sql` file, a name repeated, or a directory other than
+            this database's. Nothing is recorded or queued. Code
+            `invalid_layout`: a path does not map to this database. Code
+            `invalid_file`: a name is repeated or too long. A request the
+            schema refuses carries no code. Without a code, the message
+            starting `storage limit reached`: the database is over its storage
+            allowance, so its writes are blocked, as they are over a
+            connection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            Project or database not found, or migration runs are not available
+            here (code `feature_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            Code `migration_run_in_progress`: a run is already queued or running
+            for this database, named by `run_id`. Wait for it to end, then send
+            the request again. Without a code: the `Idempotency-Key` already
+            started a run of different files.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationConflictError'
+        '413':
+          description: The request body is larger than 4 MiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /projects/{id}/databases/{databaseName}/migration-runs/{runId}:
+    get:
+      tags:
+        - Database Migrations
+      summary: Get a migration run
+      description: |
+        Returns the run with each file's outcome. Poll this after starting a
+        run.
+
+        Available whether or not migration runs are.
+      operationId: getDatabaseMigrationRun
+      security:
+        - UserToken: []
+        - ProjectAccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/DatabaseName'
+        - $ref: '#/components/parameters/MigrationRunId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseMigrationRun'
+        '404':
+          description: Project, database, or run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /projects/{id}/databases/{databaseName}/reset-password:
     post:
       tags:
@@ -16896,6 +17213,12 @@ paths:
         | `sandboxes` | The Sandbox API: presets, templates, sessions, and executions |
         | `sandboxes.sessions` | Starting and resuming sessions, and one-shot executions |
         | `sandboxes.custom_templates` | Deploying a custom template; its validation waits while `sandboxes.sessions` is unavailable |
+        | `issues` | The Issues API: listing, reading, and updating grouped runtime errors |
+        | `lavaflow` | The LavaFlow API: a project's AI diagnosis and fix settings |
+        | `functions.response_streaming` | Streaming an HTTP-mode function's response on its own URL as the function writes it |
+        | `frontend_routes` | Creating and changing Frontend routes; listing, deleting, and serving existing ones work either way |
+        | `frontends.candidates` | Creating, redeploying, promoting and rolling back to a frontend Candidate; reading, deleting and rolling back to the frontend's own runtime always work |
+        | `databases.migrations` | Starting migration runs and recording a baseline; reading history and runs works either way |
 
         A capability missing from the list is unavailable, and a capability under
         another, such as `sandboxes.sessions`, is unavailable whenever its parent is.
@@ -16904,6 +17227,11 @@ paths:
         that code. Reading, deleting, and terminating what already exists keep
         working unless the whole feature is absent from the environment. Every caller
         in an environment gets the same answer.
+
+        `functions.response_streaming` refuses nothing: while it is unavailable, a
+        function's own URL still answers and sends a streamed response whole, once
+        the function finishes, up to 6 MiB with headers; a larger one fails the
+        invocation. Frontend Function routes stream either way.
       operationId: listCapabilities
       security: []
       responses:
@@ -16921,6 +17249,18 @@ paths:
                     status: available
                   - id: sandboxes.custom_templates
                     status: unavailable
+                  - id: issues
+                    status: available
+                  - id: lavaflow
+                    status: available
+                  - id: functions.response_streaming
+                    status: available
+                  - id: frontend_routes
+                    status: available
+                  - id: frontends.candidates
+                    status: unavailable
+                  - id: databases.migrations
+                    status: available
   /openapi.json:
     get:
       tags:
@@ -17629,6 +17969,14 @@ components:
         type: string
         format: uuid
       description: Database restore ID
+    MigrationRunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Database migration run ID
     SchedulerId:
       name: schedulerId
       in: path
@@ -20177,6 +20525,378 @@ components:
           type: string
           format: date-time
           description: The most recent point that can be restored, which is now.
+    DatabaseMigrationFile:
+      type: object
+      description: One migration file and its SQL.
+      properties:
+        name:
+          type: string
+          minLength: 5
+          maxLength: 320
+          pattern: ^([a-z0-9_]+/)?[^/\\]+\.sql$
+          description: |
+            The file's path under `volcano/migrations/`: a file name such as
+            `001_create_users.sql`, or `<database>/001_create_users.sql` in a
+            project with more than one database, where `<database>` must be
+            this database. Every file in a request takes the same form. Files
+            run in byte order of their file name, which the history records.
+          example: 001_create_users.sql
+        sql:
+          type: string
+          maxLength: 1048576
+          description: |
+            The file's SQL, at most 1 MiB. A file may hold several statements
+            and runs in one transaction. A file cannot commit, roll back, use
+            savepoints, or `COPY` from the client, and statements that cannot
+            run in a transaction, such as `CREATE INDEX CONCURRENTLY`, are not
+            supported yet; such a file fails with `migration_failed`.
+      required:
+        - name
+        - sql
+    DatabaseMigrationFilesRequest:
+      type: object
+      properties:
+        files:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/DatabaseMigrationFile'
+      required:
+        - files
+    DatabaseMigrationHistoryEntry:
+      type: object
+      description: One file the database's migration history records.
+      properties:
+        name:
+          type: string
+          example: 001_create_users.sql
+        checksum:
+          type: string
+          description: |
+            `sha256:` and the hex digest of the file as recorded, with a leading
+            byte order mark removed and CRLF line endings converted to LF.
+          example: sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+        status:
+          type: string
+          enum:
+            - applied
+            - baselined
+          description: |
+            `applied`: a run ran the file and it committed. `baselined`: the file
+            was recorded as applied without running.
+        applied_at:
+          type: string
+          format: date-time
+        run_id:
+          type: string
+          format: uuid
+          description: The run that recorded the file. Absent for a baseline.
+      required:
+        - name
+        - checksum
+        - status
+        - applied_at
+    DatabaseMigrations:
+      type: object
+      properties:
+        history:
+          type: array
+          description: Every file the history records, in name order.
+          items:
+            $ref: '#/components/schemas/DatabaseMigrationHistoryEntry'
+        active_run_id:
+          type: string
+          format: uuid
+          description: The run that is queued or running, if any.
+      required:
+        - history
+    DatabaseMigrationBaseline:
+      type: object
+      properties:
+        recorded:
+          type: array
+          description: |
+            The files this request recorded, in name order. Empty when the
+            history already recorded every file.
+          items:
+            type: string
+      required:
+        - recorded
+    DatabaseMigrationConflictError:
+      description: |
+        A migration request refused by the database's state. With code
+        `migration_run_in_progress`, `run_id` names the run that is queued or
+        running.
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            run_id:
+              type: string
+              format: uuid
+    DatabaseMigrationRunFile:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 001_create_users.sql
+        outcome:
+          type: string
+          enum:
+            - pending
+            - already_applied
+            - applied
+            - failed
+            - not_run
+            - unknown
+          description: |
+            `pending`: not settled yet, including a file the run will try again
+            on its next attempt. `already_applied`: the history already recorded
+            it, so it did not run; a file can also end this way in `apply`, when
+            another session applied or baselined it after the run planned.
+            `applied`: this run applied it. `failed`: its own SQL failed and
+            its transaction rolled back, in the rehearsal or in the database as
+            the run's `phase` says, including when the run's time limit stopped
+            it; a file whose `COMMIT` failed is `unknown` instead. `not_run`:
+            the run ended before the file committed, without its SQL failing:
+            before `apply`, after an earlier file failed or lost its `COMMIT`,
+            or after the connection was lost or Volcano's own statements around
+            the file failed, which rolled it back. `unknown`: the run ended
+            in `apply` without confirming whether the file ran, for example
+            because its attempts ran out or its `COMMIT` failed or was cut
+            short. The file may have committed; the database's history says,
+            and the next run's plan applies it only if it is not recorded.
+            While the run is `queued` or `running`, each attempt reads the
+            history again before it runs a file, and sets every file the run
+            has not applied from it: `already_applied` if the history holds
+            it, `pending` otherwise.
+        error:
+          $ref: '#/components/schemas/DatabaseMigrationFileError'
+      required:
+        - name
+        - outcome
+    DatabaseMigrationFileError:
+      type: object
+      description: |
+        The database's error for a failed file. `message` is the database's own
+        message and can quote values from the file or the data.
+      properties:
+        message:
+          type: string
+          description: |
+            At most 8 KiB (8,192 bytes). A longer message is cut and ends with
+            ` … [truncated]`. Volcano reads each reply the database sends about
+            the file up to 4 MiB, which leaves room for a reply that quotes the
+            whole file twice. A larger reply is not read: the file fails, and
+            this message says so instead.
+          example: column "email" of relation "users" already exists
+        sqlstate:
+          type: string
+          description: The Postgres error code, when the database reported one.
+          example: '42701'
+        line:
+          type: integer
+          minimum: 1
+          description: The line of the file the database reported, when known.
+      required:
+        - message
+    DatabaseMigrationWarning:
+      type: object
+      description: A condition the run reports that did not stop it.
+      properties:
+        code:
+          type: string
+          enum:
+            - out_of_order
+            - missing_file
+            - rehearsal_skipped
+            - backup_skipped
+            - backup_prune_failed
+            - warnings_truncated
+          description: |
+            `out_of_order`: a pending file sorts before one the history already
+            records; it still ran. `missing_file`: the history records a file
+            the run did not include. `rehearsal_skipped`: the files were not
+            rehearsed, because branches are not available here or on the plan.
+            `backup_skipped`: no backup was taken, because backups are not
+            available here or on the plan. `backup_prune_failed`: Volcano
+            could not delete older migration backups beyond the 20 it keeps;
+            the run's outcome is unaffected, and the next run that takes a
+            backup tries again. `warnings_truncated`: the run raised more than
+            100 warnings; it is the last one, and its message says how many
+            more were not kept.
+        file:
+          type: string
+          description: The file the warning is about, when it is about one.
+        message:
+          type: string
+      required:
+        - code
+        - message
+    DatabaseMigrationRunError:
+      type: object
+      description: Why the run failed, or why its last attempt did.
+      properties:
+        code:
+          type: string
+          enum:
+            - migration_failed
+            - checksum_mismatch
+            - history_missing
+            - history_too_large
+            - invalid_file
+            - invalid_layout
+            - plan_changed
+            - branch_limit
+            - rehearsal_unavailable
+            - backup_failed
+            - restore_in_progress
+            - database_unavailable
+            - locked
+            - connection_failed
+            - timeout
+            - attempts_exhausted
+            - internal_error
+          description: |
+            Stable machine-readable reason. `migration_failed`: a file's SQL,
+            or its `COMMIT`, failed; `phase` says whether in the rehearsal,
+            leaving the database untouched, or in the database, where the files
+            before it stay applied. `checksum_mismatch`: an applied file changed.
+            `history_missing`: the database's history table is gone though
+            migrations ran there; record a baseline of the files already
+            applied. Dropping the whole `_volcano_migrations` schema is not
+            supported and not detected: the database reads as new, and the run
+            applies every file again. `history_too_large`: the history has
+            more than the 1,000 entries Volcano reads. `invalid_file`: a file
+            Volcano refuses to run. `invalid_layout`: file paths that do not map
+            to the database.
+            `plan_changed`: the history changed after the rehearsal.
+            `branch_limit`: the rehearsal branch would exceed the plan's branch
+            allowance. `backup_failed` and `rehearsal_unavailable`: Volcano
+            could not take the backup or prepare the rehearsal.
+            `restore_in_progress` and `database_unavailable`: the database could
+            not take the run. `locked`: another session held the migration lock,
+            or a file waited too long for a lock. `connection_failed`: the
+            database could not be reached, or the connection was lost,
+            including while a file ran. `internal_error`: Volcano failed for a
+            reason of its own, such as its own statements around a file.
+            `timeout` and `attempts_exhausted`: the run could not finish.
+        message:
+          type: string
+          description: |
+            What happened, naming files and Postgres error codes. The
+            database's own message is on the failed file.
+      required:
+        - code
+        - message
+    DatabaseMigrationRun:
+      type: object
+      description: |
+        One application of migration files to a database. A run plans the files
+        against the database's history, rehearses the pending ones on a
+        short-lived branch, takes a backup, and applies them.
+      properties:
+        id:
+          type: string
+          format: uuid
+        database:
+          $ref: '#/components/schemas/ResourceReference'
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - succeeded
+            - failed
+          description: |
+            `queued` and `running` mean the run has not ended; a run waiting
+            to retry stays `running`. `succeeded`: every pending file was
+            applied, or none was pending. `failed`: `error` says why.
+        phase:
+          type: string
+          enum:
+            - plan
+            - rehearse
+            - backup
+            - apply
+          x-enum-varnames:
+            - DatabaseMigrationRunPhasePlan
+            - DatabaseMigrationRunPhaseRehearse
+            - DatabaseMigrationRunPhaseBackup
+            - DatabaseMigrationRunPhaseApply
+          description: |
+            The step the run is on, or the one it ended on. `plan` compares the
+            files with the history. `rehearse` applies the pending files to a
+            short-lived branch of the database, which is deleted afterwards.
+            `backup` takes the backup named by `backup_name`. `apply` applies
+            the files to the database.
+        source:
+          type: string
+          enum:
+            - git_deploy
+            - api
+          description: What started the run.
+        commit_sha:
+          type: string
+          description: The commit whose files the run applies. Present for `git_deploy` runs.
+        backup_name:
+          type: string
+          description: |
+            The backup the run takes before it applies the files, named once
+            the run starts taking it. It is listed with the database's backups
+            with `source: migration`. A run that ended in its `backup` phase
+            may name a backup that was never created.
+          example: before-migration-7f3a1c2e-5d4b-4a91-8c6f-2b1e9d0a4c73
+        files:
+          type: array
+          description: |
+            The run's files, in the order they run, with what became of each.
+            Absent when listing runs.
+          items:
+            $ref: '#/components/schemas/DatabaseMigrationRunFile'
+        warnings:
+          type: array
+          maxItems: 101
+          description: |
+            A run keeps at most 100 warnings, keeping those about the run, such
+            as a skipped backup, ahead of those about files. A run that raised
+            more ends the list with a `warnings_truncated` warning.
+          items:
+            $ref: '#/components/schemas/DatabaseMigrationWarning'
+        error:
+          $ref: '#/components/schemas/DatabaseMigrationRunError'
+        started_at:
+          type: string
+          format: date-time
+          description: When a worker first picked the run up.
+        completed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - database
+        - status
+        - phase
+        - source
+        - warnings
+        - created_at
+        - updated_at
+    DatabaseMigrationRunList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DatabaseMigrationRun'
+      required:
+        - data
     DatabaseStats:
       type: object
       properties:

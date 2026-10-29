@@ -330,6 +330,25 @@ databases:
 			want: []string{"the manifests declare 2 databases (app, analytics)"},
 		},
 		{
+			name: "migrations in a mixed layout",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/migrations/001_init.sql", "select 1;")
+				writeDeployProjectFile(t, "volcano/migrations/app/002_more.sql", "select 2;")
+			},
+			args: []string{"--with-migrations", "-d", "app"},
+			want: []string{"volcano/migrations mixes top-level files, such as 001_init.sql, with database directories, such as app/"},
+		},
+		{
+			name: "migration with an uppercase extension",
+			setup: func(t *testing.T) {
+				t.Helper()
+				writeDeployProjectFile(t, "volcano/migrations/001_init.SQL", "select 1;")
+			},
+			args: []string{"--with-migrations", "-d", "app"},
+			want: []string{"volcano/migrations/001_init.SQL: tracked migration runs take only file names ending in lowercase .sql; rename it to 001_init.sql"},
+		},
+		{
 			name: "database without migrations",
 			args: []string{"-d", "app"},
 			want: []string{`--database only picks where migrations go; add --with-migrations to apply them to "app"`},
@@ -531,15 +550,16 @@ func TestDeployWithoutFunctionsIgnoresTheDefaultManifest(t *testing.T) {
 	assert.Equal(t, []string{"config"}, fake.recorded())
 }
 
-// After the migrations ran, the hint says to leave them out of the next run.
-func TestDeployResumeHintLeavesOutMigrationsThatRan(t *testing.T) {
+// A tracked run skips the files that already ran, so running the whole
+// command again is safe after the migrations step.
+func TestDeployResumeHintAfterMigrations(t *testing.T) {
 	hint := resumeHint([]string{stepVariables, stepMigrations}, []step{
 		{name: stepFunctions, manual: []string{"volcano functions deploy --all"}},
 		{name: stepDurable, skipped: true, manual: []string{"volcano durable deploy --all"}},
 	})
 
 	assert.Equal(t, "Already deployed: variables, migrations.\n"+
-		"Fix the cause and run the command again without --with-migrations and -d, since the migrations already ran, or finish by hand:\n"+
+		"Fix the cause and run the command again, or finish by hand:\n"+
 		"  volcano functions deploy --all", hint)
 }
 
@@ -707,16 +727,111 @@ func TestLocalDeployMigratesTheAppDatabase(t *testing.T) {
 	writeDeployProjectFile(t, "volcano/functions/hello.js", `exports.handler = async () => ({});`)
 	fake := newFakeVolcano(t)
 	server := fake.start()
+	deps := fake.localDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
 
-	out, err := executeDeployCommand(t, NewLocal(fake.localDeps(server)), "--with-migrations")
-	require.Error(t, err)
+	out, err := executeDeployCommand(t, NewLocal(deps), "--with-migrations")
+	require.NoError(t, err, out)
 
 	assert.Contains(t, out, "2. migrations  volcano/migrations -> database app")
+	assert.Contains(t, out, "Starting a migration run of 1 file(s) from volcano/migrations on database 'app'")
+	assert.Contains(t, out, "succeeded: 1 applied, 0 already applied")
+	assert.Equal(t, []string{"migrations app", "function hello"}, fake.recorded())
+	assert.Equal(t, []string{"001_init.sql"}, fake.migrationFiles["app"])
+}
+
+// With a directory per database, --with-migrations migrates every database
+// that has one, each with its own directory's files.
+func TestDeployMigratesEveryDatabaseDirectory(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/migrations/main_db/001_notes.sql", "create table notes (id int);")
+	writeDeployProjectFile(t, "volcano/migrations/analytics/001_events.sql", "create table events (id int);")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps), "--with-migrations", "--no-wait")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, out, "2. migrations  volcano/migrations/analytics -> database analytics, volcano/migrations/main_db -> database main_db")
+	assert.Equal(t, []string{"migrations analytics", "migrations main_db"}, fake.recorded())
+	assert.Equal(t, []string{"main_db/001_notes.sql"}, fake.migrationFiles["main_db"])
+	assert.Equal(t, []string{"analytics/001_events.sql"}, fake.migrationFiles["analytics"])
+}
+
+// Where the API takes no tracked runs, the deploy refuses before it changes
+// anything and names the untracked commands instead.
+func TestDeployRefusesMigrationsWithoutTrackedRuns(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	writeDeployProjectFile(t, "volcano/migrations/001_init.sql", "create table notes (id int);")
+	fake := newFakeVolcano(t)
+	fake.migrationsUnavailable = true
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--with-migrations", "-d", "app")
+	require.Error(t, err)
+
+	assert.Equal(t, "--with-migrations applies migrations in tracked runs, which aren't available on this Volcano API "+
+		`(capability "databases.migrations"). Nothing was deployed.`+"\n"+
+		"To run the files without tracking, which runs every file again, use:\n"+
+		"  volcano cloud databases migration up --all -d app\n"+
+		"then deploy without --with-migrations", err.Error())
+	assert.NotContains(t, out, "Deploying to")
 	assert.Empty(t, fake.recorded())
-	require.ErrorContains(t, err, `migrations: database "app" is not active (status: provisioning)`)
-	assert.ErrorContains(t, err, `Fix the cause and run the command again, or finish by hand:
-  volcano migrations deploy --all -d app
-  volcano functions deploy --all`)
+}
+
+// A project without migration files has nothing for --with-migrations to
+// apply, so the step is skipped and nothing asks whether runs are available.
+func TestDeployWithMigrationsSkipsAProjectWithoutThem(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano.env", "API_URL=https://api.example.test\n")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--with-migrations", "-d", "app")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, out, "2. migrations  skipped: no migration files in volcano/migrations")
+	assert.NotContains(t, fake.reads, "capabilities")
+}
+
+// In a per-database layout, -d naming a database without a directory skips
+// the step and names the directory it looked in.
+func TestDeployWithMigrationsNamesTheDirectoryItFoundEmpty(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeDeployProjectFile(t, "volcano/volcano.env", "API_URL=https://api.example.test\n")
+	writeDeployProjectFile(t, "volcano/migrations/main_db/001_notes.sql", "create table notes (id int);")
+	fake := newFakeVolcano(t)
+	server := fake.start()
+
+	out, err := executeDeployCommand(t, New(fake.cloudDeps(server)), "--with-migrations", "-d", "analytics")
+	require.NoError(t, err, out)
+
+	assert.Contains(t, out, "2. migrations  skipped: no migration files in volcano/migrations/analytics")
+	assert.Empty(t, fake.migrationFiles)
+}
+
+func TestDeployStopsAtAFailedMigrationRun(t *testing.T) {
+	setDeployCommandTestHome(t)
+	writeFullProject(t)
+	writeDeployProjectFile(t, "volcano/migrations/001_init.sql", "create table notes (id int);")
+	fake := newFakeVolcano(t)
+	fake.failMigrations = map[string]bool{"app": true}
+	server := fake.start()
+	deps := fake.cloudDeps(server)
+	deps.NewTicker = func(time.Duration) cliruntime.Ticker { return tickNow{} }
+
+	out, err := executeDeployCommand(t, New(deps), "--with-migrations", "-d", "app")
+	require.Error(t, err)
+
+	assert.Contains(t, out, "[2/6] migrations")
+	require.ErrorContains(t, err, "failed in apply (migration_failed): a migration failed")
+	require.ErrorContains(t, err, "Already deployed: variables.\n"+
+		"Fix the cause and run the command again, or finish by hand:\n"+
+		"  volcano cloud databases migration apply -d app\n")
+	assert.Equal(t, []string{"variable API_URL", "migrations app"}, fake.recorded())
 }
 
 func TestFrontendSelectionComesFromTheFirstManifest(t *testing.T) {
