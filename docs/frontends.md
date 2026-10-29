@@ -285,9 +285,12 @@ read, so one that races another is refused instead of overwriting it.
 `rollback --to-production` returns to the frontend's own build.
 
 While a preview is promoted, deploying the frontend itself is refused: roll
-back first. A preview the frontend serves cannot be deleted. Its URL is not
-indexed, but anyone who holds it can open it. Creating a preview is behind a
-release gate and answers `feature_unavailable` while it is off. See
+back first. A preview the frontend serves cannot be deleted; one it only keeps
+for `rollback` can be, which gives up that rollback. Its URL is not
+indexed, but anyone who holds it can open it. Creating, deploying to and
+promoting a preview, and a rollback that would make one serve again, are behind
+a release gate and answer `feature_unavailable` while it is off;
+`rollback --to-production` always works. See
 [Frontend previews](/platform/frontends/previews).
 
 ## Function routes

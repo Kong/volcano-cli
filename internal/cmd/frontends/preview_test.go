@@ -174,6 +174,17 @@ func TestPreviewCreateRefusesAnExpiryTheAPIWouldRefuse(t *testing.T) {
 	require.ErrorContains(t, err, "--ttl must be between")
 }
 
+// A positive expiry under a second would be sent as 0 seconds, which keeps the
+// preview until it is deleted: the opposite of what was asked.
+func TestPreviewCreateRefusesAnExpiryUnderASecond(t *testing.T) {
+	p, server := newPreviewServer(t)
+
+	_, err := runPreview(t, server, "preview", "create", "web", "--name", "redesign", "--path", previewProject(t), "--ttl", "500ms")
+
+	require.ErrorContains(t, err, "--ttl must be at least 1s")
+	assert.Empty(t, p.form, "nothing was created")
+}
+
 func TestPreviewCreateNeedsAName(t *testing.T) {
 	_, server := newPreviewServer(t)
 
@@ -207,7 +218,7 @@ func TestPreviewGetFindsAPreviewByNameOrByID(t *testing.T) {
 		assert.Contains(t, out, "Variables: current", identifier)
 	}
 	_, err := runPreview(t, server, "preview", "get", "web", "nonesuch")
-	require.ErrorContains(t, err, `candidate "nonesuch" of frontend "web"`)
+	require.ErrorContains(t, err, `preview "nonesuch" of frontend "web"`)
 }
 
 func TestPreviewDeploySendsOnlyTheArchive(t *testing.T) {
@@ -238,7 +249,7 @@ func TestPreviewDeleteReportsThatTheFrontendServesIt(t *testing.T) {
 
 	_, err := runPreview(t, server, "preview", "delete", "web", "redesign")
 
-	require.ErrorContains(t, err, "failed to delete candidate")
+	require.ErrorContains(t, err, "failed to delete preview")
 	require.ErrorContains(t, err, "the frontend serves this candidate")
 	assert.False(t, p.deleted)
 }
@@ -260,7 +271,7 @@ func TestPreviewPromoteReportsWhyTheAPIRefusedIt(t *testing.T) {
 
 	_, err := runPreview(t, server, "preview", "promote", "web", "redesign")
 
-	require.ErrorContains(t, err, "failed to promote candidate")
+	require.ErrorContains(t, err, "failed to promote preview")
 	require.ErrorContains(t, err, "configuration changed")
 }
 

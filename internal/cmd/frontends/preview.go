@@ -2,6 +2,7 @@ package frontends
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -27,7 +28,7 @@ func newPreview(deps cliruntime.Deps) *cobra.Command {
 		Use:     "preview",
 		Aliases: []string{"previews"},
 		Short:   "Manage frontend previews",
-		Long: `Deploy a private copy of a frontend to its own URL, check it, and promote it.
+		Long: `Deploy an unlisted copy of a frontend to its own URL, check it, and promote it.
 
 A preview builds from a local directory and is served at its own host, not at
 the frontend's. It runs with the frontend's current project variables, and
@@ -70,7 +71,9 @@ func newRollback(deps cliruntime.Deps) *cobra.Command {
 		Long: `Return a frontend's traffic to the build it served before the last promotion.
 
 With --to-production, return to the frontend's own build instead, whatever it
-served before. A rollback is itself undone by promoting again.`,
+served before. A rollback is itself undone by promoting again. While previews
+are unavailable, a rollback that would make a preview serve again is refused;
+--to-production still works.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			service := clifrontend.NewService(deps)
@@ -105,6 +108,11 @@ once it is ready.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if ttl < 0 || ttl > maxPreviewTTL {
 				return fmt.Errorf("--ttl must be between 0 and %s", maxPreviewTTL)
+			}
+			// Under a second truncates to 0, which means keep the preview until it is
+			// deleted: the opposite of a short TTL.
+			if ttl > 0 && ttl < time.Second {
+				return errors.New("--ttl must be at least 1s, or 0 to keep the preview until it is deleted")
 			}
 			packaged, err := packagePreview(cmd.OutOrStdout(), path)
 			if err != nil {
@@ -203,8 +211,10 @@ func newPreviewDelete(deps cliruntime.Deps) *cobra.Command {
 		Short: "Delete a preview",
 		Long: `Delete a preview and remove its runtime.
 
-A preview the frontend serves, or that a rollback returns to, cannot be deleted:
-roll back first.`,
+A preview the frontend serves cannot be deleted: roll back first. A preview the
+frontend only keeps for 'frontends rollback' can be deleted, which gives up that
+rollback; 'frontends rollback --to-production' still returns to the frontend's
+own build.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			preview, err := clifrontend.NewService(deps).DeleteCandidate(cmd.Context(), strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
