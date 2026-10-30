@@ -26,7 +26,7 @@ it using its connection string.
 | List | `volcano databases list` |
 | Get | `volcano databases get <name> [--show-connection-string]` |
 | Delete | `volcano databases delete <name>` |
-| List regions and PostgreSQL versions | `volcano databases regions`, `volcano databases versions` |
+| List regions and PostgreSQL versions | `volcano cloud databases regions`, `volcano databases versions` |
 | Test a connection | `volcano databases ping <name> [--branch <branch>]` |
 | Change size (cloud) | `volcano cloud databases resize <name> --type <size>` |
 | Apply local migrations | `volcano migrations deploy --all -d <db>` |
@@ -60,7 +60,9 @@ Version   Name              Notes
 ```
 
 Both lists are public, so they work before you sign in. Pass `--json` to read
-them from a script. Local development lists only the version its server runs.
+them from a script. In local development a database runs on your machine:
+`databases create` needs no `--region`, `databases regions` is refused, and
+`databases versions` lists only the version the local server runs.
 
 ## Test a connection
 
@@ -77,10 +79,11 @@ volcano cloud databases ping app --branch feature_x --json
 ✓ Connected to database 'app' in 41ms
 ```
 
-The database API takes a service key rather than your sign-in, so the test uses
-one of the project's service keys and never prints it. If the project has none,
-create one with `volcano projects keys service create <name>`. Local
-development uses its own service key and has no branches.
+The database API takes a service key rather than your sign-in. The test uses
+`VOLCANO_TOKEN` when that is a service key, and otherwise the project's
+`volcano-cli-data-plane` key, which function invoke and storage commands share
+and which is created on first use. The key is never printed. Local development
+uses its own service key and has no branches.
 
 ## Change a database's size
 
@@ -92,7 +95,7 @@ Sizes, smallest first: `volcano-db-xs`, `volcano-db-s`, `volcano-db-m`,
 `volcano-db-l`, `volcano-db-xl`, `volcano-db-2xl`. The database must be active,
 and active connections may drop briefly while it changes. The command asks for
 confirmation; pass `--yes` to skip it and `--json` to print the updated
-database. A plan can limit the sizes it allows. In local development a database
+database, without its connection string. A plan can limit the sizes it allows. In local development a database
 runs on your machine and has no size to change.
 
 The manifest's `database_type` asserts a database's size but does not change

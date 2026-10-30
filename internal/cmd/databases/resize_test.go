@@ -111,6 +111,7 @@ func TestResizePrintsTheDatabaseAsJSON(t *testing.T) {
 	var database map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &database))
 	assert.Equal(t, "volcano-db-l", database["database_type"])
+	assert.NotContains(t, database, "connection_string", "the connection string carries the database password")
 	assert.Contains(t, errOut, "Resize it?")
 
 	out, errOut, err = runResizeCommand(t, api.serve(), "", "app", "--type", "volcano-db-xl", "--yes", "--json")
@@ -126,6 +127,10 @@ func TestResizeSkipsTheSizeItAlreadyHas(t *testing.T) {
 	out, _, err := runResizeCommand(t, api.serve(), "", "app", "--type", "volcano-db-m")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Database 'app' is already volcano-db-m")
+
+	out, _, err = runResizeCommand(t, api.serve(), "", "app", "--type", "volcano-db-m", "--json")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "postgres://")
 	assert.Empty(t, api.sent())
 }
 

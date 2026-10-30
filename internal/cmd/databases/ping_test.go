@@ -11,13 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cliconfig "github.com/Kong/volcano-cli/internal/config"
+	"github.com/Kong/volcano-cli/internal/dataplane"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
 
 const pingServiceKey = "sk-ping-test-value"
 
-// pingAPI lists the project's service keys and answers connection tests,
-// recording the credential each test carried.
+// pingAPI lists and creates the project's service keys and answers connection
+// tests, recording the credential each test carried.
 type pingAPI struct {
 	t    *testing.T
 	keys []any
@@ -29,6 +30,7 @@ type pingAPI struct {
 	pings      []string
 	bearers    []string
 	listedKeys int
+	created    []map[string]any
 }
 
 func (a *pingAPI) serve() *httptest.Server {
@@ -39,7 +41,19 @@ func (a *pingAPI) serve() *httptest.Server {
 			a.listedKeys++
 			a.mu.Unlock()
 			respondDatabaseJSON(a.t, w, http.StatusOK, map[string]any{
-				"data": a.keys, "has_more": false, "page": 1, "limit": 1, "total": len(a.keys),
+				"data": a.keys, "has_more": false, "page": 1, "limit": 100, "total": len(a.keys),
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/"+databaseProjectID+"/service-keys":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				a.t.Errorf("decode create body: %v", err)
+			}
+			a.mu.Lock()
+			a.created = append(a.created, body)
+			a.mu.Unlock()
+			respondDatabaseJSON(a.t, w, http.StatusCreated, map[string]any{
+				"id": "44444444-4444-4444-8444-444444444444", "name": body["name"], "key_prefix": "sk-created-k",
+				"key_value": "sk-created-key-value", "permissions": body["permissions"],
 			})
 		case r.Method == http.MethodPost && (r.URL.Path == "/databases/app/query/ping" ||
 			r.URL.Path == "/databases/app/branches/preview/query/ping"):
@@ -70,26 +84,38 @@ func (a *pingAPI) sent() ([]string, []string, int) {
 
 func newPingAPI(t *testing.T) *pingAPI {
 	t.Helper()
-	return &pingAPI{t: t, keys: []any{map[string]any{
-		"id": "33333333-3333-4333-8333-333333333333", "name": "backend", "key_prefix": "sk-ping-test",
-		"key_value": pingServiceKey, "permissions": []string{"functions.invoke"},
-	}}}
+	return &pingAPI{t: t, keys: []any{
+		map[string]any{
+			"id": "55555555-5555-4555-8555-555555555555", "name": "backend", "key_prefix": "sk-full-acce",
+			"key_value": "sk-full-access-key", "permissions": []string{"*"},
+		},
+		map[string]any{
+			"id": "33333333-3333-4333-8333-333333333333", "name": dataplane.CLIServiceKeyName, "key_prefix": "sk-ping-test",
+			"key_value": pingServiceKey, "permissions": []string{"functions.invoke"},
+		},
+	}}
 }
 
 func runPingCommand(t *testing.T, server *httptest.Server, args ...string) (string, error) {
 	t.Helper()
+	return runPingCommandAs(t, server, "platform-token", args...)
+}
+
+func runPingCommandAs(t *testing.T, server *httptest.Server, token string, args ...string) (string, error) {
+	t.Helper()
 	setDatabaseCommandTestHome(t)
 	saveDatabaseCommandTestConfig(t, &cliconfig.Config{
-		UserToken:      "platform-token",
+		UserToken:      token,
 		CurrentProject: &cliconfig.ProjectConfig{ID: databaseProjectID, Name: "Beta"},
 	})
 	deps := cliruntime.Deps{CommandPathPrefix: "volcano cloud", HTTPClient: server.Client(), APIBaseURL: server.URL}
 	return executeDatabaseCommand(t, New(deps), append([]string{"ping"}, args...)...)
 }
 
-// The database API takes no platform token, so the test sends one of the
-// project's service keys, scoped or not, and never prints it.
-func TestPingConnectsWithAProjectServiceKey(t *testing.T) {
+// The database API takes no platform token, so the test sends the CLI's
+// reserved data-plane key, not whichever project key lists first, and never
+// prints it.
+func TestPingConnectsWithTheCLIDataPlaneKey(t *testing.T) {
 	api := newPingAPI(t)
 
 	out, err := runPingCommand(t, api.serve(), "app")
@@ -115,15 +141,35 @@ func TestPingTestsABranchAsJSON(t *testing.T) {
 	assert.Equal(t, []string{"/databases/app/branches/preview/query/ping"}, pings)
 }
 
-func TestPingNamesTheCommandThatCreatesAServiceKey(t *testing.T) {
+// The reserved key is created, least-privilege, on first use, as function
+// invoke and storage commands do.
+func TestPingCreatesTheCLIDataPlaneKeyOnFirstUse(t *testing.T) {
 	api := newPingAPI(t)
 	api.keys = []any{}
 
-	_, err := runPingCommand(t, api.serve(), "app")
-	require.ErrorContains(t, err, "the project has no service key")
-	require.ErrorContains(t, err, "volcano projects keys service create database-ping")
-	pings, _, _ := api.sent()
-	assert.Empty(t, pings)
+	out, err := runPingCommand(t, api.serve(), "app")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "sk-created-key-value")
+	api.mu.Lock()
+	created := api.created
+	api.mu.Unlock()
+	require.Len(t, created, 1)
+	assert.Equal(t, dataplane.CLIServiceKeyName, created[0]["name"])
+	assert.NotContains(t, created[0]["permissions"], "*")
+	_, bearers, _ := api.sent()
+	assert.Equal(t, []string{"Bearer sk-created-key-value"}, bearers)
+}
+
+// A service key in VOLCANO_TOKEN already authenticates the database API, and
+// the control plane would refuse it a key listing.
+func TestPingSendsAServiceKeySessionTokenAsIs(t *testing.T) {
+	api := newPingAPI(t)
+
+	_, err := runPingCommandAs(t, api.serve(), "sk-session-key", "app")
+	require.NoError(t, err)
+	_, bearers, listedKeys := api.sent()
+	assert.Equal(t, []string{"Bearer sk-session-key"}, bearers)
+	assert.Zero(t, listedKeys)
 }
 
 func TestPingReportsAFailedTest(t *testing.T) {

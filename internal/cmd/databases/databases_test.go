@@ -142,6 +142,7 @@ func TestLocalTreeSendsProviderOnlyCommandsToCloud(t *testing.T) {
 		{args: []string{"branches", "create", "app", "feature"}, cloud: "branches"},
 		{args: []string{"branch", "list", "app"}, cloud: "branches"},
 		{args: []string{"resize", "app", "--type", "volcano-db-m"}, cloud: "resize"},
+		{args: []string{"regions", "--json"}, cloud: "regions"},
 	}
 
 	for _, tc := range providerOnly {
@@ -162,7 +163,7 @@ func TestLocalTreeSendsProviderOnlyCommandsToCloud(t *testing.T) {
 func TestLocalHelpKeepsCloudOnlyCommandsHidden(t *testing.T) {
 	out, err := executeDatabaseCommand(t, NewLocal(cliruntime.Deps{}), "--help")
 	require.NoError(t, err)
-	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches", "resize"} {
+	for _, command := range []string{"backups", "backup-schedule", "restore", "restores", "branches", "resize", "regions"} {
 		assert.NotContains(t, out, command)
 	}
 }

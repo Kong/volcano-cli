@@ -69,13 +69,13 @@ func NewLocalWithOptions(deps cliruntime.Deps, opts LocalOptions) *cobra.Command
 	cmd.AddCommand(newList(deps))
 	cmd.AddCommand(newGet(deps))
 	cmd.AddCommand(newDelete(deps))
-	cmd.AddCommand(newRegions(deps))
 	cmd.AddCommand(newVersions(deps))
 	if opts.ServiceKeyDeps != nil {
 		cmd.AddCommand(newLocalPing(*opts.ServiceKeyDeps))
 	}
 	cmd.AddCommand(migrationcmd.New(deps))
 	cmd.AddCommand(cloudOnlyBecause("resize", "a local database runs on your machine and has no size to change"))
+	cmd.AddCommand(cloudOnlyBecause("regions", "a local database runs on your machine, so 'databases create' needs no --region"))
 	cmd.AddCommand(cloudOnly("backups", "backup"))
 	cmd.AddCommand(cloudOnly("backup-schedule"))
 	cmd.AddCommand(cloudOnly("restore"))

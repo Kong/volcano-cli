@@ -10,12 +10,12 @@ import (
 
 // requireLocalModeTestsDatabaseConnections lists what a database and a
 // function can be created with, and tests the new database's connection
-// through the database API with the local service key.
+// through the database API with the local service key. Regions are left out:
+// a local database runs on the host, so local mode lists none and accepts any.
 func requireLocalModeTestsDatabaseConnections(t *testing.T, binary string, env []string, dir string) {
 	t.Helper()
 
 	for _, args := range [][]string{
-		{"databases", "regions", "--json"},
 		{"databases", "versions", "--json"},
 		{"functions", "regions", "--json"},
 	} {

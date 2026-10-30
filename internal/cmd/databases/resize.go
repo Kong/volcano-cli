@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Kong/volcano-cli/internal/apiclient"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	"github.com/Kong/volcano-cli/internal/output"
@@ -63,7 +64,7 @@ func runResize(ctx context.Context, opts resizeOptions) error {
 	}
 	if current.DatabaseType != nil && string(*current.DatabaseType) == opts.size {
 		if opts.jsonOutput {
-			return output.JSON(opts.out, current)
+			return output.JSON(opts.out, withoutCredentials(current))
 		}
 		fmt.Fprintf(opts.out, "Database '%s' is already %s\n", opts.name, opts.size)
 		return nil
@@ -95,8 +96,17 @@ func runResize(ctx context.Context, opts resizeOptions) error {
 		return err
 	}
 	if opts.jsonOutput {
-		return output.JSON(opts.out, resized)
+		return output.JSON(opts.out, withoutCredentials(resized))
 	}
 	output.Success(opts.out, "Database '%s' resized to %s", opts.name, opts.size)
 	return nil
+}
+
+// withoutCredentials drops the connection string, which carries the database
+// password. Resizing never needs it, and 'databases get --show-connection-string'
+// prints it on request.
+func withoutCredentials(database *apiclient.Database) *apiclient.Database {
+	redacted := *database
+	redacted.ConnectionString = nil
+	return &redacted
 }

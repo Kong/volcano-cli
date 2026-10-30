@@ -84,7 +84,11 @@ func newCreateWithOptions(deps cliruntime.Deps, commandOpts createCommandOptions
 			})
 		},
 	}
-	cmd.Flags().StringVar(&region, "region", "", "Database region, such as us-east-1 (see 'databases regions')")
+	regionUsage := "Database region, such as us-east-1"
+	if commandOpts.requireRegion {
+		regionUsage += " (see 'databases regions')"
+	}
+	cmd.Flags().StringVar(&region, "region", "", regionUsage)
 	cmd.Flags().StringVar(&pgVersion, "pg-version", "", "PostgreSQL version (see 'databases versions')")
 	cmd.Flags().StringVar(&databaseType, "type", "", "Database type (default: volcano-db-xs)")
 	cmd.Flags().BoolVar(&showConnectionString, "show-connection-string", false, "Show database connection string")

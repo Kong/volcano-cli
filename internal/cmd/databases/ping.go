@@ -2,7 +2,6 @@ package databases
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	clidatabase "github.com/Kong/volcano-cli/internal/database"
+	"github.com/Kong/volcano-cli/internal/dataplane"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
 )
@@ -18,10 +18,11 @@ import (
 type pingOptions struct {
 	deps    cliruntime.Deps
 	service []clidatabase.Option
+	long    string
 	// noBranches refuses --branch where the database has no branches to test.
 	noBranches bool
-	name       string
 	branch     string
+	name       string
 	jsonOutput bool
 	out        io.Writer
 }
@@ -33,8 +34,24 @@ type pingResult struct {
 	LatencyMS int64   `json:"latency_ms"`
 }
 
+const pingSummary = `Test that a database, or one of its branches, accepts queries: run SELECT 1
+through the database API and report the round trip. A failed test exits
+non-zero with the reason.`
+
+// newPing tests a cloud database. The database API takes a service key rather
+// than a sign-in, so the test sends the one cloud data-plane commands share.
 func newPing(deps cliruntime.Deps) *cobra.Command {
-	return newPingCommand(pingOptions{deps: deps})
+	return newPingCommand(pingOptions{
+		deps:    deps,
+		service: []clidatabase.Option{clidatabase.WithPingTokenProvider(dataplane.NewService(deps).ServiceKeyForProject)},
+		long: pingSummary + `
+
+The database API takes a service key rather than your sign-in. The test uses
+VOLCANO_TOKEN when that is a service key, and otherwise the project's
+` + "`" + dataplane.CLIServiceKeyName + "`" + ` key, which function invoke and
+storage commands share and which is created on first use. The key is never
+printed.`,
+	})
 }
 
 // newLocalPing tests a local database with deps whose session token is the
@@ -42,8 +59,8 @@ func newPing(deps cliruntime.Deps) *cobra.Command {
 func newLocalPing(deps cliruntime.Deps) *cobra.Command {
 	return newPingCommand(pingOptions{
 		deps:       deps,
-		service:    []clidatabase.Option{clidatabase.PingWithSessionToken()},
 		noBranches: true,
+		long:       pingSummary + "\n\nLocal development authenticates the test with its own service key.",
 	})
 }
 
@@ -52,13 +69,7 @@ func newPingCommand(opts pingOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ping <name>",
 		Short: "Test a database connection",
-		Long: `Test that a database, or one of its branches, accepts queries: run SELECT 1
-through the database API and report the round trip. A failed test exits
-non-zero with the reason.
-
-The test authenticates with one of the project's service keys, which the
-database API requires. Create one with 'volcano projects keys service create'
-if the project has none.`,
+		Long:  opts.long,
 		Example: "  " + cliruntime.CommandPath(deps, "databases ping app") + "\n  " +
 			cliruntime.CommandPath(deps, "databases ping app --branch preview --json"),
 		Args: cobra.ExactArgs(1),
@@ -79,10 +90,6 @@ func runPing(ctx context.Context, opts pingOptions) error {
 			cliruntime.CommandPath(cliruntime.Deps{CommandPathPrefix: "volcano cloud"}, "databases ping "+opts.name+" --branch "+opts.branch))
 	}
 	latency, err := clidatabase.NewService(opts.deps, opts.service...).Ping(ctx, opts.name, opts.branch)
-	if errors.Is(err, clidatabase.ErrNoServiceKey) {
-		return fmt.Errorf("%w. Create one with: %s", err,
-			cliruntime.CommandPath(cliruntime.Deps{}, "projects keys service create database-ping"))
-	}
 	if err != nil {
 		return err
 	}

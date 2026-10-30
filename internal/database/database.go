@@ -13,19 +13,21 @@ import (
 // Service performs authenticated Volcano database workflows.
 type Service struct {
 	sessions clisession.Factory
-	// pingWithSessionToken makes Ping send the session's own token instead of
-	// a project service key.
-	pingWithSessionToken bool
+	// pingToken returns the credential Ping sends. Without it, Ping sends the
+	// session's own token.
+	pingToken PingTokenProvider
 }
+
+// PingTokenProvider returns the credential the database API accepts for a
+// project, such as a service key.
+type PingTokenProvider func(context.Context, *clisession.ProjectSession) (string, error)
 
 // Option configures a Service.
 type Option func(*Service)
 
-// PingWithSessionToken makes Ping authenticate with the session's own token.
-// Local mode sets that token to its service key, and has no project service
-// keys to list.
-func PingWithSessionToken() Option {
-	return func(s *Service) { s.pingWithSessionToken = true }
+// WithPingTokenProvider sets where Ping gets its credential.
+func WithPingTokenProvider(provider PingTokenProvider) Option {
+	return func(s *Service) { s.pingToken = provider }
 }
 
 // NewService returns a database service.
