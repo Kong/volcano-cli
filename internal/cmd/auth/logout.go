@@ -17,7 +17,8 @@ import (
 
 // NewLogout returns the logout command.
 func NewLogout(deps cliruntime.Deps) *cobra.Command {
-	return &cobra.Command{
+	var noRevoke bool
+	cmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Log out of Volcano and end this login on the server",
 		Long: fmt.Sprintf(`Log out: revoke the saved login's token and the session it came from on the
@@ -33,6 +34,10 @@ refuses to revoke the login, the command removes it from this machine anyway
 and exits non-zero; the token then stays valid until it expires. If it was a
 project access token, revoke it with '%[1]s'.
 
+--no-revoke skips the server: it only removes the login from this machine, and
+the token stays valid until it expires. Use it when the server can't be
+reached.
+
 A project access token (pt-) is removed from this machine but not revoked:
 revoke it with '%[1]s'. A token in VOLCANO_TOKEN was never saved,
 so logout doesn't unset it, and revokes it only when it is the saved token.`,
@@ -40,17 +45,25 @@ so logout doesn't unset it, and revokes it only when it is the saved token.`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLogout(cmd.Context(), deps, cmd.OutOrStdout())
+			return runLogout(cmd.Context(), deps, cmd.OutOrStdout(), noRevoke)
 		},
 	}
+	cmd.Flags().BoolVar(&noRevoke, "no-revoke", false, "Remove the login from this machine only, without ending it on the server")
+	return cmd
 }
 
-func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
-	result := cliauth.NewService(deps).Logout(ctx)
+func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer, noRevoke bool) error {
+	service := cliauth.NewService(deps)
+	var result cliauth.LogoutResult
+	if noRevoke {
+		result = service.LogoutWithoutRevoke()
+	} else {
+		result = service.Logout(ctx)
+	}
 	if result.Outcome == cliauth.LogoutNotRevoked {
 		return fmt.Errorf("the server did not end this login: %w\n\n"+
-			"The login is still saved on this machine. Run %s again",
-			result.RevokeErr, cliruntime.CommandPath(deps, "logout"))
+			"The login is still saved on this machine. Run %s again, or %s to remove it from this machine only",
+			result.RevokeErr, cliruntime.CommandPath(deps, "logout"), cliruntime.CommandPath(deps, "logout --no-revoke"))
 	}
 	if result.ClearErr != nil {
 		return clearFailed(result)
@@ -64,6 +77,9 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 		output.Success(w, "Logged out: no login was saved, so nothing was revoked")
 	case cliauth.LogoutNoServerSession:
 		output.Success(w, "Logged out: this server keeps no sign-in session, so there was nothing to revoke")
+	case cliauth.LogoutNotAsked:
+		output.Success(w, "Logged out of this machine")
+		output.Warning(w, "The login was not ended on the server, so its token stays valid until it expires.")
 	case cliauth.LogoutUnreadable:
 		output.Success(w, "Logged out")
 		output.Warning(w, "The saved login could not be read, so nothing was revoked on the server.")
@@ -73,9 +89,14 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 			cliruntime.CommandPath(deps, "cloud access-tokens revoke"))
 	case cliauth.LogoutRefused:
 		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n%s",
-			result.RevokeErr, refusedAdvice(deps, result.RevokeErr))
+			result.RevokeErr, refusedAdvice(deps, result))
 	}
-	output.Note(w, "Removed the login from ~/.volcano/config.json.")
+	switch {
+	case result.Replaced:
+		output.Note(w, "Another login was saved on this machine meanwhile, so it was kept.")
+	case result.Outcome != cliauth.LogoutNothingSaved:
+		output.Note(w, "Removed the login from ~/.volcano/config.json.")
+	}
 	switch {
 	case result.EnvTokenEnded:
 		output.Note(w, "%s holds the token this login used, which the server no longer accepts, "+
@@ -87,10 +108,10 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 }
 
 // refusedAdvice says what still holds after the server refused to end the
-// login. A 403 means the login held a project access token, which only the
-// access-token commands revoke.
-func refusedAdvice(deps cliruntime.Deps, err error) string {
-	if api.Status(err) == http.StatusForbidden {
+// login. The route refuses a project access token with 403, which only the
+// access-token commands revoke; a token with the account prefix can't be one.
+func refusedAdvice(deps cliruntime.Deps, result cliauth.LogoutResult) string {
+	if api.Status(result.RevokeErr) == http.StatusForbidden && !result.AccountToken {
 		return fmt.Sprintf("This login held a project access token, which stays valid until it expires. "+
 			"Revoke it with %s from a login that can manage the project",
 			cliruntime.CommandPath(deps, "cloud access-tokens revoke <name-or-id>"))

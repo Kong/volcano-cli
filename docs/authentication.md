@@ -114,6 +114,10 @@ it from this machine anyway and exits non-zero. The token then stays valid
 until it expires. If it was a project access token, revoke it with
 `volcano cloud access-tokens revoke`.
 
+To remove the login from this machine without reaching the server, for example
+while offline, run `volcano logout --no-revoke`. The token then stays valid
+until it expires.
+
 Local development keeps no sign-in session on the server, so there
 `volcano logout` only removes the login from this machine.
 
