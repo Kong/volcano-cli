@@ -164,3 +164,38 @@ func TestEnableWithoutATerminalNeedsYes(t *testing.T) {
 	assert.Equal(t, clilavaflow.EnableNotice+"\n\nstdin is not a terminal: confirmation required; pass --yes", err.Error())
 	assert.Empty(t, fake.updates)
 }
+
+// Only the project's owner can change LavaFlow. The settings say so first, so
+// a person who isn't the owner is refused before anything is asked or sent.
+func TestChangesBySomeoneWhoIsntTheOwnerAreRefusedFirst(t *testing.T) {
+	for _, args := range [][]string{{"enable"}, {"disable"}, {"settings", "set", "--autonomy", "open_pr"}} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) { s.settings["can_update"] = false })
+
+		_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), args...)
+		require.ErrorIs(t, err, clilavaflow.ErrOwnerDecides, "%q", args)
+		assert.Equal(t, "only the project's owner can change LavaFlow's settings, from their own session", err.Error())
+		assert.Equal(t, http.StatusForbidden, api.Status(err), "the exit code reports a permission refused")
+		assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
+		assert.Empty(t, fake.updates)
+	}
+}
+
+// The API's refusal of a change is read by its code, not its status.
+func TestARefusedChangeSaysWhoCanMakeIt(t *testing.T) {
+	for code, want := range map[string]error{
+		"person_required": clilavaflow.ErrPersonDecides,
+		"owner_required":  clilavaflow.ErrOwnerDecides,
+	} {
+		fake, deps := newLavaflowServer(t)
+		fake.set(func(s *lavaflowServer) {
+			s.refuse, s.refuseMethod = http.StatusForbidden, http.MethodPut
+			s.refusal = map[string]any{"error": "refused", "code": code}
+		})
+
+		_, err := executeLavaflowCommand(t, New(deps), "disable")
+		require.ErrorIs(t, err, want, code)
+		assert.Equal(t, http.StatusForbidden, api.Status(err), code)
+		assert.Equal(t, code, api.Code(err), code)
+	}
+}

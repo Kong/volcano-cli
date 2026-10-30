@@ -41,37 +41,24 @@ func TestTheHelpOpensWithTheAIDisclosure(t *testing.T) {
 	}
 }
 
-// LavaFlow is off for a project when its capabilities say so or leave it out,
-// when a platform release older than LavaFlow has none of its routes, or when
-// a route answers feature_unavailable because the release gate moved after
-// the capabilities were read. Every command says which rather than report a
-// missing project or run, and exits nonzero with the 404 as the cause.
+// A project without LavaFlow records gets feature_unavailable from every
+// route while LavaFlow is off for its account, and a platform release older
+// than LavaFlow has none of its routes. Every command says which rather than
+// report a missing project or run, and exits nonzero with the 404 as the
+// cause.
 func TestEveryCommandSaysWhenLavaFlowIsNotAvailable(t *testing.T) {
-	notYours := "LavaFlow isn't available to your account yet"
 	for name, tc := range map[string]struct {
 		off  func(*lavaflowServer)
 		want string
 	}{
-		"capability unavailable": {func(s *lavaflowServer) { s.capability = "unavailable" }, notYours},
-		"capability left out":    {func(s *lavaflowServer) { s.capability = "" }, notYours},
-		"capability unknown":     {func(s *lavaflowServer) { s.capability = "limited" }, notYours},
-		"no routes":              {func(s *lavaflowServer) { s.routesMissing = true }, "LavaFlow isn't available on this Volcano API"},
-		"refused by a route": {func(s *lavaflowServer) {
+		"no records": {func(s *lavaflowServer) {
+			s.capability = "unavailable"
 			s.refuse = http.StatusNotFound
 			s.refusal = map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"}
-		}, notYours},
+		}, "LavaFlow isn't available to your account yet"},
+		"no routes": {func(s *lavaflowServer) { s.routesMissing = true }, "LavaFlow isn't available on this Volcano API"},
 	} {
-		for _, args := range [][]string{
-			{"status"},
-			{"enable", "--yes"},
-			{"disable"},
-			{"settings"},
-			{"settings", "set", "--autonomy", "diagnose_only"},
-			{"stats"},
-			{"resources"},
-			{"list"},
-			{"show", lavaflowRunID},
-		} {
+		for _, args := range lavaflowCommandArgs() {
 			fake, deps := newLavaflowServer(t)
 			fake.set(tc.off)
 
@@ -82,6 +69,74 @@ func TestEveryCommandSaysWhenLavaFlowIsNotAvailable(t *testing.T) {
 			assert.Empty(t, fake.updates, "%s %q", name, args)
 		}
 	}
+}
+
+func lavaflowCommandArgs() [][]string {
+	return [][]string{
+		{"status"},
+		{"enable", "--yes"},
+		{"disable"},
+		{"settings"},
+		{"settings", "set", "--autonomy", "diagnose_only"},
+		{"stats"},
+		{"resources"},
+		{"list"},
+		{"show", lavaflowRunID},
+	}
+}
+
+// Turning LavaFlow on and changing its settings need it available, which the
+// project's capabilities say before anything is asked or sent.
+func TestChangesNeedLavaFlowAvailable(t *testing.T) {
+	for _, capability := range []string{"unavailable", "", "limited"} {
+		for _, args := range [][]string{{"enable"}, {"settings", "set", "--autonomy", "diagnose_only"}} {
+			fake, deps := newLavaflowServer(t)
+			fake.set(func(s *lavaflowServer) { s.capability = capability })
+
+			_, errOut, err := executeLavaflowCommandSplit(t, New(deps), strings.NewReader("y\n"), args...)
+			require.Error(t, err, "%q %q", capability, args)
+			assert.Equal(t, "LavaFlow isn't available to your account yet", err.Error(), "%q %q", capability, args)
+			assert.Equal(t, http.StatusNotFound, api.Status(err))
+			assert.NotContains(t, errOut, clilavaflow.EnableNotice, "nothing is asked")
+			assert.Empty(t, fake.updates)
+		}
+	}
+}
+
+// A project that has LavaFlow records keeps reading them, and can turn
+// LavaFlow off, while LavaFlow is unavailable for its account. Turning it on
+// and changing other settings exit 4.
+func TestAProjectWithRecordsReadsAndTurnsOffWhileUnavailable(t *testing.T) {
+	fake, deps := newLavaflowServer(t)
+	fake.set(func(s *lavaflowServer) {
+		s.capability, s.gateOff = "unavailable", true
+		s.settings["enabled"] = true
+	})
+
+	for _, args := range [][]string{{"settings"}, {"stats"}, {"resources"}, {"list"}, {"show", lavaflowRunID}} {
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.NoError(t, err, "%q", args)
+	}
+
+	out, err := executeLavaflowCommand(t, New(deps), "status")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow isn't available to your account yet, so it can't be turned on or changed. "+
+		"Its records stay readable, and the owner can still turn it off.")
+	out, err = executeLavaflowCommand(t, New(deps), "status", "--json")
+	require.NoError(t, err)
+	assert.Equal(t, false, decodeJSON(t, out)["available"])
+
+	out, err = executeLavaflowCommand(t, New(deps), "disable")
+	require.NoError(t, err)
+	assert.Contains(t, out, "LavaFlow is off")
+	assert.Equal(t, map[string]any{"enabled": false}, fake.lastUpdate(t))
+
+	for _, args := range [][]string{{"enable", "--yes"}, {"settings", "set", "--system-prompt", "x"}} {
+		_, err := executeLavaflowCommand(t, New(deps), args...)
+		require.Error(t, err, "%q", args)
+		assert.Equal(t, http.StatusNotFound, api.Status(err), "%q", args)
+	}
+	assert.Len(t, fake.updates, 1, "only disable reached the API")
 }
 
 // Every command answers --json with the API's own fields and values, the
@@ -98,14 +153,15 @@ func TestEveryCommandWritesTheAPIsValuesAsJSON(t *testing.T) {
 			assert.Equal(t, asJSON(t, lavaflowStats()), v)
 		}},
 		{[]string{"resources"}, func(v map[string]any) {
-			assert.Len(t, v["items"], 2)
-			first := v["items"].([]any)[0].(map[string]any)
+			assert.Len(t, v["data"], 2)
+			first := v["data"].([]any)[0].(map[string]any)
 			assert.Equal(t, lavaflowResourceID, first["id"])
 			assert.Equal(t, map[string]any{"flagged": true, "reason": "6 issues in the last 24 hours, 4 times the daily average"}, first["anomaly"])
 		}},
 		{[]string{"list"}, func(v map[string]any) {
-			items := v["items"].([]any)
+			items := v["data"].([]any)
 			require.Len(t, items, 2)
+			assert.Equal(t, false, v["has_more"])
 			assert.Equal(t, "pr_open", items[0].(map[string]any)["status"])
 			assert.NotContains(t, items[0], "diff")
 		}},

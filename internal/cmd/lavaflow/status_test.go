@@ -70,6 +70,7 @@ func TestStatusJSONSaysTheSettingsAndTheRepository(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{
 		"settings":         defaultLavaflowSettings(),
+		"available":        true,
 		"repository_state": clilavaflow.RepositoryNotConnected,
 	}, decodeJSON(t, out))
 }

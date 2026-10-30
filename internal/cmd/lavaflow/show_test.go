@@ -72,28 +72,28 @@ func TestShowPrintsRunTextAsPlainText(t *testing.T) {
 	assert.Equal(t, line, logLines[0].(map[string]any)["message"], "the JSON string decodes to the text as the API sent it")
 }
 
-// A run's text is kept for 90 days. An older run comes back without it and
-// says so, while its pull request still shows.
-func TestShowSaysAnOldRunsDetailsWereCleared(t *testing.T) {
+// A run's text is kept for 90 days after it completes. The run says until
+// when, and once the API has cleared the text, says so while its pull request
+// still shows.
+func TestShowSaysWhenARunsDetailsAreCleared(t *testing.T) {
 	fake, deps := newLavaflowServer(t)
-	fake.set(func(s *lavaflowServer) {
-		run := s.runs[0]
-		run["created_at"], run["finished_at"] = "2025-01-10T09:00:00Z", "2025-01-10T09:03:00Z"
-		delete(run, "diff")
-		run["diagnosis"] = map[string]any{}
-	})
 
 	out, err := executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.Contains(t, out, "Note: Details were cleared after 90 days")
-	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
-	assert.NotContains(t, out, "Diagnosis")
+	assert.Regexp(t, `Details kept until: 2027-01-2\d \d\d:\d\d`, out)
+	assert.NotContains(t, out, "cleared")
 
-	// A recent run without a diagnosis yet says nothing about clearing.
-	fake.set(func(s *lavaflowServer) { s.runs[0]["created_at"] = "2099-01-01T00:00:00Z" })
+	fake.set(func(s *lavaflowServer) {
+		run := s.runs[0]
+		delete(run, "details_expire_at")
+		run["details_cleared_at"] = "2027-01-28T09:03:00Z"
+		run["diagnosis"], run["diff"], run["review"] = nil, nil, nil
+	})
 	out, err = executeLavaflowCommand(t, New(deps), "show", lavaflowRunID)
 	require.NoError(t, err)
-	assert.NotContains(t, out, "cleared")
+	assert.Regexp(t, `Note: Details were cleared after 90 days, on 2027-01-2\d`, out)
+	assert.Contains(t, out, "Pull request: #42 (open) https://github.com/acme/shop/pull/42")
+	assert.NotContains(t, out, "Diagnosis")
 }
 
 // The run's log lines need the permission to read the project's logs; the

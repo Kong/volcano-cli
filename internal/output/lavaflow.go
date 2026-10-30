@@ -13,6 +13,9 @@ import (
 // LavaflowStatusDetails is what the status command shows.
 type LavaflowStatusDetails struct {
 	Settings *apiclient.LavaflowSettings
+	// Available is whether LavaFlow takes changes for the project; nil when
+	// unknown.
+	Available *bool
 	// RepositoryState is connected, not_connected or unknown.
 	RepositoryState string
 	Repository      string
@@ -39,7 +42,11 @@ func LavaflowStatus(w io.Writer, details LavaflowStatusDetails) {
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 	kv(w, on, "Updated", "%s", formatLavaflowTime(settings.UpdatedAt))
 	if !settings.CanUpdate {
-		kv(w, on, "You can change it", "no: that needs a person's session with the project's settings role")
+		kv(w, on, "You can change it", "no: only the project's owner can, from their own session")
+	}
+	if details.Available != nil && !*details.Available {
+		Note(w, "LavaFlow isn't available to your account yet, so it can't be turned on or changed. Its records stay readable, and the owner can still turn it off.")
+		return
 	}
 	if !settings.Enabled {
 		if settings.CanUpdate {
@@ -76,15 +83,16 @@ func LavaflowSettingsSaved(w io.Writer, message string, settings *apiclient.Lava
 	kv(w, on, "System prompt", "%s", setOrNot(settings.SystemPrompt))
 }
 
-// LavaflowStats renders the issues and resolutions LavaFlow opened per day.
+// LavaflowStats renders the issues LavaFlow took on and the fix pull requests
+// it opened per day. Merges are never counted.
 func LavaflowStats(w io.Writer, stats *apiclient.LavaflowStats) {
 	on := theme.On(w)
 	tableHead(w, on, false, 44, "%-12s  %14s  %16s", "Date", "Issues opened", "Fix PRs opened")
 	for _, day := range stats.Days {
-		fmt.Fprintf(w, "%-12s  %14d  %16d\n", day.Date.Format(time.DateOnly), day.IssuesOpened, day.ResolutionsOpened)
+		fmt.Fprintf(w, "%-12s  %14d  %16d\n", day.Date.Format(time.DateOnly), day.IssuesOpened, day.PullRequestsOpened)
 	}
 	summary(w, on, "%d issue(s) opened and %d fix pull request(s) opened, %s to %s",
-		stats.Totals.IssuesOpened, stats.Totals.ResolutionsOpened,
+		stats.Totals.IssuesOpened, stats.Totals.PullRequestsOpened,
 		stats.WindowStart.Format(time.DateOnly), stats.WindowEnd.Format(time.DateOnly))
 }
 
@@ -92,13 +100,13 @@ func LavaflowStats(w io.Writer, stats *apiclient.LavaflowStats) {
 // what LavaFlow did for it, flagging a sudden jump in issues.
 func LavaflowResources(w io.Writer, resources *apiclient.LavaflowResourceList, days int) {
 	on := theme.On(w)
-	if len(resources.Items) == 0 {
+	if len(resources.Data) == 0 {
 		fmt.Fprintln(w, "No functions, frontends or durable functions")
 		return
 	}
 	tableHead(w, on, false, 100, "%-16s  %-30s  %-16s  %6s  %7s  %s",
 		"Type", "Name", "Last analyzed", "Issues", "Fix PRs", "")
-	for _, resource := range resources.Items {
+	for _, resource := range resources.Data {
 		mark := ""
 		if resource.Anomaly.Flagged {
 			mark = theme.Warn("issue rate jumped", on)
@@ -106,10 +114,10 @@ func LavaflowResources(w io.Writer, resources *apiclient.LavaflowResourceList, d
 		fmt.Fprintf(w, "%-16s  %-30s  %-16s  %6d  %7d  %s\n",
 			lavaflowResourceType(string(resource.Type)), Truncate(clean(resource.Name), 30),
 			formatLavaflowTimePtr(resource.LastAnalyzedAt, "never"),
-			resource.IssuesOpened, resource.ResolutionsSubmitted, mark)
+			resource.IssuesOpened, resource.PullRequestsOpened, mark)
 	}
-	summary(w, on, "%d resource(s), last %d day(s)", len(resources.Items), days)
-	for _, resource := range resources.Items {
+	summary(w, on, "%d resource(s), last %d day(s)", len(resources.Data), days)
+	for _, resource := range resources.Data {
 		if resource.Anomaly.Flagged && resource.Anomaly.Reason != nil {
 			Warning(w, "%s: %s", clean(resource.Name), clean(*resource.Anomaly.Reason))
 		}
@@ -174,9 +182,12 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 		// The API words each failure code itself, so it is printed as given.
 		Warning(w, "%s", clean(*run.Failure.Message))
 	}
-	if lavaflowTextCleared(run, time.Now()) {
-		Note(w, "Details were cleared after %d days", LavaflowTextRetentionDays)
+	if run.DetailsClearedAt != nil {
+		Note(w, "Details were cleared after 90 days, on %s", formatLavaflowTime(*run.DetailsClearedAt))
 		return
+	}
+	if run.DetailsExpireAt != nil {
+		kv(w, on, "Details kept until", "%s", formatLavaflowTime(*run.DetailsExpireAt))
 	}
 	if diagnosis := run.Diagnosis; diagnosis != nil {
 		if diagnosis.Summary != nil {
@@ -205,24 +216,6 @@ func LavaflowRun(w io.Writer, run *apiclient.LavaflowRun) {
 	if run.Diff != nil && *run.Diff != "" {
 		block(w, on, "Diff", *run.Diff)
 	}
-}
-
-// LavaflowTextRetentionDays is how long Volcano keeps a run's text: its
-// diagnosis, log lines and diff. The run, its pull request and the stats stay.
-const LavaflowTextRetentionDays = 90
-
-// lavaflowTextCleared reports a run past the days its text is kept that came
-// back without that text.
-func lavaflowTextCleared(run *apiclient.LavaflowRun, now time.Time) bool {
-	if now.Sub(run.CreatedAt) < LavaflowTextRetentionDays*24*time.Hour {
-		return false
-	}
-	if run.Diff != nil && *run.Diff != "" {
-		return false
-	}
-	diagnosis := run.Diagnosis
-	return diagnosis == nil || (stringOr(diagnosis.Summary, "") == "" && stringOr(diagnosis.RootCause, "") == "" &&
-		(diagnosis.Evidence == nil || len(*diagnosis.Evidence) == 0) && (diagnosis.LogLines == nil || len(*diagnosis.LogLines) == 0))
 }
 
 func block(w io.Writer, on bool, title, text string) {

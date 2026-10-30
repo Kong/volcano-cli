@@ -8446,18 +8446,18 @@ type LavaflowPullRequestState string
 
 // LavaflowResource defines model for LavaflowResource.
 type LavaflowResource struct {
-	Anomaly              LavaflowAnomaly      `json:"anomaly"`
-	Id                   string               `json:"id"`
-	IssuesOpened         int                  `json:"issues_opened"`
-	LastAnalyzedAt       *time.Time           `json:"last_analyzed_at,omitempty"`
-	Name                 string               `json:"name"`
-	ResolutionsSubmitted int                  `json:"resolutions_submitted"`
-	Type                 LavaflowResourceType `json:"type"`
+	Anomaly            LavaflowAnomaly      `json:"anomaly"`
+	Id                 string               `json:"id"`
+	IssuesOpened       int                  `json:"issues_opened"`
+	LastAnalyzedAt     *time.Time           `json:"last_analyzed_at,omitempty"`
+	Name               string               `json:"name"`
+	PullRequestsOpened int                  `json:"pull_requests_opened"`
+	Type               LavaflowResourceType `json:"type"`
 }
 
 // LavaflowResourceList defines model for LavaflowResourceList.
 type LavaflowResourceList struct {
-	Items []LavaflowResource `json:"items"`
+	Data []LavaflowResource `json:"data"`
 }
 
 // LavaflowResourceRef defines model for LavaflowResourceRef.
@@ -8481,23 +8481,31 @@ type LavaflowReviewVerdict string
 
 // LavaflowRun defines model for LavaflowRun.
 type LavaflowRun struct {
-	CreatedAt   time.Time            `json:"created_at"`
-	Diagnosis   *LavaflowDiagnosis   `json:"diagnosis,omitempty"`
-	Diff        *string              `json:"diff,omitempty"`
-	Failure     *LavaflowFailure     `json:"failure,omitempty"`
-	FinishedAt  *time.Time           `json:"finished_at,omitempty"`
-	Id          string               `json:"id"`
-	IssueId     *string              `json:"issue_id,omitempty"`
-	PullRequest *LavaflowPullRequest `json:"pull_request,omitempty"`
-	Resource    LavaflowResourceRef  `json:"resource"`
-	Review      *LavaflowReview      `json:"review,omitempty"`
-	Status      LavaflowRunStatus    `json:"status"`
-	Title       *string              `json:"title,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DetailsClearedAt When retention cleared the run's diagnosis, log lines, diff and review text, which are then null.
+	DetailsClearedAt *time.Time `json:"details_cleared_at,omitempty"`
+
+	// DetailsExpireAt When the run's diagnosis, log lines, diff and review text are cleared, 90 days after it completed. Null while the run is active.
+	DetailsExpireAt *time.Time           `json:"details_expire_at,omitempty"`
+	Diagnosis       *LavaflowDiagnosis   `json:"diagnosis,omitempty"`
+	Diff            *string              `json:"diff,omitempty"`
+	Failure         *LavaflowFailure     `json:"failure,omitempty"`
+	FinishedAt      *time.Time           `json:"finished_at,omitempty"`
+	Id              string               `json:"id"`
+	IssueId         *string              `json:"issue_id,omitempty"`
+	PullRequest     *LavaflowPullRequest `json:"pull_request,omitempty"`
+	Resource        LavaflowResourceRef  `json:"resource"`
+	Review          *LavaflowReview      `json:"review,omitempty"`
+	Status          LavaflowRunStatus    `json:"status"`
+	Title           *string              `json:"title,omitempty"`
 }
 
 // LavaflowRunList defines model for LavaflowRunList.
 type LavaflowRunList struct {
-	Items      []LavaflowRunSummary `json:"items"`
+	Data       []LavaflowRunSummary `json:"data"`
+	HasMore    bool                 `json:"has_more"`
+	Limit      int                  `json:"limit"`
 	NextCursor *string              `json:"next_cursor,omitempty"`
 }
 
@@ -8520,7 +8528,7 @@ type LavaflowRunSummary struct {
 type LavaflowSettings struct {
 	Autonomy LavaflowAutonomy `json:"autonomy"`
 
-	// CanUpdate Whether this caller can change the settings. Always false for a project access token.
+	// CanUpdate Whether this caller can change the settings. True only for the project owner's own session; false for any project access token.
 	CanUpdate     bool      `json:"can_update"`
 	CustomContext string    `json:"custom_context"`
 	Enabled       bool      `json:"enabled"`
@@ -8547,15 +8555,17 @@ type LavaflowStats struct {
 
 // LavaflowStatsDay defines model for LavaflowStatsDay.
 type LavaflowStatsDay struct {
-	Date              openapi_types.Date `json:"date"`
-	IssuesOpened      int                `json:"issues_opened"`
-	ResolutionsOpened int                `json:"resolutions_opened"`
+	Date         openapi_types.Date `json:"date"`
+	IssuesOpened int                `json:"issues_opened"`
+
+	// PullRequestsOpened Fix pull requests LavaFlow opened that day. Merges are not counted.
+	PullRequestsOpened int `json:"pull_requests_opened"`
 }
 
 // LavaflowStatsTotals defines model for LavaflowStatsTotals.
 type LavaflowStatsTotals struct {
-	IssuesOpened      int `json:"issues_opened"`
-	ResolutionsOpened int `json:"resolutions_opened"`
+	IssuesOpened       int `json:"issues_opened"`
+	PullRequestsOpened int `json:"pull_requests_opened"`
 }
 
 // LiveLogLevel Canonical lowercase function runtime log level.
@@ -9555,11 +9565,6 @@ type ProjectAccessTokenUsageDailyEntry struct {
 	// Day UTC day.
 	Day      openapi_types.Date `json:"day"`
 	Requests int64              `json:"requests"`
-}
-
-// ProjectCapabilityList defines model for ProjectCapabilityList.
-type ProjectCapabilityList struct {
-	Items []Capability `json:"items"`
 }
 
 // ProjectConfig Declarative project configuration manifest (the JSON form of
@@ -46038,7 +46043,7 @@ func (r UnbanAuthUserClientResponse) ContentType() string {
 type ListProjectCapabilitiesClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ProjectCapabilityList
+	JSON200      *CapabilityList
 	JSON403      *Error
 	JSON404      *Error
 }
@@ -62747,7 +62752,7 @@ func ParseListProjectCapabilitiesClientResponse(rsp *http.Response) (*ListProjec
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ProjectCapabilityList
+		var dest CapabilityList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

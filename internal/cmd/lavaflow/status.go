@@ -50,6 +50,7 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 	}
 	output.LavaflowStatus(opts.out, output.LavaflowStatusDetails{
 		Settings:          status.Settings,
+		Available:         status.Available,
 		RepositoryState:   status.RepositoryState,
 		Repository:        status.Repository,
 		Description:       clilavaflow.OnDescription,

@@ -10,7 +10,7 @@ import (
 
 // ListProjectCapabilities returns which features are available for a project.
 // Callers read it to decide what to offer instead of probing a route.
-func (c *Client) ListProjectCapabilities(ctx context.Context, projectID uuid.UUID) (*apiclient.ProjectCapabilityList, error) {
+func (c *Client) ListProjectCapabilities(ctx context.Context, projectID uuid.UUID) (*apiclient.CapabilityList, error) {
 	resp, err := c.client.ListProjectCapabilitiesWithResponse(ctx, projectID)
 	if err != nil {
 		return nil, err

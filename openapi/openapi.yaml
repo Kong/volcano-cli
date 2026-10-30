@@ -7007,7 +7007,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectCapabilityList'
+                $ref: '#/components/schemas/CapabilityList'
         '403':
           description: Not a member of the project.
           content:
@@ -24883,15 +24883,6 @@ components:
       required:
         - name
       additionalProperties: false
-    ProjectCapabilityList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Capability'
-      required:
-        - items
     LavaflowAutonomy:
       type: string
       enum:
@@ -24919,7 +24910,7 @@ components:
           nullable: true
         can_update:
           type: boolean
-          description: Whether this caller can change the settings. Always false for a project access token.
+          description: Whether this caller can change the settings. True only for the project owner's own session; false for any project access token.
     LavaflowSettingsUpdate:
       type: object
       additionalProperties: false
@@ -24936,22 +24927,23 @@ components:
           maxLength: 4000
     LavaflowStatsDay:
       type: object
-      required: [date, issues_opened, resolutions_opened]
+      required: [date, issues_opened, pull_requests_opened]
       properties:
         date:
           type: string
           format: date
         issues_opened:
           type: integer
-        resolutions_opened:
+        pull_requests_opened:
           type: integer
+          description: Fix pull requests LavaFlow opened that day. Merges are not counted.
     LavaflowStatsTotals:
       type: object
-      required: [issues_opened, resolutions_opened]
+      required: [issues_opened, pull_requests_opened]
       properties:
         issues_opened:
           type: integer
-        resolutions_opened:
+        pull_requests_opened:
           type: integer
     LavaflowStats:
       type: object
@@ -24986,7 +24978,7 @@ components:
           nullable: true
     LavaflowResource:
       type: object
-      required: [type, id, name, issues_opened, resolutions_submitted, anomaly]
+      required: [type, id, name, issues_opened, pull_requests_opened, anomaly]
       properties:
         type:
           $ref: '#/components/schemas/LavaflowResourceType'
@@ -25000,15 +24992,15 @@ components:
           nullable: true
         issues_opened:
           type: integer
-        resolutions_submitted:
+        pull_requests_opened:
           type: integer
         anomaly:
           $ref: '#/components/schemas/LavaflowAnomaly'
     LavaflowResourceList:
       type: object
-      required: [items]
+      required: [data]
       properties:
-        items:
+        data:
           type: array
           items:
             $ref: '#/components/schemas/LavaflowResource'
@@ -25079,12 +25071,16 @@ components:
           nullable: true
     LavaflowRunList:
       type: object
-      required: [items]
+      required: [data, limit, has_more]
       properties:
-        items:
+        data:
           type: array
           items:
             $ref: '#/components/schemas/LavaflowRunSummary'
+        limit:
+          type: integer
+        has_more:
+          type: boolean
         next_cursor:
           type: string
           nullable: true
@@ -25144,6 +25140,16 @@ components:
             diff:
               type: string
               nullable: true
+            details_expire_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: When the run's diagnosis, log lines, diff and review text are cleared, 90 days after it completed. Null while the run is active.
+            details_cleared_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: When retention cleared the run's diagnosis, log lines, diff and review text, which are then null.
             review:
               allOf:
                 - $ref: '#/components/schemas/LavaflowReview'

@@ -51,7 +51,7 @@ func runList(ctx context.Context, opts listOptions) error {
 		return writeJSON(opts.out, page)
 	}
 	next := ""
-	if page.NextCursor != nil && *page.NextCursor != "" {
+	if page.HasMore && page.NextCursor != nil && *page.NextCursor != "" {
 		next = cliruntime.CommandPath(opts.deps, fmt.Sprintf("lavaflow list --limit %d --cursor %s", opts.query.Limit, *page.NextCursor))
 		if opts.query.Status != "" {
 			next += " --status " + opts.query.Status
@@ -60,6 +60,6 @@ func runList(ctx context.Context, opts listOptions) error {
 			next += " --resource " + opts.query.ResourceID
 		}
 	}
-	output.LavaflowRuns(opts.out, output.LavaflowRunsPage{Runs: page.Items, NextCommand: next})
+	output.LavaflowRuns(opts.out, output.LavaflowRunsPage{Runs: page.Data, NextCommand: next})
 	return nil
 }

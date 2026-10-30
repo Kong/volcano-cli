@@ -42,7 +42,10 @@ type lavaflowServer struct {
 	mu sync.Mutex
 	// capability is the status of LavaFlow's capabilities entry; empty
 	// leaves the entry out.
-	capability    string
+	capability string
+	// gateOff is LavaFlow unavailable for a project with records: the reads
+	// answer, and the PUT takes only turning it off.
+	gateOff       bool
 	settings      map[string]any
 	updates       []map[string]any
 	stats         map[string]any
@@ -111,7 +114,7 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if s.capability != "" {
 			items = append(items, map[string]any{"id": "lavaflow", "status": s.capability})
 		}
-		s.write(w, http.StatusOK, map[string]any{"items": items})
+		s.write(w, http.StatusOK, map[string]any{"data": items})
 		return
 	}
 	if s.refuse != 0 && (s.refuseMethod == "" || s.refuseMethod == r.Method) {
@@ -134,6 +137,10 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s.t.Errorf("decode update: %v", err)
 		}
 		s.updates = append(s.updates, update)
+		if s.gateOff && !maps.Equal(update, map[string]any{"enabled": false}) {
+			s.write(w, http.StatusNotFound, map[string]any{"error": "LavaFlow is not available", "code": "feature_unavailable"})
+			return
+		}
 		// An omitted field keeps its saved value.
 		maps.Copy(s.settings, update)
 		s.settings["updated_at"] = "2026-10-30T12:00:00Z"
@@ -141,9 +148,9 @@ func (s *lavaflowServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && route == "/stats":
 		s.write(w, http.StatusOK, s.stats)
 	case r.Method == http.MethodGet && route == "/resources":
-		s.write(w, http.StatusOK, map[string]any{"items": s.resources})
+		s.write(w, http.StatusOK, map[string]any{"data": s.resources})
 	case r.Method == http.MethodGet && route == "/runs":
-		page := map[string]any{"items": summaries(s.runs)}
+		page := map[string]any{"data": summaries(s.runs), "limit": 25, "has_more": s.nextCursor != ""}
 		if s.nextCursor != "" {
 			page["next_cursor"] = s.nextCursor
 		}
@@ -212,11 +219,11 @@ func lavaflowStats() map[string]any {
 	return map[string]any{
 		"window_start": "2026-10-28", "window_end": "2026-10-30",
 		"days": []any{
-			map[string]any{"date": "2026-10-28", "issues_opened": 2, "resolutions_opened": 1},
-			map[string]any{"date": "2026-10-29", "issues_opened": 0, "resolutions_opened": 0},
-			map[string]any{"date": "2026-10-30", "issues_opened": 5, "resolutions_opened": 3},
+			map[string]any{"date": "2026-10-28", "issues_opened": 2, "pull_requests_opened": 1},
+			map[string]any{"date": "2026-10-29", "issues_opened": 0, "pull_requests_opened": 0},
+			map[string]any{"date": "2026-10-30", "issues_opened": 5, "pull_requests_opened": 3},
 		},
-		"totals": map[string]any{"issues_opened": 7, "resolutions_opened": 4},
+		"totals": map[string]any{"issues_opened": 7, "pull_requests_opened": 4},
 	}
 }
 
@@ -224,12 +231,12 @@ func lavaflowResources() []map[string]any {
 	return []map[string]any{
 		{
 			"id": lavaflowResourceID, "type": "function", "name": "checkout",
-			"last_analyzed_at": "2026-10-30T09:00:00Z", "issues_opened": 6, "resolutions_submitted": 3,
+			"last_analyzed_at": "2026-10-30T09:00:00Z", "issues_opened": 6, "pull_requests_opened": 3,
 			"anomaly": map[string]any{"flagged": true, "reason": "6 issues in the last 24 hours, 4 times the daily average"},
 		},
 		{
 			"id": "77777777-7777-4777-8777-777777777777", "type": "durable_function", "name": "nightly-report",
-			"issues_opened": 0, "resolutions_submitted": 0, "anomaly": map[string]any{"flagged": false},
+			"issues_opened": 0, "pull_requests_opened": 0, "anomaly": map[string]any{"flagged": false},
 		},
 	}
 }
@@ -257,8 +264,9 @@ func fixedRun() map[string]any {
 				"message": "TypeError: Cannot read properties of undefined (reading 'items')",
 			}},
 		},
-		"review": map[string]any{"verdict": "passed", "rounds": 2},
-		"diff":   "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
+		"review":            map[string]any{"verdict": "passed", "rounds": 2},
+		"details_expire_at": "2027-01-28T09:03:00Z",
+		"diff":              "--- a/functions/checkout.ts\n+++ b/functions/checkout.ts\n+  if (!cart) return conflict()\n",
 	}
 }
 
@@ -277,7 +285,7 @@ func summaries(runs []map[string]any) []any {
 	items := make([]any, 0, len(runs))
 	for _, run := range runs {
 		summary := maps.Clone(run)
-		for _, detail := range []string{"diagnosis", "review", "diff", "failure"} {
+		for _, detail := range []string{"diagnosis", "review", "diff", "failure", "details_expire_at", "details_cleared_at"} {
 			delete(summary, detail)
 		}
 		items = append(items, summary)

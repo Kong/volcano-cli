@@ -9,7 +9,8 @@ LavaFlow uses AI to diagnose this project's errors from their logs and
 deployed source, and opens fix pull requests in your connected repository.
 It covers every function, frontend and durable function in the project.
 Turning it on is the whole setup: there is nothing to install and no key to
-bring. You review and merge its pull requests like any other.
+bring. LavaFlow never merges: you review and merge its pull requests like any
+other.
 
 Where LavaFlow isn't available, every `volcano cloud lavaflow` command says
 why and exits with code 4:
@@ -18,6 +19,12 @@ why and exits with code 4:
   account says "LavaFlow isn't available to your account yet".
 - On a Volcano API that has no LavaFlow, every command says "LavaFlow isn't
   available on this Volcano API".
+
+A project that already has LavaFlow records, such as saved settings or past
+runs, keeps them readable while LavaFlow isn't available to its account:
+`status`, `settings`, `stats`, `resources`, `list` and `show` still work, and
+`disable` still turns LavaFlow off. `enable` and `settings set` exit with
+code 4.
 
 ## How it relates
 
@@ -53,11 +60,13 @@ plain text. A control character in it, such as a color code or a carriage
 return in a log line, prints as a visible escape such as `\x1b`, and with
 `--json` it stays escaped inside the JSON string.
 
-Turning LavaFlow on or off and changing its settings need a person's session:
-a project access token is refused before anything is sent, and the command
-exits with code 5. Sign in with `volcano login` instead; if `VOLCANO_TOKEN`
-holds a project access token, unset it first. A project access token can run
-every other command.
+Only the project's owner can turn LavaFlow on or off and change its settings,
+from their own session. `enable`, `disable` and `settings set` check that
+before they ask or send anything, and exit with code 5 for anyone else. A
+project access token is refused the same way: sign in with `volcano login`
+instead, and if `VOLCANO_TOKEN` holds a project access token, unset it first.
+Anyone who can see the project, and a project access token, can run every
+other command.
 
 ## Turn it on
 
@@ -101,8 +110,8 @@ Updated: 2026-10-30 12:00
 ```
 
 While LavaFlow is off, the status says what it does and how to turn it on.
-When you can't change the settings, such as with a project access token, the
-status says so instead.
+When you can't change the settings, because you aren't the project's owner or
+use a project access token, the status says so instead.
 When it is set to open pull requests and no repository is connected, the
 status says to run `volcano git connect`. With `--json`, `repository_state`
 is `connected`, `not_connected`, or `unknown` when the connection could not
@@ -117,7 +126,7 @@ volcano cloud lavaflow settings set --autonomy diagnose_only
 `--autonomy` takes one of two values:
 
 - `open_pr`: LavaFlow diagnoses each issue and opens a fix pull request for
-  review.
+  you to review and merge.
 - `diagnose_only`: LavaFlow diagnoses each issue and leaves any fix to a
   person.
 
@@ -135,7 +144,8 @@ A setting you don't pass keeps its value. `settings` shows both in full.
 ## See what it did
 
 `stats` counts the issues LavaFlow took on and the fix pull requests it opened,
-per UTC day, today included. `--days` takes 1 to 90 and defaults to 30.
+per UTC day, today included. Merges aren't counted. `--days` takes 1 to 90 and
+defaults to 30.
 
 ```bash
 volcano cloud lavaflow stats --days 7
@@ -175,9 +185,10 @@ volcano cloud lavaflow list --status failed
 read, its review, the fix pull request, and the diff. A run that failed says
 why. Reading a run needs the permission to read the project's logs.
 
-Volcano keeps a run's text, its diagnosis, log lines and diff, for 90 days.
-For an older run, `show` prints "Details were cleared after 90 days" in their
-place. The run, its pull request and the stats stay.
+Volcano keeps a run's text, its diagnosis, log lines, diff and review, for 90
+days after the run completes, and `show` says until when. Once they are
+cleared, `show` prints "Details were cleared after 90 days" with the date in
+their place. The run, its pull request and the stats stay.
 
 ```bash
 volcano cloud lavaflow show 9c1e4f2a-7b3d-4e8f-a1c2-5d6e7f8a9b0c
