@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -21,12 +22,13 @@ func newStatus(deps cliruntime.Deps) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show the current project's Git connection",
-		Long: `Show which repository the current project is connected to, and what a push
-to it deploys, including the frontend and the directory it builds from.
+		Long: fmt.Sprintf(`Show which repository the current project is connected to, and what a push
+to it deploys, including the frontend and the directory it builds from. It
+also says what the project's source of truth is: Volcano, or the repository
+once '%s' has handed the source over.
 
-This reads the project's own binding and nothing else: it does not contact
-GitHub, so it reports what the platform has recorded rather than whether that
-recording still works. A project with nothing connected is not an error.`,
+It does not contact GitHub, so it reports what the platform has recorded rather
+than whether that recording still works. A project with nothing connected is not an error.`, cliruntime.CommandPath(deps, "git export")),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runStatus(cmd.Context(), statusOptions{deps: deps, out: cmd.OutOrStdout()})
@@ -58,10 +60,18 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 	}
 
 	settings, settingsErr := service.DeploySettings(ctx)
+	source, sourceErr := service.SourceState(ctx)
+	if errors.Is(sourceErr, gitconnect.ErrSourceExportUnavailable) {
+		// No source export means Volcano is the only source there can be, so
+		// there is nothing worth a line.
+		sourceErr = nil
+	}
 	output.GitStatus(opts.out, output.GitBinding{
 		Connection:  connection,
 		Settings:    settings,
 		SettingsErr: settingsErr,
+		Source:      source,
+		SourceErr:   sourceErr,
 		Project:     project.Label(),
 		GitCommand:  cliruntime.CommandPath(opts.deps, "git"),
 	})

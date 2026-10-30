@@ -44,6 +44,8 @@ Pushing stays your own `git push`, with the credentials already on your machine.
 | Turn deploying on push on or off | `volcano git auto-deploy on\|off` |
 | Choose whether functions deploy | `volcano git functions on\|off` |
 | Choose the frontend a push deploys | `volcano git frontend <name> [--root <path>]` |
+| Export the project's source to an empty repository | `volcano git export [--branch <branch>]` |
+| Cancel an incomplete export | `volcano git export cancel` |
 | Disconnect | `volcano git disconnect` |
 
 ## Seeing what is connected
@@ -56,7 +58,9 @@ This reports the project's own binding and every Git deploy setting: the
 repository, the branch a push has to land on and whether it follows the
 repository's default branch or is pinned, the subdirectory it builds from,
 whether auto-deploy is on, whether functions deploy, and the frontend with the
-directory it builds from. It ends with what a push deploys. It does
+directory it builds from. It also reports the project's source of truth:
+Volcano, or the repository once an export has handed it over. It ends with what
+a push deploys. It does
 not contact GitHub, so it tells you what the platform recorded rather than
 whether that recording still works.
 
@@ -260,6 +264,64 @@ The project needs a connected repository first, so on a project with nothing
 connected the command says so and exits non-zero. The same goes for
 `production-branch`, `auto-deploy` and `functions`.
 
+## Exporting the project's source
+
+A project you deployed from the CLI keeps its source in Volcano. To move it into
+Git, create an empty GitHub repository (no README, license or other first
+commit), connect it, and export:
+
+```bash
+volcano git connect https://github.com/acme/storefront
+volcano git export
+```
+
+Export writes the source of each function and frontend, taken from its latest
+successful deployment, as the first commit on the production branch, and
+pushes it. That push deploys like any other. Until the deployment succeeds,
+`volcano deploy` refuses functions and frontends; once it does, the repository
+is the project's source of truth and code deploys only by pushing. Variables,
+databases and other settings stay managed through Volcano.
+
+The command asks before it writes, naming the repository and branch. Pass
+`--branch` to state the branch you expect, so a script fails instead of
+exporting somewhere else, and `--yes` to skip the prompt. `--json` prints the
+result:
+
+```bash
+volcano git export --branch main --yes --json
+```
+
+```json
+{
+  "branch": "main",
+  "commit_sha": "6f2b1c9a4e8d3f7b0a5c2e9d1f4b8a6c3e7d0b25",
+  "file_count": 12,
+  "omitted": [{ "kind": "migrations", "path": "volcano/migrations", "resource": "" }],
+  "repo_full_name": "acme/storefront",
+  "skipped": []
+}
+```
+
+`skipped` lists resources that never deployed successfully, so nothing was
+written for them. `omitted` lists what an export never writes: migrations,
+variable values, credential-shaped files such as `.env`, and installed
+dependencies.
+
+Export runs once per project, and only into an empty repository. Volcano never
+creates the repository. If your repository already holds the project, push to
+it instead of exporting.
+
+If GitHub does not confirm the push, run `volcano git export` again: it adopts
+the same commit if it reached the repository. To stop an export that has not
+finished and deploy from the CLI again:
+
+```bash
+volcano git export cancel
+```
+
+Canceling leaves the repository and any pushed commit alone. Once the first
+commit was made, export cannot run again.
+
 ## Disconnecting
 
 ```bash
@@ -290,4 +352,6 @@ configured. Run these commands against the cloud API.
 touch GitHub, so it reports that the project has nothing connected instead.
 `volcano git root-directory`, `production-branch`, `auto-deploy`, `functions`
 and `frontend` report that the integration is not configured, since no
-repository can be connected there for them to change.
+repository can be connected there for them to change. `volcano git export`
+reports that source export is not available: local mode serves functions from a
+directory on your machine, so Volcano stores no source to export.

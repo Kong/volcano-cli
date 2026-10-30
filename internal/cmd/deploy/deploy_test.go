@@ -413,6 +413,12 @@ func TestDeployRefusesProjectsThatDeployFromGit(t *testing.T) {
 
 			_, err := executeDeployCommand(t, New(fake.cloudDeps(server)))
 			require.ErrorContains(t, err, `project "Beta" deploys its code from its connected Git repository (source mode "`+mode+`")`)
+			const cancel = "cancel it with volcano git export cancel"
+			if mode == "git" {
+				assert.NotContains(t, err.Error(), cancel, "a finished export cannot be canceled")
+			} else {
+				require.ErrorContains(t, err, cancel)
+			}
 			// A bare "variables deploy" reads volcano/volcano.env, which may
 			// hold the local server's values; name the file this run vetted.
 			require.ErrorContains(t, err, "deploy variables and configuration with:\n"+

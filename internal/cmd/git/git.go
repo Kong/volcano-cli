@@ -32,6 +32,7 @@ your machine.`,
 	cmd.AddCommand(newAutoDeploy(deps))
 	cmd.AddCommand(newFunctions(deps))
 	cmd.AddCommand(newFrontend(deps))
+	cmd.AddCommand(newExport(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }
@@ -63,6 +64,10 @@ func guide(deps cliruntime.Deps, webURL string, err error) error {
 		return fmt.Errorf(
 			"%w\n\nIf this is local mode, that is expected: the local stack ships without GitHub "+
 				"App settings. Run against the cloud API", err)
+	case errors.Is(err, gitconnect.ErrSourceExportUnavailable):
+		return fmt.Errorf(
+			"%w\n\nIf this is local mode, that is expected: local mode serves functions from a directory "+
+				"on your machine, so Volcano stores no source to export. Run against the cloud API", err)
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
 		return fmt.Errorf("%w\n\n%s", err,
 			dashboardStep(webURL, "Connect GitHub in the dashboard, then run this command again:"))

@@ -160,6 +160,13 @@ func gitSourceError(deps cliruntime.Deps, target project.Target, mode apiclient.
 	}
 	refusal := fmt.Sprintf("%s deploys its code from its connected Git repository (source mode %q), so functions and frontends can't be deployed from here.\n",
 		targetLabel(target), mode)
+	// An export that has not finished can still be undone, which is the way
+	// back to deploying from here. The git commands hang off the root command,
+	// not this one's group, so the path is built without deps' prefix.
+	if mode == apiclient.ProjectSourceExportStateModeGitExporting || mode == apiclient.ProjectSourceExportStateModeGitPending {
+		refusal += fmt.Sprintf("The export has not finished; to deploy from here again, cancel it with %s.\n",
+			cliruntime.CommandPath(cliruntime.Deps{}, "git export cancel"))
+	}
 	if len(commands) == 0 {
 		return errors.New(refusal + "Push to the repository to deploy code")
 	}
