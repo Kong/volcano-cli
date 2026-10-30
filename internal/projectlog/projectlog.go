@@ -16,6 +16,7 @@ import (
 
 	"github.com/Kong/volcano-cli/internal/api"
 	"github.com/Kong/volcano-cli/internal/apiclient"
+	"github.com/Kong/volcano-cli/internal/config"
 	clidatabase "github.com/Kong/volcano-cli/internal/database"
 	clidurable "github.com/Kong/volcano-cli/internal/durable"
 	clifrontend "github.com/Kong/volcano-cli/internal/frontend"
@@ -71,11 +72,14 @@ type Service struct {
 	pinned   *pinnedProject
 }
 
-// pinnedProject resolves the project once per service, so the pages of one
-// read and the reconnects of one tail all go to the project the read started
-// in, even if another shell selects a different one meanwhile.
+// pinnedProject loads the config once per service. The session the service
+// reads with, and the resource services that resolve names, all read that one
+// copy, so the IDs, the pages of one read and the reconnects of one tail all
+// belong to the project the command started in, even if another shell selects
+// a different one meanwhile.
 type pinnedProject struct {
 	once    sync.Once
+	deps    cliruntime.Deps
 	session *clisession.ProjectSession
 	err     error
 }
@@ -85,11 +89,23 @@ func NewService(deps cliruntime.Deps) Service {
 	return Service{deps: deps, sessions: clisession.NewFactory(deps), pinned: &pinnedProject{}}
 }
 
-func (s Service) current() (*clisession.ProjectSession, error) {
+func (s Service) pin() *pinnedProject {
 	s.pinned.once.Do(func() {
-		s.pinned.session, s.pinned.err = s.sessions.CurrentProject()
+		cfg, err := s.sessions.Config()
+		if err != nil {
+			s.pinned.err = err
+			return
+		}
+		s.pinned.deps = s.deps
+		s.pinned.deps.ConfigLoader = func() (*config.Config, error) { return cfg, nil }
+		s.pinned.session, s.pinned.err = clisession.NewFactory(s.pinned.deps).CurrentProject()
 	})
-	return s.pinned.session, s.pinned.err
+	return s.pinned
+}
+
+func (s Service) current() (*clisession.ProjectSession, error) {
+	pinned := s.pin()
+	return pinned.session, pinned.err
 }
 
 // Query checks the selector and filters, resolves each name to its ID, and
@@ -98,8 +114,6 @@ func (s Service) Query(ctx context.Context, selector Selector, filters Filters) 
 	if err := validate(selector, filters); err != nil {
 		return api.LogQuery{}, err
 	}
-	// Pin the project before resolving names, so the IDs and every read after
-	// them belong to the same one.
 	if _, err := s.current(); err != nil {
 		return api.LogQuery{}, err
 	}
@@ -147,13 +161,13 @@ func validate(selector Selector, filters Filters) error {
 func (s Service) resolve(ctx context.Context, selector Selector, name string) (uuid.UUID, error) {
 	switch selector.Type {
 	case TypeFrontend:
-		frontend, err := clifrontend.NewService(s.deps).Resolve(ctx, name)
+		frontend, err := clifrontend.NewService(s.pinned.deps).Resolve(ctx, name)
 		if err != nil {
 			return uuid.Nil, err
 		}
 		return frontend.Id, nil
 	case TypeDatabase:
-		database, err := clidatabase.NewService(s.deps).Get(ctx, name)
+		database, err := clidatabase.NewService(s.pinned.deps).Get(ctx, name)
 		if err != nil {
 			return uuid.Nil, err
 		}
@@ -168,7 +182,7 @@ func (s Service) resolve(ctx context.Context, selector Selector, name string) (u
 // read covers both.
 func (s Service) resolveFunction(ctx context.Context, kind, name string) (uuid.UUID, error) {
 	if kind != KindDurable {
-		function, err := clifunction.NewService(s.deps).Resolve(ctx, name)
+		function, err := clifunction.NewService(s.pinned.deps).Resolve(ctx, name)
 		if err == nil {
 			return function.Id, nil
 		}
@@ -176,7 +190,7 @@ func (s Service) resolveFunction(ctx context.Context, kind, name string) (uuid.U
 			return uuid.Nil, err
 		}
 	}
-	durable, err := clidurable.NewService(s.deps).Get(ctx, name)
+	durable, err := clidurable.NewService(s.pinned.deps).Get(ctx, name)
 	if err != nil {
 		return uuid.Nil, err
 	}

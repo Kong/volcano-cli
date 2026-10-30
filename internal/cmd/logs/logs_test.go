@@ -37,6 +37,8 @@ type logsAPI struct {
 	activity map[string]any
 	// onSearch runs before each search is answered.
 	onSearch func()
+	// onResolve runs before each name lookup is answered.
+	onResolve func()
 
 	mu     sync.Mutex
 	bodies []map[string]any
@@ -55,6 +57,9 @@ func (a *logsAPI) serve() *httptest.Server {
 }
 
 func (a *logsAPI) handle(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet && a.onResolve != nil {
+		a.onResolve()
+	}
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == projectPath+"/functions":
 		a.write(w, http.StatusOK, map[string]any{
@@ -283,20 +288,36 @@ func TestLogsKeepsReadingTheProjectItStartedIn(t *testing.T) {
 		logPage(true, "c2", logEvent("a", "checkout", "info", "first")),
 		logPage(false, "", logEvent("b", "checkout", "info", "second")),
 	}
-	api.onSearch = func() {
-		cfg := &cliconfig.Config{
-			UserToken:      "token",
-			CurrentProject: &cliconfig.ProjectConfig{ID: "99999999-9999-4999-8999-999999999999", Name: "Other"},
-		}
-		if err := cfg.Save(); err != nil {
-			t.Errorf("select another project: %v", err)
-		}
-	}
+	api.onSearch = func() { selectOtherProject(t) }
 
 	out, _, err := executeLogs(t, api.serve())
 	require.NoError(t, err)
 	assert.Len(t, api.sent(), 2)
 	assert.Contains(t, out, "second")
+}
+
+// Names resolve in the project the command started in, like the read itself.
+func TestLogsResolvesNamesInTheProjectItStartedIn(t *testing.T) {
+	setLogsTestHome(t)
+	api := newLogsAPI(t)
+	api.onResolve = func() { selectOtherProject(t) }
+
+	_, _, err := executeLogs(t, api.serve(), "--name", "checkout,pipeline")
+	require.NoError(t, err)
+	require.Len(t, api.sent(), 1)
+	resource := api.sent()[0]["resource"].(map[string]any)
+	assert.Equal(t, []any{checkoutID, pipelineID}, resource["ids"])
+}
+
+func selectOtherProject(t *testing.T) {
+	t.Helper()
+	cfg := &cliconfig.Config{
+		UserToken:      "token",
+		CurrentProject: &cliconfig.ProjectConfig{ID: "99999999-9999-4999-8999-999999999999", Name: "Other"},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Errorf("select another project: %v", err)
+	}
 }
 
 func TestLogsSaysWhenNothingMatches(t *testing.T) {
