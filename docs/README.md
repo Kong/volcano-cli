@@ -29,6 +29,7 @@ account (auth)
     ├── variables ............. env vars / secrets             → variables.md
     ├── frontends ............. deployed sites, custom domains → frontends.md
     ├── git connection ........ push-to-deploy from GitHub     → git.md
+    ├── deploy links .......... one-click deploy of your repo  → deploy-links.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
@@ -109,6 +110,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Variables | deploy, list, get, delete | `variables …` | [variables.md](variables.md) |
 | Notifications | alert by email or webhook when schedulers fail, rotate the webhook secret, send a test | `notifications …`, `cloud notifications …` | [notifications.md](notifications.md) |
 | Frontends | deploy, inspect, custom domains, function and Frontend routes | `frontends …`, `cloud frontends …` | [frontends.md](frontends.md) |
+| Deploy links | create, list, inspect, switch off and on, count clicks and deploys, delete | `cloud deploy-link …` | [deploy-links.md](deploy-links.md) |
 | Config (declarative) | deploy/pull one YAML manifest | `config deploy`, `config pull` | [project-configuration.md](project-configuration.md) |
 | Local environment | check prerequisites, start/stop/status/reset | `doctor`, `start`, `stop`, `restart`, `status`, `reset` | above |
 | Coding agents | install Volcano skills/plugins, keep them current | `setup` | [setup.md](setup.md) |
@@ -145,6 +147,9 @@ volcano projects create my-board --template trellini
 volcano projects create my-pixels --template pixel-board
 volcano projects create my-pad --template collab-pad
 ```
+
+To create a project from a public repository shared through a deploy link, use
+`--from`; see [deploy-links.md](deploy-links.md).
 
 The supported templates are `trellini`, `pixel-board`, and `collab-pad`.
 An account token is required. Hosting creates a fresh database and deploys the

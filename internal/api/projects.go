@@ -28,11 +28,32 @@ func (c *Client) CreateProject(ctx context.Context, name, templateID string) (*a
 		id := apiclient.CreateProjectRequestTemplateId(templateID)
 		body.TemplateId = &id
 	}
+	return c.createProject(ctx, body)
+}
+
+// CreateProjectFromDeployLink creates a project from the repository a deploy
+// link shares, pinned to commitSHA and path: the commit and build root its
+// preview returned, where an empty path is the repository root. The API answers
+// 409 with code commit_changed, and creates nothing, when the link's branch has
+// moved or its path has changed since.
+func (c *Client) CreateProjectFromDeployLink(
+	ctx context.Context, name, linkID, commitSHA, path string,
+) (*apiclient.Project, error) {
+	return c.createProject(ctx, apiclient.CreateProjectJSONRequestBody{
+		Name: strings.TrimSpace(name),
+		TemplateSource: &apiclient.CreateProjectTemplateSource{
+			DeployLink: apiclient.DeployLinkSource{Id: linkID, CommitSha: commitSHA, Path: &path},
+		},
+	})
+}
+
+func (c *Client) createProject(ctx context.Context, body apiclient.CreateProjectJSONRequestBody) (*apiclient.Project, error) {
 	resp, err := c.client.CreateProjectWithResponse(ctx, body)
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201, resp.JSON400, resp.JSON403)
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON201,
+		resp.JSON400, resp.JSON403, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON429, resp.JSON503)
 }
 
 // ListAnonKeys lists a project's anon keys — the publishable JWTs that go in
