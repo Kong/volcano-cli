@@ -34,9 +34,9 @@ const (
 	// http://localhost:3000 with no VOLCANO_WEB_URL set; next is always a same-origin
 	// /device path (not derived from the device-flow verification URI -- see Signup's
 	// doc comment in internal/auth/auth.go).
-	authTestSignupURL = "http://localhost:3000/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	authTestSignupURL = "http://localhost:3000/signup?email=support%40volcano.dev&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
 	// Used when VOLCANO_WEB_URL is explicitly set to something the API URL wouldn't derive.
-	authTestSignupOverrideURL = "https://custom.example/signup?email=ted%40example.com&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
+	authTestSignupOverrideURL = "https://custom.example/signup?email=support%40volcano.dev&next=%2Fdevice%3Fuser_code%3DABCD-EFGH&source=cli"
 )
 
 func TestLoginTokenSuccessSavesConfig(t *testing.T) {
@@ -515,14 +515,14 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(_ context.Context, name string, args ...string) ([]byte, error) {
 		assert.Equal(t, "git", name)
 		assert.Equal(t, []string{"config", "--global", "user.email"}, args)
-		return []byte("ted@example.com\n"), nil
+		return []byte("support@volcano.dev\n"), nil
 	})
 
 	// No VOLCANO_WEB_URL set, so signup derives its origin from the API URL.
 	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "\n", pollTicker)
 	require.NoError(t, err)
 	assert.Equal(t, authTestSignupURL, *openedURL)
-	assert.Contains(t, out, "[ted@example.com]")
+	assert.Contains(t, out, "[support@volcano.dev]")
 	assert.Contains(t, out, "Opening browser: "+authTestSignupURL)
 	assert.Contains(t, out, "Signed up and logged in successfully")
 
@@ -531,12 +531,26 @@ func TestSignupUsesGitEmailDefault(t *testing.T) {
 	assert.Equal(t, "platform-user-1", cfg.UserID)
 }
 
+func TestSignupDoesNotOfferAPrivateRelayGitEmail(t *testing.T) {
+	setAuthTestHome(t)
+	deps, openedURL, pollTicker := signupBrowserDeps(t)
+	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("12345678+ted@users.noreply.github.com\n"), nil
+	})
+
+	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "support@volcano.dev\n", pollTicker)
+	require.NoError(t, err)
+	assert.NotContains(t, out, "noreply")
+	assert.Contains(t, out, "Enter your email address: ")
+	assert.Contains(t, *openedURL, "email=support%40volcano.dev")
+}
+
 func TestSignupWarnsAboutABadProjectLinkAndIgnoresIt(t *testing.T) {
 	setAuthTestHome(t)
 	path := writeBadLink(t)
 	deps, _, pollTicker := signupBrowserDeps(t)
 
-	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "ted@example.com\n", pollTicker)
+	out, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "support@volcano.dev\n", pollTicker)
 	require.NoError(t, err)
 	assert.Contains(t, out, "Warning: Ignoring a project link that can't be used: failed to parse project link "+path)
 	assert.Contains(t, out, "Signed up and logged in successfully")
@@ -547,7 +561,7 @@ func TestSignupAllowsEmailOverride(t *testing.T) {
 	setAuthTestHome(t)
 	deps, openedURL, pollTicker := signupBrowserDeps(t)
 	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
-		return []byte("ted@example.com\n"), nil
+		return []byte("support@volcano.dev\n"), nil
 	})
 
 	_, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "marco@example.com\n", pollTicker)
@@ -562,7 +576,7 @@ func TestSignupHonorsWebURLOverride(t *testing.T) {
 	t.Setenv("VOLCANO_WEB_URL", "https://custom.example")
 	deps, openedURL, pollTicker := signupBrowserDeps(t)
 	deps.GitCommandRunner = cliruntime.CommandRunnerFunc(func(context.Context, string, ...string) ([]byte, error) {
-		return []byte("ted@example.com\n"), nil
+		return []byte("support@volcano.dev\n"), nil
 	})
 
 	_, err := executeAuthCommandWithInputAndTick(t, NewSignup(deps), "\n", pollTicker)
