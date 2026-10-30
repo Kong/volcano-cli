@@ -49,8 +49,8 @@ included, so the dashboard asks every browser to sign in again. A login made
 with a token has no session of its own, so from it --all-others signs out every
 session; the command says which before it asks. --yes skips the question.
 Tokens not tied to a session, such as one passed to 'login --token' or created
-in the dashboard, keep working: revoke one with '%[2]s' from the login that
-holds it.
+in the dashboard, keep working: revoke the one this CLI uses with '%[2]s'.
+Revoking your other platform tokens from the CLI is not available yet.
 
 This CLI's own session ends with '%[2]s', which also removes the
 login from this machine.`,
@@ -139,7 +139,8 @@ func runSessionsRevoke(ctx context.Context, opts sessionsRevokeOptions) error {
 	// Ending sessions reaches only the tokens exchanged from them, so say
 	// which ones keep working and what ends them.
 	output.Note(opts.out, "Tokens not tied to a session, such as one passed to %s or created in the dashboard, "+
-		"still work. Revoke one with %s from the login that holds it, or in the dashboard's token settings.",
+		"still work. Revoke the one this CLI uses with %s. Revoking your other platform tokens from the CLI "+
+		"is not available yet.",
 		cliruntime.CommandPath(opts.deps, "login --token"), cliruntime.CommandPath(opts.deps, "logout"))
 	return nil
 }

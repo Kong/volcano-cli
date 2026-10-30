@@ -59,9 +59,9 @@ session. The command says which it will do before it asks.
 
 Signing out sessions revokes only the tokens exchanged from them. A token not
 tied to a session, such as one passed to `volcano login --token` or created in
-the dashboard, keeps working: revoke it with `volcano logout` from the login
-that holds it, or in the dashboard's token settings. The command reminds you of
-this when it finishes.
+the dashboard, keeps working. Revoke the one this CLI uses with
+`volcano logout`. Revoking your other platform tokens from the CLI is not
+available yet. The command reminds you of this when it finishes.
 
 Use it when a token or a device may be in the wrong hands. Afterwards, sign in
 to the dashboard again, and run `volcano login` on each machine you still use.

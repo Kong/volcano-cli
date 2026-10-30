@@ -79,7 +79,9 @@ func TestSessionsRevokeAllOthersAsksFirstAndSaysBrowsersGoToo(t *testing.T) {
 	assert.Equal(t, []string{"GET /user/sessions", "DELETE /user/sessions"}, api.requests())
 	assert.Contains(t, out, "Signed out every other session; this CLI stays logged in")
 	assert.Contains(t, out, "Tokens not tied to a session, such as one passed to volcano login --token or created in the dashboard, still work.")
-	assert.Contains(t, out, "Revoke one with volcano logout from the login that holds it")
+	assert.Contains(t, out, "Revoke the one this CLI uses with volcano logout. "+
+		"Revoking your other platform tokens from the CLI is not available yet.")
+	assert.NotContains(t, out, "token settings", "the hint names no website step")
 }
 
 // A login made with a token has no session of its own, so signing out the
