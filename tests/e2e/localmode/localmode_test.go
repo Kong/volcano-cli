@@ -62,6 +62,8 @@ func TestLocalModeE2ESmoke(t *testing.T) {
 	requireLocalModeLeavesBuildReuseToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeOmitsDomainCommands(t, volcanoBin, env, projectDir)
 	requireLocalModeLeavesGitToTheCloud(t, volcanoBin, env, projectDir)
+	requireLocalModeLogoutKeepsNoServerSession(t, volcanoBin, env, projectDir)
+	requireLocalModeLeavesAccountSessionsToTheCloud(t, volcanoBin, env, projectDir)
 	requireLocalModeSendsFeedback(t, volcanoBin, env, projectDir)
 	requireLocalModeSendsNotifications(t, volcanoBin, env, projectDir)
 	requireLocalModeServesFrontends(t, volcanoBin, env, projectDir)

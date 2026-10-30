@@ -267,15 +267,40 @@ func ClearLogin() error {
 		if err != nil {
 			return remove()
 		}
-		cfg.UserToken = ""
-		cfg.UserID = ""
-		cfg.CurrentProject = nil
-		cfg.FunctionAliases = nil
-		if cfg.DocsSource == nil && cfg.Telemetry == nil && cfg.Feedback == nil {
+		return clearLoginFrom(cfg)
+	})
+}
+
+// ClearLoginOf is ClearLogin for the login that holds token. Under the lock it
+// clears nothing when another token is saved by then, as when a login in
+// another terminal replaced this one while logout reached the server, and it
+// reports whether it cleared.
+func ClearLoginOf(token string) (bool, error) {
+	cleared := false
+	err := withLock(func() error {
+		cfg, err := load()
+		if err != nil {
+			cleared = true
 			return remove()
 		}
-		return cfg.save()
+		if strings.TrimSpace(cfg.UserToken) != strings.TrimSpace(token) {
+			return nil
+		}
+		cleared = true
+		return clearLoginFrom(cfg)
 	})
+	return cleared, err
+}
+
+func clearLoginFrom(cfg *Config) error {
+	cfg.UserToken = ""
+	cfg.UserID = ""
+	cfg.CurrentProject = nil
+	cfg.FunctionAliases = nil
+	if cfg.DocsSource == nil && cfg.Telemetry == nil && cfg.Feedback == nil {
+		return remove()
+	}
+	return cfg.save()
 }
 
 // Delete removes ~/.volcano/config.json. A missing file is considered success.

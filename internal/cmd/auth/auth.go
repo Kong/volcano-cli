@@ -275,26 +275,3 @@ func promptSignupEmail(ctx context.Context, deps cliruntime.Deps, reader *bufio.
 	}
 	return parsed.Address, nil
 }
-
-// NewLogout returns the logout command.
-func NewLogout() *cobra.Command {
-	return &cobra.Command{
-		Use:   "logout",
-		Short: "Log out of Volcano",
-		Long: `Log out by removing local credentials, the current project, and function
-aliases from ~/.volcano/config.json. Other settings, such as telemetry, stay.
-
-This does not revoke the token - to fully revoke access, delete the token in the Volcano dashboard.`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLogout(cmd.OutOrStdout())
-		},
-	}
-}
-
-func runLogout(w io.Writer) error {
-	if err := cliauth.NewService(cliruntime.Deps{}).Logout(); err != nil {
-		return fmt.Errorf("failed to clear credentials: %w", err)
-	}
-	output.Success(w, "Logged out (removed credentials from ~/.volcano/config.json)")
-	return nil
-}
