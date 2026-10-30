@@ -42,8 +42,8 @@ Total: 3 deployment(s)
 | `-l, --limit <n>` | Maximum deployments to list. Default 20. |
 | `--json` | Print a JSON array of deployments. |
 
-When more deployments match than `--limit` allows, the listing says so. Pass a
-larger limit or narrow the filters.
+When more deployments match than `--limit` allows, the listing says so; with
+`--json`, the note goes to stderr. Pass a larger limit or narrow the filters.
 
 ## Inspect a deployment
 
@@ -72,6 +72,10 @@ build           failed        1m20s
 
 Build logs: volcano cloud functions logs checkout 8f0c2a1e-5b7d-4c6e-9a3f-2d1b0e4c7a91 --type build
 ```
+
+Durable function deployments, and deletes, show no build-log command. Read a
+durable function's current build output with `volcano cloud durable logs <name>
+--type build`.
 
 `get` searches the project's deployment history, newest first, and stops after
 5,000 deployments. Pass `--json` for the full record.

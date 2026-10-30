@@ -49,12 +49,16 @@ type DeploymentFilter struct {
 // ListProjectDeployments lists one page of the project's deployments matching
 // filter, newest first.
 func (c *Client) ListProjectDeployments(
-	ctx context.Context, projectID uuid.UUID, filter DeploymentFilter, page, limit int,
+	ctx context.Context, projectID uuid.UUID, filter DeploymentFilter, cursor string, limit int,
 ) (*apiclient.PaginatedProjectDeployments, error) {
+	// No page number: the feed then pages by cursor, which a deployment landing
+	// between requests cannot shift.
 	params := &apiclient.ListProjectDeploymentsParams{
-		Page:         &page,
 		Limit:        &limit,
 		CreatedAfter: filter.CreatedAfter,
+	}
+	if cursor != "" {
+		params.Cursor = &cursor
 	}
 	if filter.Search != "" {
 		params.Search = &filter.Search

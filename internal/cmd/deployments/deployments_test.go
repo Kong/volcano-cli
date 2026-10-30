@@ -77,14 +77,19 @@ func (a *deploymentsAPI) serve() *httptest.Server {
 		case r.Method == http.MethodGet && r.URL.Path == summaryPath:
 			a.write(w, a.summary)
 		case r.Method == http.MethodGet && r.URL.Path == feedPath:
-			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+			// Cursor mode: the cursor is the offset of the next page.
+			start, _ := strconv.Atoi(r.URL.Query().Get("cursor"))
 			limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-			start := min((page-1)*limit, len(a.deployments))
+			start = min(start, len(a.deployments))
 			end := min(start+limit, len(a.deployments))
-			a.write(w, map[string]any{
+			page := map[string]any{
 				"data": a.deployments[start:end], "has_more": end < len(a.deployments),
-				"page": page, "limit": limit, "total": len(a.deployments),
-			})
+				"limit": limit, "total": len(a.deployments),
+			}
+			if end < len(a.deployments) {
+				page["next_cursor"] = strconv.Itoa(end)
+			}
+			a.write(w, page)
 		default:
 			http.NotFound(w, r)
 		}
@@ -106,7 +111,7 @@ func (a *deploymentsAPI) sent() []url.Values {
 	return append([]url.Values(nil), a.queries...)
 }
 
-func run(t *testing.T, server *httptest.Server, args ...string) (string, error) {
+func run(t *testing.T, server *httptest.Server, args ...string) (string, string, error) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("VOLCANO_TOKEN", "")
@@ -123,12 +128,12 @@ func run(t *testing.T, server *httptest.Server, args ...string) (string, error) 
 		HTTPClient:        server.Client(),
 		APIBaseURL:        server.URL,
 	})
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
 	cmd.SetArgs(args)
 	err := cmd.Execute()
-	return out.String(), err
+	return stdout.String(), stderr.String(), err
 }
 
 func TestListShowsTheNewestDeployments(t *testing.T) {
@@ -136,7 +141,7 @@ func TestListShowsTheNewestDeployments(t *testing.T) {
 	api.deployments[1] = deploymentPayload(1, "function", "durable", "pipeline", "failed")
 	api.deployments[2] = deploymentPayload(2, "frontend", "", "web", "active")
 
-	out, err := run(t, api.serve(), "list")
+	out, _, err := run(t, api.serve(), "list")
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "function checkout")
@@ -151,7 +156,7 @@ func TestListShowsTheNewestDeployments(t *testing.T) {
 func TestListSendsTheFilters(t *testing.T) {
 	api := newDeploymentsAPI(t, 1)
 
-	_, err := run(t, api.serve(), "list",
+	_, _, err := run(t, api.serve(), "list",
 		"--kind", "durable", "--name", "pipe", "--after", "2026-10-29T00:00:00Z")
 	require.NoError(t, err)
 
@@ -163,22 +168,29 @@ func TestListSendsTheFilters(t *testing.T) {
 	assert.Equal(t, "2026-10-29T00:00:00Z", query.Get("created_after"))
 }
 
-// --limit bounds the listing, not one page, and the listing says when more
+// --limit bounds the listing, not one page. Pages follow the cursor at one
+// page size, which the cursor is bound to, and the listing says when more
 // match.
 func TestListPagesToTheLimit(t *testing.T) {
 	api := newDeploymentsAPI(t, 250)
 
-	out, err := run(t, api.serve(), "list", "--limit", "150", "--json")
+	out, errOut, err := run(t, api.serve(), "list", "--limit", "150", "--json")
 	require.NoError(t, err)
 
 	var listed []map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &listed))
 	assert.Len(t, listed, 150)
-	require.Len(t, api.sent(), 2)
-	assert.Equal(t, "100", api.sent()[1].Get("limit"))
-	assert.Equal(t, "2", api.sent()[1].Get("page"))
+	assert.Contains(t, errOut, "More deployments match than the 150 listed")
+	sent := api.sent()
+	require.Len(t, sent, 2)
+	for _, query := range sent {
+		assert.False(t, query.Has("page"), "offset paging repeats rows when deployments land mid-walk")
+		assert.Equal(t, "100", query.Get("limit"))
+	}
+	assert.Empty(t, sent[0].Get("cursor"))
+	assert.Equal(t, "100", sent[1].Get("cursor"))
 
-	out, err = run(t, api.serve(), "list", "--limit", "2")
+	out, _, err = run(t, api.serve(), "list", "--limit", "2")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Showing the newest 2")
 }
@@ -186,7 +198,7 @@ func TestListPagesToTheLimit(t *testing.T) {
 func TestListPrintsAnEmptyJSONArray(t *testing.T) {
 	api := newDeploymentsAPI(t, 0)
 
-	out, err := run(t, api.serve(), "list", "--json")
+	out, _, err := run(t, api.serve(), "list", "--json")
 	require.NoError(t, err)
 	assert.JSONEq(t, "[]", out)
 }
@@ -204,7 +216,7 @@ func TestGetFindsADeploymentOnALaterPage(t *testing.T) {
 		},
 	}
 
-	out, err := run(t, api.serve(), "get", wanted["id"].(string))
+	out, _, err := run(t, api.serve(), "get", wanted["id"].(string))
 	require.NoError(t, err)
 
 	assert.Contains(t, out, "Status: failed")
@@ -228,23 +240,25 @@ func TestGetKeepsTheProjectItStartedWith(t *testing.T) {
 		}
 	}
 
-	_, err := run(t, api.serve(), "get", api.deployments[120]["id"].(string))
+	_, _, err := run(t, api.serve(), "get", api.deployments[120]["id"].(string))
 	require.NoError(t, err)
 	assert.Len(t, api.sent(), 2)
 }
 
 func TestGetNamesTheBuildLogsCommandForEachType(t *testing.T) {
 	for _, tc := range []struct {
-		resourceType, kind, name, want string
+		resourceType, kind, operation, name, want string
 	}{
-		{"frontend", "", "web", "volcano cloud frontends logs web "},
-		{"function", "durable", "pipeline", ""},
+		{"frontend", "", "deploy", "web", "volcano cloud frontends logs web "},
+		{"function", "durable", "deploy", "pipeline", ""},
+		{"function", "standard", "delete", "checkout", ""},
 	} {
-		t.Run(tc.resourceType+tc.kind, func(t *testing.T) {
+		t.Run(tc.resourceType+tc.kind+tc.operation, func(t *testing.T) {
 			api := newDeploymentsAPI(t, 0)
 			api.deployments = []map[string]any{deploymentPayload(0, tc.resourceType, tc.kind, tc.name, "active")}
+			api.deployments[0]["operation"] = tc.operation
 
-			out, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string))
+			out, _, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string))
 			require.NoError(t, err)
 			if tc.want == "" {
 				assert.NotContains(t, out, "Build logs:")
@@ -258,11 +272,11 @@ func TestGetNamesTheBuildLogsCommandForEachType(t *testing.T) {
 func TestGetRefusesAnUnknownOrMalformedID(t *testing.T) {
 	api := newDeploymentsAPI(t, 3)
 
-	_, err := run(t, api.serve(), "get", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+	_, _, err := run(t, api.serve(), "get", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "deployment not found")
 
-	_, err = run(t, api.serve(), "get", "latest")
+	_, _, err = run(t, api.serve(), "get", "latest")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `"latest" is not a deployment ID`)
 }
@@ -270,7 +284,7 @@ func TestGetRefusesAnUnknownOrMalformedID(t *testing.T) {
 func TestGetPrintsJSON(t *testing.T) {
 	api := newDeploymentsAPI(t, 1)
 
-	out, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string), "--json")
+	out, _, err := run(t, api.serve(), "get", api.deployments[0]["id"].(string), "--json")
 	require.NoError(t, err)
 	var found map[string]any
 	require.NoError(t, json.Unmarshal([]byte(out), &found))
@@ -284,7 +298,7 @@ func TestSummaryCountsOneResourceType(t *testing.T) {
 		"success_rate": 0.927, "median_build_duration_seconds": 72.4,
 	}
 
-	out, err := run(t, api.serve(), "summary", "--since", "7d")
+	out, _, err := run(t, api.serve(), "summary", "--since", "7d")
 	require.NoError(t, err)
 
 	require.Len(t, api.sent(), 1)
@@ -294,7 +308,7 @@ func TestSummaryCountsOneResourceType(t *testing.T) {
 	assert.Contains(t, out, "Success rate: 92.7%")
 	assert.Contains(t, out, "Median build: 1m12s")
 
-	out, err = run(t, api.serve(), "summary", "--type", "frontend", "--json")
+	out, _, err = run(t, api.serve(), "summary", "--type", "frontend", "--json")
 	require.NoError(t, err)
 	assert.Equal(t, "frontend", api.sent()[1].Get("resource_type"))
 	var summary map[string]any
@@ -309,7 +323,7 @@ func TestSummaryShowsNoRateWithoutOutcomes(t *testing.T) {
 		"success_rate": nil, "median_build_duration_seconds": nil,
 	}
 
-	out, err := run(t, api.serve(), "summary")
+	out, _, err := run(t, api.serve(), "summary")
 	require.NoError(t, err)
 	assert.Contains(t, out, "Success rate: -")
 	assert.Contains(t, out, "Median build: -")
@@ -332,7 +346,7 @@ func TestDeploymentsRefuseBadFlags(t *testing.T) {
 		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
 			api := newDeploymentsAPI(t, 1)
 
-			_, err := run(t, api.serve(), tc.args...)
+			_, _, err := run(t, api.serve(), tc.args...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
 			assert.Empty(t, api.sent())

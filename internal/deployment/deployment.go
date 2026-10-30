@@ -83,16 +83,20 @@ func (s Service) List(ctx context.Context, filter api.DeploymentFilter, limit in
 	if err != nil {
 		return nil, false, err
 	}
+	// A cursor is bound to its page size, so every page asks for the same one.
+	size := min(limit, pageLimit)
 	var deployments []apiclient.ProjectDeployment
-	for page := 1; len(deployments) < limit; page++ {
-		resp, err := authenticated.API.ListProjectDeployments(ctx, authenticated.ProjectID, filter, page, min(limit, pageLimit))
+	cursor := ""
+	for len(deployments) < limit {
+		resp, err := authenticated.API.ListProjectDeployments(ctx, authenticated.ProjectID, filter, cursor, size)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to list deployments: %w", err)
 		}
 		deployments = append(deployments, resp.Data...)
-		if !resp.HasMore || len(resp.Data) == 0 {
+		if !resp.HasMore || resp.NextCursor == nil || len(resp.Data) == 0 {
 			return truncate(deployments, limit), len(deployments) > limit, nil
 		}
+		cursor = *resp.NextCursor
 	}
 	return truncate(deployments, limit), true, nil
 }
@@ -115,8 +119,9 @@ func (s Service) Find(ctx context.Context, id string) (*apiclient.ProjectDeploym
 	if err != nil {
 		return nil, err
 	}
-	for page := 1; page <= maxFindPages; page++ {
-		resp, err := authenticated.API.ListProjectDeployments(ctx, authenticated.ProjectID, api.DeploymentFilter{}, page, pageLimit)
+	cursor := ""
+	for range maxFindPages {
+		resp, err := authenticated.API.ListProjectDeployments(ctx, authenticated.ProjectID, api.DeploymentFilter{}, cursor, pageLimit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list deployments: %w", err)
 		}
@@ -125,9 +130,10 @@ func (s Service) Find(ctx context.Context, id string) (*apiclient.ProjectDeploym
 				return &resp.Data[i], nil
 			}
 		}
-		if !resp.HasMore || len(resp.Data) == 0 {
+		if !resp.HasMore || resp.NextCursor == nil || len(resp.Data) == 0 {
 			return nil, fmt.Errorf("%w: %s", ErrNotFound, deploymentID)
 		}
+		cursor = *resp.NextCursor
 	}
 	return nil, fmt.Errorf("%w among the project's newest %d deployments: %s", ErrNotFound, maxFindPages*pageLimit, deploymentID)
 }

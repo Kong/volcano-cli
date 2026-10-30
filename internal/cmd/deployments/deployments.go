@@ -107,6 +107,7 @@ type listOptions struct {
 	limit      int
 	jsonOutput bool
 	out        io.Writer
+	errOut     io.Writer
 }
 
 func newList(deps cliruntime.Deps) *cobra.Command {
@@ -118,7 +119,7 @@ func newList(deps cliruntime.Deps) *cobra.Command {
 			cliruntime.CommandPath(deps, "deployments list --kind durable --name pipeline --json"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.out = cmd.OutOrStdout()
+			opts.out, opts.errOut = cmd.OutOrStdout(), cmd.ErrOrStderr()
 			return runList(cmd.Context(), opts)
 		},
 	}
@@ -143,6 +144,10 @@ func runList(ctx context.Context, opts listOptions) error {
 		if deployments == nil {
 			deployments = []apiclient.ProjectDeployment{}
 		}
+		if more {
+			// stderr, so the JSON stays parseable.
+			fmt.Fprintf(opts.errOut, "More deployments match than the %d listed. Raise --limit or narrow the filters.\n", len(deployments))
+		}
 		return output.JSON(opts.out, deployments)
 	}
 	output.Deployments(opts.out, deployments, more)
@@ -162,8 +167,8 @@ func newGet(deps cliruntime.Deps) *cobra.Command {
 		Use:   "get <deployment-id>",
 		Short: "Show one deployment's status, phases, trigger and duration",
 		Long: `Show one deployment: the resource it deployed, its status and trigger, when it
-started and finished, each build phase, and the command that prints its build
-logs.
+started and finished, each build phase, and, for a function or frontend deploy,
+the command that prints its build logs.
 
 The ID can belong to any function, durable function or frontend in the project.`,
 		Args: cobra.ExactArgs(1),
@@ -190,11 +195,14 @@ func runGet(ctx context.Context, opts getOptions) error {
 
 // buildLogsCommand names the command that prints a deployment's build logs.
 // Durable functions are left out until their logs command takes a deployment
-// ID; naming the current one could show another deploy's output.
+// ID; naming the current one could show another deploy's output. A delete
+// builds nothing, and its resource is gone.
 func buildLogsCommand(deps cliruntime.Deps, found *apiclient.ProjectDeployment) string {
 	resource := found.Resource
 	name := cliruntime.ShellQuote(resource.Name)
 	switch {
+	case found.Operation == apiclient.ProjectDeploymentOperationDelete:
+		return ""
 	case resource.Type == apiclient.ProjectDeploymentResourceTypeFrontend:
 		return cliruntime.CommandPath(deps, "frontends logs "+name+" "+found.Id.String()+" --type build")
 	case resource.Kind != nil && *resource.Kind == apiclient.Durable:
