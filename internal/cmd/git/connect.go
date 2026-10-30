@@ -27,6 +27,9 @@ type connectOptions struct {
 	// alone, while an explicitly empty one resets it to the repository root.
 	rootDirectory    string
 	rootDirectorySet bool
+	// productionBranch is the branch a new binding deploys from, "" to follow
+	// the repository's default branch.
+	productionBranch string
 	yes              bool
 	in               io.Reader
 	out              io.Writer
@@ -34,9 +37,10 @@ type connectOptions struct {
 
 func newConnect(deps cliruntime.Deps) *cobra.Command {
 	var (
-		remote        string
-		rootDirectory string
-		yes           bool
+		remote           string
+		rootDirectory    string
+		productionBranch string
+		yes              bool
 	)
 	cmd := &cobra.Command{
 		Use:   "connect [git-url]",
@@ -53,7 +57,11 @@ Connecting only binds the project. Nothing is created on GitHub, nothing is
 pushed, and no token is written to your Git config. To start deploying, push to
 the production branch yourself: the repository's default branch, unless you
 pin another with '%s'.
-Re-running connect for the same repository keeps a pinned branch.`, cliruntime.CommandPath(deps, "git production-branch")),
+Re-running connect for the same repository keeps a pinned branch.
+
+A repository with no commits has no default branch to follow, so connecting one
+takes --production-branch, the branch a push must land on to deploy. That is
+how an empty repository is prepared for 'volcano git export'.`, cliruntime.CommandPath(deps, "git production-branch")),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gitURL := ""
@@ -81,6 +89,10 @@ Re-running connect for the same repository keeps a pinned branch.`, cliruntime.C
 				strings.TrimSpace(raw) == "" {
 				return errors.New("--remote is only whitespace; pass the name of a Git remote")
 			}
+			// Whitespace is an unset variable, never a branch.
+			if cmd.Flags().Changed("production-branch") && strings.TrimSpace(productionBranch) == "" {
+				return errors.New("--production-branch is empty; name the branch a push must land on to deploy, such as main")
+			}
 			// Both say where the repository comes from and the URL wins, so
 			// taking the pair would silently ignore what the user asked for.
 			if gitURL != "" && cmd.Flags().Changed("remote") {
@@ -93,6 +105,7 @@ Re-running connect for the same repository keeps a pinned branch.`, cliruntime.C
 				remote:           remote,
 				rootDirectory:    strings.TrimSpace(rootDirectory),
 				rootDirectorySet: cmd.Flags().Changed("root-directory"),
+				productionBranch: strings.TrimSpace(productionBranch),
 				yes:              yes,
 				in:               cmd.InOrStdin(),
 				out:              cmd.OutOrStdout(),
@@ -102,6 +115,8 @@ Re-running connect for the same repository keeps a pinned branch.`, cliruntime.C
 	cmd.Flags().StringVar(&remote, "remote", "",
 		"Git remote to read the repository from (default: where git pushes this branch, else the only remote or \"origin\")")
 	cmd.Flags().StringVar(&rootDirectory, "root-directory", "", "Subdirectory the project builds from (default: the repository root)")
+	cmd.Flags().StringVar(&productionBranch, "production-branch", "",
+		"Branch a push must land on to deploy (default: the repository's default branch); required for a repository with no commits")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompts")
 	return cmd
 }
@@ -180,6 +195,10 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		return resolveError(opts.deps, existing, repository, err)
 	}
 
+	if err := checkProductionBranch(opts, existing, target); err != nil {
+		return err
+	}
+
 	// Nothing to change: report the binding and stop. Connecting is idempotent
 	// on purpose — an agent or a CI job re-running it should not have to
 	// special-case "already done".
@@ -224,7 +243,7 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 	if sameRepositoryBinding(existing, target) {
 		connection, err = service.SetRootDirectory(ctx, opts.rootDirectory, existing)
 	} else {
-		connection, err = service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), existing)
+		connection, err = service.Connect(ctx, *target, rootDirectoryFor(existing, target, opts), opts.productionBranch, existing)
 	}
 	if err != nil {
 		return guide(opts.deps, err)
@@ -252,6 +271,51 @@ func runConnect(ctx context.Context, opts connectOptions) error {
 		GitCommand:          cliruntime.CommandPath(opts.deps, "git"),
 	})
 	return nil
+}
+
+// checkProductionBranch refuses, before anything is asked, a connect whose
+// branch the platform cannot bind. A repository with no commits has no default
+// branch to follow, so it needs one named, whether it is a first connect or a
+// replacement: the platform accepts any branch for such a repository, since it
+// has none to echo. A named branch otherwise belongs to a new binding: on the
+// repository already connected, production-branch changes it, and the platform
+// refuses a branch other than the new repository's default in the same request
+// that changes repository.
+func checkProductionBranch(opts connectOptions, existing *apiclient.ProjectGitConnection, target *gitconnect.Target) error {
+	branch, repository := opts.productionBranch, target.Repository
+	sameRepository := existing != nil && existing.RepoId == repository.Id
+	switch {
+	case branch == "" && !sameRepository && repository.DefaultBranch == "":
+		return fmt.Errorf("%s has no commits, so it has no default branch for pushes to follow. Nothing was connected\n\n"+
+			"Name the branch a push must land on:\n  %s", repository.FullName, connectCommand(opts, repository.FullName, "main"))
+	case branch != "" && sameRepository && branch != existing.ProductionBranch:
+		return fmt.Errorf("%s is already connected, deploying from %s. Nothing was changed\n\n"+
+			"Change its branch with %s", repository.FullName, existing.ProductionBranch,
+			cliruntime.CommandPath(opts.deps, "git production-branch "+branch))
+	case branch != "" && existing != nil && !sameRepository && repository.DefaultBranch != "" && branch != repository.DefaultBranch:
+		return fmt.Errorf("a new repository is connected on its default branch, %s, not %s. Nothing was changed\n\n"+
+			"Connect it without --production-branch, then run %s", repository.DefaultBranch, branch,
+			cliruntime.CommandPath(opts.deps, "git production-branch "+branch))
+	default:
+		return nil
+	}
+}
+
+// connectCommand is the connect the user ran, naming branch. The repository is
+// named by its resolved name rather than the URL given, which can carry a
+// credential, and a root directory the user asked for is kept.
+func connectCommand(opts connectOptions, fullName, branch string) string {
+	command := "git connect"
+	switch {
+	case opts.gitURL != "":
+		command += " https://github.com/" + fullName
+	case opts.remote != "":
+		command += " --remote " + cliruntime.ShellQuote(opts.remote)
+	}
+	if opts.rootDirectorySet {
+		command += " --root-directory " + cliruntime.ShellQuote(opts.rootDirectory)
+	}
+	return cliruntime.CommandPath(opts.deps, command+" --production-branch "+branch)
 }
 
 // validateRootDirectory refuses a root directory, named by what in the command

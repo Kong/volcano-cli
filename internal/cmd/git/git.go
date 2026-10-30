@@ -20,18 +20,21 @@ func New(deps cliruntime.Deps) *cobra.Command {
 		Short: "Manage the Git repository connected to the current project",
 		Long: `Connect the current project to a GitHub repository so that pushes deploy.
 
-Volcano never pushes for you and never stores push credentials: connecting only
-binds the project to a repository you can already reach through your GitHub
-connection. Pushing stays your own "git push", with the credentials already on
-your machine.`,
+Volcano never stores push credentials: connecting only binds the project to a
+repository you can already reach through your GitHub connection. Pushing stays
+your own "git push", with the credentials already on your machine. The one
+exception is "volcano git export", which writes the project's stored source to
+an empty repository once; Volcano pushes that first commit itself.`,
 	}
 	cmd.AddCommand(newStatus(deps))
+	cmd.AddCommand(newRepos(deps))
 	cmd.AddCommand(newConnect(deps))
 	cmd.AddCommand(newRootDirectory(deps))
 	cmd.AddCommand(newProductionBranch(deps))
 	cmd.AddCommand(newAutoDeploy(deps))
 	cmd.AddCommand(newFunctions(deps))
 	cmd.AddCommand(newFrontend(deps))
+	cmd.AddCommand(newExport(deps))
 	cmd.AddCommand(newDisconnect(deps))
 	return cmd
 }
@@ -63,6 +66,10 @@ func guide(deps cliruntime.Deps, err error) error {
 		return fmt.Errorf(
 			"%w\n\nIf this is local mode, that is expected: the local stack ships without GitHub "+
 				"App settings. Run against the cloud API", err)
+	case errors.Is(err, gitconnect.ErrSourceExportUnavailable):
+		return fmt.Errorf(
+			"%w\n\nIf this is local mode, that is expected: local mode serves functions from a directory "+
+				"on your machine, so Volcano stores no source to export. Run against the cloud API", err)
 	case errors.Is(err, gitconnect.ErrNoGitHubConnection):
 		return fmt.Errorf("%w\n\n%s", err, cannotConnectGitHub)
 	case errors.Is(err, gitconnect.ErrNotAuthenticated):
