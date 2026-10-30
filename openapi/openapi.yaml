@@ -1979,8 +1979,9 @@ paths:
       summary: Revoke the calling platform token
       description: |
         Revokes the platform token that authenticates this request, and ends
-        the sign-in session it was created from, if any. Every later request
-        with the token answers `401`. `volcano logout` calls this.
+        the sign-in session it was created from, if any. Ending the session
+        also revokes every other token created from it. Every later request
+        with the token answers `401`.
 
         Only a platform token (`pk-`) can call it. A project access token is
         refused with `403`.
