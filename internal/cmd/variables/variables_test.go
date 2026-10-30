@@ -211,8 +211,9 @@ func TestVariablesDeployShared(t *testing.T) {
 	}
 }
 
-// A server that cannot save a variable as not shared yet refuses it, and the
-// user sees its reason, not a claim that anything was saved.
+// A server where saving a variable as not shared is off refuses it with
+// feature_unavailable, and the user sees its reason, not a claim that
+// anything was saved.
 func TestVariablesDeployShowsTheServersRefusalOfNotShared(t *testing.T) {
 	setVariableCommandTestHome(t)
 	t.Chdir(t.TempDir())
@@ -223,14 +224,17 @@ func TestVariablesDeployShowsTheServersRefusalOfNotShared(t *testing.T) {
 		CurrentProject: &cliconfig.ProjectConfig{ID: variableProjectID, Name: "Beta"},
 	})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		writeVariableCommandJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "shared variable membership changes are temporarily unavailable"})
+		writeVariableCommandJSON(t, w, http.StatusBadRequest, map[string]any{
+			"error": "shared: false is not available; omit shared or set it to true",
+			"code":  "feature_unavailable",
+		})
 	}))
 	defer server.Close()
 
 	out, err := executeVariableCommand(t, New(cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}), "deploy", "--shared=false")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `failed to create variable "API_KEY"`)
-	assert.Contains(t, err.Error(), "shared variable membership changes are temporarily unavailable")
+	assert.Contains(t, err.Error(), "shared: false is not available; omit shared or set it to true")
 	assert.NotContains(t, out, "saved")
 	assert.NotContains(t, out+err.Error(), secretSentinelAPINewValue)
 }
