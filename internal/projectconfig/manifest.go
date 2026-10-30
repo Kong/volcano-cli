@@ -809,11 +809,17 @@ var ErrFunctionVariablesNull = errors.New("variables has no value: list the name
 // the generic shape that keeps a null apart from an omitted key.
 func (m *Manifest) nullFunctionVariables() error {
 	functions, _ := m.upload["functions"].([]any)
-	for _, entry := range functions {
+	for i, entry := range functions {
 		function, _ := entry.(map[string]any)
-		if value, present := function["variables"]; present && value == nil {
-			return fmt.Errorf("function %q: %w", function["name"], ErrFunctionVariablesNull)
+		if value, present := function["variables"]; !present || value != nil {
+			continue
 		}
+		name := ""
+		if m.Functions != nil && i < len(*m.Functions) {
+			name = (*m.Functions)[i].Name
+		}
+		// The name can be an interpolated environment value.
+		return sensitive.Wrap(fmt.Errorf("function %q: %w", name, ErrFunctionVariablesNull))
 	}
 	return nil
 }

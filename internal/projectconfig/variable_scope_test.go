@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Kong/volcano-cli/internal/sensitive"
 )
 
 // A manifest pulled from the server carries the scope fields, so strict
@@ -175,6 +177,16 @@ func TestFunctionVariableDeclarationsRefuseVariablesWithNoValue(t *testing.T) {
 			})
 		})
 	}
+
+	// The name can be interpolated from the environment, so the error is
+	// sensitive and stays out of telemetry.
+	t.Setenv("NULL_VARIABLES_FUNCTION", "secret-fn")
+	withTempWorkingDir(t, func(_ string) {
+		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: ${NULL_VARIABLES_FUNCTION}\n    variables:\n"), 0o644))
+		_, err := FunctionVariableDeclarations("")
+		require.ErrorIs(t, err, ErrFunctionVariablesNull)
+		assert.Contains(t, sensitive.Text(err), `function "secret-fn": variables has no value`)
+	})
 
 	withTempWorkingDir(t, func(_ string) {
 		require.NoError(t, os.WriteFile("volcano-config.yaml", []byte("version: 1\nfunctions:\n  - name: scoped-fn\n    variables: []\n"), 0o644))
