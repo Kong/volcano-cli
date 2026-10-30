@@ -449,12 +449,6 @@ func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	return strings.TrimSpace(string(out))
 }
 
-// Logout removes the login, the current project, and function aliases from the
-// local config. Machine settings such as telemetry stay.
-func (s Service) Logout() error {
-	return config.ClearLogin()
-}
-
 func (s Service) apiURL(cfg *config.Config) string {
 	return s.sessions.APIURL(cfg)
 }

@@ -54,7 +54,7 @@ func New(deps cliruntime.Deps) *cobra.Command {
 	root.AddCommand(upgradecmd.New(deps))
 	root.AddCommand(authcmd.NewLogin(deps))
 	root.AddCommand(authcmd.NewSignup(deps))
-	root.AddCommand(authcmd.NewLogout())
+	root.AddCommand(authcmd.NewLogout(deps))
 	root.AddCommand(connectcmd.New(deps))
 	root.AddCommand(initcmd.New())
 	root.AddCommand(setupcmd.New(deps))

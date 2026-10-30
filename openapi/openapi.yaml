@@ -71,6 +71,8 @@ tags:
     description: Read-only project source discovery and import readiness checks
   - name: Verified Domains
     description: Domains an account has proven it owns, so it can attach any custom domain below them
+  - name: Account Sessions
+    description: Your account's own sign-ins, so a CLI login can end itself without the dashboard
   - name: Storage Buckets
     description: Storage bucket management (platform admin)
   - name: Storage Policies
@@ -1966,6 +1968,48 @@ paths:
                 $ref: '#/components/schemas/Error'
         '501':
           description: Domain verification is unavailable in local mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /user/tokens/current:
+    delete:
+      tags:
+        - Account Sessions
+      summary: Revoke the calling platform token
+      description: |
+        Revokes the platform token that authenticates this request, and ends
+        the sign-in session it was created from, if any. Every later request
+        with the token answers `401`. `volcano logout` calls this.
+
+        Only a platform token (`pk-`) can call it. A project access token is
+        refused with `403`.
+      operationId: revokeCurrentUserToken
+      security:
+        - UserToken: []
+      responses:
+        '204':
+          description: Token revoked
+        '401':
+          description: Not authenticated, or not a platform token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - a project access token cannot revoke a platform token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to revoke the token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Account sessions are unavailable in local mode
           content:
             application/json:
               schema:
