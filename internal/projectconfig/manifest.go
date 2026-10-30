@@ -594,10 +594,6 @@ func Load(filePath string) (*Manifest, string, error) {
 	return manifest, resolved, nil
 }
 
-// Parse interpolates ${ENV} references through lookupEnv, decodes the manifest
-// strictly (unknown fields are errors), and validates it. YAML, interpolation,
-// decode, and validation errors can quote manifest values, including
-// interpolated secrets, so they are marked sensitive.
 // errLavaFlowSection refuses a lavaflow section. Turning LavaFlow on is a
 // person's decision, made with its own commands, so the project configuration
 // doesn't carry it.
@@ -619,6 +615,10 @@ func refuseLavaFlowSection(root *yaml.Node) error {
 	return nil
 }
 
+// Parse interpolates ${ENV} references through lookupEnv, decodes the manifest
+// strictly (unknown fields are errors), and validates it. YAML, interpolation,
+// decode, and validation errors can quote manifest values, including
+// interpolated secrets, so they are marked sensitive.
 func Parse(data []byte, lookupEnv func(string) (string, bool)) (*Manifest, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
