@@ -182,6 +182,34 @@ func (s Service) DeploymentLogs(
 	return logs, nil
 }
 
+// ResolveDeployment finds one of a durable function's deployments by ID, so a
+// build log read names a deployment that belongs to the function.
+func (s Service) ResolveDeployment(
+	ctx context.Context, functionID uuid.UUID, deploymentID string,
+) (*apiclient.FunctionDeployment, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	deploymentID = strings.TrimSpace(deploymentID)
+	for page := api.DefaultPage; ; page++ {
+		deployments, err := authenticated.API.ListDurableFunctionDeployments(
+			ctx, authenticated.ProjectID, functionID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments: %w", err)
+		}
+		for i := range deployments.Data {
+			if deployments.Data[i].Id.String() == deploymentID {
+				return &deployments.Data[i], nil
+			}
+		}
+		if !deployments.HasMore || len(deployments.Data) == 0 {
+			return nil, api.ErrNotFound
+		}
+	}
+}
+
 // StreamDeploymentLogs opens a build log stream for a durable function's
 // deployment.
 func (s Service) StreamDeploymentLogs(

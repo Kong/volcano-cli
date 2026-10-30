@@ -31,6 +31,7 @@ account (auth)
     ├── git connection ........ push-to-deploy from GitHub     → git.md
     ├── access tokens ......... project-scoped CI credentials  → access-tokens.md
     ├── notifications ......... alerts when schedulers fail    → notifications.md
+    ├── logs .................. search, tail, count runtime logs → logs.md
     └── declarative config .... one YAML syncing the above     → ../project-configuration.md
 ```
 
@@ -103,6 +104,7 @@ enable`. Turn it off on its own with `volcano feedback disable`. See
 | Project | create, list, get, rename, delete, select, get keys and usage | `projects …`, `use` | below |
 | Whole project | deploy variables, migrations, functions, frontends, and config in one run | `deploy`, `cloud deploy` | [deploy.md](deploy.md) |
 | Deployments | list, inspect and summarize every function and frontend deployment | `deployments …`, `cloud deployments …` | [deployments.md](deployments.md) |
+| Logs | search, tail and count logs across functions, frontends and databases | `logs …`, `cloud logs …` | [logs.md](logs.md) |
 | Functions | deploy, invoke, inspect, set visibility, schedule, alias | `functions …` | [functions.md](functions.md) |
 | Durable functions | deploy, start, inspect executions, read logs, schedule, decide approvals, send and read messages, answer callbacks | `durable …`, `cloud durable …` | [durable-functions.md](durable-functions.md) |
 | Databases | create, inspect, delete, migrate | `databases …`, `migrations …` | [databases.md](databases.md) |

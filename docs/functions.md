@@ -55,6 +55,7 @@ normally.
 | Delete | `volcano functions delete <name>` |
 | Invoke | `volcano functions invoke <name> [--payload …] [--json]` |
 | Logs | `volcano functions logs <name>` |
+| Search logs across functions | `volcano logs` (see [logs.md](logs.md)) |
 | Supported runtimes | `volcano functions runtimes` |
 | Aliases | `volcano functions alias set\|list\|delete …` |
 | Schedulers | `volcano functions schedulers create\|list\|enable\|disable\|delete …` |

@@ -290,3 +290,16 @@ func buildDurableFunctionDeployMultipart(fn DurableFunctionDeployInput) (*bytes.
 	}
 	return body, writer.FormDataContentType(), nil
 }
+
+// ListDurableFunctionDeployments returns one page of a durable function's
+// deployments, newest first.
+func (c *Client) ListDurableFunctionDeployments(ctx context.Context, projectID, functionID uuid.UUID, page, limit int) (*apiclient.PaginatedFunctionDeployments, error) {
+	resp, err := c.client.ListDurableFunctionDeploymentsWithResponse(ctx, projectID, functionID.String(), &apiclient.ListDurableFunctionDeploymentsParams{
+		Page:  &page,
+		Limit: &limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200, resp.JSON404)
+}
