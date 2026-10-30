@@ -237,3 +237,14 @@ func TestLocalPingSendsTheLocalServiceKey(t *testing.T) {
 	pings, _, _ := api.sent()
 	assert.Len(t, pings, 1)
 }
+
+// Local help offers no example local development refuses.
+func TestLocalPingHelpLeavesBranchesOut(t *testing.T) {
+	serviceKeyDeps := cliruntime.Deps{}
+	out, err := executeDatabaseCommand(t,
+		NewLocalWithOptions(cliruntime.Deps{LocalMode: true}, LocalOptions{ServiceKeyDeps: &serviceKeyDeps}),
+		"ping", "--help")
+	require.NoError(t, err)
+	assert.NotContains(t, out, "--branch preview")
+	assert.Contains(t, out, "Local development authenticates the test with its own service key.")
+}

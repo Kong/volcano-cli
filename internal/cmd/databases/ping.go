@@ -65,13 +65,11 @@ func newLocalPing(deps cliruntime.Deps) *cobra.Command {
 }
 
 func newPingCommand(opts pingOptions) *cobra.Command {
-	deps := opts.deps
 	cmd := &cobra.Command{
 		Use:   "ping <name>",
 		Short: "Test a database connection",
 		Long:  opts.long,
-		Example: "  " + cliruntime.CommandPath(deps, "databases ping app") + "\n  " +
-			cliruntime.CommandPath(deps, "databases ping app --branch preview --json"),
+		Example: pingExample(opts),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.name, opts.out = strings.TrimSpace(args[0]), cmd.OutOrStdout()
@@ -81,6 +79,14 @@ func newPingCommand(opts pingOptions) *cobra.Command {
 	cmd.Flags().StringVar(&opts.branch, "branch", "", "Test this branch of the database instead")
 	cmd.Flags().BoolVar(&opts.jsonOutput, "json", false, "Emit machine-readable JSON")
 	return cmd
+}
+
+func pingExample(opts pingOptions) string {
+	example := "  " + cliruntime.CommandPath(opts.deps, "databases ping app")
+	if opts.noBranches {
+		return example + "\n  " + cliruntime.CommandPath(opts.deps, "databases ping app --json")
+	}
+	return example + "\n  " + cliruntime.CommandPath(opts.deps, "databases ping app --branch preview --json")
 }
 
 func runPing(ctx context.Context, opts pingOptions) error {

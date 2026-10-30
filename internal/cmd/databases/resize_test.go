@@ -142,6 +142,26 @@ func TestResizeReportsTheRefusal(t *testing.T) {
 	require.ErrorContains(t, err, "database is restoring")
 }
 
+// A success body the client could not parse still carries the connection
+// string, so the error keeps only the API's error fields.
+func TestResizeKeepsAnUnparsedBodyOutOfTheError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			payload := databaseCommandPayload("11111111-1111-4111-8111-111111111111", databaseProjectID, "app")
+			respondDatabaseJSON(t, w, http.StatusOK, payload)
+		default:
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte(`{"connection_string":"postgres://app:hunter2@db/app"}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	_, _, err := runResizeCommand(t, server, "", "app", "--type", "volcano-db-m", "--yes")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "hunter2")
+}
+
 func TestResizeRefusesAnUnknownSize(t *testing.T) {
 	api := &resizeAPI{t: t, current: "volcano-db-s"}
 

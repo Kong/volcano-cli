@@ -86,7 +86,9 @@ func (c *Client) UpdateDatabaseType(ctx context.Context, projectID uuid.UUID, da
 	if err != nil {
 		return nil, err
 	}
-	return apiResult(resp.StatusCode(), resp.Body, resp.JSON200)
+	// Error fields only: a success body that failed to parse carries the
+	// connection string, and with it the database password.
+	return apiResult(resp.StatusCode(), errorFieldsOnly(resp.Body), resp.JSON200)
 }
 
 // PingDatabase runs the database API's connectivity probe, a SELECT 1, against
