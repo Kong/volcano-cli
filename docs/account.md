@@ -53,13 +53,14 @@ This signs out every session except this CLI's own: the dashboard in every
 browser, and every other CLI login. It asks before doing so. Pass `--yes` to
 skip the question, which a script has to do, since nothing can answer it there.
 
-A login made with a token (`volcano login --token`, or a token created in the
-dashboard) has no session of its own, so from it `--all-others` signs out every
-session. The command says which it will do before it asks.
+A login whose token wasn't issued by a sign-in, such as a token created in the
+dashboard and passed to `volcano login --token`, has no session of its own, so
+from it `--all-others` signs out every session. A token copied from a
+`volcano login` keeps that login's session. The command says which it will do
+before it asks.
 
 Signing out sessions revokes only the tokens exchanged from them. A token not
-tied to a session, such as one passed to `volcano login --token` or created in
-the dashboard, keeps working. Revoke the one this CLI uses with
+tied to a session, such as one created in the dashboard, keeps working. Revoke the one this CLI uses with
 `volcano logout`. Revoking your other platform tokens from the CLI is not
 available yet. The command reminds you of this when it finishes.
 

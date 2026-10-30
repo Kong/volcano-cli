@@ -66,17 +66,26 @@ func sessionKind(kind apiclient.AuthSessionKind) string {
 	return "Browser"
 }
 
+// sessionDevice is the user agent the signing-in client sent. Any client can
+// send any text, so control characters are dropped before it reaches the
+// terminal, where they could rewrite or hide rows.
 func sessionDevice(userAgent *string) string {
-	if userAgent == nil || strings.TrimSpace(*userAgent) == "" {
+	if userAgent == nil {
 		return "unknown"
 	}
-	return strings.TrimSpace(*userAgent)
+	if device := strings.TrimSpace(theme.StripControl(*userAgent)); device != "" {
+		return device
+	}
+	return "unknown"
 }
 
 func sessionIP(session apiclient.AuthSession) string {
 	for _, ip := range []*string{session.LastIpAddress, session.IpAddress} {
-		if ip != nil && strings.TrimSpace(*ip) != "" {
-			return strings.TrimSpace(*ip)
+		if ip == nil {
+			continue
+		}
+		if address := strings.TrimSpace(theme.StripControl(*ip)); address != "" {
+			return address
 		}
 	}
 	return "unknown"

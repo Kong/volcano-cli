@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	cliaccount "github.com/Kong/volcano-cli/internal/account"
+	"github.com/Kong/volcano-cli/internal/config"
 	"github.com/Kong/volcano-cli/internal/confirm"
 	"github.com/Kong/volcano-cli/internal/output"
 	cliruntime "github.com/Kong/volcano-cli/internal/runtime"
@@ -22,8 +23,9 @@ const allOthersWarning = "This signs out every other session on your account: th
 	"and every other CLI login. This CLI stays logged in."
 
 // everySessionWarning is the same for a login with no session of its own, as
-// one made with a token: there is no session to keep, so every one ends.
-const everySessionWarning = "This CLI's login has no session of its own (it was made with a token), so this signs " +
+// one with a token issued without a sign-in: there is no session to keep, so
+// every one ends.
+const everySessionWarning = "This CLI's login has no session of its own (its token wasn't issued by a sign-in), so this signs " +
 	"out every session on your account: the dashboard in every browser, and every CLI login. This CLI stays logged in."
 
 type sessionsRevokeOptions struct {
@@ -45,11 +47,11 @@ func newSessionsRevoke(deps cliruntime.Deps) *cobra.Command {
 working at once.
 
 --all-others signs out every session except this CLI's own, browser sessions
-included, so the dashboard asks every browser to sign in again. A login made
-with a token has no session of its own, so from it --all-others signs out every
-session; the command says which before it asks. --yes skips the question.
-Tokens not tied to a session, such as one passed to 'login --token' or created
-in the dashboard, keep working: revoke the one this CLI uses with '%[2]s'.
+included, so the dashboard asks every browser to sign in again. A login whose
+token wasn't issued by a sign-in, such as one created in the dashboard, has no
+session of its own, so from it --all-others signs out every session; the
+command says which before it asks. --yes skips the question. Tokens not tied
+to a session keep working: revoke the one this CLI uses with '%[2]s'.
 Revoking your other platform tokens from the CLI is not available yet.
 
 This CLI's own session ends with '%[2]s', which also removes the
@@ -101,6 +103,12 @@ func runSessionsRevoke(ctx context.Context, opts sessionsRevokeOptions) error {
 	if !opts.allOthers {
 		if err := service.Revoke(ctx, opts.sessionID); err != nil {
 			if errors.Is(err, cliaccount.ErrCurrentSession) {
+				if (&config.Config{}).TokenFromEnv() {
+					// logout ends the saved login, not the token in the
+					// environment, so it would end the wrong one.
+					return fmt.Errorf("%w, through %s. To end it, unset %s and run this command again with another login",
+						err, config.TokenEnv, config.TokenEnv)
+				}
 				return fmt.Errorf("%w. To end it, run %s, which also removes the login from this machine",
 					err, cliruntime.CommandPath(opts.deps, "logout"))
 			}
@@ -138,9 +146,9 @@ func runSessionsRevoke(ctx context.Context, opts sessionsRevokeOptions) error {
 	output.Success(opts.out, "%s", done)
 	// Ending sessions reaches only the tokens exchanged from them, so say
 	// which ones keep working and what ends them.
-	output.Note(opts.out, "Tokens not tied to a session, such as one passed to %s or created in the dashboard, "+
+	output.Note(opts.out, "Tokens not tied to a session, such as one created in the dashboard, "+
 		"still work. Revoke the one this CLI uses with %s. Revoking your other platform tokens from the CLI "+
 		"is not available yet.",
-		cliruntime.CommandPath(opts.deps, "login --token"), cliruntime.CommandPath(opts.deps, "logout"))
+		cliruntime.CommandPath(opts.deps, "logout"))
 	return nil
 }

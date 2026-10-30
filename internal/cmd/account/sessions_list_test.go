@@ -26,6 +26,22 @@ func TestSessionsListShowsBrowserAndCLISessionsAndMarksThisOne(t *testing.T) {
 	assert.Contains(t, out, "Showing 3 of 3 session(s) (page 1, limit 100)")
 }
 
+// Any client can name itself anything, so a device string can't move the
+// cursor or clear rows of the table.
+func TestSessionsListDropsControlCharactersFromDevices(t *testing.T) {
+	setAccountTestHome(t, accountToken)
+	api := newSessionsAPI(t)
+	api.sessions = append(api.sessions, sessionPayload(otherCLISessionID, "email", "spoof\x1b[2K\r\u009b2Kagent", false))
+
+	out, err := executeAccountCommand(t, api.serve(), "", "sessions", "list")
+	require.NoError(t, err)
+
+	assert.Contains(t, out, "spoof[2K2Kagent")
+	assert.NotContains(t, out, "\x1b")
+	assert.NotContains(t, out, "\r")
+	assert.NotContains(t, out, "\u009b")
+}
+
 func TestSessionsListJSON(t *testing.T) {
 	setAccountTestHome(t, accountToken)
 	api := newSessionsAPI(t)

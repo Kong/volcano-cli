@@ -15,8 +15,8 @@ import (
 	clisession "github.com/Kong/volcano-cli/internal/session"
 )
 
-// currentSessionLookupLimit is how many sessions Revoke reads to find this
-// CLI's own: the API's page ceiling.
+// currentSessionLookupLimit is the page size used to find this CLI's own
+// session: the API's page ceiling.
 const currentSessionLookupLimit = 100
 
 // ErrCurrentSession refuses to revoke the session this CLI is logged in with
@@ -38,7 +38,8 @@ const (
 	// OthersExceptThisLogin keeps the session this CLI is logged in with.
 	OthersExceptThisLogin OthersScope = iota
 	// EverySession is what a login with no session of its own reaches, such
-	// as one made with a token: there is no session to keep, so all end.
+	// as one with a token issued without a sign-in: there is no session to
+	// keep, so all end.
 	EverySession
 )
 
@@ -72,14 +73,12 @@ func (s Service) Revoke(ctx context.Context, sessionID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	page, err := authenticated.API.ListAccountSessions(ctx, 1, currentSessionLookupLimit)
+	current, found, err := currentSession(ctx, authenticated.API)
 	if err != nil {
-		return classify(err, "failed to list sessions")
+		return err
 	}
-	for _, session := range page.Sessions {
-		if session.IsCurrent && session.Id == sessionID {
-			return ErrCurrentSession
-		}
+	if found && current == sessionID {
+		return ErrCurrentSession
 	}
 	if err := authenticated.API.RevokeAccountSession(ctx, sessionID.String()); err != nil {
 		if api.Status(err) == http.StatusNotFound {
@@ -97,21 +96,34 @@ func (s Service) OthersScope(ctx context.Context) (OthersScope, error) {
 	if err != nil {
 		return OthersExceptThisLogin, err
 	}
-	page, err := authenticated.API.ListAccountSessions(ctx, 1, currentSessionLookupLimit)
+	_, found, err := currentSession(ctx, authenticated.API)
 	if err != nil {
-		return OthersExceptThisLogin, classify(err, "failed to list sessions")
+		return OthersExceptThisLogin, err
 	}
-	if page.Total > len(page.Sessions) {
-		// The current session may be on a later page; assume it exists
-		// rather than claim every session ends.
+	if found {
 		return OthersExceptThisLogin, nil
 	}
-	for _, session := range page.Sessions {
-		if session.IsCurrent {
-			return OthersExceptThisLogin, nil
+	return EverySession, nil
+}
+
+// currentSession finds the session this CLI is logged in with, reading every
+// page: the list is ordered by last activity, so an idle login can sit past the
+// first. It reports false for a login with no session of its own.
+func currentSession(ctx context.Context, client *api.Client) (uuid.UUID, bool, error) {
+	for page := 1; ; page++ {
+		result, err := client.ListAccountSessions(ctx, page, currentSessionLookupLimit)
+		if err != nil {
+			return uuid.Nil, false, classify(err, "failed to list sessions")
+		}
+		for _, session := range result.Sessions {
+			if session.IsCurrent {
+				return session.Id, true, nil
+			}
+		}
+		if len(result.Sessions) == 0 || (page >= result.TotalPages && page*currentSessionLookupLimit >= result.Total) {
+			return uuid.Nil, false, nil
 		}
 	}
-	return EverySession, nil
 }
 
 // RevokeOthers signs out every session of the account but this CLI's own,

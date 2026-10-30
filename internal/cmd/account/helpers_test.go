@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -83,8 +84,11 @@ func (a *sessionsAPI) serve() cliruntime.Deps {
 		}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/user/sessions":
+			page, limit := queryInt(r, "page", 1), queryInt(r, "limit", 20)
+			start, end := min((page-1)*limit, len(a.sessions)), min(page*limit, len(a.sessions))
 			writeAccountJSON(a.t, w, http.StatusOK, map[string]any{
-				"sessions": a.sessions, "total": len(a.sessions), "page": 1, "limit": 100, "total_pages": 1,
+				"sessions": a.sessions[start:end], "total": len(a.sessions), "page": page, "limit": limit,
+				"total_pages": (len(a.sessions) + limit - 1) / limit,
 			})
 		case r.Method == http.MethodDelete && r.URL.Path == "/user/sessions":
 			w.WriteHeader(http.StatusNoContent)
@@ -102,6 +106,13 @@ func (a *sessionsAPI) serve() cliruntime.Deps {
 	}))
 	a.t.Cleanup(server.Close)
 	return cliruntime.Deps{HTTPClient: server.Client(), APIBaseURL: server.URL}
+}
+
+func queryInt(r *http.Request, name string, fallback int) int {
+	if value, err := strconv.Atoi(r.URL.Query().Get(name)); err == nil && value > 0 {
+		return value
+	}
+	return fallback
 }
 
 func (a *sessionsAPI) requests() []string {

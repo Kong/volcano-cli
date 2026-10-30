@@ -1,6 +1,7 @@
 package account
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,6 +34,42 @@ func TestSessionsRevokeRefusesThisCLIsOwnSession(t *testing.T) {
 	assert.Contains(t, err.Error(), "that is the session this CLI is logged in with")
 	assert.Contains(t, err.Error(), "run volcano logout")
 	assert.Equal(t, []string{"GET /user/sessions"}, api.requests(), "nothing is revoked")
+}
+
+// The list is ordered by last activity, so an idle CLI login can sit past the
+// first page; it is still found and refused, and still kept by --all-others.
+func TestSessionsRevokeFindsThisCLIsOwnSessionOnALaterPage(t *testing.T) {
+	setAccountTestHome(t, accountToken)
+	api := newSessionsAPI(t)
+	api.sessions = nil
+	for i := range 150 {
+		api.sessions = append(api.sessions, sessionPayload(fmt.Sprintf("00000000-0000-4000-8000-%012d", i), "email", "Mozilla/5.0", false))
+	}
+	api.sessions = append(api.sessions, sessionPayload(currentSessionID, "device:volcano-cli", "volcano-cli/0.58.0", true))
+
+	_, err := executeAccountCommand(t, api.serve(), "", "sessions", "revoke", currentSessionID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "that is the session this CLI is logged in with")
+	assert.Equal(t, []string{"GET /user/sessions", "GET /user/sessions"}, api.requests(), "nothing is revoked")
+
+	out, err := executeAccountCommand(t, api.serve(), "y\n", "sessions", "revoke", "--all-others")
+	require.NoError(t, err)
+	assert.Contains(t, out, "Sign out every other session?")
+}
+
+// With VOLCANO_TOKEN set, the session this CLI uses is that token's, which
+// logout doesn't end, so the refusal says to unset it instead.
+func TestSessionsRevokeOfThisCLIsOwnSessionThroughVolcanoToken(t *testing.T) {
+	setAccountTestHome(t, "")
+	t.Setenv("VOLCANO_TOKEN", accountToken)
+	api := newSessionsAPI(t)
+
+	_, err := executeAccountCommand(t, api.serve(), "", "sessions", "revoke", currentSessionID)
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), "that is the session this CLI is logged in with, through VOLCANO_TOKEN. "+
+		"To end it, unset VOLCANO_TOKEN and run this command again with another login")
+	assert.NotContains(t, err.Error(), "logout")
 }
 
 func TestSessionsRevokeReportsASessionTheAccountDoesNotHave(t *testing.T) {
@@ -78,13 +115,13 @@ func TestSessionsRevokeAllOthersAsksFirstAndSaysBrowsersGoToo(t *testing.T) {
 	assert.Contains(t, out, "Sign out every other session?")
 	assert.Equal(t, []string{"GET /user/sessions", "DELETE /user/sessions"}, api.requests())
 	assert.Contains(t, out, "Signed out every other session; this CLI stays logged in")
-	assert.Contains(t, out, "Tokens not tied to a session, such as one passed to volcano login --token or created in the dashboard, still work.")
+	assert.Contains(t, out, "Tokens not tied to a session, such as one created in the dashboard, still work.")
 	assert.Contains(t, out, "Revoke the one this CLI uses with volcano logout. "+
 		"Revoking your other platform tokens from the CLI is not available yet.")
 	assert.NotContains(t, out, "token settings", "the hint names no website step")
 }
 
-// A login made with a token has no session of its own, so signing out the
+// A login whose token wasn't issued by a sign-in has no session of its own, so signing out the
 // others reaches every session, and the command says so before it asks.
 func TestSessionsRevokeAllOthersFromATokenLoginSaysEverySessionEnds(t *testing.T) {
 	setAccountTestHome(t, accountToken)
@@ -97,7 +134,7 @@ func TestSessionsRevokeAllOthersFromATokenLoginSaysEverySessionEnds(t *testing.T
 	out, err := executeAccountCommand(t, api.serve(), "y\n", "sessions", "revoke", "--all-others")
 	require.NoError(t, err)
 
-	assert.Contains(t, out, "This CLI's login has no session of its own (it was made with a token), so this signs out every session")
+	assert.Contains(t, out, "This CLI's login has no session of its own (its token wasn't issued by a sign-in), so this signs out every session")
 	assert.Contains(t, out, "Sign out every session?")
 	assert.NotContains(t, out, "every other session")
 	assert.Equal(t, []string{"GET /user/sessions", "DELETE /user/sessions"}, api.requests())
