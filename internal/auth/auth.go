@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -433,8 +435,9 @@ func (s Service) SelectInLink(ctx context.Context, cfg *config.Config, credentia
 	return cliproject.SelectInLink(ctx, client, credentials.APIURL, cfg.Link, selected)
 }
 
-// GitEmail returns `git config --global user.email`, or "" when it is unset
-// or git fails. Signup offers it as the default email address.
+// GitEmail returns `git config --global user.email`, or "" when it is unset,
+// git fails, or the value is not a usable signup address (see usableEmail).
+// Signup offers it as the default email address.
 func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	runner := deps.GitCommandRunner
 	if runner == nil {
@@ -446,7 +449,67 @@ func GitEmail(ctx context.Context, deps cliruntime.Deps) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	email := strings.TrimSpace(string(out))
+	if !usableEmail(email) {
+		return ""
+	}
+	return email
+}
+
+// unusableEmailDomains are domains whose addresses are privacy relays or
+// placeholders, not a mailbox the user signs up with. A domain also matches
+// when it is a subdomain of an entry, so "users.noreply.github.com" matches
+// "noreply.github.com".
+var unusableEmailDomains = []string{
+	"noreply.github.com",
+	"noreply.gitlab.com",
+	"noreply.bitbucket.org",
+	"noreply.codeberg.org",
+	"example.com",
+	"example.org",
+	"example.net",
+	"localhost",
+	"localdomain",
+	"local",
+	"lan",
+	"internal",
+	"invalid",
+	"test",
+	"example",
+}
+
+// noReplyLocalParts are sender names that cannot receive mail.
+var noReplyLocalParts = []string{"noreply", "no-reply", "no_reply", "donotreply", "do-not-reply"}
+
+// usableEmail reports whether a git email looks like an address the user would
+// sign up with. It rejects values that are not an address, private relay
+// addresses such as 12345+name@users.noreply.github.com, no-reply senders, and
+// hosts that cannot receive mail (local, test and reserved names).
+func usableEmail(email string) bool {
+	parsed, err := mail.ParseAddress(email)
+	if err != nil || parsed.Address != email {
+		return false
+	}
+	at := strings.LastIndex(email, "@")
+	local, domain := strings.ToLower(email[:at]), strings.ToLower(email[at+1:])
+	for _, sender := range noReplyLocalParts {
+		if strings.HasPrefix(local, sender) {
+			return false
+		}
+	}
+	if !strings.Contains(domain, ".") {
+		return false
+	}
+	// Self-hosted forges use users.noreply.<host> for the same relay.
+	if slices.Contains(strings.Split(domain, "."), "noreply") {
+		return false
+	}
+	for _, blocked := range unusableEmailDomains {
+		if domain == blocked || strings.HasSuffix(domain, "."+blocked) {
+			return false
+		}
+	}
+	return true
 }
 
 // Logout removes the login, the current project, and function aliases from the

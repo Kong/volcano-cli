@@ -13,9 +13,8 @@ validates and applies the full project configuration:
 - Buckets and policies
 - Realtime
 - Notifications: where scheduler failure alerts go and when they are sent
-- LavaFlow: whether Volcano diagnoses runtime errors and opens fix pull
-  requests (cloud only)
-- Auth configuration, including providers, email, templates, and managed pages
+- Auth configuration, including providers, email, templates, and managed pages:
+  hosted pages for every page type, and the built-in pages' theme and layouts
 - Function visibility, invocation mode, HTTP authentication, OpenAPI metadata,
   and schedulers
 - Frontend custom domains, function routes, and Frontend routes
@@ -133,10 +132,6 @@ Key semantics:
   first `notifications.webhook.url` a deploy sets generates one that is never
   shown. To get a secret you can use, run `notifications rotate-webhook-secret`.
   See [notifications.md](notifications.md).
-- `lavaflow` has `enabled`, `max_stage` (`diagnose` or `pull_request`), and
-  `auto_trigger`. Nothing in it chooses a model or carries a key: Volcano
-  picks the models. LavaFlow is cloud only, so a local deploy that declares the
-  section reports it as an error. See [lavaflow.md](lavaflow.md).
 - `config pull` leaves `notifications.webhook` out, because its URL can carry
   the receiver's token. A manifest without it keeps the saved webhook; set
   `url: ""` to remove it, or declare the URL through a `${ENV_VAR}` reference.

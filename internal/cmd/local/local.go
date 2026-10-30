@@ -14,11 +14,12 @@ import (
 	databasescmd "github.com/Kong/volcano-cli/internal/cmd/databases"
 	migrationcmd "github.com/Kong/volcano-cli/internal/cmd/databases/migration"
 	deploycmd "github.com/Kong/volcano-cli/internal/cmd/deploy"
+	deploymentscmd "github.com/Kong/volcano-cli/internal/cmd/deployments"
 	domainscmd "github.com/Kong/volcano-cli/internal/cmd/domains"
 	durablecmd "github.com/Kong/volcano-cli/internal/cmd/durable"
 	frontendscmd "github.com/Kong/volcano-cli/internal/cmd/frontends"
 	functionscmd "github.com/Kong/volcano-cli/internal/cmd/functions"
-	lavaflowcmd "github.com/Kong/volcano-cli/internal/cmd/lavaflow"
+	logscmd "github.com/Kong/volcano-cli/internal/cmd/logs"
 	notificationscmd "github.com/Kong/volcano-cli/internal/cmd/notifications"
 	sandboxescmd "github.com/Kong/volcano-cli/internal/cmd/sandboxes"
 	storagecmd "github.com/Kong/volcano-cli/internal/cmd/storage"
@@ -56,12 +57,13 @@ func NewResourceCommands(deps cliruntime.Deps) []*cobra.Command {
 		functionscmd.NewLocal(localDeps),
 		durablecmd.NewLocal(localDeps),
 		frontendscmd.NewLocal(localDeps),
+		logscmd.New(localDeps),
 		variablescmd.New(localDeps),
 		notificationscmd.New(localDeps),
 		deploycmd.NewLocal(localDeps),
+		deploymentscmd.New(localDeps),
 		accesstokenscmd.NewCloudOnly(),
 		domainscmd.NewCloudOnly(),
-		lavaflowcmd.NewCloudOnly(),
 		newReset(deps),
 	}
 }

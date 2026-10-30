@@ -106,7 +106,7 @@ volcano connect --json                 # print the result as JSON
 | `--project` | Use the existing project with this ID instead of creating one |
 | `--name` | Name for the new project. Defaults to the directory argument's name, else a generated name. Fails in a linked directory, which keeps its project |
 | `--template` | Starter to add: `nextjs`, `javascript`, `python`, `ruby` |
-| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email`. Fails when `VOLCANO_TOKEN` is set |
+| `--signup` | Create an account in the browser first. Uses `--email`, else `git config --global user.email` when it is a usable address. Private relay addresses (such as `noreply.github.com`) and local or test addresses are skipped. Without a usable address, connect stops and asks you to run it again with `--email`. Fails when `VOLCANO_TOKEN` is set |
 | `--device-code` | Sign in with the code in the dashboard's prompt instead of the browser. Fails when `VOLCANO_TOKEN` is set |
 | `--skip-skills` | Don't install skills |
 | `--json` | Print the result as JSON on stdout. Progress goes to stderr |
@@ -139,6 +139,19 @@ refused it fails with exit code `2` instead of running browser login.
 
 Run `volcano connect --signup` if you don't have an account yet. It opens
 the signup page, and the CLI is signed in when you finish.
+
+`--signup` needs an email address. It uses `--email`, else your global git
+email when that is a usable address. When neither is available, `connect`
+stops before it signs in and changes nothing. Run the same command again with
+the address you want to sign up with:
+
+```bash
+volcano connect --signup --email you@company.com
+```
+
+An AI agent running `connect` should ask the user for the address, using its
+native input tool (such as `AskUserQuestion`) when it has one, and then
+finish `connect` with `--email`.
 
 When your plan's project limit is reached, `connect` fails and lists your
 projects with the command to set up each one:

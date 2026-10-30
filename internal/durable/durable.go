@@ -182,6 +182,34 @@ func (s Service) DeploymentLogs(
 	return logs, nil
 }
 
+// ResolveDeployment finds one of a durable function's deployments by ID, so a
+// build log read names a deployment that belongs to the function.
+func (s Service) ResolveDeployment(
+	ctx context.Context, functionID uuid.UUID, deploymentID string,
+) (*apiclient.FunctionDeployment, error) {
+	authenticated, err := s.current()
+	if err != nil {
+		return nil, err
+	}
+
+	deploymentID = strings.TrimSpace(deploymentID)
+	for page := api.DefaultPage; ; page++ {
+		deployments, err := authenticated.API.ListDurableFunctionDeployments(
+			ctx, authenticated.ProjectID, functionID, page, api.DefaultLimit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments: %w", err)
+		}
+		for i := range deployments.Data {
+			if deployments.Data[i].Id.String() == deploymentID {
+				return &deployments.Data[i], nil
+			}
+		}
+		if !deployments.HasMore || len(deployments.Data) == 0 {
+			return nil, api.ErrNotFound
+		}
+	}
+}
+
 // StreamDeploymentLogs opens a build log stream for a durable function's
 // deployment.
 func (s Service) StreamDeploymentLogs(
@@ -466,7 +494,7 @@ func (s Service) DecideApproval(
 // credential. The API's 403 is left out: its generic body would add a hint
 // about the token's project, which is not the problem here.
 var errApprovalNeedsAPerson = api.WithCause(errors.New(
-	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"),
+	"approvals are decided by a person. Run `volcano login` with VOLCANO_TOKEN unset, then decide again"),
 	config.ErrAccountTokenRequired)
 
 // RequirePerson refuses a credential the CLI knows is a project access token,

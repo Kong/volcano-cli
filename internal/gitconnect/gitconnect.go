@@ -25,9 +25,8 @@ import (
 var (
 	// ErrNoGitHubConnection indicates the caller has no usable GitHub
 	// connection. The CLI cannot create one: the connect flow is a browser
-	// redirect bound to an HttpOnly cookie, so it has to happen in the
-	// dashboard.
-	ErrNoGitHubConnection = errors.New("no GitHub account is connected")
+	// redirect bound to an HttpOnly cookie, which no API route starts yet.
+	ErrNoGitHubConnection = errors.New("no GitHub account is connected to your Volcano account")
 	// ErrRepositoryNotAccessible indicates the repository is real as far as the
 	// local remote is concerned, but the Volcano GitHub App cannot see it
 	// through any of the caller's installations.
@@ -599,19 +598,6 @@ func settingsError(projectID uuid.UUID, err error, action string) error {
 	return classify(err, action)
 }
 
-// WebURL returns the dashboard URL for the configured API, so callers can point
-// at the page that owns a flow the CLI cannot run itself.
-func (s Service) WebURL() (string, error) {
-	cfg, err := s.sessions.Config()
-	if err != nil {
-		return "", err
-	}
-	// Resolve the web URL from the API URL the session will actually use, so a
-	// runtime override does not produce a link to a different environment.
-	webURL := cfg.WebURLForAPIURL(s.sessions.APIURL(cfg))
-	return strings.TrimSuffix(webURL, "/") + "/dashboard/project-settings/git", nil
-}
-
 // githubConnections keeps the connections for the provider this CLI can bind.
 //
 // Status is deliberately not filtered on. The column is constrained to
@@ -658,8 +644,8 @@ func classifyProvider(err error, action string) error {
 		return ErrProviderNotConfigured
 	case http.StatusUnauthorized:
 		// Authentication, per the contract — see ErrNotAuthenticated. Reporting
-		// this as a GitHub reconnect sent users to the dashboard for a failure
-		// only signing in again can fix.
+		// this as a GitHub reconnect sent users after a failure only signing in
+		// again can fix.
 		return fmt.Errorf("%w: %w", ErrNotAuthenticated, err)
 	default:
 		return classify(err, action)

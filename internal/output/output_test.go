@@ -75,7 +75,8 @@ func TestProjectsEmptyOutput(t *testing.T) {
 		Total: 0,
 	})
 	assert.Contains(t, out.String(), "No projects found")
-	assert.Contains(t, out.String(), "https://volcano.dev")
+	assert.Contains(t, out.String(), "Create one with: volcano projects create <name>")
+	assert.NotContains(t, out.String(), "dashboard")
 	assert.Contains(t, out.String(), "Showing 0 of 0 project(s) (page 1, limit 100)")
 }
 

@@ -37,7 +37,6 @@ recording still works. A project with nothing connected is not an error.`,
 
 func runStatus(ctx context.Context, opts statusOptions) error {
 	service := gitconnect.NewService(opts.deps)
-	webURL, _ := service.WebURL()
 
 	project, err := service.Project()
 	if err != nil {
@@ -54,7 +53,7 @@ func runStatus(ctx context.Context, opts statusOptions) error {
 			output.GitNotConnected(opts.out, project.Label(), cliruntime.CommandPath(opts.deps, "git connect"))
 			return nil
 		}
-		return guide(opts.deps, webURL, err)
+		return guide(opts.deps, err)
 	}
 
 	settings, settingsErr := service.DeploySettings(ctx)

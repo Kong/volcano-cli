@@ -18,7 +18,7 @@ const (
 	exitTestApprovalID = "77777777-7777-4777-8777-777777777777"
 	exitTestFrontendID = "88888888-8888-4888-8888-888888888888"
 	needsAPersonError  = "approvals are decided by a person. " +
-		"Run `volcano login` with VOLCANO_TOKEN unset, or decide in the dashboard"
+		"Run `volcano login` with VOLCANO_TOKEN unset, then decide again"
 )
 
 // runAgainst runs the real command tree with token and mainTestProjectAlpha
@@ -79,18 +79,6 @@ func TestRunApprovalDecisionByAProjectTokenExitsPermissionDenied(t *testing.T) {
 
 	assert.Equal(t, exitPermissionDenied, code, stderr)
 	assert.Contains(t, stderr, "Error: "+needsAPersonError+"\n")
-}
-
-// Turning LavaFlow on with a project access token is refused before any
-// request, with the exit code of a permission the API refuses.
-func TestRunLavaFlowEnableByAProjectTokenExitsPermissionDenied(t *testing.T) {
-	code, stderr := runAgainst(t, cliconfig.ProjectTokenPrefix+"scoped", func(w http.ResponseWriter, r *http.Request) {
-		t.Errorf("a project access token must not turn LavaFlow on: %s %s", r.Method, r.URL.Path)
-		respondExitTestJSON(w, http.StatusNotFound, `{"error":"not found"}`)
-	}, "cloud", "lavaflow", "enable")
-
-	assert.Equal(t, exitPermissionDenied, code, stderr)
-	assert.Contains(t, stderr, "Error: a person has to turn LavaFlow on")
 }
 
 // The API's 403 for a credential the CLI did not recognize is rewritten into

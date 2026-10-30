@@ -55,7 +55,7 @@ test: test-installer ## Run unit tests
 
 test-installer: ## Test the release installers
 	sh scripts/install-volcano.test.sh
-	node --test scripts/npm/download.test.js
+	node --test scripts/npm/download.test.js bin/volcano.test.js
 	python3 -B -m unittest discover -s scripts/ci -p 'test_publish_downloads.py'
 
 openapi-generate: ## Regenerate the API client from the vendored OpenAPI contract
