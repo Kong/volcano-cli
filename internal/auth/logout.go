@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -42,56 +41,74 @@ const (
 	LogoutNoServerSession
 )
 
+// LogoutResult says what logging out did on the server and on this machine.
+type LogoutResult struct {
+	Outcome LogoutOutcome
+	// RevokeErr is why the server did not end the login, for LogoutNotRevoked
+	// and LogoutRefused.
+	RevokeErr error
+	// ClearErr is why the login could not be removed from this machine. The
+	// login is not removed for LogoutNotRevoked, so it is always nil there.
+	ClearErr error
+	// EnvTokenEnded reports that VOLCANO_TOKEN holds the saved token, which the
+	// server no longer accepts, so commands that use it now fail.
+	EnvTokenEnded bool
+}
+
 // Logout ends the saved login: it asks the server to revoke the saved token and
 // the session it came from, then removes the login, the current project, and
 // function aliases from the local config. When the revoke failed in a way that
-// can pass, the login stays saved and the failure is returned: removing it
-// would leave a token the server still accepts and this CLI can no longer end,
-// while keeping it lets logging out again finish the job. When the server
-// refused, the login is removed anyway, so a server that cannot end it does not
-// keep this machine logged in, and the refusal is returned after clearing. A
-// VOLCANO_TOKEN in the environment is neither revoked nor unset: it was never
-// saved.
-func (s Service) Logout(ctx context.Context) (LogoutOutcome, error) {
-	outcome, revokeErr := s.revokeSavedLogin(ctx)
+// can pass, the login stays saved: removing it would leave a token the server
+// still accepts and this CLI can no longer end, while keeping it lets logging
+// out again finish the job. When the server refused, the login is removed
+// anyway, so a server that cannot end it does not keep this machine logged in.
+// A VOLCANO_TOKEN in the environment is never unset, and revoked only when it
+// is the saved token.
+func (s Service) Logout(ctx context.Context) LogoutResult {
+	outcome, token, revokeErr := s.revokeSavedLogin(ctx)
+	result := LogoutResult{Outcome: outcome, RevokeErr: revokeErr}
 	if outcome == LogoutNotRevoked {
-		return outcome, revokeErr
+		return result
 	}
-	if err := config.ClearLogin(); err != nil {
-		return outcome, errors.Join(revokeErr, err)
+	if outcome == LogoutRevoked || outcome == LogoutAlreadyEnded {
+		env := &config.Config{}
+		result.EnvTokenEnded = env.TokenFromEnv() && env.Token() == token
 	}
-	return outcome, revokeErr
+	result.ClearErr = config.ClearLogin()
+	return result
 }
 
-func (s Service) revokeSavedLogin(ctx context.Context) (LogoutOutcome, error) {
+// revokeSavedLogin asks the server to revoke the saved token, and returns the
+// token it found, if any.
+func (s Service) revokeSavedLogin(ctx context.Context) (LogoutOutcome, string, error) {
 	cfg, readable := s.savedConfig()
 	if !readable {
-		return LogoutUnreadable, nil
+		return LogoutUnreadable, "", nil
 	}
 	token := strings.TrimSpace(cfg.UserToken)
 	switch {
 	case token == "":
-		return LogoutNothingSaved, nil
+		return LogoutNothingSaved, "", nil
 	case config.IsProjectToken(token):
-		return LogoutProjectToken, nil
+		return LogoutProjectToken, token, nil
 	}
 
 	client, err := s.sessions.APIClient(s.apiURL(cfg), token)
 	if err != nil {
-		return LogoutRefused, err
+		return LogoutRefused, token, err
 	}
 	err = client.RevokeCurrentToken(ctx)
 	switch status := api.Status(err); {
 	case err == nil:
-		return LogoutRevoked, nil
+		return LogoutRevoked, token, nil
 	case status == http.StatusUnauthorized:
-		return LogoutAlreadyEnded, nil
+		return LogoutAlreadyEnded, token, nil
 	case status == http.StatusNotImplemented:
-		return LogoutNoServerSession, nil
+		return LogoutNoServerSession, token, nil
 	case revokeCanPass(status):
-		return LogoutNotRevoked, err
+		return LogoutNotRevoked, token, err
 	default:
-		return LogoutRefused, err
+		return LogoutRefused, token, err
 	}
 }
 
@@ -104,8 +121,14 @@ func revokeCanPass(status int) bool {
 }
 
 // savedConfig reads the local config. One that cannot be read holds no login
-// that could be revoked; logging out removes it all the same.
+// that could be revoked; logging out removes it all the same. Logout never uses
+// the working directory's project link, so a broken one must not hide the
+// saved login: it is read without the link unless a loader is set.
 func (s Service) savedConfig() (*config.Config, bool) {
-	cfg, err := s.sessions.Config()
+	load := s.sessions.Config
+	if s.deps.ConfigLoader == nil {
+		load = config.LoadWithoutLink
+	}
+	cfg, err := load()
 	return cfg, err == nil
 }

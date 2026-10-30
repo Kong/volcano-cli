@@ -30,13 +30,13 @@ If the server can't be reached or fails, the command says so, exits non-zero,
 and keeps the login saved, so running it again can end it, as can
 '%[3]s'. If the server refuses to revoke the login, the
 command removes it from this machine anyway and exits non-zero; the token then
-stays valid until it expires, so end it with '%[3]s'
-from another login.
+stays valid until it expires. If it came from a sign-in, end that session with
+'%[3]s' from another login.
 
 A project access token (pt-) is removed from this machine but not revoked:
 revoke it with '%[1]s'. A token in VOLCANO_TOKEN was never saved,
-so logout neither revokes nor unsets it.`,
-			cliruntime.CommandPath(deps, "access-tokens revoke"),
+so logout doesn't unset it, and revokes it only when it is the saved token.`,
+			cliruntime.CommandPath(deps, "cloud access-tokens revoke"),
 			cliruntime.CommandPath(deps, "account sessions list"),
 			cliruntime.CommandPath(deps, "account sessions revoke <id>"),
 		),
@@ -48,8 +48,16 @@ so logout neither revokes nor unsets it.`,
 }
 
 func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
-	outcome, err := cliauth.NewService(deps).Logout(ctx)
-	switch outcome {
+	result := cliauth.NewService(deps).Logout(ctx)
+	if result.Outcome == cliauth.LogoutNotRevoked {
+		return fmt.Errorf("the server did not end this login: %w\n\n"+
+			"The login is still saved on this machine. Run %s again, or end it with %s",
+			result.RevokeErr, cliruntime.CommandPath(deps, "logout"), cliruntime.CommandPath(deps, "account sessions revoke <id>"))
+	}
+	if result.ClearErr != nil {
+		return clearFailed(result)
+	}
+	switch result.Outcome {
 	case cliauth.LogoutRevoked:
 		output.Success(w, "Logged out: this login's token and session were revoked on the server")
 	case cliauth.LogoutAlreadyEnded:
@@ -61,27 +69,45 @@ func runLogout(ctx context.Context, deps cliruntime.Deps, w io.Writer) error {
 	case cliauth.LogoutUnreadable:
 		output.Success(w, "Logged out")
 		output.Warning(w, "The saved login could not be read, so nothing was revoked on the server. "+
-			"If it is still valid, end it with %s from another login.",
-			cliruntime.CommandPath(deps, "account sessions revoke <id>"))
+			"If it is still valid, it stays valid until it expires. %s", endElsewhere(deps))
 	case cliauth.LogoutProjectToken:
 		output.Success(w, "Logged out")
 		output.Note(w, "The project access token stays valid: revoke it with %s.",
-			cliruntime.CommandPath(deps, "access-tokens revoke"))
-	case cliauth.LogoutNotRevoked:
-		return fmt.Errorf("the server did not end this login: %w\n\n"+
-			"The login is still saved on this machine. Run %s again, or end it with %s",
-			err, cliruntime.CommandPath(deps, "logout"), cliruntime.CommandPath(deps, "account sessions revoke <id>"))
+			cliruntime.CommandPath(deps, "cloud access-tokens revoke"))
 	case cliauth.LogoutRefused:
 		return fmt.Errorf("logged out of this machine, but the server did not end this login: %w\n\n"+
-			"The token stays valid until it expires. End it with %s from another login",
-			err, cliruntime.CommandPath(deps, "account sessions revoke <id>"))
-	}
-	if err != nil {
-		return fmt.Errorf("failed to clear credentials: %w", err)
+			"The token stays valid until it expires. %s", result.RevokeErr, endElsewhere(deps))
 	}
 	output.Note(w, "Removed the login from ~/.volcano/config.json.")
-	if (&config.Config{}).TokenFromEnv() {
+	switch {
+	case result.EnvTokenEnded:
+		output.Note(w, "%s holds the token this login used, which the server no longer accepts, "+
+			"so commands that use it now fail. Unset it.", config.TokenEnv)
+	case (&config.Config{}).TokenFromEnv():
 		output.Note(w, "%s is still set, so commands keep using it. Logout neither revokes nor unsets it.", config.TokenEnv)
 	}
 	return nil
+}
+
+// endElsewhere says how to end a login this machine no longer holds. Only a
+// token from a sign-in has a session to end; ending one issued without a
+// session isn't available from the CLI yet.
+func endElsewhere(deps cliruntime.Deps) string {
+	return fmt.Sprintf("If it came from a sign-in, end that session with %s from another login. "+
+		"Ending a token not tied to a session from the CLI isn't available yet.",
+		cliruntime.CommandPath(deps, "account sessions revoke <id>"))
+}
+
+// clearFailed explains a login the server answered for but this machine could
+// not remove, saying first what the server did.
+func clearFailed(result cliauth.LogoutResult) error {
+	switch result.Outcome {
+	case cliauth.LogoutRevoked, cliauth.LogoutAlreadyEnded:
+		return fmt.Errorf("the server ended this login, but removing it from this machine failed: %w", result.ClearErr)
+	case cliauth.LogoutRefused:
+		return fmt.Errorf("the server did not end this login (%w), and removing it from this machine failed: %w",
+			result.RevokeErr, result.ClearErr)
+	default:
+		return fmt.Errorf("failed to remove the login from this machine: %w", result.ClearErr)
+	}
 }
